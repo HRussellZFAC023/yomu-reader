@@ -1,45 +1,204 @@
 (function() {
   "use strict";
-  const CORE_COLOR_TOKENS = {
-    black: "#000000",
-    white: "#ffffff"
-  };
-  const BRAND_COLOR_TOKENS = {
-    accent: "#5ea780",
-    consoleAccent: "#247a58"
-  };
-  const READER_THEME_COLOR_TOKENS = {
-    dark: {
-      bg: "#181b20"
+  let sandboxCompanions = {};
+  function registerYomuCompanion(key, value) {
+    writeYomuCompanions({
+      ...yomuCompanions(),
+      [key]: value
+    });
+  }
+  function yomuAnkiCompanion() {
+    return yomuCompanions().anki;
+  }
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function writeYomuCompanions(value) {
+    sandboxCompanions = value;
+    if (writeYomuCompanionsTarget(globalThis, value)) return;
+  }
+  function writeYomuCompanionsTarget(target, value) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return false;
+    const writable = target;
+    try {
+      writable.__yomuCompanions = value;
+      return true;
+    } catch {
     }
-  };
-  const OVERLAY_COLOR_TOKENS = {
-    text: CORE_COLOR_TOKENS.white,
-    outline: CORE_COLOR_TOKENS.black,
-    background: READER_THEME_COLOR_TOKENS.dark.bg
-  };
-  const DEFAULT_WORD_COLOR_TOKENS = {
-    new: "#58a6ff",
-    learning: "#ffd166",
-    known: "#7bd88f",
-    due: "#5fb3b3",
-    failed: "#ff6b6b",
-    ignored: "#b8a7ff"
-  };
-  const DEFAULT_PITCH_COLOR_TOKENS = {
-    heiban: "#359eff",
-    atamadaka: "#fe4b74",
-    nakadaka: "#fba840",
-    odaka: "#57ccb7",
-    kifuku: "#9050f6",
-    unknown: "#94a3b8"
-  };
-  const LOGGER_COLOR_TOKENS = {
-    debug: "#6b7280",
-    warn: "#a15c00",
-    error: "#b91c1c"
-  };
-  const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+    try {
+      Object.defineProperty(writable, "__yomuCompanions", {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function readYomuCompanions(target) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+    try {
+      return target.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
+  }
+  const APP_NAME = "よむ";
+  const APP_SLUG = "yomu";
+  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+  const SETTINGS_TITLE = `${APP_NAME} Settings`;
+  const GITHUB_OWNER = "HRussellZFAC023";
+  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
+  const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
+  const DISCORD_INVITE_URL = "https://discord.gg/WvDt57uk5";
+  const DONATE_URL = "https://paypal.me/HenryRussell163";
+  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+  const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
+  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
+  const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+  const NADESHIKO_URL = "https://nadeshiko.co/";
+  const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
+  const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
+  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+  const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
+  const ANKI_SOURCE_ID = "__anki__";
+  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
+  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
+  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  function bridgeResponseEventDetail(event) {
+    const detail = normalizedBridgeEventDetail(event);
+    const id = safeReadString(detail, "id");
+    const kind = safeReadString(detail, "kind");
+    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+    return {
+      id,
+      kind,
+      response: safeReadProperty(detail, "response"),
+      message: safeReadString(detail, "message")
+    };
+  }
+  function bridgeEventDetail(detail) {
+    if (detail === void 0) return void 0;
+    const json = bridgeEventJsonDetail(detail);
+    return json ?? detail;
+  }
+  function bridgeEventJsonDetail(detail) {
+    let unsupported = false;
+    try {
+      const json = JSON.stringify(detail, (_key, value) => {
+        if (isUnsupportedBridgeJsonValue(value)) {
+          unsupported = true;
+          return void 0;
+        }
+        return value;
+      });
+      return unsupported || typeof json !== "string" ? void 0 : json;
+    } catch {
+      return void 0;
+    }
+  }
+  function normalizedBridgeEventDetail(event) {
+    const detail = safeEventDetail(event);
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function isUnsupportedBridgeJsonValue(value) {
+    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+  }
+  function isUnsupportedPrimitiveBridgeJsonValue(value) {
+    return typeof value === "function" || typeof value === "symbol";
+  }
+  function isArrayBufferBridgeJsonValue(value) {
+    if (typeof ArrayBuffer === "undefined") return false;
+    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+  }
+  function isBlobBridgeJsonValue(value) {
+    return typeof Blob !== "undefined" && value instanceof Blob;
+  }
+  function isFormDataBridgeJsonValue(value) {
+    return typeof FormData !== "undefined" && value instanceof FormData;
+  }
+  function safeEventDetail(event) {
+    try {
+      return event.detail;
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadString(source, key) {
+    const value = safeReadProperty(source, key);
+    return typeof value === "string" ? value : void 0;
+  }
+  function userscriptRequestCandidates() {
+    const candidates = [];
+    const add = (request, thisArg) => {
+      candidates.push({ request, thisArg });
+    };
+    const direct = directUserscriptGlobals();
+    add(direct.GM_xmlhttpRequest, globalThis);
+    add(direct.GM?.xmlHttpRequest, direct.GM);
+    add(direct.GM?.xmlhttpRequest, direct.GM);
+    for (const source of userscriptRequestSources()) {
+      add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
+      const gm = readSourceProperty(source, "GM");
+      add(readSourceProperty(gm, "xmlHttpRequest"), gm);
+      add(readSourceProperty(gm, "xmlhttpRequest"), gm);
+    }
+    return candidates;
+  }
+  function asUserscriptRequest(value) {
+    return typeof value === "function" ? value : void 0;
+  }
+  function directUserscriptGlobals() {
+    return {
+      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
+      GM: typeof GM === "object" && GM ? GM : void 0
+    };
+  }
+  function userscriptRequestSources() {
+    const sources = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (value) => {
+      if (!isRequestSource(value) || seen.has(value)) return;
+      seen.add(value);
+      sources.push(value);
+    };
+    for (const mounted of mountedMonkeyWindows()) add(mounted);
+    add(globalThis);
+    if (typeof window !== "undefined") add(window);
+    return sources;
+  }
+  function mountedMonkeyWindows() {
+    if (typeof document === "undefined") return [];
+    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
+  }
+  function isRequestSource(value) {
+    return Boolean(value) && (typeof value === "object" || typeof value === "function");
+  }
+  function readSourceProperty(source, key) {
+    if (!isRequestSource(source)) return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
   const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
   const initialWindowAddEventListener = initialWindowMethod("addEventListener");
   const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -292,6 +451,208 @@
       };
     }
   }
+  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
+  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+  const BRIDGE_TIMEOUT_MS = 3e4;
+  function getUserscriptHttpRequest() {
+    for (const candidate of userscriptRequestCandidates()) {
+      const request = asUserscriptRequest(candidate.request);
+      if (request) {
+        return request.bind(candidate.thisArg);
+      }
+    }
+    return userscriptHttpEventBridge();
+  }
+  function userscriptHttpEventBridge() {
+    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+    return (options) => new Promise((resolve, reject) => {
+      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        options.ontimeout?.();
+        reject(new Error("Request timed out."));
+      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+      let cleanupBridgeResponseListener = noop;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        cleanupBridgeResponseListener();
+      };
+      const onResponse = (event) => {
+        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+      };
+      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+    });
+  }
+  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
+    const detail = bridgeResponseEventDetail(event);
+    if (!detail || detail.id !== id) return;
+    cleanup();
+    if (detail.kind === "load" && detail.response) {
+      options.onload?.(detail.response);
+      resolve(detail.response);
+      return;
+    }
+    rejectBridgeResponse(detail, options, reject);
+  }
+  function rejectBridgeResponse(detail, options, reject) {
+    const message = detail.message || "Request failed.";
+    if (detail.kind === "timeout") options.ontimeout?.();
+    else options.onerror?.(new Error(message));
+    reject(new Error(message));
+  }
+  function addBridgeEventListener(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent(type, detail) {
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget) {
+      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
+  }
+  function callAddEventListener(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function noop() {
+  }
+  function hasUserscriptAnkiBridge() {
+    return Boolean(getUserscriptHttpRequest());
+  }
+  function isAnkiConnectAvailabilityError(error) {
+    if (error instanceof Error && error.cause && error.cause !== error) {
+      return isAnkiConnectAvailabilityError(error.cause);
+    }
+    if (!(error instanceof Error)) return false;
+    return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
+  }
+  function canUseMobileAnkiHandoff(settings) {
+    return yomuAnkiCompanion()?.canUseMobileAnkiHandoff(settings) ?? false;
+  }
+  async function diagnoseAnkiConnectFailure(url) {
+    if (typeof fetch !== "function") return "unreachable";
+    try {
+      await fetch(url, { method: "GET", mode: "no-cors" });
+      return "cors-blocked";
+    } catch {
+      return "unreachable";
+    }
+  }
+  async function copyText(text) {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return;
+      } catch {
+      }
+    }
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.append(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+  function createAudioPreviewCard() {
+    return {
+      vid: 1456360,
+      sid: 0,
+      rid: 0,
+      spelling: "読む",
+      reading: "よむ",
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: [],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb"
+    };
+  }
+  const CORE_COLOR_TOKENS = {
+    black: "#000000",
+    white: "#ffffff"
+  };
+  const BRAND_COLOR_TOKENS = {
+    accent: "#5ea780",
+    consoleAccent: "#247a58"
+  };
+  const READER_THEME_COLOR_TOKENS = {
+    dark: {
+      bg: "#181b20"
+    }
+  };
+  const OVERLAY_COLOR_TOKENS = {
+    text: CORE_COLOR_TOKENS.white,
+    outline: CORE_COLOR_TOKENS.black,
+    background: READER_THEME_COLOR_TOKENS.dark.bg
+  };
+  const DEFAULT_WORD_COLOR_TOKENS = {
+    new: "#58a6ff",
+    learning: "#ffd166",
+    known: "#7bd88f",
+    due: "#5fb3b3",
+    failed: "#ff6b6b",
+    ignored: "#b8a7ff"
+  };
+  const DEFAULT_PITCH_COLOR_TOKENS = {
+    heiban: "#359eff",
+    atamadaka: "#fe4b74",
+    nakadaka: "#fba840",
+    odaka: "#57ccb7",
+    kifuku: "#9050f6",
+    unknown: "#94a3b8"
+  };
+  const LOGGER_COLOR_TOKENS = {
+    debug: "#6b7280",
+    warn: "#a15c00",
+    error: "#b91c1c"
+  };
+  const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
   let trustedHtmlPolicy;
   function setInnerHtml(element, html) {
     if (!assignInnerHtml(element, html)) element.textContent = html;
@@ -884,30 +1245,6 @@
     window.__YOMU_LOGGER__ = Logger;
     window.YomuLogger = Logger;
   }
-  const APP_NAME = "よむ";
-  const APP_SLUG = "yomu";
-  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
-  const SETTINGS_TITLE = `${APP_NAME} Settings`;
-  const GITHUB_OWNER = "HRussellZFAC023";
-  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
-  const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
-  const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
-  const DISCORD_INVITE_URL = "https://discord.gg/WvDt57uk5";
-  const DONATE_URL = "https://paypal.me/HenryRussell163";
-  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
-  const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
-  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
-  const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
-  const NADESHIKO_URL = "https://nadeshiko.co/";
-  const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
-  const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
-  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
-  const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
-  const ANKI_SOURCE_ID = "__anki__";
-  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
-  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
-  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
   const ANKI_FIELD_MAPPING_ROLES$2 = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   function normalizeAnkiFieldMappings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -2309,248 +2646,84 @@
     "H5",
     "H6"
   ]);
-  function isAppleTouchBrowser() {
-    if (typeof navigator === "undefined") return false;
-    const userAgent = navigator.userAgent ?? "";
-    const platform = navigator.platform ?? "";
-    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
+  const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
+  function clearNewTabOfflineCache() {
+    return gmStorageDelete(NEW_TAB_CACHE_KEY);
   }
-  function bridgeResponseEventDetail(event) {
-    const detail = normalizedBridgeEventDetail(event);
-    const id = safeReadString(detail, "id");
-    const kind = safeReadString(detail, "kind");
-    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-    return {
-      id,
-      kind,
-      response: safeReadProperty(detail, "response"),
-      message: safeReadString(detail, "message")
-    };
-  }
-  function bridgeEventDetail(detail) {
-    if (detail === void 0) return void 0;
-    const json = bridgeEventJsonDetail(detail);
-    return json ?? detail;
-  }
-  function bridgeEventJsonDetail(detail) {
-    let unsupported = false;
-    try {
-      const json = JSON.stringify(detail, (_key, value) => {
-        if (isUnsupportedBridgeJsonValue(value)) {
-          unsupported = true;
-          return void 0;
-        }
-        return value;
-      });
-      return unsupported || typeof json !== "string" ? void 0 : json;
-    } catch {
-      return void 0;
+  const RECOMMENDED_JAPANESE_DICTIONARIES = [
+    {
+      id: "jitendex",
+      category: "terms",
+      name: "Jitendex",
+      descriptionKey: "recommendedJitendex",
+      homepage: "https://jitendex.org",
+      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
+    },
+    {
+      id: "jmdict",
+      category: "terms",
+      name: "JMdict",
+      descriptionKey: "recommendedJmdict",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
+    },
+    {
+      id: "jmnedict",
+      category: "terms",
+      name: "JMnedict",
+      descriptionKey: "recommendedJmnedict",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
+    },
+    {
+      id: "wty-ja-ja",
+      category: "terms",
+      name: "WTY JA-JA",
+      descriptionKey: "recommendedWtyJapaneseJapanese",
+      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan"
+    },
+    {
+      id: "marvnc-monolingual",
+      category: "terms",
+      name: "MarvNC JA-JA",
+      descriptionKey: "recommendedMarvncMonolingual",
+      homepage: "https://github.com/MarvNC/yomitan-dictionaries"
+    },
+    {
+      id: "kanjidic",
+      category: "kanji",
+      name: "KANJIDIC",
+      descriptionKey: "recommendedKanjidic",
+      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
+      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdbv2-kana",
+      category: "frequency",
+      name: "JPDBv2㋕",
+      descriptionKey: "recommendedJpdbv2Kana",
+      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
+    },
+    {
+      id: "bccwj",
+      category: "frequency",
+      name: "BCCWJ",
+      descriptionKey: "recommendedBccwj",
+      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
+      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
+    },
+    {
+      id: "jiten",
+      category: "frequency",
+      name: "Jiten",
+      descriptionKey: "recommendedJiten",
+      homepage: "https://jiten.moe/other",
+      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
     }
-  }
-  function normalizedBridgeEventDetail(event) {
-    const detail = safeEventDetail(event);
-    if (typeof detail !== "string") return detail;
-    try {
-      return JSON.parse(detail);
-    } catch {
-      return detail;
-    }
-  }
-  function isUnsupportedBridgeJsonValue(value) {
-    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-  }
-  function isUnsupportedPrimitiveBridgeJsonValue(value) {
-    return typeof value === "function" || typeof value === "symbol";
-  }
-  function isArrayBufferBridgeJsonValue(value) {
-    if (typeof ArrayBuffer === "undefined") return false;
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-  }
-  function isBlobBridgeJsonValue(value) {
-    return typeof Blob !== "undefined" && value instanceof Blob;
-  }
-  function isFormDataBridgeJsonValue(value) {
-    return typeof FormData !== "undefined" && value instanceof FormData;
-  }
-  function safeEventDetail(event) {
-    try {
-      return event.detail;
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadString(source, key) {
-    const value = safeReadProperty(source, key);
-    return typeof value === "string" ? value : void 0;
-  }
-  function userscriptRequestCandidates() {
-    const candidates = [];
-    const add = (request, thisArg) => {
-      candidates.push({ request, thisArg });
-    };
-    const direct = directUserscriptGlobals();
-    add(direct.GM_xmlhttpRequest, globalThis);
-    add(direct.GM?.xmlHttpRequest, direct.GM);
-    add(direct.GM?.xmlhttpRequest, direct.GM);
-    for (const source of userscriptRequestSources()) {
-      add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
-      const gm = readSourceProperty(source, "GM");
-      add(readSourceProperty(gm, "xmlHttpRequest"), gm);
-      add(readSourceProperty(gm, "xmlhttpRequest"), gm);
-    }
-    return candidates;
-  }
-  function asUserscriptRequest(value) {
-    return typeof value === "function" ? value : void 0;
-  }
-  function directUserscriptGlobals() {
-    return {
-      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
-      GM: typeof GM === "object" && GM ? GM : void 0
-    };
-  }
-  function userscriptRequestSources() {
-    const sources = [];
-    const seen = /* @__PURE__ */ new Set();
-    const add = (value) => {
-      if (!isRequestSource(value) || seen.has(value)) return;
-      seen.add(value);
-      sources.push(value);
-    };
-    for (const mounted of mountedMonkeyWindows()) add(mounted);
-    add(globalThis);
-    if (typeof window !== "undefined") add(window);
-    return sources;
-  }
-  function mountedMonkeyWindows() {
-    if (typeof document === "undefined") return [];
-    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
-  }
-  function isRequestSource(value) {
-    return Boolean(value) && (typeof value === "object" || typeof value === "function");
-  }
-  function readSourceProperty(source, key) {
-    if (!isRequestSource(source)) return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
-  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
-  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
-  const BRIDGE_TIMEOUT_MS = 3e4;
-  function getUserscriptHttpRequest() {
-    for (const candidate of userscriptRequestCandidates()) {
-      const request = asUserscriptRequest(candidate.request);
-      if (request) {
-        return request.bind(candidate.thisArg);
-      }
-    }
-    return userscriptHttpEventBridge();
-  }
-  function userscriptHttpEventBridge() {
-    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
-    return (options) => new Promise((resolve, reject) => {
-      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        options.ontimeout?.();
-        reject(new Error("Request timed out."));
-      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
-      let cleanupBridgeResponseListener = noop;
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        cleanupBridgeResponseListener();
-      };
-      const onResponse = (event) => {
-        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
-      };
-      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
-      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
-    });
-  }
-  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
-    const detail = bridgeResponseEventDetail(event);
-    if (!detail || detail.id !== id) return;
-    cleanup();
-    if (detail.kind === "load" && detail.response) {
-      options.onload?.(detail.response);
-      resolve(detail.response);
-      return;
-    }
-    rejectBridgeResponse(detail, options, reject);
-  }
-  function rejectBridgeResponse(detail, options, reject) {
-    const message = detail.message || "Request failed.";
-    if (detail.kind === "timeout") options.ontimeout?.();
-    else options.onerror?.(new Error(message));
-    reject(new Error(message));
-  }
-  function addBridgeEventListener(type, listener) {
-    const cleanups = [];
-    if (addWindowEventListener(type, listener)) {
-      cleanups.push(() => removeWindowEventListener(type, listener));
-    }
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
-      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
-    }
-    return () => {
-      for (const cleanup of cleanups) cleanup();
-    };
-  }
-  function dispatchBridgeEvent(type, detail) {
-    const eventDetail = bridgeEventDetail(detail);
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-    const documentTarget = bridgeDocumentTarget();
-    if (documentTarget) {
-      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-    }
-    return dispatched;
-  }
-  function bridgeDocumentTarget() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function bridgeMarkerDataset() {
-    if (typeof document === "undefined") return void 0;
-    const root = document.documentElement;
-    return root?.dataset;
-  }
-  function callAddEventListener(target, type, listener) {
-    try {
-      target.addEventListener(type, listener);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function callRemoveEventListener(target, type, listener) {
-    try {
-      target.removeEventListener(type, listener);
-    } catch {
-    }
-  }
-  function callDispatchEvent(target, event) {
-    try {
-      return target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
-  }
-  function noop() {
+  ];
+  function findRecommendedDictionary(id) {
+    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
   const COPY = {
     en: {
@@ -4720,670 +4893,6 @@ recommendedJiten	jiten.moe頻度データです。
     custom: "audioSourceCustom",
     "custom-json": "audioSourceCustomJson"
   };
-  const GODAN_ROWS = [
-    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
-    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
-    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
-    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
-    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
-    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
-    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
-    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
-    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
-  ];
-  const ICHIDAN_RULES = [
-    ["ました", "る", "polite past"],
-    ["ませんでした", "る", "polite negative past"],
-    ["ません", "る", "polite negative"],
-    ["ましょう", "る", "polite volitional"],
-    ["ます", "る", "polite"],
-    ["なかった", "る", "negative past"],
-    ["なくて", "る", "negative te-form"],
-    ["なければ", "る", "negative conditional"],
-    ["ない", "る", "negative"],
-    ["たかった", "る", "desiderative past"],
-    ["たくなかった", "る", "desiderative negative past"],
-    ["たくない", "る", "desiderative negative"],
-    ["たい", "る", "desiderative"],
-    ["なさい", "る", "polite request"],
-    ["すぎる", "る", "excessive"],
-    ["られなかった", "る", "potential/passive negative past"],
-    ["られない", "る", "potential/passive negative"],
-    ["られて", "る", "potential/passive te-form"],
-    ["られた", "る", "potential/passive past"],
-    ["られる", "る", "potential/passive"],
-    ["させられた", "る", "causative passive past"],
-    ["させられる", "る", "causative passive"],
-    ["させない", "る", "causative negative"],
-    ["させて", "る", "causative te-form"],
-    ["させた", "る", "causative past"],
-    ["させる", "る", "causative"],
-    ["れば", "る", "conditional"],
-    ["よう", "る", "volitional"],
-    ["ろ", "る", "imperative"],
-    ["て", "る", "te-form"],
-    ["た", "る", "past"]
-  ];
-  const I_ADJECTIVE_RULES = [
-    ["くなかった", "い", "negative past"],
-    ["くありませんでした", "い", "polite negative past"],
-    ["くありません", "い", "polite negative"],
-    ["かった", "い", "past"],
-    ["くない", "い", "negative"],
-    ["くて", "い", "te-form"],
-    ["ければ", "い", "conditional"],
-    ["そう", "い", "looks"],
-    ["すぎる", "い", "excessive"],
-    ["く", "い", "adverbial"]
-  ];
-  const SURU_RULES = [
-    ["しませんでした", "する", "polite negative past"],
-    ["しません", "する", "polite negative"],
-    ["しました", "する", "polite past"],
-    ["しましょう", "する", "polite volitional"],
-    ["します", "する", "polite"],
-    ["しなかった", "する", "negative past"],
-    ["しなくて", "する", "negative te-form"],
-    ["しなければ", "する", "negative conditional"],
-    ["しない", "する", "negative"],
-    ["しなさい", "する", "polite request"],
-    ["しすぎる", "する", "excessive"],
-    ["された", "する", "passive past"],
-    ["されて", "する", "passive te-form"],
-    ["される", "する", "passive"],
-    ["させた", "する", "causative past"],
-    ["させて", "する", "causative te-form"],
-    ["させる", "する", "causative"],
-    ["できなかった", "する", "potential negative past"],
-    ["できない", "する", "potential negative"],
-    ["できた", "する", "potential past"],
-    ["できて", "する", "potential te-form"],
-    ["できる", "する", "potential"],
-    ["すれば", "する", "conditional"],
-    ["しよう", "する", "volitional"],
-    ["しろ", "する", "imperative"],
-    ["せよ", "する", "imperative"],
-    ["した", "する", "past"],
-    ["して", "する", "te-form"]
-  ];
-  const KURU_RULES = [
-    ["来ませんでした", "来る", "polite negative past"],
-    ["来ません", "来る", "polite negative"],
-    ["来ました", "来る", "polite past"],
-    ["来ます", "来る", "polite"],
-    ["来なかった", "来る", "negative past"],
-    ["来なくて", "来る", "negative te-form"],
-    ["来ない", "来る", "negative"],
-    ["来なさい", "来る", "polite request"],
-    ["来すぎる", "来る", "excessive"],
-    ["来られた", "来る", "potential/passive past"],
-    ["来られて", "来る", "potential/passive te-form"],
-    ["来られる", "来る", "potential/passive"],
-    ["来れば", "来る", "conditional"],
-    ["来よう", "来る", "volitional"],
-    ["来い", "来る", "imperative"],
-    ["来た", "来る", "past"],
-    ["来て", "来る", "te-form"],
-    ["きませんでした", "くる", "polite negative past"],
-    ["きません", "くる", "polite negative"],
-    ["きました", "くる", "polite past"],
-    ["きます", "くる", "polite"],
-    ["こなかった", "くる", "negative past"],
-    ["こなくて", "くる", "negative te-form"],
-    ["こない", "くる", "negative"],
-    ["きなさい", "くる", "polite request"],
-    ["きすぎる", "くる", "excessive"],
-    ["こられた", "くる", "potential/passive past"],
-    ["こられて", "くる", "potential/passive te-form"],
-    ["こられる", "くる", "potential/passive"],
-    ["くれば", "くる", "conditional"],
-    ["こよう", "くる", "volitional"],
-    ["こい", "くる", "imperative"],
-    ["きた", "くる", "past"],
-    ["きて", "くる", "te-form"]
-  ];
-  const TE_ASPECT_SUFFIXES = [
-    ["いる", "progressive"],
-    ["います", "polite progressive"],
-    ["いました", "polite progressive past"],
-    ["いません", "polite progressive negative"],
-    ["いませんでした", "polite progressive negative past"],
-    ["いた", "progressive past"],
-    ["いて", "progressive te-form"],
-    ["いない", "progressive negative"],
-    ["いなかった", "progressive negative past"],
-    ["いれば", "progressive conditional"],
-    ["る", "contracted progressive"],
-    ["ます", "contracted polite progressive"],
-    ["ました", "contracted polite progressive past"],
-    ["た", "contracted progressive past"],
-    ["て", "contracted progressive te-form"],
-    ["ない", "contracted progressive negative"],
-    ["なかった", "contracted progressive negative past"]
-  ];
-  const TE_COMPLETION_SUFFIXES = [
-    ["しまう", "completion"],
-    ["しまった", "completion past"],
-    ["しまって", "completion te-form"],
-    ["しまわない", "completion negative"],
-    ["しまいます", "polite completion"],
-    ["しまいました", "polite completion past"]
-  ];
-  const CONTRACTED_COMPLETION_SUFFIXES = [
-    ["う", "contracted completion"],
-    ["った", "contracted completion past"],
-    ["って", "contracted completion te-form"],
-    ["わない", "contracted completion negative"],
-    ["います", "contracted polite completion"],
-    ["いました", "contracted polite completion past"]
-  ];
-  [
-    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
-    ...teCompoundRules("て", "る", ["v1"]),
-    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
-    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
-    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
-    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
-    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
-    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
-    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
-    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
-    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
-    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
-    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-  ];
-  function godanRules(row) {
-    const rules = row.rules;
-    return [
-      ...teCompoundRules(row.te, row.ending, rules),
-      { from: row.te, to: row.ending, reason: "te-form", rules },
-      { from: row.ta, to: row.ending, reason: "past", rules },
-      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
-      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
-      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
-      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
-      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
-      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
-      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
-      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
-      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
-      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
-      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
-      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
-      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
-      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
-      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
-      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
-      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
-      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
-      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
-      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
-      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
-      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
-      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
-      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
-      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
-      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
-      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
-      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
-      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
-      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
-      { from: row.e, to: row.ending, reason: "imperative", rules }
-    ];
-  }
-  function teCompoundRules(te, to, rules) {
-    return [
-      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...contractedCompletionRules(te, to, rules)
-    ];
-  }
-  function contractedCompletionRules(te, to, rules) {
-    const stem = contractedCompletionStem(te);
-    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
-  }
-  function contractedCompletionStem(te) {
-    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
-    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
-    return "";
-  }
-  Logger.scope("Yomitan");
-  new TextDecoder();
-  const log$3 = Logger.scope("YomitanSettingsImport");
-  const AUDIO_BOOLEAN_IMPORTS = [
-    { sourceKey: "enabled", targetKey: "audioEnabled" },
-    { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
-    { sourceKey: "enableDefaultAudioSources", targetKey: "audioEnableDefaultSources" }
-  ];
-  const ANKI_BOOLEAN_IMPORTS = [
-    { sourceKey: "enable", targetKey: "ankiEnabled" }
-  ];
-  function parseYomitanSettingsExport(value, language = "en") {
-    const done = log$3.time("Yomitan settings export parse");
-    const profileOptions = getYomitanProfileOptions(value);
-    if (!profileOptions) {
-      done();
-      log$3.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
-      throw new Error(uiText(language, "yomitanSettingsInvalid"));
-    }
-    const settings = {};
-    const sections = readYomitanProfileSections(profileOptions);
-    applyAudioSettings(settings, sections.audio);
-    applyGeneralSettings(settings, sections.general);
-    applyScanningSettings(settings, sections.scanning);
-    applyAnkiSettings(settings, sections.anki);
-    const dictionaryPreferences = readDictionaryPreferences$1(profileOptions);
-    applyDictionarySettings(settings, dictionaryPreferences);
-    const dictionaryNames = dictionaryPreferences.filter((item) => item.enabled).map((item) => item.name);
-    settings.yomitanSettingsBackup = value;
-    applyInputShortcuts(settings, sections.inputs);
-    done();
-    log$3.info("Yomitan settings import parsed", {
-      hasAudioSources: Boolean(settings.audioSources?.length),
-      parseSelection: settings.parseSelection,
-      theme: settings.theme
-    });
-    return { settings, dictionaryNames };
-  }
-  function readYomitanProfileSections(profileOptions) {
-    return {
-      audio: profileOptions.audio,
-      general: profileOptions.general,
-      scanning: profileOptions.scanning,
-      anki: profileOptions.anki,
-      inputs: profileOptions.inputs
-    };
-  }
-  function applyAudioSettings(settings, audio) {
-    applyBooleanSettingImports(settings, audio, AUDIO_BOOLEAN_IMPORTS);
-    applyAudioFallbackChimeSetting(settings, audio?.fallbackSoundType);
-    applyAudioSourceSettings(settings, audio?.sources);
-  }
-  function applyBooleanSettingImports(settings, source, imports) {
-    for (const item of imports) {
-      if (typeof source?.[item.sourceKey] === "boolean") assignImportedSetting(settings, item.targetKey, source[item.sourceKey]);
-    }
-  }
-  function applyTrimmedStringSetting(settings, value, targetKey) {
-    if (typeof value !== "string") return;
-    const trimmed = value.trim();
-    if (trimmed) assignImportedSetting(settings, targetKey, trimmed);
-  }
-  function assignImportedSetting(settings, key, value) {
-    settings[key] = value;
-  }
-  function applyAudioFallbackChimeSetting(settings, value) {
-    if (typeof value === "string") settings.audioFallbackChimeEnabled = value !== "none";
-  }
-  function applyAudioSourceSettings(settings, sources) {
-    if (!Array.isArray(sources)) return;
-    settings.audioSources = sources.map(normalizeAudioSource).filter((source) => source !== null);
-    settings.audioSourceUrl = settings.audioSources.find((source) => source.url)?.url;
-  }
-  function applyGeneralSettings(settings, general) {
-    applyImportedLanguage(settings, general?.language);
-    applyImportedTheme(settings, general);
-    applyGeneralPopupSizeSettings(settings, general);
-    applyLocalDictionaryMaxResults(settings, general?.maxResults);
-    applyPitchDisplaySetting(settings, general);
-  }
-  function applyImportedLanguage(settings, value) {
-    const language = importedInterfaceLanguage(value);
-    if (language) settings.interfaceLanguage = language;
-  }
-  function applyImportedTheme(settings, general) {
-    const theme = importedPopupTheme(general);
-    if (theme) settings.theme = theme;
-  }
-  function applyGeneralPopupSizeSettings(settings, general) {
-    applyPositiveNumberSetting(settings, general?.popupWidth, "popoverWidth", 280, 900);
-    applyPositiveNumberSetting(settings, general?.popupHeight, "popoverHeight", 220, 900);
-    if (hasPositiveNumber(general?.popupVerticalOffset)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
-  }
-  function applyPositiveNumberSetting(settings, value, targetKey, min, max) {
-    if (hasPositiveNumber(value)) assignImportedSetting(settings, targetKey, clampNumber(value, min, max));
-  }
-  function applyLocalDictionaryMaxResults(settings, value) {
-    if (typeof value === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, value));
-  }
-  function applyPitchDisplaySetting(settings, general) {
-    const pitchEnabled = importedPitchDisplayEnabled(general);
-    if (typeof pitchEnabled === "boolean") settings.showPitchAccent = pitchEnabled;
-  }
-  function importedInterfaceLanguage(value) {
-    return value === "en" || value === "ja" || value === "auto" ? value : "";
-  }
-  function importedPopupTheme(general) {
-    return general?.popupTheme === "dark" || general?.popupTheme === "light" ? general.popupTheme : "";
-  }
-  function hasPositiveNumber(value) {
-    return typeof value === "number" && value > 0;
-  }
-  function importedPopupVerticalOffset(general) {
-    return Math.max(6, Math.min(24, Math.round(Number(general?.popupVerticalOffset) || 12)));
-  }
-  function importedPitchDisplayEnabled(general) {
-    const values = [
-      general?.showPitchAccentDownstepNotation,
-      general?.showPitchAccentPositionNotation,
-      general?.showPitchAccentGraph
-    ].filter((value) => typeof value === "boolean");
-    return values.length ? values.some(Boolean) : void 0;
-  }
-  function applyScanningSettings(settings, scanning) {
-    if (typeof scanning?.selectText === "boolean") settings.parseSelection = scanning.selectText;
-    if (typeof scanning?.delay === "number") settings.hoverOpenDelayMs = clampNumber(scanning.delay, 0, 1500);
-    if (typeof scanning?.hideDelay === "number") settings.hoverCloseDelayMs = clampNumber(scanning.hideDelay, 0, 3e3);
-    applyScanInputSettings(settings, scanning);
-  }
-  function applyAnkiSettings(settings, anki) {
-    applyBooleanSettingImports(settings, anki, ANKI_BOOLEAN_IMPORTS);
-    applyTrimmedStringSetting(settings, anki?.server, "ankiConnectUrl");
-    applyAnkiTagsSetting(settings, anki?.tags);
-    applyAnkiCardFormatSettings(settings, firstYomitanTermCardFormat(anki?.cardFormats));
-    applyAnkiScreenshotSetting(settings, anki?.screenshot);
-  }
-  function applyAnkiTagsSetting(settings, value) {
-    if (Array.isArray(value)) settings.ankiTags = value.map((tag) => String(tag).trim()).filter(Boolean).join(" ");
-  }
-  function applyAnkiCardFormatSettings(settings, cardFormat) {
-    if (!cardFormat) return;
-    applyTrimmedStringSetting(settings, cardFormat.deck, "ankiDeck");
-    applyTrimmedStringSetting(settings, cardFormat.model, "ankiModel");
-  }
-  function applyAnkiScreenshotSetting(settings, value) {
-    if (isObjectRecord(value)) settings.ankiCaptureScreenshot = true;
-  }
-  function firstYomitanTermCardFormat(value) {
-    if (!Array.isArray(value)) return null;
-    return value.find((item) => isObjectRecord(item) && (item.type === "term" || item.type == null)) ?? null;
-  }
-  function applyDictionarySettings(settings, preferences) {
-    if (!preferences.length) return;
-    settings.dictionaryPreferences = normalizeDictionaryPreferences(preferences);
-  }
-  function applyInputShortcuts(settings, inputs) {
-    applyYomitanShortcut(settings, inputs, "playAudio", "playAudio");
-    applyYomitanShortcut(settings, inputs, "close", "closePopup");
-  }
-  function applyYomitanShortcut(settings, inputs, action, target) {
-    const hotkey = inputs?.hotkeys?.find((item) => item.action === action && item.enabled !== false);
-    if (!hotkey) return;
-    const key = String(hotkey.key || "").replace(/^Key/, "");
-    const modifiers = Array.isArray(hotkey.modifiers) ? hotkey.modifiers.map((v) => String(v)) : [];
-    settings.shortcuts = {
-      ...settings.shortcuts,
-      [target]: [...modifiers.map(capitalize), key].filter(Boolean).join("+")
-    };
-  }
-  function readDictionaryPreferences$1(profileOptions) {
-    const dictionaries = Array.isArray(profileOptions.dictionaries) ? profileOptions.dictionaries : [];
-    return dictionaries.map((item, index) => {
-      const name = typeof item.name === "string" ? item.name.trim() : "";
-      if (!name) return null;
-      return {
-        name,
-        alias: typeof item.alias === "string" && item.alias.trim() ? item.alias.trim() : name,
-        enabled: item.enabled !== false,
-        priority: index,
-        allowSecondarySearches: item.allowSecondarySearches === true
-      };
-    }).filter((item) => item !== null);
-  }
-  function applyScanInputSettings(settings, scanning) {
-    const scanInput = firstScanInput(scanning);
-    if (!scanInput) return;
-    const include = String(scanInput.include ?? "").toLowerCase();
-    const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
-    if (modifier) {
-      settings.lookupOnHover = true;
-      settings.popupActivationMode = "modifier";
-      settings.scanModifierKey = modifier;
-      settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
-      return;
-    }
-    const options = scanInput.options;
-    if (shouldEnablePlainHoverScan(options, include)) {
-      settings.lookupOnHover = true;
-      settings.popupActivationMode = "hover";
-      settings.shortcuts = { ...settings.shortcuts, hoverLookup: "" };
-    }
-  }
-  function firstScanInput(scanning) {
-    if (!Array.isArray(scanning?.inputs)) return null;
-    return scanning.inputs.find(isRecordScanInput) ?? null;
-  }
-  function isRecordScanInput(input2) {
-    return Boolean(input2 && typeof input2 === "object");
-  }
-  function isObjectRecord(value) {
-    return Boolean(value && typeof value === "object" && !Array.isArray(value));
-  }
-  function shouldEnablePlainHoverScan(options, include) {
-    return options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === "";
-  }
-  function getYomitanProfileOptions(value) {
-    if (!value || typeof value !== "object") return null;
-    const record = value;
-    return profileOptionsFromRoot(record.options) ?? profileOptionsFromProfiles(record.profiles, record);
-  }
-  function profileOptionsFromRoot(rootOptions) {
-    if (!rootOptions || typeof rootOptions !== "object") return null;
-    const rootOptionRecord = rootOptions;
-    return nestedProfileOptions(rootOptionRecord.profiles, rootOptionRecord.profileCurrent) ?? rootOptionRecord;
-  }
-  function profileOptionsFromProfiles(profilesValue, fallback) {
-    const profile = selectedProfileRecord(profilesValue, fallback.profileCurrent) ?? fallback;
-    const options = profile.options;
-    return options && typeof options === "object" ? options : null;
-  }
-  function nestedProfileOptions(profilesValue, profileCurrent) {
-    const options = selectedProfileRecord(profilesValue, profileCurrent)?.options;
-    return options && typeof options === "object" ? options : null;
-  }
-  function selectedProfileRecord(value, profileCurrent) {
-    if (!Array.isArray(value)) return null;
-    const index = Number(profileCurrent);
-    const selected = Number.isInteger(index) && index >= 0 && index < value.length ? value[index] : null;
-    const profile = selected && typeof selected === "object" ? selected : value.find((item) => item && typeof item === "object");
-    return profile ? profile : null;
-  }
-  function capitalize(value) {
-    return value ? `${value[0].toUpperCase()}${value.slice(1).toLowerCase()}` : value;
-  }
-  function clampNumber(value, min, max) {
-    const number = Number(value);
-    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : min;
-  }
-  Logger.scope("Yomitan");
-  async function diagnoseAnkiConnectFailure(url) {
-    if (typeof fetch !== "function") return "unreachable";
-    try {
-      await fetch(url, { method: "GET", mode: "no-cors" });
-      return "cors-blocked";
-    } catch {
-      return "unreachable";
-    }
-  }
-  function hasUserscriptAnkiBridge() {
-    return Boolean(getUserscriptHttpRequest());
-  }
-  function isAnkiConnectAvailabilityError(error) {
-    if (error instanceof Error && error.cause && error.cause !== error) {
-      return isAnkiConnectAvailabilityError(error.cause);
-    }
-    if (!(error instanceof Error)) return false;
-    return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
-  }
-  const ankiFieldNames = (names) => names.split("|");
-  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-  );
-  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-  );
-  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-  [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    "Expression Reading",
-    "Japanese Expression",
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  ankiFieldNames(
-    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-  );
-  ankiFieldNames(
-    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-  );
-  ankiFieldNames(
-    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-  );
-  ankiFieldNames(
-    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Context Audio|Example Audio|SentAudio|Sentence Audio|Sentence Sound|SentenceAudio|Sound|Voice"
-  );
-  ankiFieldNames(
-    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-  );
-  Logger.scope("Anki");
-  Logger.scope("Anki");
-  Object.fromEntries([
-    ...yomuAliasEntries("Expression", "baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front"),
-    ...yomuAliasEntries("Reading", "expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi"),
-    ...yomuAliasEntries("Meaning", "def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back"),
-    ...yomuAliasEntries("Sentence", "example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext"),
-    ...yomuAliasEntries("Url", "sourceurl|url"),
-    ...yomuAliasEntries("PartOfSpeech", "pos|partofspeech"),
-    ...yomuAliasEntries("Pitch", "pitchaccent"),
-    ...yomuAliasEntries("DictionaryDefinitions", "dictionary|dictionaries|dictionarydefinition|dictionarydefinitions")
-  ]);
-  function yomuAliasEntries(field, aliases) {
-    return aliases.split("|").map((alias) => [alias, field]);
-  }
-  function isMobileAnkiHandoffEnvironment() {
-    const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
-    return isAppleTouchBrowser() || /Android/i.test(userAgent) && /Chrome|Firefox|Firefox\/|FxiOS|EdgA/i.test(userAgent);
-  }
-  function canUseMobileAnkiHandoff(settings) {
-    return settings.ankiEnabled && settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment();
-  }
-  async function copyText(text) {
-    if (navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(text);
-        return;
-      } catch {
-      }
-    }
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.style.position = "fixed";
-    textarea.style.opacity = "0";
-    document.body.append(textarea);
-    textarea.select();
-    document.execCommand("copy");
-    textarea.remove();
-  }
-  function createAudioPreviewCard() {
-    return {
-      vid: 1456360,
-      sid: 0,
-      rid: 0,
-      spelling: "読む",
-      reading: "よむ",
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: [],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "jpdb"
-    };
-  }
-  const NEW_TAB_CACHE_KEY = "jpdb-reader-newtab-card-cache";
-  function clearNewTabOfflineCache() {
-    return gmStorageDelete(NEW_TAB_CACHE_KEY);
-  }
-  const RECOMMENDED_JAPANESE_DICTIONARIES = [
-    {
-      id: "jitendex",
-      category: "terms",
-      name: "Jitendex",
-      descriptionKey: "recommendedJitendex",
-      homepage: "https://jitendex.org",
-      downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
-    },
-    {
-      id: "jmdict",
-      category: "terms",
-      name: "JMdict",
-      descriptionKey: "recommendedJmdict",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
-    },
-    {
-      id: "jmnedict",
-      category: "terms",
-      name: "JMnedict",
-      descriptionKey: "recommendedJmnedict",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
-    },
-    {
-      id: "wty-ja-ja",
-      category: "terms",
-      name: "WTY JA-JA",
-      descriptionKey: "recommendedWtyJapaneseJapanese",
-      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan"
-    },
-    {
-      id: "marvnc-monolingual",
-      category: "terms",
-      name: "MarvNC JA-JA",
-      descriptionKey: "recommendedMarvncMonolingual",
-      homepage: "https://github.com/MarvNC/yomitan-dictionaries"
-    },
-    {
-      id: "kanjidic",
-      category: "kanji",
-      name: "KANJIDIC",
-      descriptionKey: "recommendedKanjidic",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
-      downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
-    },
-    {
-      id: "jpdbv2-kana",
-      category: "frequency",
-      name: "JPDBv2㋕",
-      descriptionKey: "recommendedJpdbv2Kana",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
-    },
-    {
-      id: "bccwj",
-      category: "frequency",
-      name: "BCCWJ",
-      descriptionKey: "recommendedBccwj",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
-      downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
-    },
-    {
-      id: "jiten",
-      category: "frequency",
-      name: "Jiten",
-      descriptionKey: "recommendedJiten",
-      homepage: "https://jiten.moe/other",
-      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
-    }
-  ];
-  function findRecommendedDictionary(id) {
-    return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
-  }
   const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
   const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
   const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
@@ -5966,7 +5475,7 @@ recommendedJiten	jiten.moe頻度データです。
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
-  const log$2 = Logger.scope("SettingsForm");
+  const log$3 = Logger.scope("SettingsForm");
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_SOURCE_OPTIONS = [
@@ -6067,7 +5576,7 @@ recommendedJiten	jiten.moe頻度データです。
       jpdb: hasSourceRow(has, "jpdbDefinitions"),
       jiten: hasSourceRow(has, "jitenDefinitions")
     };
-    const dictionaryPreferences = readDictionaryPreferences(data, current.dictionaryPreferences, reader);
+    const dictionaryPreferences = readDictionaryPreferences$1(data, current.dictionaryPreferences, reader);
     const kanjiDictionaryPreferences = dictionaryPreferences.filter((preference) => preference.type === "kanji");
     const apiCredentials = readApiCredentialsFromFormData(data);
     const settings = {
@@ -6096,7 +5605,7 @@ recommendedJiten	jiten.moe頻度データです。
       shortcuts: readShortcutFormSettings(reader, current)
     };
     const normalized = normalizeReaderSettings(settings);
-    log$2.info("Read settings form data", {
+    log$3.info("Read settings form data", {
       enableLogging: normalized.enableLogging,
       dictionaries: normalized.dictionaryPreferences.length,
       lookupLinks: normalized.dictionaryLookupLinks.length,
@@ -6450,7 +5959,7 @@ recommendedJiten	jiten.moe頻度データです。
   function readOption(value, allowed, fallback) {
     return allowed.includes(value) ? value : fallback;
   }
-  function readDictionaryPreferences(data, current, reader) {
+  function readDictionaryPreferences$1(data, current, reader) {
     const get = (key) => String(data.get(key) ?? "");
     const count = Math.max(0, Number(get("dictionaryPreferenceCount")) || 0);
     if (!count) return current;
@@ -9585,7 +9094,7 @@ recommendedJiten	jiten.moe頻度データです。
   function normalizedDictionaryName(value) {
     return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, "");
   }
-  const log$1 = Logger.scope("SettingsFileIO");
+  const log$2 = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
     if (!dictionary.downloadUrl) return `${dictionary.id}.zip`;
     try {
@@ -9631,14 +9140,14 @@ recommendedJiten	jiten.moe頻度データです。
   function pickFile(root, type) {
     const inputEl = root.querySelector(`input[data-file="${type}"]`);
     if (!inputEl) {
-      log$1.warn("File picker input missing", { type });
+      log$2.warn("File picker input missing", { type });
       return Promise.resolve(null);
     }
     return new Promise((resolve) => {
       inputEl.onchange = () => {
         const file = inputEl.files?.[0] ?? null;
         inputEl.value = "";
-        log$1.info("File picker completed", { type, name: file?.name ?? "", size: file?.size ?? 0 });
+        log$2.info("File picker completed", { type, name: file?.name ?? "", size: file?.size ?? 0 });
         resolve(file);
       };
       inputEl.click();
@@ -9651,11 +9160,488 @@ recommendedJiten	jiten.moe頻度データです。
     link.download = filename;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1e3);
-    log$1.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
+    log$2.info("Downloaded blob", { filename, size: blob.size, type: blob.type });
   }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
+  const GODAN_ROWS = [
+    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
+    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
+    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
+    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
+    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
+    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
+    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
+    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
+    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
+  ];
+  const ICHIDAN_RULES = [
+    ["ました", "る", "polite past"],
+    ["ませんでした", "る", "polite negative past"],
+    ["ません", "る", "polite negative"],
+    ["ましょう", "る", "polite volitional"],
+    ["ます", "る", "polite"],
+    ["なかった", "る", "negative past"],
+    ["なくて", "る", "negative te-form"],
+    ["なければ", "る", "negative conditional"],
+    ["ない", "る", "negative"],
+    ["たかった", "る", "desiderative past"],
+    ["たくなかった", "る", "desiderative negative past"],
+    ["たくない", "る", "desiderative negative"],
+    ["たい", "る", "desiderative"],
+    ["なさい", "る", "polite request"],
+    ["すぎる", "る", "excessive"],
+    ["られなかった", "る", "potential/passive negative past"],
+    ["られない", "る", "potential/passive negative"],
+    ["られて", "る", "potential/passive te-form"],
+    ["られた", "る", "potential/passive past"],
+    ["られる", "る", "potential/passive"],
+    ["させられた", "る", "causative passive past"],
+    ["させられる", "る", "causative passive"],
+    ["させない", "る", "causative negative"],
+    ["させて", "る", "causative te-form"],
+    ["させた", "る", "causative past"],
+    ["させる", "る", "causative"],
+    ["れば", "る", "conditional"],
+    ["よう", "る", "volitional"],
+    ["ろ", "る", "imperative"],
+    ["て", "る", "te-form"],
+    ["た", "る", "past"]
+  ];
+  const I_ADJECTIVE_RULES = [
+    ["くなかった", "い", "negative past"],
+    ["くありませんでした", "い", "polite negative past"],
+    ["くありません", "い", "polite negative"],
+    ["かった", "い", "past"],
+    ["くない", "い", "negative"],
+    ["くて", "い", "te-form"],
+    ["ければ", "い", "conditional"],
+    ["そう", "い", "looks"],
+    ["すぎる", "い", "excessive"],
+    ["く", "い", "adverbial"]
+  ];
+  const SURU_RULES = [
+    ["しませんでした", "する", "polite negative past"],
+    ["しません", "する", "polite negative"],
+    ["しました", "する", "polite past"],
+    ["しましょう", "する", "polite volitional"],
+    ["します", "する", "polite"],
+    ["しなかった", "する", "negative past"],
+    ["しなくて", "する", "negative te-form"],
+    ["しなければ", "する", "negative conditional"],
+    ["しない", "する", "negative"],
+    ["しなさい", "する", "polite request"],
+    ["しすぎる", "する", "excessive"],
+    ["された", "する", "passive past"],
+    ["されて", "する", "passive te-form"],
+    ["される", "する", "passive"],
+    ["させた", "する", "causative past"],
+    ["させて", "する", "causative te-form"],
+    ["させる", "する", "causative"],
+    ["できなかった", "する", "potential negative past"],
+    ["できない", "する", "potential negative"],
+    ["できた", "する", "potential past"],
+    ["できて", "する", "potential te-form"],
+    ["できる", "する", "potential"],
+    ["すれば", "する", "conditional"],
+    ["しよう", "する", "volitional"],
+    ["しろ", "する", "imperative"],
+    ["せよ", "する", "imperative"],
+    ["した", "する", "past"],
+    ["して", "する", "te-form"]
+  ];
+  const KURU_RULES = [
+    ["来ませんでした", "来る", "polite negative past"],
+    ["来ません", "来る", "polite negative"],
+    ["来ました", "来る", "polite past"],
+    ["来ます", "来る", "polite"],
+    ["来なかった", "来る", "negative past"],
+    ["来なくて", "来る", "negative te-form"],
+    ["来ない", "来る", "negative"],
+    ["来なさい", "来る", "polite request"],
+    ["来すぎる", "来る", "excessive"],
+    ["来られた", "来る", "potential/passive past"],
+    ["来られて", "来る", "potential/passive te-form"],
+    ["来られる", "来る", "potential/passive"],
+    ["来れば", "来る", "conditional"],
+    ["来よう", "来る", "volitional"],
+    ["来い", "来る", "imperative"],
+    ["来た", "来る", "past"],
+    ["来て", "来る", "te-form"],
+    ["きませんでした", "くる", "polite negative past"],
+    ["きません", "くる", "polite negative"],
+    ["きました", "くる", "polite past"],
+    ["きます", "くる", "polite"],
+    ["こなかった", "くる", "negative past"],
+    ["こなくて", "くる", "negative te-form"],
+    ["こない", "くる", "negative"],
+    ["きなさい", "くる", "polite request"],
+    ["きすぎる", "くる", "excessive"],
+    ["こられた", "くる", "potential/passive past"],
+    ["こられて", "くる", "potential/passive te-form"],
+    ["こられる", "くる", "potential/passive"],
+    ["くれば", "くる", "conditional"],
+    ["こよう", "くる", "volitional"],
+    ["こい", "くる", "imperative"],
+    ["きた", "くる", "past"],
+    ["きて", "くる", "te-form"]
+  ];
+  const TE_ASPECT_SUFFIXES = [
+    ["いる", "progressive"],
+    ["います", "polite progressive"],
+    ["いました", "polite progressive past"],
+    ["いません", "polite progressive negative"],
+    ["いませんでした", "polite progressive negative past"],
+    ["いた", "progressive past"],
+    ["いて", "progressive te-form"],
+    ["いない", "progressive negative"],
+    ["いなかった", "progressive negative past"],
+    ["いれば", "progressive conditional"],
+    ["る", "contracted progressive"],
+    ["ます", "contracted polite progressive"],
+    ["ました", "contracted polite progressive past"],
+    ["た", "contracted progressive past"],
+    ["て", "contracted progressive te-form"],
+    ["ない", "contracted progressive negative"],
+    ["なかった", "contracted progressive negative past"]
+  ];
+  const TE_COMPLETION_SUFFIXES = [
+    ["しまう", "completion"],
+    ["しまった", "completion past"],
+    ["しまって", "completion te-form"],
+    ["しまわない", "completion negative"],
+    ["しまいます", "polite completion"],
+    ["しまいました", "polite completion past"]
+  ];
+  const CONTRACTED_COMPLETION_SUFFIXES = [
+    ["う", "contracted completion"],
+    ["った", "contracted completion past"],
+    ["って", "contracted completion te-form"],
+    ["わない", "contracted completion negative"],
+    ["います", "contracted polite completion"],
+    ["いました", "contracted polite completion past"]
+  ];
+  [
+    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
+    ...teCompoundRules("て", "る", ["v1"]),
+    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
+    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
+    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
+    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
+    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
+    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
+    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
+    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
+    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
+    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
+    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
+  ];
+  function godanRules(row) {
+    const rules = row.rules;
+    return [
+      ...teCompoundRules(row.te, row.ending, rules),
+      { from: row.te, to: row.ending, reason: "te-form", rules },
+      { from: row.ta, to: row.ending, reason: "past", rules },
+      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
+      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
+      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
+      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
+      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
+      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
+      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
+      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
+      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
+      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
+      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
+      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
+      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
+      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
+      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
+      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
+      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
+      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
+      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
+      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
+      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
+      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
+      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
+      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
+      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
+      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
+      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
+      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
+      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
+      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
+      { from: row.e, to: row.ending, reason: "imperative", rules }
+    ];
+  }
+  function teCompoundRules(te, to, rules) {
+    return [
+      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...contractedCompletionRules(te, to, rules)
+    ];
+  }
+  function contractedCompletionRules(te, to, rules) {
+    const stem = contractedCompletionStem(te);
+    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
+  }
+  function contractedCompletionStem(te) {
+    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
+    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
+    return "";
+  }
+  Logger.scope("Yomitan");
+  new TextDecoder();
+  const log$1 = Logger.scope("YomitanSettingsImport");
+  const AUDIO_BOOLEAN_IMPORTS = [
+    { sourceKey: "enabled", targetKey: "audioEnabled" },
+    { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
+    { sourceKey: "enableDefaultAudioSources", targetKey: "audioEnableDefaultSources" }
+  ];
+  const ANKI_BOOLEAN_IMPORTS = [
+    { sourceKey: "enable", targetKey: "ankiEnabled" }
+  ];
+  function parseYomitanSettingsExport(value, language = "en") {
+    const done = log$1.time("Yomitan settings export parse");
+    const profileOptions = getYomitanProfileOptions(value);
+    if (!profileOptions) {
+      done();
+      log$1.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      throw new Error(uiText(language, "yomitanSettingsInvalid"));
+    }
+    const settings = {};
+    const sections = readYomitanProfileSections(profileOptions);
+    applyAudioSettings(settings, sections.audio);
+    applyGeneralSettings(settings, sections.general);
+    applyScanningSettings(settings, sections.scanning);
+    applyAnkiSettings(settings, sections.anki);
+    const dictionaryPreferences = readDictionaryPreferences(profileOptions);
+    applyDictionarySettings(settings, dictionaryPreferences);
+    const dictionaryNames = dictionaryPreferences.filter((item) => item.enabled).map((item) => item.name);
+    settings.yomitanSettingsBackup = value;
+    applyInputShortcuts(settings, sections.inputs);
+    done();
+    log$1.info("Yomitan settings import parsed", {
+      hasAudioSources: Boolean(settings.audioSources?.length),
+      parseSelection: settings.parseSelection,
+      theme: settings.theme
+    });
+    return { settings, dictionaryNames };
+  }
+  function readYomitanProfileSections(profileOptions) {
+    return {
+      audio: profileOptions.audio,
+      general: profileOptions.general,
+      scanning: profileOptions.scanning,
+      anki: profileOptions.anki,
+      inputs: profileOptions.inputs
+    };
+  }
+  function applyAudioSettings(settings, audio) {
+    applyBooleanSettingImports(settings, audio, AUDIO_BOOLEAN_IMPORTS);
+    applyAudioFallbackChimeSetting(settings, audio?.fallbackSoundType);
+    applyAudioSourceSettings(settings, audio?.sources);
+  }
+  function applyBooleanSettingImports(settings, source, imports) {
+    for (const item of imports) {
+      if (typeof source?.[item.sourceKey] === "boolean") assignImportedSetting(settings, item.targetKey, source[item.sourceKey]);
+    }
+  }
+  function applyTrimmedStringSetting(settings, value, targetKey) {
+    if (typeof value !== "string") return;
+    const trimmed = value.trim();
+    if (trimmed) assignImportedSetting(settings, targetKey, trimmed);
+  }
+  function assignImportedSetting(settings, key, value) {
+    settings[key] = value;
+  }
+  function applyAudioFallbackChimeSetting(settings, value) {
+    if (typeof value === "string") settings.audioFallbackChimeEnabled = value !== "none";
+  }
+  function applyAudioSourceSettings(settings, sources) {
+    if (!Array.isArray(sources)) return;
+    settings.audioSources = sources.map(normalizeAudioSource).filter((source) => source !== null);
+    settings.audioSourceUrl = settings.audioSources.find((source) => source.url)?.url;
+  }
+  function applyGeneralSettings(settings, general) {
+    applyImportedLanguage(settings, general?.language);
+    applyImportedTheme(settings, general);
+    applyGeneralPopupSizeSettings(settings, general);
+    applyLocalDictionaryMaxResults(settings, general?.maxResults);
+    applyPitchDisplaySetting(settings, general);
+  }
+  function applyImportedLanguage(settings, value) {
+    const language = importedInterfaceLanguage(value);
+    if (language) settings.interfaceLanguage = language;
+  }
+  function applyImportedTheme(settings, general) {
+    const theme = importedPopupTheme(general);
+    if (theme) settings.theme = theme;
+  }
+  function applyGeneralPopupSizeSettings(settings, general) {
+    applyPositiveNumberSetting(settings, general?.popupWidth, "popoverWidth", 280, 900);
+    applyPositiveNumberSetting(settings, general?.popupHeight, "popoverHeight", 220, 900);
+    if (hasPositiveNumber(general?.popupVerticalOffset)) settings.subtitleBottomOffset = importedPopupVerticalOffset(general);
+  }
+  function applyPositiveNumberSetting(settings, value, targetKey, min, max) {
+    if (hasPositiveNumber(value)) assignImportedSetting(settings, targetKey, clampNumber(value, min, max));
+  }
+  function applyLocalDictionaryMaxResults(settings, value) {
+    if (typeof value === "number") settings.localDictionaryMaxResults = Math.max(1, Math.min(64, value));
+  }
+  function applyPitchDisplaySetting(settings, general) {
+    const pitchEnabled = importedPitchDisplayEnabled(general);
+    if (typeof pitchEnabled === "boolean") settings.showPitchAccent = pitchEnabled;
+  }
+  function importedInterfaceLanguage(value) {
+    return value === "en" || value === "ja" || value === "auto" ? value : "";
+  }
+  function importedPopupTheme(general) {
+    return general?.popupTheme === "dark" || general?.popupTheme === "light" ? general.popupTheme : "";
+  }
+  function hasPositiveNumber(value) {
+    return typeof value === "number" && value > 0;
+  }
+  function importedPopupVerticalOffset(general) {
+    return Math.max(6, Math.min(24, Math.round(Number(general?.popupVerticalOffset) || 12)));
+  }
+  function importedPitchDisplayEnabled(general) {
+    const values = [
+      general?.showPitchAccentDownstepNotation,
+      general?.showPitchAccentPositionNotation,
+      general?.showPitchAccentGraph
+    ].filter((value) => typeof value === "boolean");
+    return values.length ? values.some(Boolean) : void 0;
+  }
+  function applyScanningSettings(settings, scanning) {
+    if (typeof scanning?.selectText === "boolean") settings.parseSelection = scanning.selectText;
+    if (typeof scanning?.delay === "number") settings.hoverOpenDelayMs = clampNumber(scanning.delay, 0, 1500);
+    if (typeof scanning?.hideDelay === "number") settings.hoverCloseDelayMs = clampNumber(scanning.hideDelay, 0, 3e3);
+    applyScanInputSettings(settings, scanning);
+  }
+  function applyAnkiSettings(settings, anki) {
+    applyBooleanSettingImports(settings, anki, ANKI_BOOLEAN_IMPORTS);
+    applyTrimmedStringSetting(settings, anki?.server, "ankiConnectUrl");
+    applyAnkiTagsSetting(settings, anki?.tags);
+    applyAnkiCardFormatSettings(settings, firstYomitanTermCardFormat(anki?.cardFormats));
+    applyAnkiScreenshotSetting(settings, anki?.screenshot);
+  }
+  function applyAnkiTagsSetting(settings, value) {
+    if (Array.isArray(value)) settings.ankiTags = value.map((tag) => String(tag).trim()).filter(Boolean).join(" ");
+  }
+  function applyAnkiCardFormatSettings(settings, cardFormat) {
+    if (!cardFormat) return;
+    applyTrimmedStringSetting(settings, cardFormat.deck, "ankiDeck");
+    applyTrimmedStringSetting(settings, cardFormat.model, "ankiModel");
+  }
+  function applyAnkiScreenshotSetting(settings, value) {
+    if (isObjectRecord(value)) settings.ankiCaptureScreenshot = true;
+  }
+  function firstYomitanTermCardFormat(value) {
+    if (!Array.isArray(value)) return null;
+    return value.find((item) => isObjectRecord(item) && (item.type === "term" || item.type == null)) ?? null;
+  }
+  function applyDictionarySettings(settings, preferences) {
+    if (!preferences.length) return;
+    settings.dictionaryPreferences = normalizeDictionaryPreferences(preferences);
+  }
+  function applyInputShortcuts(settings, inputs) {
+    applyYomitanShortcut(settings, inputs, "playAudio", "playAudio");
+    applyYomitanShortcut(settings, inputs, "close", "closePopup");
+  }
+  function applyYomitanShortcut(settings, inputs, action, target) {
+    const hotkey = inputs?.hotkeys?.find((item) => item.action === action && item.enabled !== false);
+    if (!hotkey) return;
+    const key = String(hotkey.key || "").replace(/^Key/, "");
+    const modifiers = Array.isArray(hotkey.modifiers) ? hotkey.modifiers.map((v) => String(v)) : [];
+    settings.shortcuts = {
+      ...settings.shortcuts,
+      [target]: [...modifiers.map(capitalize), key].filter(Boolean).join("+")
+    };
+  }
+  function readDictionaryPreferences(profileOptions) {
+    const dictionaries = Array.isArray(profileOptions.dictionaries) ? profileOptions.dictionaries : [];
+    return dictionaries.map((item, index) => {
+      const name = typeof item.name === "string" ? item.name.trim() : "";
+      if (!name) return null;
+      return {
+        name,
+        alias: typeof item.alias === "string" && item.alias.trim() ? item.alias.trim() : name,
+        enabled: item.enabled !== false,
+        priority: index,
+        allowSecondarySearches: item.allowSecondarySearches === true
+      };
+    }).filter((item) => item !== null);
+  }
+  function applyScanInputSettings(settings, scanning) {
+    const scanInput = firstScanInput(scanning);
+    if (!scanInput) return;
+    const include = String(scanInput.include ?? "").toLowerCase();
+    const modifier = ["shift", "alt", "ctrl", "meta"].find((key) => include.includes(key));
+    if (modifier) {
+      settings.lookupOnHover = true;
+      settings.popupActivationMode = "modifier";
+      settings.scanModifierKey = modifier;
+      settings.shortcuts = { ...settings.shortcuts, hoverLookup: capitalize(modifier) };
+      return;
+    }
+    const options = scanInput.options;
+    if (shouldEnablePlainHoverScan(options, include)) {
+      settings.lookupOnHover = true;
+      settings.popupActivationMode = "hover";
+      settings.shortcuts = { ...settings.shortcuts, hoverLookup: "" };
+    }
+  }
+  function firstScanInput(scanning) {
+    if (!Array.isArray(scanning?.inputs)) return null;
+    return scanning.inputs.find(isRecordScanInput) ?? null;
+  }
+  function isRecordScanInput(input2) {
+    return Boolean(input2 && typeof input2 === "object");
+  }
+  function isObjectRecord(value) {
+    return Boolean(value && typeof value === "object" && !Array.isArray(value));
+  }
+  function shouldEnablePlainHoverScan(options, include) {
+    return options?.scanOnPenHover === true || options?.scanOnTouchTap === true || include === "";
+  }
+  function getYomitanProfileOptions(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    return profileOptionsFromRoot(record.options) ?? profileOptionsFromProfiles(record.profiles, record);
+  }
+  function profileOptionsFromRoot(rootOptions) {
+    if (!rootOptions || typeof rootOptions !== "object") return null;
+    const rootOptionRecord = rootOptions;
+    return nestedProfileOptions(rootOptionRecord.profiles, rootOptionRecord.profileCurrent) ?? rootOptionRecord;
+  }
+  function profileOptionsFromProfiles(profilesValue, fallback) {
+    const profile = selectedProfileRecord(profilesValue, fallback.profileCurrent) ?? fallback;
+    const options = profile.options;
+    return options && typeof options === "object" ? options : null;
+  }
+  function nestedProfileOptions(profilesValue, profileCurrent) {
+    const options = selectedProfileRecord(profilesValue, profileCurrent)?.options;
+    return options && typeof options === "object" ? options : null;
+  }
+  function selectedProfileRecord(value, profileCurrent) {
+    if (!Array.isArray(value)) return null;
+    const index = Number(profileCurrent);
+    const selected = Number.isInteger(index) && index >= 0 && index < value.length ? value[index] : null;
+    const profile = selected && typeof selected === "object" ? selected : value.find((item) => item && typeof item === "object");
+    return profile ? profile : null;
+  }
+  function capitalize(value) {
+    return value ? `${value[0].toUpperCase()}${value.slice(1).toLowerCase()}` : value;
+  }
+  function clampNumber(value, min, max) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : min;
+  }
+  Logger.scope("Yomitan");
   const log = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
@@ -11372,48 +11358,6 @@ recommendedJiten	jiten.moe頻度データです。
         ...imported.settings.shortcuts ?? {}
       }
     });
-  }
-  let sandboxCompanions = {};
-  function registerYomuCompanion(key, value) {
-    writeYomuCompanions({
-      ...yomuCompanions(),
-      [key]: value
-    });
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function writeYomuCompanions(value) {
-    sandboxCompanions = value;
-    if (writeYomuCompanionsTarget(globalThis, value)) return;
-  }
-  function writeYomuCompanionsTarget(target, value) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return false;
-    const writable = target;
-    try {
-      writable.__yomuCompanions = value;
-      return true;
-    } catch {
-    }
-    try {
-      Object.defineProperty(writable, "__yomuCompanions", {
-        configurable: true,
-        enumerable: false,
-        writable: true,
-        value
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function readYomuCompanions(target) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-    try {
-      return target.__yomuCompanions;
-    } catch {
-      return void 0;
-    }
   }
   registerYomuCompanion("settings", { SettingsDialogController });
 })();

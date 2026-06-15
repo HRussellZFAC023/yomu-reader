@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.54
+// @version      0.7.55
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nu/owJapQGpcwPVua63DP2aDkRUxzxhjNdeMhD6Ya30=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-zFyC3z6KcNIrqtkGWsmteEp9hiuWQTiWDHUjyRSWgEE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ZXL88bXCkmMxdLTpTgK7sSvUy0sdeZkh+XKA8Zsbvis=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tBQq6OB+YEjJPJ1iCxde9i2SvRrGSCxVlgTJgE/nWMg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-XVIqFA1yu1PKDGZLmpqNg0RB2njgu86UFavyIxSbM2I=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -268,25 +268,6 @@
     debug: "#6b7280",
     warn: "#a15c00",
     error: "#b91c1c"
-  };
-  const ANKI_CARD_COLOR_TOKENS = {
-    text: "#f4f7fb",
-    background: "#15181e",
-    muted: "#bac3d0",
-    sentenceBorder: "#323843",
-    sentenceBackground: "#1e232b",
-    sentenceText: "#d8dee8",
-    highlight: "#7ad119",
-    sectionBorder: "#303641",
-    sectionBackground: "#1b2028",
-    headingText: "#c2cad7",
-    labelText: "#92a0b3",
-    expressionText: CORE_COLOR_TOKENS.white,
-    readingText: "#aab4c2",
-    chipBorder: "#4b5565",
-    chipText: "#cdd5e1",
-    metaLabelText: "#8f9aaa",
-    tableBorder: "#353c47"
   };
   const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
   const READER_ROOT_SELECTOR$2 = "[data-jpdb-reader-root]";
@@ -1955,7 +1936,7 @@
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$o = Logger.scope("Settings");
+  const log$m = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -2951,7 +2932,7 @@
     const params = new URLSearchParams(search);
     const bootstrap = urlBootstrapSettings(params);
     if (!hasUrlBootstrapSettings(bootstrap)) return settings;
-    log$o.info("Applying URL bootstrap settings", {
+    log$m.info("Applying URL bootstrap settings", {
       hasApiKey: Boolean(bootstrap.apiKey),
       hasAudio: Boolean(bootstrap.audio),
       hasOcr: Boolean(bootstrap.ocr)
@@ -3013,7 +2994,7 @@
       const settings = mergeSettings(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       return settings;
     } catch (error) {
-      log$o.warn("Settings load failed", { error });
+      log$m.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
@@ -3022,7 +3003,7 @@
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$o.warn("Skipped save during reset");
+      log$m.warn("Skipped save during reset");
       return;
     }
     try {
@@ -3031,7 +3012,7 @@
       await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
       dispatchSettingsChange(storedSettings);
     } catch (error) {
-      log$o.warn("Settings save failed", { error });
+      log$m.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -5342,7 +5323,7 @@
     return !response.ok && response.status !== 429 && index < candidates.length - 1;
   }
   function browserReadableUrl(url) {
-    if (!isHttpUrl$1(url)) return url;
+    if (!isHttpUrl(url)) return url;
     try {
       const target = new URL(url, location.href);
       return target.origin === location.origin ? target.href : null;
@@ -5350,7 +5331,7 @@
       return null;
     }
   }
-  function isHttpUrl$1(url) {
+  function isHttpUrl(url) {
     return /^https?:\/\//i.test(url);
   }
   function fetchWithTimeout$2(url, options) {
@@ -8594,7 +8575,7 @@ recommendedJiten	jiten.moe頻度データです。
       return true;
     });
   }
-  function jpdbVocabularyUrl$2(card) {
+  function jpdbVocabularyUrl$1(card) {
     return `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
   }
   function jpdbVocabularyIdentityFromUrl$1(value) {
@@ -8694,9 +8675,6 @@ recommendedJiten	jiten.moe頻度データです。
   function findAudioUrls(value, sourceUrl) {
     const direct = directAudioUrlsForValue(value, sourceUrl);
     return direct ?? [];
-  }
-  function blobToDataUrl(blob, language = "en") {
-    return readBlobAsDataUrl(blob, uiText(language, "couldNotReadAudio"));
   }
   async function fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language = "en") {
     const response = await requestAudioUrl(url, "blob", timeoutMs, { proxyUrl, language });
@@ -8939,13 +8917,13 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function jpdbVocabularyAudioLookupUrls(card) {
     const urls = [];
-    if (card.vid > 0) urls.push(jpdbVocabularyUrl$1(card.vid, card.spelling, card.reading));
+    if (card.vid > 0) urls.push(jpdbVocabularyUrl(card.vid, card.spelling, card.reading));
     for (const query of uniqueStrings$2([card.spelling, card.reading].filter(Boolean))) {
       urls.push(`${JPDB_SEARCH_URL$1}?q=${encodeURIComponent(query)}`);
     }
     return uniqueStrings$2(urls);
   }
-  function jpdbVocabularyUrl$1(vid, spelling, reading) {
+  function jpdbVocabularyUrl(vid, spelling, reading) {
     return `${JPDB_VOCABULARY_BASE_URL$1}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
   }
   function extractJpdbVocabularyAudioIds(html, card, sourceUrl = "") {
@@ -9187,7 +9165,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function languagePod101RowKana(row) {
     const kanaHtml = findHtmlElementByClass(row, "span", "dc-vocab_kana");
-    return stripHtml$1(kanaHtml ?? "").trim();
+    return stripHtml(kanaHtml ?? "").trim();
   }
   async function getCommonsAudioUrls(term, source, timeoutMs, proxyUrl = "") {
     const apiUrl = commonsSearchApiUrl(term, source);
@@ -9293,7 +9271,7 @@ recommendedJiten	jiten.moe頻度データです。
   function decodeHtmlAttribute(value) {
     return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
   }
-  function stripHtml$1(value) {
+  function stripHtml(value) {
     return decodeHtmlAttribute(value.replace(/<[^>]+>/g, ""));
   }
   function isValidCommonsAudioFilename(filename, fileUser, term, source) {
@@ -9543,7 +9521,7 @@ recommendedJiten	jiten.moe頻度データです。
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$n = Logger.scope("Audio");
+  const log$l = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -9581,7 +9559,7 @@ recommendedJiten	jiten.moe頻度データです。
       const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
       this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$n.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$l.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
       done();
       return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
@@ -9634,14 +9612,14 @@ recommendedJiten	jiten.moe頻度データです。
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$n.warn("No audio sources configured", { term: card.spelling });
+      log$l.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$n.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$l.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
@@ -9878,7 +9856,7 @@ recommendedJiten	jiten.moe頻度データです。
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$n.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$l.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -10343,7586 +10321,6 @@ recommendedJiten	jiten.moe頻度データです。
     errors.push(error instanceof Error ? error.message : String(error));
     return "miss";
   }
-  async function runLimited(items, concurrency, worker) {
-    if (!items.length) return;
-    const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
-    let nextIndex = 0;
-    await Promise.all(Array.from({ length: workerCount }, async () => {
-      while (nextIndex < items.length) {
-        const index = nextIndex++;
-        await worker(items[index], index);
-      }
-    }));
-  }
-  async function mapLimited(items, concurrency, worker) {
-    const results = new Array(items.length);
-    await runLimited(items, concurrency, async (item, index) => {
-      results[index] = await worker(item, index);
-    });
-    return results;
-  }
-  class ConcurrencyGate {
-    constructor(limit) {
-      this.limit = limit;
-    }
-    active = 0;
-    queue = [];
-    async run(task) {
-      if (this.active >= this.limit) {
-        await new Promise((resolve) => this.queue.push(resolve));
-      }
-      this.active += 1;
-      try {
-        return await task();
-      } finally {
-        this.active -= 1;
-        this.queue.shift()?.();
-      }
-    }
-  }
-  const POS_LABELS = {
-    adj: "adjective",
-    adv: "adverb",
-    aux: "auxiliary",
-    "aux-v": "auxiliary verb",
-    conj: "conjunction",
-    cop: "copula",
-    ctr: "counter",
-    exp: "expression",
-    int: "interjection",
-    n: "noun",
-    num: "number",
-    pn: "pronoun",
-    pref: "prefix",
-    prt: "particle",
-    suf: "suffix",
-    unc: "unclassified",
-    vi: "intransitive verb",
-    vt: "transitive verb",
-    v1: "ichidan verb",
-    v5: "godan verb",
-    v5aru: "aru ending",
-    v5b: "bu ending",
-    v5g: "gu ending",
-    v5k: "ku ending",
-    v5m: "mu ending",
-    v5n: "nu ending",
-    v5r: "ru ending",
-    v5s: "su ending",
-    v5t: "tsu ending",
-    v5u: "u ending",
-    vk: "kuru verb",
-    vs: "suru verb",
-    vz: "zuru verb"
-  };
-  function formatPartOfSpeech(tags = []) {
-    const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
-    return [...new Set(labels)].join(", ");
-  }
-  function formatPartOfSpeechDetails(tags = []) {
-    return tags.length ? tags.join(", ").toUpperCase() : "";
-  }
-  const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
-  const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
-  const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
-  function splitLearnerGlossaryText(text2) {
-    const withoutExamples = learnerGlossaryWithoutExamples(text2);
-    return withoutExamples.split(LEARNER_GLOSSARY_SEPARATOR_RE).map((item) => item.trim()).filter(Boolean);
-  }
-  function learnerGlossaryWithoutExamples(text2) {
-    const normalized = text2.replace(/\s+/g, " ").trim();
-    if (!normalized) return "";
-    return cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
-  }
-  function summarizeLearnerGlossaryTexts(texts, limit = 3) {
-    const cleaned = texts.flatMap(splitLearnerGlossaryText).map(cleanLearnerGlossaryText).filter(Boolean);
-    return Array.from(new Set(cleaned)).slice(0, limit).join(", ");
-  }
-  function cleanLearnerGlossaryText(text2) {
-    let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
-    clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
-    if (!clean || HAS_JAPANESE$1.test(clean) || looksLikeGrammarTag(clean)) return "";
-    return clean;
-  }
-  function cutBeforeExampleText(text2) {
-    const japaneseIndex = text2.search(HAS_JAPANESE$1);
-    const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
-    const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
-    const cutoff = indexes.length ? Math.min(...indexes) : -1;
-    return cutoff >= 0 ? text2.slice(0, cutoff) : text2;
-  }
-  function trimLearnerMeaning(text2, maxLength = 56) {
-    if (text2.length <= maxLength) return text2;
-    const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
-    return truncated || text2.slice(0, maxLength).trim();
-  }
-  function humanizeTerseGlosses(text2) {
-    const words = text2.split(/\s+/).filter(Boolean);
-    if (words.length < 2 || words.length > 4) return text2;
-    if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
-    if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
-    return text2;
-  }
-  function looksLikeGrammarTag(text2) {
-    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
-  }
-  const GODAN_ROWS = [
-    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
-    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
-    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
-    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
-    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
-    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
-    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
-    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
-    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
-  ];
-  const ICHIDAN_RULES = [
-    ["ました", "る", "polite past"],
-    ["ませんでした", "る", "polite negative past"],
-    ["ません", "る", "polite negative"],
-    ["ましょう", "る", "polite volitional"],
-    ["ます", "る", "polite"],
-    ["なかった", "る", "negative past"],
-    ["なくて", "る", "negative te-form"],
-    ["なければ", "る", "negative conditional"],
-    ["ない", "る", "negative"],
-    ["たかった", "る", "desiderative past"],
-    ["たくなかった", "る", "desiderative negative past"],
-    ["たくない", "る", "desiderative negative"],
-    ["たい", "る", "desiderative"],
-    ["なさい", "る", "polite request"],
-    ["すぎる", "る", "excessive"],
-    ["られなかった", "る", "potential/passive negative past"],
-    ["られない", "る", "potential/passive negative"],
-    ["られて", "る", "potential/passive te-form"],
-    ["られた", "る", "potential/passive past"],
-    ["られる", "る", "potential/passive"],
-    ["させられた", "る", "causative passive past"],
-    ["させられる", "る", "causative passive"],
-    ["させない", "る", "causative negative"],
-    ["させて", "る", "causative te-form"],
-    ["させた", "る", "causative past"],
-    ["させる", "る", "causative"],
-    ["れば", "る", "conditional"],
-    ["よう", "る", "volitional"],
-    ["ろ", "る", "imperative"],
-    ["て", "る", "te-form"],
-    ["た", "る", "past"]
-  ];
-  const I_ADJECTIVE_RULES = [
-    ["くなかった", "い", "negative past"],
-    ["くありませんでした", "い", "polite negative past"],
-    ["くありません", "い", "polite negative"],
-    ["かった", "い", "past"],
-    ["くない", "い", "negative"],
-    ["くて", "い", "te-form"],
-    ["ければ", "い", "conditional"],
-    ["そう", "い", "looks"],
-    ["すぎる", "い", "excessive"],
-    ["く", "い", "adverbial"]
-  ];
-  const SURU_RULES = [
-    ["しませんでした", "する", "polite negative past"],
-    ["しません", "する", "polite negative"],
-    ["しました", "する", "polite past"],
-    ["しましょう", "する", "polite volitional"],
-    ["します", "する", "polite"],
-    ["しなかった", "する", "negative past"],
-    ["しなくて", "する", "negative te-form"],
-    ["しなければ", "する", "negative conditional"],
-    ["しない", "する", "negative"],
-    ["しなさい", "する", "polite request"],
-    ["しすぎる", "する", "excessive"],
-    ["された", "する", "passive past"],
-    ["されて", "する", "passive te-form"],
-    ["される", "する", "passive"],
-    ["させた", "する", "causative past"],
-    ["させて", "する", "causative te-form"],
-    ["させる", "する", "causative"],
-    ["できなかった", "する", "potential negative past"],
-    ["できない", "する", "potential negative"],
-    ["できた", "する", "potential past"],
-    ["できて", "する", "potential te-form"],
-    ["できる", "する", "potential"],
-    ["すれば", "する", "conditional"],
-    ["しよう", "する", "volitional"],
-    ["しろ", "する", "imperative"],
-    ["せよ", "する", "imperative"],
-    ["した", "する", "past"],
-    ["して", "する", "te-form"]
-  ];
-  const KURU_RULES = [
-    ["来ませんでした", "来る", "polite negative past"],
-    ["来ません", "来る", "polite negative"],
-    ["来ました", "来る", "polite past"],
-    ["来ます", "来る", "polite"],
-    ["来なかった", "来る", "negative past"],
-    ["来なくて", "来る", "negative te-form"],
-    ["来ない", "来る", "negative"],
-    ["来なさい", "来る", "polite request"],
-    ["来すぎる", "来る", "excessive"],
-    ["来られた", "来る", "potential/passive past"],
-    ["来られて", "来る", "potential/passive te-form"],
-    ["来られる", "来る", "potential/passive"],
-    ["来れば", "来る", "conditional"],
-    ["来よう", "来る", "volitional"],
-    ["来い", "来る", "imperative"],
-    ["来た", "来る", "past"],
-    ["来て", "来る", "te-form"],
-    ["きませんでした", "くる", "polite negative past"],
-    ["きません", "くる", "polite negative"],
-    ["きました", "くる", "polite past"],
-    ["きます", "くる", "polite"],
-    ["こなかった", "くる", "negative past"],
-    ["こなくて", "くる", "negative te-form"],
-    ["こない", "くる", "negative"],
-    ["きなさい", "くる", "polite request"],
-    ["きすぎる", "くる", "excessive"],
-    ["こられた", "くる", "potential/passive past"],
-    ["こられて", "くる", "potential/passive te-form"],
-    ["こられる", "くる", "potential/passive"],
-    ["くれば", "くる", "conditional"],
-    ["こよう", "くる", "volitional"],
-    ["こい", "くる", "imperative"],
-    ["きた", "くる", "past"],
-    ["きて", "くる", "te-form"]
-  ];
-  const TE_ASPECT_SUFFIXES = [
-    ["いる", "progressive"],
-    ["います", "polite progressive"],
-    ["いました", "polite progressive past"],
-    ["いません", "polite progressive negative"],
-    ["いませんでした", "polite progressive negative past"],
-    ["いた", "progressive past"],
-    ["いて", "progressive te-form"],
-    ["いない", "progressive negative"],
-    ["いなかった", "progressive negative past"],
-    ["いれば", "progressive conditional"],
-    ["る", "contracted progressive"],
-    ["ます", "contracted polite progressive"],
-    ["ました", "contracted polite progressive past"],
-    ["た", "contracted progressive past"],
-    ["て", "contracted progressive te-form"],
-    ["ない", "contracted progressive negative"],
-    ["なかった", "contracted progressive negative past"]
-  ];
-  const TE_COMPLETION_SUFFIXES = [
-    ["しまう", "completion"],
-    ["しまった", "completion past"],
-    ["しまって", "completion te-form"],
-    ["しまわない", "completion negative"],
-    ["しまいます", "polite completion"],
-    ["しまいました", "polite completion past"]
-  ];
-  const CONTRACTED_COMPLETION_SUFFIXES = [
-    ["う", "contracted completion"],
-    ["った", "contracted completion past"],
-    ["って", "contracted completion te-form"],
-    ["わない", "contracted completion negative"],
-    ["います", "contracted polite completion"],
-    ["いました", "contracted polite completion past"]
-  ];
-  const RULES = [
-    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
-    ...teCompoundRules("て", "る", ["v1"]),
-    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
-    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
-    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
-    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
-    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
-    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
-    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
-    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
-    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
-    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
-    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
-  ];
-  function deinflectJapaneseTerm(source) {
-    const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
-    const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
-    const queue = [results[0]];
-    expandDeinflectionQueue(queue, results, seen);
-    const sorted = sortDeinflectedTerms(results);
-    return sorted;
-  }
-  function expandDeinflectionQueue(queue, results, seen) {
-    for (let index = 0; index < queue.length; index++) {
-      expandDeinflectedTerm(queue[index], queue, results, seen);
-    }
-  }
-  function expandDeinflectedTerm(current, queue, results, seen) {
-    if (isDeinflectionDepthLimitReached(current)) return;
-    for (const rule of RULES) {
-      rememberExpandedDeinflection(current, rule, queue, results, seen);
-    }
-  }
-  function isDeinflectionDepthLimitReached(current) {
-    return current.depth >= 2;
-  }
-  function rememberExpandedDeinflection(current, rule, queue, results, seen) {
-    const next = deinflectedCandidate(current, rule);
-    if (!next) return;
-    if (!rememberDeinflectedCandidate(next, seen)) return;
-    results.push(next);
-    queue.push(next);
-  }
-  function sortDeinflectedTerms(results) {
-    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
-  }
-  function deinflectedCandidate(current, rule) {
-    if (!canApplyDeinflectionRule(current.term, rule)) return null;
-    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
-    if (!term || term === current.term) return null;
-    return {
-      term,
-      rules: rule.rules,
-      reasons: [...current.reasons, rule.reason],
-      depth: current.depth + 1
-    };
-  }
-  function canApplyDeinflectionRule(term, rule) {
-    return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
-  }
-  function rememberDeinflectedCandidate(candidate, seen) {
-    const key = candidateKey(candidate);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  }
-  function termRulesMatch(entryRules, candidateRules) {
-    if (!candidateRules.length) return true;
-    const entryRuleSet = entryRulesSet(entryRules);
-    return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
-  }
-  function entryRulesSet(entryRules) {
-    return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
-  }
-  function termRuleMatches(rule, entryRuleSet) {
-    return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
-  }
-  const TERM_RULE_MATCHERS = [
-    (rule, entryRuleSet) => entryRuleSet.has(rule),
-    (rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
-    (rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
-    (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
-    (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
-  ];
-  function godanRules(row) {
-    const rules = row.rules;
-    return [
-      ...teCompoundRules(row.te, row.ending, rules),
-      { from: row.te, to: row.ending, reason: "te-form", rules },
-      { from: row.ta, to: row.ending, reason: "past", rules },
-      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
-      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
-      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
-      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
-      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
-      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
-      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
-      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
-      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
-      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
-      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
-      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
-      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
-      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
-      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
-      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
-      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
-      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
-      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
-      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
-      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
-      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
-      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
-      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
-      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
-      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
-      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
-      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
-      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
-      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
-      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
-      { from: row.e, to: row.ending, reason: "imperative", rules }
-    ];
-  }
-  function teCompoundRules(te, to, rules) {
-    return [
-      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
-      ...contractedCompletionRules(te, to, rules)
-    ];
-  }
-  function contractedCompletionRules(te, to, rules) {
-    const stem = contractedCompletionStem(te);
-    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
-  }
-  function contractedCompletionStem(te) {
-    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
-    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
-    return "";
-  }
-  function candidateKey(candidate) {
-    return `${candidate.term}
-${candidate.rules.join(" ")}
-${candidate.depth}`;
-  }
-  function readBlobWithFileReader(blob, read, result) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
-      reader.onload = () => resolve(result(reader));
-      read(reader, blob);
-    });
-  }
-  async function readDexieTableRowCounts(file) {
-    const head = await readBlobText(file.slice(0, Math.min(file.size, 1024 * 1024)));
-    const tables = readDexieTablesArray(head);
-    return tables ? dexieTableRowCounts(tables) : {};
-  }
-  function readDexieTablesArray(head) {
-    const tablesIndex = head.indexOf('"tables"');
-    if (tablesIndex < 0) return null;
-    const arrayStart = head.indexOf("[", tablesIndex);
-    if (arrayStart < 0) return null;
-    const arrayEnd = findJsonArrayEnd(head, arrayStart);
-    if (arrayEnd < 0) return null;
-    return JSON.parse(head.slice(arrayStart, arrayEnd + 1));
-  }
-  function dexieTableRowCounts(tables) {
-    const counts = {};
-    for (const table of tables) {
-      const count = dexieTableRowCount(table);
-      if (count) counts[count.name] = count.rowCount;
-    }
-    return counts;
-  }
-  function dexieTableRowCount(table) {
-    if (!table || typeof table !== "object") return null;
-    const record = table;
-    return typeof record.name === "string" && typeof record.rowCount === "number" ? { name: record.name, rowCount: record.rowCount } : null;
-  }
-  async function streamDexieTables(file, handlers, onTable) {
-    if (typeof file.stream !== "function" || typeof TextDecoderStream === "undefined") {
-      await streamDexieTablesFromText(await readBlobText(file), handlers, onTable);
-      return;
-    }
-    const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
-    const state = {
-      buffer: "",
-      mode: "seek-table",
-      tableName: "",
-      rowStart: -1,
-      depth: 0,
-      inString: false,
-      escaped: false
-    };
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      state.buffer += value;
-      await processDexieStreamBuffer(state, handlers, onTable);
-    }
-  }
-  function readBlobText(blob) {
-    if (typeof blob.text === "function") return blob.text();
-    return readBlobWithFileReader(blob, (reader, value) => reader.readAsText(value), (reader) => String(reader.result ?? ""));
-  }
-  async function processDexieStreamBuffer(state, handlers, onTable) {
-    let progress = true;
-    while (progress) {
-      progress = await processDexieStreamStep(state, handlers, onTable);
-    }
-  }
-  async function processDexieStreamStep(state, handlers, onTable) {
-    if (state.mode === "seek-table") return seekDexieTable(state);
-    if (state.mode === "seek-rows") return seekDexieRows(state, onTable);
-    if (state.mode === "rows") return await readDexieRows(state, handlers);
-    return false;
-  }
-  function seekDexieTable(state) {
-    const tableIndex = state.buffer.indexOf('"tableName"');
-    if (tableIndex < 0) {
-      state.buffer = state.buffer.slice(-32);
-      return false;
-    }
-    const colon = state.buffer.indexOf(":", tableIndex);
-    const quote = colon >= 0 ? state.buffer.indexOf('"', colon) : -1;
-    const end = quote >= 0 ? findJsonStringEnd(state.buffer, quote) : -1;
-    if (end < 0) return false;
-    state.tableName = JSON.parse(state.buffer.slice(quote, end + 1));
-    state.buffer = state.buffer.slice(end + 1);
-    state.mode = "seek-rows";
-    return true;
-  }
-  function seekDexieRows(state, onTable) {
-    const rowsIndex = state.buffer.indexOf('"rows"');
-    if (rowsIndex < 0) {
-      state.buffer = state.buffer.slice(-32);
-      return false;
-    }
-    const arrayIndex = state.buffer.indexOf("[", rowsIndex);
-    if (arrayIndex < 0) return false;
-    state.buffer = state.buffer.slice(arrayIndex + 1);
-    state.mode = "rows";
-    resetDexieRowState(state);
-    onTable?.(state.tableName);
-    return true;
-  }
-  function resetDexieRowState(state) {
-    state.rowStart = -1;
-    state.depth = 0;
-    state.inString = false;
-    state.escaped = false;
-  }
-  async function readDexieRows(state, handlers) {
-    let progress = false;
-    let index = 0;
-    while (index < state.buffer.length) {
-      const step = await readDexieRowStep(state, handlers, index, progress);
-      if (step.done) return true;
-      progress = step.progress;
-      index = step.nextIndex;
-    }
-    if (!progress) compactDexieRowBuffer(state);
-    return progress;
-  }
-  async function readDexieRowStep(state, handlers, index, progress) {
-    const action = readDexieRowCharacter(state, index);
-    if (action === "continue") return { done: false, progress, nextIndex: index + 1 };
-    const result = await applyDexieRowReadAction(state, handlers, action, index, progress);
-    return {
-      done: result.done,
-      progress: result.progress,
-      nextIndex: result.restart ? 0 : index + 1
-    };
-  }
-  async function applyDexieRowReadAction(state, handlers, action, index, progress) {
-    if (action === "close-array") return { done: true, progress, restart: false };
-    if (action !== "finish-row") return { done: false, progress, restart: false };
-    const nextProgress = await finishDexieRow(state, handlers, index) || progress;
-    return { done: false, progress: nextProgress, restart: nextProgress && state.rowStart === -1 };
-  }
-  function readDexieRowCharacter(state, index) {
-    const char = state.buffer[index];
-    if (advanceStringState(state, char)) return "continue";
-    if (openDexieRowObject(state, index, char)) return "continue";
-    if (char === "}") return "finish-row";
-    return closeDexieRowsArray(state, index, char) ? "close-array" : "scan";
-  }
-  function openDexieRowObject(state, index, char) {
-    if (char !== "{") return false;
-    if (state.depth === 0) state.rowStart = index;
-    state.depth++;
-    return true;
-  }
-  function closeDexieRowsArray(state, index, char) {
-    if (state.depth !== 0 || char !== "]") return false;
-    state.buffer = state.buffer.slice(index + 1);
-    state.mode = "seek-table";
-    state.tableName = "";
-    return true;
-  }
-  async function finishDexieRow(state, handlers, index) {
-    state.depth--;
-    if (state.depth !== 0 || state.rowStart < 0) return false;
-    const handler = handlers[state.tableName];
-    if (handler) await handler(JSON.parse(state.buffer.slice(state.rowStart, index + 1)));
-    state.buffer = state.buffer.slice(index + 1);
-    state.rowStart = -1;
-    return true;
-  }
-  function advanceStringState(state, char) {
-    if (state.inString) return advanceOpenStringState(state, char);
-    return enterStringState(state, char);
-  }
-  function enterStringState(state, char) {
-    if (char !== '"') return false;
-    state.inString = true;
-    return true;
-  }
-  function advanceOpenStringState(state, char) {
-    if (state.escaped) state.escaped = false;
-    else if (char === "\\") state.escaped = true;
-    else if (char === '"') state.inString = false;
-    return true;
-  }
-  function compactDexieRowBuffer(state) {
-    if (state.rowStart > 0) {
-      state.buffer = state.buffer.slice(state.rowStart);
-      state.rowStart = 0;
-    } else if (state.depth === 0 && state.buffer.length > 4096) {
-      state.buffer = state.buffer.slice(-4096);
-    }
-  }
-  function findJsonArrayEnd(text2, start) {
-    const state = createJsonArrayScanState();
-    for (let index = start; index < text2.length; index++) {
-      if (scanJsonArrayCharacter(state, text2[index])) return index;
-    }
-    return -1;
-  }
-  function createJsonArrayScanState() {
-    return { depth: 0, inString: false, escaped: false };
-  }
-  function scanJsonArrayCharacter(state, char) {
-    if (state.inString) {
-      scanJsonArrayStringCharacter(state, char);
-      return false;
-    }
-    if (char === '"') {
-      state.inString = true;
-      return false;
-    }
-    if (char === "[") state.depth += 1;
-    if (char !== "]") return false;
-    state.depth -= 1;
-    return state.depth === 0;
-  }
-  function scanJsonArrayStringCharacter(state, char) {
-    if (state.escaped) {
-      state.escaped = false;
-      return;
-    }
-    if (char === "\\") state.escaped = true;
-    if (char === '"') state.inString = false;
-  }
-  async function streamDexieTablesFromText(text2, handlers, onTable) {
-    let offset = 0;
-    while (true) {
-      const table = nextDexieTableScan(text2, offset);
-      if (!table) return;
-      onTable?.(table.tableName);
-      offset = await streamDexieRowsFromText(text2, table.arrayStart, table.tableName, handlers);
-    }
-  }
-  async function streamDexieRowsFromText(text2, arrayStart, tableName, handlers) {
-    const handler = handlers[tableName];
-    const state = { depth: 0, rowStart: -1, inString: false, escaped: false };
-    for (let index = arrayStart + 1; index < text2.length; index++) {
-      const endOffset = await scanDexieRowCharacter(text2, state, index, handler);
-      if (endOffset !== null) return endOffset;
-    }
-    return text2.length;
-  }
-  function nextDexieTableScan(text2, offset) {
-    const tableIndex = text2.indexOf('"tableName"', offset);
-    if (tableIndex < 0) return null;
-    const quote = dexieTableNameQuoteIndex(text2, tableIndex);
-    if (quote < 0) return null;
-    const end = findJsonStringEnd(text2, quote);
-    if (end < 0) return null;
-    const arrayStart = dexieRowsArrayStart(text2, end);
-    if (arrayStart < 0) return null;
-    return { tableName: JSON.parse(text2.slice(quote, end + 1)), arrayStart };
-  }
-  function dexieTableNameQuoteIndex(text2, tableIndex) {
-    const colon = text2.indexOf(":", tableIndex);
-    return colon >= 0 ? text2.indexOf('"', colon) : -1;
-  }
-  function dexieRowsArrayStart(text2, offset) {
-    const rowsIndex = text2.indexOf('"rows"', offset);
-    return rowsIndex >= 0 ? text2.indexOf("[", rowsIndex) : -1;
-  }
-  async function scanDexieRowCharacter(text2, state, index, handler) {
-    const char = text2[index];
-    if (consumeDexieStringCharacter(state, char)) return null;
-    if (openDexieString(state, char)) return null;
-    if (char === "{") beginDexieRow(state, index);
-    if (char === "}") await finishDexieArrayRow(text2, state, index, handler);
-    return dexieArrayEndOffset(state, char, index);
-  }
-  function dexieArrayEndOffset(state, char, index) {
-    return state.depth === 0 && char === "]" ? index + 1 : null;
-  }
-  function consumeDexieStringCharacter(state, char) {
-    if (!state.inString) return false;
-    if (state.escaped) state.escaped = false;
-    else if (char === "\\") state.escaped = true;
-    else if (char === '"') state.inString = false;
-    return true;
-  }
-  function openDexieString(state, char) {
-    if (char !== '"') return false;
-    state.inString = true;
-    return true;
-  }
-  function beginDexieRow(state, index) {
-    if (state.depth === 0) state.rowStart = index;
-    state.depth++;
-  }
-  async function finishDexieArrayRow(text2, state, index, handler) {
-    state.depth--;
-    if (state.depth === 0 && state.rowStart >= 0 && handler) await handler(JSON.parse(text2.slice(state.rowStart, index + 1)));
-  }
-  function findJsonStringEnd(value, quoteIndex) {
-    let escaped = false;
-    for (let index = quoteIndex + 1; index < value.length; index++) {
-      const char = value[index];
-      if (escaped) escaped = false;
-      else if (char === "\\") escaped = true;
-      else if (char === '"') return index;
-    }
-    return -1;
-  }
-  const log$m = Logger.scope("Yomitan");
-  function filenameFromUrl(url) {
-    try {
-      const parsed = new URL(url);
-      const pathName = parsed.pathname.split("/").filter(Boolean).pop();
-      return pathName && /\.zip$/i.test(pathName) ? decodeURIComponent(pathName) : "dictionary.zip";
-    } catch {
-      return "dictionary.zip";
-    }
-  }
-  function fileSummary(file, sourceUrl = "") {
-    return {
-      name: file.name,
-      size: file.size,
-      type: file.type,
-      sourceHost: sourceUrl ? safeHost(sourceUrl) : ""
-    };
-  }
-  function safeHost(url) {
-    try {
-      return new URL(url, location.href).host;
-    } catch {
-      return "";
-    }
-  }
-  function namedBlobFile(blob, name, type) {
-    if (typeof File === "function") return new File([blob], name, { type });
-    Object.defineProperty(blob, "name", { value: name, configurable: true });
-    Object.defineProperty(blob, "lastModified", { value: Date.now(), configurable: true });
-    return blob;
-  }
-  function formatPercent(loaded, total) {
-    if (total <= 0) return "100%";
-    return `${Math.max(0, Math.min(100, Math.round(loaded / total * 100)))}%`;
-  }
-  function formatBytes(value) {
-    if (!Number.isFinite(value) || value <= 0) return "0 B";
-    const units = ["B", "KB", "MB", "GB"];
-    let size = value;
-    let unit = 0;
-    while (size >= 1024 && unit < units.length - 1) {
-      size /= 1024;
-      unit++;
-    }
-    const precision = unit === 0 || size >= 10 ? 0 : 1;
-    return `${size.toFixed(precision)} ${units[unit]}`;
-  }
-  async function requestBlob$2(url, proxyUrl, onProgress, language = "en") {
-    const done = log$m.time("Dictionary download", { host: safeHost(url) });
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
-    return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
-  }
-  function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language = "en") {
-    return new Promise((resolve, reject) => {
-      const handleLoad = (response) => {
-        if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$m.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
-          done();
-          resolve(response.response);
-          return;
-        }
-        if (response.status < 200 || response.status >= 300) {
-          log$m.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
-          done();
-          reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
-          return;
-        }
-        log$m.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
-        done();
-        reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
-      };
-      const result = userscriptRequest({
-        method: "GET",
-        url,
-        headers: { accept: "application/zip,application/octet-stream,*/*" },
-        responseType: "blob",
-        timeout: 12e4,
-        onprogress: (event) => {
-          if (event.lengthComputable && event.total > 0) {
-            onProgress?.(`${uiText(language, "dictionaryDownloadProgress")} ${Math.round(event.loaded / event.total * 100)}%...`);
-          }
-        },
-        onload: handleLoad,
-        onerror: () => {
-          log$m.warn("Dictionary download failed", { host: safeHost(url) });
-          done();
-          reject(new Error(uiText(language, "dictionaryDownloadFailed")));
-        },
-        ontimeout: () => {
-          log$m.warn("Dictionary download timed out", { host: safeHost(url) });
-          done();
-          reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
-        }
-      });
-      if (result && typeof result.then === "function") {
-        result.then(handleLoad, () => {
-          log$m.warn("Dictionary download failed", { host: safeHost(url) });
-          done();
-          reject(new Error(uiText(language, "dictionaryDownloadFailed")));
-        });
-      }
-    });
-  }
-  async function requestBlobViaFetch(url, proxyUrl, done, onProgress, language) {
-    const downloadUrl = dictionaryDownloadUrl(url);
-    if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done, language);
-    try {
-      return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language);
-    } catch (error) {
-      return handleDictionaryFetchError(url, downloadUrl, error, done, language);
-    }
-  }
-  function throwMissingDictionaryDownloadBridge(done, language) {
-    done();
-    throw new Error(uiText(language, "dictionaryDownloadNeedsBridge"));
-  }
-  async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language) {
-    const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
-    if (!response.ok) throwDictionaryHttpError(url, response.status, language);
-    const blob = await responseBlobWithProgress(response, onProgress, language);
-    log$m.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
-    done();
-    return blob;
-  }
-  async function responseBlobWithProgress(response, onProgress, language) {
-    if (!response.body || !onProgress) return response.blob();
-    const total = Number(response.headers.get("content-length") ?? 0);
-    const type = response.headers.get("content-type") || "application/zip";
-    const reader = response.body.getReader();
-    const chunks = [];
-    let loaded = 0;
-    for (; ; ) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      loaded += value.byteLength;
-      onProgress(formatDictionaryDownloadProgress(language, loaded, total));
-    }
-    const bytes = new Uint8Array(loaded);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return new Blob([bytes.buffer.slice(0)], { type });
-  }
-  function formatDictionaryDownloadProgress(language, loaded, total) {
-    const label = uiText(language, "dictionaryDownloadProgress");
-    if (total > 0) return `${label} ${formatPercent(loaded, total)} (${formatBytes(loaded)} / ${formatBytes(total)})...`;
-    return `${label} ${formatBytes(loaded)}...`;
-  }
-  function throwDictionaryHttpError(url, status, language) {
-    log$m.warn("Dictionary download HTTP error", { host: safeHost(url), status });
-    throw new Error(formatDictionaryDownloadFailed(language, status));
-  }
-  function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
-    const host = safeHost(url);
-    if (isDictionaryCorsError(error)) {
-      log$m.warn("Dictionary download CORS failed", { host, downloadUrl });
-      done();
-      throw new Error(uiText(language, "dictionaryDownloadBlocked"));
-    }
-    log$m.warn("Dictionary download fetch failed", { host, error });
-    done();
-    throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
-  }
-  function formatDictionaryDownloadFailed(language, status) {
-    return language === "ja" ? `${uiText(language, "dictionaryDownloadFailed")}（${status}）` : `Dictionary download failed (${status}).`;
-  }
-  function isDictionaryCorsError(error) {
-    return error instanceof Error && error.name === "TypeError";
-  }
-  function dictionaryDownloadUrl(url) {
-    try {
-      const target = new URL(url, location.href);
-      const current = new URL(location.href);
-      if (target.origin === current.origin) return target.href;
-      if (target.protocol === "https:" || target.protocol === "http:") return target.href;
-      return null;
-    } catch {
-      return url;
-    }
-  }
-  const TERM_MATCH_SELECTION_COMPARATORS = [
-    compareTermMatchLengthDescending,
-    compareTermMatchDeinflectionDepth,
-    compareTermMatchStart,
-    compareTermMatchDictionaryName,
-    compareTermMatchEntryScoreDescending
-  ];
-  function dictionaryRank(preferences) {
-    const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
-    return rank;
-  }
-  function dictionaryEnabled(dictionary, rank) {
-    return rank.get(dictionary)?.enabled ?? true;
-  }
-  function dictionaryPriority(dictionary, rank) {
-    return rank.get(dictionary)?.priority ?? 9999;
-  }
-  function compareMetaEntries(a, b, rank) {
-    return compareMetaModes(a, b) || compareMetaEntriesWithinMode(a, b, rank);
-  }
-  function compareMetaModes(a, b) {
-    return metaModePriority(a) - metaModePriority(b);
-  }
-  function metaModePriority(entry) {
-    return entry.mode === "freq" ? 0 : 1;
-  }
-  function compareMetaEntriesWithinMode(a, b, rank) {
-    return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
-  }
-  function compareFrequencyMetaEntries(a, b, rank) {
-    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank(a.data) - frequencyRank(b.data) || compareDictionaryName(a, b);
-  }
-  function jpdbFrequencyPriority(entry) {
-    return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
-  }
-  function compareDictionaryMetaEntries(a, b, rank) {
-    return compareDictionaryPriority(a, b, rank) || compareDictionaryName(a, b);
-  }
-  function compareDictionaryPriority(a, b, rank) {
-    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank);
-  }
-  function compareDictionaryName(a, b) {
-    return a.dictionary.localeCompare(b.dictionary);
-  }
-  function extractFrequency(value) {
-    const rank = frequencyRank(value);
-    return Number.isFinite(rank) ? rank : void 0;
-  }
-  function nonOverlappingMatches(matches, limit) {
-    const selected = [];
-    const occupied = [];
-    const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
-    for (const match of matches.sort(compareTermMatchesForSelection)) {
-      if (overlaps(match)) continue;
-      selected.push(match);
-      occupied.push([match.start, match.end]);
-      if (selected.length >= limit) break;
-    }
-    const result = selected.sort((a, b) => a.start - b.start);
-    return result;
-  }
-  function compareTermMatchesForSelection(a, b) {
-    for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
-      const result = compare(a, b);
-      if (result) return result;
-    }
-    return 0;
-  }
-  function compareTermMatchLengthDescending(a, b) {
-    return b.end - b.start - (a.end - a.start);
-  }
-  function compareTermMatchDeinflectionDepth(a, b) {
-    return (a.deinflected?.depth ?? 0) - (b.deinflected?.depth ?? 0);
-  }
-  function compareTermMatchStart(a, b) {
-    return a.start - b.start;
-  }
-  function compareTermMatchDictionaryName(a, b) {
-    return a.entry.dictionary.localeCompare(b.entry.dictionary);
-  }
-  function compareTermMatchEntryScoreDescending(a, b) {
-    return (b.entry.score ?? 0) - (a.entry.score ?? 0);
-  }
-  function isJpdbFrequencyDictionary(dictionary) {
-    return /jpdb/i.test(dictionary);
-  }
-  function frequencyRank(value) {
-    if (typeof value === "number") return value;
-    if (typeof value === "string") return rankFromFrequencyString(value);
-    const nested = nestedFrequencyValue(value);
-    return nested === void 0 ? Number.POSITIVE_INFINITY : frequencyRank(nested);
-  }
-  function rankFromFrequencyString(value) {
-    return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
-  }
-  function nestedFrequencyValue(value) {
-    if (!value || typeof value !== "object") return void 0;
-    const record = value;
-    return record.frequency ?? record.value ?? record.displayValue;
-  }
-  const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
-  const GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS = /* @__PURE__ */ new Set(["description", "alt", "title"]);
-  function glossaryValueToText(value) {
-    return glossaryValueToProfileText(value, {
-      includeDirectDataAttributes: true,
-      fallbackTextKeys: GLOSSARY_DISPLAY_TEXT_KEYS
-    });
-  }
-  function glossaryValueToSearchText(value) {
-    return glossaryValueToProfileText(value, {
-      includeDirectDataAttributes: false,
-      fallbackTextKeys: GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS
-    });
-  }
-  function normalizeGlossarySearchText(value) {
-    return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}\s'-]+/gu, " ").replace(/\s+/g, " ").trim();
-  }
-  function glossaryValueToProfileText(value, options) {
-    const primitiveText = primitiveGlossaryText(value);
-    if (primitiveText !== void 0) return primitiveText;
-    if (Array.isArray(value)) {
-      return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
-    }
-    return isRecord$3(value) ? glossaryRecordToText(value, options) : "";
-  }
-  function primitiveGlossaryText(value) {
-    if (value == null) return "";
-    if (typeof value === "string") return value;
-    if (typeof value === "number" || typeof value === "boolean") return String(value);
-    return void 0;
-  }
-  function glossaryRecordToText(record, options) {
-    if (typeof record.text === "string") return record.text;
-    if ("content" in record) return glossaryValueToProfileText(record.content, options);
-    const values = glossaryRecordTextValues(record, options);
-    if (values.length) return values.join(" ");
-    if ("path" in record) return glossaryPathRecordText(record);
-    return "";
-  }
-  function glossaryPathRecordText(record) {
-    return String(record.description || record.alt || "");
-  }
-  function glossaryRecordTextValues(record, options) {
-    const values = [];
-    for (const [key, childValue] of Object.entries(record)) {
-      if (!shouldReadRecordTextKey(key, options)) continue;
-      const childText = glossaryValueToProfileText(childValue, options);
-      if (childText) values.push(childText);
-    }
-    return values;
-  }
-  function shouldReadRecordTextKey(key, options) {
-    return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
-  }
-  function isRecord$3(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  }
-  const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
-    "br",
-    "ruby",
-    "rt",
-    "rp",
-    "thead",
-    "tbody",
-    "tfoot",
-    "tr",
-    "th",
-    "td",
-    "div",
-    "span",
-    "ol",
-    "ul",
-    "li",
-    "details",
-    "summary"
-  ]);
-  const STRUCTURED_STYLE_PROPERTIES = {
-    fontStyle: "font-style",
-    fontWeight: "font-weight",
-    fontSize: "font-size",
-    color: "color",
-    background: "background",
-    backgroundColor: "background-color",
-    textDecorationStyle: "text-decoration-style",
-    textDecorationColor: "text-decoration-color",
-    borderColor: "border-color",
-    borderStyle: "border-style",
-    borderRadius: "border-radius",
-    borderWidth: "border-width",
-    clipPath: "clip-path",
-    verticalAlign: "vertical-align",
-    textAlign: "text-align",
-    textEmphasis: "text-emphasis",
-    textShadow: "text-shadow",
-    margin: "margin",
-    marginTop: "margin-top",
-    marginLeft: "margin-left",
-    marginRight: "margin-right",
-    marginBottom: "margin-bottom",
-    padding: "padding",
-    paddingTop: "padding-top",
-    paddingLeft: "padding-left",
-    paddingRight: "padding-right",
-    paddingBottom: "padding-bottom",
-    wordBreak: "word-break",
-    whiteSpace: "white-space",
-    cursor: "cursor",
-    listStyleType: "list-style-type"
-  };
-  const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
-  function renderStructuredGlossaryHtml(value, dictionary = "", options = {}) {
-    return renderGlossaryValue(value, {
-      dictionary,
-      internalSearchLinks: options.internalSearchLinks ?? false
-    });
-  }
-  function renderGlossaryValue(value, context) {
-    if (value == null) return "";
-    if (isStructuredPrimitive(value)) return escapeHtml(String(value));
-    if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$2(value)) return "";
-    return renderGlossaryRecord(value, context);
-  }
-  function isStructuredPrimitive(value) {
-    return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
-  }
-  function renderGlossaryArray(value, context) {
-    return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
-  }
-  function renderGlossaryRecord(record, context) {
-    return renderDirectGlossaryRecord(record, context) ?? renderTaggedGlossaryRecord(record, context);
-  }
-  const DIRECT_GLOSSARY_RECORD_RENDERERS = [
-    renderTextGlossaryRecord,
-    renderStructuredContentGlossaryRecord,
-    renderImageGlossaryRecord,
-    renderTextContentGlossaryRecord
-  ];
-  function renderDirectGlossaryRecord(record, context) {
-    for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
-      const html = render(record, context);
-      if (html !== null) return html;
-    }
-    return null;
-  }
-  function renderTextGlossaryRecord(record) {
-    return typeof record.text === "string" ? escapeHtml(record.text) : null;
-  }
-  function renderStructuredContentGlossaryRecord(record, context) {
-    return record.type === "structured-content" ? renderStructuredContent(record, context) : null;
-  }
-  function renderImageGlossaryRecord(record, context) {
-    return isStructuredImageRecord(record) ? renderStructuredImage(record, context.dictionary) : null;
-  }
-  function renderTextContentGlossaryRecord(record, context) {
-    return record.type === "text" && "content" in record ? renderGlossaryValue(record.content, context) : null;
-  }
-  function renderStructuredContent(record, context) {
-    const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
-    return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record.content, context)}</span>`;
-  }
-  function renderTaggedGlossaryRecord(record, context) {
-    const tag = structuredRecordTag(record);
-    if (!tag) return renderRecordValues(record, context);
-    return renderKnownTaggedGlossaryRecord(record, tag, context) ?? structuredFallbackContent(record, taggedRecordContent(record, tag, context));
-  }
-  function renderKnownTaggedGlossaryRecord(record, tag, context) {
-    if (tag === "a") return renderStructuredLink(record, context);
-    if (tag === "img") return renderStructuredImage(record, context.dictionary);
-    const content = taggedRecordContent(record, tag, context);
-    if (tag === "table") return renderStructuredTable(record, content, context.dictionary);
-    if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record, tag, content, context.dictionary);
-    return null;
-  }
-  function taggedRecordContent(record, tag, context) {
-    return tag === "br" ? "" : renderGlossaryValue(record.content, context);
-  }
-  function structuredFallbackContent(record, content) {
-    return content || escapeHtml(glossaryValueToText(record));
-  }
-  function structuredRecordTag(record) {
-    if (typeof record.tag === "string") return record.tag.toLowerCase();
-    return "content" in record ? "span" : "";
-  }
-  function renderRecordValues(record, context) {
-    return Object.values(record).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
-  }
-  function renderStructuredTable(record, content, dictionary) {
-    return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record, "table", dictionary)}>${content}</table></div>`;
-  }
-  function renderStructuredElement(record, tag, content, dictionary) {
-    const attrs = renderStructuredElementAttributes(record, tag, dictionary);
-    return tag === "br" ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
-  }
-  function renderStructuredElementAttributes(record, tag, dictionary) {
-    return [
-      ` class="gloss-sc-${escapeHtml(tag)}"`,
-      dictionaryDataAttribute(dictionary),
-      renderStructuredDataAttributes(record.data),
-      renderDirectDataAttributes(record),
-      structuredStyleAttribute(record.style),
-      structuredStringAttribute("title", record.title),
-      structuredStringAttribute("lang", record.lang),
-      ...structuredStateAttributes(record, tag)
-    ].filter(Boolean).join("");
-  }
-  function dictionaryDataAttribute(dictionary) {
-    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
-  }
-  function structuredStyleAttribute(value) {
-    const style = renderStructuredStyle(value);
-    return style ? ` style="${escapeHtml(style)}"` : "";
-  }
-  function structuredStringAttribute(name, value) {
-    return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
-  }
-  function structuredStateAttributes(record, tag) {
-    return [
-      tag === "details" && record.open === true ? " open" : "",
-      tableCellSpanAttribute(record, tag, "colSpan", "colspan"),
-      tableCellSpanAttribute(record, tag, "rowSpan", "rowspan")
-    ];
-  }
-  function tableCellSpanAttribute(record, tag, key, attr) {
-    const value = Number(record[key]);
-    return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
-  }
-  function isTableCellTag(tag) {
-    return tag === "td" || tag === "th";
-  }
-  function renderStructuredDataAttributes(value) {
-    if (!value || typeof value !== "object" || Array.isArray(value)) return "";
-    return Object.entries(value).map(([key, rawValue]) => renderStructuredDataAttribute(key, rawValue)).filter(Boolean).join("");
-  }
-  function renderStructuredDataAttribute(key, rawValue) {
-    return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"` : "";
-  }
-  function isStructuredAttributeValue(value) {
-    return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
-  }
-  function renderDirectDataAttributes(record) {
-    return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join("");
-  }
-  function renderDirectDataAttribute([key, value]) {
-    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
-  }
-  function isDirectDataAttribute(key, value) {
-    return key.startsWith("data-") && isStructuredAttributeValue(value);
-  }
-  function renderStructuredStyle(value) {
-    const style = structuredStyleRecord(value);
-    if (!style) return "";
-    const declarations = [];
-    const decoration = structuredTextDecoration(style.textDecorationLine);
-    if (decoration) declarations.push(decoration);
-    for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
-      const declaration = structuredStyleDeclaration(key, property, style[key]);
-      if (declaration) declarations.push(declaration);
-    }
-    return declarations.join("");
-  }
-  function structuredStyleRecord(value) {
-    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
-  }
-  function structuredTextDecoration(value) {
-    if (typeof value === "string") return `text-decoration:${value};`;
-    if (Array.isArray(value)) return `text-decoration:${value.map(String).join(" ")};`;
-    return "";
-  }
-  function structuredStyleDeclaration(key, property, rawValue) {
-    if (typeof rawValue === "string") return `${property}:${rawValue};`;
-    if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
-    return "";
-  }
-  function renderStructuredLink(record, context) {
-    const content = renderGlossaryValue(record.content, context) || escapeHtml(glossaryValueToText(record));
-    const link = structuredLinkModel(record, context);
-    const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
-    return `<a${structuredLinkAttrs(link, context.dictionary, record.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
-  }
-  function structuredLinkModel(record, context) {
-    const rawHref = typeof record.href === "string" ? record.href : "";
-    const searchReference = structuredLinkSearchReference(rawHref, context);
-    const kanjiReference = structuredLinkKanjiReference(rawHref, context);
-    const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
-    return {
-      href,
-      external: isExternalStructuredHref(href),
-      searchReference,
-      kanjiReference
-    };
-  }
-  function structuredLinkSearchReference(rawHref, context) {
-    return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
-  }
-  function structuredLinkKanjiReference(rawHref, context) {
-    return context.internalSearchLinks ? parseStructuredKanjiReference(rawHref) : null;
-  }
-  function structuredLinkHref(rawHref, searchReference, kanjiReference) {
-    if (searchReference) return "#jpdb-reader-dictionary-lookup";
-    if (kanjiReference) return "#jpdb-reader-kanji-lookup";
-    return normalizeStructuredHref(rawHref);
-  }
-  function isExternalStructuredHref(href) {
-    return Boolean(href && !href.startsWith(locationOrigin()) && !href.startsWith("#"));
-  }
-  function structuredLinkAttrs(link, dictionary, lang) {
-    return [
-      ' class="gloss-link"',
-      ` data-external="${link.external}"`,
-      dictionaryAttribute(dictionary),
-      kanjiReferenceActionAttribute(link),
-      searchReferenceQueryAttribute(link),
-      searchReferenceReadingAttribute(link),
-      hrefAttribute(link.href),
-      externalLinkAttributes(link.external),
-      langAttribute(lang)
-    ].join("");
-  }
-  function kanjiReferenceActionAttribute(link) {
-    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
-  }
-  function dictionaryAttribute(dictionary) {
-    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
-  }
-  function searchReferenceQueryAttribute(link) {
-    return link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : "";
-  }
-  function searchReferenceReadingAttribute(link) {
-    return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : "";
-  }
-  function hrefAttribute(href) {
-    return href ? ` href="${escapeHtml(href)}"` : "";
-  }
-  function externalLinkAttributes(external) {
-    return external ? ' target="_blank" rel="noopener noreferrer"' : "";
-  }
-  function langAttribute(lang) {
-    return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
-  }
-  function renderStructuredImage(record, dictionary) {
-    const path = typeof record.path === "string" ? record.path : "";
-    const title = typeof record.title === "string" ? record.title : "";
-    const description = structuredImageDescription(record);
-    const src = structuredImageSrc(path);
-    const alt = escapeHtml(description || title || "Dictionary image");
-    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
-    return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
-  }
-  function renderStructuredImageAttributes(record, dictionary) {
-    return [
-      ` class="gloss-image-link"`,
-      dictionaryAttribute(dictionary),
-      structuredImageStateAttribute(record)
-    ].join("");
-  }
-  function structuredImageStateAttribute(record) {
-    const path = typeof record.path === "string" ? record.path : "";
-    return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
-  }
-  function structuredImageSrc(path) {
-    return /^data:image\//i.test(path) ? path : "";
-  }
-  function structuredImageDescription(record) {
-    if (typeof record.description === "string") return record.description;
-    return typeof record.alt === "string" ? record.alt : "";
-  }
-  function isStructuredImageRecord(record) {
-    return record.type === "image" || "path" in record;
-  }
-  function normalizeStructuredHref(href) {
-    if (!href) return "";
-    if (/^https?:\/\//i.test(href) || href.startsWith("#")) return href;
-    if (href.startsWith("?")) return `https://jpdb.io/search${href}`;
-    return "";
-  }
-  function parseStructuredSearchReference(href) {
-    if (!href.startsWith("?")) return null;
-    const params = structuredSearchParams(href);
-    return params ? structuredSearchReferenceFromParams(params) : null;
-  }
-  function parseStructuredKanjiReference(href) {
-    const match = /^(?:https:\/\/jpdb\.io)?\/kanji\/([^/?#]+)/i.exec(href.trim());
-    if (!match) return null;
-    const value = decodeStructuredPathSegment(match[1]);
-    const kanji = Array.from(value).find(isStructuredKanjiCharacter) ?? "";
-    return kanji ? { kanji } : null;
-  }
-  function decodeStructuredPathSegment(value) {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  }
-  function isStructuredKanjiCharacter(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
-  }
-  function structuredSearchParams(href) {
-    try {
-      return new URLSearchParams(href.slice(1));
-    } catch {
-      return null;
-    }
-  }
-  function structuredSearchReferenceFromParams(params) {
-    const query = (params.get("query") ?? "").trim();
-    return query ? { query, reading: (params.get("primary_reading") ?? "").trim() } : null;
-  }
-  function locationOrigin() {
-    try {
-      return location.origin;
-    } catch {
-      return "";
-    }
-  }
-  function camelToKebabCase(value) {
-    return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
-  }
-  function isRecord$2(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  }
-  function escapeHtml(value) {
-    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-  function glossaryToText(value) {
-    return glossaryValueToText(value);
-  }
-  function glossaryToHtml(value, dictionary = "", options = {}) {
-    const html = renderStructuredGlossaryHtml(value, dictionary, options);
-    return html;
-  }
-  function renderDictionaryScopedStyles(dictionaries, preferences = []) {
-    const rank = dictionaryRank(preferences);
-    const css = dictionaries.filter((dictionary) => dictionaryEnabled(dictionary.title, rank)).map((dictionary) => {
-      const styles = dictionary.styles?.trim();
-      if (!styles) return "";
-      return scopeDictionaryStyles(styles, dictionaryScopeSelector(dictionary.title));
-    }).filter(Boolean).join("\n");
-    return css;
-  }
-  function dictionaryScopeSelector(dictionary) {
-    return `[data-dictionary="${dictionary.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`;
-  }
-  function scopeDictionaryStyles(styles, scope) {
-    return splitTopLevelCssBlocks(styles).map((block) => scopeDictionaryStyleBlock(block, scope)).filter(Boolean).join("\n");
-  }
-  function scopeDictionaryStyleBlock(block, scope) {
-    const openIndex = block.indexOf("{");
-    const closeIndex = block.lastIndexOf("}");
-    if (openIndex < 0 || closeIndex <= openIndex) return "";
-    const selector = block.slice(0, openIndex).trim();
-    const declarations = block.slice(openIndex + 1, closeIndex).trim();
-    if (!hasCssRuleParts(selector, declarations)) return "";
-    if (selector.startsWith("@")) {
-      const scopedInner = splitTopLevelCssBlocks(declarations).map((innerBlock) => scopeDictionaryStyleBlock(innerBlock, scope)).filter(Boolean).join("\n");
-      return renderScopedAtRule(selector, declarations, scopedInner);
-    }
-    const scopedSelectors = splitSelectorList(selector).map((part) => `${scope} ${part.trim()}`).join(", ");
-    return `${scopedSelectors} { ${declarations} }`;
-  }
-  function hasCssRuleParts(selector, declarations) {
-    return Boolean(selector && declarations);
-  }
-  function renderScopedAtRule(selector, declarations, scopedInner) {
-    return scopedInner ? `${selector} {
-${scopedInner}
-}` : `${selector} { ${declarations} }`;
-  }
-  function splitTopLevelCssBlocks(styles) {
-    const state = { blocks: [], depth: 0, start: 0, inString: null, escaped: false };
-    for (let index = 0; index < styles.length; index++) {
-      const character = styles[index];
-      if (consumeStringScanCharacter(state, character)) continue;
-      if (openStringScan(state, character)) continue;
-      if (openCssBlock(state, styles, index, character)) continue;
-      closeCssBlock(state, styles, index, character);
-    }
-    return state.blocks;
-  }
-  function openCssBlock(state, styles, index, character) {
-    if (character !== "{") return false;
-    if (state.depth === 0) state.start = findSelectorStart(styles, index);
-    state.depth++;
-    return true;
-  }
-  function closeCssBlock(state, styles, index, character) {
-    if (character !== "}" || state.depth === 0) return;
-    state.depth--;
-    if (state.depth > 0) return;
-    state.blocks.push(styles.slice(state.start, index + 1).trim());
-    state.start = index + 1;
-  }
-  function splitSelectorList(selector) {
-    const state = { selectors: [], start: 0, bracketDepth: 0, parenDepth: 0, inString: null, escaped: false };
-    for (let index = 0; index < selector.length; index++) {
-      const character = selector[index];
-      if (consumeStringScanCharacter(state, character)) continue;
-      if (openStringScan(state, character)) continue;
-      updateSelectorDepth(state, character);
-      if (!isSelectorSeparator(state, character)) continue;
-      state.selectors.push(selector.slice(state.start, index).trim());
-      state.start = index + 1;
-    }
-    state.selectors.push(selector.slice(state.start).trim());
-    return state.selectors.filter(Boolean);
-  }
-  function consumeStringScanCharacter(state, character) {
-    if (!state.inString) return false;
-    if (state.escaped) state.escaped = false;
-    else if (character === "\\") state.escaped = true;
-    else if (character === state.inString) state.inString = null;
-    return true;
-  }
-  function openStringScan(state, character) {
-    if (character !== '"' && character !== "'") return false;
-    state.inString = character;
-    return true;
-  }
-  function updateSelectorDepth(state, character) {
-    if (character === "[") state.bracketDepth++;
-    if (character === "]") state.bracketDepth = Math.max(0, state.bracketDepth - 1);
-    if (character === "(") state.parenDepth++;
-    if (character === ")") state.parenDepth = Math.max(0, state.parenDepth - 1);
-  }
-  function isSelectorSeparator(state, character) {
-    return character === "," && state.bracketDepth === 0 && state.parenDepth === 0;
-  }
-  function findSelectorStart(styles, openIndex) {
-    const separators = ["}", ";"];
-    let start = 0;
-    for (let index = openIndex - 1; index >= 0; index--) {
-      if (!separators.includes(styles[index])) continue;
-      start = index + 1;
-      break;
-    }
-    return start;
-  }
-  var u8 = Uint8Array, u16 = Uint16Array, i32 = Int32Array;
-  var fleb = new u8([
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
-    1,
-    1,
-    2,
-    2,
-    2,
-    2,
-    3,
-    3,
-    3,
-    3,
-    4,
-    4,
-    4,
-    4,
-    5,
-    5,
-    5,
-    5,
-    0,
-    /* unused */
-    0,
-    0,
-    /* impossible */
-    0
-  ]);
-  var fdeb = new u8([
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
-    2,
-    2,
-    3,
-    3,
-    4,
-    4,
-    5,
-    5,
-    6,
-    6,
-    7,
-    7,
-    8,
-    8,
-    9,
-    9,
-    10,
-    10,
-    11,
-    11,
-    12,
-    12,
-    13,
-    13,
-    /* unused */
-    0,
-    0
-  ]);
-  var clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
-  var freb = function(eb, start) {
-    var b = new u16(31);
-    for (var i = 0; i < 31; ++i) {
-      b[i] = start += 1 << eb[i - 1];
-    }
-    var r = new i32(b[30]);
-    for (var i = 1; i < 30; ++i) {
-      for (var j = b[i]; j < b[i + 1]; ++j) {
-        r[j] = j - b[i] << 5 | i;
-      }
-    }
-    return { b, r };
-  };
-  var _a = freb(fleb, 2), fl = _a.b, revfl = _a.r;
-  fl[28] = 258, revfl[258] = 28;
-  var _b = freb(fdeb, 0), fd = _b.b;
-  var rev = new u16(32768);
-  for (var i = 0; i < 32768; ++i) {
-    var x = (i & 43690) >> 1 | (i & 21845) << 1;
-    x = (x & 52428) >> 2 | (x & 13107) << 2;
-    x = (x & 61680) >> 4 | (x & 3855) << 4;
-    rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
-  }
-  var hMap = function(cd, mb, r) {
-    var s = cd.length;
-    var i = 0;
-    var l = new u16(mb);
-    for (; i < s; ++i) {
-      if (cd[i])
-        ++l[cd[i] - 1];
-    }
-    var le = new u16(mb);
-    for (i = 1; i < mb; ++i) {
-      le[i] = le[i - 1] + l[i - 1] << 1;
-    }
-    var co;
-    {
-      co = new u16(1 << mb);
-      var rvb = 15 - mb;
-      for (i = 0; i < s; ++i) {
-        if (cd[i]) {
-          var sv = i << 4 | cd[i];
-          var r_1 = mb - cd[i];
-          var v = le[cd[i] - 1]++ << r_1;
-          for (var m = v | (1 << r_1) - 1; v <= m; ++v) {
-            co[rev[v] >> rvb] = sv;
-          }
-        }
-      }
-    }
-    return co;
-  };
-  var flt = new u8(288);
-  for (var i = 0; i < 144; ++i)
-    flt[i] = 8;
-  for (var i = 144; i < 256; ++i)
-    flt[i] = 9;
-  for (var i = 256; i < 280; ++i)
-    flt[i] = 7;
-  for (var i = 280; i < 288; ++i)
-    flt[i] = 8;
-  var fdt = new u8(32);
-  for (var i = 0; i < 32; ++i)
-    fdt[i] = 5;
-  var flrm = /* @__PURE__ */ hMap(flt, 9);
-  var fdrm = /* @__PURE__ */ hMap(fdt, 5);
-  var max = function(a) {
-    var m = a[0];
-    for (var i = 1; i < a.length; ++i) {
-      if (a[i] > m)
-        m = a[i];
-    }
-    return m;
-  };
-  var bits = function(d, p, m) {
-    var o = p / 8 | 0;
-    return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
-  };
-  var bits16 = function(d, p) {
-    var o = p / 8 | 0;
-    return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
-  };
-  var shft = function(p) {
-    return (p + 7) / 8 | 0;
-  };
-  var slc = function(v, s, e) {
-    if (e == null || e > v.length)
-      e = v.length;
-    return new u8(v.subarray(s, e));
-  };
-  var ec = [
-    "unexpected EOF",
-    "invalid block type",
-    "invalid length/literal",
-    "invalid distance",
-    "stream finished",
-    "no stream handler",
-    ,
-    "no callback",
-    "invalid UTF-8 data",
-    "extra field too long",
-    "date not in range 1980-2099",
-    "filename too long",
-    "stream finishing",
-    "invalid zip data"
-    // determined by unknown compression method
-  ];
-  var err = function(ind, msg, nt) {
-    var e = new Error(msg || ec[ind]);
-    e.code = ind;
-    if (Error.captureStackTrace)
-      Error.captureStackTrace(e, err);
-    if (!nt)
-      throw e;
-    return e;
-  };
-  var inflt = function(dat, st, buf, dict) {
-    var sl = dat.length, dl = 0;
-    if (!sl || st.f && !st.l)
-      return buf || new u8(0);
-    var noBuf = !buf;
-    var resize = noBuf || st.i != 2;
-    var noSt = st.i;
-    if (noBuf)
-      buf = new u8(sl * 3);
-    var cbuf = function(l2) {
-      var bl = buf.length;
-      if (l2 > bl) {
-        var nbuf = new u8(Math.max(bl * 2, l2));
-        nbuf.set(buf);
-        buf = nbuf;
-      }
-    };
-    var final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n;
-    var tbts = sl * 8;
-    do {
-      if (!lm) {
-        final = bits(dat, pos, 1);
-        var type = bits(dat, pos + 1, 3);
-        pos += 3;
-        if (!type) {
-          var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
-          if (t > sl) {
-            if (noSt)
-              err(0);
-            break;
-          }
-          if (resize)
-            cbuf(bt + l);
-          buf.set(dat.subarray(s, t), bt);
-          st.b = bt += l, st.p = pos = t * 8, st.f = final;
-          continue;
-        } else if (type == 1)
-          lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
-        else if (type == 2) {
-          var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4;
-          var tl = hLit + bits(dat, pos + 5, 31) + 1;
-          pos += 14;
-          var ldt = new u8(tl);
-          var clt = new u8(19);
-          for (var i = 0; i < hcLen; ++i) {
-            clt[clim[i]] = bits(dat, pos + i * 3, 7);
-          }
-          pos += hcLen * 3;
-          var clb = max(clt), clbmsk = (1 << clb) - 1;
-          var clm = hMap(clt, clb);
-          for (var i = 0; i < tl; ) {
-            var r = clm[bits(dat, pos, clbmsk)];
-            pos += r & 15;
-            var s = r >> 4;
-            if (s < 16) {
-              ldt[i++] = s;
-            } else {
-              var c = 0, n = 0;
-              if (s == 16)
-                n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i - 1];
-              else if (s == 17)
-                n = 3 + bits(dat, pos, 7), pos += 3;
-              else if (s == 18)
-                n = 11 + bits(dat, pos, 127), pos += 7;
-              while (n--)
-                ldt[i++] = c;
-            }
-          }
-          var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
-          lbt = max(lt);
-          dbt = max(dt);
-          lm = hMap(lt, lbt);
-          dm = hMap(dt, dbt);
-        } else
-          err(1);
-        if (pos > tbts) {
-          if (noSt)
-            err(0);
-          break;
-        }
-      }
-      if (resize)
-        cbuf(bt + 131072);
-      var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1;
-      var lpos = pos;
-      for (; ; lpos = pos) {
-        var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
-        pos += c & 15;
-        if (pos > tbts) {
-          if (noSt)
-            err(0);
-          break;
-        }
-        if (!c)
-          err(2);
-        if (sym < 256)
-          buf[bt++] = sym;
-        else if (sym == 256) {
-          lpos = pos, lm = null;
-          break;
-        } else {
-          var add = sym - 254;
-          if (sym > 264) {
-            var i = sym - 257, b = fleb[i];
-            add = bits(dat, pos, (1 << b) - 1) + fl[i];
-            pos += b;
-          }
-          var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
-          if (!d)
-            err(3);
-          pos += d & 15;
-          var dt = fd[dsym];
-          if (dsym > 3) {
-            var b = fdeb[dsym];
-            dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
-          }
-          if (pos > tbts) {
-            if (noSt)
-              err(0);
-            break;
-          }
-          if (resize)
-            cbuf(bt + 131072);
-          var end = bt + add;
-          if (bt < dt) {
-            var shift = dl - dt, dend = Math.min(dt, end);
-            if (shift + bt < 0)
-              err(3);
-            for (; bt < dend; ++bt)
-              buf[bt] = dict[shift + bt];
-          }
-          for (; bt < end; ++bt)
-            buf[bt] = buf[bt - dt];
-        }
-      }
-      st.l = lm, st.p = lpos, st.b = bt, st.f = final;
-      if (lm)
-        final = 1, st.m = lbt, st.d = dm, st.n = dbt;
-    } while (!final);
-    return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
-  };
-  var et = /* @__PURE__ */ new u8(0);
-  function inflateSync(data, opts) {
-    return inflt(data, { i: 2 }, opts, opts);
-  }
-  var td = typeof TextDecoder != "undefined" && /* @__PURE__ */ new TextDecoder();
-  var tds = 0;
-  try {
-    td.decode(et, { stream: true });
-    tds = 1;
-  } catch (e) {
-  }
-  const ZIP_END_SIGNATURE = 101010256;
-  const ZIP_CENTRAL_SIGNATURE = 33639248;
-  const ZIP_LOCAL_SIGNATURE = 67324752;
-  const ZIP_UTF8_FLAG = 2048;
-  const ZIP_ENCRYPTED_FLAG = 1;
-  const ZIP_STORE_METHOD = 0;
-  const ZIP_DEFLATE_METHOD = 8;
-  const ZIP64_MARKER_16 = 65535;
-  const ZIP64_MARKER_32 = 4294967295;
-  const MAX_ZIP_COMMENT_BYTES = 65535;
-  const textDecoder = new TextDecoder();
-  class ZipArchive {
-    constructor(archiveBytes, files) {
-      this.archiveBytes = archiveBytes;
-      this.files = files;
-    }
-    entries() {
-      return [...this.files.values()].map(({ name, compressedSize, uncompressedSize }) => ({ name, compressedSize, uncompressedSize }));
-    }
-    async text(name, onProgress) {
-      const entry = this.files.get(name);
-      if (!entry) throw new Error(`${name} not found.`);
-      onProgress?.({ name, loaded: 0, total: zipEntryProgressTotal(entry) });
-      const bytes = await this.fileBytes(entry);
-      onProgress?.({ name, loaded: bytes.byteLength, total: zipEntryProgressTotal(entry) });
-      return textDecoder.decode(bytes);
-    }
-    async bytes(name) {
-      const entry = this.files.get(name);
-      if (!entry) throw new Error(`${name} not found.`);
-      return this.fileBytes(entry);
-    }
-    async fileBytes(entry) {
-      if (entry.encrypted) throw new Error(`Encrypted ZIP entries are not supported: ${entry.name}`);
-      const compressed = localFileBytes(this.archiveBytes, entry);
-      if (entry.compressionMethod === ZIP_STORE_METHOD) return compressed;
-      if (entry.compressionMethod === ZIP_DEFLATE_METHOD) return inflateRaw(compressed);
-      throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod}: ${entry.name}`);
-    }
-  }
-  async function readZipArchive(file, onProgress) {
-    const bytes = await readBlobBytes(file, onProgress);
-    const files = readZipCentralDirectory(bytes);
-    onProgress?.({ phase: "directory", loaded: bytes.byteLength, total: file.size || bytes.byteLength, entries: files.size });
-    return new ZipArchive(bytes, files);
-  }
-  async function readBlobBytes(file, onProgress) {
-    const total = file.size;
-    if (!onProgress || typeof file.stream !== "function") {
-      const bytes2 = new Uint8Array(await readBlobArrayBuffer(file));
-      onProgress?.({ phase: "read", loaded: bytes2.byteLength, total: total || bytes2.byteLength });
-      return bytes2;
-    }
-    const reader = file.stream().getReader();
-    const chunks = [];
-    let loaded = 0;
-    onProgress({ phase: "read", loaded, total });
-    for (; ; ) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      chunks.push(value);
-      loaded += value.byteLength;
-      onProgress({ phase: "read", loaded, total });
-    }
-    const bytes = new Uint8Array(loaded);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return bytes;
-  }
-  function readZipCentralDirectory(bytes) {
-    const view = dataView(bytes);
-    const endOffset = findZipEndRecord(view);
-    const entryCount = view.getUint16(endOffset + 10, true);
-    const directorySize = view.getUint32(endOffset + 12, true);
-    const directoryOffset = view.getUint32(endOffset + 16, true);
-    if (entryCount === ZIP64_MARKER_16 || directorySize === ZIP64_MARKER_32 || directoryOffset === ZIP64_MARKER_32) {
-      throw new Error("ZIP64 dictionaries are not supported.");
-    }
-    const files = /* @__PURE__ */ new Map();
-    const directoryEnd = directoryOffset + directorySize;
-    let offset = directoryOffset;
-    for (let index = 0; index < entryCount && offset < directoryEnd; index++) {
-      const entry = readCentralEntry(bytes, view, offset);
-      offset = entry.nextOffset;
-      if (!entry.file.name.endsWith("/")) files.set(entry.file.name, entry.file);
-    }
-    return files;
-  }
-  function findZipEndRecord(view) {
-    const minOffset = Math.max(0, view.byteLength - MAX_ZIP_COMMENT_BYTES - 22);
-    for (let offset = view.byteLength - 22; offset >= minOffset; offset--) {
-      if (view.getUint32(offset, true) === ZIP_END_SIGNATURE) return offset;
-    }
-    throw new Error("Invalid ZIP archive: end record not found.");
-  }
-  function readCentralEntry(bytes, view, offset) {
-    assertSignature(view, offset, ZIP_CENTRAL_SIGNATURE, "central directory entry");
-    const flags = view.getUint16(offset + 8, true);
-    const nameLength = view.getUint16(offset + 28, true);
-    const extraLength = view.getUint16(offset + 30, true);
-    const commentLength = view.getUint16(offset + 32, true);
-    const nameStart = offset + 46;
-    const name = decodeZipName(bytes.subarray(nameStart, nameStart + nameLength), flags);
-    return {
-      file: {
-        name,
-        compressionMethod: view.getUint16(offset + 10, true),
-        encrypted: Boolean(flags & ZIP_ENCRYPTED_FLAG),
-        compressedSize: view.getUint32(offset + 20, true),
-        uncompressedSize: view.getUint32(offset + 24, true),
-        localHeaderOffset: view.getUint32(offset + 42, true)
-      },
-      nextOffset: nameStart + nameLength + extraLength + commentLength
-    };
-  }
-  function localFileBytes(bytes, entry) {
-    const view = dataView(bytes);
-    assertSignature(view, entry.localHeaderOffset, ZIP_LOCAL_SIGNATURE, "local file header");
-    const nameLength = view.getUint16(entry.localHeaderOffset + 26, true);
-    const extraLength = view.getUint16(entry.localHeaderOffset + 28, true);
-    const start = entry.localHeaderOffset + 30 + nameLength + extraLength;
-    const end = start + entry.compressedSize;
-    if (end > bytes.length) throw new Error(`Invalid ZIP entry bounds: ${entry.name}`);
-    return bytes.subarray(start, end);
-  }
-  function zipEntryProgressTotal(entry) {
-    return entry.uncompressedSize || entry.compressedSize;
-  }
-  async function inflateRaw(bytes) {
-    if (typeof DecompressionStream === "function") {
-      try {
-        return await inflateRawWithStream(bytes);
-      } catch {
-      }
-    }
-    try {
-      return inflateSync(bytes);
-    } catch (error) {
-      throw error instanceof Error ? new Error(`This browser could not import compressed ZIP dictionaries: ${error.message}`) : new Error("This browser could not import compressed ZIP dictionaries.");
-    }
-  }
-  async function inflateRawWithStream(bytes) {
-    const stream = new Blob([arrayBufferSlice(bytes)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-    return new Uint8Array(await new Response(stream).arrayBuffer());
-  }
-  function assertSignature(view, offset, expected, label) {
-    if (offset < 0 || offset + 4 > view.byteLength || view.getUint32(offset, true) !== expected) {
-      throw new Error(`Invalid ZIP archive: ${label} not found.`);
-    }
-  }
-  function decodeZipName(bytes, flags) {
-    return new TextDecoder(flags & ZIP_UTF8_FLAG ? "utf-8" : void 0).decode(bytes);
-  }
-  function dataView(bytes) {
-    return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  }
-  function arrayBufferSlice(bytes) {
-    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-  }
-  function readBlobArrayBuffer(blob) {
-    if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
-    return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
-  }
-  Logger.scope("YomitanSettingsImport");
-  const DB_NAME = "jpdb-popup-reader-yomitan";
-  const DB_VERSION = 4;
-  const DEXIE_IMPORT_BATCH_SIZE = 5e3;
-  const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
-  const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
-  const STORE_WRITE_BATCH_SIZE = 1e3;
-  const ZIP_IMPORT_FLUSH_ENTRY_LIMIT = 1e4;
-  const HOT_LOOKUP_CACHE_TTL_MS = 2e3;
-  const TOP_TERM_EXPRESSION_ENTRY_LIMIT = 500;
-  const TERM_SEARCH_INDEX_BATCH_SIZE = 300;
-  const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
-  const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
-  const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
-  const TERM_SEARCH_PREFIX_BOUNDARY = String.fromCharCode(63743);
-  const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12e3;
-  const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
-  const TERM_SEARCH_INDEX_CURSOR_MAX_ROWS = 8e3;
-  const TERM_SEARCH_INDEX_CURSOR_MAX_MS = 180;
-  const TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT = 240;
-  const RANDOM_TERM_LIST_MAX_ROWS = 2e4;
-  const RANDOM_TERM_LIST_MAX_MS = 220;
-  const RANDOM_TOP_TERM_LIST_MAX_ROWS = 3e4;
-  const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
-  const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
-  const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
-  const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
-  const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
-  const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-  const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$l = Logger.scope("Yomitan");
-  let persistentStorageRequested = false;
-  function requestPersistentDictionaryStorage() {
-    if (persistentStorageRequested) return;
-    persistentStorageRequested = true;
-    try {
-      void navigator.storage?.persist?.().then((granted) => {
-        log$l.info("Persistent storage request", { granted });
-      }).catch(() => void 0);
-    } catch {
-    }
-  }
-  class YomitanDictionaryStore {
-    constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
-      this.getCorsProxyUrl = getCorsProxyUrl;
-      this.getInterfaceLanguage = getInterfaceLanguage;
-    }
-    dbPromise;
-    dictionaryInfoPromise;
-    summaryPromise;
-    dictionaryStyleCssCache = /* @__PURE__ */ new Map();
-    termSearchIndexPromise;
-    termKanjiIndexPromise;
-    termKanjiIndexReady = false;
-    termIndexGeneration = 0;
-    hotLookupCache = /* @__PURE__ */ new Map();
-    text(key) {
-      return uiText(this.getInterfaceLanguage(), key);
-    }
-    prepareTermSearchIndex() {
-      if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
-      const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$l.warn("Term search index preparation failed", { error });
-      }).finally(() => {
-        if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
-      });
-      this.termSearchIndexPromise = promise;
-      return this.termSearchIndexPromise;
-    }
-    hotLookupCacheKey(kind, values, preferences) {
-      return JSON.stringify([kind, ...values, normalizeDictionaryPreferences(preferences)]);
-    }
-    getHotLookup(key, factory) {
-      const now = performance.now();
-      const cached = this.hotLookupCache.get(key);
-      if (cached && cached.expiresAt > now) return cached.promise;
-      const entry = {
-        expiresAt: Number.POSITIVE_INFINITY,
-        promise: Promise.resolve().then(factory).then(
-          (value) => {
-            entry.expiresAt = performance.now() + HOT_LOOKUP_CACHE_TTL_MS;
-            return value;
-          },
-          (error) => {
-            if (this.hotLookupCache.get(key) === entry) this.hotLookupCache.delete(key);
-            throw error;
-          }
-        )
-      };
-      this.hotLookupCache.set(key, entry);
-      return entry.promise;
-    }
-    async lookup(expression, reading, limit, preferences = []) {
-      return this.getHotLookup(
-        this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
-        async () => {
-          const done = log$l.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
-          try {
-            const db = await this.db();
-            const entries = await this.getTermLookupEntries(
-              db,
-              expression,
-              reading && reading !== expression ? reading : "",
-              Math.max(limit * 40, 500),
-              Math.max(limit * 20, 250)
-            );
-            const rank = dictionaryRank(preferences);
-            const seen = /* @__PURE__ */ new Set();
-            const results = rankedDictionaryEntries(
-              entries,
-              rank,
-              void 0,
-              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
-            ).filter((entry) => {
-              const key = termLookupDedupKey(entry);
-              if (seen.has(key)) return false;
-              seen.add(key);
-              return true;
-            }).slice(0, limit);
-            return results;
-          } catch (error) {
-            log$l.warn("Term lookup failed", { expression, reading, error });
-            throw error;
-          } finally {
-            done();
-          }
-        }
-      );
-    }
-    async searchTerms(query, limit, preferences = [], options = {}) {
-      const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$l.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
-      if (!normalizedQuery) {
-        done();
-        return [];
-      }
-      try {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const candidateLimit = options.candidateLimit ?? Math.max(limit * 24, TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT);
-        const [indexedEntries, glossaryCandidates] = await Promise.all([
-          this.getIndexedTermSearchEntries(db, normalizedQuery, Math.max(limit * 12, 120)),
-          shouldSearchTermGlossaries(normalizedQuery) ? this.getGlossaryTermSearchCandidates(db, normalizedQuery, candidateLimit, rank, options) : Promise.resolve([])
-        ]);
-        const candidates = [
-          ...indexedEntries.map((entry) => ({ entry, rank: indexedTermSearchRank(entry, normalizedQuery) })),
-          ...glossaryCandidates
-        ];
-        return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
-      } catch (error) {
-        log$l.warn("Term search failed", { query: normalizedQuery, error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async lookupKanji(text2, limit, preferences = []) {
-      return this.getHotLookup(
-        this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
-        async () => {
-          const done = log$l.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
-          try {
-            const db = await this.db();
-            const rank = dictionaryRank(preferences);
-            const characters = [...new Set(Array.from(text2).filter(isKanji))];
-            const entries = await this.getManyByIndex(db, "kanji", "character", characters, limit);
-            const results = rankedDictionaryEntries(entries, rank, limit);
-            return results;
-          } catch (error) {
-            log$l.warn("Kanji lookup failed", { length: text2.length, error });
-            throw error;
-          } finally {
-            done();
-          }
-        }
-      );
-    }
-    // NewTabController loads dictionary kanji through the injected store dependency.
-    // fallow-ignore-next-line unused-class-member
-    async listKanjiCharacters(limit, preferences = []) {
-      const done = log$l.time("Kanji character list", { limit, dictionaries: preferences.length });
-      try {
-        if (limit <= 0) return [];
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        return await this.getKanjiCharacters(db, limit, rank);
-      } catch (error) {
-        log$l.warn("Kanji character list failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async lookupTermMeta(expression, limit, preferences = []) {
-      return this.getHotLookup(
-        this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
-        async () => {
-          const done = log$l.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
-          try {
-            const db = await this.db();
-            const rank = dictionaryRank(preferences);
-            const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
-            const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
-            return results;
-          } catch (error) {
-            log$l.warn("Term metadata lookup failed", { expression, error });
-            throw error;
-          } finally {
-            done();
-          }
-        }
-      );
-    }
-    async lookupSimilarTermsByKanji(character, limit, preferences = []) {
-      return this.getHotLookup(
-        this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
-        async () => {
-          const done = log$l.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
-          try {
-            const db = await this.db();
-            const rank = dictionaryRank(preferences);
-            const entries = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
-            const results = entries.sort(
-              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
-            ).slice(0, limit);
-            return results;
-          } catch (error) {
-            log$l.warn("Similar terms by kanji lookup failed", { character, error });
-            throw error;
-          } finally {
-            done();
-          }
-        }
-      );
-    }
-    async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$l.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
-      const source = text2.slice(0, 240);
-      if (!source.trim()) {
-        done();
-        return [];
-      }
-      const candidates = this.collectTermMatchCandidates(source);
-      if (!candidates.size) {
-        done();
-        return [];
-      }
-      try {
-        const matches = await this.lookupTermMatchCandidates(candidates, preferences);
-        const results = nonOverlappingMatches(matches, limit);
-        return results;
-      } catch (error) {
-        log$l.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    collectTermMatchCandidates(source) {
-      const candidates = /* @__PURE__ */ new Map();
-      const maxLength = Math.min(18, source.length);
-      for (let start = 0; start < source.length; start++) {
-        if (!JAPANESE_CHARACTER_RE$1.test(source[start])) continue;
-        this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
-      }
-      return candidates;
-    }
-    collectTermMatchCandidatesAt(source, start, maxLength, candidates) {
-      for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
-        const surface = source.slice(start, start + length);
-        if (!isSearchableJapaneseSurface(surface)) continue;
-        this.addDeinflectedTermCandidates(surface, start, candidates);
-      }
-    }
-    addDeinflectedTermCandidates(surface, start, candidates) {
-      for (const deinflected of deinflectJapaneseTerm(surface)) {
-        if (!JAPANESE_RE$1.test(deinflected.term)) continue;
-        const positions = candidates.get(deinflected.term) ?? [];
-        positions.push({ start, end: start + surface.length, surface, deinflected });
-        candidates.set(deinflected.term, positions);
-      }
-    }
-    async lookupTermMatchCandidates(candidates, preferences) {
-      const db = await this.db();
-      const rank = dictionaryRank(preferences);
-      return await new Promise((resolve, reject) => {
-        const tx = db.transaction("terms", "readonly");
-        const store = tx.objectStore("terms");
-        const expressionIndex = store.index("expression");
-        const readingIndex = store.index("reading");
-        const results = [];
-        const expressions = sortedTermMatchExpressions(candidates);
-        let pending = expressions.length * 2;
-        const finish = () => {
-          if (--pending <= 0) resolve(results);
-        };
-        const addMatches = (expression, foundEntries) => {
-          results.push(...termMatchesForEntries(expression, foundEntries, candidates, rank));
-        };
-        for (const expression of expressions) {
-          requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
-          requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
-        }
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-    async summary() {
-      const done = log$l.time("Dictionary summary");
-      try {
-        if (this.summaryPromise) {
-          const summary2 = await this.summaryPromise;
-          return summary2;
-        }
-        const db = await this.db();
-        this.summaryPromise = Promise.all([
-          this.getAllDictionaryInfo(db),
-          this.countStore(db, "terms"),
-          this.countStore(db, "kanji"),
-          this.countStore(db, "termMeta"),
-          this.countStore(db, "kanjiMeta")
-        ]).then(([dictionaries, terms, kanji, termMeta, kanjiMeta]) => ({ dictionaries, terms, kanji, termMeta, kanjiMeta })).catch((error) => {
-          this.summaryPromise = void 0;
-          throw error;
-        });
-        const summary = await this.summaryPromise;
-        return summary;
-      } catch (error) {
-        log$l.warn("Dictionary summary failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async countEntries() {
-      const summary = await this.summary();
-      return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
-    }
-    // NewTabController checks local dictionary availability through this injected store.
-    // fallow-ignore-next-line unused-class-member
-    async hasDictionaries() {
-      const done = log$l.time("Dictionary presence check");
-      try {
-        const db = await this.db();
-        return (await this.getAllDictionaryInfo(db)).length > 0;
-      } catch (error) {
-        log$l.warn("Dictionary presence check failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    // Lookup parsing checks term dictionary availability through this injected store.
-    // fallow-ignore-next-line unused-class-member
-    async hasTermDictionaries() {
-      const done = log$l.time("Term dictionary presence check");
-      try {
-        const db = await this.db();
-        return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
-      } catch (error) {
-        log$l.warn("Term dictionary presence check failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$l.time("Random term listing", { limit, dictionaries: preferences.length });
-      try {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
-      } catch (error) {
-        log$l.warn("Random term listing failed", { limit, error });
-        return [];
-      } finally {
-        done();
-      }
-    }
-    async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$l.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
-      try {
-        const db = await this.db();
-        const rank = dictionaryRank(preferences);
-        const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank, {
-          maxRows: options.maxRows ?? RANDOM_TOP_TERM_LIST_MAX_ROWS,
-          maxMs: options.maxMs ?? RANDOM_TOP_TERM_LIST_MAX_MS
-        });
-        const results = await this.randomTopTermResults(db, topTerms, limit, rank, preferences, options);
-        if (options.fallbackToRandom !== false && this.shouldFallbackToRandomTerms(topTerms, results)) {
-          return await this.listRandomTerms(limit, preferences, {
-            maxRows: options.fallbackMaxRows,
-            maxMs: options.fallbackMaxMs
-          });
-        }
-        return results;
-      } catch (error) {
-        log$l.warn("Random top term listing failed", { limit, error });
-        return [];
-      } finally {
-        done();
-      }
-    }
-    async randomTopTermResults(db, topTerms, limit, rank, preferences, options) {
-      return topTerms.size ? await this.entriesForRandomExpressions(db, topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank, {
-        maxRows: options.fallbackMaxRows,
-        maxMs: options.fallbackMaxMs
-      });
-    }
-    shouldFallbackToRandomTerms(topTerms, results) {
-      return !topTerms.size && !results.length;
-    }
-    async collectTopFrequencyTerms(db, maxRank, rank, options = {}) {
-      const expressions = /* @__PURE__ */ new Map();
-      const maxRows = options.maxRows ?? RANDOM_TOP_TERM_LIST_MAX_ROWS;
-      const maxMs = options.maxMs ?? RANDOM_TOP_TERM_LIST_MAX_MS;
-      await scanObjectStoreCursor(
-        db,
-        { storeName: "termMeta", maxRows, maxMs, errorMessage: "Could not list dictionary term meta." },
-        (entry) => {
-          addTopFrequencyExpression(expressions, entry, maxRank, rank);
-        }
-      );
-      return expressions;
-    }
-    async entriesForRandomExpressions(db, expressions, limit, preferences) {
-      const sampled = reservoirSample([...expressions.keys()], limit);
-      const rank = dictionaryRank(preferences);
-      const entriesByExpression = await this.getEntriesForExpressions(db, sampled, TOP_TERM_EXPRESSION_ENTRY_LIMIT);
-      return sampled.flatMap((expression) => {
-        const entry = bestTermLookupEntry(entriesByExpression.get(expression) ?? [], expression, rank);
-        return entry ? [{ ...entry, jpdbFrequency: expressions.get(expression) }] : [];
-      });
-    }
-    async getEntriesForExpressions(db, expressions, limit) {
-      if (!expressions.length) return /* @__PURE__ */ new Map();
-      return new Promise((resolve, reject) => {
-        const results = /* @__PURE__ */ new Map();
-        const tx = db.transaction("terms", "readonly");
-        const index = tx.objectStore("terms").index("expression");
-        let pending = expressions.length;
-        const finish = () => {
-          if (--pending <= 0) resolve(results);
-        };
-        const fail = (error) => reject(error ?? new Error("Could not load top dictionary terms."));
-        for (const expression of expressions) {
-          readIndexRequestValues(
-            index,
-            IDBKeyRange.only(expression),
-            limit,
-            (entries) => {
-              results.set(expression, entries);
-              finish();
-            },
-            fail
-          );
-        }
-        tx.onerror = () => fail(tx.error);
-      });
-    }
-    async listRandomCommonTerms(db, limit, rank, options = {}) {
-      return await this.collectRandomTermReservoir(db, limit, rank, options, addCommonTermToReservoir);
-    }
-    async collectRandomTermReservoir(db, limit, rank, options, addTerm) {
-      const reservoir = [];
-      const seen = /* @__PURE__ */ new Set();
-      const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
-      const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
-      let count = 0;
-      await scanObjectStoreCursor(
-        db,
-        { storeName: "terms", maxRows, maxMs, errorMessage: "Could not list dictionary terms." },
-        (entry) => {
-          count = addTerm(entry, rank, seen, reservoir, limit, count);
-        }
-      );
-      return reservoir;
-    }
-    async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$l.time("Dictionary file import", fileSummary(file, sourceUrl));
-      try {
-        log$l.info("Dictionary file import started", fileSummary(file, sourceUrl));
-        requestPersistentDictionaryStorage();
-        const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$l.info("Dictionary file import completed", summary);
-        return summary;
-      } catch (error) {
-        log$l.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$l.info("Dictionary URL import started", { filename, host: safeHost(url) });
-      onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
-      const blob = await requestBlob$2(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
-      const file = namedBlobFile(blob, filename, blob.type || "application/zip");
-      const summary = await this.importFile(file, onProgress, url);
-      log$l.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
-      return summary;
-    }
-    async importZip(file, onProgress, sourceUrl = "") {
-      const language = this.getInterfaceLanguage();
-      onProgress?.(`${this.text("dictionaryReadingZip")} ${formatBytes(file.size)}...`);
-      const zip = await readZipArchive(file, (progress) => {
-        if (progress.phase === "read") {
-          onProgress?.(`${this.text("dictionaryReadingZip")} ${formatPercent(progress.loaded, progress.total)} (${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
-          return;
-        }
-        onProgress?.(`${this.text("dictionaryReadingZip")} ${progress.entries?.toLocaleString() ?? "0"} files found. ${uiText(language, "dictionaryCheckingIndex")}`);
-      });
-      const zipEntries = zip.entries();
-      onProgress?.(`${this.text("dictionaryReadingZip")} ${zipEntries.length.toLocaleString()} files found. ${uiText(language, "dictionaryCheckingIndex")}`);
-      const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
-      const dictionary = yomitanZipDictionaryName(index, file.name);
-      const version = yomitanZipVersion(index);
-      const bankCount = countYomitanZipBanks(zipEntries);
-      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${formatUiTemplate(uiText(language, "dictionaryBanksFound"), {
-      count: bankCount.toLocaleString(),
-      plural: bankCount === 1 ? "" : "s"
-    })}`);
-      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryRemovingExisting")}...`);
-      await this.deleteDictionary(dictionary);
-      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: preparing storage...`);
-      const db = await this.db();
-      const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
-      const summary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
-      let clearedTermIndexesForImport = false;
-      let importedTerms = false;
-      const importBank = async (pattern, label, store, normalize) => {
-        const files = zip.entries().filter((entry) => pattern.test(entry.name)).sort((a, b) => a.name.localeCompare(b.name, void 0, { numeric: true }));
-        let pending = [];
-        let saved = 0;
-        const flush = async () => {
-          if (!pending.length) return;
-          if (store === "terms" && !clearedTermIndexesForImport) {
-            await this.clearDerivedTermIndexes(db);
-            clearedTermIndexesForImport = true;
-          }
-          const entries = pending;
-          const parsed = summary[label];
-          pending = [];
-          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
-          await this.addToStore(store, entries, false, store !== "terms", (written) => {
-            onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
-          });
-          saved += entries.length;
-          if (store === "terms") importedTerms = true;
-        };
-        for (const [index2, bankFile] of files.entries()) {
-          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryReadingBank")} ${bankFile.name} (${index2 + 1}/${files.length}, ${formatBytes(bankFile.uncompressedSize)})...`);
-          const bankText = await zip.text(bankFile.name, (progress) => {
-            if (progress.loaded <= 0) return;
-            onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryReadingBank")} ${bankFile.name} (${index2 + 1}/${files.length}, ${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
-          });
-          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryParsingBank")} ${bankFile.name} (${index2 + 1}/${files.length})...`);
-          const rows = JSON.parse(bankText);
-          for (const row of rows) {
-            const entry = normalize(row);
-            if (!entry) continue;
-            if (store === "terms") await inlineStructuredImageDataUrls(zip, entry.glossary);
-            pending.push(entry);
-            summary[label]++;
-            summary.entries++;
-            if (pending.length >= ZIP_IMPORT_FLUSH_ENTRY_LIMIT) await flush();
-          }
-          await flush();
-        }
-        await flush();
-        if (files.length) {
-          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${label} ${saved.toLocaleString()} ${this.text("dictionaryEntries")} saved...`);
-        }
-      };
-      await importBank(/^term_bank_\d+\.json$/i, "terms", "terms", (row) => normalizeZipTermRow(row, dictionary));
-      await importBank(/^kanji_bank_\d+\.json$/i, "kanji", "kanji", (row) => normalizeZipKanjiRow(row, dictionary, version));
-      await importBank(/^term_meta_bank_\d+\.json$/i, "termMeta", "termMeta", (row) => normalizeZipTermMetaRow(row, dictionary));
-      await importBank(/^kanji_meta_bank_\d+\.json$/i, "kanjiMeta", "kanjiMeta", (row) => normalizeZipKanjiMetaRow(row, dictionary));
-      if (summary.entries === 0) throw new Error(this.text("dictionaryNoSupportedBanks"));
-      if (importedTerms) await this.clearDerivedTermIndexes(db);
-      info.counts = dictionaryCountsFromSummary(summary);
-      info.type = dictionaryTypeFromCounts(info.counts);
-      summary.dictionaryTypes = { [dictionary]: info.type };
-      await this.putDictionaryInfo(info);
-      log$l.info("ZIP dictionary import parsed", summary);
-      return summary;
-    }
-    async importJson(file, onProgress) {
-      const head = await readBlobText(file.slice(0, 4096));
-      if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
-        return this.importDexieJson(file, onProgress);
-      }
-      const json = JSON.parse(await readBlobText(file));
-      if (isReaderDictionaryExport(json)) {
-        return this.importReaderJson(json);
-      }
-      throw new Error(this.text("dictionaryUnsupportedJson"));
-    }
-    async importReaderJson(json) {
-      await this.clear();
-      const terms = readerExportTerms(json);
-      const dictionaryTypes = dictionaryTypesFromReaderExport(json);
-      const dictionaryNames = readerExportDictionaryNames(json, terms);
-      const dictionaries = readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes);
-      await Promise.all([
-        this.addToStore("dictionaryInfo", dictionaries, true),
-        this.addToStore("terms", terms, false, false),
-        this.addToStore("kanji", json.kanji ?? []),
-        this.addToStore("termMeta", json.termMeta ?? []),
-        this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
-      ]);
-      const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$l.info("JSON dictionary import parsed", summary);
-      return summary;
-    }
-    async importDexieJson(file, onProgress) {
-      onProgress?.("Streaming Yomitan dictionary export...");
-      await this.clear();
-      const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
-      const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
-      if (totalRows > 0) onProgress?.(`${this.text("dictionaryPreparingImport")} ${totalRows.toLocaleString()} ${this.text("dictionaryRecords")}...`);
-      const dictionaries = /* @__PURE__ */ new Set();
-      const dictionaryInfo = /* @__PURE__ */ new Map();
-      const dictionaryCounts = /* @__PURE__ */ new Map();
-      const summary = { dictionaries: [], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
-      const batches = { terms: [], kanji: [], termMeta: [], kanjiMeta: [] };
-      const progressAt = { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
-      const emitProgress = (message) => {
-        onProgress?.(message);
-      };
-      const reportProgress = (store, force = false) => {
-        if (!store) {
-          emitProgress(formatDexieImportProgress(this.text.bind(this), summary.entries, totalRows));
-          return;
-        }
-        const imported = summary[store];
-        const tableTotal = rowCounts[store] ?? 0;
-        if (!force && imported < progressAt[store]) return;
-        progressAt[store] = imported + DEXIE_PROGRESS_INTERVAL;
-        emitProgress(formatDexieStoreImportProgress(this.text.bind(this), store, imported, tableTotal, summary.entries, totalRows));
-      };
-      const flush = async (store, forceProgress = false) => {
-        const batch = batches[store];
-        if (!batch.length) return;
-        await this.addToStore(store, batch, false, store !== "terms");
-        batches[store] = [];
-        reportProgress(store, forceProgress);
-      };
-      const addBatch = async (store, entry) => {
-        batches[store].push(entry);
-        summary[store]++;
-        summary.entries++;
-        const dictionary = entry.dictionary;
-        if (typeof dictionary === "string") {
-          dictionaries.add(dictionary);
-          const counts = dictionaryCounts.get(dictionary) ?? {};
-          counts[store] = (counts[store] ?? 0) + 1;
-          dictionaryCounts.set(dictionary, counts);
-        }
-        if (batches[store].length >= DEXIE_IMPORT_BATCH_SIZE) {
-          await flush(store);
-        }
-      };
-      await streamDexieTables(file, {
-        dictionaries: async (row) => {
-          const info = normalizeDexieDictionaryRow(row);
-          if (!info) return;
-          dictionaries.add(info.title);
-          dictionaryInfo.set(info.title, info);
-        },
-        terms: async (row) => {
-          const entry = normalizeDexieTermRow(row);
-          if (entry) await addBatch("terms", entry);
-        },
-        kanji: async (row) => {
-          const entry = normalizeDexieKanjiRow(row);
-          if (entry) await addBatch("kanji", entry);
-        },
-        termMeta: async (row) => {
-          const entry = normalizeDexieTermMetaRow(row);
-          if (entry) await addBatch("termMeta", entry);
-        },
-        kanjiMeta: async (row) => {
-          const entry = normalizeDexieKanjiMetaRow(row);
-          if (entry) await addBatch("kanjiMeta", entry);
-        }
-      }, (table) => {
-        if (isEntryStoreName(table)) {
-          reportProgress(table, true);
-          return;
-        }
-        onProgress?.(`${this.text("dictionaryImporting")} Yomitan ${table}...`);
-      });
-      await Promise.all(importEntryStores().map((store) => flush(store, true)));
-      reportProgress(void 0, true);
-      summary.dictionaries = [...dictionaries];
-      summary.dictionaryTypes = {};
-      await Promise.all(summary.dictionaries.map((dictionary) => {
-        const counts = dictionaryCounts.get(dictionary) ?? {};
-        const info = dictionaryInfo.get(dictionary) ?? {
-          title: dictionary,
-          alias: dictionary,
-          enabled: true,
-          priority: dictionaryInfo.size,
-          importDate: Date.now()
-        };
-        info.counts = { ...info.counts ?? {}, ...counts };
-        info.type = dictionaryTypeFromCounts(info.counts);
-        summary.dictionaryTypes[dictionary] = info.type;
-        return this.putDictionaryInfo(info);
-      }));
-      log$l.info("Dexie dictionary import parsed", summary);
-      return summary;
-    }
-    // SettingsDialogController exports dictionaries through the injected store dependency.
-    // fallow-ignore-next-line unused-class-member
-    async exportJson() {
-      const done = log$l.time("Dictionary export");
-      try {
-        const db = await this.db();
-        const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
-          this.getAllFromStore(db, "dictionaryInfo"),
-          this.getAllFromStore(db, "terms"),
-          this.getAllFromStore(db, "kanji"),
-          this.getAllFromStore(db, "termMeta"),
-          this.getAllFromStore(db, "kanjiMeta")
-        ]);
-        log$l.info("Dictionary export prepared", {
-          dictionaries: dictionaries.length,
-          terms: terms.length,
-          kanji: kanji.length,
-          termMeta: termMeta.length,
-          kanjiMeta: kanjiMeta.length
-        });
-        return new Blob([JSON.stringify({
-          formatName: "yomu-yomitan-dictionaries",
-          formatVersion: 2,
-          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          dictionaries,
-          terms,
-          kanji,
-          termMeta,
-          kanjiMeta
-        })], { type: "application/json" });
-      } catch (error) {
-        log$l.warn("Dictionary export failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async dictionaryStyleCss(preferences = []) {
-      try {
-        const cacheKey = JSON.stringify(normalizeDictionaryPreferences(preferences));
-        const cached = this.dictionaryStyleCssCache.get(cacheKey);
-        if (cached !== void 0) {
-          return cached;
-        }
-        const db = await this.db();
-        const dictionaries = await this.getAllDictionaryInfo(db);
-        const css = renderDictionaryScopedStyles(dictionaries, preferences);
-        this.dictionaryStyleCssCache.set(cacheKey, css);
-        return css;
-      } catch (error) {
-        log$l.warn("Dictionary stylesheet render failed", { error });
-        throw error;
-      }
-    }
-    async clear() {
-      const done = log$l.time("Dictionary store clear");
-      try {
-        const db = await this.db();
-        await this.clearDictionaryStores(db);
-        this.invalidateCaches();
-        log$l.info("Dictionary store cleared");
-      } catch (error) {
-        log$l.warn("Dictionary store clear failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async resetDatabase(options = {}) {
-      const done = log$l.time("Dictionary database factory reset");
-      let cleared = false;
-      try {
-        await this.clear();
-        cleared = true;
-        await this.deleteDatabase({ timeoutMs: options.deleteTimeoutMs ?? DB_FACTORY_RESET_DELETE_TIMEOUT_MS });
-        return { cleared, deleted: true };
-      } catch (error) {
-        if (!cleared) {
-          log$l.warn("Dictionary reset pre-clear failed", { error });
-          throw error;
-        }
-        log$l.warn("Dictionary delete incomplete after clear", { error });
-        return { cleared, deleted: false };
-      } finally {
-        done();
-      }
-    }
-    async invalidateForFactoryReset() {
-      const dbPromise = this.dbPromise;
-      this.dbPromise = void 0;
-      this.invalidateCaches();
-      if (!dbPromise) return;
-      try {
-        const db = await dbPromise;
-        db.close();
-        log$l.info("Dictionary DB closed for reset", { name: DB_NAME });
-      } catch {
-      }
-    }
-    async deleteDatabase(options = {}) {
-      const done = log$l.time("Dictionary database delete");
-      try {
-        const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
-        const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
-        db?.close();
-        this.dbPromise = void 0;
-        this.invalidateCaches();
-        await new Promise((resolve, reject) => {
-          let blocked = false;
-          let settled = false;
-          const timeout = globalThis.setTimeout(() => {
-            if (settled) return;
-            settled = true;
-            reject(new Error(blocked ? "Dictionary database reset is still waiting on another open Yomu tab. Reload the other Yomu tabs, then try again." : "Dictionary database reset timed out."));
-          }, timeoutMs);
-          const settle = (callback) => {
-            if (settled) return;
-            settled = true;
-            globalThis.clearTimeout(timeout);
-            callback();
-          };
-          const request = indexedDB.deleteDatabase(DB_NAME);
-          request.onsuccess = () => settle(resolve);
-          request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
-          request.onblocked = () => {
-            blocked = true;
-            log$l.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
-          };
-        });
-        log$l.info("Dictionary database deleted", { name: DB_NAME });
-      } catch (error) {
-        log$l.warn("Dictionary database delete failed", { error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async deleteDictionary(dictionary) {
-      const done = log$l.time("Dictionary delete", { dictionary });
-      try {
-        const db = await this.db();
-        const dictionaries = await this.getAllDictionaryInfo(db);
-        if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$l.info("Dictionary delete skipped; not installed", { dictionary });
-          return;
-        }
-        if (dictionaries.length === 1) {
-          await this.clearDictionaryStores(db);
-          this.invalidateCaches();
-          log$l.info("Only installed dictionary cleared", { dictionary });
-          return;
-        }
-        const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
-        for (const store of stores) {
-          await deleteByDictionary(db, store, dictionary);
-        }
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction("dictionaryInfo", "readwrite");
-          tx.objectStore("dictionaryInfo").delete(dictionary);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
-          tx.onabort = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
-        });
-        await this.clearDerivedTermIndexes(db);
-        this.invalidateCaches();
-        log$l.info("Dictionary deleted", { dictionary });
-      } catch (error) {
-        log$l.warn("Dictionary delete failed", { dictionary, error });
-        throw error;
-      } finally {
-        done();
-      }
-    }
-    async putDictionaryInfo(info) {
-      await this.addToStore("dictionaryInfo", [info], true);
-    }
-    async clearDictionaryStores(db) {
-      this.termIndexGeneration++;
-      await clearStores(db, existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]));
-      this.termKanjiIndexReady = false;
-    }
-    async addToStore(storeName, entries, put = false, clearTermIndexes = true, onChunk) {
-      if (!entries.length) return;
-      const db = await this.db();
-      if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
-      let written = 0;
-      for (let start = 0; start < entries.length; start += STORE_WRITE_BATCH_SIZE) {
-        const chunk = entries.slice(start, start + STORE_WRITE_BATCH_SIZE);
-        await this.addStoreChunk(db, storeName, chunk, put);
-        written += chunk.length;
-        onChunk?.(written, entries.length);
-        await nextTask();
-      }
-    }
-    addStoreChunk(db, storeName, entries, put) {
-      return new Promise((resolve, reject) => {
-        const tx = readwriteTransaction(db, storeName);
-        const store = tx.objectStore(storeName);
-        for (const entry of entries) {
-          put ? store.put(entry) : store.add(entry);
-        }
-        tx.oncomplete = () => {
-          this.invalidateCaches();
-          resolve();
-        };
-        tx.onerror = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
-        tx.onabort = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
-        commitTransaction(tx);
-      });
-    }
-    async getByIndex(db, storeName, indexName, value, limit) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, "readonly");
-        const index = tx.objectStore(storeName).index(indexName);
-        readIndexRequestValues(index, IDBKeyRange.only(value), limit, resolve, reject);
-      });
-    }
-    async getManyByIndex(db, storeName, indexName, values, limit) {
-      if (!values.length) return [];
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, "readonly");
-        const index = tx.objectStore(storeName).index(indexName);
-        const results = [];
-        let pending = values.length;
-        const finish = () => {
-          if (--pending <= 0) resolve(results);
-        };
-        const fail = (error) => reject(error ?? new Error(`Could not read ${storeName} entries.`));
-        for (const value of values) {
-          readIndexRequestValues(
-            index,
-            IDBKeyRange.only(value),
-            limit,
-            (entries) => {
-              results.push(...entries);
-              finish();
-            },
-            fail
-          );
-        }
-        tx.onerror = () => fail(tx.error);
-      });
-    }
-    async getTermLookupEntries(db, expression, reading, expressionLimit, readingLimit) {
-      const queries = [
-        { indexName: "expression", range: IDBKeyRange.only(expression), limit: expressionLimit },
-        ...reading ? [{ indexName: "reading", range: IDBKeyRange.only(reading), limit: readingLimit }] : []
-      ];
-      return this.getTermIndexEntries(db, queries);
-    }
-    async getSimilarTermEntriesByKanji(db, character, candidateLimit, rank) {
-      if (hasStore(db, "termKanji")) {
-        await this.ensureTermKanjiIndex(db);
-        return this.getTermKanjiIndexEntries(db, character, candidateLimit, rank);
-      }
-      return this.getSimilarTermCursorEntries(db, character, candidateLimit, rank, {
-        maxRows: TERM_KANJI_INDEX_FALLBACK_MAX_ROWS,
-        maxMs: TERM_KANJI_INDEX_FALLBACK_MAX_MS
-      });
-    }
-    async getTermKanjiIndexEntries(db, character, candidateLimit, rank) {
-      return new Promise((resolve, reject) => {
-        const entries = [];
-        const seen = /* @__PURE__ */ new Set();
-        const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
-        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor || entries.length >= candidateLimit) {
-            resolve(entries);
-            return;
-          }
-          const row = cursor.value;
-          if (dictionaryEnabled(row.dictionary, rank)) {
-            const entry = termEntryFromKanjiEntry(row);
-            const key = `${entry.expression}
-${entry.reading}`;
-            if (!seen.has(key)) {
-              seen.add(key);
-              entries.push(entry);
-            }
-          }
-          cursor.continue();
-        };
-      });
-    }
-    async getSimilarTermCursorEntries(db, character, candidateLimit, rank, options = {}) {
-      return new Promise((resolve, reject) => {
-        const entries = [];
-        const seen = /* @__PURE__ */ new Set();
-        const startedAt = performance.now();
-        let visited = 0;
-        const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
-        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionaries."));
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor || entries.length >= candidateLimit) {
-            resolve(entries);
-            return;
-          }
-          if (optionalCursorScanLimitReached(options, visited, startedAt)) {
-            resolve(entries);
-            return;
-          }
-          visited++;
-          const entry = cursor.value;
-          addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank);
-          cursor.continue();
-        };
-      });
-    }
-    async getIndexedTermSearchEntries(db, query, limit) {
-      return this.getTermIndexEntries(db, [
-        { indexName: "expression", range: IDBKeyRange.only(query), limit },
-        { indexName: "reading", range: IDBKeyRange.only(query), limit },
-        { indexName: "expression", range: termSearchPrefixRange(query), limit },
-        { indexName: "reading", range: termSearchPrefixRange(query), limit }
-      ]);
-    }
-    async getTermIndexEntries(db, queries) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("terms", "readonly");
-        const store = tx.objectStore("terms");
-        const entries = [];
-        let pending = queries.length;
-        const finish = () => {
-          if (--pending <= 0) resolve(entries);
-        };
-        const fail = (error) => reject(error ?? new Error("Could not search local dictionary terms."));
-        for (const item of queries) {
-          readIndexRequestValues(
-            store.index(item.indexName),
-            item.range,
-            item.limit,
-            (found) => {
-              entries.push(...found);
-              finish();
-            },
-            fail
-          );
-        }
-        tx.onerror = () => fail(tx.error);
-      });
-    }
-    async getGlossaryTermSearchCandidates(db, query, candidateLimit, rank, options = {}) {
-      if (!hasStore(db, "termSearch")) {
-        return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank);
-      }
-      return this.getGlossaryTermSearchCandidatesWithIndex(db, query, candidateLimit, rank, options);
-    }
-    async getGlossaryTermSearchCandidatesWithIndex(db, query, candidateLimit, rank, options) {
-      const indexed = await this.getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, glossaryIndexSearchOptions(options));
-      if (indexed.length) return indexed;
-      const building = Boolean(this.termSearchIndexPromise);
-      const indexedCount = await this.countStore(db, "termSearch");
-      if (hasReadyEmptyGlossarySearchIndex(indexedCount, building)) return indexed;
-      this.prepareTermSearchIndexIfIdle(building, options);
-      if (shouldSkipGlossaryFallback(building, options)) return indexed;
-      return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, glossaryFallbackSearchOptions(options));
-    }
-    prepareTermSearchIndexIfIdle(building, options) {
-      if (building) return;
-      if (options.prepareIndex === false) return;
-      void this.prepareTermSearchIndex();
-    }
-    async getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, options = {}) {
-      const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
-      return this.collectGlossaryTermSearchCandidates(
-        request,
-        query,
-        candidateLimit,
-        rank,
-        options,
-        "Could not search local dictionary glossaries.",
-        (entry) => {
-          trimTermSearchCandidates(entry.candidates, candidateLimit, query, rank);
-        },
-        false
-      );
-    }
-    async getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, options = {}) {
-      const token = termSearchIndexToken(query);
-      if (!token) return [];
-      const request = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(termSearchPrefixRange(token));
-      return this.collectGlossaryTermSearchCandidates(
-        request,
-        query,
-        candidateLimit,
-        rank,
-        options,
-        "Could not search local dictionary glossary index.",
-        void 0,
-        true,
-        (entry) => termEntryFromSearchEntry(entry)
-      );
-    }
-    async collectGlossaryTermSearchCandidates(request, query, candidateLimit, rank, options, errorMessage, afterPush, stopAtCandidateLimit = true, entryFromCursorValue = (entry) => entry) {
-      return new Promise((resolve, reject) => {
-        const candidates = [];
-        const startedAt = performance.now();
-        let visited = 0;
-        request.onerror = () => reject(request.error ?? new Error(errorMessage));
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor || stopAtCandidateLimit && candidates.length >= candidateLimit || glossaryCursorSearchExpired(options, visited, startedAt)) {
-            resolve(candidates);
-            return;
-          }
-          visited++;
-          const entry = cursor.value;
-          if (dictionaryEnabled(entry.dictionary, rank)) {
-            const searchRank = glossaryTermSearchRank(entry.glossary, query);
-            if (searchRank < Number.POSITIVE_INFINITY) {
-              candidates.push({ entry: entryFromCursorValue(entry), rank: searchRank });
-              afterPush?.({ candidates });
-            }
-          }
-          cursor.continue();
-        };
-      });
-    }
-    async getAllDictionaryInfo(db) {
-      this.dictionaryInfoPromise ??= this.getAllFromStore(db, "dictionaryInfo").then((items) => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title))).catch((error) => {
-        this.dictionaryInfoPromise = void 0;
-        throw error;
-      });
-      return this.dictionaryInfoPromise;
-    }
-    async getAllFromStore(db, storeName) {
-      return new Promise((resolve, reject) => {
-        const results = [];
-        const request = db.transaction(storeName, "readonly").objectStore(storeName).openCursor();
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor) {
-            resolve(results);
-            return;
-          }
-          results.push(cursor.value);
-          cursor.continue();
-        };
-        request.onerror = () => reject(request.error);
-      });
-    }
-    async getKanjiCharacters(db, limit, rank) {
-      return new Promise((resolve, reject) => {
-        const characters = [];
-        const seen = /* @__PURE__ */ new Set();
-        const request = db.transaction("kanji", "readonly").objectStore("kanji").openCursor();
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor || characters.length >= limit) {
-            resolve(characters);
-            return;
-          }
-          const entry = cursor.value;
-          if (dictionaryEnabled(entry.dictionary, rank) && isKanji(entry.character) && !seen.has(entry.character)) {
-            seen.add(entry.character);
-            characters.push(entry.character);
-          }
-          cursor.continue();
-        };
-        request.onerror = () => reject(request.error);
-      });
-    }
-    async ensureTermSearchIndex(db) {
-      if (!hasStore(db, "termSearch")) return;
-      const [terms, indexed] = await Promise.all([
-        this.countStore(db, "terms"),
-        this.countStore(db, "termSearch")
-      ]);
-      if (!terms || indexed) return;
-      await this.rebuildTermSearchIndex(db);
-    }
-    async ensureTermKanjiIndex(db) {
-      if (!hasStore(db, "termKanji") || this.termKanjiIndexReady) return;
-      const [terms, indexed] = await Promise.all([
-        this.countStore(db, "terms"),
-        this.countStore(db, "termKanji")
-      ]);
-      if (!terms || indexed) {
-        this.termKanjiIndexReady = true;
-        return;
-      }
-      if (!this.termKanjiIndexPromise) {
-        this.termKanjiIndexPromise = this.rebuildTermKanjiIndex(db).then(() => {
-          this.termKanjiIndexReady = true;
-        }).finally(() => {
-          this.termKanjiIndexPromise = void 0;
-        });
-      }
-      await this.termKanjiIndexPromise;
-    }
-    async rebuildTermSearchIndex(db) {
-      const done = log$l.time("Term search index rebuild");
-      const generation = this.termIndexGeneration;
-      try {
-        await this.clearTermSearchIndex(db);
-        let indexedTerms = 0;
-        let lastKey;
-        for (; ; ) {
-          if (generation !== this.termIndexGeneration) return;
-          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
-          if (!chunk.terms.length) break;
-          if (generation !== this.termIndexGeneration) return;
-          await this.addTermSearchIndexChunk(db, chunk.terms);
-          indexedTerms += chunk.terms.length;
-          await nextTask();
-          if (chunk.done) break;
-          lastKey = chunk.lastKey;
-        }
-        log$l.info("Term search index rebuilt", { terms: indexedTerms });
-      } finally {
-        done();
-      }
-    }
-    async rebuildTermKanjiIndex(db) {
-      const done = log$l.time("Term kanji index rebuild");
-      const generation = this.termIndexGeneration;
-      try {
-        await this.clearTermKanjiIndex(db);
-        let indexedTerms = 0;
-        let lastKey;
-        for (; ; ) {
-          if (generation !== this.termIndexGeneration) return;
-          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
-          if (!chunk.terms.length) break;
-          if (generation !== this.termIndexGeneration) return;
-          await this.addTermKanjiIndexChunk(db, chunk.terms);
-          indexedTerms += chunk.terms.length;
-          await nextTask();
-          if (chunk.done) break;
-          lastKey = chunk.lastKey;
-        }
-        log$l.info("Term kanji index rebuilt", { terms: indexedTerms });
-      } finally {
-        done();
-      }
-    }
-    getTermSearchIndexSourceChunk(db, afterKey, limit) {
-      return new Promise((resolve, reject) => {
-        const terms = [];
-        let lastKey = afterKey;
-        const range = afterKey == null ? void 0 : IDBKeyRange.lowerBound(afterKey, true);
-        const request = db.transaction("terms", "readonly").objectStore("terms").openCursor(range);
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-          const cursor = request.result;
-          if (!cursor) {
-            resolve({ terms, lastKey, done: true });
-            return;
-          }
-          terms.push(cursor.value);
-          lastKey = cursor.key;
-          if (terms.length >= limit) {
-            resolve({ terms, lastKey, done: false });
-            return;
-          }
-          cursor.continue();
-        };
-      });
-    }
-    clearTermSearchIndex(db) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("termSearch", "readwrite");
-        tx.objectStore("termSearch").clear();
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-    clearTermKanjiIndex(db) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction("termKanji", "readwrite");
-        tx.objectStore("termKanji").clear();
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-    async clearDerivedTermIndexes(db) {
-      this.termIndexGeneration++;
-      const stores = existingStores(db, ["termSearch", "termKanji"]);
-      if (!stores.length) return;
-      await clearStores(db, stores);
-      this.termKanjiIndexReady = false;
-    }
-    addTermSearchIndexChunk(db, terms) {
-      return this.addDerivedTermIndexChunk(db, "termSearch", terms, termSearchEntries);
-    }
-    addTermKanjiIndexChunk(db, terms) {
-      return this.addDerivedTermIndexChunk(db, "termKanji", terms, termKanjiEntries);
-    }
-    addDerivedTermIndexChunk(db, storeName, terms, rowsForTerm) {
-      return new Promise((resolve, reject) => {
-        const tx = db.transaction(storeName, "readwrite");
-        const store = tx.objectStore(storeName);
-        for (const term of terms) {
-          for (const row of rowsForTerm(term)) store.add(row);
-        }
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-        tx.onabort = () => reject(tx.error);
-        commitTransaction(tx);
-      });
-    }
-    countStore(db, storeName) {
-      return new Promise((resolve, reject) => {
-        if (!db.objectStoreNames.contains(storeName)) {
-          resolve(0);
-          return;
-        }
-        const request = db.transaction(storeName, "readonly").objectStore(storeName).count();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      });
-    }
-    db() {
-      this.dbPromise ??= new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onupgradeneeded = (event) => {
-          const db = request.result;
-          const tx = request.transaction;
-          log$l.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
-          const terms = ensureStore(db, tx, "terms");
-          ensureIndex(terms, "expression", "expression");
-          ensureIndex(terms, "reading", "reading");
-          ensureIndex(terms, "dictionary", "dictionary");
-          const kanji = ensureStore(db, tx, "kanji");
-          ensureIndex(kanji, "character", "character");
-          ensureIndex(kanji, "dictionary", "dictionary");
-          const termMeta = ensureStore(db, tx, "termMeta");
-          ensureIndex(termMeta, "expression", "expression");
-          ensureIndex(termMeta, "dictionary", "dictionary");
-          const kanjiMeta = ensureStore(db, tx, "kanjiMeta");
-          ensureIndex(kanjiMeta, "character", "character");
-          ensureIndex(kanjiMeta, "dictionary", "dictionary");
-          if (!db.objectStoreNames.contains("dictionaryInfo")) {
-            db.createObjectStore("dictionaryInfo", { keyPath: "title" });
-          }
-          const termSearch = ensureStore(db, tx, "termSearch");
-          ensureIndex(termSearch, "token", "token");
-          ensureIndex(termSearch, "dictionary", "dictionary");
-          const termKanji = ensureStore(db, tx, "termKanji");
-          ensureIndex(termKanji, "character", "character");
-          ensureIndex(termKanji, "dictionary", "dictionary");
-        };
-        request.onsuccess = () => {
-          const db = request.result;
-          this.installVersionChangeHandler(db);
-          resolve(db);
-        };
-        request.onerror = () => {
-          log$l.warn("Dictionary database open failed", { error: request.error });
-          reject(request.error);
-        };
-      });
-      return this.dbPromise;
-    }
-    installVersionChangeHandler(db) {
-      db.onversionchange = (event) => {
-        log$l.info("Dictionary DB version change; closing", {
-          name: DB_NAME,
-          oldVersion: event.oldVersion,
-          newVersion: event.newVersion
-        });
-        db.close();
-        this.dbPromise = void 0;
-        this.invalidateCaches();
-      };
-    }
-    invalidateCaches() {
-      this.dictionaryInfoPromise = void 0;
-      this.summaryPromise = void 0;
-      this.dictionaryStyleCssCache.clear();
-      this.hotLookupCache.clear();
-      this.termKanjiIndexReady = false;
-    }
-  }
-  function readIndexRequestValues(index, query, limit, resolve, reject) {
-    if (typeof index.getAll === "function") {
-      const request2 = index.getAll(query, limit);
-      request2.onsuccess = () => resolve(request2.result);
-      request2.onerror = () => reject(request2.error);
-      return;
-    }
-    const results = [];
-    let count = 0;
-    const request = index.openCursor(query);
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor || count >= limit) {
-        resolve(results);
-        return;
-      }
-      results.push(cursor.value);
-      count++;
-      cursor.continue();
-    };
-    request.onerror = () => reject(request.error);
-  }
-  function isSearchableJapaneseSurface(surface) {
-    return JAPANESE_RE$1.test(surface) && !/\s/.test(surface);
-  }
-  function sortedTermMatchExpressions(candidates) {
-    return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
-  }
-  function requestTermMatchIndex(index, expression, addMatches, finish, reject) {
-    const request = index.getAll(IDBKeyRange.only(expression), 8);
-    request.onsuccess = () => {
-      addMatches(expression, request.result);
-      finish();
-    };
-    request.onerror = () => reject(request.error);
-  }
-  function termMatchesForEntries(expression, foundEntries, candidates, rank) {
-    const entries = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
-    if (!entries.length) return [];
-    return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries)).filter((match) => Boolean(match));
-  }
-  function deduplicateTermMatchEntries(entries) {
-    const seen = /* @__PURE__ */ new Set();
-    return entries.filter((item) => {
-      const key = `${item.id ?? ""}
-${item.dictionary}
-${item.expression}
-${item.reading}
-${item.sequence ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-  function sortTermMatchEntries(entries, rank) {
-    return entries.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
-  }
-  function rankedDictionaryEntries(entries, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
-    const ranked = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
-    return limit === void 0 ? ranked : ranked.slice(0, limit);
-  }
-  function termMatchForPosition(position, entries) {
-    const entry = entries.find((item) => termRulesMatch(item.rules, position.deinflected.rules));
-    return entry ? {
-      entry,
-      ...position,
-      deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
-    } : null;
-  }
-  function importEntryStores() {
-    return ["terms", "kanji", "termMeta", "kanjiMeta"];
-  }
-  function isEntryStoreName(value) {
-    return value === "terms" || value === "kanji" || value === "termMeta" || value === "kanjiMeta";
-  }
-  function dictionaryCountsFromSummary(summary) {
-    return {
-      terms: summary.terms,
-      kanji: summary.kanji,
-      termMeta: summary.termMeta,
-      kanjiMeta: summary.kanjiMeta
-    };
-  }
-  function dictionaryTypeFromCounts(counts = {}) {
-    return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
-  }
-  function hasTermDictionaryRows(info) {
-    const count = Number(info.counts?.terms);
-    if (Number.isFinite(count)) return count > 0;
-    return info.type === void 0 || info.type === "terms";
-  }
-  const DICTIONARY_TYPE_COUNT_PRIORITY = [
-    { key: "terms", type: "terms" },
-    { key: "termMeta", type: "frequency" },
-    { key: "kanji", type: "kanji" },
-    { key: "kanjiMeta", type: "metadata" }
-  ];
-  function readerExportTerms(json) {
-    return json.terms ?? json.entries ?? [];
-  }
-  function readerExportDictionaryNames(json, terms = readerExportTerms(json)) {
-    return uniqueDictionaryNames([
-      ...json.dictionaries?.map((item) => item.title) ?? [],
-      ...terms.map((entry) => entry.dictionary),
-      ...(json.kanji ?? []).map((entry) => entry.dictionary),
-      ...(json.termMeta ?? []).map((entry) => entry.dictionary),
-      ...(json.kanjiMeta ?? []).map((entry) => entry.dictionary)
-    ]);
-  }
-  function readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes) {
-    return json.dictionaries?.length ? json.dictionaries.map((info) => ({ ...info, type: info.type ?? dictionaryTypes[info.title] })) : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
-  }
-  function readerExportSummary(json, terms, dictionaryNames, dictionaryTypes) {
-    const kanji = json.kanji ?? [];
-    const termMeta = json.termMeta ?? [];
-    const kanjiMeta = json.kanjiMeta ?? [];
-    return {
-      dictionaries: dictionaryNames,
-      dictionaryTypes,
-      entries: terms.length + kanji.length + termMeta.length + kanjiMeta.length,
-      terms: terms.length,
-      kanji: kanji.length,
-      termMeta: termMeta.length,
-      kanjiMeta: kanjiMeta.length
-    };
-  }
-  function dictionaryTypesFromReaderExport(json) {
-    const counts = /* @__PURE__ */ new Map();
-    addDictionaryTypeCounts(counts, readerExportTerms(json), "terms");
-    addDictionaryTypeCounts(counts, json.kanji ?? [], "kanji");
-    addDictionaryTypeCounts(counts, json.termMeta ?? [], "termMeta");
-    addDictionaryTypeCounts(counts, json.kanjiMeta ?? [], "kanjiMeta");
-    return Object.fromEntries([
-      ...configuredReaderDictionaryTypes(json),
-      ...observedReaderDictionaryTypes(counts)
-    ]);
-  }
-  function addDictionaryTypeCounts(counts, entries, store) {
-    for (const entry of entries) {
-      const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
-      item[store]++;
-      counts.set(entry.dictionary, item);
-    }
-  }
-  function configuredReaderDictionaryTypes(json) {
-    return (json.dictionaries ?? []).map((info) => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)]);
-  }
-  function observedReaderDictionaryTypes(counts) {
-    return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)]);
-  }
-  async function readYomitanZipIndex(zip, language = "en") {
-    return JSON.parse(await readZipText(zip, "index.json").catch(() => {
-      throw new Error(uiText(language, "dictionaryZipMissingIndex"));
-    }));
-  }
-  function countYomitanZipBanks(entries) {
-    return entries.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
-  }
-  function formatUiTemplate(template, values) {
-    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
-  }
-  function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
-    return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
-  }
-  async function scanObjectStoreCursor(db, { storeName, maxRows, maxMs, errorMessage }, visit) {
-    const startedAt = performance.now();
-    let visited = 0;
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(storeName, "readonly");
-      const request = tx.objectStore(storeName).openCursor();
-      request.onerror = () => reject(request.error ?? new Error(errorMessage));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor || cursorScanLimitReached(visited, startedAt, maxRows, maxMs)) {
-          resolve();
-          return;
-        }
-        visited++;
-        visit(cursor.value);
-        cursor.continue();
-      };
-    });
-  }
-  function optionalCursorScanLimitReached(options, visited, startedAt) {
-    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
-  }
-  function positiveLimitReached(limit, value) {
-    return limit > 0 && value >= limit;
-  }
-  function optionalLimitReached(limit, value) {
-    return Boolean(limit && value >= limit);
-  }
-  function addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count) {
-    if (!isRandomListTerm(entry, rank)) return count;
-    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
-  }
-  function addCommonTermToReservoir(entry, rank, seen, reservoir, limit, count) {
-    if (!isCommonDictionaryTerm(entry, rank)) return count;
-    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
-  }
-  function addUniqueTermToReservoir(entry, seen, reservoir, limit, count) {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return count;
-    seen.add(key);
-    const nextCount = count + 1;
-    if (reservoir.length < limit) {
-      reservoir.push(entry);
-      return nextCount;
-    }
-    const index = Math.floor(Math.random() * nextCount);
-    if (index < limit) reservoir[index] = entry;
-    return nextCount;
-  }
-  function isRandomListTerm(entry, rank) {
-    if (!entry.expression) return false;
-    if (!JAPANESE_RE$1.test(entry.expression)) return false;
-    if (entry.expression.length > 6) return false;
-    return dictionaryEnabled(entry.dictionary, rank);
-  }
-  function addTopFrequencyExpression(expressions, entry, maxRank, rank) {
-    if (entry.mode !== "freq") return;
-    if (!entry.expression) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    const freq = extractFrequency(entry.data);
-    if (freq === void 0) return;
-    if (freq > maxRank) return;
-    expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
-  }
-  function addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank) {
-    if (!entry.expression?.includes(character)) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    addUniqueTermEntry(entries, seen, entry);
-  }
-  function addUniqueTermEntry(entries, seen, entry) {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return;
-    seen.add(key);
-    entries.push(entry);
-  }
-  function termExpressionReadingKey(entry) {
-    return `${entry.expression}
-${entry.reading}`;
-  }
-  function formatDexieImportProgress(text2, imported, totalRows) {
-    const importedCount = imported.toLocaleString();
-    if (totalRows > 0) {
-      return `${text2("dictionaryImported")} ${importedCount} / ${totalRows.toLocaleString()} ${text2("dictionaryRecords")}...`;
-    }
-    return `${text2("dictionaryImported")} ${importedCount} ${text2("dictionaryRecords")}...`;
-  }
-  function formatDexieStoreImportProgress(text2, store, imported, tableTotal, totalImported, totalRows) {
-    const importedCount = imported.toLocaleString();
-    if (tableTotal > 0 && totalRows > 0) {
-      return `${text2("dictionaryImporting")} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text2("dictionaryEntries")} (${totalImported.toLocaleString()} / ${totalRows.toLocaleString()} ${text2("dictionaryTotal")})...`;
-    }
-    return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
-  }
-  function glossaryIndexSearchOptions(options) {
-    return {
-      maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
-      maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS
-    };
-  }
-  function glossaryFallbackSearchOptions(options) {
-    return {
-      maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
-      maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS
-    };
-  }
-  function glossaryCursorSearchExpired(options, visited, startedAt) {
-    return Boolean(options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs);
-  }
-  function hasReadyEmptyGlossarySearchIndex(indexedCount, building) {
-    return indexedCount > 0 && !building;
-  }
-  function shouldSkipGlossaryFallback(building, options) {
-    return building && options.fallbackWhileIndexing === false;
-  }
-  function yomitanZipDictionaryName(index, filename) {
-    return index.title?.trim() || filename.replace(/\.zip$/i, "");
-  }
-  function yomitanZipVersion(index) {
-    return index.format ?? index.version ?? 3;
-  }
-  async function yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl) {
-    return {
-      title: dictionary,
-      alias: dictionary,
-      enabled: true,
-      priority: 0,
-      styles: await readOptionalZipText(zip, "styles.css"),
-      revision: typeof index.revision === "string" ? index.revision : void 0,
-      downloadUrl: sourceUrl || void 0,
-      importDate: Date.now()
-    };
-  }
-  async function readOptionalZipText(zip, name) {
-    return readZipText(zip, name).catch(() => "");
-  }
-  async function readZipText(zip, name) {
-    return zip.text(name);
-  }
-  async function inlineStructuredImageDataUrls(zip, value) {
-    if (value == null) return;
-    if (Array.isArray(value)) {
-      for (const item of value) await inlineStructuredImageDataUrls(zip, item);
-      return;
-    }
-    if (typeof value !== "object") return;
-    const record = value;
-    const path = typeof record.path === "string" ? normalizeMediaPath(record.path) : "";
-    if (path && record.type === "image") {
-      const dataUrl = await zipImageDataUrl(zip, path);
-      if (dataUrl) record.path = dataUrl;
-    }
-    await inlineStructuredImageDataUrls(zip, record.content);
-  }
-  async function zipImageDataUrl(zip, path) {
-    const bytes = await zip.bytes(path).catch(() => null);
-    return bytes ? `data:${imageMimeType(path)};base64,${bytesToBase64(bytes)}` : "";
-  }
-  function imageMimeType(path) {
-    const lower = path.toLowerCase();
-    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-    if (lower.endsWith(".webp")) return "image/webp";
-    if (lower.endsWith(".gif")) return "image/gif";
-    if (lower.endsWith(".svg")) return "image/svg+xml";
-    return "image/png";
-  }
-  function bytesToBase64(bytes) {
-    let binary = "";
-    const chunkSize = 32768;
-    for (let index = 0; index < bytes.length; index += chunkSize) {
-      const chunk = bytes.subarray(index, index + chunkSize);
-      binary += String.fromCharCode(...chunk);
-    }
-    return btoa(binary);
-  }
-  function normalizeZipTermRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
-    if (typeof expression !== "string") return null;
-    return {
-      expression,
-      reading: zipTermReading(reading, expression),
-      definitionTags: zipStringField(definitionTags),
-      rules: zipStringField(rules),
-      score: zipNumberField(score, 0),
-      glossary: zipGlossaryField(glossary),
-      sequence: zipOptionalNumberField(sequence),
-      termTags: zipStringField(termTags),
-      dictionary
-    };
-  }
-  function zipTermReading(value, expression) {
-    return typeof value === "string" && value ? value : expression;
-  }
-  function zipStringField(value) {
-    return typeof value === "string" ? value : "";
-  }
-  function zipNumberField(value, fallback) {
-    return typeof value === "number" ? value : fallback;
-  }
-  function zipOptionalNumberField(value) {
-    return typeof value === "number" ? value : void 0;
-  }
-  function zipGlossaryField(value) {
-    return Array.isArray(value) ? value : [];
-  }
-  function normalizeZipKanjiRow(row, dictionary, version) {
-    if (!Array.isArray(row)) return null;
-    const [character, onyomi, kunyomi, tags, meaningsOrFirst, stats] = row;
-    if (typeof character !== "string") return null;
-    const meanings = version === 1 ? row.slice(4) : meaningsOrFirst;
-    return {
-      character,
-      onyomi: splitTags(onyomi),
-      kunyomi: splitTags(kunyomi),
-      tags: splitTags(tags),
-      meanings: Array.isArray(meanings) ? meanings.map(String) : [],
-      stats,
-      dictionary
-    };
-  }
-  function normalizeZipTermMetaRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [expression, mode, data] = row;
-    return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
-  }
-  function normalizeZipKanjiMetaRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [character, mode, data] = row;
-    return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
-  }
-  function normalizeDexieTermRow(row) {
-    const record = dexieRowRecord(row);
-    if (!record) return null;
-    if (typeof record.expression !== "string" || typeof record.dictionary !== "string") return null;
-    return {
-      expression: record.expression,
-      reading: dexieStringField(record, "reading", record.expression),
-      definitionTags: dexieStringField(record, "definitionTags"),
-      rules: dexieStringField(record, "rules"),
-      score: dexieNumberField(record, "score", 0),
-      glossary: dexieGlossaryField(record),
-      sequence: dexieOptionalNumberField(record, "sequence"),
-      termTags: dexieStringField(record, "termTags"),
-      dictionary: record.dictionary
-    };
-  }
-  function dexieStringField(record, key, fallback = "") {
-    const value = record[key];
-    return typeof value === "string" && value ? value : fallback;
-  }
-  function dexieNumberField(record, key, fallback) {
-    const value = record[key];
-    return typeof value === "number" ? value : fallback;
-  }
-  function dexieOptionalNumberField(record, key) {
-    const value = record[key];
-    return typeof value === "number" ? value : void 0;
-  }
-  function dexieGlossaryField(record) {
-    return Array.isArray(record.glossary) ? record.glossary : [];
-  }
-  function termLookupDedupKey(entry) {
-    const glossaryKey = JSON.stringify(entry.glossary);
-    return entry.sequence !== void 0 ? `${entry.dictionary}
-sequence:${entry.sequence}
-${glossaryKey}` : `${entry.dictionary}
-${entry.expression}
-${entry.reading}
-${glossaryKey}`;
-  }
-  function bestTermLookupEntry(entries, expression, rank) {
-    const seen = /* @__PURE__ */ new Set();
-    for (const entry of [...entries].sort((a, b) => compareTermLookupEntries(a, b, expression, rank))) {
-      if (!dictionaryEnabled(entry.dictionary, rank)) continue;
-      const key = termLookupDedupKey(entry);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      return entry;
-    }
-    return null;
-  }
-  function compareTermLookupEntries(a, b, expression, rank) {
-    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || (b.score ?? 0) - (a.score ?? 0);
-  }
-  function normalizeTermSearchQuery(value) {
-    return value.replace(/\s+/g, " ").trim().slice(0, 80);
-  }
-  function shouldSearchTermGlossaries(query) {
-    return !JAPANESE_RE$1.test(query);
-  }
-  function termSearchIndexToken(query) {
-    return glossaryWords(normalizeGlossarySearchText(query)).find((word) => word.length >= TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH) ?? "";
-  }
-  function termSearchPrefixRange(query) {
-    return IDBKeyRange.bound(query, `${query}${TERM_SEARCH_PREFIX_BOUNDARY}`, false, false);
-  }
-  function rankedTermSearchResults(candidates, query, limit, rank) {
-    const seen = /* @__PURE__ */ new Set();
-    return candidates.filter((candidate) => dictionaryEnabled(candidate.entry.dictionary, rank)).sort((a, b) => compareTermSearchCandidates(a, b, query, rank)).filter((candidate) => {
-      const key = termLookupDedupKey(candidate.entry);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).map((candidate) => candidate.entry).slice(0, limit);
-  }
-  function indexedTermSearchRank(entry, query) {
-    if (entry.expression === query) return 0;
-    if (entry.reading === query) return 4;
-    if (entry.expression.startsWith(query)) return 10;
-    if (entry.reading.startsWith(query)) return 12;
-    if (entry.expression.includes(query)) return 24;
-    if (entry.reading.includes(query)) return 26;
-    return 60;
-  }
-  function glossaryTermSearchRank(glossary, query) {
-    const normalizedQuery = normalizeGlossarySearchText(query);
-    if (!normalizedQuery) return Number.POSITIVE_INFINITY;
-    const text2 = normalizeGlossarySearchText(glossaryValueToSearchText(glossary));
-    if (!text2) return Number.POSITIVE_INFINITY;
-    if (text2 === normalizedQuery) return 30;
-    if (glossaryHasExactWord(text2, normalizedQuery)) return 34;
-    if (glossaryHasWordPrefix(text2, normalizedQuery)) return 44;
-    if (text2.includes(normalizedQuery)) return 68;
-    return Number.POSITIVE_INFINITY;
-  }
-  function glossaryHasExactWord(text2, query) {
-    return glossaryWords(text2).some((word) => word === query);
-  }
-  function glossaryHasWordPrefix(text2, query) {
-    return glossaryWords(text2).some((word) => word.startsWith(query));
-  }
-  function glossaryWords(text2) {
-    return text2.split(/\s+/u).filter(Boolean);
-  }
-  function termSearchEntries(entry) {
-    const { id: _id, ...entryWithoutId } = entry;
-    return glossarySearchTokens(entry.glossary).map((token) => ({
-      ...entryWithoutId,
-      token
-    }));
-  }
-  function termEntryFromSearchEntry(entry) {
-    const { id: _id, token: _token, ...term } = entry;
-    return term;
-  }
-  function termKanjiEntries(entry) {
-    const { id: _id, ...entryWithoutId } = entry;
-    return uniqueExpressionKanji(entry.expression).map((character) => ({
-      ...entryWithoutId,
-      character
-    }));
-  }
-  function termEntryFromKanjiEntry(entry) {
-    const { id: _id, character: _character, ...term } = entry;
-    return term;
-  }
-  function uniqueExpressionKanji(expression) {
-    const seen = /* @__PURE__ */ new Set();
-    return Array.from(expression).filter((character) => {
-      if (!isKanji(character) || seen.has(character)) return false;
-      seen.add(character);
-      return true;
-    });
-  }
-  function glossarySearchTokens(glossary) {
-    return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossaryValueToSearchText(glossary))).flatMap(glossaryWordSearchTokens)).slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
-  }
-  function glossaryWordSearchTokens(word) {
-    const tokens = [];
-    const variants = uniqueSearchTokens([
-      word,
-      word.endsWith("'s") ? word.slice(0, -2) : "",
-      word.endsWith("s") ? word.slice(0, -1) : ""
-    ]);
-    for (const variant of variants) {
-      tokens.push(variant);
-      for (let start = 1; start <= variant.length - TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH; start++) {
-        tokens.push(variant.slice(start));
-      }
-    }
-    return tokens;
-  }
-  function uniqueSearchTokens(tokens) {
-    const seen = /* @__PURE__ */ new Set();
-    return tokens.filter((token) => {
-      if (token.length < TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH || seen.has(token)) return false;
-      seen.add(token);
-      return true;
-    });
-  }
-  function trimTermSearchCandidates(candidates, candidateLimit, query, rank) {
-    if (candidates.length <= candidateLimit * 2) return;
-    candidates.sort((a, b) => compareTermSearchCandidates(a, b, query, rank));
-    candidates.length = candidateLimit;
-  }
-  function compareTermSearchCandidates(a, b, query, rank) {
-    return a.rank - b.rank || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank) || (b.entry.score ?? 0) - (a.entry.score ?? 0) || Number(b.entry.expression === query) - Number(a.entry.expression === query) || a.entry.expression.length - b.entry.expression.length;
-  }
-  function normalizeDexieKanjiRow(row) {
-    const record = dexieKanjiRecord(row);
-    return record ? {
-      character: record.character,
-      onyomi: dexieStringList(record.onyomi),
-      kunyomi: dexieStringList(record.kunyomi),
-      tags: dexieStringList(record.tags),
-      meanings: Array.isArray(record.meanings) ? record.meanings.map(String) : [],
-      stats: record.stats,
-      dictionary: record.dictionary
-    } : null;
-  }
-  function dexieKanjiRecord(row) {
-    const record = dexieRowRecord(row);
-    return record && typeof record.character === "string" && typeof record.dictionary === "string" ? record : null;
-  }
-  function dexieStringList(value) {
-    return Array.isArray(value) ? value.map(String) : splitTags(value);
-  }
-  function normalizeDexieTermMetaRow(row) {
-    const record = dexieTermMetaRecord(row);
-    return record ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
-  }
-  function normalizeDexieKanjiMetaRow(row) {
-    const record = dexieKanjiMetaRecord(row);
-    return record ? { character: record.character, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
-  }
-  function dexieTermMetaRecord(row) {
-    const record = dexieRowRecord(row);
-    return record && typeof record.expression === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
-  }
-  function dexieKanjiMetaRecord(row) {
-    const record = dexieRowRecord(row);
-    return record && typeof record.character === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
-  }
-  function normalizeDexieDictionaryRow(row) {
-    const record = dexieDictionaryRecord(row);
-    if (!record) return null;
-    if (typeof record.title !== "string") return null;
-    return {
-      title: record.title,
-      alias: dictionaryAlias(record, record.title),
-      enabled: dictionaryInfoEnabled(record.enabled),
-      priority: dictionaryInfoPriority(record.priority),
-      counts: record.counts,
-      type: dictionaryInfoType(record.type),
-      styles: stringField(record.styles) ?? "",
-      revision: stringField(record.revision),
-      downloadUrl: stringField(record.downloadUrl),
-      importDate: numberField(record.importDate)
-    };
-  }
-  function dexieDictionaryRecord(row) {
-    return dexieRowRecord(row);
-  }
-  function dictionaryInfoEnabled(value) {
-    return typeof value === "boolean" ? value : true;
-  }
-  function dictionaryInfoPriority(value) {
-    return Number.isFinite(Number(value)) ? Number(value) : 0;
-  }
-  function dictionaryAlias(record, fallback) {
-    return typeof record.alias === "string" && record.alias ? record.alias : fallback;
-  }
-  function dictionaryInfoType(value) {
-    return value === "terms" || value === "kanji" || value === "frequency" || value === "metadata" ? value : void 0;
-  }
-  function stringField(value) {
-    return typeof value === "string" ? value : void 0;
-  }
-  function numberField(value) {
-    return typeof value === "number" ? value : void 0;
-  }
-  function unwrapDexieRow(row) {
-    if (row && typeof row === "object" && "$" in row) {
-      const value = row.$;
-      return Array.isArray(value) ? value.find((item) => item && typeof item === "object" && !Array.isArray(item)) : value;
-    }
-    return row;
-  }
-  function dexieRowRecord(row) {
-    const candidate = unwrapDexieRow(row);
-    return candidate && typeof candidate === "object" ? candidate : null;
-  }
-  function isReaderDictionaryExport(value) {
-    const record = readerDictionaryExportRecord(value);
-    return Boolean(record && isReaderDictionaryExportFormat(record) && hasReaderDictionaryExportRows(record));
-  }
-  function readerDictionaryExportRecord(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  function isReaderDictionaryExportFormat(record) {
-    return record.formatName === "yomu-yomitan-dictionaries" || record.formatName === "jpdb-reader-yomitan-dictionaries";
-  }
-  function hasReaderDictionaryExportRows(record) {
-    return Array.isArray(record.entries) || Array.isArray(record.terms) || Array.isArray(record.kanji) || Array.isArray(record.termMeta) || Array.isArray(record.kanjiMeta);
-  }
-  function uniqueDictionaryNames(names) {
-    return [...new Set(names.filter((name) => typeof name === "string" && Boolean(name)))];
-  }
-  function splitTags(value) {
-    if (Array.isArray(value)) return value.map(String).filter(Boolean);
-    return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
-  }
-  function reservoirSample(items, limit) {
-    const reservoir = [];
-    let count = 0;
-    for (const item of items) {
-      count++;
-      if (reservoir.length < limit) {
-        reservoir.push(item);
-      } else {
-        const index = Math.floor(Math.random() * count);
-        if (index < limit) reservoir[index] = item;
-      }
-    }
-    return reservoir;
-  }
-  function isCommonDictionaryTerm(entry, rank) {
-    return isCommonDictionaryTermCandidate(entry, rank) && (hasCommonDictionaryTags(entry) || hasCommonDictionaryScore(entry));
-  }
-  function isCommonDictionaryTermCandidate(entry, rank) {
-    return Boolean(entry.expression && JAPANESE_RE$1.test(entry.expression) && entry.expression.length <= 8 && dictionaryEnabled(entry.dictionary, rank));
-  }
-  function hasCommonDictionaryTags(entry) {
-    return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry));
-  }
-  function dictionaryTermTags(entry) {
-    return `${entry.definitionTags ?? ""} ${entry.termTags ?? ""} ${entry.rules ?? ""}`.toLowerCase();
-  }
-  function hasCommonDictionaryScore(entry) {
-    return typeof entry.score === "number" && entry.score >= 5;
-  }
-  function isKanji(value) {
-    const code = value.codePointAt(0) ?? 0;
-    return code >= 13312 && code <= 40959;
-  }
-  function ensureStore(db, tx, name) {
-    return db.objectStoreNames.contains(name) ? tx.objectStore(name) : db.createObjectStore(name, { keyPath: "id", autoIncrement: true });
-  }
-  function hasStore(db, name) {
-    return db.objectStoreNames.contains(name);
-  }
-  function ensureIndex(store, name, keyPath) {
-    if (!store.indexNames.contains(name)) store.createIndex(name, keyPath);
-  }
-  function existingStores(db, names) {
-    return names.filter((name) => db.objectStoreNames.contains(name));
-  }
-  function normalizeMediaPath(path) {
-    return path.trim().replace(/^\.?\//, "").replace(/\\/g, "/");
-  }
-  function readwriteTransaction(db, storeNames) {
-    try {
-      return db.transaction(storeNames, "readwrite", { durability: "relaxed" });
-    } catch {
-      return db.transaction(storeNames, "readwrite");
-    }
-  }
-  function commitTransaction(tx) {
-    try {
-      tx.commit?.();
-    } catch {
-    }
-  }
-  function clearStores(db, stores) {
-    if (!stores.length) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const tx = readwriteTransaction(db, stores);
-      for (const store of stores) tx.objectStore(store).clear();
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
-      tx.onabort = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
-      commitTransaction(tx);
-    });
-  }
-  async function deleteByDictionary(db, storeName, dictionary) {
-    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
-      await nextTask();
-    }
-  }
-  function deleteDictionaryBatch(db, storeName, dictionary, limit) {
-    return new Promise((resolve, reject) => {
-      let deleted = 0;
-      const tx = readwriteTransaction(db, storeName);
-      const index = tx.objectStore(storeName).index("dictionary");
-      const request = index.openCursor(IDBKeyRange.only(dictionary));
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor || deleted >= limit) return;
-        cursor.delete();
-        deleted++;
-        if (deleted >= limit) return;
-        cursor.continue();
-      };
-      request.onerror = () => reject(request.error ?? new Error(`Could not delete ${dictionary} entries from ${storeName}.`));
-      tx.oncomplete = () => resolve(deleted);
-      tx.onerror = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
-      tx.onabort = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
-    });
-  }
-  function transactionError(tx, fallback) {
-    return tx.error ?? new Error(fallback);
-  }
-  function nextTask() {
-    return new Promise((resolve) => window.setTimeout(resolve, 0));
-  }
-  function formatMetaFrequency(value) {
-    const display = metaFrequencyDisplayValue(value);
-    if (display == null) return "";
-    return `#${display}`;
-  }
-  function metaFrequencyDisplayValue(value) {
-    const primitive = primitiveMetaValue(value);
-    if (primitive !== null) return primitive;
-    const record = objectRecord$1(value);
-    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
-  }
-  function scalarMetaValue(value) {
-    const primitive = primitiveMetaValue(value);
-    if (primitive !== null) return primitive;
-    const record = objectRecord$1(value);
-    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
-  }
-  function primitiveMetaValue(value) {
-    return typeof value === "number" || typeof value === "string" ? String(value) : null;
-  }
-  function objectRecord$1(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  function nestedMetaValue(record) {
-    return record.displayValue ?? record.frequency ?? record.value;
-  }
-  function groupTermEntriesByDictionary(entries) {
-    const grouped = /* @__PURE__ */ new Map();
-    for (const entry of entries) {
-      const group = grouped.get(entry.dictionary) ?? [];
-      group.push(entry);
-      grouped.set(entry.dictionary, group);
-    }
-    return grouped;
-  }
-  function groupTermEntriesByHeadword(entries) {
-    const grouped = /* @__PURE__ */ new Map();
-    const meaningKeys = /* @__PURE__ */ new Map();
-    for (const entry of entries) {
-      const key = termHeadwordKey(entry);
-      const group = grouped.get(key) ?? createLearnerTermGroup(entry);
-      group.entries.push(entry);
-      updateLearnerTermFrequency(group, entry);
-      addLearnerTermMeaning(group, entry, key, meaningKeys);
-      grouped.set(key, group);
-    }
-    return [...grouped.values()];
-  }
-  function termHeadwordKey(entry) {
-    return `${entry.expression || entry.reading}
-${entry.reading || ""}`;
-  }
-  function createLearnerTermGroup(entry) {
-    return { expression: entry.expression || entry.reading, reading: entry.reading || "", entries: [], meanings: [] };
-  }
-  function updateLearnerTermFrequency(group, entry) {
-    if (entry.jpdbFrequency !== void 0 && (group.frequency === void 0 || entry.jpdbFrequency < group.frequency)) {
-      group.frequency = entry.jpdbFrequency;
-    }
-  }
-  function addLearnerTermMeaning(group, entry, key, meaningKeys) {
-    const meaning = summarizeLearnerGlossary(entry);
-    if (!meaning) return;
-    const seen = meaningKeys.get(key) ?? /* @__PURE__ */ new Set();
-    const meaningKey = meaning.toLocaleLowerCase();
-    if (!seen.has(meaningKey)) {
-      seen.add(meaningKey);
-      group.meanings.push(meaning);
-    }
-    meaningKeys.set(key, seen);
-  }
-  function summarizeLearnerGlossary(entry) {
-    return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
-  }
-  const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
-  const ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE = "AnkiConnect needs the userscript request bridge for cross-origin endpoints.";
-  async function postAnkiJson(url, body, timeoutMs) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
-    if (!canDirectFetchAnkiConnect(url)) {
-      return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
-    }
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-    return await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      signal: controller.signal
-    }).then(async (response) => {
-      if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
-      return response.json();
-    }).catch((error) => {
-      if (error instanceof DOMException && error.name === "AbortError") throw new Error("AnkiConnect timed out.");
-      throw error;
-    }).finally(() => {
-      window.clearTimeout(timeoutId);
-    });
-  }
-  function hasUserscriptAnkiBridge() {
-    return Boolean(getUserscriptHttpRequest());
-  }
-  function isAnkiConnectAvailabilityError(error) {
-    if (error instanceof Error && error.cause && error.cause !== error) {
-      return isAnkiConnectAvailabilityError(error.cause);
-    }
-    if (!(error instanceof Error)) return false;
-    return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
-  }
-  function postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const handleLoad = (response) => {
-        if (response.status >= 200 && response.status < 300) resolve(response.response);
-        else reject(new Error(`AnkiConnect request failed (${response.status}).`));
-      };
-      const result = userscriptRequest({
-        method: "POST",
-        url,
-        headers: { "Content-Type": "application/json" },
-        data: body,
-        responseType: "json",
-        timeout: timeoutMs,
-        onload: handleLoad,
-        onerror: (error) => reject(error instanceof Error ? error : new Error("AnkiConnect request failed.")),
-        ontimeout: () => reject(new Error("AnkiConnect timed out."))
-      });
-      if (result && typeof result.then === "function") {
-        result.then(handleLoad, reject);
-      }
-    });
-  }
-  function canDirectFetchAnkiConnect(url) {
-    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$2());
-  }
-  function canDirectFetchAnkiConnectFrom(url, currentHref) {
-    const current = readAnkiUrl(currentHref);
-    if (!current) return false;
-    const target = readAnkiUrl(url, current.href);
-    if (!target || !isHttpUrl(target)) return false;
-    return target.origin === current.origin;
-  }
-  function readAnkiUrl(value, base) {
-    try {
-      return new URL(value, base);
-    } catch {
-      return null;
-    }
-  }
-  function isHttpUrl(url) {
-    return url.protocol === "http:" || url.protocol === "https:";
-  }
-  function safeLocationHref$2() {
-    return typeof location === "undefined" ? "" : location.href;
-  }
-  const ankiFieldNames = (names) => names.split("|");
-  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-  );
-  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-  );
-  const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-  const ANKI_HEADWORD_FIELD_NAMES = [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    "Expression Reading",
-    "Japanese Expression",
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  const ANKI_EXPRESSION_FIELD_NAMES = [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  const ANKI_READING_FIELD_NAMES = ankiFieldNames(
-    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-  );
-  const ANKI_MEANING_FIELD_NAMES = ankiFieldNames(
-    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-  );
-  const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
-    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-  );
-  const ANKI_AUDIO_FIELD_NAMES = ankiFieldNames(
-    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Context Audio|Example Audio|SentAudio|Sentence Audio|Sentence Sound|SentenceAudio|Sound|Voice"
-  );
-  const ANKI_IMAGE_FIELD_NAMES = ankiFieldNames(
-    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-  );
-  const ANKI_FIELD_ROLE_CANDIDATES = {
-    expression: ANKI_EXPRESSION_FIELD_NAMES,
-    reading: ANKI_READING_FIELD_NAMES,
-    meaning: ANKI_MEANING_FIELD_NAMES,
-    sentence: ANKI_SENTENCE_FIELD_NAMES,
-    audio: ANKI_AUDIO_FIELD_NAMES,
-    image: ANKI_IMAGE_FIELD_NAMES
-  };
-  function scanAnkiModelFields(modelName, fields, sampleNotes = []) {
-    const usedFields = /* @__PURE__ */ new Set();
-    const samples = ankiFieldContentSamples(fields, sampleNotes);
-    const suggestions = Object.keys(ANKI_FIELD_ROLE_CANDIDATES).map((role) => {
-      const suggestion = suggestAnkiField(role, fields, usedFields, samples);
-      if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
-      return suggestion;
-    });
-    return {
-      modelName,
-      fields,
-      suggestions,
-      score: ankiModelScanScore(suggestions)
-    };
-  }
-  function suggestAnkiField(role, fields, usedFields, samples = {}) {
-    const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
-    const availableFields = fields.filter((field) => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
-    const exact = firstMatchingAnkiField(availableFields, candidates);
-    const content = suggestAnkiFieldFromContent(role, availableFields, samples);
-    const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
-    const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
-    return bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore);
-  }
-  function bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore) {
-    if (shouldPreferContentSuggestion(content, exact, exactContentScore)) return content;
-    const suggestions = [
-      exact ? { role, fieldName: exact, confidence: "high" } : null,
-      contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy),
-      fuzzy ? { role, fieldName: fuzzy, confidence: "medium" } : null,
-      content.fieldName ? content : null,
-      { role, fieldName: null, confidence: "low" }
-    ];
-    return suggestions.find(Boolean);
-  }
-  function contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy) {
-    if (!content.fieldName) return null;
-    return !fuzzy || content.confidence === "high" ? content : null;
-  }
-  function isAvailableAnkiFieldForRole(field, role, usedFields, samples) {
-    if (usedFields.has(field)) return false;
-    if (ankiFieldDisallowedForRole(field, role)) return false;
-    return ankiFieldAllowedForRole(field, role) || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50;
-  }
-  function shouldPreferContentSuggestion(content, exact, exactContentScore) {
-    if (!content.fieldName) return false;
-    if (!exact || isGenericAnkiFieldName(exact)) return true;
-    return content.fieldName !== exact && exactContentScore === 0 && content.confidence === "high";
-  }
-  function ankiFieldMappingForModel(settings, modelName, fieldNames) {
-    const mapping = settings.ankiFieldMappings?.[modelName];
-    if (!mapping) return void 0;
-    const normalized = {};
-    for (const role of ANKI_FIELD_ROLES) {
-      const fieldName = mappedFieldName(fieldNames, mapping, role);
-      if (fieldName) normalized[role] = fieldName;
-    }
-    return Object.keys(normalized).length ? normalized : void 0;
-  }
-  function mappedFieldName(fieldNames, mapping, role) {
-    const fieldName = mapping?.[role]?.trim();
-    if (!fieldName) return "";
-    const exact = fieldNames.find((candidate) => candidate === fieldName);
-    if (exact) return exact;
-    const normalizedFieldName = normalizeAnkiFieldName(fieldName);
-    return fieldNames.find((candidate) => normalizeAnkiFieldName(candidate) === normalizedFieldName) ?? "";
-  }
-  function ankiFieldMappingsSettingsKey(mappings) {
-    const normalized = {};
-    for (const modelName of Object.keys(mappings ?? {}).sort()) {
-      const mapping = mappings?.[modelName];
-      if (!mapping) continue;
-      const modelMapping = {};
-      for (const role of ANKI_FIELD_ROLES) {
-        const fieldName = mapping[role]?.trim();
-        if (fieldName) modelMapping[role] = fieldName;
-      }
-      if (Object.keys(modelMapping).length) normalized[modelName] = modelMapping;
-    }
-    return normalized;
-  }
-  function fieldNameForRole(fieldNames, role, mapping) {
-    const mapped = mappedFieldName(fieldNames, mapping, role);
-    if (mapped) return mapped;
-    return suggestAnkiField(role, fieldNames, /* @__PURE__ */ new Set()).fieldName ?? "";
-  }
-  function mappedRoleForField(fieldName, mapping) {
-    if (!mapping) return null;
-    const normalized = normalizeAnkiFieldName(fieldName);
-    for (const role of ANKI_FIELD_ROLES) {
-      const mapped = mapping[role];
-      if (mapped && normalizeAnkiFieldName(mapped) === normalized) return role;
-    }
-    return null;
-  }
-  function yomuFieldForRole(role) {
-    return {
-      expression: "Expression",
-      reading: "Reading",
-      meaning: "Meaning",
-      sentence: "Sentence",
-      audio: "Audio",
-      image: "Image"
-    }[role];
-  }
-  function flattenNoteFields(fields) {
-    const out = {};
-    Object.entries(fields ?? {}).forEach(([name, value]) => {
-      out[name] = stripHtml(String(value?.value ?? ""));
-    });
-    return out;
-  }
-  function noteLooksLikeCard(note, card, settings) {
-    const fields = flattenNoteFields(note.fields);
-    const mapping = settings ? ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields)) : void 0;
-    const expressionTargets = noteCardExpressionTargets(card);
-    return noteHasExactTarget(fields, expressionTargets) || noteExpressionContainsTarget(fields, expressionTargets, mapping) || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
-  }
-  function noteCardExpressionTargets(card) {
-    return unique$4([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
-  }
-  function noteFieldValues(fields) {
-    return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
-  }
-  function firstNoteReading(fields) {
-    return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
-  }
-  function firstNoteExpressionValue(fields, mapping) {
-    return noteExpressionCandidates(fields, mapping)[0]?.value ?? "";
-  }
-  function mappedNoteField(fields, mapping, role) {
-    const fieldName = mappedFieldName(Object.keys(fields), mapping, role);
-    return fieldName ? fields[fieldName] ?? "" : "";
-  }
-  function lookupKeyTermsForCard(card) {
-    return unique$4([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
-  }
-  function isKanaStatusLookupSurface(value) {
-    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
-  }
-  function japaneseFieldContainsStandaloneTarget(value, target) {
-    const normalizedValue = normalizeFieldValue(value);
-    if (normalizedValue === target) return true;
-    return normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some((part) => part === target);
-  }
-  function japaneseCharacterCount(value) {
-    return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
-  }
-  function normalizeAnkiFieldName(value) {
-    return value.replace(/[_\s-]+/g, "").toLowerCase();
-  }
-  function stripHtml(value) {
-    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
-  }
-  function suggestAnkiFieldFromContent(role, fields, samples) {
-    const ranked = fields.map((fieldName) => ({
-      fieldName,
-      score: ankiFieldContentRoleScore(role, samples[fieldName] ?? [])
-    })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || fields.indexOf(a.fieldName) - fields.indexOf(b.fieldName));
-    const best = ranked[0];
-    if (!best) return { role, fieldName: null, confidence: "low" };
-    return {
-      role,
-      fieldName: best.fieldName,
-      confidence: best.score >= 50 ? "high" : "medium"
-    };
-  }
-  function ankiFieldContentRoleScore(role, samples) {
-    if (!samples.length) return 0;
-    const scores = samples.map((sample) => ankiFieldContentSampleRoleScore(role, sample)).filter((score) => score > 0).sort((a, b) => b - a);
-    if (!scores.length) return 0;
-    const strongest = scores[0] ?? 0;
-    const second = scores[1] ?? 0;
-    return Math.min(100, strongest + Math.min(15, second / 3) + Math.min(10, scores.length * 2));
-  }
-  const ANKI_TEXT_ROLE_SCORERS = {
-    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike }) {
-      if (!hasJapanese || sentenceLike || length > 40) return 0;
-      return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
-    },
-    reading({ length, japaneseLength, hasJapanese, hasKanji, kanaLength }) {
-      if (!hasJapanese || hasKanji || length > 40) return 0;
-      const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
-      return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
-    },
-    meaning({ length, hasJapanese, hasLatin }) {
-      if (hasJapanese) return 0;
-      if (hasLatin) return 54 + (length > 8 ? 6 : 0);
-      return length >= 2 ? 24 : 0;
-    },
-    sentence({ length, hasJapanese, sentenceLike }) {
-      if (!hasJapanese) return 0;
-      if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
-      return length >= 14 ? 42 : 0;
-    }
-  };
-  function ankiFieldContentSampleRoleScore(role, sample) {
-    const raw = sample.raw.trim();
-    const text2 = normalizeFieldValue(sample.text);
-    if (role === "audio") return ankiAudioFieldContentScore(raw, text2);
-    if (role === "image") return ankiImageFieldContentScore(raw, text2);
-    if (ankiAudioFieldContentScore(raw, text2) || ankiImageFieldContentScore(raw, text2)) return 0;
-    if (!text2) return 0;
-    const scorer = ANKI_TEXT_ROLE_SCORERS[role];
-    if (!scorer) return 0;
-    const japaneseLength = japaneseCharacterCount(text2);
-    return scorer({
-      length: text2.length,
-      japaneseLength,
-      hasJapanese: japaneseLength > 0,
-      hasKanji: /[\u3400-\u9fff]/u.test(text2),
-      kanaLength: kanaCharacterCount(text2),
-      hasLatin: /[A-Za-z]/.test(text2),
-      sentenceLike: japaneseSentenceLike(text2)
-    });
-  }
-  function ankiAudioFieldContentScore(raw, text2) {
-    const value = `${raw} ${text2}`.toLowerCase();
-    if (/\[sound:[^\]]+\]/.test(value)) return 90;
-    if (/<audio\b/.test(value)) return 85;
-    if (/\.(?:mp3|m4a|ogg|oga|wav|flac)(?:[?#"'\s>]|$)/.test(value)) return 75;
-    return 0;
-  }
-  function ankiImageFieldContentScore(raw, text2) {
-    const value = `${raw} ${text2}`.toLowerCase();
-    if (/<img\b/.test(value)) return 90;
-    if (/\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#"'\s>]|$)/.test(value)) return 75;
-    return 0;
-  }
-  function ankiFieldContentSamples(fields, notes) {
-    const out = Object.fromEntries(fields.map((field) => [field, []]));
-    for (const note of notes) {
-      for (const fieldName of fields) {
-        const raw = String(note.fields?.[fieldName]?.value ?? "");
-        if (!raw.trim()) continue;
-        out[fieldName]?.push({ raw, text: stripHtml(raw) });
-      }
-    }
-    return out;
-  }
-  function isGenericAnkiFieldName(fieldName) {
-    const normalized = normalizeAnkiFieldName(fieldName);
-    return /^(?:front|back|primary|secondary|text|field\d+|f\d+)$/.test(normalized);
-  }
-  function kanaCharacterCount(value) {
-    return (value.match(/[\u3040-\u30ff]/gu) ?? []).length;
-  }
-  function japaneseSentenceLike(value) {
-    const japaneseLength = japaneseCharacterCount(value);
-    return /[。！？!?]/u.test(value) || japaneseLength >= 12 || japaneseLength >= 8 && /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value);
-  }
-  function ankiFieldAllowedForRole(fieldName, role) {
-    const normalized = normalizeAnkiFieldName(fieldName);
-    const audioLike = /(?:audio|sound|voice)/.test(normalized);
-    const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
-    if (role === "audio") return audioLike && !imageLike;
-    if (role === "image") return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
-    return !audioLike && !imageLike;
-  }
-  function ankiFieldDisallowedForRole(fieldName, role) {
-    if (role === "audio" || role === "image") return false;
-    const normalized = normalizeAnkiFieldName(fieldName);
-    return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
-  }
-  function firstMatchingAnkiField(fields, names) {
-    const fieldByName = /* @__PURE__ */ new Map();
-    fields.forEach((field) => {
-      const normalized = normalizeAnkiFieldName(field);
-      if (!fieldByName.has(normalized)) fieldByName.set(normalized, field);
-    });
-    for (const name of names) {
-      const match = fieldByName.get(normalizeAnkiFieldName(name));
-      if (match) return match;
-    }
-    return "";
-  }
-  function firstFuzzyAnkiField(fields, names) {
-    const normalizedNames = names.map(normalizeAnkiFieldName).filter((name) => name.length >= 4);
-    return fields.find((field) => {
-      const normalized = normalizeAnkiFieldName(field);
-      return normalizedNames.some((name) => normalized.includes(name));
-    }) ?? "";
-  }
-  function ankiModelScanScore(suggestions) {
-    return suggestions.reduce((score, suggestion) => {
-      if (!suggestion.fieldName) return score;
-      const roleWeight = suggestion.role === "expression" ? 6 : suggestion.role === "meaning" ? 4 : suggestion.role === "reading" || suggestion.role === "sentence" ? 3 : 1;
-      const confidenceWeight = suggestion.confidence === "high" ? 2 : 1;
-      return score + roleWeight * confidenceWeight;
-    }, 0);
-  }
-  function noteHasExactTarget(fields, exactTargets) {
-    const values = noteFieldValues(fields);
-    return exactTargets.some((target) => values.some((value) => value === target));
-  }
-  function noteExpressionContainsTarget(fields, exactTargets, mapping) {
-    const expressions = noteExpressionCandidates(fields, mapping);
-    return expressions.some((expression) => exactTargets.some(
-      (target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression.value, target) && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target))
-    ));
-  }
-  function firstNoteField(fields, names) {
-    const exact = names.map((name) => fields[name]).find(Boolean);
-    if (exact) return exact;
-    const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
-    return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? "";
-  }
-  function noteReadingContainsTarget(fields, card, mapping, expressionTargets) {
-    const spelling = normalizeFieldValue(card.spelling);
-    const readingTarget = normalizeFieldValue(card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : ""));
-    const expressionValues = noteExpressionValues(fields, mapping);
-    if (expressionValues.length && !expressionValues.some(
-      (expression) => expressionTargets.some((target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target))
-    ) && !isKanaStatusLookupSurface(spelling)) {
-      return false;
-    }
-    const readings = unique$4([
-      mappedNoteField(fields, mapping, "reading"),
-      firstNoteReading(fields)
-    ].filter(Boolean));
-    return Boolean(readingTarget && readingTarget.length >= 2 && readings.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
-  }
-  function noteExpressionValues(fields, mapping) {
-    return unique$4(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
-  }
-  function noteExpressionCandidates(fields, mapping) {
-    const candidates = [];
-    const mapped = mappedNoteField(fields, mapping, "expression");
-    if (mapped) candidates.push({ value: mapped, generic: false });
-    const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
-    if (headword) candidates.push({ value: headword, generic: false });
-    const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
-    if (generic) candidates.push({ value: generic, generic: true });
-    const seen = /* @__PURE__ */ new Set();
-    return candidates.filter((candidate) => {
-      const key = normalizeFieldValue(candidate.value);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-  function genericExpressionLooksLikeHeadword(value, target) {
-    const normalizedValue = normalizeFieldValue(value);
-    if (normalizedValue === target) return true;
-    if (/[。！？!?]/u.test(normalizedValue)) return false;
-    return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
-  }
-  function normalizeFieldValue(value) {
-    return value.replace(/\s+/g, " ").trim();
-  }
-  function unique$4(items) {
-    return [...new Set(items)];
-  }
-  const ANKI_CARD_STATE_PRIORITY = ["failed", "due", "learning", "known", "new", "suspended", "in-deck", "not-in-deck"];
-  function emptyAnkiLookupResult$2() {
-    return { state: "not-in-deck", notes: [], primary: null };
-  }
-  function untrustedAnkiLookupResult() {
-    return { ...emptyAnkiLookupResult$2(), trusted: false };
-  }
-  function cardsByNoteId(cards) {
-    const cardsByNote = /* @__PURE__ */ new Map();
-    for (const cardInfo of cards) addCardInfoByNoteId(cardsByNote, cardInfo);
-    return cardsByNote;
-  }
-  function ankiExistingNoteFromInfo(note, noteCards) {
-    for (const noteCard of noteCards) applyComputedAnkiNextReviews(noteCard);
-    const reviewGradeIntervals = reviewGradeIntervalsFromAnkiCards(noteCards);
-    return {
-      noteId: note.noteId,
-      modelName: note.modelName,
-      cardIds: note.cards ?? [],
-      fields: flattenNoteFields(note.fields),
-      renderedCards: ankiRenderedCards(noteCards),
-      tags: note.tags ?? [],
-      ...reviewGradeIntervals ? { reviewGradeIntervals } : {},
-      ...ankiCardDetailSummary(note, noteCards)
-    };
-  }
-  function ankiStatusIndexEntryFromInfo(note, noteCards) {
-    return {
-      noteId: note.noteId,
-      modelName: note.modelName,
-      ...ankiCardDetailSummary(note, noteCards)
-    };
-  }
-  function ankiNoteHasRenderableDetails(note) {
-    if (note.renderedCards?.some((card) => card.question.trim() || card.answer.trim())) return true;
-    return Object.values(note.fields).some((value) => value.trim());
-  }
-  function ankiRenderedCardMediaFilenames(card) {
-    return unique$3([card.question, card.answer].flatMap(ankiCardHtmlMediaFilenames).filter(shouldHydrateRenderedAnkiMedia));
-  }
-  function ankiCardTemplateLabel(card) {
-    const explicit = [card.cardName, card.card, card.template, card.name].map((value) => typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "").find(Boolean);
-    if (explicit) return explicit;
-    const ordinal = Number(card.ord);
-    return Number.isInteger(ordinal) && ordinal >= 0 ? `Card ${ordinal + 1}` : "";
-  }
-  function ankiMediaFilenameFromCardUrl(value) {
-    const trimmed = value.trim();
-    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("/") || trimmed.startsWith("\\")) return null;
-    if (/^(?:https?|data|blob|file|mailto|tel|javascript|vbscript):/i.test(trimmed)) return null;
-    const filename = trimmed.split(/[?#]/, 1)[0]?.replace(/^\.\//, "") ?? "";
-    if (!filename || filename.includes("..") || /^[a-z][a-z0-9+.-]*:/i.test(filename)) return null;
-    try {
-      return decodeURIComponent(filename);
-    } catch {
-      return filename;
-    }
-  }
-  function ankiMediaMimeType(filename) {
-    const extension = filename.split(".").pop()?.toLowerCase() ?? "";
-    return ANKI_MEDIA_MIME_TYPES[extension] ?? "audio/mpeg";
-  }
-  function stateFromAnkiCards(cards) {
-    if (!cards.length) return "known";
-    if (cards.some((card) => card.type === 3 || card.queue === 3)) return "failed";
-    if (cards.some(isAnkiCardDue)) return "due";
-    if (cards.some((card) => card.queue === 1 || card.type === 1)) return "learning";
-    if (cards.some((card) => card.queue === 0 || card.type === 0)) return "new";
-    if (cards.every((card) => card.queue === -1)) return "suspended";
-    return "known";
-  }
-  function stateFromExistingNotes(notes) {
-    return ANKI_CARD_STATE_PRIORITY.slice(0, 6).find((state) => notes.some((note) => note.state === state)) ?? (notes.length ? "known" : "not-in-deck");
-  }
-  function pickPrimaryCard(cards) {
-    const order = (card) => {
-      if (card.type === 3 || card.queue === 3) return 0;
-      if (isAnkiCardDue(card)) return 1;
-      if (card.queue === 1 || card.type === 1) return 2;
-      if (card.queue === 0 || card.type === 0) return 3;
-      return 4;
-    };
-    return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
-  }
-  function applyComputedAnkiNextReviews(card) {
-    if (Array.isArray(card.nextReviews) && card.nextReviews.length) return;
-    if (card.type !== 2) return;
-    const interval = Number(card.interval);
-    const ease = Number(card.factor) / 1e3;
-    if (!Number.isFinite(interval) || interval <= 0 || !Number.isFinite(ease) || ease <= 0) return;
-    const hard = Math.max(interval * 1.2, interval + 1);
-    const good = Math.max(hard + 1, interval * ease);
-    const easy = Math.max(good + 1, good * 1.3);
-    card.buttons = [2, 3, 4];
-    card.nextReviews = [hard, good, easy].map(formatAnkiIntervalDays);
-  }
-  function formatAnkiIntervalDays(days) {
-    if (days < 30) return `${Math.round(days)}d`;
-    if (days < 365) return `${(days / 30.44).toFixed(1).replace(/\.0$/, "")}mo`;
-    return `${(days / 365.25).toFixed(1).replace(/\.0$/, "")}y`;
-  }
-  function reviewGradeIntervalsFromAnkiCards(cards) {
-    return reviewGradeIntervalsFromAnkiCard(pickPrimaryCard(cards));
-  }
-  function reviewGradeIntervalsFromAnkiCard(card) {
-    const nextReviews = Array.isArray(card?.nextReviews) ? card.nextReviews.map(normalizeAnkiReviewIntervalLabel).filter(Boolean) : [];
-    if (!nextReviews.length) return void 0;
-    const buttons = ankiReviewButtons(card?.buttons, nextReviews.length);
-    const labels = ankiReviewButtonLabels(buttons);
-    const intervals = {};
-    nextReviews.forEach((intervalLabel, index) => {
-      const button2 = buttons[index];
-      if (!button2) return;
-      const buttonLabel = labels[index] ?? ankiReviewButtonLabel(button2);
-      const interval = reviewGradeInterval(buttonLabel, intervalLabel);
-      for (const grade of ankiGradesForButton(button2)) intervals[grade] = interval;
-    });
-    return Object.keys(intervals).length ? intervals : void 0;
-  }
-  function normalizeAnkiReviewIntervalLabel(value) {
-    return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
-  }
-  function ankiReviewButtons(value, count) {
-    const explicit = Array.isArray(value) ? value.map(Number).filter((button2) => Number.isInteger(button2) && button2 > 0) : [];
-    if (explicit.length === count) return explicit;
-    if (count === 4) return [1, 2, 3, 4];
-    if (count === 3) return [1, 2, 3];
-    if (count === 2) return [1, 2];
-    return Array.from({ length: count }, (_, index) => index + 1);
-  }
-  function ankiReviewButtonLabels(buttons) {
-    if (buttons.length === 3 && buttons.every((button2, index) => button2 === index + 1)) {
-      return ["Again", "Good", "Easy"];
-    }
-    if (buttons.length === 2 && buttons.every((button2, index) => button2 === index + 1)) {
-      return ["Again", "Good"];
-    }
-    return buttons.map(ankiReviewButtonLabel);
-  }
-  function ankiReviewButtonLabel(button2) {
-    return ANKI_REVIEW_BUTTON_LABELS[button2] ?? `Button ${button2}`;
-  }
-  function ankiGradesForButton(button2) {
-    return ANKI_GRADES_BY_BUTTON[button2] ?? [];
-  }
-  function reviewGradeInterval(buttonLabel, intervalLabel) {
-    return {
-      buttonLabel,
-      intervalLabel,
-      label: `${buttonLabel} ${intervalLabel}`,
-      source: "anki-next-reviews"
-    };
-  }
-  function isAnkiCardDue(card) {
-    if (card.queue !== 2) return false;
-    if (typeof card.isDue === "boolean") return card.isDue;
-    return Number(card.due ?? 0) <= 0;
-  }
-  function pickPrimaryExistingNote(notes) {
-    return [...notes].sort((a, b) => ankiCardStateRank(a.state) - ankiCardStateRank(b.state))[0] ?? null;
-  }
-  function ankiCardStateRank(state) {
-    const index = ANKI_CARD_STATE_PRIORITY.indexOf(state);
-    return index < 0 ? ANKI_CARD_STATE_PRIORITY.length : index;
-  }
-  function addCardInfoByNoteId(cardsByNote, cardInfo) {
-    const noteId = Number(cardInfo.note);
-    if (!Number.isFinite(noteId)) return;
-    const list = cardsByNote.get(noteId) ?? [];
-    list.push(cardInfo);
-    cardsByNote.set(noteId, list);
-  }
-  function ankiRenderedCards(noteCards) {
-    return noteCards.filter((card) => card.question || card.answer).map((card) => {
-      const cardName = ankiCardTemplateLabel(card);
-      return {
-        cardId: card.cardId,
-        deckName: card.deckName,
-        ...cardName ? { cardName } : {},
-        question: String(card.question ?? ""),
-        answer: String(card.answer ?? "")
-      };
-    });
-  }
-  function ankiCardHtmlMediaFilenames(html) {
-    return Array.from(
-      html.matchAll(/\b(?:src|poster)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi),
-      (match) => ankiMediaFilenameFromCardUrl(match[1] ?? match[2] ?? match[3] ?? "")
-    ).filter((filename) => Boolean(filename));
-  }
-  function shouldHydrateRenderedAnkiMedia(filename) {
-    return ankiMediaMimeType(filename).startsWith("image/");
-  }
-  function ankiNoteDeckNames(noteCards) {
-    return unique$3(noteCards.map((item) => item.deckName).filter(Boolean));
-  }
-  function ankiNotePrimaryCardId(note, noteCards) {
-    return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
-  }
-  const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
-  function ankiCardDetailSummary(note, noteCards) {
-    return {
-      deckNames: ankiNoteDeckNames(noteCards),
-      primaryCardId: ankiNotePrimaryCardId(note, noteCards),
-      state: ankiNoteState(note, noteCards),
-      ...ankiNoteReviewMetrics(noteCards)
-    };
-  }
-  function ankiNoteState(note, noteCards) {
-    if ((note.tags ?? []).includes(ANKI_NEVER_FORGET_TAG)) return "never-forget";
-    return stateFromAnkiCards(noteCards);
-  }
-  function ankiNoteReviewMetrics(noteCards) {
-    return {
-      reps: sumAnkiCardMetric(noteCards, "reps"),
-      lapses: sumAnkiCardMetric(noteCards, "lapses")
-    };
-  }
-  function sumAnkiCardMetric(cards, metric) {
-    return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
-  }
-  function unique$3(items) {
-    return [...new Set(items)];
-  }
-  const ANKI_MEDIA_MIME_TYPES = {
-    "png": "image/png",
-    "jpg": "image/jpeg",
-    "jpeg": "image/jpeg",
-    "jfif": "image/jpeg",
-    "pjpeg": "image/jpeg",
-    "pjp": "image/jpeg",
-    "webp": "image/webp",
-    "gif": "image/gif",
-    "bmp": "image/bmp",
-    "avif": "image/avif",
-    "svg": "image/svg+xml",
-    "mp3": "audio/mpeg",
-    "wav": "audio/wav",
-    "ogg": "audio/ogg",
-    "oga": "audio/ogg",
-    "opus": "audio/ogg",
-    "webm": "audio/webm",
-    "m4a": "audio/mp4",
-    "mp4": "audio/mp4",
-    "aac": "audio/mp4",
-    "flac": "audio/flac"
-  };
-  const ANKI_REVIEW_BUTTON_LABELS = {
-    1: "Again",
-    2: "Hard",
-    3: "Good",
-    4: "Easy"
-  };
-  const ANKI_GRADES_BY_BUTTON = {
-    1: ["nothing", "fail"],
-    2: ["something", "hard"],
-    3: ["okay", "pass"],
-    4: ["easy"]
-  };
-  const ANKI_STATUS_INDEX_STORAGE_KEY = "yomu:anki-status-index:v1";
-  const ANKI_STATUS_INDEX_VERSION = 1;
-  const ANKI_STATUS_INDEX_COUNT_CHECK_MS = 5 * 60 * 1e3;
-  const ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS = 2 * 60 * 1e3;
-  const ANKI_STATUS_INDEX_MAX_STALE_MS = 30 * 60 * 1e3;
-  const ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE = 500;
-  const ANKI_STATUS_INDEX_NOTE_CONCURRENCY = 3;
-  const ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY = "yomu:anki-status-index-rebuild:v1";
-  const ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS = 15 * 60 * 1e3;
-  const ANKI_STATUS_INDEX_DB_NAME = "yomu-anki-status-index";
-  const ANKI_STATUS_INDEX_DB_VERSION = 1;
-  const ANKI_STATUS_INDEX_META_STORE = "meta";
-  const ANKI_STATUS_INDEX_ENTRY_STORE = "entries";
-  const ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE = 500;
-  const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
-  const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
-  const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
-  const log$k = Logger.scope("Anki");
-  function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
-    const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
-    if (!isAnkiStatusIndexRebuildLease(lease)) return null;
-    if (lease.expiresAt <= now) {
-      gmStorageDeleteSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY);
-      return null;
-    }
-    if (settingsKey && lease.settingsKey !== settingsKey) return null;
-    return lease;
-  }
-  function claimAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
-    if (activeAnkiStatusIndexRebuildLease(void 0, now)) return null;
-    const owner = createAnkiStatusIndexRebuildLeaseOwner();
-    const lease = {
-      owner,
-      settingsKey,
-      startedAt: now,
-      expiresAt: now + ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS
-    };
-    gmStorageSetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, lease);
-    return activeAnkiStatusIndexRebuildLease(void 0, now)?.owner === owner ? owner : null;
-  }
-  function touchAnkiStatusIndexRebuildLease(owner, settingsKey, now = Date.now()) {
-    const lease = activeAnkiStatusIndexRebuildLease(void 0, now);
-    if (!lease || lease.owner !== owner) return;
-    gmStorageSetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, {
-      ...lease,
-      settingsKey,
-      expiresAt: now + ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS
-    });
-  }
-  function releaseAnkiStatusIndexRebuildLease(owner) {
-    const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
-    if (isAnkiStatusIndexRebuildLease(lease) && lease.owner === owner) {
-      gmStorageDeleteSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY);
-    }
-  }
-  async function saveAnkiStatusIndex(index) {
-    try {
-      await saveAnkiStatusIndexToIndexedDb(index);
-      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
-    } catch (error) {
-      log$k.warn("Anki status save fell back", error);
-      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
-    }
-  }
-  async function saveAnkiStatusIndexCheckedAt(index) {
-    if (index.entryStore !== "indexeddb") {
-      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
-      return;
-    }
-    const meta = ankiStatusIndexMeta(index);
-    try {
-      await putStoredAnkiStatusIndexMeta(meta);
-      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
-    } catch (error) {
-      log$k.warn("Anki status metadata failed", error);
-      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
-    }
-  }
-  async function saveAnkiStatusIndexDirtyMarker(index) {
-    const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: index.dirtyAt ?? Date.now() };
-    if (dirty.entryStore !== "indexeddb") {
-      gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY, { ...dirty, entryStore: void 0 });
-      return;
-    }
-    const meta = ankiStatusIndexMeta(dirty);
-    gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
-    await putStoredAnkiStatusIndexMeta(meta);
-  }
-  async function loadAnkiStatusIndexFromIndexedDb() {
-    if (!canUseIndexedDb()) return null;
-    const db = await openAnkiStatusIndexDb();
-    try {
-      const meta = await idbRequest(
-        db.transaction(ANKI_STATUS_INDEX_META_STORE, "readonly").objectStore(ANKI_STATUS_INDEX_META_STORE).get("current")
-      );
-      if (!meta) return null;
-      return {
-        version: meta.version,
-        settingsKey: meta.settingsKey,
-        syncedAt: meta.syncedAt,
-        checkedAt: meta.checkedAt,
-        cardCount: meta.cardCount,
-        entryCount: meta.entryCount,
-        entryStore: "indexeddb",
-        entries: {},
-        readingKeys: meta.readingKeys,
-        dirtyAt: meta.dirtyAt
-      };
-    } finally {
-      db.close();
-    }
-  }
-  async function loadAnkiStatusIndexEntriesFromIndexedDb(keys) {
-    if (!canUseIndexedDb()) return /* @__PURE__ */ new Map();
-    const db = await openAnkiStatusIndexDb();
-    try {
-      const records = [];
-      for (const chunk of chunkArray$1(unique$2(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
-        const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
-        const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-        const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record) => [key, record])));
-        await idbTransactionDone(tx);
-        records.push(...chunkRecords);
-      }
-      return new Map(records.filter((record) => Boolean(record[1])).map(([key, record]) => [key, record.entry]));
-    } finally {
-      db.close();
-    }
-  }
-  async function saveAnkiStatusIndexToIndexedDb(index) {
-    if (!canUseIndexedDb()) throw new Error("IndexedDB is unavailable.");
-    const db = await openAnkiStatusIndexDb();
-    try {
-      await clearAnkiStatusIndexStores(db);
-      const entries = Object.entries(index.entries).map(([key, entry]) => ({ key, entry }));
-      for (const chunk of chunkArray$1(entries, ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE)) {
-        await putAnkiStatusIndexEntries(db, chunk);
-      }
-      await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
-    } finally {
-      db.close();
-    }
-  }
-  function ankiStatusIndexMeta(index) {
-    return {
-      id: "current",
-      version: index.version,
-      settingsKey: index.settingsKey,
-      syncedAt: index.syncedAt,
-      checkedAt: index.checkedAt,
-      cardCount: index.cardCount,
-      entryCount: index.entryCount ?? Object.keys(index.entries).length,
-      entryStore: "indexeddb",
-      entries: {},
-      readingKeys: index.readingKeys,
-      dirtyAt: index.dirtyAt
-    };
-  }
-  function clearAnkiStatusIndexStores(db) {
-    const tx = db.transaction([ANKI_STATUS_INDEX_META_STORE, ANKI_STATUS_INDEX_ENTRY_STORE], "readwrite");
-    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).clear();
-    tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).clear();
-    return idbTransactionDone(tx);
-  }
-  function putAnkiStatusIndexMeta(db, meta) {
-    const tx = db.transaction(ANKI_STATUS_INDEX_META_STORE, "readwrite");
-    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).put(meta);
-    return idbTransactionDone(tx);
-  }
-  function putBestAnkiStatusIndexEntries(db, entries) {
-    if (!entries.length) return Promise.resolve();
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readwrite");
-    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-    entries.forEach((candidate) => {
-      const request = store.get(candidate.key);
-      request.onsuccess = () => {
-        const current = request.result?.entry;
-        if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
-      };
-    });
-    return idbTransactionDone(tx);
-  }
-  function countAnkiStatusIndexEntries(db) {
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
-    const done = idbTransactionDone(tx);
-    const count = idbRequest(tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).count());
-    return count.then(async (value) => {
-      await done;
-      return value;
-    });
-  }
-  function openAnkiStatusIndexDb() {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(ANKI_STATUS_INDEX_DB_NAME, ANKI_STATUS_INDEX_DB_VERSION);
-      request.onerror = () => reject(request.error ?? new Error("Could not open Anki status index database."));
-      request.onblocked = () => reject(new Error("Anki status index database upgrade was blocked."));
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_META_STORE)) {
-          db.createObjectStore(ANKI_STATUS_INDEX_META_STORE, { keyPath: "id" });
-        }
-        if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_ENTRY_STORE)) {
-          db.createObjectStore(ANKI_STATUS_INDEX_ENTRY_STORE, { keyPath: "key" });
-        }
-      };
-      request.onsuccess = () => {
-        const db = request.result;
-        db.onversionchange = () => db.close();
-        resolve(db);
-      };
-    });
-  }
-  function canUseIndexedDb() {
-    return typeof indexedDB !== "undefined";
-  }
-  function statusIndexEntriesForNotes(notes, cardData, settings, updatedAt) {
-    const entries = /* @__PURE__ */ new Map();
-    for (const note of notes) {
-      const candidate = statusIndexEntryFromStatusData(note, cardData, updatedAt);
-      for (const key of statusIndexKeysForNote(note, settings)) {
-        const current = entries.get(key);
-        if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate)) entries.set(key, candidate);
-      }
-    }
-    return [...entries].map(([key, entry]) => ({ key, entry }));
-  }
-  function statusIndexKeysForCard(card) {
-    const keys = noteCardExpressionTargets(card).map(statusIndexKey);
-    if (shouldUseStatusReadingKey(card)) keys.push(statusIndexReadingKey(card.reading || card.spelling));
-    return unique$2(keys);
-  }
-  function statusIndexEntryForCard(index, card, entries) {
-    for (const key of statusIndexKeysForCard(card)) {
-      const entry = entries?.get(key) ?? index.entries[key];
-      if (entry && isAnkiStatusIndexEntryFreshForIndex(index, entry)) return entry;
-    }
-    return null;
-  }
-  function statusIndexEntryFromStatusData(note, cardData, updatedAt) {
-    const noteCards = cardData.cardsByNote.get(note.noteId) ?? [];
-    const entry = noteCards.length ? ankiStatusIndexEntryFromInfo(note, noteCards) : statusIndexEntryFromStatusSets(note, cardData.sets);
-    return updatedAt === void 0 ? entry : { ...entry, updatedAt };
-  }
-  function shouldReplaceAnkiStatusIndexEntry(current, candidate) {
-    if (sameAnkiStatusIndexEntryIdentity(current, candidate)) {
-      return ankiStatusIndexEntryUpdatedAt(candidate) >= ankiStatusIndexEntryUpdatedAt(current);
-    }
-    return ankiCardStateRank(candidate.state) < ankiCardStateRank(current.state);
-  }
-  function sameAnkiStatusIndexEntryIdentity(current, candidate) {
-    return current.noteId === candidate.noteId || current.primaryCardId !== null && current.primaryCardId === candidate.primaryCardId;
-  }
-  function isAnkiStatusIndexEntryFreshForIndex(index, entry) {
-    return !index.dirtyAt || ankiStatusIndexEntryUpdatedAt(entry) > index.dirtyAt;
-  }
-  function ankiStatusIndexEntryUpdatedAt(entry) {
-    return Number(entry.updatedAt) || 0;
-  }
-  function putAnkiStatusIndexEntries(db, entries) {
-    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readwrite");
-    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
-    entries.forEach((entry) => store.put(entry));
-    return idbTransactionDone(tx);
-  }
-  async function putStoredAnkiStatusIndexMeta(meta) {
-    if (!canUseIndexedDb()) throw new Error("IndexedDB is unavailable.");
-    const db = await openAnkiStatusIndexDb();
-    try {
-      await putAnkiStatusIndexMeta(db, meta);
-    } finally {
-      db.close();
-    }
-  }
-  function idbRequest(request) {
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed."));
-    });
-  }
-  function idbTransactionDone(tx) {
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted."));
-      tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed."));
-    });
-  }
-  function isAnkiStatusIndexRebuildLease(value) {
-    if (!value || typeof value !== "object") return false;
-    const lease = value;
-    return typeof lease.owner === "string" && typeof lease.settingsKey === "string" && typeof lease.startedAt === "number" && typeof lease.expiresAt === "number";
-  }
-  function createAnkiStatusIndexRebuildLeaseOwner() {
-    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
-    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  }
-  function statusIndexKey(value) {
-    return normalizeFieldValue(value).toLocaleLowerCase();
-  }
-  function statusIndexReadingKey(value) {
-    return `${ANKI_STATUS_INDEX_READING_KEY_PREFIX}${statusIndexKey(value)}`;
-  }
-  function statusIndexKeysForNote(note, settings) {
-    const fields = flattenNoteFields(note.fields);
-    const mapping = ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields));
-    const keys = /* @__PURE__ */ new Set();
-    addStatusIndexKeys(keys, statusIndexFieldValues(fields, mapping), statusIndexKey, 2);
-    addStatusIndexKeys(keys, statusIndexReadingFieldValues(fields, mapping), statusIndexReadingKey, ANKI_STATUS_INDEX_READING_KEY_PREFIX.length + 2);
-    return [...keys].filter(Boolean);
-  }
-  function addStatusIndexKeys(keys, values, keyForValue, minPartKeyLength) {
-    for (const value of values) {
-      if (value.length <= 80) keys.add(keyForValue(value));
-      value.split(ANKI_STATUS_INDEX_KEY_PART_SEPARATOR).map(keyForValue).filter((key) => key.length >= minPartKeyLength).forEach((key) => keys.add(key));
-    }
-  }
-  function statusIndexFieldValues(fields, mapping) {
-    const expression = firstNoteExpressionValue(fields, mapping);
-    const reading = mappedNoteField(fields, mapping, "reading") || firstNoteReading(fields);
-    const preferred = (expression ? [expression] : [reading]).map(normalizeFieldValue).filter(Boolean);
-    if (preferred.length) return unique$2(preferred);
-    return noteFieldValues(fields).filter((value) => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
-  }
-  function statusIndexReadingFieldValues(fields, mapping) {
-    return unique$2([
-      mappedNoteField(fields, mapping, "reading"),
-      firstNoteReading(fields)
-    ].map(normalizeFieldValue).filter((value) => value.length >= 2));
-  }
-  function shouldUseStatusReadingKey(card) {
-    const reading = normalizeFieldValue(card.reading || "");
-    const spelling = normalizeFieldValue(card.spelling || "");
-    const spellingIsKana = isKanaStatusLookupSurface(spelling);
-    const readingTarget = reading || (spellingIsKana ? spelling : "");
-    if (readingTarget.length < 2 || spelling.length < 2) return false;
-    return spelling === readingTarget || spellingIsKana;
-  }
-  function statusIndexEntryFromStatusSets(note, cardSets) {
-    const cardIds = (note.cards ?? []).map(Number).filter(Number.isFinite);
-    const primaryCardId = pickPrimaryCardIdFromStatusSets(cardIds, cardSets);
-    const state = stateFromStatusIndexCardIds(cardIds, cardSets);
-    return {
-      noteId: note.noteId,
-      modelName: note.modelName,
-      deckNames: [],
-      primaryCardId,
-      state,
-      reps: 0,
-      lapses: 0
-    };
-  }
-  function stateFromStatusIndexCardIds(cardIds, cardSets) {
-    if (!cardIds.length) return "known";
-    if (cardIds.some((cardId) => cardSets.due.has(cardId))) return "due";
-    if (cardIds.some((cardId) => cardSets.learning.has(cardId))) return "learning";
-    if (cardIds.some((cardId) => cardSets.new.has(cardId))) return "new";
-    if (cardIds.every((cardId) => cardSets.suspended.has(cardId))) return "suspended";
-    return "known";
-  }
-  function pickPrimaryCardIdFromStatusSets(cardIds, cardSets) {
-    const orderedSets = [cardSets.due, cardSets.learning, cardSets.new, cardSets.all, cardSets.suspended];
-    for (const set of orderedSets) {
-      const match = cardIds.find((cardId) => set.has(cardId));
-      if (match !== void 0) return match;
-    }
-    return cardIds[0] ?? null;
-  }
-  function unique$2(items) {
-    return Array.from(new Set(items));
-  }
-  function chunkArray$1(items, size) {
-    return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
-  }
-  const ANKI_SEARCH_SPECIALS_RE = /([\\"*_])/g;
-  function escapeAnkiSearchText(term) {
-    return term.replace(ANKI_SEARCH_SPECIALS_RE, "\\$1");
-  }
-  function quoteAnkiSearch(term) {
-    return `"${escapeAnkiSearchText(term)}"`;
-  }
-  const ANKI_VERSION = 6;
-  const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1e3;
-  const ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE = 50;
-  const ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY = 3;
-  const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5e3;
-  const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1500;
-  const ANKI_BACKGROUND_AVAILABILITY_TTL_MS = 15e3;
-  const ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS = 6e4;
-  const ANKI_STATUS_INDEX_BACKGROUND_REFRESH_DELAY_MS = 2500;
-  const ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT = 24;
-  const ANKI_MODEL_SCAN_CONCURRENCY = 3;
-  const ANKI_STATUS_INDEX_CARD_CHUNK_SIZE = 500;
-  const ANKI_EDITED_SWEEP_MAX_DAYS = 30;
-  const ANKI_EDITED_SWEEP_MOD_LIMIT = 2e3;
-  const ANKI_EDITED_SWEEP_DAY_MS = 24 * 60 * 60 * 1e3;
-  const ANKI_STATUS_INDEX_CARD_CONCURRENCY = 3;
-  const ANKI_RENDERED_MEDIA_LIMIT = 12;
-  const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
-  const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
-  const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
-  const ANKI_MOBILE_FALLBACK_DECK = "Default";
-  const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);
-  const log$j = Logger.scope("Anki");
-  const ANKI_EASE_BY_GRADE = {
-    nothing: 1,
-    fail: 1,
-    something: 2,
-    hard: 2,
-    okay: 3,
-    pass: 3,
-    easy: 4
-  };
-  const YOMU_MODEL_FIELDS = [
-    "Expression",
-    "Reading",
-    "Meaning",
-    "Sentence",
-    "Url",
-    "Frequency",
-    "PartOfSpeech",
-    "Image",
-    "Audio",
-    "JPDB",
-    "Status",
-    "Pitch",
-    "DictionaryDefinitions",
-    "Kanji",
-    "Source"
-  ];
-  function ankiLookupWithUnavailableDetails(lookup) {
-    const mark = (note) => ankiNoteHasRenderableDetails(note) ? note : { ...note, detailsUnavailable: true };
-    const notes = lookup.notes.map(mark);
-    const primary = lookup.primary ? mark(lookup.primary) : null;
-    return { ...lookup, notes, primary };
-  }
-  class AnkiDuplicateNoteError extends Error {
-    constructor(message) {
-      super(message);
-      this.name = "AnkiDuplicateNoteError";
-    }
-  }
-  function isAnkiDuplicateNoteError(error) {
-    return error instanceof AnkiDuplicateNoteError;
-  }
-  class AnkiConnectClient {
-    constructor(getSettings) {
-      this.getSettings = getSettings;
-      this.installFocusStatusRefresh();
-    }
-    lookupCache = /* @__PURE__ */ new Map();
-    // Media manifest cache (P1): base64 payloads from retrieveMediaFile are
-    // expensive; repeat plays/hydrations reuse the same data URL by sanitized
-    // filename. Failures are evicted so a transient error can retry.
-    mediaDataUrlCache = /* @__PURE__ */ new Map();
-    statusLookupCache = /* @__PURE__ */ new Map();
-    lookupInflight = /* @__PURE__ */ new Map();
-    statusIndex;
-    statusIndexLoad;
-    statusIndexRefresh;
-    statusIndexRefreshQueued = false;
-    availabilityProbe;
-    availabilityCheckedAt = 0;
-    unavailableUntil = 0;
-    fieldTargetPlanCache;
-    isDestroyed = false;
-    focusStatusRefreshListener;
-    lastFocusStatusRefreshAt = 0;
-    destroy() {
-      this.isDestroyed = true;
-      this.lookupInflight.clear();
-      this.statusIndexLoad = void 0;
-      this.statusIndexRefresh = void 0;
-      this.statusIndexRefreshQueued = false;
-      this.availabilityProbe = void 0;
-      if (this.focusStatusRefreshListener) {
-        window.removeEventListener("focus", this.focusStatusRefreshListener);
-        document.removeEventListener("visibilitychange", this.focusStatusRefreshListener);
-        this.focusStatusRefreshListener = void 0;
-      }
-    }
-    // The status index is validated by deck card COUNT, which misses reviews
-    // done in Anki itself (state changes, same count). Returning to the tab
-    // after being away is exactly when that happens, so expire the index then.
-    installFocusStatusRefresh() {
-      if (typeof window === "undefined") return;
-      this.focusStatusRefreshListener = () => {
-        if (this.isDestroyed || document.visibilityState === "hidden") return;
-        const awayMs = Date.now() - this.lastFocusStatusRefreshAt;
-        if (awayMs < ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS) return;
-        this.lastFocusStatusRefreshAt = Date.now();
-        const index = this.validStatusIndex(this.statusIndex);
-        if (!index) return;
-        this.statusIndex = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
-        this.queueStatusIndexRefresh();
-      };
-      window.addEventListener("focus", this.focusStatusRefreshListener);
-      document.addEventListener("visibilitychange", this.focusStatusRefreshListener);
-    }
-    // Used by settings connection checks through the Anki client dependency.
-    async isConnected() {
-      try {
-        await this.invoke("version");
-        this.markAvailable();
-        return true;
-      } catch (error) {
-        log$j.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
-        return false;
-      }
-    }
-    async isAvailableForBackground() {
-      if (this.isDestroyed) return false;
-      if (this.isLookupCoolingDown()) return false;
-      const now = Date.now();
-      if (now - this.availabilityCheckedAt < ANKI_BACKGROUND_AVAILABILITY_TTL_MS) return true;
-      if (this.availabilityProbe) return this.availabilityProbe;
-      this.availabilityProbe = this.invokeWithTimeout("version", {}, ANKI_BACKGROUND_REQUEST_TIMEOUT_MS).then(() => {
-        if (this.isDestroyed) return false;
-        this.markAvailable();
-        return true;
-      }).catch((error) => {
-        log$j.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
-        this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
-        return false;
-      }).finally(() => {
-        this.availabilityProbe = void 0;
-      });
-      return this.availabilityProbe;
-    }
-    async deckNames() {
-      const decks = await this.invoke("deckNames");
-      return decks;
-    }
-    async modelNames() {
-      const models = await this.invoke("modelNames");
-      return models;
-    }
-    // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
-    // exactly which fields a mining write will target instead of silently
-    // retargeting into an existing non-Yomu model at write time.
-    async noteFieldTargetPlan() {
-      const settings = this.getSettings();
-      if (!settings.ankiEnabled) return null;
-      if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) return null;
-      const modelName = resolvedAnkiModelName(settings);
-      const key = `${settings.ankiConnectUrl}|${modelName}`;
-      const now = Date.now();
-      if (this.fieldTargetPlanCache?.key === key && this.fieldTargetPlanCache.expiresAt > now) return this.fieldTargetPlanCache.promise;
-      const promise = this.loadNoteFieldTargetPlan(modelName, settings).catch(() => null);
-      this.fieldTargetPlanCache = { key, expiresAt: now + ANKI_FIELD_TARGET_PLAN_TTL_MS, promise };
-      return promise;
-    }
-    async loadNoteFieldTargetPlan(modelName, settings) {
-      const modelNames = await this.modelNames();
-      if (!modelNames.includes(modelName)) return { modelName, yomuManaged: true, fieldNames: [] };
-      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
-      return { modelName, yomuManaged: shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames), fieldNames };
-    }
-    // Used by settings library scan through the Anki client dependency.
-    async scanLibrary() {
-      const [deckNames, modelNames] = await Promise.all([
-        this.deckNames().catch(() => []),
-        this.modelNames().catch(() => [])
-      ]);
-      const models = [];
-      await runLimited(modelNames, ANKI_MODEL_SCAN_CONCURRENCY, async (modelName) => {
-        const [fields, sampleNotes] = await Promise.all([
-          this.invokeOrDefault("modelFieldNames", { modelName }, []),
-          this.sampleModelNotes(modelName)
-        ]);
-        models.push(scanAnkiModelFields(modelName, fields, sampleNotes));
-      });
-      const sortedModels = [...models].sort((a, b) => b.score - a.score || a.modelName.localeCompare(b.modelName));
-      return {
-        deckNames,
-        models: sortedModels,
-        suggestedModel: sortedModels[0] ?? null
-      };
-    }
-    async sampleModelNotes(modelName) {
-      const noteIds = await this.invokeOrDefault("findNotes", { query: `note:${quoteAnkiSearch(modelName)}` }, []);
-      const sampleIds = Array.isArray(noteIds) ? unique$1(noteIds.map(Number).filter(Number.isFinite)).slice(0, ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT) : [];
-      if (!sampleIds.length) return [];
-      return await this.invokeOrDefault("notesInfo", { notes: sampleIds }, []);
-    }
-    warmStatusIndex() {
-      if (this.isDestroyed) return Promise.resolve(null);
-      return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? this.loadStatusIndex();
-    }
-    async findExistingCards(card) {
-      return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult$2();
-    }
-    async findCachedStatusBatch(cards) {
-      const empty = emptyAnkiLookupResult$2();
-      const untrustedEmpty = untrustedAnkiLookupResult();
-      if (!cards.length) return [];
-      if (!this.canUseCachedStatusLookup()) return cards.map(() => untrustedEmpty);
-      const results = cards.map(() => untrustedEmpty);
-      const pending = this.collectPendingLookupGroups(cards, results, (cacheKey) => this.readStatusLookupCache(cacheKey));
-      if (!pending.length) return results;
-      const context = await this.cachedStatusLookupContext(pending);
-      if (this.isDestroyed) return cards.map(() => untrustedEmpty);
-      const unresolved = this.applyCachedStatusLookupPlan(
-        pending,
-        results,
-        context.statusIndex,
-        context.statusEntries,
-        context.canUseStatusIndexHits,
-        context.canTrustStatusMiss,
-        empty
-      );
-      await this.resolveUncachedStatusLookups(unresolved, results, empty);
-      return results;
-    }
-    canUseCachedStatusLookup() {
-      if (this.isDestroyed) return false;
-      if (!this.getSettings().ankiEnabled) return false;
-      return !this.isLookupCoolingDown();
-    }
-    queueStatusIndexRefreshForLookup(statusIndex) {
-      if (!statusIndex || this.statusIndexNeedsCountCheck(statusIndex) || this.statusIndexIsTooStale(statusIndex)) {
-        this.queueStatusIndexRefresh({ rebuildIfMissing: false });
-      }
-    }
-    async cachedStatusLookupContext(pending) {
-      const statusIndex = await this.loadStatusIndex();
-      if (statusIndex) this.queueStatusIndexRefreshForLookup(statusIndex);
-      const statusEntries = await this.loadStatusEntriesForCards(statusIndex, pending.map((item) => item.card));
-      const canUseStatusIndexHits = this.canUseStatusIndexHits(statusIndex);
-      const hasActiveRebuildLease = this.hasActiveStatusIndexRebuildLease(statusIndex);
-      return {
-        statusIndex,
-        statusEntries,
-        canUseStatusIndexHits,
-        hasActiveRebuildLease,
-        canTrustStatusMiss: this.canTrustStatusIndexMiss(statusIndex, {
-          canUseStatusIndexHits,
-          hasActiveRebuildLease,
-          statusEntries
-        })
-      };
-    }
-    canUseStatusIndexHits(statusIndex) {
-      return Boolean(statusIndex && this.statusIndexHasEntries(statusIndex));
-    }
-    hasActiveStatusIndexRebuildLease(statusIndex) {
-      return Boolean(activeAnkiStatusIndexRebuildLease(statusIndex?.settingsKey));
-    }
-    canTrustStatusIndexMiss(statusIndex, context) {
-      if (!statusIndex) return false;
-      if (!context.canUseStatusIndexHits || context.hasActiveRebuildLease) return false;
-      if (!this.isStatusIndexFreshForMissTrust(statusIndex)) return false;
-      if (this.hasPendingStatusIndexRefresh()) return false;
-      if (this.statusIndexNeedsCountCheck(statusIndex)) return false;
-      if (this.statusIndexIsTooStale(statusIndex)) return false;
-      return this.hasStatusIndexMissCoverage(statusIndex, context.statusEntries);
-    }
-    isStatusIndexFreshForMissTrust(statusIndex) {
-      return statusIndex.syncedAt > 0 && !this.statusIndexIsDirty(statusIndex);
-    }
-    hasPendingStatusIndexRefresh() {
-      return Boolean(this.statusIndexRefresh || this.statusIndexRefreshQueued);
-    }
-    hasStatusIndexMissCoverage(statusIndex, statusEntries) {
-      return statusIndex.entryStore !== "indexeddb" || Boolean(statusEntries);
-    }
-    applyCachedStatusLookupPlan(pending, results, statusIndex, statusEntries, canUseStatusIndexHits, canTrustStatusMiss, empty) {
-      const unresolved = [];
-      for (const group of pending) {
-        const indexed = canUseStatusIndexHits ? this.lookupStatusIndex(statusIndex, group.card, statusEntries) : null;
-        if (indexed) {
-          this.writeStatusLookupCache(group.cacheKey, indexed);
-          this.applyLookupGroupResult(results, group.indexes, indexed);
-          continue;
-        }
-        if (!canTrustStatusMiss) {
-          unresolved.push(group);
-          continue;
-        }
-        this.writeStatusLookupCache(group.cacheKey, empty);
-        this.applyLookupGroupResult(results, group.indexes, empty);
-      }
-      return unresolved;
-    }
-    async resolveUncachedStatusLookups(unresolved, results, empty) {
-      if (!unresolved.length) return;
-      this.queueStatusIndexRefresh();
-      try {
-        const resolved = await this.findExistingCardsBatchUncachedWithInflight(unresolved, empty);
-        for (const group of unresolved) {
-          const result = resolved.get(group.cacheKey) ?? empty;
-          this.writeStatusLookupCache(group.cacheKey, result);
-          this.applyLookupGroupResult(results, group.indexes, result);
-        }
-      } catch (error) {
-        log$j.warn("Exact Anki status lookup failed", error);
-      }
-    }
-    collectPendingLookupGroups(cards, results, readCache) {
-      const pendingByCacheKey = /* @__PURE__ */ new Map();
-      cards.forEach((card, index) => {
-        const cacheKey = this.lookupCacheKey(card);
-        const cached = readCache(cacheKey);
-        if (cached) {
-          results[index] = cached;
-          return;
-        }
-        let pending = pendingByCacheKey.get(cacheKey);
-        if (!pending) {
-          pending = { card, indexes: [], cacheKey };
-          pendingByCacheKey.set(cacheKey, pending);
-        }
-        pending.indexes.push(index);
-      });
-      return [...pendingByCacheKey.values()];
-    }
-    async findExistingCardsBatch(cards) {
-      const empty = emptyAnkiLookupResult$2();
-      if (!cards.length) return [];
-      if (this.isDestroyed) return cards.map(() => empty);
-      const results = cards.map(() => empty);
-      const pending = this.collectPendingLookupGroups(cards, results, (cacheKey) => this.readLookupCache(cacheKey));
-      if (!pending.length) return results;
-      const batches = this.pendingLookupBatches(pending);
-      try {
-        const done = log$j.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
-        if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
-        if (this.isDestroyed) return results;
-        const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
-        if (this.isDestroyed) return results;
-        this.applyResolvedLookupResults(resolved, batches.pendingByCacheKey, results);
-        done();
-        return results;
-      } catch (error) {
-        log$j.warn("Anki batch lookup failed", { terms: pending.length }, error);
-        this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
-        return results;
-      }
-    }
-    pendingLookupBatches(pending) {
-      const inFlight = [];
-      const uncached = [];
-      const pendingByCacheKey = new Map(pending.map((group) => [group.cacheKey, group]));
-      for (const group of pending) {
-        const promise = this.lookupInflight.get(group.cacheKey);
-        if (promise) inFlight.push([group, promise]);
-        else uncached.push(group);
-      }
-      return { inFlight, uncached, pendingByCacheKey };
-    }
-    async applyInFlightLookupResults(inFlight, results) {
-      await Promise.all(inFlight.map(async ([group, promise]) => {
-        const result = await promise;
-        if (this.isDestroyed) return;
-        this.writeLookupCache(group.cacheKey, result);
-        this.applyLookupGroupResult(results, group.indexes, result);
-      }));
-    }
-    async resolveUncachedLookupBatches(uncached, empty) {
-      return uncached.length ? await this.findExistingCardsBatchUncachedWithInflight(uncached, empty) : /* @__PURE__ */ new Map();
-    }
-    applyResolvedLookupResults(resolved, pendingByCacheKey, results) {
-      for (const [cacheKey, result] of resolved) {
-        this.writeLookupCache(cacheKey, result);
-        const indexes = pendingByCacheKey.get(cacheKey)?.indexes;
-        if (indexes) this.applyLookupGroupResult(results, indexes, result);
-      }
-    }
-    lookupCacheKey(card) {
-      return lookupKeyTermsForCard(card).join("|");
-    }
-    applyLookupGroupResult(results, indexes, result) {
-      indexes.forEach((index) => {
-        results[index] = result;
-      });
-    }
-    statusIndexSettingsKey(settings = this.getSettings()) {
-      const fieldMappings = ankiFieldMappingsSettingsKey(settings.ankiFieldMappings);
-      return JSON.stringify({
-        url: settings.ankiConnectUrl || "http://127.0.0.1:8765",
-        ...Object.keys(fieldMappings).length ? { fieldMappings } : {}
-      });
-    }
-    loadStatusIndex() {
-      if (this.statusIndex !== void 0) return Promise.resolve(this.validStatusIndex(this.statusIndex));
-      const syncIndex = this.validStatusIndex(gmStorageGetSync(ANKI_STATUS_INDEX_STORAGE_KEY, null));
-      if (syncIndex && syncIndex.entryStore !== "indexeddb") {
-        this.statusIndex = syncIndex;
-        return Promise.resolve(syncIndex);
-      }
-      if (!this.statusIndexLoad) {
-        this.statusIndexLoad = this.loadStoredStatusIndex().then((index) => {
-          this.statusIndex = index;
-          return this.statusIndex;
-        }).finally(() => {
-          this.statusIndexLoad = void 0;
-        });
-      }
-      return this.statusIndexLoad;
-    }
-    async loadStoredStatusIndex() {
-      const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
-        log$j.warn("Anki status load failed", error);
-        return null;
-      });
-      const validIndexed = this.validStatusIndex(indexed);
-      if (validIndexed) return validIndexed;
-      const stored = await gmStorageGet(ANKI_STATUS_INDEX_STORAGE_KEY, null);
-      const validStored = this.validStatusIndex(stored);
-      return validStored?.entryStore === "indexeddb" ? null : validStored;
-    }
-    validStatusIndex(index) {
-      if (!index || index.version !== ANKI_STATUS_INDEX_VERSION) return null;
-      return index.settingsKey === this.statusIndexSettingsKey() ? index : null;
-    }
-    async loadStatusEntriesForCards(index, cards) {
-      if (!index) return null;
-      if (index.entryStore !== "indexeddb") return null;
-      const keys = unique$1(cards.flatMap(statusIndexKeysForCard));
-      if (!keys.length) return /* @__PURE__ */ new Map();
-      return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
-        log$j.warn("Anki status entry failed", error);
-        return null;
-      });
-    }
-    lookupStatusIndex(index, card, entries) {
-      const entry = index ? statusIndexEntryForCard(index, card, entries) : null;
-      if (!entry) return null;
-      if (index?.dirtyAt && (!entry.updatedAt || entry.updatedAt < index.dirtyAt)) return null;
-      const note = {
-        noteId: entry.noteId,
-        modelName: entry.modelName,
-        deckNames: entry.deckNames,
-        cardIds: entry.primaryCardId ? [entry.primaryCardId] : [],
-        primaryCardId: entry.primaryCardId,
-        state: entry.state,
-        fields: {},
-        tags: [],
-        reps: entry.reps,
-        lapses: entry.lapses
-      };
-      return {
-        state: entry.state,
-        notes: [note],
-        primary: note
-      };
-    }
-    statusIndexHasEntries(index) {
-      return index.cardCount === 0 || (index.entryCount ?? Object.keys(index.entries).length) > 0;
-    }
-    refreshStatusIndexIfNeeded(options = {}) {
-      if (this.isDestroyed || this.isLookupCoolingDown()) return null;
-      if (this.statusIndexRefresh) return this.statusIndexRefresh;
-      this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
-        log$j.warn("Anki status index refresh failed", error);
-        return null;
-      }).finally(() => {
-        this.statusIndexRefresh = void 0;
-      });
-      return this.statusIndexRefresh;
-    }
-    async runStatusIndexRefresh(options) {
-      const index = await this.loadStatusIndex();
-      if (this.isDestroyed) return null;
-      const now = Date.now();
-      const needsReadingKeyRefresh = this.statusIndexNeedsReadingKeyRefresh(index);
-      if (this.canReuseRecentlyCheckedStatusIndex(index, needsReadingKeyRefresh, now)) return index;
-      if (this.shouldSkipMissingStatusIndexRebuild(index, options)) return null;
-      if (!await this.isAvailableForBackground()) return index;
-      if (this.isDestroyed) return null;
-      const countCheck = await this.refreshStatusIndexFromCollectionCount(index, needsReadingKeyRefresh, now, options);
-      if (countCheck.handled) return countCheck.index;
-      return this.rebuildStatusIndexWithLease(index, needsReadingKeyRefresh);
-    }
-    statusIndexNeedsReadingKeyRefresh(index) {
-      return Boolean(index && !index.readingKeys);
-    }
-    statusIndexIsDirty(index) {
-      const dirtyAt = Number(index.dirtyAt) || 0;
-      return dirtyAt > 0 && index.syncedAt <= dirtyAt;
-    }
-    canReuseRecentlyCheckedStatusIndex(index, needsReadingKeyRefresh, now) {
-      return Boolean(index && !needsReadingKeyRefresh && !this.statusIndexIsDirty(index) && index.syncedAt > 0 && now - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS && now - index.checkedAt < ANKI_STATUS_INDEX_COUNT_CHECK_MS);
-    }
-    shouldSkipMissingStatusIndexRebuild(index, options) {
-      return !index && !options.rebuildIfMissing;
-    }
-    async refreshStatusIndexFromCollectionCount(index, needsReadingKeyRefresh, now, options) {
-      if (!index) return { handled: false, index: null };
-      const deckStatsCardCount = await this.collectionCardCountFromDeckStats();
-      if (this.isDestroyed) return { handled: true, index: null };
-      if (this.canMarkStatusIndexCountCurrent(index, deckStatsCardCount, needsReadingKeyRefresh, now)) {
-        const edited = await this.statusIndexEditedSinceSync(index, now);
-        if (this.isDestroyed) return { handled: true, index: null };
-        if (!edited) {
-          return { handled: true, index: await this.saveCheckedStatusIndex(index, now) };
-        }
-        const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: now };
-        this.statusIndex = dirty;
-        await saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$j.warn("Anki edited-sweep dirty marker failed", error);
-        });
-        return { handled: false, index: dirty };
-      }
-      if (this.canDeferStatusIndexRebuild(index, needsReadingKeyRefresh, options)) {
-        return { handled: true, index: await this.saveCheckedStatusIndex(index, now, deckStatsCardCount) };
-      }
-      return { handled: false, index };
-    }
-    async statusIndexEditedSinceSync(index, now) {
-      const sinceMs = index.syncedAt;
-      if (!(sinceMs > 0)) return false;
-      const days = Math.min(ANKI_EDITED_SWEEP_MAX_DAYS, Math.max(1, Math.ceil((now - sinceMs) / ANKI_EDITED_SWEEP_DAY_MS) + 1));
-      try {
-        const ids = await this.invoke("findCards", { query: `edited:${days}` });
-        if (this.isDestroyed || !ids.length) return false;
-        const mods = await this.invoke("cardsModTime", { cards: ids.slice(0, ANKI_EDITED_SWEEP_MOD_LIMIT) });
-        const sinceSeconds = Math.floor(sinceMs / 1e3);
-        return mods.some((entry) => Number(entry?.mod) > sinceSeconds);
-      } catch {
-        return false;
-      }
-    }
-    canMarkStatusIndexCountCurrent(index, deckStatsCardCount, needsReadingKeyRefresh, now) {
-      return !needsReadingKeyRefresh && !this.statusIndexIsDirty(index) && deckStatsCardCount !== null && deckStatsCardCount === index.cardCount && index.syncedAt >= 0 && now >= index.syncedAt;
-    }
-    canDeferStatusIndexRebuild(index, needsReadingKeyRefresh, options) {
-      return Boolean(index && !needsReadingKeyRefresh && (!this.statusIndexIsDirty(index) || options.deferDirtyIfCountUnchanged) && !options.rebuildIfMissing);
-    }
-    async saveCheckedStatusIndex(index, checkedAt, deckStatsCardCount) {
-      const cardCountChanged = deckStatsCardCount !== void 0 && deckStatsCardCount !== null && deckStatsCardCount !== index.cardCount;
-      const checked = {
-        ...index,
-        checkedAt,
-        ...deckStatsCardCount !== void 0 && deckStatsCardCount !== null ? { cardCount: deckStatsCardCount } : {},
-        ...cardCountChanged ? { syncedAt: 0 } : {}
-      };
-      this.statusIndex = checked;
-      await saveAnkiStatusIndexCheckedAt(checked);
-      return checked;
-    }
-    async rebuildStatusIndexWithLease(index, needsReadingKeyRefresh) {
-      const settingsKey = this.statusIndexSettingsKey();
-      const rebuildLeaseOwner = claimAnkiStatusIndexRebuildLease(settingsKey);
-      if (!rebuildLeaseOwner) return index;
-      try {
-        return await this.rebuildStatusIndexWithClaimedLease(
-          index,
-          needsReadingKeyRefresh,
-          settingsKey,
-          rebuildLeaseOwner
-        );
-      } finally {
-        releaseAnkiStatusIndexRebuildLease(rebuildLeaseOwner);
-      }
-    }
-    async rebuildStatusIndexWithClaimedLease(index, needsReadingKeyRefresh, settingsKey, rebuildLeaseOwner) {
-      const rebuildStartedAt = Date.now();
-      const cardIds = await this.invoke("findCards", { query: "deck:*" });
-      touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      if (this.isDestroyed) return null;
-      if (this.canReuseStatusIndexAfterCardScan(index, needsReadingKeyRefresh, cardIds.length, rebuildStartedAt)) {
-        return await this.saveCheckedStatusIndex(index, rebuildStartedAt);
-      }
-      return await this.rebuildStatusIndex(cardIds, rebuildStartedAt, rebuildLeaseOwner);
-    }
-    canReuseStatusIndexAfterCardScan(index, needsReadingKeyRefresh, scannedCardCount, rebuildStartedAt) {
-      return Boolean(index && !needsReadingKeyRefresh && scannedCardCount === index.cardCount && rebuildStartedAt - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS);
-    }
-    queueStatusIndexRefresh(options = {}) {
-      if (this.isDestroyed || this.isLookupCoolingDown() || this.statusIndexRefresh || this.statusIndexRefreshQueued) return;
-      this.statusIndexRefreshQueued = true;
-      const run = () => {
-        this.statusIndexRefreshQueued = false;
-        if (this.isDestroyed) return;
-        void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
-          log$j.warn("Queued Anki status index refresh failed", error);
-          return null;
-        });
-      };
-      if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
-        window.setTimeout(run, ANKI_STATUS_INDEX_BACKGROUND_REFRESH_DELAY_MS);
-      } else {
-        void Promise.resolve().then(run);
-      }
-    }
-    statusIndexNeedsCountCheck(index, now = Date.now()) {
-      return now - index.checkedAt >= ANKI_STATUS_INDEX_COUNT_CHECK_MS;
-    }
-    statusIndexIsTooStale(index, now = Date.now()) {
-      return now - index.syncedAt >= ANKI_STATUS_INDEX_MAX_STALE_MS;
-    }
-    async collectionCardCountFromDeckStats() {
-      const deckNames = await this.deckNames().catch(() => []);
-      if (!Array.isArray(deckNames) || !deckNames.length) return null;
-      const stats = await this.invokeOrDefault("getDeckStats", { decks: deckNames }, null);
-      if (!stats || typeof stats !== "object") return null;
-      const totals = Object.values(stats).map((deck) => Number(deck?.total_in_deck)).filter((count) => Number.isFinite(count) && count >= 0);
-      if (!totals.length) return null;
-      return totals.reduce((sum, count) => sum + count, 0);
-    }
-    async rebuildStatusIndex(cardIds, now = Date.now(), rebuildLeaseOwner) {
-      const rebuild = await this.loadStatusIndexRebuildContext(cardIds, now, rebuildLeaseOwner);
-      if (!rebuild) return null;
-      const indexed = await this.tryRebuildStatusIndexToIndexedDb(rebuild);
-      if (indexed || this.isDestroyed) return indexed;
-      return await this.rebuildStatusIndexToValueStorage(rebuild);
-    }
-    async loadStatusIndexRebuildContext(cardIds, now, rebuildLeaseOwner) {
-      if (this.isDestroyed) return null;
-      const settings = this.getSettings();
-      const settingsKey = this.statusIndexSettingsKey(settings);
-      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      const allCardIds = cardIds ?? await this.invoke("findCards", { query: "deck:*" });
-      if (this.isDestroyed) return null;
-      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      const cardData = await this.loadStatusIndexCardData(allCardIds, rebuildLeaseOwner, settingsKey);
-      if (this.isDestroyed) return null;
-      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      const noteIds = this.statusIndexNoteIdsFromCardData(cardData) ?? await this.findStatusIndexNoteIds(allCardIds);
-      if (this.isDestroyed) return null;
-      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      return { allCardIds, cardData, noteIds, now, rebuildLeaseOwner, settings, settingsKey };
-    }
-    touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey) {
-      if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-    }
-    async findStatusIndexNoteIds(allCardIds) {
-      return allCardIds.length ? await this.invokeOrDefault("findNotes", { query: "deck:*" }, []) : [];
-    }
-    statusIndexNoteIdsFromCardData(cardData) {
-      const noteIds = [...cardData.cardsByNote.keys()].filter(Number.isFinite);
-      return noteIds.length ? noteIds : null;
-    }
-    async tryRebuildStatusIndexToIndexedDb(rebuild) {
-      if (!canUseIndexedDb()) return null;
-      return await this.rebuildStatusIndexToIndexedDb(
-        rebuild.noteIds,
-        rebuild.cardData,
-        rebuild.allCardIds.length,
-        rebuild.now,
-        rebuild.settings,
-        rebuild.settingsKey,
-        rebuild.rebuildLeaseOwner
-      ).catch((error) => {
-        log$j.warn("Anki status rebuild fell back", error);
-        return null;
-      });
-    }
-    async rebuildStatusIndexToValueStorage(rebuild) {
-      const { allCardIds, cardData, noteIds, now, rebuildLeaseOwner, settings, settingsKey } = rebuild;
-      const noteChunks = chunkArray(noteIds, ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
-      const notesByChunk = Array.from({ length: noteChunks.length }, () => []);
-      await runLimited(noteChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk, index2) => {
-        notesByChunk[index2] = await this.invokeOrDefault("notesInfo", { notes: chunk }, []);
-        this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      });
-      const notes = notesByChunk.flat();
-      if (this.isDestroyed) return null;
-      const entries = {};
-      for (const { key, entry } of statusIndexEntriesForNotes(notes, cardData, settings, now)) entries[key] = entry;
-      const index = {
-        version: ANKI_STATUS_INDEX_VERSION,
-        settingsKey,
-        syncedAt: now,
-        checkedAt: now,
-        cardCount: allCardIds.length,
-        entryCount: Object.keys(entries).length,
-        entries,
-        readingKeys: true
-      };
-      this.statusIndex = index;
-      this.statusLookupCache.clear();
-      await saveAnkiStatusIndex(index);
-      return index;
-    }
-    async rebuildStatusIndexToIndexedDb(noteIds, cardData, cardCount, now, settings, settingsKey, rebuildLeaseOwner) {
-      if (this.isDestroyed) return null;
-      const db = await openAnkiStatusIndexDb();
-      try {
-        await clearAnkiStatusIndexStores(db);
-        const noteChunks = chunkArray(noteIds, ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
-        let writeQueue = Promise.resolve();
-        await runLimited(noteChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk) => {
-          const notes = await this.invokeOrDefault("notesInfo", { notes: chunk }, []);
-          if (this.isDestroyed) return;
-          if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-          const entries = statusIndexEntriesForNotes(notes, cardData, settings, now);
-          if (!entries.length) return;
-          writeQueue = writeQueue.then(() => putBestAnkiStatusIndexEntries(db, entries));
-          await writeQueue;
-        });
-        await writeQueue;
-        if (this.isDestroyed) return null;
-        const entryCount = await countAnkiStatusIndexEntries(db);
-        const index = {
-          version: ANKI_STATUS_INDEX_VERSION,
-          settingsKey,
-          syncedAt: now,
-          checkedAt: now,
-          cardCount,
-          entryCount,
-          entryStore: "indexeddb",
-          entries: {},
-          readingKeys: true
-        };
-        await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
-        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
-        this.statusIndex = index;
-        this.statusLookupCache.clear();
-        return index;
-      } finally {
-        db.close();
-      }
-    }
-    async loadStatusIndexCardData(allCardIds, rebuildLeaseOwner, settingsKey) {
-      const sets = await this.loadStatusIndexCardSets(allCardIds);
-      if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      const cardsByNote = await this.loadStatusIndexCardsByNote(allCardIds, sets, rebuildLeaseOwner, settingsKey);
-      if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      return {
-        sets,
-        cardsByNote
-      };
-    }
-    async loadStatusIndexCardsByNote(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
-      const fast = await this.loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey);
-      if (fast) return fast;
-      const cardChunks = chunkArray(unique$1(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_CARD_CHUNK_SIZE);
-      const cardsByChunk = Array.from({ length: cardChunks.length }, () => []);
-      await runLimited(cardChunks, ANKI_STATUS_INDEX_CARD_CONCURRENCY, async (chunk, index) => {
-        const cards = await this.invokeOrDefault("cardsInfo", { cards: chunk }, []);
-        cardsByChunk[index] = (Array.isArray(cards) ? cards : []).map((card) => this.statusIndexCardInfoWithDueFlag(card, sets));
-        this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-      });
-      return cardsByNoteId(cardsByChunk.flat());
-    }
-    async loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
-      const cardIds = unique$1(allCardIds).map(Number).filter(Number.isFinite);
-      if (!cardIds.length) return /* @__PURE__ */ new Map();
-      try {
-        const [noteIds, decks, relearning] = await Promise.all([
-          this.invoke("cardsToNotes", { cards: cardIds }),
-          this.invoke("getDecks", { cards: cardIds }),
-          this.findCardIdSet("deck:* is:learn is:review")
-        ]);
-        if (!Array.isArray(noteIds) || noteIds.length !== cardIds.length || !decks || typeof decks !== "object") return null;
-        this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
-        const deckByCard = /* @__PURE__ */ new Map();
-        for (const [deckName, deckCardIds] of Object.entries(decks)) {
-          for (const id of deckCardIds ?? []) deckByCard.set(Number(id), deckName);
-        }
-        const cards = cardIds.map((cardId, index) => this.syntheticStatusIndexCardInfo(cardId, Number(noteIds[index]), deckByCard.get(cardId) ?? "", sets, relearning));
-        return cardsByNoteId(cards);
-      } catch {
-        return null;
-      }
-    }
-    // queue/type synthesized so stateFromAnkiCards classifies exactly like
-    // the rendering path: relearn > due > learning > new > suspended > known.
-    syntheticStatusIndexCardInfo(cardId, noteId, deckName, sets, relearning) {
-      const queue = relearning.has(cardId) ? 3 : sets.learning.has(cardId) ? 1 : sets.new.has(cardId) ? 0 : sets.suspended.has(cardId) ? -1 : 2;
-      return {
-        cardId,
-        note: noteId,
-        deckName,
-        queue,
-        type: queue === 3 ? 3 : queue === 1 ? 1 : queue === 0 ? 0 : 2,
-        reps: 0,
-        lapses: 0,
-        isDue: sets.due.has(cardId)
-      };
-    }
-    statusIndexCardInfoWithDueFlag(card, sets) {
-      const cardId = Number(card.cardId);
-      return Number.isFinite(cardId) ? { ...card, isDue: sets.due.has(cardId) } : card;
-    }
-    async loadStatusIndexCardSets(allCardIds) {
-      const all = new Set(unique$1(allCardIds).map(Number).filter(Number.isFinite));
-      if (!all.size) return { all, due: /* @__PURE__ */ new Set(), learning: /* @__PURE__ */ new Set(), new: /* @__PURE__ */ new Set(), suspended: /* @__PURE__ */ new Set() };
-      const [due, learning, newCards, suspended] = await Promise.all([
-        this.findCardIdSet("deck:* is:due"),
-        this.findCardIdSet("deck:* is:learn"),
-        this.findCardIdSet("deck:* is:new"),
-        this.findCardIdSet("deck:* is:suspended")
-      ]);
-      return { all, due, learning, new: newCards, suspended };
-    }
-    async findCardIdSet(query) {
-      const cardIds = await this.invokeOrDefault("findCards", { query }, []);
-      return new Set(cardIds.map(Number).filter(Number.isFinite));
-    }
-    isLookupCoolingDown() {
-      if (Date.now() >= this.unavailableUntil) return false;
-      if (hasUserscriptAnkiBridge()) {
-        this.markAvailable();
-        return false;
-      }
-      return true;
-    }
-    readLookupCache(cacheKey) {
-      const cached = this.lookupCache.get(cacheKey);
-      if (!cached || Date.now() - cached.at >= 45e3) return null;
-      return cached.result;
-    }
-    readStatusLookupCache(cacheKey) {
-      const cached = this.statusLookupCache.get(cacheKey);
-      if (!cached || Date.now() - cached.at >= 45e3) return null;
-      return cached.result;
-    }
-    writeLookupCache(cacheKey, result) {
-      this.lookupCache.set(cacheKey, { at: Date.now(), result });
-    }
-    writeStatusLookupCache(cacheKey, result) {
-      this.statusLookupCache.set(cacheKey, { at: Date.now(), result });
-    }
-    async findExistingCardsBatchUncachedWithInflight(groups, fallback) {
-      if (this.isDestroyed) return new Map(groups.map((group) => [group.cacheKey, fallback]));
-      const batch = this.findExistingCardsBatchUncached(groups);
-      for (const { cacheKey } of groups) {
-        const promise = batch.then((results) => results.get(cacheKey) ?? fallback).finally(() => {
-          this.lookupInflight.delete(cacheKey);
-        });
-        this.lookupInflight.set(cacheKey, promise);
-        void promise.catch(() => void 0);
-      }
-      return batch;
-    }
-    async findExistingCardsBatchUncached(groups) {
-      const empty = emptyAnkiLookupResult$2();
-      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
-      const statusNoteIdsByKey = await this.findStatusIndexNoteIdsByLookupKey(groups);
-      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
-      const noteIdsByKey = await this.findCombinedCandidateNoteIdsByLookupKey(groups, statusNoteIdsByKey);
-      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
-      const allNoteIds = this.uniqueLookupNoteIds(noteIdsByKey);
-      if (!allNoteIds.length) return this.emptyLookupResultsForGroups(groups, empty);
-      const notes = await this.invoke("notesInfo", { notes: allNoteIds });
-      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
-      const matching = this.matchingNotesByLookupKey(groups, noteIdsByKey, notes, statusNoteIdsByKey);
-      const cardsByNote = await this.loadCardsByNote(matching.uniqueNotes);
-      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
-      return await this.existingLookupResultsFromMatches(groups, matching.notesByCacheKey, cardsByNote, empty);
-    }
-    async findCombinedCandidateNoteIdsByLookupKey(groups, statusNoteIdsByKey) {
-      const noteIdsByKey = this.copyNoteIdsByLookupKey(statusNoteIdsByKey);
-      const searchedNoteIds = await this.findCandidateNoteIdsByLookupKey(groups);
-      this.mergeNoteIdsByLookupKey(noteIdsByKey, searchedNoteIds);
-      return noteIdsByKey;
-    }
-    copyNoteIdsByLookupKey(noteIdsByKey) {
-      return new Map([...noteIdsByKey].map(([cacheKey, noteIds]) => [cacheKey, new Set(noteIds)]));
-    }
-    mergeNoteIdsByLookupKey(target, source) {
-      for (const [cacheKey, noteIds] of source) {
-        const merged = target.get(cacheKey) ?? /* @__PURE__ */ new Set();
-        noteIds.forEach((noteId) => merged.add(noteId));
-        target.set(cacheKey, merged);
-      }
-    }
-    uniqueLookupNoteIds(noteIdsByKey) {
-      return unique$1(Array.from(noteIdsByKey.values()).flatMap((noteIds) => [...noteIds]));
-    }
-    matchingNotesByLookupKey(groups, noteIdsByKey, notes, trustedNoteIdsByKey) {
-      const notesById = new Map(notes.map((note) => [note.noteId, note]));
-      const notesByCacheKey = /* @__PURE__ */ new Map();
-      const uniqueNotesById = /* @__PURE__ */ new Map();
-      for (const { cacheKey, card } of groups) {
-        const trustedNoteIds = trustedNoteIdsByKey?.get(cacheKey);
-        const matchingNotes = [...noteIdsByKey.get(cacheKey) ?? []].map((noteId) => notesById.get(noteId)).filter((note) => this.isMatchingAnkiNoteForCard(note, card, trustedNoteIds));
-        notesByCacheKey.set(cacheKey, matchingNotes);
-        matchingNotes.forEach((note) => uniqueNotesById.set(note.noteId, note));
-      }
-      return {
-        notesByCacheKey,
-        uniqueNotes: [...uniqueNotesById.values()]
-      };
-    }
-    isMatchingAnkiNoteForCard(note, card, trustedNoteIds) {
-      if (!note) return false;
-      if (trustedNoteIds?.has(note.noteId)) return true;
-      return noteLooksLikeCard(note, card, this.getSettings());
-    }
-    async existingLookupResultsFromMatches(groups, matchingNotesByKey, cardsByNote, empty) {
-      const results = /* @__PURE__ */ new Map();
-      for (const { cacheKey } of groups) {
-        const matchingNotes = matchingNotesByKey.get(cacheKey) ?? [];
-        const existing = matchingNotes.map((note) => ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? []));
-        if (existing.length) await this.hydrateExistingNoteRenderedMedia(existing);
-        results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
-      }
-      await this.rememberStatusIndexNotes(unique$1([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
-        log$j.warn("Anki status cache update failed", error);
-      });
-      return results;
-    }
-    async rememberStatusIndexNotes(notes, cardsByNote) {
-      if (!notes.length || this.isDestroyed) return;
-      const settings = this.getSettings();
-      const settingsKey = this.statusIndexSettingsKey(settings);
-      const now = Date.now();
-      const entries = this.rememberedStatusIndexEntries(notes, cardsByNote, settings, now);
-      if (!entries.length || this.isDestroyed) return;
-      const current = this.validStatusIndex(await this.loadStatusIndex());
-      const base = await this.baseStatusIndexForRememberedNotes(current, settingsKey, now, entries.length);
-      const checkedAt = Math.max(base.checkedAt, now);
-      if (this.shouldRememberStatusIndexEntriesInIndexedDb(base, current)) {
-        await this.rememberIndexedDbStatusIndexEntries({ ...base, checkedAt, entryStore: "indexeddb", entries: {} }, entries);
-        return;
-      }
-      await this.rememberValueStatusIndexEntries(base, checkedAt, entries);
-    }
-    rememberedStatusIndexEntries(notes, cardsByNote, settings, updatedAt) {
-      return statusIndexEntriesForNotes(notes, {
-        cardsByNote,
-        sets: emptyAnkiStatusIndexCardSets()
-      }, settings, updatedAt);
-    }
-    async baseStatusIndexForRememberedNotes(current, settingsKey, now, rememberedCount) {
-      if (current) return current;
-      return {
-        version: ANKI_STATUS_INDEX_VERSION,
-        settingsKey,
-        syncedAt: 0,
-        checkedAt: now,
-        cardCount: rememberedCount,
-        entryCount: 0,
-        entries: {},
-        readingKeys: true
-      };
-    }
-    shouldRememberStatusIndexEntriesInIndexedDb(base, current) {
-      return base.entryStore === "indexeddb" || !current && canUseIndexedDb();
-    }
-    async rememberValueStatusIndexEntries(base, checkedAt, entries) {
-      const mergedEntries = { ...base.entries };
-      for (const candidate of entries) {
-        const currentEntry = mergedEntries[candidate.key];
-        if (!currentEntry || shouldReplaceAnkiStatusIndexEntry(currentEntry, candidate.entry)) {
-          mergedEntries[candidate.key] = candidate.entry;
-        }
-      }
-      const index = {
-        ...base,
-        checkedAt,
-        entryCount: Object.keys(mergedEntries).length,
-        entries: mergedEntries,
-        readingKeys: true
-      };
-      this.statusIndex = index;
-      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, index);
-    }
-    async rememberIndexedDbStatusIndexEntries(index, entries) {
-      const db = await openAnkiStatusIndexDb();
-      try {
-        await putBestAnkiStatusIndexEntries(db, entries);
-        const entryCount = await countAnkiStatusIndexEntries(db);
-        const next = {
-          ...index,
-          entryStore: "indexeddb",
-          entries: {},
-          entryCount,
-          readingKeys: true
-        };
-        await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(next));
-        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(next));
-        this.statusIndex = next;
-      } finally {
-        db.close();
-      }
-    }
-    emptyLookupResultsForGroups(groups, empty) {
-      return new Map(groups.map((group) => [group.cacheKey, empty]));
-    }
-    async findStatusIndexNoteIdsByLookupKey(groups) {
-      const noteIdsByKey = new Map(groups.map((group) => [group.cacheKey, /* @__PURE__ */ new Set()]));
-      const statusIndex = await this.loadStatusIndex();
-      if (!statusIndex || this.isDestroyed) return noteIdsByKey;
-      const statusEntries = await this.loadStatusEntriesForCards(statusIndex, groups.map((group) => group.card));
-      if (this.isDestroyed) return noteIdsByKey;
-      for (const { cacheKey, card } of groups) {
-        const noteId = Number(this.lookupStatusIndex(statusIndex, card, statusEntries)?.primary?.noteId);
-        if (Number.isFinite(noteId) && noteId > 0) noteIdsByKey.get(cacheKey)?.add(noteId);
-      }
-      return noteIdsByKey;
-    }
-    async findCandidateNoteIdsByLookupKey(groups) {
-      const noteIdsByKey = new Map(groups.map((group) => [group.cacheKey, /* @__PURE__ */ new Set()]));
-      if (this.isDestroyed) return noteIdsByKey;
-      const keysByTerm = /* @__PURE__ */ new Map();
-      for (const { cacheKey, card } of groups) {
-        for (const term of lookupKeyTermsForCard(card)) {
-          const keys = keysByTerm.get(term) ?? /* @__PURE__ */ new Set();
-          keys.add(cacheKey);
-          keysByTerm.set(term, keys);
-        }
-      }
-      const terms = [...keysByTerm.keys()];
-      const lookupFields = this.statusLookupFieldNames();
-      if (lookupFields.length) {
-        const fieldQuery = (term) => lookupFields.map((field) => quoteAnkiSearch(`${field}:${term}`)).join(" OR ");
-        await this.collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, fieldQuery);
-        if (this.isDestroyed) return noteIdsByKey;
-      }
-      const unresolvedTerms = lookupFields.length ? terms.filter((term) => [...keysByTerm.get(term) ?? []].some((cacheKey) => (noteIdsByKey.get(cacheKey)?.size ?? 0) === 0)) : terms;
-      if (unresolvedTerms.length) {
-        await this.collectCandidateNoteIds(unresolvedTerms, keysByTerm, noteIdsByKey, (term) => quoteAnkiSearch(term));
-      }
-      return noteIdsByKey;
-    }
-    statusLookupFieldNames() {
-      const settings = this.getSettings();
-      const mapping = settings.ankiFieldMappings?.[resolvedAnkiModelName(settings)];
-      return [...new Set([mapping?.expression, mapping?.reading].map((value) => value?.trim()).filter((value) => Boolean(value)))];
-    }
-    async collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, buildQuery) {
-      const chunks = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
-      const chunkResponses = new Array(chunks.length);
-      await runLimited(chunks, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
-        chunkResponses[index] = await this.invokeMulti(chunk.map((term) => ({
-          action: "findNotes",
-          params: { query: buildQuery(term) }
-        })));
-      });
-      if (this.isDestroyed) return;
-      const responses = chunkResponses.flat();
-      terms.forEach((term, index) => {
-        const ids = responses[index] ?? [];
-        for (const cacheKey of keysByTerm.get(term) ?? []) {
-          const noteIds = noteIdsByKey.get(cacheKey);
-          ids.forEach((id) => noteIds?.add(id));
-        }
-      });
-    }
-    async loadExistingNotes(card, noteIds) {
-      if (this.isDestroyed) return { existing: [], candidateNotes: 0 };
-      const notes = await this.invoke("notesInfo", { notes: [...noteIds] });
-      if (this.isDestroyed) return { existing: [], candidateNotes: notes.length };
-      const matchingNotes = notes.filter((note) => noteLooksLikeCard(note, card, this.getSettings()));
-      const cardsByNote = await this.loadCardsByNote(matchingNotes);
-      const existing = matchingNotes.map((note) => ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? []));
-      await this.hydrateExistingNoteRenderedMedia(existing);
-      return {
-        existing,
-        candidateNotes: notes.length
-      };
-    }
-    async hydrateExistingNoteRenderedMedia(notes) {
-      const cards = notes.flatMap((note) => note.renderedCards ?? []);
-      if (!cards.length || this.isDestroyed) return;
-      await runLimited(cards, ANKI_RENDERED_MEDIA_CONCURRENCY, async (card) => {
-        const filenames = ankiRenderedCardMediaFilenames(card).slice(0, ANKI_RENDERED_MEDIA_LIMIT);
-        if (!filenames.length || this.isDestroyed) return;
-        const mediaDataUrls = {};
-        await runLimited(filenames, ANKI_RENDERED_MEDIA_CONCURRENCY, async (filename) => {
-          if (this.isDestroyed) return;
-          try {
-            mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
-          } catch (error) {
-            log$j.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
-          }
-        });
-        if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
-      });
-    }
-    async loadCardsByNote(notes) {
-      if (this.isDestroyed) return /* @__PURE__ */ new Map();
-      const cardIds = unique$1(notes.flatMap((note) => note.cards ?? []));
-      const cards = cardIds.length ? await this.invokeOrDefault("cardsInfo", { cards: cardIds }, []) : [];
-      if (this.isDestroyed) return /* @__PURE__ */ new Map();
-      return cardsByNoteId(await this.annotateDueCards(cards));
-    }
-    async annotateDueCards(cards) {
-      if (this.isDestroyed) return cards;
-      const reviewCardIds = cards.filter((card) => card.queue === 2).map((card) => Number(card.cardId)).filter(Number.isFinite);
-      if (!reviewCardIds.length) return cards;
-      const dueFlags = await this.invokeOrDefault("areDue", { cards: reviewCardIds }, []);
-      if (this.isDestroyed) return cards;
-      const dueByCardId = new Map(reviewCardIds.map((cardId, index) => [cardId, dueFlags[index]]));
-      return cards.map((card) => card.queue === 2 && dueByCardId.has(Number(card.cardId)) ? { ...card, isDue: dueByCardId.get(Number(card.cardId)) === true } : card);
-    }
-    async answerCard(cardId, grade) {
-      const ease = ankiEaseFromGrade(grade);
-      log$j.info("Answering Anki card", { cardId, grade, ease });
-      await this.invoke("answerCards", { answers: [{ cardId, ease }] });
-      this.lookupCache.clear();
-      this.statusLookupCache.clear();
-      this.markStatusIndexDirtyAfterMutation("review");
-    }
-    // Suspension is Anki's native blacklist analog: suspended cards never
-    // come up for review and already render with the dedicated state color.
-    // Used by the card action controller's deck-state mapping.
-    // fallow-ignore-next-line unused-class-member
-    async setCardsSuspended(cardIds, suspended) {
-      if (!cardIds.length) return;
-      log$j.info("Setting Anki card suspension", { cardIds, suspended });
-      await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
-      this.lookupCache.clear();
-      this.statusLookupCache.clear();
-      this.markStatusIndexDirtyAfterMutation("review");
-    }
-    // The never-forget analog: a tag the user can also filter on inside Anki.
-    // Used by the card action controller's deck-state mapping.
-    // fallow-ignore-next-line unused-class-member
-    async setNotesTag(noteIds, tag, present) {
-      if (!noteIds.length) return;
-      log$j.info("Setting Anki note tag", { noteIds, tag, present });
-      await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
-      this.lookupCache.clear();
-      this.statusLookupCache.clear();
-      this.markStatusIndexDirtyAfterMutation("merge");
-    }
-    // Used by card action controls to open existing notes from rendered Anki status.
-    // fallow-ignore-next-line unused-class-member
-    async browseNote(noteId) {
-      log$j.info("Opening Anki note browser", { noteId });
-      await this.invoke("guiBrowse", { query: `nid:${noteId}` });
-    }
-    async mediaFileDataUrl(filename) {
-      const cleanFilename = filename.trim();
-      if (!cleanFilename) throw new Error(this.text("ankiAudioFileNotFound"));
-      const cached = this.mediaDataUrlCache.get(cleanFilename);
-      if (cached) return cached;
-      const promise = this.fetchMediaFileDataUrl(cleanFilename).catch((error) => {
-        this.mediaDataUrlCache.delete(cleanFilename);
-        throw error;
-      });
-      this.mediaDataUrlCache.set(cleanFilename, promise);
-      if (this.mediaDataUrlCache.size > ANKI_MEDIA_DATA_URL_CACHE_LIMIT) {
-        const oldest = this.mediaDataUrlCache.keys().next().value;
-        if (oldest !== void 0) this.mediaDataUrlCache.delete(oldest);
-      }
-      return promise;
-    }
-    async fetchMediaFileDataUrl(cleanFilename) {
-      const data = await this.invoke("retrieveMediaFile", { filename: cleanFilename });
-      if (!data) throw new Error(this.text("ankiAudioFileNotFound"));
-      return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
-    }
-    // Used by card action controls to merge mining context into existing Anki notes.
-    async mergeYomuData(noteId, card, sentence = "", options = {}) {
-      const [note] = await this.invoke("notesInfo", { notes: [noteId] });
-      if (!note) throw new Error(this.text("ankiNoteNotFound"));
-      const merge = this.buildYomuNoteMerge(note, card, sentence, options);
-      if (!merge.updatedFields.length && !merge.audioAdded && !merge.imageAdded) {
-        return merge;
-      }
-      await this.invoke("updateNoteFields", { note: merge.note });
-      this.clearLookupCachesForCard(card);
-      this.markStatusIndexDirtyAfterMutation("merge");
-      return merge;
-    }
-    // Used by card action controls for desktop Anki mining.
-    async addCard(card, sentence = "", options = {}) {
-      const settings = this.getSettings();
-      if (!settings.ankiEnabled) {
-        return null;
-      }
-      const note = this.buildAnkiNote(card, sentence, settings, options);
-      if (canUseMobileAnkiHandoff(settings) && !hasUserscriptAnkiBridge()) {
-        if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
-        return null;
-      }
-      try {
-        return await this.addNoteViaConnect(note, card);
-      } catch (error) {
-        return this.addCardWithFallback(error, settings, note, card);
-      }
-    }
-    // Used by card action controls for mobile Anki handoff mining.
-    // fallow-ignore-next-line unused-class-member
-    async addCardViaMobileHandoff(card, sentence = "", options = {}) {
-      const settings = this.getSettings();
-      if (!settings.ankiEnabled) return null;
-      if (!canUseMobileAnkiHandoff(settings)) throw new Error("Mobile Anki handoff is not available here.");
-      const note = retargetAnkiNoteForMobileHandoff(this.buildAnkiNote(card, sentence, settings, options), settings);
-      if (!openMobileAnkiHandoff(note)) throw new Error(this.text("ankiHandoffCancelled"));
-      return null;
-    }
-    buildAnkiNote(card, sentence, settings, options) {
-      const note = {
-        deckName: this.ankiDeckName(options, settings),
-        modelName: settings.ankiModel || "よむ Japanese",
-        fields: buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings)),
-        tags: tagsFromString(settings.ankiTags),
-        options: {
-          allowDuplicate: false,
-          duplicateScope: "collection"
-        }
-      };
-      this.attachAnkiNoteImage(note, options.imageDataUrl, card);
-      this.attachAnkiNoteAudio(note, options, card);
-      return note;
-    }
-    buildYomuNoteMerge(note, card, sentence, options) {
-      const settings = this.getSettings();
-      const fieldNames = Object.keys(note.fields ?? {});
-      const existingFields = flattenNoteFields(note.fields);
-      const yomuFields = buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings));
-      const canOwnYomuFields = noteLooksLikeYomuModel(note.modelName, settings, fieldNames);
-      const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
-      const fields = mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping);
-      const audio = mergeAudioFilesForNote(fieldNames, options, card, mapping);
-      const picture = mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping);
-      applyMediaFieldClears(fields, audio, picture, options.audioMergeMode, canOwnYomuFields);
-      return {
-        noteId: note.noteId,
-        modelName: note.modelName,
-        updatedFields: Object.keys(fields),
-        audioAdded: Boolean(audio.length),
-        imageAdded: Boolean(picture.length),
-        note: {
-          id: note.noteId,
-          fields,
-          ...audio.length ? { audio } : {},
-          ...picture.length ? { picture } : {}
-        }
-      };
-    }
-    ankiDeckName(options, settings) {
-      return options.deckName?.trim() || settings.ankiDeck || "よむ";
-    }
-    ankiFieldContext(options, settings) {
-      return {
-        ...options,
-        sourceUrl: options.sourceUrl ?? safeLocationHref$1(),
-        sourceTitle: options.sourceTitle ?? safeDocumentTitle(),
-        dictionaryPreferences: options.dictionaryPreferences ?? settings.dictionaryPreferences,
-        interfaceLanguage: options.interfaceLanguage ?? settings.interfaceLanguage
-      };
-    }
-    attachAnkiNoteImage(note, imageDataUrl, card) {
-      const image = imageDataUrl ? imageFromDataUrl(imageDataUrl, card) : null;
-      if (image) note.picture = [image];
-    }
-    attachAnkiNoteAudio(note, options, card) {
-      const audio = audioFilesFromContext(options, card);
-      if (audio.length) note.audio = audio;
-    }
-    logAnkiNoteAdd(card, note) {
-      log$j.info("Adding Anki note", {
-        term: card.spelling,
-        deck: note.deckName,
-        model: note.modelName,
-        hasImage: Boolean(note.picture?.length),
-        hasAudio: Boolean(note.audio?.length),
-        tags: note.tags
-      });
-    }
-    async addNoteViaConnect(note, card) {
-      const preparedNote = await this.prepareAnkiNoteForConnect(note);
-      await this.ensureAnkiNoteCanAdd(preparedNote);
-      this.logAnkiNoteAdd(card, preparedNote);
-      const noteId = await this.invoke("addNote", { note: preparedNote });
-      log$j.info("Anki note added", { term: card.spelling, noteId });
-      await this.refreshLookupCacheAfterAdd(card, noteId);
-      if (noteId === null) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
-      return noteId;
-    }
-    async ensureAnkiNoteCanAdd(note) {
-      const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
-        if (isAnkiConnectAvailabilityError(error)) throw error;
-        log$j.warn("Anki duplicate preflight failed", error);
-        return [true];
-      });
-      if (canAdd === false) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
-    }
-    async prepareAnkiNoteForConnect(note) {
-      const settings = this.getSettings();
-      await this.ensureDeck(note.deckName);
-      const modelNames = await this.modelNames().catch(() => []);
-      if (!modelNames.includes(note.modelName)) {
-        await this.createYomuModel(note.modelName, settings);
-        return note;
-      }
-      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName: note.modelName }, []);
-      if (shouldTreatExistingModelAsYomuManaged(note.modelName, settings, fieldNames)) {
-        await this.updateExistingModel(note.modelName, settings);
-        return note;
-      }
-      return retargetAnkiNoteToExistingModel(note, fieldNames, settings);
-    }
-    async refreshLookupCacheAfterAdd(card, noteId) {
-      const cacheKey = this.lookupCacheKey(card);
-      this.statusLookupCache.delete(cacheKey);
-      if (!noteId) {
-        this.lookupCache.delete(cacheKey);
-        return;
-      }
-      try {
-        const { existing } = await this.loadExistingNotes(card, /* @__PURE__ */ new Set([noteId]));
-        const result = {
-          state: stateFromExistingNotes(existing),
-          notes: existing,
-          primary: pickPrimaryExistingNote(existing)
-        };
-        this.writeLookupCache(cacheKey, result);
-        this.writeStatusLookupCache(cacheKey, result);
-        this.markStatusIndexDirtyAfterMutation("add");
-      } catch (error) {
-        log$j.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
-        this.lookupCache.delete(cacheKey);
-        this.statusLookupCache.delete(cacheKey);
-        this.markStatusIndexDirtyAfterMutation("add");
-      }
-    }
-    clearLookupCachesForCard(card) {
-      const cacheKey = this.lookupCacheKey(card);
-      this.lookupCache.delete(cacheKey);
-      this.statusLookupCache.delete(cacheKey);
-    }
-    markStatusIndexDirtyAfterMutation(reason) {
-      const dirtyLoadedIndex = (index) => {
-        const valid = this.validStatusIndex(index);
-        if (!valid) return false;
-        const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
-        this.statusIndex = dirty;
-        void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$j.warn("Anki dirty marker failed", { reason }, error);
-        }).finally(() => {
-          if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
-        });
-        return true;
-      };
-      if (this.statusIndex !== void 0) {
-        dirtyLoadedIndex(this.statusIndex);
-        return;
-      }
-      void this.loadStatusIndex().then((index) => {
-        if (this.isDestroyed) return;
-        dirtyLoadedIndex(index);
-      }).catch((error) => {
-        log$j.warn("Anki dirty marker failed", { reason }, error);
-      });
-    }
-    addCardWithFallback(error, settings, note, card) {
-      if (!canUseMobileAnkiHandoff(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
-      log$j.warn("AnkiConnect add failed", { term: card.spelling }, error);
-      if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
-      return null;
-    }
-    // Used by settings save/setup flow to prepare the configured Anki deck and model.
-    // fallow-ignore-next-line unused-class-member
-    async ensureDeckAndModel(deckOverride) {
-      const settings = this.getSettings();
-      const deckName = resolvedAnkiDeckName(deckOverride, settings);
-      const modelName = resolvedAnkiModelName(settings);
-      await this.ensureDeck(deckName);
-      const modelNames = await this.modelNames().catch(() => []);
-      await this.ensureYomuModel(modelNames, modelName, settings);
-    }
-    async ensureDeck(deckName) {
-      await this.invokeOrDefault("createDeck", { deck: deckName }, null);
-    }
-    async updateExistingModel(modelName, settings) {
-      await this.ensureModelFields(modelName);
-      await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings) } });
-      await this.invoke("updateModelStyling", { model: { name: modelName, css: yomuCardCss() } });
-    }
-    async ensureYomuModel(modelNames, modelName, settings) {
-      return modelNames.includes(modelName) ? await this.updateExistingModel(modelName, settings) : await this.createYomuModel(modelName, settings);
-    }
-    async createYomuModel(modelName, settings) {
-      await this.invoke("createModel", {
-        modelName,
-        inOrderFields: YOMU_MODEL_FIELDS,
-        css: yomuCardCss(),
-        cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
-      });
-      log$j.info("Anki model created", { modelName });
-    }
-    async ensureModelFields(modelName) {
-      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
-      const existing = new Set(fieldNames);
-      for (const fieldName of YOMU_MODEL_FIELDS) {
-        if (!existing.has(fieldName)) {
-          await this.invoke("modelFieldAdd", { modelName, fieldName });
-        }
-      }
-    }
-    async invoke(action, params = {}) {
-      return this.invokeWithTimeout(action, params, ANKI_CONNECT_REQUEST_TIMEOUT_MS);
-    }
-    async invokeOrDefault(action, params, fallback) {
-      return this.invoke(action, params).catch(() => fallback);
-    }
-    async invokeWithTimeout(action, params, timeoutMs) {
-      const settings = this.getSettings();
-      const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
-      const body = JSON.stringify({ action, version: ANKI_VERSION, params });
-      const response = await postAnkiJson(url, body, timeoutMs).catch((error) => {
-        if (isAnkiConnectAvailabilityError(error)) this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
-        throw this.localizedConnectError(error);
-      });
-      this.markAvailable();
-      if (response.error) {
-        log$j.warn("AnkiConnect action returned error", { action, error: response.error });
-        throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
-      }
-      return response.result;
-    }
-    async invokeMulti(actions) {
-      if (!actions.length) return [];
-      try {
-        const responses = await this.invoke("multi", { actions });
-        return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
-      } catch (error) {
-        if (isAnkiConnectAvailabilityError(error)) {
-          log$j.warn("AnkiConnect multi failed; cooling down", error);
-          this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
-          return actions.map(() => void 0);
-        }
-        log$j.warn("AnkiConnect multi failed; retrying solo", error);
-        return Promise.all(actions.map(
-          (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
-        ));
-      }
-    }
-    text(key) {
-      return uiText(this.getSettings().interfaceLanguage, key);
-    }
-    localizedConnectError(error) {
-      const language = this.getSettings().interfaceLanguage;
-      if (resolveUiLanguage(language) !== "ja") return error instanceof Error ? error : new Error(this.text("ankiConnectRequestFailed"));
-      if (error instanceof Error && /timed out/i.test(error.message)) return new Error(this.text("ankiConnectTimedOut"), { cause: error });
-      const status = error instanceof Error ? error.message.match(/\((\d{3})\)/)?.[1] : "";
-      const suffix = status ? `（${status}）` : "";
-      return new Error(`${this.text("ankiConnectRequestFailed")}${suffix}`, error instanceof Error ? { cause: error } : void 0);
-    }
-    markAvailable() {
-      this.availabilityCheckedAt = Date.now();
-      this.unavailableUntil = 0;
-    }
-  }
-  function isAnkiMultiActionResponse(value) {
-    return typeof value === "object" && value !== null && !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, "result") && Object.prototype.hasOwnProperty.call(value, "error");
-  }
-  function emptyAnkiStatusIndexCardSets() {
-    return {
-      all: /* @__PURE__ */ new Set(),
-      due: /* @__PURE__ */ new Set(),
-      learning: /* @__PURE__ */ new Set(),
-      new: /* @__PURE__ */ new Set(),
-      suspended: /* @__PURE__ */ new Set()
-    };
-  }
-  function lookupResultFromExistingNotes(existing, empty) {
-    return existing.length ? {
-      state: stateFromExistingNotes(existing),
-      notes: existing,
-      primary: pickPrimaryExistingNote(existing)
-    } : empty;
-  }
-  function captureActiveVideoFrame() {
-    const video = Array.from(document.querySelectorAll("video")).filter((item) => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0).sort((a, b) => visibleArea(b) - visibleArea(a))[0];
-    if (!video) {
-      return void 0;
-    }
-    try {
-      const canvas = document.createElement("canvas");
-      const maxWidth = 960;
-      const scale = Math.min(1, maxWidth / video.videoWidth);
-      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
-      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
-      const context = canvas.getContext("2d");
-      if (!context) return void 0;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
-      return dataUrl;
-    } catch (error) {
-      log$j.warn("Active video frame capture failed", error);
-      return void 0;
-    }
-  }
-  function resolvedAnkiDeckName(deckOverride, settings) {
-    return deckOverride?.trim() || settings.ankiDeck || "よむ";
-  }
-  function resolvedAnkiModelName(settings) {
-    return settings.ankiModel || "よむ Japanese";
-  }
-  function isMobileHandoffRecoverableAddError(error) {
-    if (isAnkiConnectAvailabilityError(error)) return true;
-    if (error instanceof Error && error.cause && error.cause !== error) {
-      return isMobileHandoffRecoverableAddError(error.cause);
-    }
-    if (!(error instanceof Error)) return false;
-    return /unsupported action|action.*unsupported|unknown action|invalid action|not supported/i.test(error.message);
-  }
-  function buildYomuAnkiFields(card, sentence = "", context = {}) {
-    const fieldContext = ankiFieldContext(context);
-    const jpdbUrl = jpdbVocabularyUrl(card);
-    return {
-      Expression: escapeHtml$1(card.spelling),
-      Reading: renderCardReading(card),
-      Meaning: renderJpdbMeanings(card),
-      Sentence: renderSentence(sentence, sentenceHighlightTargets(card, fieldContext)),
-      Url: escapeHtml$1(fieldContext.sourceUrl),
-      Frequency: renderFrequency(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
-      PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
-      Image: "",
-      Audio: "",
-      JPDB: renderJpdbLink(jpdbUrl, fieldContext.interfaceLanguage),
-      Status: renderCardStatus(card, fieldContext.interfaceLanguage),
-      Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
-      DictionaryDefinitions: renderDictionaryDefinitions(fieldContext.localEntries, fieldContext.dictionaryPreferences),
-      Kanji: renderKanjiDefinitions$1(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences, fieldContext.interfaceLanguage),
-      Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
-    };
-  }
-  function renderCardReading(card) {
-    return card.reading && card.reading !== card.spelling ? escapeHtml$1(card.reading) : "";
-  }
-  function renderPartOfSpeech(partOfSpeech) {
-    return escapeHtml$1(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
-  }
-  function renderJpdbLink(jpdbUrl, language) {
-    return jpdbUrl ? `<a href="${jpdbUrl}">${escapeHtml$1(uiText(language, "openOnJpdb"))}</a>` : "";
-  }
-  function ankiFieldContext(context) {
-    return {
-      localEntries: fallbackArray(context.localEntries),
-      kanjiEntries: fallbackArray(context.kanjiEntries),
-      metaEntries: fallbackArray(context.metaEntries),
-      dictionaryPreferences: fallbackArray(context.dictionaryPreferences),
-      sentenceTarget: fallbackString(context.sentenceTarget),
-      sourceUrl: fallbackString(context.sourceUrl),
-      sourceTitle: fallbackString(context.sourceTitle),
-      interfaceLanguage: context.interfaceLanguage ?? "en"
-    };
-  }
-  function fallbackArray(value) {
-    return value ?? [];
-  }
-  function fallbackString(value) {
-    return value ?? "";
-  }
-  function jpdbVocabularyUrl(card) {
-    return card.source === "local" || card.source === "anki" ? "" : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
-  }
-  function renderCardStatus(card, language) {
-    if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$1(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
-    if (card.source === "anki") return '<span class="yomu-chip">Anki</span>';
-    return card.cardState.map((state) => `<span class="yomu-chip">${escapeHtml$1(state)}</span>`).join(" ");
-  }
-  function tagsFromString(value) {
-    return value.split(/[,\s]+/).map((tag) => tag.trim()).filter(Boolean);
-  }
-  function retargetAnkiNoteToExistingModel(note, fieldNames, settings) {
-    const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
-    const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
-    const audioField = fieldNameForRole(fieldNames, "audio", mapping);
-    const imageField = fieldNameForRole(fieldNames, "image", mapping);
-    return {
-      deckName: note.deckName,
-      modelName: note.modelName,
-      fields,
-      tags: note.tags,
-      options: note.options,
-      ...audioField && note.audio?.length ? { audio: retargetMediaFiles(note.audio, audioField) } : {},
-      ...imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}
-    };
-  }
-  function ankiNoteForDuplicatePreflight(note) {
-    return {
-      deckName: note.deckName,
-      modelName: note.modelName,
-      fields: note.fields,
-      tags: note.tags,
-      options: note.options
-    };
-  }
-  function retargetAnkiNoteForMobileHandoff(note, settings) {
-    const mapping = activeMobileHandoffMapping(note, settings);
-    if (!mapping) return note;
-    return {
-      ...note,
-      fields: mobileHandoffFieldsWithMappings(note.fields, mapping),
-      ...retargetMobileHandoffMedia(note, mapping)
-    };
-  }
-  function activeMobileHandoffMapping(note, settings) {
-    const mapping = settings.ankiFieldMappings?.[note.modelName];
-    return mapping && Object.values(mapping).some((value) => value?.trim()) ? mapping : null;
-  }
-  function mobileHandoffFieldsWithMappings(yomuFields, mapping) {
-    const fields = { ...yomuFields };
-    for (const role of ANKI_FIELD_ROLES) {
-      const fieldName = mobileMappedFieldName(mapping, role);
-      const value = yomuFields[yomuFieldForRole(role)];
-      if (fieldName && value) fields[fieldName] = value;
-    }
-    return fields;
-  }
-  function retargetMobileHandoffMedia(note, mapping) {
-    const media = {};
-    const audioField = mobileMappedFieldName(mapping, "audio");
-    const imageField = mobileMappedFieldName(mapping, "image");
-    if (audioField && note.audio?.length) media.audio = retargetMediaFiles(note.audio, audioField);
-    if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
-    return media;
-  }
-  function mobileMappedFieldName(mapping, role) {
-    return mapping[role]?.trim() ?? "";
-  }
-  function retargetYomuFieldsToExistingModel(yomuFields, fieldNames, mapping) {
-    const valuesByRole = {
-      expression: yomuFields.Expression,
-      reading: yomuFields.Reading,
-      meaning: yomuFields.Meaning,
-      sentence: yomuFields.Sentence
-    };
-    const fields = Object.fromEntries(fieldNames.map((fieldName) => [fieldName, ""]));
-    for (const role of ["expression", "reading", "meaning", "sentence"]) {
-      const fieldName = fieldNameForRole(fieldNames, role, mapping);
-      const value = valuesByRole[role];
-      if (fieldName && value) fields[fieldName] = value;
-    }
-    return fields;
-  }
-  function imageFromDataUrl(dataUrl, card) {
-    const parsed = parseAnkiImageDataUrl(dataUrl);
-    if (!parsed) return null;
-    return {
-      filename: `yomu_${safeAnkiMediaName(card)}_${Date.now()}.${parsed.extension}`,
-      data: parsed.data,
-      fields: ["Image"]
-    };
-  }
-  function mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping) {
-    const fields = {};
-    for (const fieldName of fieldNames) {
-      const value = yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields);
-      if (!value) continue;
-      if (!canOwnYomuFields && existingFields[fieldName]) continue;
-      fields[fieldName] = value;
-    }
-    return fields;
-  }
-  function yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields) {
-    const mappedRole = mappedRoleForField(fieldName, mapping);
-    if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? "";
-    const alias = yomuFieldAlias(fieldName);
-    if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
-    return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
-  }
-  function yomuFieldAlias(fieldName) {
-    return YOMU_FIELD_ALIASES[normalizeAnkiFieldName(fieldName)] ?? "";
-  }
-  const YOMU_FIELD_ALIASES = Object.fromEntries([
-    ...yomuAliasEntries("Expression", "baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front"),
-    ...yomuAliasEntries("Reading", "expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi"),
-    ...yomuAliasEntries("Meaning", "def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back"),
-    ...yomuAliasEntries("Sentence", "example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext"),
-    ...yomuAliasEntries("Url", "sourceurl|url"),
-    ...yomuAliasEntries("PartOfSpeech", "pos|partofspeech"),
-    ...yomuAliasEntries("Pitch", "pitchaccent"),
-    ...yomuAliasEntries("DictionaryDefinitions", "dictionary|dictionaries|dictionarydefinition|dictionarydefinitions")
-  ]);
-  function yomuAliasEntries(field, aliases) {
-    return aliases.split("|").map((alias) => [alias, field]);
-  }
-  function noteLooksLikeYomuModel(modelName, settings, fieldNames) {
-    const configuredModel = resolvedAnkiModelName(settings);
-    if (modelName === configuredModel) return true;
-    return yomuModelFieldSet(fieldNames);
-  }
-  function shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames) {
-    const configuredModel = resolvedAnkiModelName(settings);
-    if (modelName === configuredModel && isDefaultYomuModelName(configuredModel)) return true;
-    return yomuModelFieldSet(fieldNames);
-  }
-  function isDefaultYomuModelName(modelName) {
-    return modelName === "よむ Japanese" || modelName === "Yomu Japanese";
-  }
-  function yomuModelFieldSet(fieldNames) {
-    const fieldSet = new Set(fieldNames);
-    return ["Expression", "Meaning", "Sentence", "DictionaryDefinitions"].every((field) => fieldSet.has(field));
-  }
-  function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
-    if (options.audioMergeMode === "theirs") return [];
-    const fieldName = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
-    if (!fieldName) return [];
-    return retargetMediaFiles(audioFilesFromContext(options, card), fieldName);
-  }
-  function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
-    const fieldName = fieldNameForRole(fieldNames, "image", mapping);
-    if (!fieldName || !options.imageDataUrl) return [];
-    if (!canOwnYomuFields && existingFields[fieldName]) return [];
-    const image = imageFromDataUrl(options.imageDataUrl, card);
-    return image ? [{ ...image, fields: [fieldName] }] : [];
-  }
-  function applyMediaFieldClears(fields, audio, picture, audioMergeMode, canOwnYomuFields) {
-    if (audio.length && audioMergeMode === "ours") fields[audio[0].fields[0]] = "";
-    if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = "";
-  }
-  function mediaFieldName(fieldNames, preferredNames) {
-    const exact = preferredNames.find((name) => fieldNames.includes(name));
-    if (exact) return exact;
-    const preferredLower = new Set(preferredNames.map((name) => name.toLowerCase()));
-    return fieldNames.find((name) => preferredLower.has(name.toLowerCase())) ?? "";
-  }
-  function retargetMediaFiles(files, fieldName) {
-    return files.map((file) => ({ ...file, fields: [fieldName] }));
-  }
-  function audioFilesFromContext(options, card) {
-    const files = [
-      audioFromMedia({ dataUrl: options.wordAudioDataUrl, url: options.wordAudioUrl, kind: "word" }, card),
-      audioFromMedia({ dataUrl: options.audioDataUrl, url: options.audioUrl, kind: "context" }, card)
-    ].filter((file) => Boolean(file));
-    return uniqueAnkiAudioFiles(files);
-  }
-  function audioFromMedia(media, card) {
-    const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
-    if (fromData) return fromData;
-    return media.url ? audioFromUrl(media.url, card, media.kind) : null;
-  }
-  function audioFromDataUrl(dataUrl, card, kind) {
-    const parsed = parseAnkiAudioDataUrl(dataUrl);
-    if (!parsed) return null;
-    return {
-      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
-      data: parsed.data,
-      fields: ["Audio"]
-    };
-  }
-  function audioFromUrl(url, card, kind) {
-    const cleanUrl = url.trim();
-    if (!/^https?:\/\//i.test(cleanUrl)) return null;
-    return {
-      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
-      url: cleanUrl,
-      fields: ["Audio"]
-    };
-  }
-  function uniqueAnkiAudioFiles(files) {
-    const seen = /* @__PURE__ */ new Set();
-    return files.filter((file) => {
-      const key = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-  function parseAnkiImageDataUrl(dataUrl) {
-    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
-    return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
-  }
-  function parseAnkiAudioDataUrl(dataUrl) {
-    const match = /^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
-    return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
-  }
-  const ANKI_IMAGE_EXTENSION_ALIASES = {
-    "jpeg": "jpg",
-    "svg+xml": "svg"
-  };
-  function ankiImageExtension(rawExtension) {
-    const extension = rawExtension.toLowerCase();
-    return ANKI_IMAGE_EXTENSION_ALIASES[extension] ?? extension;
-  }
-  const ANKI_AUDIO_EXTENSION_ALIASES = {
-    "mpeg": "mp3",
-    "mp3": "mp3",
-    "wav": "wav",
-    "wave": "wav",
-    "x-wav": "wav",
-    "ogg": "ogg",
-    "oga": "ogg",
-    "webm": "webm",
-    "mp4": "mp4",
-    "aac": "aac",
-    "flac": "flac"
-  };
-  function ankiAudioExtension(rawExtension) {
-    return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.toLowerCase()] ?? "mp3";
-  }
-  function audioUrlExtension(url) {
-    try {
-      const pathname = new URL(url, location.href).pathname;
-      const match = /\.([a-z0-9]+)$/i.exec(pathname);
-      if (match) return `.${ankiAudioExtension(match[1])}`;
-    } catch {
-    }
-    return ".mp3";
-  }
-  function safeAnkiMediaName(card) {
-    return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
-  }
-  function isMobileAnkiHandoffEnvironment() {
-    const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
-    return isAppleTouchBrowser() || /Android/i.test(userAgent) && /Chrome|Firefox|Firefox\/|FxiOS|EdgA/i.test(userAgent);
-  }
-  function canUseMobileAnkiHandoff(settings) {
-    return settings.ankiEnabled && settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment();
-  }
-  function openMobileAnkiHandoff(note) {
-    const handoff = mobileAnkiHandoffTarget(note);
-    if (!window.confirm(mobileAnkiHandoffPrompt(note, handoff.appName))) return false;
-    location.href = handoff.url;
-    return true;
-  }
-  function mobileAnkiHandoffTarget(note) {
-    if (isAndroidUserAgent()) return { appName: "AnkiDroid", url: androidAnkiDroidIntentUrl(note) };
-    return { appName: "AnkiMobile", url: iosAnkiMobileUrl(note) };
-  }
-  function mobileAnkiHandoffAppName() {
-    return isAndroidUserAgent() ? "AnkiDroid" : "AnkiMobile";
-  }
-  function isAndroidUserAgent() {
-    return /Android/i.test(typeof navigator === "undefined" ? "" : navigator.userAgent);
-  }
-  function mobileAnkiHandoffPrompt(note, appName) {
-    const title = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "this note");
-    return `Open ${appName} to add "${title}"? This creates a new note only.`;
-  }
-  function iosAnkiMobileUrl(note) {
-    const params = [];
-    const add = (key, value) => params.push(`${key}=${encodeURIComponent(value)}`);
-    add("type", note.modelName);
-    add("deck", iosAnkiMobileDeckName(note.deckName));
-    if (note.tags?.length) add("tags", note.tags.join(" "));
-    Object.entries(iosAnkiMobileFields(note)).forEach(([field, value]) => {
-      const handoffValue = iosAnkiMobileFieldValue(field, value);
-      if (handoffValue !== null) add(`fld${field}`, handoffValue);
-    });
-    return `anki://x-callback-url/addnote?${params.join("&")}`;
-  }
-  function iosAnkiMobileDeckName(deckName) {
-    const trimmed = deckName.trim();
-    return YOMU_DEFAULT_DECK_NAMES.has(trimmed.toLowerCase()) ? ANKI_MOBILE_FALLBACK_DECK : trimmed || ANKI_MOBILE_FALLBACK_DECK;
-  }
-  function iosAnkiMobileFields(note) {
-    const fields = { ...note.fields };
-    const audioUrl = firstMobileHandoffMediaUrl(note.audio);
-    const audioField = firstMobileHandoffMediaField(note.audio) || "Audio";
-    if (audioUrl && !(fields[audioField] ?? "").trim()) fields[audioField] = audioUrl;
-    const imageUrl = firstMobileHandoffMediaUrl(note.picture);
-    const imageField = firstMobileHandoffMediaField(note.picture) || "Image";
-    if (imageUrl && !(fields[imageField] ?? "").trim()) fields[imageField] = imageUrl;
-    return fields;
-  }
-  function firstMobileHandoffMediaUrl(files) {
-    return files?.map((file) => "url" in file ? file.url ?? "" : "").find(isMobileHandoffMediaUrl) ?? "";
-  }
-  function firstMobileHandoffMediaField(files) {
-    return files?.flatMap((file) => file.fields ?? []).map((field) => field.trim()).find(Boolean) ?? "";
-  }
-  function isMobileHandoffMediaUrl(value) {
-    return /^https?:\/\//i.test(value) && /\.(?:aac|flac|gif|jpe?g|m4a|mp3|mp4|oga|ogg|opus|png|svg|webm|webp|wav)(?:[?#].*)?$/i.test(value);
-  }
-  function iosAnkiMobileFieldValue(field, value) {
-    if (field !== "Image") return value;
-    const trimmed = value.trim();
-    if (!trimmed || /^data:/i.test(trimmed)) return null;
-    return trimmed;
-  }
-  function androidAnkiDroidIntentUrl(note) {
-    const front = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "");
-    const back = stripForMobileHandoff([
-      note.fields.Reading,
-      note.fields.Meaning,
-      note.fields.DictionaryDefinitions,
-      note.fields.Source
-    ].filter(Boolean).join("\n\n"));
-    return [
-      "intent:#Intent",
-      "action=android.intent.action.SEND",
-      "type=text/plain",
-      "package=com.ichi2.anki",
-      `S.android.intent.extra.SUBJECT=${encodeURIComponent(front)}`,
-      `S.android.intent.extra.TEXT=${encodeURIComponent(back)}`,
-      `S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=com.ichi2.anki")}`,
-      "end"
-    ].join(";");
-  }
-  function stripForMobileHandoff(value) {
-    return stripHtml(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
-  }
-  function visibleArea(element2) {
-    const rect = element2.getBoundingClientRect();
-    const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
-    const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
-    return width * height;
-  }
-  function unique$1(items) {
-    return [...new Set(items)];
-  }
-  function chunkArray(items, size) {
-    const chunks = [];
-    for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
-    return chunks;
-  }
-  function ankiEaseFromGrade(grade) {
-    return ANKI_EASE_BY_GRADE[grade] ?? 3;
-  }
-  const YOMU_RECOGNITION_TEMPLATE_NAME = "Recognition";
-  const YOMU_CONTEXT_TEMPLATE_NAME = "Context";
-  function yomuCardTemplates(settings) {
-    const language = settings.interfaceLanguage;
-    const recognitionFront = `
-<main class="yomu-card yomu-front">
-    <div class="yomu-expression">{{Expression}}</div>
-    ${settings.ankiFrontReading ? '{{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}' : ""}
-    ${settings.ankiFrontSentence ? '{{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}' : ""}
-    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
-</main>`;
-    const contextFront = `
-<main class="yomu-card yomu-front">
-    {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
-    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
-    <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
-</main>`;
-    const back = `
-{{FrontSide}}
-<main class="yomu-card yomu-back">
-    <section class="yomu-section yomu-answer">
-        <div class="yomu-expression">{{Expression}}</div>
-        {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
-        {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
-    </section>
-    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
-    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
-    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
-    <section class="yomu-section yomu-meta">
-        {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
-        {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
-        {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
-        {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
-        {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
-    </section>
-</main>`;
-    const templateName = settings.ankiTemplateMode === "context" ? YOMU_CONTEXT_TEMPLATE_NAME : YOMU_RECOGNITION_TEMPLATE_NAME;
-    return {
-      [templateName]: {
-        Front: settings.ankiTemplateMode === "context" ? contextFront : recognitionFront,
-        Back: back
-      }
-    };
-  }
-  function yomuCardCss() {
-    const color = ANKI_CARD_COLOR_TOKENS;
-    return `
-.card {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
-    font-size: 20px;
-    line-height: 1.45;
-    text-align: left;
-    color: ${color.text};
-    background: ${color.background};
-}
-.yomu-card { max-width: 760px; margin: 0 auto; padding: 22px; }
-.yomu-expression { font-size: 44px; font-weight: 850; letter-spacing: 0; line-height: 1.1; }
-.yomu-reading { margin-top: 6px; color: ${color.muted}; font-size: 24px; }
-.yomu-prompt { margin-top: 14px; color: ${color.muted}; font-size: 16px; }
-.yomu-sentence {
-    margin-top: 18px;
-    padding: 14px 16px;
-    border: 1px solid ${color.sentenceBorder};
-    border-radius: 12px;
-    background: ${color.sentenceBackground};
-    color: ${color.sentenceText};
-}
-.yomu-highlight { color: ${color.highlight}; font-weight: 800; }
-.yomu-sentence-front { font-size: 28px; }
-.yomu-image img, .yomu-image { max-width: 100%; border-radius: 10px; margin-top: 16px; }
-.yomu-section {
-    margin-top: 16px;
-    padding: 14px 16px;
-    border: 1px solid ${color.sectionBorder};
-    border-radius: 12px;
-    background: ${color.sectionBackground};
-}
-.yomu-section h2 {
-    margin: 0 0 10px;
-    color: ${color.headingText};
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-}
-.yomu-definition, .yomu-dict-entry, .yomu-kanji-entry { margin-top: 12px; }
-.yomu-definition:first-child, .yomu-dict-entry:first-child, .yomu-kanji-entry:first-child { margin-top: 0; }
-.yomu-pos, .yomu-dict-label, .yomu-tags {
-    display: inline-block;
-    margin: 0 8px 6px 0;
-    color: ${color.labelText};
-    font-size: 14px;
-    font-style: italic;
-}
-.yomu-glossary div { margin-top: 4px; }
-.yomu-dict-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-.yomu-dict-expression, .yomu-kanji-char { color: ${color.expressionText}; font-size: 24px; font-weight: 800; }
-.yomu-dict-reading, .yomu-kanji-reading { color: ${color.readingText}; }
-.yomu-kanji-char { font-size: 34px; }
-.yomu-chip {
-    display: inline-block;
-    margin: 2px 6px 2px 0;
-    padding: 2px 8px;
-    border: 1px solid ${color.chipBorder};
-    border-radius: 999px;
-    color: ${color.chipText};
-    font-size: 14px;
-}
-.yomu-meta > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.yomu-meta > div:first-child { margin-top: 0; }
-.yomu-meta strong { min-width: 112px; color: ${color.metaLabelText}; }
-a { color: ${color.highlight}; text-decoration: none; }
-a:hover { text-decoration: underline; }
-ul, ol { margin: 6px 0 0 22px; padding: 0; }
-table { max-width: 100%; border-collapse: collapse; }
-td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
-`;
-  }
-  function renderJpdbMeanings(card) {
-    return card.meanings.slice(0, 8).map((meaning) => {
-      const pos = formatPartOfSpeech(meaning.partOfSpeech);
-      return `<div class="yomu-definition">
-            ${pos ? `<span class="yomu-pos">${escapeHtml$1(pos)}</span>` : ""}
-            <div>${escapeHtml$1(meaning.glosses.join("; "))}</div>
-        </div>`;
-    }).join("");
-  }
-  function sentenceHighlightTargets(card, context) {
-    return [context.sentenceTarget, card.spelling, card.reading];
-  }
-  function renderSentence(sentence, targets) {
-    if (!sentence) return "";
-    const target = firstSentenceHighlightTarget(sentence, targets);
-    if (!target) return escapeHtml$1(sentence);
-    return sentence.split(target).map((part) => escapeHtml$1(part)).join(`<span class="yomu-highlight">${escapeHtml$1(target)}</span>`);
-  }
-  function firstSentenceHighlightTarget(sentence, targets) {
-    const seen = /* @__PURE__ */ new Set();
-    for (const target of targets) {
-      const normalized = target.trim();
-      if (!normalized || seen.has(normalized)) continue;
-      seen.add(normalized);
-      if (sentence.includes(normalized)) return normalized;
-    }
-    return "";
-  }
-  function renderDictionaryDefinitions(entries, preferences) {
-    const groups = Array.from(groupTermEntriesByDictionary(entries).entries()).slice(0, 6);
-    return groups.map(([dictionary, items]) => `
-        <div class="yomu-dict-group">
-            <h3 class="yomu-dict-label">${escapeHtml$1(dictionaryLabel(dictionary, preferences))}</h3>
-            ${items.slice(0, 6).map((entry) => `
-                <div class="yomu-dict-entry">
-                    <div class="yomu-dict-head">
-                        <span class="yomu-dict-expression">${escapeHtml$1(entry.expression)}</span>
-                        ${entry.reading && entry.reading !== entry.expression ? `<span class="yomu-dict-reading">${escapeHtml$1(entry.reading)}</span>` : ""}
-                        ${entry.definitionTags || entry.rules || entry.termTags ? `<span class="yomu-tags">${escapeHtml$1([entry.definitionTags, entry.rules, entry.termTags].filter(Boolean).join(" · "))}</span>` : ""}
-                    </div>
-                    <div class="yomu-glossary" data-dictionary="${escapeHtml$1(entry.dictionary)}">${entry.glossary.slice(0, 5).map((item) => `<div>${safeGlossaryHtml(item, entry.dictionary)}</div>`).join("")}</div>
-                </div>
-            `).join("")}
-        </div>
-    `).join("");
-  }
-  function renderKanjiDefinitions$1(entries, preferences, language) {
-    const byCharacter = /* @__PURE__ */ new Map();
-    for (const entry of entries) {
-      const group = byCharacter.get(entry.character) ?? [];
-      group.push(entry);
-      byCharacter.set(entry.character, group);
-    }
-    return Array.from(byCharacter.entries()).slice(0, 8).map(([character, items]) => `
-        <div class="yomu-kanji-entry">
-            <div class="yomu-dict-head">
-                <span class="yomu-kanji-char">${escapeHtml$1(character)}</span>
-                <span class="yomu-dict-label">${escapeHtml$1(items.map((item) => dictionaryLabel(item.dictionary, preferences)).filter(uniqueValue).slice(0, 3).join(" · "))}</span>
-            </div>
-            ${items.slice(0, 3).map((item) => `
-                <div>
-                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(item.onyomi.join("、"))}</span>` : ""}
-                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> ${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(item.kunyomi.join("、"))}</span>` : ""}
-                    <div>${item.meanings.slice(0, 8).map((meaning) => escapeHtml$1(meaning)).join("; ")}</div>
-                    ${item.tags.length ? `<span class="yomu-tags">${escapeHtml$1(item.tags.join(" · "))}</span>` : ""}
-                </div>
-            `).join("")}
-        </div>
-    `).join("");
-  }
-  function renderFrequency(card, entries, preferences) {
-    const chips = [];
-    if (card.frequencyRank) chips.push(`<span class="yomu-chip">JPDB #${card.frequencyRank}</span>`);
-    for (const entry of entries) {
-      appendFrequencyChip(chips, entry, preferences);
-      if (chips.length >= 8) break;
-    }
-    return chips.filter(uniqueValue).join(" ");
-  }
-  function appendFrequencyChip(chips, entry, preferences) {
-    if (entry.mode !== "freq") return;
-    const value = formatMetaFrequency(entry.data);
-    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
-  }
-  function renderPitchField(card, entries, preferences) {
-    const chips = firstJpdbPitchChip(card);
-    for (const entry of entries) {
-      appendPitchChip(chips, entry, preferences);
-      if (chips.length >= 4) break;
-    }
-    return chips.filter(uniqueValue).join(" ");
-  }
-  function firstJpdbPitchChip(card) {
-    const pitch = card.pitchAccent.find(Boolean);
-    if (!pitch) return [];
-    const reading = card.reading && card.reading !== card.spelling ? `${card.reading} ` : "";
-    return [`<span class="yomu-chip">JPDB ${escapeHtml$1(reading)}${escapeHtml$1(pitch)}</span>`];
-  }
-  function appendPitchChip(chips, entry, preferences) {
-    if (entry.mode !== "pitch") return;
-    const value = formatMetaPitch(entry.data);
-    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
-  }
-  function renderSource(sourceUrl, sourceTitle) {
-    const source = ankiSourceLink(sourceUrl, sourceTitle);
-    if (!source.label) return "";
-    return source.href ? `<a href="${escapeHtml$1(source.href)}">${escapeHtml$1(source.label)}</a>` : escapeHtml$1(source.label);
-  }
-  function ankiSourceLink(sourceUrl, sourceTitle) {
-    return { href: sourceUrl, label: sourceTitle || sourceUrl };
-  }
-  function dictionaryLabel(name, preferences) {
-    return preferences.find((item) => item.name === name)?.alias || name;
-  }
-  function uniqueValue(value, index, array) {
-    return array.indexOf(value) === index;
-  }
-  function safeGlossaryHtml(value, dictionary) {
-    const html = glossaryToHtml(value, dictionary);
-    return html || escapeHtml$1(glossaryToText(value));
-  }
-  function formatMetaPitch(value) {
-    const record = metaRecord(value);
-    if (!record) return "";
-    const positions = metaPitchPositions(record);
-    return positions.length ? formatPitchPositions(positions) : formatPitchPosition(record.position);
-  }
-  function metaRecord(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  function metaPitchPositions(record) {
-    if (Array.isArray(record.pitches)) return record.pitches;
-    return Array.isArray(record.positions) ? record.positions : [];
-  }
-  function formatPitchPositions(positions) {
-    return positions.slice(0, 4).map(String).join(", ");
-  }
-  function formatPitchPosition(position) {
-    return typeof position === "number" ? String(position) : "";
-  }
-  function safeLocationHref$1() {
-    return typeof location === "undefined" ? "" : location.href;
-  }
-  function safeDocumentTitle() {
-    return typeof document === "undefined" ? "" : document.title;
-  }
   let sandboxCompanions = {};
   function yomuSettingsDialogController() {
     return yomuCompanions().settings?.SettingsDialogController;
@@ -17952,6 +10350,55 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     } catch {
       return void 0;
     }
+  }
+  const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
+  class AnkiConnectClient {
+    constructor(getSettings) {
+      const Client = ankiCompanionOrThrow().AnkiConnectClient;
+      return new Client(getSettings);
+    }
+  }
+  class AnkiDuplicateNoteError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "AnkiDuplicateNoteError";
+    }
+  }
+  function isAnkiDuplicateNoteError(error) {
+    return error instanceof AnkiDuplicateNoteError || yomuAnkiCompanion()?.isAnkiDuplicateNoteError(error) || error instanceof Error && error.name === "AnkiDuplicateNoteError" || false;
+  }
+  function ankiLookupWithUnavailableDetails(lookup) {
+    return yomuAnkiCompanion()?.ankiLookupWithUnavailableDetails(lookup) ?? localAnkiLookupWithUnavailableDetails(lookup);
+  }
+  function untrustedAnkiLookupResult() {
+    return { state: "not-in-deck", notes: [], primary: null, trusted: false };
+  }
+  function canUseMobileAnkiHandoff(settings) {
+    return yomuAnkiCompanion()?.canUseMobileAnkiHandoff(settings) ?? false;
+  }
+  function mobileAnkiHandoffAppName() {
+    return yomuAnkiCompanion()?.mobileAnkiHandoffAppName() ?? "AnkiMobile";
+  }
+  function captureActiveVideoFrame() {
+    return yomuAnkiCompanion()?.captureActiveVideoFrame();
+  }
+  async function resolveAnkiWordAudio(card, settings) {
+    return yomuAnkiCompanion()?.resolveAnkiWordAudio(card, settings) ?? null;
+  }
+  function ankiCompanionOrThrow() {
+    const companion = yomuAnkiCompanion();
+    if (!companion) throw new Error("Yomu Anki companion is unavailable.");
+    return companion;
+  }
+  function localAnkiLookupWithUnavailableDetails(lookup) {
+    const mark = (note) => ankiNoteHasRenderableDetails(note) ? note : { ...note, detailsUnavailable: true };
+    const notes = lookup.notes.map(mark);
+    const primary = lookup.primary ? mark(lookup.primary) : null;
+    return { ...lookup, notes, primary };
+  }
+  function ankiNoteHasRenderableDetails(note) {
+    if (note.renderedCards?.some((card) => card.question.trim() || card.answer.trim())) return true;
+    return Object.values(note.fields).some((value) => value.trim());
   }
   function renderAnkiActionRow(...args) {
     return yomuAnkiCompanion()?.renderAnkiActionRow(...args) ?? "";
@@ -17995,6 +10442,43 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function reviewButtonGradesFallback(settings) {
     const language = settings.interfaceLanguage;
     return settings.twoButtonReviews ? [["fail", uiText(language, "gradeFailLabel")], ["pass", uiText(language, "gradePassLabel")]] : [["nothing", uiText(language, "gradeNothingLabel")], ["something", uiText(language, "gradeSomethingLabel")], ["hard", uiText(language, "gradeHardLabel")], ["okay", uiText(language, "gradeOkayLabel")], ["easy", uiText(language, "gradeEasyLabel")]];
+  }
+  async function runLimited(items, concurrency, worker) {
+    if (!items.length) return;
+    const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
+    let nextIndex = 0;
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex++;
+        await worker(items[index], index);
+      }
+    }));
+  }
+  async function mapLimited(items, concurrency, worker) {
+    const results = new Array(items.length);
+    await runLimited(items, concurrency, async (item, index) => {
+      results[index] = await worker(item, index);
+    });
+    return results;
+  }
+  class ConcurrencyGate {
+    constructor(limit) {
+      this.limit = limit;
+    }
+    active = 0;
+    queue = [];
+    async run(task) {
+      if (this.active >= this.limit) {
+        await new Promise((resolve) => this.queue.push(resolve));
+      }
+      this.active += 1;
+      try {
+        return await task();
+      } finally {
+        this.active -= 1;
+        this.queue.shift()?.();
+      }
+    }
   }
   const DEFAULT_POPOVER_WRITING_MODE = "horizontal-tb";
   const SUPPORTED_POPOVER_WRITING_MODES = /* @__PURE__ */ new Set([
@@ -18359,7 +10843,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (writingMode === "horizontal-tb") return position.below ? "below" : "above";
     return position.after ? "right" : "left";
   }
-  const log$i = Logger.scope("CardStateSignal");
+  const log$k = Logger.scope("CardStateSignal");
   const CARD_STATE_SIGNAL_KEY = "yomu:card-state-signal";
   const CARD_STATE_CHANNEL_NAME = "yomu:card-state";
   const SEEN_SIGNAL_LIMIT = 32;
@@ -18397,7 +10881,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     try {
       gmStorageSetSync(CARD_STATE_SIGNAL_KEY, signal);
     } catch (error) {
-      log$i.debug("GM card-state publish failed", error);
+      log$k.debug("GM card-state publish failed", error);
     }
     publishBroadcastCardStateSignal(signal);
   }
@@ -18408,7 +10892,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       channel.postMessage(signal);
       channel.close();
     } catch (error) {
-      log$i.debug("Broadcast card-state publish failed", error);
+      log$k.debug("Broadcast card-state publish failed", error);
     }
   }
   function subscribeToCardStateSignals(onCard) {
@@ -18432,7 +10916,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
         });
       } catch (error) {
-        log$i.debug("GM card-state listener failed", error);
+        log$k.debug("GM card-state listener failed", error);
       }
     }
     if (typeof BroadcastChannel === "function") {
@@ -18441,7 +10925,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         channel.onmessage = (event) => handle(event.data);
         cleanups.push(() => channel.close());
       } catch (error) {
-        log$i.debug("Broadcast card-state listener failed", error);
+        log$k.debug("Broadcast card-state listener failed", error);
       }
     }
     return () => cleanups.forEach((cleanup) => cleanup());
@@ -18470,56 +10954,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         sourceDeckName: typeof card.sourceDeckName === "string" ? card.sourceDeckName : void 0
       }
     };
-  }
-  async function resolveAnkiWordAudio(card, settings) {
-    if (!settings.audioEnabled) return null;
-    const sources = orderAudioSources(
-      getOrderedAudioSources(settings).filter((source) => !isBrowserTextToSpeechSource(source)),
-      settings.audioSelectionMode,
-      card,
-      new ShuffledAudioDeck()
-    );
-    const triedUrls = /* @__PURE__ */ new Set();
-    for (const { source } of sources) {
-      const audio = await resolveAnkiWordAudioFromSource(source, card, settings, triedUrls).catch(() => null);
-      if (audio) return audio;
-    }
-    return null;
-  }
-  async function resolveAnkiWordAudioFromSource(source, card, settings, triedUrls) {
-    const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
-    const bagKey = getAudioBagKey(source, card);
-    const shuffled = new ShuffledAudioDeck();
-    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, shuffled)) {
-      if (!registerAudioAttempt(triedUrls, candidate)) continue;
-      const audio = await ankiAudioMediaFromCandidate(candidate, source.type, settings).catch(() => null);
-      if (audio) return audio;
-    }
-    return null;
-  }
-  async function ankiAudioMediaFromCandidate(candidate, sourceType, settings) {
-    if (candidate.url.startsWith("data:audio/")) return { dataUrl: candidate.url };
-    if (candidate.jpdbAudioId) return { dataUrl: await jpdbAudioDataUrl(candidate.jpdbAudioId, settings) };
-    try {
-      const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl, settings.interfaceLanguage);
-      if (dataUrl) return { dataUrl };
-    } catch (error) {
-      if (!canUseAnkiRemoteAudioFallback(candidate, sourceType, error)) return null;
-    }
-    return /^https?:\/\//i.test(candidate.url) ? { url: candidate.url } : null;
-  }
-  function canUseAnkiRemoteAudioFallback(candidate, sourceType, error) {
-    if (!/^https?:\/\//i.test(candidate.url)) return false;
-    if (sourceType === "jpod101" || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl)) return false;
-    const message = error instanceof Error ? error.message : String(error);
-    if (/instead of audio|no audio|failed \(\d{3}\)/i.test(message)) return false;
-    return true;
-  }
-  async function jpdbAudioDataUrl(audioId, settings) {
-    return blobToDataUrl(await fetchJpdbAudioBlob(audioId, settings), settings.interfaceLanguage);
-  }
-  async function fetchAudioDataUrl(url, sourceUrl, timeoutMs, mode, proxyUrl, language) {
-    return blobToDataUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language), language);
   }
   const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
   const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
@@ -19238,7 +11672,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const trimmed = attrs.trim();
     return trimmed ? ` ${trimmed}` : "";
   }
-  const log$h = Logger.scope("StudyTools");
+  const log$j = Logger.scope("StudyTools");
   const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
   const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
   const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
@@ -19676,7 +12110,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         showKnown: parsed.showKnown === true
       };
     } catch (error) {
-      log$h.warn("Grammar preference read failed", { error });
+      log$j.warn("Grammar preference read failed", { error });
       return fallback;
     }
   }
@@ -19688,7 +12122,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         showKnown: preferences.showKnown
       }));
     } catch (error) {
-      log$h.warn("Grammar preference write failed", { error });
+      log$j.warn("Grammar preference write failed", { error });
     }
   }
   function setGrammarRuleKnown(ruleId, known) {
@@ -19721,17 +12155,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=ja&tl=${targetLanguage}&dt=t&dt=bd&dj=1&q=${encodeURIComponent(requestSentence)}`;
     const promise = (async () => {
-      const done = log$h.time("Translate sentence", { sentenceLength: trimmed.length });
+      const done = log$j.time("Translate sentence", { sentenceLength: trimmed.length });
       try {
         const json = await requestJson$1(url);
         const translated = (json.sentences ?? []).map((item) => item.trans ?? "").join("").trim();
         if (!translated) throw new Error("No translation returned.");
         translationCache.set(cacheKey, translated);
         pruneOldestCacheEntries(translationCache, TRANSLATION_CACHE_LIMIT);
-        log$h.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
+        log$j.info("Translation completed", { sentenceLength: trimmed.length, translationLength: translated.length });
         return translated;
       } catch (error) {
-        log$h.warn("Translation failed", { sentenceLength: trimmed.length, error });
+        log$j.warn("Translation failed", { sentenceLength: trimmed.length, error });
         throw error;
       } finally {
         done();
@@ -20088,13 +12522,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       timeoutLabel: options.timeoutLabel ?? "Translation timed out."
     });
   }
-  const log$g = Logger.scope("StudyRender");
+  const log$i = Logger.scope("StudyRender");
   async function renderStudyToolResult(button2, action, sentence, grammarHints, language = "en", options = {}) {
     const panel = button2.closest(".jpdb-reader-study-tools")?.querySelector("[data-study-panel]");
     if (!panel || !sentence) return;
     panel.hidden = false;
     panel.textContent = studyToolPendingText(action, language);
-    const done = log$g.time("studyTool", { action, sentenceLength: sentence.length });
+    const done = log$i.time("studyTool", { action, sentenceLength: sentence.length });
     if (action === "study-translate") {
       try {
         const translated = await translateJapaneseSentence(sentence, language);
@@ -21639,6 +14073,4216 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return "";
     }
   }
+  const LEARNER_GLOSSARY_SOURCE_RE = /\b(?:JMdict|JMDict|Tatoeba)\b.*$/i;
+  const LEARNER_GLOSSARY_TAG_RE = /^(?:\[[^\]]+\]\s*)?(?:(?:adj-(?:i|ix|ku|na|no|pn|t|f)|na-adj|adv(?:-to)?|aux(?:-[a-z]+)?|conj|ctr|exp|int|n(?:-[a-z]+)?|noun|pn|pref|prt|suf|suffix|vs(?:-[a-z]+)?|v[0-9a-z-]+|vi|vk|vn|vr|vs|vt|suru|transitive|intransitive|adjective|adverb|kana|usually|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare|relative)\s+)+/i;
+  const LEARNER_GLOSSARY_SEPARATOR_RE = /\s*(?:;|,|\/|\||\u3001|\u30fb)\s*/;
+  function splitLearnerGlossaryText(text2) {
+    const withoutExamples = learnerGlossaryWithoutExamples(text2);
+    return withoutExamples.split(LEARNER_GLOSSARY_SEPARATOR_RE).map((item) => item.trim()).filter(Boolean);
+  }
+  function learnerGlossaryWithoutExamples(text2) {
+    const normalized = text2.replace(/\s+/g, " ").trim();
+    if (!normalized) return "";
+    return cutBeforeExampleText(normalized).replace(LEARNER_GLOSSARY_SOURCE_RE, "").trim();
+  }
+  function summarizeLearnerGlossaryTexts(texts, limit = 3) {
+    const cleaned = texts.flatMap(splitLearnerGlossaryText).map(cleanLearnerGlossaryText).filter(Boolean);
+    return Array.from(new Set(cleaned)).slice(0, limit).join(", ");
+  }
+  function cleanLearnerGlossaryText(text2) {
+    let clean = text2.replace(/^\[[^\]]+\]\s*/u, "").replace(LEARNER_GLOSSARY_TAG_RE, "").replace(/^\((?:relative|usually|kana|uk|arch|abbr|hon|hum|pol|sl|col|obs|obscure|rare)\)\s*/iu, "").replace(/\s+/g, " ").trim();
+    clean = humanizeTerseGlosses(trimLearnerMeaning(clean));
+    if (!clean || HAS_JAPANESE$1.test(clean) || looksLikeGrammarTag(clean)) return "";
+    return clean;
+  }
+  function cutBeforeExampleText(text2) {
+    const japaneseIndex = text2.search(HAS_JAPANESE$1);
+    const sentenceIndex = text2.search(/\s+[A-Z][^.;!?]*(?:[.;!?]|$)/u);
+    const indexes = [japaneseIndex, sentenceIndex].filter((index) => index >= 0);
+    const cutoff = indexes.length ? Math.min(...indexes) : -1;
+    return cutoff >= 0 ? text2.slice(0, cutoff) : text2;
+  }
+  function trimLearnerMeaning(text2, maxLength = 56) {
+    if (text2.length <= maxLength) return text2;
+    const truncated = text2.slice(0, maxLength).replace(/\s+\S*$/u, "").trim();
+    return truncated || text2.slice(0, maxLength).trim();
+  }
+  function humanizeTerseGlosses(text2) {
+    const words = text2.split(/\s+/).filter(Boolean);
+    if (words.length < 2 || words.length > 4) return text2;
+    if (words.some((word) => /^(?:a|an|and|as|for|in|of|on|or|the|to|with)$/i.test(word))) return text2;
+    if (words.every((word) => /^[a-z][a-z'-]*$/i.test(word))) return words.join(", ");
+    return text2;
+  }
+  function looksLikeGrammarTag(text2) {
+    return /^(?:adj|adv|aux|conj|ctr|exp|int|n|noun|pn|pref|prt|suf|suffix|v[0-9a-z-]+|vi|vt|vs|vk|vn|vr|suru|transitive|intransitive|adjective|adverb|kana|uk)(?:\s|$)/i.test(text2);
+  }
+  const GODAN_ROWS = [
+    { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
+    { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
+    { ending: "ぐ", a: "が", i: "ぎ", e: "げ", o: "ご", te: "いで", ta: "いだ", rules: ["v5g", "v5"] },
+    { ending: "す", a: "さ", i: "し", e: "せ", o: "そ", te: "して", ta: "した", rules: ["v5s", "v5"] },
+    { ending: "つ", a: "た", i: "ち", e: "て", o: "と", te: "って", ta: "った", rules: ["v5t", "v5"] },
+    { ending: "ぬ", a: "な", i: "に", e: "ね", o: "の", te: "んで", ta: "んだ", rules: ["v5n", "v5"] },
+    { ending: "ぶ", a: "ば", i: "び", e: "べ", o: "ぼ", te: "んで", ta: "んだ", rules: ["v5b", "v5"] },
+    { ending: "む", a: "ま", i: "み", e: "め", o: "も", te: "んで", ta: "んだ", rules: ["v5m", "v5"] },
+    { ending: "る", a: "ら", i: "り", e: "れ", o: "ろ", te: "って", ta: "った", rules: ["v5r", "v5"] }
+  ];
+  const ICHIDAN_RULES = [
+    ["ました", "る", "polite past"],
+    ["ませんでした", "る", "polite negative past"],
+    ["ません", "る", "polite negative"],
+    ["ましょう", "る", "polite volitional"],
+    ["ます", "る", "polite"],
+    ["なかった", "る", "negative past"],
+    ["なくて", "る", "negative te-form"],
+    ["なければ", "る", "negative conditional"],
+    ["ない", "る", "negative"],
+    ["たかった", "る", "desiderative past"],
+    ["たくなかった", "る", "desiderative negative past"],
+    ["たくない", "る", "desiderative negative"],
+    ["たい", "る", "desiderative"],
+    ["なさい", "る", "polite request"],
+    ["すぎる", "る", "excessive"],
+    ["られなかった", "る", "potential/passive negative past"],
+    ["られない", "る", "potential/passive negative"],
+    ["られて", "る", "potential/passive te-form"],
+    ["られた", "る", "potential/passive past"],
+    ["られる", "る", "potential/passive"],
+    ["させられた", "る", "causative passive past"],
+    ["させられる", "る", "causative passive"],
+    ["させない", "る", "causative negative"],
+    ["させて", "る", "causative te-form"],
+    ["させた", "る", "causative past"],
+    ["させる", "る", "causative"],
+    ["れば", "る", "conditional"],
+    ["よう", "る", "volitional"],
+    ["ろ", "る", "imperative"],
+    ["て", "る", "te-form"],
+    ["た", "る", "past"]
+  ];
+  const I_ADJECTIVE_RULES = [
+    ["くなかった", "い", "negative past"],
+    ["くありませんでした", "い", "polite negative past"],
+    ["くありません", "い", "polite negative"],
+    ["かった", "い", "past"],
+    ["くない", "い", "negative"],
+    ["くて", "い", "te-form"],
+    ["ければ", "い", "conditional"],
+    ["そう", "い", "looks"],
+    ["すぎる", "い", "excessive"],
+    ["く", "い", "adverbial"]
+  ];
+  const SURU_RULES = [
+    ["しませんでした", "する", "polite negative past"],
+    ["しません", "する", "polite negative"],
+    ["しました", "する", "polite past"],
+    ["しましょう", "する", "polite volitional"],
+    ["します", "する", "polite"],
+    ["しなかった", "する", "negative past"],
+    ["しなくて", "する", "negative te-form"],
+    ["しなければ", "する", "negative conditional"],
+    ["しない", "する", "negative"],
+    ["しなさい", "する", "polite request"],
+    ["しすぎる", "する", "excessive"],
+    ["された", "する", "passive past"],
+    ["されて", "する", "passive te-form"],
+    ["される", "する", "passive"],
+    ["させた", "する", "causative past"],
+    ["させて", "する", "causative te-form"],
+    ["させる", "する", "causative"],
+    ["できなかった", "する", "potential negative past"],
+    ["できない", "する", "potential negative"],
+    ["できた", "する", "potential past"],
+    ["できて", "する", "potential te-form"],
+    ["できる", "する", "potential"],
+    ["すれば", "する", "conditional"],
+    ["しよう", "する", "volitional"],
+    ["しろ", "する", "imperative"],
+    ["せよ", "する", "imperative"],
+    ["した", "する", "past"],
+    ["して", "する", "te-form"]
+  ];
+  const KURU_RULES = [
+    ["来ませんでした", "来る", "polite negative past"],
+    ["来ません", "来る", "polite negative"],
+    ["来ました", "来る", "polite past"],
+    ["来ます", "来る", "polite"],
+    ["来なかった", "来る", "negative past"],
+    ["来なくて", "来る", "negative te-form"],
+    ["来ない", "来る", "negative"],
+    ["来なさい", "来る", "polite request"],
+    ["来すぎる", "来る", "excessive"],
+    ["来られた", "来る", "potential/passive past"],
+    ["来られて", "来る", "potential/passive te-form"],
+    ["来られる", "来る", "potential/passive"],
+    ["来れば", "来る", "conditional"],
+    ["来よう", "来る", "volitional"],
+    ["来い", "来る", "imperative"],
+    ["来た", "来る", "past"],
+    ["来て", "来る", "te-form"],
+    ["きませんでした", "くる", "polite negative past"],
+    ["きません", "くる", "polite negative"],
+    ["きました", "くる", "polite past"],
+    ["きます", "くる", "polite"],
+    ["こなかった", "くる", "negative past"],
+    ["こなくて", "くる", "negative te-form"],
+    ["こない", "くる", "negative"],
+    ["きなさい", "くる", "polite request"],
+    ["きすぎる", "くる", "excessive"],
+    ["こられた", "くる", "potential/passive past"],
+    ["こられて", "くる", "potential/passive te-form"],
+    ["こられる", "くる", "potential/passive"],
+    ["くれば", "くる", "conditional"],
+    ["こよう", "くる", "volitional"],
+    ["こい", "くる", "imperative"],
+    ["きた", "くる", "past"],
+    ["きて", "くる", "te-form"]
+  ];
+  const TE_ASPECT_SUFFIXES = [
+    ["いる", "progressive"],
+    ["います", "polite progressive"],
+    ["いました", "polite progressive past"],
+    ["いません", "polite progressive negative"],
+    ["いませんでした", "polite progressive negative past"],
+    ["いた", "progressive past"],
+    ["いて", "progressive te-form"],
+    ["いない", "progressive negative"],
+    ["いなかった", "progressive negative past"],
+    ["いれば", "progressive conditional"],
+    ["る", "contracted progressive"],
+    ["ます", "contracted polite progressive"],
+    ["ました", "contracted polite progressive past"],
+    ["た", "contracted progressive past"],
+    ["て", "contracted progressive te-form"],
+    ["ない", "contracted progressive negative"],
+    ["なかった", "contracted progressive negative past"]
+  ];
+  const TE_COMPLETION_SUFFIXES = [
+    ["しまう", "completion"],
+    ["しまった", "completion past"],
+    ["しまって", "completion te-form"],
+    ["しまわない", "completion negative"],
+    ["しまいます", "polite completion"],
+    ["しまいました", "polite completion past"]
+  ];
+  const CONTRACTED_COMPLETION_SUFFIXES = [
+    ["う", "contracted completion"],
+    ["った", "contracted completion past"],
+    ["って", "contracted completion te-form"],
+    ["わない", "contracted completion negative"],
+    ["います", "contracted polite completion"],
+    ["いました", "contracted polite completion past"]
+  ];
+  const RULES = [
+    ...ICHIDAN_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["v1"] })),
+    ...teCompoundRules("て", "る", ["v1"]),
+    ...I_ADJECTIVE_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["adj-i", "i-adj"] })),
+    ...SURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vs", "vs-s", "suru"] })),
+    ...teCompoundRules("して", "する", ["vs", "vs-s", "suru"]),
+    ...KURU_RULES.map(([from, to, reason]) => ({ from, to, reason, rules: ["vk", "kuru"] })),
+    ...teCompoundRules("来て", "来る", ["vk", "kuru"]),
+    ...teCompoundRules("きて", "くる", ["vk", "kuru"]),
+    ...GODAN_ROWS.flatMap((row) => godanRules(row)),
+    { from: "行って", to: "行く", reason: "te-form", rules: ["v5k", "v5"] },
+    { from: "行った", to: "行く", reason: "past", rules: ["v5k", "v5"] },
+    { from: "行っちゃう", to: "行く", reason: "contracted completion", rules: ["v5k", "v5"] },
+    { from: "行っちゃった", to: "行く", reason: "contracted completion past", rules: ["v5k", "v5"] }
+  ];
+  function deinflectJapaneseTerm(source) {
+    const results = [{ term: source, rules: [], reasons: [], depth: 0 }];
+    const seen = /* @__PURE__ */ new Set([candidateKey(results[0])]);
+    const queue = [results[0]];
+    expandDeinflectionQueue(queue, results, seen);
+    const sorted = sortDeinflectedTerms(results);
+    return sorted;
+  }
+  function expandDeinflectionQueue(queue, results, seen) {
+    for (let index = 0; index < queue.length; index++) {
+      expandDeinflectedTerm(queue[index], queue, results, seen);
+    }
+  }
+  function expandDeinflectedTerm(current, queue, results, seen) {
+    if (isDeinflectionDepthLimitReached(current)) return;
+    for (const rule of RULES) {
+      rememberExpandedDeinflection(current, rule, queue, results, seen);
+    }
+  }
+  function isDeinflectionDepthLimitReached(current) {
+    return current.depth >= 2;
+  }
+  function rememberExpandedDeinflection(current, rule, queue, results, seen) {
+    const next = deinflectedCandidate(current, rule);
+    if (!next) return;
+    if (!rememberDeinflectedCandidate(next, seen)) return;
+    results.push(next);
+    queue.push(next);
+  }
+  function sortDeinflectedTerms(results) {
+    return results.sort((a, b) => a.depth - b.depth || b.term.length - a.term.length || a.term.localeCompare(b.term));
+  }
+  function deinflectedCandidate(current, rule) {
+    if (!canApplyDeinflectionRule(current.term, rule)) return null;
+    const term = `${current.term.slice(0, -rule.from.length)}${rule.to}`;
+    if (!term || term === current.term) return null;
+    return {
+      term,
+      rules: rule.rules,
+      reasons: [...current.reasons, rule.reason],
+      depth: current.depth + 1
+    };
+  }
+  function canApplyDeinflectionRule(term, rule) {
+    return term.endsWith(rule.from) && (term.length > rule.from.length || rule.to.length > 0);
+  }
+  function rememberDeinflectedCandidate(candidate, seen) {
+    const key = candidateKey(candidate);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }
+  function termRulesMatch(entryRules, candidateRules) {
+    if (!candidateRules.length) return true;
+    const entryRuleSet = entryRulesSet(entryRules);
+    return entryRuleSet.size > 0 && candidateRules.some((rule) => termRuleMatches(rule, entryRuleSet));
+  }
+  function entryRulesSet(entryRules) {
+    return new Set((entryRules ?? "").split(/\s+/).filter(Boolean));
+  }
+  function termRuleMatches(rule, entryRuleSet) {
+    return TERM_RULE_MATCHERS.some((matches) => matches(rule, entryRuleSet));
+  }
+  const TERM_RULE_MATCHERS = [
+    (rule, entryRuleSet) => entryRuleSet.has(rule),
+    (rule, entryRuleSet) => rule.startsWith("v5") && entryRuleSet.has("v5"),
+    (rule, entryRuleSet) => rule === "v5" && [...entryRuleSet].some((entryRule) => entryRule.startsWith("v5")),
+    (rule, entryRuleSet) => rule === "i-adj" && entryRuleSet.has("adj-i"),
+    (rule, entryRuleSet) => rule === "adj-i" && entryRuleSet.has("i-adj")
+  ];
+  function godanRules(row) {
+    const rules = row.rules;
+    return [
+      ...teCompoundRules(row.te, row.ending, rules),
+      { from: row.te, to: row.ending, reason: "te-form", rules },
+      { from: row.ta, to: row.ending, reason: "past", rules },
+      { from: `${row.a}なかった`, to: row.ending, reason: "negative past", rules },
+      { from: `${row.a}なくて`, to: row.ending, reason: "negative te-form", rules },
+      { from: `${row.a}なければ`, to: row.ending, reason: "negative conditional", rules },
+      { from: `${row.a}ない`, to: row.ending, reason: "negative", rules },
+      { from: `${row.i}ませんでした`, to: row.ending, reason: "polite negative past", rules },
+      { from: `${row.i}ません`, to: row.ending, reason: "polite negative", rules },
+      { from: `${row.i}ました`, to: row.ending, reason: "polite past", rules },
+      { from: `${row.i}ましょう`, to: row.ending, reason: "polite volitional", rules },
+      { from: `${row.i}ます`, to: row.ending, reason: "polite", rules },
+      { from: `${row.i}たかった`, to: row.ending, reason: "desiderative past", rules },
+      { from: `${row.i}たくなかった`, to: row.ending, reason: "desiderative negative past", rules },
+      { from: `${row.i}たくない`, to: row.ending, reason: "desiderative negative", rules },
+      { from: `${row.i}たい`, to: row.ending, reason: "desiderative", rules },
+      { from: `${row.i}なさい`, to: row.ending, reason: "polite request", rules },
+      { from: `${row.i}すぎる`, to: row.ending, reason: "excessive", rules },
+      { from: `${row.e}ば`, to: row.ending, reason: "conditional", rules },
+      { from: `${row.o}う`, to: row.ending, reason: "volitional", rules },
+      { from: `${row.e}なかった`, to: row.ending, reason: "potential negative past", rules },
+      { from: `${row.e}ない`, to: row.ending, reason: "potential negative", rules },
+      { from: `${row.e}た`, to: row.ending, reason: "potential past", rules },
+      { from: `${row.e}て`, to: row.ending, reason: "potential te-form", rules },
+      { from: `${row.e}る`, to: row.ending, reason: "potential", rules },
+      { from: `${row.a}れなかった`, to: row.ending, reason: "passive negative past", rules },
+      { from: `${row.a}れない`, to: row.ending, reason: "passive negative", rules },
+      { from: `${row.a}れて`, to: row.ending, reason: "passive te-form", rules },
+      { from: `${row.a}れた`, to: row.ending, reason: "passive past", rules },
+      { from: `${row.a}れる`, to: row.ending, reason: "passive", rules },
+      { from: `${row.a}せない`, to: row.ending, reason: "causative negative", rules },
+      { from: `${row.a}せて`, to: row.ending, reason: "causative te-form", rules },
+      { from: `${row.a}せた`, to: row.ending, reason: "causative past", rules },
+      { from: `${row.a}せる`, to: row.ending, reason: "causative", rules },
+      { from: row.e, to: row.ending, reason: "imperative", rules }
+    ];
+  }
+  function teCompoundRules(te, to, rules) {
+    return [
+      ...TE_ASPECT_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...TE_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${te}${suffix}`, to, reason, rules })),
+      ...contractedCompletionRules(te, to, rules)
+    ];
+  }
+  function contractedCompletionRules(te, to, rules) {
+    const stem = contractedCompletionStem(te);
+    return stem ? CONTRACTED_COMPLETION_SUFFIXES.map(([suffix, reason]) => ({ from: `${stem}${suffix}`, to, reason, rules })) : [];
+  }
+  function contractedCompletionStem(te) {
+    if (te.endsWith("て")) return `${te.slice(0, -1)}ちゃ`;
+    if (te.endsWith("で")) return `${te.slice(0, -1)}じゃ`;
+    return "";
+  }
+  function candidateKey(candidate) {
+    return `${candidate.term}
+${candidate.rules.join(" ")}
+${candidate.depth}`;
+  }
+  function readBlobWithFileReader(blob, read, result) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read file."));
+      reader.onload = () => resolve(result(reader));
+      read(reader, blob);
+    });
+  }
+  async function readDexieTableRowCounts(file) {
+    const head = await readBlobText(file.slice(0, Math.min(file.size, 1024 * 1024)));
+    const tables = readDexieTablesArray(head);
+    return tables ? dexieTableRowCounts(tables) : {};
+  }
+  function readDexieTablesArray(head) {
+    const tablesIndex = head.indexOf('"tables"');
+    if (tablesIndex < 0) return null;
+    const arrayStart = head.indexOf("[", tablesIndex);
+    if (arrayStart < 0) return null;
+    const arrayEnd = findJsonArrayEnd(head, arrayStart);
+    if (arrayEnd < 0) return null;
+    return JSON.parse(head.slice(arrayStart, arrayEnd + 1));
+  }
+  function dexieTableRowCounts(tables) {
+    const counts = {};
+    for (const table of tables) {
+      const count = dexieTableRowCount(table);
+      if (count) counts[count.name] = count.rowCount;
+    }
+    return counts;
+  }
+  function dexieTableRowCount(table) {
+    if (!table || typeof table !== "object") return null;
+    const record = table;
+    return typeof record.name === "string" && typeof record.rowCount === "number" ? { name: record.name, rowCount: record.rowCount } : null;
+  }
+  async function streamDexieTables(file, handlers, onTable) {
+    if (typeof file.stream !== "function" || typeof TextDecoderStream === "undefined") {
+      await streamDexieTablesFromText(await readBlobText(file), handlers, onTable);
+      return;
+    }
+    const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
+    const state = {
+      buffer: "",
+      mode: "seek-table",
+      tableName: "",
+      rowStart: -1,
+      depth: 0,
+      inString: false,
+      escaped: false
+    };
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      state.buffer += value;
+      await processDexieStreamBuffer(state, handlers, onTable);
+    }
+  }
+  function readBlobText(blob) {
+    if (typeof blob.text === "function") return blob.text();
+    return readBlobWithFileReader(blob, (reader, value) => reader.readAsText(value), (reader) => String(reader.result ?? ""));
+  }
+  async function processDexieStreamBuffer(state, handlers, onTable) {
+    let progress = true;
+    while (progress) {
+      progress = await processDexieStreamStep(state, handlers, onTable);
+    }
+  }
+  async function processDexieStreamStep(state, handlers, onTable) {
+    if (state.mode === "seek-table") return seekDexieTable(state);
+    if (state.mode === "seek-rows") return seekDexieRows(state, onTable);
+    if (state.mode === "rows") return await readDexieRows(state, handlers);
+    return false;
+  }
+  function seekDexieTable(state) {
+    const tableIndex = state.buffer.indexOf('"tableName"');
+    if (tableIndex < 0) {
+      state.buffer = state.buffer.slice(-32);
+      return false;
+    }
+    const colon = state.buffer.indexOf(":", tableIndex);
+    const quote = colon >= 0 ? state.buffer.indexOf('"', colon) : -1;
+    const end = quote >= 0 ? findJsonStringEnd(state.buffer, quote) : -1;
+    if (end < 0) return false;
+    state.tableName = JSON.parse(state.buffer.slice(quote, end + 1));
+    state.buffer = state.buffer.slice(end + 1);
+    state.mode = "seek-rows";
+    return true;
+  }
+  function seekDexieRows(state, onTable) {
+    const rowsIndex = state.buffer.indexOf('"rows"');
+    if (rowsIndex < 0) {
+      state.buffer = state.buffer.slice(-32);
+      return false;
+    }
+    const arrayIndex = state.buffer.indexOf("[", rowsIndex);
+    if (arrayIndex < 0) return false;
+    state.buffer = state.buffer.slice(arrayIndex + 1);
+    state.mode = "rows";
+    resetDexieRowState(state);
+    onTable?.(state.tableName);
+    return true;
+  }
+  function resetDexieRowState(state) {
+    state.rowStart = -1;
+    state.depth = 0;
+    state.inString = false;
+    state.escaped = false;
+  }
+  async function readDexieRows(state, handlers) {
+    let progress = false;
+    let index = 0;
+    while (index < state.buffer.length) {
+      const step = await readDexieRowStep(state, handlers, index, progress);
+      if (step.done) return true;
+      progress = step.progress;
+      index = step.nextIndex;
+    }
+    if (!progress) compactDexieRowBuffer(state);
+    return progress;
+  }
+  async function readDexieRowStep(state, handlers, index, progress) {
+    const action = readDexieRowCharacter(state, index);
+    if (action === "continue") return { done: false, progress, nextIndex: index + 1 };
+    const result = await applyDexieRowReadAction(state, handlers, action, index, progress);
+    return {
+      done: result.done,
+      progress: result.progress,
+      nextIndex: result.restart ? 0 : index + 1
+    };
+  }
+  async function applyDexieRowReadAction(state, handlers, action, index, progress) {
+    if (action === "close-array") return { done: true, progress, restart: false };
+    if (action !== "finish-row") return { done: false, progress, restart: false };
+    const nextProgress = await finishDexieRow(state, handlers, index) || progress;
+    return { done: false, progress: nextProgress, restart: nextProgress && state.rowStart === -1 };
+  }
+  function readDexieRowCharacter(state, index) {
+    const char = state.buffer[index];
+    if (advanceStringState(state, char)) return "continue";
+    if (openDexieRowObject(state, index, char)) return "continue";
+    if (char === "}") return "finish-row";
+    return closeDexieRowsArray(state, index, char) ? "close-array" : "scan";
+  }
+  function openDexieRowObject(state, index, char) {
+    if (char !== "{") return false;
+    if (state.depth === 0) state.rowStart = index;
+    state.depth++;
+    return true;
+  }
+  function closeDexieRowsArray(state, index, char) {
+    if (state.depth !== 0 || char !== "]") return false;
+    state.buffer = state.buffer.slice(index + 1);
+    state.mode = "seek-table";
+    state.tableName = "";
+    return true;
+  }
+  async function finishDexieRow(state, handlers, index) {
+    state.depth--;
+    if (state.depth !== 0 || state.rowStart < 0) return false;
+    const handler = handlers[state.tableName];
+    if (handler) await handler(JSON.parse(state.buffer.slice(state.rowStart, index + 1)));
+    state.buffer = state.buffer.slice(index + 1);
+    state.rowStart = -1;
+    return true;
+  }
+  function advanceStringState(state, char) {
+    if (state.inString) return advanceOpenStringState(state, char);
+    return enterStringState(state, char);
+  }
+  function enterStringState(state, char) {
+    if (char !== '"') return false;
+    state.inString = true;
+    return true;
+  }
+  function advanceOpenStringState(state, char) {
+    if (state.escaped) state.escaped = false;
+    else if (char === "\\") state.escaped = true;
+    else if (char === '"') state.inString = false;
+    return true;
+  }
+  function compactDexieRowBuffer(state) {
+    if (state.rowStart > 0) {
+      state.buffer = state.buffer.slice(state.rowStart);
+      state.rowStart = 0;
+    } else if (state.depth === 0 && state.buffer.length > 4096) {
+      state.buffer = state.buffer.slice(-4096);
+    }
+  }
+  function findJsonArrayEnd(text2, start) {
+    const state = createJsonArrayScanState();
+    for (let index = start; index < text2.length; index++) {
+      if (scanJsonArrayCharacter(state, text2[index])) return index;
+    }
+    return -1;
+  }
+  function createJsonArrayScanState() {
+    return { depth: 0, inString: false, escaped: false };
+  }
+  function scanJsonArrayCharacter(state, char) {
+    if (state.inString) {
+      scanJsonArrayStringCharacter(state, char);
+      return false;
+    }
+    if (char === '"') {
+      state.inString = true;
+      return false;
+    }
+    if (char === "[") state.depth += 1;
+    if (char !== "]") return false;
+    state.depth -= 1;
+    return state.depth === 0;
+  }
+  function scanJsonArrayStringCharacter(state, char) {
+    if (state.escaped) {
+      state.escaped = false;
+      return;
+    }
+    if (char === "\\") state.escaped = true;
+    if (char === '"') state.inString = false;
+  }
+  async function streamDexieTablesFromText(text2, handlers, onTable) {
+    let offset = 0;
+    while (true) {
+      const table = nextDexieTableScan(text2, offset);
+      if (!table) return;
+      onTable?.(table.tableName);
+      offset = await streamDexieRowsFromText(text2, table.arrayStart, table.tableName, handlers);
+    }
+  }
+  async function streamDexieRowsFromText(text2, arrayStart, tableName, handlers) {
+    const handler = handlers[tableName];
+    const state = { depth: 0, rowStart: -1, inString: false, escaped: false };
+    for (let index = arrayStart + 1; index < text2.length; index++) {
+      const endOffset = await scanDexieRowCharacter(text2, state, index, handler);
+      if (endOffset !== null) return endOffset;
+    }
+    return text2.length;
+  }
+  function nextDexieTableScan(text2, offset) {
+    const tableIndex = text2.indexOf('"tableName"', offset);
+    if (tableIndex < 0) return null;
+    const quote = dexieTableNameQuoteIndex(text2, tableIndex);
+    if (quote < 0) return null;
+    const end = findJsonStringEnd(text2, quote);
+    if (end < 0) return null;
+    const arrayStart = dexieRowsArrayStart(text2, end);
+    if (arrayStart < 0) return null;
+    return { tableName: JSON.parse(text2.slice(quote, end + 1)), arrayStart };
+  }
+  function dexieTableNameQuoteIndex(text2, tableIndex) {
+    const colon = text2.indexOf(":", tableIndex);
+    return colon >= 0 ? text2.indexOf('"', colon) : -1;
+  }
+  function dexieRowsArrayStart(text2, offset) {
+    const rowsIndex = text2.indexOf('"rows"', offset);
+    return rowsIndex >= 0 ? text2.indexOf("[", rowsIndex) : -1;
+  }
+  async function scanDexieRowCharacter(text2, state, index, handler) {
+    const char = text2[index];
+    if (consumeDexieStringCharacter(state, char)) return null;
+    if (openDexieString(state, char)) return null;
+    if (char === "{") beginDexieRow(state, index);
+    if (char === "}") await finishDexieArrayRow(text2, state, index, handler);
+    return dexieArrayEndOffset(state, char, index);
+  }
+  function dexieArrayEndOffset(state, char, index) {
+    return state.depth === 0 && char === "]" ? index + 1 : null;
+  }
+  function consumeDexieStringCharacter(state, char) {
+    if (!state.inString) return false;
+    if (state.escaped) state.escaped = false;
+    else if (char === "\\") state.escaped = true;
+    else if (char === '"') state.inString = false;
+    return true;
+  }
+  function openDexieString(state, char) {
+    if (char !== '"') return false;
+    state.inString = true;
+    return true;
+  }
+  function beginDexieRow(state, index) {
+    if (state.depth === 0) state.rowStart = index;
+    state.depth++;
+  }
+  async function finishDexieArrayRow(text2, state, index, handler) {
+    state.depth--;
+    if (state.depth === 0 && state.rowStart >= 0 && handler) await handler(JSON.parse(text2.slice(state.rowStart, index + 1)));
+  }
+  function findJsonStringEnd(value, quoteIndex) {
+    let escaped = false;
+    for (let index = quoteIndex + 1; index < value.length; index++) {
+      const char = value[index];
+      if (escaped) escaped = false;
+      else if (char === "\\") escaped = true;
+      else if (char === '"') return index;
+    }
+    return -1;
+  }
+  const log$h = Logger.scope("Yomitan");
+  function filenameFromUrl(url) {
+    try {
+      const parsed = new URL(url);
+      const pathName = parsed.pathname.split("/").filter(Boolean).pop();
+      return pathName && /\.zip$/i.test(pathName) ? decodeURIComponent(pathName) : "dictionary.zip";
+    } catch {
+      return "dictionary.zip";
+    }
+  }
+  function fileSummary(file, sourceUrl = "") {
+    return {
+      name: file.name,
+      size: file.size,
+      type: file.type,
+      sourceHost: sourceUrl ? safeHost(sourceUrl) : ""
+    };
+  }
+  function safeHost(url) {
+    try {
+      return new URL(url, location.href).host;
+    } catch {
+      return "";
+    }
+  }
+  function namedBlobFile(blob, name, type) {
+    if (typeof File === "function") return new File([blob], name, { type });
+    Object.defineProperty(blob, "name", { value: name, configurable: true });
+    Object.defineProperty(blob, "lastModified", { value: Date.now(), configurable: true });
+    return blob;
+  }
+  function formatPercent(loaded, total) {
+    if (total <= 0) return "100%";
+    return `${Math.max(0, Math.min(100, Math.round(loaded / total * 100)))}%`;
+  }
+  function formatBytes(value) {
+    if (!Number.isFinite(value) || value <= 0) return "0 B";
+    const units = ["B", "KB", "MB", "GB"];
+    let size = value;
+    let unit = 0;
+    while (size >= 1024 && unit < units.length - 1) {
+      size /= 1024;
+      unit++;
+    }
+    const precision = unit === 0 || size >= 10 ? 0 : 1;
+    return `${size.toFixed(precision)} ${units[unit]}`;
+  }
+  async function requestBlob$2(url, proxyUrl, onProgress, language = "en") {
+    const done = log$h.time("Dictionary download", { host: safeHost(url) });
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
+    return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
+  }
+  function requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language = "en") {
+    return new Promise((resolve, reject) => {
+      const handleLoad = (response) => {
+        if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
+          log$h.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: response.response.size });
+          done();
+          resolve(response.response);
+          return;
+        }
+        if (response.status < 200 || response.status >= 300) {
+          log$h.warn("Dictionary download HTTP error", { host: safeHost(url), status: response.status });
+          done();
+          reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
+          return;
+        }
+        log$h.warn("Dictionary download payload failed", { host: safeHost(url), status: response.status });
+        done();
+        reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
+      };
+      const result = userscriptRequest({
+        method: "GET",
+        url,
+        headers: { accept: "application/zip,application/octet-stream,*/*" },
+        responseType: "blob",
+        timeout: 12e4,
+        onprogress: (event) => {
+          if (event.lengthComputable && event.total > 0) {
+            onProgress?.(`${uiText(language, "dictionaryDownloadProgress")} ${Math.round(event.loaded / event.total * 100)}%...`);
+          }
+        },
+        onload: handleLoad,
+        onerror: () => {
+          log$h.warn("Dictionary download failed", { host: safeHost(url) });
+          done();
+          reject(new Error(uiText(language, "dictionaryDownloadFailed")));
+        },
+        ontimeout: () => {
+          log$h.warn("Dictionary download timed out", { host: safeHost(url) });
+          done();
+          reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
+        }
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, () => {
+          log$h.warn("Dictionary download failed", { host: safeHost(url) });
+          done();
+          reject(new Error(uiText(language, "dictionaryDownloadFailed")));
+        });
+      }
+    });
+  }
+  async function requestBlobViaFetch(url, proxyUrl, done, onProgress, language) {
+    const downloadUrl = dictionaryDownloadUrl(url);
+    if (!downloadUrl) return throwMissingDictionaryDownloadBridge(done, language);
+    try {
+      return await fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language);
+    } catch (error) {
+      return handleDictionaryFetchError(url, downloadUrl, error, done, language);
+    }
+  }
+  function throwMissingDictionaryDownloadBridge(done, language) {
+    done();
+    throw new Error(uiText(language, "dictionaryDownloadNeedsBridge"));
+  }
+  async function fetchDictionaryBlob(url, downloadUrl, proxyUrl, done, onProgress, language) {
+    const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
+    if (!response.ok) throwDictionaryHttpError(url, response.status, language);
+    const blob = await responseBlobWithProgress(response, onProgress, language);
+    log$h.info("Dictionary download completed", { host: safeHost(url), status: response.status, size: blob.size });
+    done();
+    return blob;
+  }
+  async function responseBlobWithProgress(response, onProgress, language) {
+    if (!response.body || !onProgress) return response.blob();
+    const total = Number(response.headers.get("content-length") ?? 0);
+    const type = response.headers.get("content-type") || "application/zip";
+    const reader = response.body.getReader();
+    const chunks = [];
+    let loaded = 0;
+    for (; ; ) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress(formatDictionaryDownloadProgress(language, loaded, total));
+    }
+    const bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new Blob([bytes.buffer.slice(0)], { type });
+  }
+  function formatDictionaryDownloadProgress(language, loaded, total) {
+    const label = uiText(language, "dictionaryDownloadProgress");
+    if (total > 0) return `${label} ${formatPercent(loaded, total)} (${formatBytes(loaded)} / ${formatBytes(total)})...`;
+    return `${label} ${formatBytes(loaded)}...`;
+  }
+  function throwDictionaryHttpError(url, status, language) {
+    log$h.warn("Dictionary download HTTP error", { host: safeHost(url), status });
+    throw new Error(formatDictionaryDownloadFailed(language, status));
+  }
+  function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
+    const host = safeHost(url);
+    if (isDictionaryCorsError(error)) {
+      log$h.warn("Dictionary download CORS failed", { host, downloadUrl });
+      done();
+      throw new Error(uiText(language, "dictionaryDownloadBlocked"));
+    }
+    log$h.warn("Dictionary download fetch failed", { host, error });
+    done();
+    throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
+  }
+  function formatDictionaryDownloadFailed(language, status) {
+    return language === "ja" ? `${uiText(language, "dictionaryDownloadFailed")}（${status}）` : `Dictionary download failed (${status}).`;
+  }
+  function isDictionaryCorsError(error) {
+    return error instanceof Error && error.name === "TypeError";
+  }
+  function dictionaryDownloadUrl(url) {
+    try {
+      const target = new URL(url, location.href);
+      const current = new URL(location.href);
+      if (target.origin === current.origin) return target.href;
+      if (target.protocol === "https:" || target.protocol === "http:") return target.href;
+      return null;
+    } catch {
+      return url;
+    }
+  }
+  const TERM_MATCH_SELECTION_COMPARATORS = [
+    compareTermMatchLengthDescending,
+    compareTermMatchDeinflectionDepth,
+    compareTermMatchStart,
+    compareTermMatchDictionaryName,
+    compareTermMatchEntryScoreDescending
+  ];
+  function dictionaryRank(preferences) {
+    const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
+    return rank;
+  }
+  function dictionaryEnabled(dictionary, rank) {
+    return rank.get(dictionary)?.enabled ?? true;
+  }
+  function dictionaryPriority(dictionary, rank) {
+    return rank.get(dictionary)?.priority ?? 9999;
+  }
+  function compareMetaEntries(a, b, rank) {
+    return compareMetaModes(a, b) || compareMetaEntriesWithinMode(a, b, rank);
+  }
+  function compareMetaModes(a, b) {
+    return metaModePriority(a) - metaModePriority(b);
+  }
+  function metaModePriority(entry) {
+    return entry.mode === "freq" ? 0 : 1;
+  }
+  function compareMetaEntriesWithinMode(a, b, rank) {
+    return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
+  }
+  function compareFrequencyMetaEntries(a, b, rank) {
+    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank(a.data) - frequencyRank(b.data) || compareDictionaryName(a, b);
+  }
+  function jpdbFrequencyPriority(entry) {
+    return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
+  }
+  function compareDictionaryMetaEntries(a, b, rank) {
+    return compareDictionaryPriority(a, b, rank) || compareDictionaryName(a, b);
+  }
+  function compareDictionaryPriority(a, b, rank) {
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank);
+  }
+  function compareDictionaryName(a, b) {
+    return a.dictionary.localeCompare(b.dictionary);
+  }
+  function extractFrequency(value) {
+    const rank = frequencyRank(value);
+    return Number.isFinite(rank) ? rank : void 0;
+  }
+  function nonOverlappingMatches(matches, limit) {
+    const selected = [];
+    const occupied = [];
+    const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
+    for (const match of matches.sort(compareTermMatchesForSelection)) {
+      if (overlaps(match)) continue;
+      selected.push(match);
+      occupied.push([match.start, match.end]);
+      if (selected.length >= limit) break;
+    }
+    const result = selected.sort((a, b) => a.start - b.start);
+    return result;
+  }
+  function compareTermMatchesForSelection(a, b) {
+    for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
+      const result = compare(a, b);
+      if (result) return result;
+    }
+    return 0;
+  }
+  function compareTermMatchLengthDescending(a, b) {
+    return b.end - b.start - (a.end - a.start);
+  }
+  function compareTermMatchDeinflectionDepth(a, b) {
+    return (a.deinflected?.depth ?? 0) - (b.deinflected?.depth ?? 0);
+  }
+  function compareTermMatchStart(a, b) {
+    return a.start - b.start;
+  }
+  function compareTermMatchDictionaryName(a, b) {
+    return a.entry.dictionary.localeCompare(b.entry.dictionary);
+  }
+  function compareTermMatchEntryScoreDescending(a, b) {
+    return (b.entry.score ?? 0) - (a.entry.score ?? 0);
+  }
+  function isJpdbFrequencyDictionary(dictionary) {
+    return /jpdb/i.test(dictionary);
+  }
+  function frequencyRank(value) {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") return rankFromFrequencyString(value);
+    const nested = nestedFrequencyValue(value);
+    return nested === void 0 ? Number.POSITIVE_INFINITY : frequencyRank(nested);
+  }
+  function rankFromFrequencyString(value) {
+    return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
+  }
+  function nestedFrequencyValue(value) {
+    if (!value || typeof value !== "object") return void 0;
+    const record = value;
+    return record.frequency ?? record.value ?? record.displayValue;
+  }
+  const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
+  const GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS = /* @__PURE__ */ new Set(["description", "alt", "title"]);
+  function glossaryValueToText(value) {
+    return glossaryValueToProfileText(value, {
+      includeDirectDataAttributes: true,
+      fallbackTextKeys: GLOSSARY_DISPLAY_TEXT_KEYS
+    });
+  }
+  function glossaryValueToSearchText(value) {
+    return glossaryValueToProfileText(value, {
+      includeDirectDataAttributes: false,
+      fallbackTextKeys: GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS
+    });
+  }
+  function normalizeGlossarySearchText(value) {
+    return value.normalize("NFKC").toLocaleLowerCase().replace(/[^\p{L}\p{N}\s'-]+/gu, " ").replace(/\s+/g, " ").trim();
+  }
+  function glossaryValueToProfileText(value, options) {
+    const primitiveText = primitiveGlossaryText(value);
+    if (primitiveText !== void 0) return primitiveText;
+    if (Array.isArray(value)) {
+      return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
+    }
+    return isRecord$3(value) ? glossaryRecordToText(value, options) : "";
+  }
+  function primitiveGlossaryText(value) {
+    if (value == null) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return void 0;
+  }
+  function glossaryRecordToText(record, options) {
+    if (typeof record.text === "string") return record.text;
+    if ("content" in record) return glossaryValueToProfileText(record.content, options);
+    const values = glossaryRecordTextValues(record, options);
+    if (values.length) return values.join(" ");
+    if ("path" in record) return glossaryPathRecordText(record);
+    return "";
+  }
+  function glossaryPathRecordText(record) {
+    return String(record.description || record.alt || "");
+  }
+  function glossaryRecordTextValues(record, options) {
+    const values = [];
+    for (const [key, childValue] of Object.entries(record)) {
+      if (!shouldReadRecordTextKey(key, options)) continue;
+      const childText = glossaryValueToProfileText(childValue, options);
+      if (childText) values.push(childText);
+    }
+    return values;
+  }
+  function shouldReadRecordTextKey(key, options) {
+    return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
+  }
+  function isRecord$3(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
+    "br",
+    "ruby",
+    "rt",
+    "rp",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "th",
+    "td",
+    "div",
+    "span",
+    "ol",
+    "ul",
+    "li",
+    "details",
+    "summary"
+  ]);
+  const STRUCTURED_STYLE_PROPERTIES = {
+    fontStyle: "font-style",
+    fontWeight: "font-weight",
+    fontSize: "font-size",
+    color: "color",
+    background: "background",
+    backgroundColor: "background-color",
+    textDecorationStyle: "text-decoration-style",
+    textDecorationColor: "text-decoration-color",
+    borderColor: "border-color",
+    borderStyle: "border-style",
+    borderRadius: "border-radius",
+    borderWidth: "border-width",
+    clipPath: "clip-path",
+    verticalAlign: "vertical-align",
+    textAlign: "text-align",
+    textEmphasis: "text-emphasis",
+    textShadow: "text-shadow",
+    margin: "margin",
+    marginTop: "margin-top",
+    marginLeft: "margin-left",
+    marginRight: "margin-right",
+    marginBottom: "margin-bottom",
+    padding: "padding",
+    paddingTop: "padding-top",
+    paddingLeft: "padding-left",
+    paddingRight: "padding-right",
+    paddingBottom: "padding-bottom",
+    wordBreak: "word-break",
+    whiteSpace: "white-space",
+    cursor: "cursor",
+    listStyleType: "list-style-type"
+  };
+  const STRUCTURED_NUMERIC_EM_STYLES = /* @__PURE__ */ new Set(["marginTop", "marginLeft", "marginRight", "marginBottom"]);
+  function renderStructuredGlossaryHtml(value, dictionary = "", options = {}) {
+    return renderGlossaryValue(value, {
+      dictionary,
+      internalSearchLinks: options.internalSearchLinks ?? false
+    });
+  }
+  function renderGlossaryValue(value, context) {
+    if (value == null) return "";
+    if (isStructuredPrimitive(value)) return escapeHtml(String(value));
+    if (Array.isArray(value)) return renderGlossaryArray(value, context);
+    if (!isRecord$2(value)) return "";
+    return renderGlossaryRecord(value, context);
+  }
+  function isStructuredPrimitive(value) {
+    return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+  }
+  function renderGlossaryArray(value, context) {
+    return value.map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+  }
+  function renderGlossaryRecord(record, context) {
+    return renderDirectGlossaryRecord(record, context) ?? renderTaggedGlossaryRecord(record, context);
+  }
+  const DIRECT_GLOSSARY_RECORD_RENDERERS = [
+    renderTextGlossaryRecord,
+    renderStructuredContentGlossaryRecord,
+    renderImageGlossaryRecord,
+    renderTextContentGlossaryRecord
+  ];
+  function renderDirectGlossaryRecord(record, context) {
+    for (const render of DIRECT_GLOSSARY_RECORD_RENDERERS) {
+      const html = render(record, context);
+      if (html !== null) return html;
+    }
+    return null;
+  }
+  function renderTextGlossaryRecord(record) {
+    return typeof record.text === "string" ? escapeHtml(record.text) : null;
+  }
+  function renderStructuredContentGlossaryRecord(record, context) {
+    return record.type === "structured-content" ? renderStructuredContent(record, context) : null;
+  }
+  function renderImageGlossaryRecord(record, context) {
+    return isStructuredImageRecord(record) ? renderStructuredImage(record, context.dictionary) : null;
+  }
+  function renderTextContentGlossaryRecord(record, context) {
+    return record.type === "text" && "content" in record ? renderGlossaryValue(record.content, context) : null;
+  }
+  function renderStructuredContent(record, context) {
+    const dictionaryAttr = context.dictionary ? ` data-dictionary="${escapeHtml(context.dictionary)}"` : "";
+    return `<span class="structured-content"${dictionaryAttr}>${renderGlossaryValue(record.content, context)}</span>`;
+  }
+  function renderTaggedGlossaryRecord(record, context) {
+    const tag = structuredRecordTag(record);
+    if (!tag) return renderRecordValues(record, context);
+    return renderKnownTaggedGlossaryRecord(record, tag, context) ?? structuredFallbackContent(record, taggedRecordContent(record, tag, context));
+  }
+  function renderKnownTaggedGlossaryRecord(record, tag, context) {
+    if (tag === "a") return renderStructuredLink(record, context);
+    if (tag === "img") return renderStructuredImage(record, context.dictionary);
+    const content = taggedRecordContent(record, tag, context);
+    if (tag === "table") return renderStructuredTable(record, content, context.dictionary);
+    if (STRUCTURED_CONTENT_TAGS.has(tag)) return renderStructuredElement(record, tag, content, context.dictionary);
+    return null;
+  }
+  function taggedRecordContent(record, tag, context) {
+    return tag === "br" ? "" : renderGlossaryValue(record.content, context);
+  }
+  function structuredFallbackContent(record, content) {
+    return content || escapeHtml(glossaryValueToText(record));
+  }
+  function structuredRecordTag(record) {
+    if (typeof record.tag === "string") return record.tag.toLowerCase();
+    return "content" in record ? "span" : "";
+  }
+  function renderRecordValues(record, context) {
+    return Object.values(record).map((item) => renderGlossaryValue(item, context)).filter(Boolean).join("");
+  }
+  function renderStructuredTable(record, content, dictionary) {
+    return `<div class="gloss-sc-table-container"><table${renderStructuredElementAttributes(record, "table", dictionary)}>${content}</table></div>`;
+  }
+  function renderStructuredElement(record, tag, content, dictionary) {
+    const attrs = renderStructuredElementAttributes(record, tag, dictionary);
+    return tag === "br" ? `<br${attrs}>` : `<${tag}${attrs}>${content}</${tag}>`;
+  }
+  function renderStructuredElementAttributes(record, tag, dictionary) {
+    return [
+      ` class="gloss-sc-${escapeHtml(tag)}"`,
+      dictionaryDataAttribute(dictionary),
+      renderStructuredDataAttributes(record.data),
+      renderDirectDataAttributes(record),
+      structuredStyleAttribute(record.style),
+      structuredStringAttribute("title", record.title),
+      structuredStringAttribute("lang", record.lang),
+      ...structuredStateAttributes(record, tag)
+    ].filter(Boolean).join("");
+  }
+  function dictionaryDataAttribute(dictionary) {
+    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+  }
+  function structuredStyleAttribute(value) {
+    const style = renderStructuredStyle(value);
+    return style ? ` style="${escapeHtml(style)}"` : "";
+  }
+  function structuredStringAttribute(name, value) {
+    return typeof value === "string" ? ` ${name}="${escapeHtml(value)}"` : "";
+  }
+  function structuredStateAttributes(record, tag) {
+    return [
+      tag === "details" && record.open === true ? " open" : "",
+      tableCellSpanAttribute(record, tag, "colSpan", "colspan"),
+      tableCellSpanAttribute(record, tag, "rowSpan", "rowspan")
+    ];
+  }
+  function tableCellSpanAttribute(record, tag, key, attr) {
+    const value = Number(record[key]);
+    return isTableCellTag(tag) && Number.isFinite(value) ? ` ${attr}="${value}"` : "";
+  }
+  function isTableCellTag(tag) {
+    return tag === "td" || tag === "th";
+  }
+  function renderStructuredDataAttributes(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+    return Object.entries(value).map(([key, rawValue]) => renderStructuredDataAttribute(key, rawValue)).filter(Boolean).join("");
+  }
+  function renderStructuredDataAttribute(key, rawValue) {
+    return key && isStructuredAttributeValue(rawValue) ? ` data-sc-${camelToKebabCase(key)}="${escapeHtml(String(rawValue))}"` : "";
+  }
+  function isStructuredAttributeValue(value) {
+    return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+  }
+  function renderDirectDataAttributes(record) {
+    return Object.entries(record).map(renderDirectDataAttribute).filter(Boolean).join("");
+  }
+  function renderDirectDataAttribute([key, value]) {
+    return isDirectDataAttribute(key, value) ? ` ${key}="${escapeHtml(String(value))}"` : "";
+  }
+  function isDirectDataAttribute(key, value) {
+    return key.startsWith("data-") && isStructuredAttributeValue(value);
+  }
+  function renderStructuredStyle(value) {
+    const style = structuredStyleRecord(value);
+    if (!style) return "";
+    const declarations = [];
+    const decoration = structuredTextDecoration(style.textDecorationLine);
+    if (decoration) declarations.push(decoration);
+    for (const [key, property] of Object.entries(STRUCTURED_STYLE_PROPERTIES)) {
+      const declaration = structuredStyleDeclaration(key, property, style[key]);
+      if (declaration) declarations.push(declaration);
+    }
+    return declarations.join("");
+  }
+  function structuredStyleRecord(value) {
+    return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+  }
+  function structuredTextDecoration(value) {
+    if (typeof value === "string") return `text-decoration:${value};`;
+    if (Array.isArray(value)) return `text-decoration:${value.map(String).join(" ")};`;
+    return "";
+  }
+  function structuredStyleDeclaration(key, property, rawValue) {
+    if (typeof rawValue === "string") return `${property}:${rawValue};`;
+    if (typeof rawValue === "number" && STRUCTURED_NUMERIC_EM_STYLES.has(key)) return `${property}:${rawValue}em;`;
+    return "";
+  }
+  function renderStructuredLink(record, context) {
+    const content = renderGlossaryValue(record.content, context) || escapeHtml(glossaryValueToText(record));
+    const link = structuredLinkModel(record, context);
+    const icon = link.external ? '<span class="gloss-link-external-icon icon" data-icon="external-link"></span>' : "";
+    return `<a${structuredLinkAttrs(link, context.dictionary, record.lang)}><span class="gloss-link-text">${content}</span>${icon}</a>`;
+  }
+  function structuredLinkModel(record, context) {
+    const rawHref = typeof record.href === "string" ? record.href : "";
+    const searchReference = structuredLinkSearchReference(rawHref, context);
+    const kanjiReference = structuredLinkKanjiReference(rawHref, context);
+    const href = structuredLinkHref(rawHref, searchReference, kanjiReference);
+    return {
+      href,
+      external: isExternalStructuredHref(href),
+      searchReference,
+      kanjiReference
+    };
+  }
+  function structuredLinkSearchReference(rawHref, context) {
+    return context.internalSearchLinks ? parseStructuredSearchReference(rawHref) : null;
+  }
+  function structuredLinkKanjiReference(rawHref, context) {
+    return context.internalSearchLinks ? parseStructuredKanjiReference(rawHref) : null;
+  }
+  function structuredLinkHref(rawHref, searchReference, kanjiReference) {
+    if (searchReference) return "#jpdb-reader-dictionary-lookup";
+    if (kanjiReference) return "#jpdb-reader-kanji-lookup";
+    return normalizeStructuredHref(rawHref);
+  }
+  function isExternalStructuredHref(href) {
+    return Boolean(href && !href.startsWith(locationOrigin()) && !href.startsWith("#"));
+  }
+  function structuredLinkAttrs(link, dictionary, lang) {
+    return [
+      ' class="gloss-link"',
+      ` data-external="${link.external}"`,
+      dictionaryAttribute(dictionary),
+      kanjiReferenceActionAttribute(link),
+      searchReferenceQueryAttribute(link),
+      searchReferenceReadingAttribute(link),
+      hrefAttribute(link.href),
+      externalLinkAttributes(link.external),
+      langAttribute(lang)
+    ].join("");
+  }
+  function kanjiReferenceActionAttribute(link) {
+    return link.kanjiReference ? ` data-action="kanji" data-kanji="${escapeHtml(link.kanjiReference.kanji)}"` : "";
+  }
+  function dictionaryAttribute(dictionary) {
+    return dictionary ? ` data-dictionary="${escapeHtml(dictionary)}"` : "";
+  }
+  function searchReferenceQueryAttribute(link) {
+    return link.searchReference ? ` data-dictionary-lookup="${escapeHtml(link.searchReference.query)}"` : "";
+  }
+  function searchReferenceReadingAttribute(link) {
+    return link.searchReference?.reading ? ` data-dictionary-reading="${escapeHtml(link.searchReference.reading)}"` : "";
+  }
+  function hrefAttribute(href) {
+    return href ? ` href="${escapeHtml(href)}"` : "";
+  }
+  function externalLinkAttributes(external) {
+    return external ? ' target="_blank" rel="noopener noreferrer"' : "";
+  }
+  function langAttribute(lang) {
+    return typeof lang === "string" ? ` lang="${escapeHtml(lang)}"` : "";
+  }
+  function renderStructuredImage(record, dictionary) {
+    const path = typeof record.path === "string" ? record.path : "";
+    const title = typeof record.title === "string" ? record.title : "";
+    const description = structuredImageDescription(record);
+    const src = structuredImageSrc(path);
+    const alt = escapeHtml(description || title || "Dictionary image");
+    const titleAttribute = title ? ` title="${escapeHtml(title)}"` : "";
+    return `<span${renderStructuredImageAttributes(record, dictionary)}${titleAttribute}><img class="gloss-image"${src ? ` src="${escapeHtml(src)}"` : ""} alt="${alt}"><span class="gloss-image-fallback">${alt}</span></span>`;
+  }
+  function renderStructuredImageAttributes(record, dictionary) {
+    return [
+      ` class="gloss-image-link"`,
+      dictionaryAttribute(dictionary),
+      structuredImageStateAttribute(record)
+    ].join("");
+  }
+  function structuredImageStateAttribute(record) {
+    const path = typeof record.path === "string" ? record.path : "";
+    return ` data-image-load-state="${structuredImageSrc(path) ? "loaded" : "error"}"`;
+  }
+  function structuredImageSrc(path) {
+    return /^data:image\//i.test(path) ? path : "";
+  }
+  function structuredImageDescription(record) {
+    if (typeof record.description === "string") return record.description;
+    return typeof record.alt === "string" ? record.alt : "";
+  }
+  function isStructuredImageRecord(record) {
+    return record.type === "image" || "path" in record;
+  }
+  function normalizeStructuredHref(href) {
+    if (!href) return "";
+    if (/^https?:\/\//i.test(href) || href.startsWith("#")) return href;
+    if (href.startsWith("?")) return `https://jpdb.io/search${href}`;
+    return "";
+  }
+  function parseStructuredSearchReference(href) {
+    if (!href.startsWith("?")) return null;
+    const params = structuredSearchParams(href);
+    return params ? structuredSearchReferenceFromParams(params) : null;
+  }
+  function parseStructuredKanjiReference(href) {
+    const match = /^(?:https:\/\/jpdb\.io)?\/kanji\/([^/?#]+)/i.exec(href.trim());
+    if (!match) return null;
+    const value = decodeStructuredPathSegment(match[1]);
+    const kanji = Array.from(value).find(isStructuredKanjiCharacter) ?? "";
+    return kanji ? { kanji } : null;
+  }
+  function decodeStructuredPathSegment(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function isStructuredKanjiCharacter(value) {
+    const code = value.codePointAt(0) ?? 0;
+    return code >= 13312 && code <= 40959;
+  }
+  function structuredSearchParams(href) {
+    try {
+      return new URLSearchParams(href.slice(1));
+    } catch {
+      return null;
+    }
+  }
+  function structuredSearchReferenceFromParams(params) {
+    const query = (params.get("query") ?? "").trim();
+    return query ? { query, reading: (params.get("primary_reading") ?? "").trim() } : null;
+  }
+  function locationOrigin() {
+    try {
+      return location.origin;
+    } catch {
+      return "";
+    }
+  }
+  function camelToKebabCase(value) {
+    return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
+  }
+  function isRecord$2(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  function escapeHtml(value) {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function glossaryToText(value) {
+    return glossaryValueToText(value);
+  }
+  function glossaryToHtml(value, dictionary = "", options = {}) {
+    const html = renderStructuredGlossaryHtml(value, dictionary, options);
+    return html;
+  }
+  function renderDictionaryScopedStyles(dictionaries, preferences = []) {
+    const rank = dictionaryRank(preferences);
+    const css = dictionaries.filter((dictionary) => dictionaryEnabled(dictionary.title, rank)).map((dictionary) => {
+      const styles = dictionary.styles?.trim();
+      if (!styles) return "";
+      return scopeDictionaryStyles(styles, dictionaryScopeSelector(dictionary.title));
+    }).filter(Boolean).join("\n");
+    return css;
+  }
+  function dictionaryScopeSelector(dictionary) {
+    return `[data-dictionary="${dictionary.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"]`;
+  }
+  function scopeDictionaryStyles(styles, scope) {
+    return splitTopLevelCssBlocks(styles).map((block) => scopeDictionaryStyleBlock(block, scope)).filter(Boolean).join("\n");
+  }
+  function scopeDictionaryStyleBlock(block, scope) {
+    const openIndex = block.indexOf("{");
+    const closeIndex = block.lastIndexOf("}");
+    if (openIndex < 0 || closeIndex <= openIndex) return "";
+    const selector = block.slice(0, openIndex).trim();
+    const declarations = block.slice(openIndex + 1, closeIndex).trim();
+    if (!hasCssRuleParts(selector, declarations)) return "";
+    if (selector.startsWith("@")) {
+      const scopedInner = splitTopLevelCssBlocks(declarations).map((innerBlock) => scopeDictionaryStyleBlock(innerBlock, scope)).filter(Boolean).join("\n");
+      return renderScopedAtRule(selector, declarations, scopedInner);
+    }
+    const scopedSelectors = splitSelectorList(selector).map((part) => `${scope} ${part.trim()}`).join(", ");
+    return `${scopedSelectors} { ${declarations} }`;
+  }
+  function hasCssRuleParts(selector, declarations) {
+    return Boolean(selector && declarations);
+  }
+  function renderScopedAtRule(selector, declarations, scopedInner) {
+    return scopedInner ? `${selector} {
+${scopedInner}
+}` : `${selector} { ${declarations} }`;
+  }
+  function splitTopLevelCssBlocks(styles) {
+    const state = { blocks: [], depth: 0, start: 0, inString: null, escaped: false };
+    for (let index = 0; index < styles.length; index++) {
+      const character = styles[index];
+      if (consumeStringScanCharacter(state, character)) continue;
+      if (openStringScan(state, character)) continue;
+      if (openCssBlock(state, styles, index, character)) continue;
+      closeCssBlock(state, styles, index, character);
+    }
+    return state.blocks;
+  }
+  function openCssBlock(state, styles, index, character) {
+    if (character !== "{") return false;
+    if (state.depth === 0) state.start = findSelectorStart(styles, index);
+    state.depth++;
+    return true;
+  }
+  function closeCssBlock(state, styles, index, character) {
+    if (character !== "}" || state.depth === 0) return;
+    state.depth--;
+    if (state.depth > 0) return;
+    state.blocks.push(styles.slice(state.start, index + 1).trim());
+    state.start = index + 1;
+  }
+  function splitSelectorList(selector) {
+    const state = { selectors: [], start: 0, bracketDepth: 0, parenDepth: 0, inString: null, escaped: false };
+    for (let index = 0; index < selector.length; index++) {
+      const character = selector[index];
+      if (consumeStringScanCharacter(state, character)) continue;
+      if (openStringScan(state, character)) continue;
+      updateSelectorDepth(state, character);
+      if (!isSelectorSeparator(state, character)) continue;
+      state.selectors.push(selector.slice(state.start, index).trim());
+      state.start = index + 1;
+    }
+    state.selectors.push(selector.slice(state.start).trim());
+    return state.selectors.filter(Boolean);
+  }
+  function consumeStringScanCharacter(state, character) {
+    if (!state.inString) return false;
+    if (state.escaped) state.escaped = false;
+    else if (character === "\\") state.escaped = true;
+    else if (character === state.inString) state.inString = null;
+    return true;
+  }
+  function openStringScan(state, character) {
+    if (character !== '"' && character !== "'") return false;
+    state.inString = character;
+    return true;
+  }
+  function updateSelectorDepth(state, character) {
+    if (character === "[") state.bracketDepth++;
+    if (character === "]") state.bracketDepth = Math.max(0, state.bracketDepth - 1);
+    if (character === "(") state.parenDepth++;
+    if (character === ")") state.parenDepth = Math.max(0, state.parenDepth - 1);
+  }
+  function isSelectorSeparator(state, character) {
+    return character === "," && state.bracketDepth === 0 && state.parenDepth === 0;
+  }
+  function findSelectorStart(styles, openIndex) {
+    const separators = ["}", ";"];
+    let start = 0;
+    for (let index = openIndex - 1; index >= 0; index--) {
+      if (!separators.includes(styles[index])) continue;
+      start = index + 1;
+      break;
+    }
+    return start;
+  }
+  var u8 = Uint8Array, u16 = Uint16Array, i32 = Int32Array;
+  var fleb = new u8([
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    4,
+    4,
+    5,
+    5,
+    5,
+    5,
+    0,
+    /* unused */
+    0,
+    0,
+    /* impossible */
+    0
+  ]);
+  var fdeb = new u8([
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    2,
+    2,
+    3,
+    3,
+    4,
+    4,
+    5,
+    5,
+    6,
+    6,
+    7,
+    7,
+    8,
+    8,
+    9,
+    9,
+    10,
+    10,
+    11,
+    11,
+    12,
+    12,
+    13,
+    13,
+    /* unused */
+    0,
+    0
+  ]);
+  var clim = new u8([16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15]);
+  var freb = function(eb, start) {
+    var b = new u16(31);
+    for (var i = 0; i < 31; ++i) {
+      b[i] = start += 1 << eb[i - 1];
+    }
+    var r = new i32(b[30]);
+    for (var i = 1; i < 30; ++i) {
+      for (var j = b[i]; j < b[i + 1]; ++j) {
+        r[j] = j - b[i] << 5 | i;
+      }
+    }
+    return { b, r };
+  };
+  var _a = freb(fleb, 2), fl = _a.b, revfl = _a.r;
+  fl[28] = 258, revfl[258] = 28;
+  var _b = freb(fdeb, 0), fd = _b.b;
+  var rev = new u16(32768);
+  for (var i = 0; i < 32768; ++i) {
+    var x = (i & 43690) >> 1 | (i & 21845) << 1;
+    x = (x & 52428) >> 2 | (x & 13107) << 2;
+    x = (x & 61680) >> 4 | (x & 3855) << 4;
+    rev[i] = ((x & 65280) >> 8 | (x & 255) << 8) >> 1;
+  }
+  var hMap = function(cd, mb, r) {
+    var s = cd.length;
+    var i = 0;
+    var l = new u16(mb);
+    for (; i < s; ++i) {
+      if (cd[i])
+        ++l[cd[i] - 1];
+    }
+    var le = new u16(mb);
+    for (i = 1; i < mb; ++i) {
+      le[i] = le[i - 1] + l[i - 1] << 1;
+    }
+    var co;
+    {
+      co = new u16(1 << mb);
+      var rvb = 15 - mb;
+      for (i = 0; i < s; ++i) {
+        if (cd[i]) {
+          var sv = i << 4 | cd[i];
+          var r_1 = mb - cd[i];
+          var v = le[cd[i] - 1]++ << r_1;
+          for (var m = v | (1 << r_1) - 1; v <= m; ++v) {
+            co[rev[v] >> rvb] = sv;
+          }
+        }
+      }
+    }
+    return co;
+  };
+  var flt = new u8(288);
+  for (var i = 0; i < 144; ++i)
+    flt[i] = 8;
+  for (var i = 144; i < 256; ++i)
+    flt[i] = 9;
+  for (var i = 256; i < 280; ++i)
+    flt[i] = 7;
+  for (var i = 280; i < 288; ++i)
+    flt[i] = 8;
+  var fdt = new u8(32);
+  for (var i = 0; i < 32; ++i)
+    fdt[i] = 5;
+  var flrm = /* @__PURE__ */ hMap(flt, 9);
+  var fdrm = /* @__PURE__ */ hMap(fdt, 5);
+  var max = function(a) {
+    var m = a[0];
+    for (var i = 1; i < a.length; ++i) {
+      if (a[i] > m)
+        m = a[i];
+    }
+    return m;
+  };
+  var bits = function(d, p, m) {
+    var o = p / 8 | 0;
+    return (d[o] | d[o + 1] << 8) >> (p & 7) & m;
+  };
+  var bits16 = function(d, p) {
+    var o = p / 8 | 0;
+    return (d[o] | d[o + 1] << 8 | d[o + 2] << 16) >> (p & 7);
+  };
+  var shft = function(p) {
+    return (p + 7) / 8 | 0;
+  };
+  var slc = function(v, s, e) {
+    if (e == null || e > v.length)
+      e = v.length;
+    return new u8(v.subarray(s, e));
+  };
+  var ec = [
+    "unexpected EOF",
+    "invalid block type",
+    "invalid length/literal",
+    "invalid distance",
+    "stream finished",
+    "no stream handler",
+    ,
+    // determined by compression function
+    "no callback",
+    "invalid UTF-8 data",
+    "extra field too long",
+    "date not in range 1980-2099",
+    "filename too long",
+    "stream finishing",
+    "invalid zip data"
+    // determined by unknown compression method
+  ];
+  var err = function(ind, msg, nt) {
+    var e = new Error(msg || ec[ind]);
+    e.code = ind;
+    if (Error.captureStackTrace)
+      Error.captureStackTrace(e, err);
+    if (!nt)
+      throw e;
+    return e;
+  };
+  var inflt = function(dat, st, buf, dict) {
+    var sl = dat.length, dl = 0;
+    if (!sl || st.f && !st.l)
+      return buf || new u8(0);
+    var noBuf = !buf;
+    var resize = noBuf || st.i != 2;
+    var noSt = st.i;
+    if (noBuf)
+      buf = new u8(sl * 3);
+    var cbuf = function(l2) {
+      var bl = buf.length;
+      if (l2 > bl) {
+        var nbuf = new u8(Math.max(bl * 2, l2));
+        nbuf.set(buf);
+        buf = nbuf;
+      }
+    };
+    var final = st.f || 0, pos = st.p || 0, bt = st.b || 0, lm = st.l, dm = st.d, lbt = st.m, dbt = st.n;
+    var tbts = sl * 8;
+    do {
+      if (!lm) {
+        final = bits(dat, pos, 1);
+        var type = bits(dat, pos + 1, 3);
+        pos += 3;
+        if (!type) {
+          var s = shft(pos) + 4, l = dat[s - 4] | dat[s - 3] << 8, t = s + l;
+          if (t > sl) {
+            if (noSt)
+              err(0);
+            break;
+          }
+          if (resize)
+            cbuf(bt + l);
+          buf.set(dat.subarray(s, t), bt);
+          st.b = bt += l, st.p = pos = t * 8, st.f = final;
+          continue;
+        } else if (type == 1)
+          lm = flrm, dm = fdrm, lbt = 9, dbt = 5;
+        else if (type == 2) {
+          var hLit = bits(dat, pos, 31) + 257, hcLen = bits(dat, pos + 10, 15) + 4;
+          var tl = hLit + bits(dat, pos + 5, 31) + 1;
+          pos += 14;
+          var ldt = new u8(tl);
+          var clt = new u8(19);
+          for (var i = 0; i < hcLen; ++i) {
+            clt[clim[i]] = bits(dat, pos + i * 3, 7);
+          }
+          pos += hcLen * 3;
+          var clb = max(clt), clbmsk = (1 << clb) - 1;
+          var clm = hMap(clt, clb);
+          for (var i = 0; i < tl; ) {
+            var r = clm[bits(dat, pos, clbmsk)];
+            pos += r & 15;
+            var s = r >> 4;
+            if (s < 16) {
+              ldt[i++] = s;
+            } else {
+              var c = 0, n = 0;
+              if (s == 16)
+                n = 3 + bits(dat, pos, 3), pos += 2, c = ldt[i - 1];
+              else if (s == 17)
+                n = 3 + bits(dat, pos, 7), pos += 3;
+              else if (s == 18)
+                n = 11 + bits(dat, pos, 127), pos += 7;
+              while (n--)
+                ldt[i++] = c;
+            }
+          }
+          var lt = ldt.subarray(0, hLit), dt = ldt.subarray(hLit);
+          lbt = max(lt);
+          dbt = max(dt);
+          lm = hMap(lt, lbt);
+          dm = hMap(dt, dbt);
+        } else
+          err(1);
+        if (pos > tbts) {
+          if (noSt)
+            err(0);
+          break;
+        }
+      }
+      if (resize)
+        cbuf(bt + 131072);
+      var lms = (1 << lbt) - 1, dms = (1 << dbt) - 1;
+      var lpos = pos;
+      for (; ; lpos = pos) {
+        var c = lm[bits16(dat, pos) & lms], sym = c >> 4;
+        pos += c & 15;
+        if (pos > tbts) {
+          if (noSt)
+            err(0);
+          break;
+        }
+        if (!c)
+          err(2);
+        if (sym < 256)
+          buf[bt++] = sym;
+        else if (sym == 256) {
+          lpos = pos, lm = null;
+          break;
+        } else {
+          var add = sym - 254;
+          if (sym > 264) {
+            var i = sym - 257, b = fleb[i];
+            add = bits(dat, pos, (1 << b) - 1) + fl[i];
+            pos += b;
+          }
+          var d = dm[bits16(dat, pos) & dms], dsym = d >> 4;
+          if (!d)
+            err(3);
+          pos += d & 15;
+          var dt = fd[dsym];
+          if (dsym > 3) {
+            var b = fdeb[dsym];
+            dt += bits16(dat, pos) & (1 << b) - 1, pos += b;
+          }
+          if (pos > tbts) {
+            if (noSt)
+              err(0);
+            break;
+          }
+          if (resize)
+            cbuf(bt + 131072);
+          var end = bt + add;
+          if (bt < dt) {
+            var shift = dl - dt, dend = Math.min(dt, end);
+            if (shift + bt < 0)
+              err(3);
+            for (; bt < dend; ++bt)
+              buf[bt] = dict[shift + bt];
+          }
+          for (; bt < end; ++bt)
+            buf[bt] = buf[bt - dt];
+        }
+      }
+      st.l = lm, st.p = lpos, st.b = bt, st.f = final;
+      if (lm)
+        final = 1, st.m = lbt, st.d = dm, st.n = dbt;
+    } while (!final);
+    return bt != buf.length && noBuf ? slc(buf, 0, bt) : buf.subarray(0, bt);
+  };
+  var et = /* @__PURE__ */ new u8(0);
+  function inflateSync(data, opts) {
+    return inflt(data, { i: 2 }, opts, opts);
+  }
+  var td = typeof TextDecoder != "undefined" && /* @__PURE__ */ new TextDecoder();
+  var tds = 0;
+  try {
+    td.decode(et, { stream: true });
+    tds = 1;
+  } catch (e) {
+  }
+  const ZIP_END_SIGNATURE = 101010256;
+  const ZIP_CENTRAL_SIGNATURE = 33639248;
+  const ZIP_LOCAL_SIGNATURE = 67324752;
+  const ZIP_UTF8_FLAG = 2048;
+  const ZIP_ENCRYPTED_FLAG = 1;
+  const ZIP_STORE_METHOD = 0;
+  const ZIP_DEFLATE_METHOD = 8;
+  const ZIP64_MARKER_16 = 65535;
+  const ZIP64_MARKER_32 = 4294967295;
+  const MAX_ZIP_COMMENT_BYTES = 65535;
+  const textDecoder = new TextDecoder();
+  class ZipArchive {
+    constructor(archiveBytes, files) {
+      this.archiveBytes = archiveBytes;
+      this.files = files;
+    }
+    entries() {
+      return [...this.files.values()].map(({ name, compressedSize, uncompressedSize }) => ({ name, compressedSize, uncompressedSize }));
+    }
+    async text(name, onProgress) {
+      const entry = this.files.get(name);
+      if (!entry) throw new Error(`${name} not found.`);
+      onProgress?.({ name, loaded: 0, total: zipEntryProgressTotal(entry) });
+      const bytes = await this.fileBytes(entry);
+      onProgress?.({ name, loaded: bytes.byteLength, total: zipEntryProgressTotal(entry) });
+      return textDecoder.decode(bytes);
+    }
+    async bytes(name) {
+      const entry = this.files.get(name);
+      if (!entry) throw new Error(`${name} not found.`);
+      return this.fileBytes(entry);
+    }
+    async fileBytes(entry) {
+      if (entry.encrypted) throw new Error(`Encrypted ZIP entries are not supported: ${entry.name}`);
+      const compressed = localFileBytes(this.archiveBytes, entry);
+      if (entry.compressionMethod === ZIP_STORE_METHOD) return compressed;
+      if (entry.compressionMethod === ZIP_DEFLATE_METHOD) return inflateRaw(compressed);
+      throw new Error(`Unsupported ZIP compression method ${entry.compressionMethod}: ${entry.name}`);
+    }
+  }
+  async function readZipArchive(file, onProgress) {
+    const bytes = await readBlobBytes(file, onProgress);
+    const files = readZipCentralDirectory(bytes);
+    onProgress?.({ phase: "directory", loaded: bytes.byteLength, total: file.size || bytes.byteLength, entries: files.size });
+    return new ZipArchive(bytes, files);
+  }
+  async function readBlobBytes(file, onProgress) {
+    const total = file.size;
+    if (!onProgress || typeof file.stream !== "function") {
+      const bytes2 = new Uint8Array(await readBlobArrayBuffer(file));
+      onProgress?.({ phase: "read", loaded: bytes2.byteLength, total: total || bytes2.byteLength });
+      return bytes2;
+    }
+    const reader = file.stream().getReader();
+    const chunks = [];
+    let loaded = 0;
+    onProgress({ phase: "read", loaded, total });
+    for (; ; ) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      loaded += value.byteLength;
+      onProgress({ phase: "read", loaded, total });
+    }
+    const bytes = new Uint8Array(loaded);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return bytes;
+  }
+  function readZipCentralDirectory(bytes) {
+    const view = dataView(bytes);
+    const endOffset = findZipEndRecord(view);
+    const entryCount = view.getUint16(endOffset + 10, true);
+    const directorySize = view.getUint32(endOffset + 12, true);
+    const directoryOffset = view.getUint32(endOffset + 16, true);
+    if (entryCount === ZIP64_MARKER_16 || directorySize === ZIP64_MARKER_32 || directoryOffset === ZIP64_MARKER_32) {
+      throw new Error("ZIP64 dictionaries are not supported.");
+    }
+    const files = /* @__PURE__ */ new Map();
+    const directoryEnd = directoryOffset + directorySize;
+    let offset = directoryOffset;
+    for (let index = 0; index < entryCount && offset < directoryEnd; index++) {
+      const entry = readCentralEntry(bytes, view, offset);
+      offset = entry.nextOffset;
+      if (!entry.file.name.endsWith("/")) files.set(entry.file.name, entry.file);
+    }
+    return files;
+  }
+  function findZipEndRecord(view) {
+    const minOffset = Math.max(0, view.byteLength - MAX_ZIP_COMMENT_BYTES - 22);
+    for (let offset = view.byteLength - 22; offset >= minOffset; offset--) {
+      if (view.getUint32(offset, true) === ZIP_END_SIGNATURE) return offset;
+    }
+    throw new Error("Invalid ZIP archive: end record not found.");
+  }
+  function readCentralEntry(bytes, view, offset) {
+    assertSignature(view, offset, ZIP_CENTRAL_SIGNATURE, "central directory entry");
+    const flags = view.getUint16(offset + 8, true);
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const nameStart = offset + 46;
+    const name = decodeZipName(bytes.subarray(nameStart, nameStart + nameLength), flags);
+    return {
+      file: {
+        name,
+        compressionMethod: view.getUint16(offset + 10, true),
+        encrypted: Boolean(flags & ZIP_ENCRYPTED_FLAG),
+        compressedSize: view.getUint32(offset + 20, true),
+        uncompressedSize: view.getUint32(offset + 24, true),
+        localHeaderOffset: view.getUint32(offset + 42, true)
+      },
+      nextOffset: nameStart + nameLength + extraLength + commentLength
+    };
+  }
+  function localFileBytes(bytes, entry) {
+    const view = dataView(bytes);
+    assertSignature(view, entry.localHeaderOffset, ZIP_LOCAL_SIGNATURE, "local file header");
+    const nameLength = view.getUint16(entry.localHeaderOffset + 26, true);
+    const extraLength = view.getUint16(entry.localHeaderOffset + 28, true);
+    const start = entry.localHeaderOffset + 30 + nameLength + extraLength;
+    const end = start + entry.compressedSize;
+    if (end > bytes.length) throw new Error(`Invalid ZIP entry bounds: ${entry.name}`);
+    return bytes.subarray(start, end);
+  }
+  function zipEntryProgressTotal(entry) {
+    return entry.uncompressedSize || entry.compressedSize;
+  }
+  async function inflateRaw(bytes) {
+    if (typeof DecompressionStream === "function") {
+      try {
+        return await inflateRawWithStream(bytes);
+      } catch {
+      }
+    }
+    try {
+      return inflateSync(bytes);
+    } catch (error) {
+      throw error instanceof Error ? new Error(`This browser could not import compressed ZIP dictionaries: ${error.message}`) : new Error("This browser could not import compressed ZIP dictionaries.");
+    }
+  }
+  async function inflateRawWithStream(bytes) {
+    const stream = new Blob([arrayBufferSlice(bytes)]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  }
+  function assertSignature(view, offset, expected, label) {
+    if (offset < 0 || offset + 4 > view.byteLength || view.getUint32(offset, true) !== expected) {
+      throw new Error(`Invalid ZIP archive: ${label} not found.`);
+    }
+  }
+  function decodeZipName(bytes, flags) {
+    return new TextDecoder(flags & ZIP_UTF8_FLAG ? "utf-8" : void 0).decode(bytes);
+  }
+  function dataView(bytes) {
+    return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  }
+  function arrayBufferSlice(bytes) {
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+  function readBlobArrayBuffer(blob) {
+    if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
+    return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
+  }
+  Logger.scope("YomitanSettingsImport");
+  const DB_NAME = "jpdb-popup-reader-yomitan";
+  const DB_VERSION = 4;
+  const DEXIE_IMPORT_BATCH_SIZE = 5e3;
+  const DICTIONARY_DELETE_BATCH_SIZE = 5e3;
+  const DEXIE_PROGRESS_INTERVAL = DEXIE_IMPORT_BATCH_SIZE;
+  const STORE_WRITE_BATCH_SIZE = 1e3;
+  const ZIP_IMPORT_FLUSH_ENTRY_LIMIT = 1e4;
+  const HOT_LOOKUP_CACHE_TTL_MS = 2e3;
+  const TOP_TERM_EXPRESSION_ENTRY_LIMIT = 500;
+  const TERM_SEARCH_INDEX_BATCH_SIZE = 300;
+  const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
+  const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
+  const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
+  const TERM_SEARCH_PREFIX_BOUNDARY = String.fromCharCode(63743);
+  const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12e3;
+  const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
+  const TERM_SEARCH_INDEX_CURSOR_MAX_ROWS = 8e3;
+  const TERM_SEARCH_INDEX_CURSOR_MAX_MS = 180;
+  const TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT = 240;
+  const RANDOM_TERM_LIST_MAX_ROWS = 2e4;
+  const RANDOM_TERM_LIST_MAX_MS = 220;
+  const RANDOM_TOP_TERM_LIST_MAX_ROWS = 3e4;
+  const RANDOM_TOP_TERM_LIST_MAX_MS = 320;
+  const TERM_KANJI_INDEX_BATCH_SIZE = 5e3;
+  const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12e3;
+  const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
+  const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
+  const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
+  const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const log$g = Logger.scope("Yomitan");
+  let persistentStorageRequested = false;
+  function requestPersistentDictionaryStorage() {
+    if (persistentStorageRequested) return;
+    persistentStorageRequested = true;
+    try {
+      void navigator.storage?.persist?.().then((granted) => {
+        log$g.info("Persistent storage request", { granted });
+      }).catch(() => void 0);
+    } catch {
+    }
+  }
+  class YomitanDictionaryStore {
+    constructor(getCorsProxyUrl = () => "", getInterfaceLanguage = () => "en") {
+      this.getCorsProxyUrl = getCorsProxyUrl;
+      this.getInterfaceLanguage = getInterfaceLanguage;
+    }
+    dbPromise;
+    dictionaryInfoPromise;
+    summaryPromise;
+    dictionaryStyleCssCache = /* @__PURE__ */ new Map();
+    termSearchIndexPromise;
+    termKanjiIndexPromise;
+    termKanjiIndexReady = false;
+    termIndexGeneration = 0;
+    hotLookupCache = /* @__PURE__ */ new Map();
+    text(key) {
+      return uiText(this.getInterfaceLanguage(), key);
+    }
+    prepareTermSearchIndex() {
+      if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
+      const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
+        log$g.warn("Term search index preparation failed", { error });
+      }).finally(() => {
+        if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
+      });
+      this.termSearchIndexPromise = promise;
+      return this.termSearchIndexPromise;
+    }
+    hotLookupCacheKey(kind, values, preferences) {
+      return JSON.stringify([kind, ...values, normalizeDictionaryPreferences(preferences)]);
+    }
+    getHotLookup(key, factory) {
+      const now = performance.now();
+      const cached = this.hotLookupCache.get(key);
+      if (cached && cached.expiresAt > now) return cached.promise;
+      const entry = {
+        expiresAt: Number.POSITIVE_INFINITY,
+        promise: Promise.resolve().then(factory).then(
+          (value) => {
+            entry.expiresAt = performance.now() + HOT_LOOKUP_CACHE_TTL_MS;
+            return value;
+          },
+          (error) => {
+            if (this.hotLookupCache.get(key) === entry) this.hotLookupCache.delete(key);
+            throw error;
+          }
+        )
+      };
+      this.hotLookupCache.set(key, entry);
+      return entry.promise;
+    }
+    async lookup(expression, reading, limit, preferences = []) {
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
+        async () => {
+          const done = log$g.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const entries = await this.getTermLookupEntries(
+              db,
+              expression,
+              reading && reading !== expression ? reading : "",
+              Math.max(limit * 40, 500),
+              Math.max(limit * 20, 250)
+            );
+            const rank = dictionaryRank(preferences);
+            const seen = /* @__PURE__ */ new Set();
+            const results = rankedDictionaryEntries(
+              entries,
+              rank,
+              void 0,
+              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || Number(b.reading === reading) - Number(a.reading === reading) || (b.score ?? 0) - (a.score ?? 0)
+            ).filter((entry) => {
+              const key = termLookupDedupKey(entry);
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            }).slice(0, limit);
+            return results;
+          } catch (error) {
+            log$g.warn("Term lookup failed", { expression, reading, error });
+            throw error;
+          } finally {
+            done();
+          }
+        }
+      );
+    }
+    async searchTerms(query, limit, preferences = [], options = {}) {
+      const normalizedQuery = normalizeTermSearchQuery(query);
+      const done = log$g.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      if (!normalizedQuery) {
+        done();
+        return [];
+      }
+      try {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        const candidateLimit = options.candidateLimit ?? Math.max(limit * 24, TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT);
+        const [indexedEntries, glossaryCandidates] = await Promise.all([
+          this.getIndexedTermSearchEntries(db, normalizedQuery, Math.max(limit * 12, 120)),
+          shouldSearchTermGlossaries(normalizedQuery) ? this.getGlossaryTermSearchCandidates(db, normalizedQuery, candidateLimit, rank, options) : Promise.resolve([])
+        ]);
+        const candidates = [
+          ...indexedEntries.map((entry) => ({ entry, rank: indexedTermSearchRank(entry, normalizedQuery) })),
+          ...glossaryCandidates
+        ];
+        return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
+      } catch (error) {
+        log$g.warn("Term search failed", { query: normalizedQuery, error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async lookupKanji(text2, limit, preferences = []) {
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
+        async () => {
+          const done = log$g.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const characters = [...new Set(Array.from(text2).filter(isKanji))];
+            const entries = await this.getManyByIndex(db, "kanji", "character", characters, limit);
+            const results = rankedDictionaryEntries(entries, rank, limit);
+            return results;
+          } catch (error) {
+            log$g.warn("Kanji lookup failed", { length: text2.length, error });
+            throw error;
+          } finally {
+            done();
+          }
+        }
+      );
+    }
+    // NewTabController loads dictionary kanji through the injected store dependency.
+    // fallow-ignore-next-line unused-class-member
+    async listKanjiCharacters(limit, preferences = []) {
+      const done = log$g.time("Kanji character list", { limit, dictionaries: preferences.length });
+      try {
+        if (limit <= 0) return [];
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        return await this.getKanjiCharacters(db, limit, rank);
+      } catch (error) {
+        log$g.warn("Kanji character list failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async lookupTermMeta(expression, limit, preferences = []) {
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
+        async () => {
+          const done = log$g.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const entries = await this.getByIndex(db, "termMeta", "expression", expression, Math.max(limit * 8, 80));
+            const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
+            return results;
+          } catch (error) {
+            log$g.warn("Term metadata lookup failed", { expression, error });
+            throw error;
+          } finally {
+            done();
+          }
+        }
+      );
+    }
+    async lookupSimilarTermsByKanji(character, limit, preferences = []) {
+      return this.getHotLookup(
+        this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
+        async () => {
+          const done = log$g.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          try {
+            const db = await this.db();
+            const rank = dictionaryRank(preferences);
+            const entries = await this.getSimilarTermEntriesByKanji(db, character, Math.max(limit * 8, 80), rank);
+            const results = entries.sort(
+              (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0) || a.expression.length - b.expression.length
+            ).slice(0, limit);
+            return results;
+          } catch (error) {
+            log$g.warn("Similar terms by kanji lookup failed", { character, error });
+            throw error;
+          } finally {
+            done();
+          }
+        }
+      );
+    }
+    async findTermMatches(text2, limit = 32, preferences = []) {
+      const done = log$g.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const source = text2.slice(0, 240);
+      if (!source.trim()) {
+        done();
+        return [];
+      }
+      const candidates = this.collectTermMatchCandidates(source);
+      if (!candidates.size) {
+        done();
+        return [];
+      }
+      try {
+        const matches = await this.lookupTermMatchCandidates(candidates, preferences);
+        const results = nonOverlappingMatches(matches, limit);
+        return results;
+      } catch (error) {
+        log$g.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    collectTermMatchCandidates(source) {
+      const candidates = /* @__PURE__ */ new Map();
+      const maxLength = Math.min(18, source.length);
+      for (let start = 0; start < source.length; start++) {
+        if (!JAPANESE_CHARACTER_RE$1.test(source[start])) continue;
+        this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
+      }
+      return candidates;
+    }
+    collectTermMatchCandidatesAt(source, start, maxLength, candidates) {
+      for (let length = Math.min(maxLength, source.length - start); length > 0; length--) {
+        const surface = source.slice(start, start + length);
+        if (!isSearchableJapaneseSurface(surface)) continue;
+        this.addDeinflectedTermCandidates(surface, start, candidates);
+      }
+    }
+    addDeinflectedTermCandidates(surface, start, candidates) {
+      for (const deinflected of deinflectJapaneseTerm(surface)) {
+        if (!JAPANESE_RE$1.test(deinflected.term)) continue;
+        const positions = candidates.get(deinflected.term) ?? [];
+        positions.push({ start, end: start + surface.length, surface, deinflected });
+        candidates.set(deinflected.term, positions);
+      }
+    }
+    async lookupTermMatchCandidates(candidates, preferences) {
+      const db = await this.db();
+      const rank = dictionaryRank(preferences);
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction("terms", "readonly");
+        const store = tx.objectStore("terms");
+        const expressionIndex = store.index("expression");
+        const readingIndex = store.index("reading");
+        const results = [];
+        const expressions = sortedTermMatchExpressions(candidates);
+        let pending = expressions.length * 2;
+        const finish = () => {
+          if (--pending <= 0) resolve(results);
+        };
+        const addMatches = (expression, foundEntries) => {
+          results.push(...termMatchesForEntries(expression, foundEntries, candidates, rank));
+        };
+        for (const expression of expressions) {
+          requestTermMatchIndex(expressionIndex, expression, addMatches, finish, reject);
+          requestTermMatchIndex(readingIndex, expression, addMatches, finish, reject);
+        }
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    async summary() {
+      const done = log$g.time("Dictionary summary");
+      try {
+        if (this.summaryPromise) {
+          const summary2 = await this.summaryPromise;
+          return summary2;
+        }
+        const db = await this.db();
+        this.summaryPromise = Promise.all([
+          this.getAllDictionaryInfo(db),
+          this.countStore(db, "terms"),
+          this.countStore(db, "kanji"),
+          this.countStore(db, "termMeta"),
+          this.countStore(db, "kanjiMeta")
+        ]).then(([dictionaries, terms, kanji, termMeta, kanjiMeta]) => ({ dictionaries, terms, kanji, termMeta, kanjiMeta })).catch((error) => {
+          this.summaryPromise = void 0;
+          throw error;
+        });
+        const summary = await this.summaryPromise;
+        return summary;
+      } catch (error) {
+        log$g.warn("Dictionary summary failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async countEntries() {
+      const summary = await this.summary();
+      return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
+    }
+    // NewTabController checks local dictionary availability through this injected store.
+    // fallow-ignore-next-line unused-class-member
+    async hasDictionaries() {
+      const done = log$g.time("Dictionary presence check");
+      try {
+        const db = await this.db();
+        return (await this.getAllDictionaryInfo(db)).length > 0;
+      } catch (error) {
+        log$g.warn("Dictionary presence check failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    // Lookup parsing checks term dictionary availability through this injected store.
+    // fallow-ignore-next-line unused-class-member
+    async hasTermDictionaries() {
+      const done = log$g.time("Term dictionary presence check");
+      try {
+        const db = await this.db();
+        return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
+      } catch (error) {
+        log$g.warn("Term dictionary presence check failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async listRandomTerms(limit, preferences = [], options = {}) {
+      const done = log$g.time("Random term listing", { limit, dictionaries: preferences.length });
+      try {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
+      } catch (error) {
+        log$g.warn("Random term listing failed", { limit, error });
+        return [];
+      } finally {
+        done();
+      }
+    }
+    async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
+      const done = log$g.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      try {
+        const db = await this.db();
+        const rank = dictionaryRank(preferences);
+        const topTerms = await this.collectTopFrequencyTerms(db, maxRank, rank, {
+          maxRows: options.maxRows ?? RANDOM_TOP_TERM_LIST_MAX_ROWS,
+          maxMs: options.maxMs ?? RANDOM_TOP_TERM_LIST_MAX_MS
+        });
+        const results = await this.randomTopTermResults(db, topTerms, limit, rank, preferences, options);
+        if (options.fallbackToRandom !== false && this.shouldFallbackToRandomTerms(topTerms, results)) {
+          return await this.listRandomTerms(limit, preferences, {
+            maxRows: options.fallbackMaxRows,
+            maxMs: options.fallbackMaxMs
+          });
+        }
+        return results;
+      } catch (error) {
+        log$g.warn("Random top term listing failed", { limit, error });
+        return [];
+      } finally {
+        done();
+      }
+    }
+    async randomTopTermResults(db, topTerms, limit, rank, preferences, options) {
+      return topTerms.size ? await this.entriesForRandomExpressions(db, topTerms, limit, preferences) : await this.listRandomCommonTerms(db, limit, rank, {
+        maxRows: options.fallbackMaxRows,
+        maxMs: options.fallbackMaxMs
+      });
+    }
+    shouldFallbackToRandomTerms(topTerms, results) {
+      return !topTerms.size && !results.length;
+    }
+    async collectTopFrequencyTerms(db, maxRank, rank, options = {}) {
+      const expressions = /* @__PURE__ */ new Map();
+      const maxRows = options.maxRows ?? RANDOM_TOP_TERM_LIST_MAX_ROWS;
+      const maxMs = options.maxMs ?? RANDOM_TOP_TERM_LIST_MAX_MS;
+      await scanObjectStoreCursor(
+        db,
+        { storeName: "termMeta", maxRows, maxMs, errorMessage: "Could not list dictionary term meta." },
+        (entry) => {
+          addTopFrequencyExpression(expressions, entry, maxRank, rank);
+        }
+      );
+      return expressions;
+    }
+    async entriesForRandomExpressions(db, expressions, limit, preferences) {
+      const sampled = reservoirSample([...expressions.keys()], limit);
+      const rank = dictionaryRank(preferences);
+      const entriesByExpression = await this.getEntriesForExpressions(db, sampled, TOP_TERM_EXPRESSION_ENTRY_LIMIT);
+      return sampled.flatMap((expression) => {
+        const entry = bestTermLookupEntry(entriesByExpression.get(expression) ?? [], expression, rank);
+        return entry ? [{ ...entry, jpdbFrequency: expressions.get(expression) }] : [];
+      });
+    }
+    async getEntriesForExpressions(db, expressions, limit) {
+      if (!expressions.length) return /* @__PURE__ */ new Map();
+      return new Promise((resolve, reject) => {
+        const results = /* @__PURE__ */ new Map();
+        const tx = db.transaction("terms", "readonly");
+        const index = tx.objectStore("terms").index("expression");
+        let pending = expressions.length;
+        const finish = () => {
+          if (--pending <= 0) resolve(results);
+        };
+        const fail = (error) => reject(error ?? new Error("Could not load top dictionary terms."));
+        for (const expression of expressions) {
+          readIndexRequestValues(
+            index,
+            IDBKeyRange.only(expression),
+            limit,
+            (entries) => {
+              results.set(expression, entries);
+              finish();
+            },
+            fail
+          );
+        }
+        tx.onerror = () => fail(tx.error);
+      });
+    }
+    async listRandomCommonTerms(db, limit, rank, options = {}) {
+      return await this.collectRandomTermReservoir(db, limit, rank, options, addCommonTermToReservoir);
+    }
+    async collectRandomTermReservoir(db, limit, rank, options, addTerm) {
+      const reservoir = [];
+      const seen = /* @__PURE__ */ new Set();
+      const maxRows = options.maxRows ?? RANDOM_TERM_LIST_MAX_ROWS;
+      const maxMs = options.maxMs ?? RANDOM_TERM_LIST_MAX_MS;
+      let count = 0;
+      await scanObjectStoreCursor(
+        db,
+        { storeName: "terms", maxRows, maxMs, errorMessage: "Could not list dictionary terms." },
+        (entry) => {
+          count = addTerm(entry, rank, seen, reservoir, limit, count);
+        }
+      );
+      return reservoir;
+    }
+    async importFile(file, onProgress, sourceUrl = "") {
+      const done = log$g.time("Dictionary file import", fileSummary(file, sourceUrl));
+      try {
+        log$g.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        requestPersistentDictionaryStorage();
+        const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
+        log$g.info("Dictionary file import completed", summary);
+        return summary;
+      } catch (error) {
+        log$g.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
+      log$g.info("Dictionary URL import started", { filename, host: safeHost(url) });
+      onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
+      const blob = await requestBlob$2(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
+      const file = namedBlobFile(blob, filename, blob.type || "application/zip");
+      const summary = await this.importFile(file, onProgress, url);
+      log$g.info("Dictionary URL import completed", { filename, host: safeHost(url), ...summary });
+      return summary;
+    }
+    async importZip(file, onProgress, sourceUrl = "") {
+      const language = this.getInterfaceLanguage();
+      onProgress?.(`${this.text("dictionaryReadingZip")} ${formatBytes(file.size)}...`);
+      const zip = await readZipArchive(file, (progress) => {
+        if (progress.phase === "read") {
+          onProgress?.(`${this.text("dictionaryReadingZip")} ${formatPercent(progress.loaded, progress.total)} (${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
+          return;
+        }
+        onProgress?.(`${this.text("dictionaryReadingZip")} ${progress.entries?.toLocaleString() ?? "0"} files found. ${uiText(language, "dictionaryCheckingIndex")}`);
+      });
+      const zipEntries = zip.entries();
+      onProgress?.(`${this.text("dictionaryReadingZip")} ${zipEntries.length.toLocaleString()} files found. ${uiText(language, "dictionaryCheckingIndex")}`);
+      const index = await readYomitanZipIndex(zip, this.getInterfaceLanguage());
+      const dictionary = yomitanZipDictionaryName(index, file.name);
+      const version = yomitanZipVersion(index);
+      const bankCount = countYomitanZipBanks(zipEntries);
+      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${formatUiTemplate(uiText(language, "dictionaryBanksFound"), {
+      count: bankCount.toLocaleString(),
+      plural: bankCount === 1 ? "" : "s"
+    })}`);
+      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryRemovingExisting")}...`);
+      await this.deleteDictionary(dictionary);
+      onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: preparing storage...`);
+      const db = await this.db();
+      const info = await yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl);
+      const summary = { dictionaries: [dictionary], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      let clearedTermIndexesForImport = false;
+      let importedTerms = false;
+      const importBank = async (pattern, label, store, normalize) => {
+        const files = zip.entries().filter((entry) => pattern.test(entry.name)).sort((a, b) => a.name.localeCompare(b.name, void 0, { numeric: true }));
+        let pending = [];
+        let saved = 0;
+        const flush = async () => {
+          if (!pending.length) return;
+          if (store === "terms" && !clearedTermIndexesForImport) {
+            await this.clearDerivedTermIndexes(db);
+            clearedTermIndexesForImport = true;
+          }
+          const entries = pending;
+          const parsed = summary[label];
+          pending = [];
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${saved.toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
+          await this.addToStore(store, entries, false, store !== "terms", (written) => {
+            onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionarySavingBank")} ${label} ${(saved + written).toLocaleString()} / ${parsed.toLocaleString()} ${this.text("dictionaryEntries")}...`);
+          });
+          saved += entries.length;
+          if (store === "terms") importedTerms = true;
+        };
+        for (const [index2, bankFile] of files.entries()) {
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryReadingBank")} ${bankFile.name} (${index2 + 1}/${files.length}, ${formatBytes(bankFile.uncompressedSize)})...`);
+          const bankText = await zip.text(bankFile.name, (progress) => {
+            if (progress.loaded <= 0) return;
+            onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryReadingBank")} ${bankFile.name} (${index2 + 1}/${files.length}, ${formatBytes(progress.loaded)} / ${formatBytes(progress.total)})...`);
+          });
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${uiText(language, "dictionaryParsingBank")} ${bankFile.name} (${index2 + 1}/${files.length})...`);
+          const rows = JSON.parse(bankText);
+          for (const row of rows) {
+            const entry = normalize(row);
+            if (!entry) continue;
+            if (store === "terms") await inlineStructuredImageDataUrls(zip, entry.glossary);
+            pending.push(entry);
+            summary[label]++;
+            summary.entries++;
+            if (pending.length >= ZIP_IMPORT_FLUSH_ENTRY_LIMIT) await flush();
+          }
+          await flush();
+        }
+        await flush();
+        if (files.length) {
+          onProgress?.(`${this.text("dictionaryImporting")} ${dictionary}: ${label} ${saved.toLocaleString()} ${this.text("dictionaryEntries")} saved...`);
+        }
+      };
+      await importBank(/^term_bank_\d+\.json$/i, "terms", "terms", (row) => normalizeZipTermRow(row, dictionary));
+      await importBank(/^kanji_bank_\d+\.json$/i, "kanji", "kanji", (row) => normalizeZipKanjiRow(row, dictionary, version));
+      await importBank(/^term_meta_bank_\d+\.json$/i, "termMeta", "termMeta", (row) => normalizeZipTermMetaRow(row, dictionary));
+      await importBank(/^kanji_meta_bank_\d+\.json$/i, "kanjiMeta", "kanjiMeta", (row) => normalizeZipKanjiMetaRow(row, dictionary));
+      if (summary.entries === 0) throw new Error(this.text("dictionaryNoSupportedBanks"));
+      if (importedTerms) await this.clearDerivedTermIndexes(db);
+      info.counts = dictionaryCountsFromSummary(summary);
+      info.type = dictionaryTypeFromCounts(info.counts);
+      summary.dictionaryTypes = { [dictionary]: info.type };
+      await this.putDictionaryInfo(info);
+      log$g.info("ZIP dictionary import parsed", summary);
+      return summary;
+    }
+    async importJson(file, onProgress) {
+      const head = await readBlobText(file.slice(0, 4096));
+      if (head.includes('"formatName":"dexie"') || head.includes('"formatName": "dexie"')) {
+        return this.importDexieJson(file, onProgress);
+      }
+      const json = JSON.parse(await readBlobText(file));
+      if (isReaderDictionaryExport(json)) {
+        return this.importReaderJson(json);
+      }
+      throw new Error(this.text("dictionaryUnsupportedJson"));
+    }
+    async importReaderJson(json) {
+      await this.clear();
+      const terms = readerExportTerms(json);
+      const dictionaryTypes = dictionaryTypesFromReaderExport(json);
+      const dictionaryNames = readerExportDictionaryNames(json, terms);
+      const dictionaries = readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes);
+      await Promise.all([
+        this.addToStore("dictionaryInfo", dictionaries, true),
+        this.addToStore("terms", terms, false, false),
+        this.addToStore("kanji", json.kanji ?? []),
+        this.addToStore("termMeta", json.termMeta ?? []),
+        this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
+      ]);
+      const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
+      log$g.info("JSON dictionary import parsed", summary);
+      return summary;
+    }
+    async importDexieJson(file, onProgress) {
+      onProgress?.("Streaming Yomitan dictionary export...");
+      await this.clear();
+      const rowCounts = await readDexieTableRowCounts(file).catch(() => ({}));
+      const totalRows = importEntryStores().reduce((total, store) => total + (rowCounts[store] ?? 0), 0);
+      if (totalRows > 0) onProgress?.(`${this.text("dictionaryPreparingImport")} ${totalRows.toLocaleString()} ${this.text("dictionaryRecords")}...`);
+      const dictionaries = /* @__PURE__ */ new Set();
+      const dictionaryInfo = /* @__PURE__ */ new Map();
+      const dictionaryCounts = /* @__PURE__ */ new Map();
+      const summary = { dictionaries: [], dictionaryTypes: {}, entries: 0, terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      const batches = { terms: [], kanji: [], termMeta: [], kanjiMeta: [] };
+      const progressAt = { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      const emitProgress = (message) => {
+        onProgress?.(message);
+      };
+      const reportProgress = (store, force = false) => {
+        if (!store) {
+          emitProgress(formatDexieImportProgress(this.text.bind(this), summary.entries, totalRows));
+          return;
+        }
+        const imported = summary[store];
+        const tableTotal = rowCounts[store] ?? 0;
+        if (!force && imported < progressAt[store]) return;
+        progressAt[store] = imported + DEXIE_PROGRESS_INTERVAL;
+        emitProgress(formatDexieStoreImportProgress(this.text.bind(this), store, imported, tableTotal, summary.entries, totalRows));
+      };
+      const flush = async (store, forceProgress = false) => {
+        const batch = batches[store];
+        if (!batch.length) return;
+        await this.addToStore(store, batch, false, store !== "terms");
+        batches[store] = [];
+        reportProgress(store, forceProgress);
+      };
+      const addBatch = async (store, entry) => {
+        batches[store].push(entry);
+        summary[store]++;
+        summary.entries++;
+        const dictionary = entry.dictionary;
+        if (typeof dictionary === "string") {
+          dictionaries.add(dictionary);
+          const counts = dictionaryCounts.get(dictionary) ?? {};
+          counts[store] = (counts[store] ?? 0) + 1;
+          dictionaryCounts.set(dictionary, counts);
+        }
+        if (batches[store].length >= DEXIE_IMPORT_BATCH_SIZE) {
+          await flush(store);
+        }
+      };
+      await streamDexieTables(file, {
+        dictionaries: async (row) => {
+          const info = normalizeDexieDictionaryRow(row);
+          if (!info) return;
+          dictionaries.add(info.title);
+          dictionaryInfo.set(info.title, info);
+        },
+        terms: async (row) => {
+          const entry = normalizeDexieTermRow(row);
+          if (entry) await addBatch("terms", entry);
+        },
+        kanji: async (row) => {
+          const entry = normalizeDexieKanjiRow(row);
+          if (entry) await addBatch("kanji", entry);
+        },
+        termMeta: async (row) => {
+          const entry = normalizeDexieTermMetaRow(row);
+          if (entry) await addBatch("termMeta", entry);
+        },
+        kanjiMeta: async (row) => {
+          const entry = normalizeDexieKanjiMetaRow(row);
+          if (entry) await addBatch("kanjiMeta", entry);
+        }
+      }, (table) => {
+        if (isEntryStoreName(table)) {
+          reportProgress(table, true);
+          return;
+        }
+        onProgress?.(`${this.text("dictionaryImporting")} Yomitan ${table}...`);
+      });
+      await Promise.all(importEntryStores().map((store) => flush(store, true)));
+      reportProgress(void 0, true);
+      summary.dictionaries = [...dictionaries];
+      summary.dictionaryTypes = {};
+      await Promise.all(summary.dictionaries.map((dictionary) => {
+        const counts = dictionaryCounts.get(dictionary) ?? {};
+        const info = dictionaryInfo.get(dictionary) ?? {
+          title: dictionary,
+          alias: dictionary,
+          enabled: true,
+          priority: dictionaryInfo.size,
+          importDate: Date.now()
+        };
+        info.counts = { ...info.counts ?? {}, ...counts };
+        info.type = dictionaryTypeFromCounts(info.counts);
+        summary.dictionaryTypes[dictionary] = info.type;
+        return this.putDictionaryInfo(info);
+      }));
+      log$g.info("Dexie dictionary import parsed", summary);
+      return summary;
+    }
+    // SettingsDialogController exports dictionaries through the injected store dependency.
+    // fallow-ignore-next-line unused-class-member
+    async exportJson() {
+      const done = log$g.time("Dictionary export");
+      try {
+        const db = await this.db();
+        const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
+          this.getAllFromStore(db, "dictionaryInfo"),
+          this.getAllFromStore(db, "terms"),
+          this.getAllFromStore(db, "kanji"),
+          this.getAllFromStore(db, "termMeta"),
+          this.getAllFromStore(db, "kanjiMeta")
+        ]);
+        log$g.info("Dictionary export prepared", {
+          dictionaries: dictionaries.length,
+          terms: terms.length,
+          kanji: kanji.length,
+          termMeta: termMeta.length,
+          kanjiMeta: kanjiMeta.length
+        });
+        return new Blob([JSON.stringify({
+          formatName: "yomu-yomitan-dictionaries",
+          formatVersion: 2,
+          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+          dictionaries,
+          terms,
+          kanji,
+          termMeta,
+          kanjiMeta
+        })], { type: "application/json" });
+      } catch (error) {
+        log$g.warn("Dictionary export failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async dictionaryStyleCss(preferences = []) {
+      try {
+        const cacheKey = JSON.stringify(normalizeDictionaryPreferences(preferences));
+        const cached = this.dictionaryStyleCssCache.get(cacheKey);
+        if (cached !== void 0) {
+          return cached;
+        }
+        const db = await this.db();
+        const dictionaries = await this.getAllDictionaryInfo(db);
+        const css = renderDictionaryScopedStyles(dictionaries, preferences);
+        this.dictionaryStyleCssCache.set(cacheKey, css);
+        return css;
+      } catch (error) {
+        log$g.warn("Dictionary stylesheet render failed", { error });
+        throw error;
+      }
+    }
+    async clear() {
+      const done = log$g.time("Dictionary store clear");
+      try {
+        const db = await this.db();
+        await this.clearDictionaryStores(db);
+        this.invalidateCaches();
+        log$g.info("Dictionary store cleared");
+      } catch (error) {
+        log$g.warn("Dictionary store clear failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async resetDatabase(options = {}) {
+      const done = log$g.time("Dictionary database factory reset");
+      let cleared = false;
+      try {
+        await this.clear();
+        cleared = true;
+        await this.deleteDatabase({ timeoutMs: options.deleteTimeoutMs ?? DB_FACTORY_RESET_DELETE_TIMEOUT_MS });
+        return { cleared, deleted: true };
+      } catch (error) {
+        if (!cleared) {
+          log$g.warn("Dictionary reset pre-clear failed", { error });
+          throw error;
+        }
+        log$g.warn("Dictionary delete incomplete after clear", { error });
+        return { cleared, deleted: false };
+      } finally {
+        done();
+      }
+    }
+    async invalidateForFactoryReset() {
+      const dbPromise = this.dbPromise;
+      this.dbPromise = void 0;
+      this.invalidateCaches();
+      if (!dbPromise) return;
+      try {
+        const db = await dbPromise;
+        db.close();
+        log$g.info("Dictionary DB closed for reset", { name: DB_NAME });
+      } catch {
+      }
+    }
+    async deleteDatabase(options = {}) {
+      const done = log$g.time("Dictionary database delete");
+      try {
+        const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
+        const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
+        db?.close();
+        this.dbPromise = void 0;
+        this.invalidateCaches();
+        await new Promise((resolve, reject) => {
+          let blocked = false;
+          let settled = false;
+          const timeout = globalThis.setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            reject(new Error(blocked ? "Dictionary database reset is still waiting on another open Yomu tab. Reload the other Yomu tabs, then try again." : "Dictionary database reset timed out."));
+          }, timeoutMs);
+          const settle = (callback) => {
+            if (settled) return;
+            settled = true;
+            globalThis.clearTimeout(timeout);
+            callback();
+          };
+          const request = indexedDB.deleteDatabase(DB_NAME);
+          request.onsuccess = () => settle(resolve);
+          request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
+          request.onblocked = () => {
+            blocked = true;
+            log$g.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+          };
+        });
+        log$g.info("Dictionary database deleted", { name: DB_NAME });
+      } catch (error) {
+        log$g.warn("Dictionary database delete failed", { error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async deleteDictionary(dictionary) {
+      const done = log$g.time("Dictionary delete", { dictionary });
+      try {
+        const db = await this.db();
+        const dictionaries = await this.getAllDictionaryInfo(db);
+        if (!dictionaries.some((item) => item.title === dictionary)) {
+          log$g.info("Dictionary delete skipped; not installed", { dictionary });
+          return;
+        }
+        if (dictionaries.length === 1) {
+          await this.clearDictionaryStores(db);
+          this.invalidateCaches();
+          log$g.info("Only installed dictionary cleared", { dictionary });
+          return;
+        }
+        const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
+        for (const store of stores) {
+          await deleteByDictionary(db, store, dictionary);
+        }
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction("dictionaryInfo", "readwrite");
+          tx.objectStore("dictionaryInfo").delete(dictionary);
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
+          tx.onabort = () => reject(transactionError(tx, `Could not remove ${dictionary} from dictionary metadata.`));
+        });
+        await this.clearDerivedTermIndexes(db);
+        this.invalidateCaches();
+        log$g.info("Dictionary deleted", { dictionary });
+      } catch (error) {
+        log$g.warn("Dictionary delete failed", { dictionary, error });
+        throw error;
+      } finally {
+        done();
+      }
+    }
+    async putDictionaryInfo(info) {
+      await this.addToStore("dictionaryInfo", [info], true);
+    }
+    async clearDictionaryStores(db) {
+      this.termIndexGeneration++;
+      await clearStores(db, existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta", "dictionaryInfo", "termSearch", "termKanji"]));
+      this.termKanjiIndexReady = false;
+    }
+    async addToStore(storeName, entries, put = false, clearTermIndexes = true, onChunk) {
+      if (!entries.length) return;
+      const db = await this.db();
+      if (storeName === "terms" && clearTermIndexes) await this.clearDerivedTermIndexes(db);
+      let written = 0;
+      for (let start = 0; start < entries.length; start += STORE_WRITE_BATCH_SIZE) {
+        const chunk = entries.slice(start, start + STORE_WRITE_BATCH_SIZE);
+        await this.addStoreChunk(db, storeName, chunk, put);
+        written += chunk.length;
+        onChunk?.(written, entries.length);
+        await nextTask();
+      }
+    }
+    addStoreChunk(db, storeName, entries, put) {
+      return new Promise((resolve, reject) => {
+        const tx = readwriteTransaction(db, storeName);
+        const store = tx.objectStore(storeName);
+        for (const entry of entries) {
+          put ? store.put(entry) : store.add(entry);
+        }
+        tx.oncomplete = () => {
+          this.invalidateCaches();
+          resolve();
+        };
+        tx.onerror = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
+        tx.onabort = () => reject(transactionError(tx, `Could not add entries to ${storeName}.`));
+        commitTransaction(tx);
+      });
+    }
+    async getByIndex(db, storeName, indexName, value, limit) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, "readonly");
+        const index = tx.objectStore(storeName).index(indexName);
+        readIndexRequestValues(index, IDBKeyRange.only(value), limit, resolve, reject);
+      });
+    }
+    async getManyByIndex(db, storeName, indexName, values, limit) {
+      if (!values.length) return [];
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, "readonly");
+        const index = tx.objectStore(storeName).index(indexName);
+        const results = [];
+        let pending = values.length;
+        const finish = () => {
+          if (--pending <= 0) resolve(results);
+        };
+        const fail = (error) => reject(error ?? new Error(`Could not read ${storeName} entries.`));
+        for (const value of values) {
+          readIndexRequestValues(
+            index,
+            IDBKeyRange.only(value),
+            limit,
+            (entries) => {
+              results.push(...entries);
+              finish();
+            },
+            fail
+          );
+        }
+        tx.onerror = () => fail(tx.error);
+      });
+    }
+    async getTermLookupEntries(db, expression, reading, expressionLimit, readingLimit) {
+      const queries = [
+        { indexName: "expression", range: IDBKeyRange.only(expression), limit: expressionLimit },
+        ...reading ? [{ indexName: "reading", range: IDBKeyRange.only(reading), limit: readingLimit }] : []
+      ];
+      return this.getTermIndexEntries(db, queries);
+    }
+    async getSimilarTermEntriesByKanji(db, character, candidateLimit, rank) {
+      if (hasStore(db, "termKanji")) {
+        await this.ensureTermKanjiIndex(db);
+        return this.getTermKanjiIndexEntries(db, character, candidateLimit, rank);
+      }
+      return this.getSimilarTermCursorEntries(db, character, candidateLimit, rank, {
+        maxRows: TERM_KANJI_INDEX_FALLBACK_MAX_ROWS,
+        maxMs: TERM_KANJI_INDEX_FALLBACK_MAX_MS
+      });
+    }
+    async getTermKanjiIndexEntries(db, character, candidateLimit, rank) {
+      return new Promise((resolve, reject) => {
+        const entries = [];
+        const seen = /* @__PURE__ */ new Set();
+        const request = db.transaction("termKanji", "readonly").objectStore("termKanji").index("character").openCursor(IDBKeyRange.only(character));
+        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionary kanji index."));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor || entries.length >= candidateLimit) {
+            resolve(entries);
+            return;
+          }
+          const row = cursor.value;
+          if (dictionaryEnabled(row.dictionary, rank)) {
+            const entry = termEntryFromKanjiEntry(row);
+            const key = `${entry.expression}
+${entry.reading}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              entries.push(entry);
+            }
+          }
+          cursor.continue();
+        };
+      });
+    }
+    async getSimilarTermCursorEntries(db, character, candidateLimit, rank, options = {}) {
+      return new Promise((resolve, reject) => {
+        const entries = [];
+        const seen = /* @__PURE__ */ new Set();
+        const startedAt = performance.now();
+        let visited = 0;
+        const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
+        request.onerror = () => reject(request.error ?? new Error("Could not search local dictionaries."));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor || entries.length >= candidateLimit) {
+            resolve(entries);
+            return;
+          }
+          if (optionalCursorScanLimitReached(options, visited, startedAt)) {
+            resolve(entries);
+            return;
+          }
+          visited++;
+          const entry = cursor.value;
+          addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank);
+          cursor.continue();
+        };
+      });
+    }
+    async getIndexedTermSearchEntries(db, query, limit) {
+      return this.getTermIndexEntries(db, [
+        { indexName: "expression", range: IDBKeyRange.only(query), limit },
+        { indexName: "reading", range: IDBKeyRange.only(query), limit },
+        { indexName: "expression", range: termSearchPrefixRange(query), limit },
+        { indexName: "reading", range: termSearchPrefixRange(query), limit }
+      ]);
+    }
+    async getTermIndexEntries(db, queries) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("terms", "readonly");
+        const store = tx.objectStore("terms");
+        const entries = [];
+        let pending = queries.length;
+        const finish = () => {
+          if (--pending <= 0) resolve(entries);
+        };
+        const fail = (error) => reject(error ?? new Error("Could not search local dictionary terms."));
+        for (const item of queries) {
+          readIndexRequestValues(
+            store.index(item.indexName),
+            item.range,
+            item.limit,
+            (found) => {
+              entries.push(...found);
+              finish();
+            },
+            fail
+          );
+        }
+        tx.onerror = () => fail(tx.error);
+      });
+    }
+    async getGlossaryTermSearchCandidates(db, query, candidateLimit, rank, options = {}) {
+      if (!hasStore(db, "termSearch")) {
+        return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank);
+      }
+      return this.getGlossaryTermSearchCandidatesWithIndex(db, query, candidateLimit, rank, options);
+    }
+    async getGlossaryTermSearchCandidatesWithIndex(db, query, candidateLimit, rank, options) {
+      const indexed = await this.getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, glossaryIndexSearchOptions(options));
+      if (indexed.length) return indexed;
+      const building = Boolean(this.termSearchIndexPromise);
+      const indexedCount = await this.countStore(db, "termSearch");
+      if (hasReadyEmptyGlossarySearchIndex(indexedCount, building)) return indexed;
+      this.prepareTermSearchIndexIfIdle(building, options);
+      if (shouldSkipGlossaryFallback(building, options)) return indexed;
+      return this.getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, glossaryFallbackSearchOptions(options));
+    }
+    prepareTermSearchIndexIfIdle(building, options) {
+      if (building) return;
+      if (options.prepareIndex === false) return;
+      void this.prepareTermSearchIndex();
+    }
+    async getGlossaryTermCursorSearchCandidates(db, query, candidateLimit, rank, options = {}) {
+      const request = db.transaction("terms", "readonly").objectStore("terms").openCursor();
+      return this.collectGlossaryTermSearchCandidates(
+        request,
+        query,
+        candidateLimit,
+        rank,
+        options,
+        "Could not search local dictionary glossaries.",
+        (entry) => {
+          trimTermSearchCandidates(entry.candidates, candidateLimit, query, rank);
+        },
+        false
+      );
+    }
+    async getGlossaryTermSearchIndexCandidates(db, query, candidateLimit, rank, options = {}) {
+      const token = termSearchIndexToken(query);
+      if (!token) return [];
+      const request = db.transaction("termSearch", "readonly").objectStore("termSearch").index("token").openCursor(termSearchPrefixRange(token));
+      return this.collectGlossaryTermSearchCandidates(
+        request,
+        query,
+        candidateLimit,
+        rank,
+        options,
+        "Could not search local dictionary glossary index.",
+        void 0,
+        true,
+        (entry) => termEntryFromSearchEntry(entry)
+      );
+    }
+    async collectGlossaryTermSearchCandidates(request, query, candidateLimit, rank, options, errorMessage, afterPush, stopAtCandidateLimit = true, entryFromCursorValue = (entry) => entry) {
+      return new Promise((resolve, reject) => {
+        const candidates = [];
+        const startedAt = performance.now();
+        let visited = 0;
+        request.onerror = () => reject(request.error ?? new Error(errorMessage));
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor || stopAtCandidateLimit && candidates.length >= candidateLimit || glossaryCursorSearchExpired(options, visited, startedAt)) {
+            resolve(candidates);
+            return;
+          }
+          visited++;
+          const entry = cursor.value;
+          if (dictionaryEnabled(entry.dictionary, rank)) {
+            const searchRank = glossaryTermSearchRank(entry.glossary, query);
+            if (searchRank < Number.POSITIVE_INFINITY) {
+              candidates.push({ entry: entryFromCursorValue(entry), rank: searchRank });
+              afterPush?.({ candidates });
+            }
+          }
+          cursor.continue();
+        };
+      });
+    }
+    async getAllDictionaryInfo(db) {
+      this.dictionaryInfoPromise ??= this.getAllFromStore(db, "dictionaryInfo").then((items) => items.sort((a, b) => a.priority - b.priority || a.title.localeCompare(b.title))).catch((error) => {
+        this.dictionaryInfoPromise = void 0;
+        throw error;
+      });
+      return this.dictionaryInfoPromise;
+    }
+    async getAllFromStore(db, storeName) {
+      return new Promise((resolve, reject) => {
+        const results = [];
+        const request = db.transaction(storeName, "readonly").objectStore(storeName).openCursor();
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) {
+            resolve(results);
+            return;
+          }
+          results.push(cursor.value);
+          cursor.continue();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    }
+    async getKanjiCharacters(db, limit, rank) {
+      return new Promise((resolve, reject) => {
+        const characters = [];
+        const seen = /* @__PURE__ */ new Set();
+        const request = db.transaction("kanji", "readonly").objectStore("kanji").openCursor();
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor || characters.length >= limit) {
+            resolve(characters);
+            return;
+          }
+          const entry = cursor.value;
+          if (dictionaryEnabled(entry.dictionary, rank) && isKanji(entry.character) && !seen.has(entry.character)) {
+            seen.add(entry.character);
+            characters.push(entry.character);
+          }
+          cursor.continue();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    }
+    async ensureTermSearchIndex(db) {
+      if (!hasStore(db, "termSearch")) return;
+      const [terms, indexed] = await Promise.all([
+        this.countStore(db, "terms"),
+        this.countStore(db, "termSearch")
+      ]);
+      if (!terms || indexed) return;
+      await this.rebuildTermSearchIndex(db);
+    }
+    async ensureTermKanjiIndex(db) {
+      if (!hasStore(db, "termKanji") || this.termKanjiIndexReady) return;
+      const [terms, indexed] = await Promise.all([
+        this.countStore(db, "terms"),
+        this.countStore(db, "termKanji")
+      ]);
+      if (!terms || indexed) {
+        this.termKanjiIndexReady = true;
+        return;
+      }
+      if (!this.termKanjiIndexPromise) {
+        this.termKanjiIndexPromise = this.rebuildTermKanjiIndex(db).then(() => {
+          this.termKanjiIndexReady = true;
+        }).finally(() => {
+          this.termKanjiIndexPromise = void 0;
+        });
+      }
+      await this.termKanjiIndexPromise;
+    }
+    async rebuildTermSearchIndex(db) {
+      const done = log$g.time("Term search index rebuild");
+      const generation = this.termIndexGeneration;
+      try {
+        await this.clearTermSearchIndex(db);
+        let indexedTerms = 0;
+        let lastKey;
+        for (; ; ) {
+          if (generation !== this.termIndexGeneration) return;
+          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_SEARCH_INDEX_BATCH_SIZE);
+          if (!chunk.terms.length) break;
+          if (generation !== this.termIndexGeneration) return;
+          await this.addTermSearchIndexChunk(db, chunk.terms);
+          indexedTerms += chunk.terms.length;
+          await nextTask();
+          if (chunk.done) break;
+          lastKey = chunk.lastKey;
+        }
+        log$g.info("Term search index rebuilt", { terms: indexedTerms });
+      } finally {
+        done();
+      }
+    }
+    async rebuildTermKanjiIndex(db) {
+      const done = log$g.time("Term kanji index rebuild");
+      const generation = this.termIndexGeneration;
+      try {
+        await this.clearTermKanjiIndex(db);
+        let indexedTerms = 0;
+        let lastKey;
+        for (; ; ) {
+          if (generation !== this.termIndexGeneration) return;
+          const chunk = await this.getTermSearchIndexSourceChunk(db, lastKey, TERM_KANJI_INDEX_BATCH_SIZE);
+          if (!chunk.terms.length) break;
+          if (generation !== this.termIndexGeneration) return;
+          await this.addTermKanjiIndexChunk(db, chunk.terms);
+          indexedTerms += chunk.terms.length;
+          await nextTask();
+          if (chunk.done) break;
+          lastKey = chunk.lastKey;
+        }
+        log$g.info("Term kanji index rebuilt", { terms: indexedTerms });
+      } finally {
+        done();
+      }
+    }
+    getTermSearchIndexSourceChunk(db, afterKey, limit) {
+      return new Promise((resolve, reject) => {
+        const terms = [];
+        let lastKey = afterKey;
+        const range = afterKey == null ? void 0 : IDBKeyRange.lowerBound(afterKey, true);
+        const request = db.transaction("terms", "readonly").objectStore("terms").openCursor(range);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (!cursor) {
+            resolve({ terms, lastKey, done: true });
+            return;
+          }
+          terms.push(cursor.value);
+          lastKey = cursor.key;
+          if (terms.length >= limit) {
+            resolve({ terms, lastKey, done: false });
+            return;
+          }
+          cursor.continue();
+        };
+      });
+    }
+    clearTermSearchIndex(db) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("termSearch", "readwrite");
+        tx.objectStore("termSearch").clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    clearTermKanjiIndex(db) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction("termKanji", "readwrite");
+        tx.objectStore("termKanji").clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    }
+    async clearDerivedTermIndexes(db) {
+      this.termIndexGeneration++;
+      const stores = existingStores(db, ["termSearch", "termKanji"]);
+      if (!stores.length) return;
+      await clearStores(db, stores);
+      this.termKanjiIndexReady = false;
+    }
+    addTermSearchIndexChunk(db, terms) {
+      return this.addDerivedTermIndexChunk(db, "termSearch", terms, termSearchEntries);
+    }
+    addTermKanjiIndexChunk(db, terms) {
+      return this.addDerivedTermIndexChunk(db, "termKanji", terms, termKanjiEntries);
+    }
+    addDerivedTermIndexChunk(db, storeName, terms, rowsForTerm) {
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(storeName, "readwrite");
+        const store = tx.objectStore(storeName);
+        for (const term of terms) {
+          for (const row of rowsForTerm(term)) store.add(row);
+        }
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+        commitTransaction(tx);
+      });
+    }
+    countStore(db, storeName) {
+      return new Promise((resolve, reject) => {
+        if (!db.objectStoreNames.contains(storeName)) {
+          resolve(0);
+          return;
+        }
+        const request = db.transaction(storeName, "readonly").objectStore(storeName).count();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    db() {
+      this.dbPromise ??= new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (event) => {
+          const db = request.result;
+          const tx = request.transaction;
+          log$g.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          const terms = ensureStore(db, tx, "terms");
+          ensureIndex(terms, "expression", "expression");
+          ensureIndex(terms, "reading", "reading");
+          ensureIndex(terms, "dictionary", "dictionary");
+          const kanji = ensureStore(db, tx, "kanji");
+          ensureIndex(kanji, "character", "character");
+          ensureIndex(kanji, "dictionary", "dictionary");
+          const termMeta = ensureStore(db, tx, "termMeta");
+          ensureIndex(termMeta, "expression", "expression");
+          ensureIndex(termMeta, "dictionary", "dictionary");
+          const kanjiMeta = ensureStore(db, tx, "kanjiMeta");
+          ensureIndex(kanjiMeta, "character", "character");
+          ensureIndex(kanjiMeta, "dictionary", "dictionary");
+          if (!db.objectStoreNames.contains("dictionaryInfo")) {
+            db.createObjectStore("dictionaryInfo", { keyPath: "title" });
+          }
+          const termSearch = ensureStore(db, tx, "termSearch");
+          ensureIndex(termSearch, "token", "token");
+          ensureIndex(termSearch, "dictionary", "dictionary");
+          const termKanji = ensureStore(db, tx, "termKanji");
+          ensureIndex(termKanji, "character", "character");
+          ensureIndex(termKanji, "dictionary", "dictionary");
+        };
+        request.onsuccess = () => {
+          const db = request.result;
+          this.installVersionChangeHandler(db);
+          resolve(db);
+        };
+        request.onerror = () => {
+          log$g.warn("Dictionary database open failed", { error: request.error });
+          reject(request.error);
+        };
+      });
+      return this.dbPromise;
+    }
+    installVersionChangeHandler(db) {
+      db.onversionchange = (event) => {
+        log$g.info("Dictionary DB version change; closing", {
+          name: DB_NAME,
+          oldVersion: event.oldVersion,
+          newVersion: event.newVersion
+        });
+        db.close();
+        this.dbPromise = void 0;
+        this.invalidateCaches();
+      };
+    }
+    invalidateCaches() {
+      this.dictionaryInfoPromise = void 0;
+      this.summaryPromise = void 0;
+      this.dictionaryStyleCssCache.clear();
+      this.hotLookupCache.clear();
+      this.termKanjiIndexReady = false;
+    }
+  }
+  function readIndexRequestValues(index, query, limit, resolve, reject) {
+    if (typeof index.getAll === "function") {
+      const request2 = index.getAll(query, limit);
+      request2.onsuccess = () => resolve(request2.result);
+      request2.onerror = () => reject(request2.error);
+      return;
+    }
+    const results = [];
+    let count = 0;
+    const request = index.openCursor(query);
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor || count >= limit) {
+        resolve(results);
+        return;
+      }
+      results.push(cursor.value);
+      count++;
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
+  }
+  function isSearchableJapaneseSurface(surface) {
+    return JAPANESE_RE$1.test(surface) && !/\s/.test(surface);
+  }
+  function sortedTermMatchExpressions(candidates) {
+    return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
+  }
+  function requestTermMatchIndex(index, expression, addMatches, finish, reject) {
+    const request = index.getAll(IDBKeyRange.only(expression), 8);
+    request.onsuccess = () => {
+      addMatches(expression, request.result);
+      finish();
+    };
+    request.onerror = () => reject(request.error);
+  }
+  function termMatchesForEntries(expression, foundEntries, candidates, rank) {
+    const entries = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
+    if (!entries.length) return [];
+    return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries)).filter((match) => Boolean(match));
+  }
+  function deduplicateTermMatchEntries(entries) {
+    const seen = /* @__PURE__ */ new Set();
+    return entries.filter((item) => {
+      const key = `${item.id ?? ""}
+${item.dictionary}
+${item.expression}
+${item.reading}
+${item.sequence ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function sortTermMatchEntries(entries, rank) {
+    return entries.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+  }
+  function rankedDictionaryEntries(entries, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
+    const ranked = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
+    return limit === void 0 ? ranked : ranked.slice(0, limit);
+  }
+  function termMatchForPosition(position, entries) {
+    const entry = entries.find((item) => termRulesMatch(item.rules, position.deinflected.rules));
+    return entry ? {
+      entry,
+      ...position,
+      deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
+    } : null;
+  }
+  function importEntryStores() {
+    return ["terms", "kanji", "termMeta", "kanjiMeta"];
+  }
+  function isEntryStoreName(value) {
+    return value === "terms" || value === "kanji" || value === "termMeta" || value === "kanjiMeta";
+  }
+  function dictionaryCountsFromSummary(summary) {
+    return {
+      terms: summary.terms,
+      kanji: summary.kanji,
+      termMeta: summary.termMeta,
+      kanjiMeta: summary.kanjiMeta
+    };
+  }
+  function dictionaryTypeFromCounts(counts = {}) {
+    return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
+  }
+  function hasTermDictionaryRows(info) {
+    const count = Number(info.counts?.terms);
+    if (Number.isFinite(count)) return count > 0;
+    return info.type === void 0 || info.type === "terms";
+  }
+  const DICTIONARY_TYPE_COUNT_PRIORITY = [
+    { key: "terms", type: "terms" },
+    { key: "termMeta", type: "frequency" },
+    { key: "kanji", type: "kanji" },
+    { key: "kanjiMeta", type: "metadata" }
+  ];
+  function readerExportTerms(json) {
+    return json.terms ?? json.entries ?? [];
+  }
+  function readerExportDictionaryNames(json, terms = readerExportTerms(json)) {
+    return uniqueDictionaryNames([
+      ...json.dictionaries?.map((item) => item.title) ?? [],
+      ...terms.map((entry) => entry.dictionary),
+      ...(json.kanji ?? []).map((entry) => entry.dictionary),
+      ...(json.termMeta ?? []).map((entry) => entry.dictionary),
+      ...(json.kanjiMeta ?? []).map((entry) => entry.dictionary)
+    ]);
+  }
+  function readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes) {
+    return json.dictionaries?.length ? json.dictionaries.map((info) => ({ ...info, type: info.type ?? dictionaryTypes[info.title] })) : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
+  }
+  function readerExportSummary(json, terms, dictionaryNames, dictionaryTypes) {
+    const kanji = json.kanji ?? [];
+    const termMeta = json.termMeta ?? [];
+    const kanjiMeta = json.kanjiMeta ?? [];
+    return {
+      dictionaries: dictionaryNames,
+      dictionaryTypes,
+      entries: terms.length + kanji.length + termMeta.length + kanjiMeta.length,
+      terms: terms.length,
+      kanji: kanji.length,
+      termMeta: termMeta.length,
+      kanjiMeta: kanjiMeta.length
+    };
+  }
+  function dictionaryTypesFromReaderExport(json) {
+    const counts = /* @__PURE__ */ new Map();
+    addDictionaryTypeCounts(counts, readerExportTerms(json), "terms");
+    addDictionaryTypeCounts(counts, json.kanji ?? [], "kanji");
+    addDictionaryTypeCounts(counts, json.termMeta ?? [], "termMeta");
+    addDictionaryTypeCounts(counts, json.kanjiMeta ?? [], "kanjiMeta");
+    return Object.fromEntries([
+      ...configuredReaderDictionaryTypes(json),
+      ...observedReaderDictionaryTypes(counts)
+    ]);
+  }
+  function addDictionaryTypeCounts(counts, entries, store) {
+    for (const entry of entries) {
+      const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      item[store]++;
+      counts.set(entry.dictionary, item);
+    }
+  }
+  function configuredReaderDictionaryTypes(json) {
+    return (json.dictionaries ?? []).map((info) => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)]);
+  }
+  function observedReaderDictionaryTypes(counts) {
+    return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)]);
+  }
+  async function readYomitanZipIndex(zip, language = "en") {
+    return JSON.parse(await readZipText(zip, "index.json").catch(() => {
+      throw new Error(uiText(language, "dictionaryZipMissingIndex"));
+    }));
+  }
+  function countYomitanZipBanks(entries) {
+    return entries.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
+  }
+  function formatUiTemplate(template, values) {
+    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
+  }
+  function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
+    return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
+  }
+  async function scanObjectStoreCursor(db, { storeName, maxRows, maxMs, errorMessage }, visit) {
+    const startedAt = performance.now();
+    let visited = 0;
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(storeName, "readonly");
+      const request = tx.objectStore(storeName).openCursor();
+      request.onerror = () => reject(request.error ?? new Error(errorMessage));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || cursorScanLimitReached(visited, startedAt, maxRows, maxMs)) {
+          resolve();
+          return;
+        }
+        visited++;
+        visit(cursor.value);
+        cursor.continue();
+      };
+    });
+  }
+  function optionalCursorScanLimitReached(options, visited, startedAt) {
+    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
+  }
+  function positiveLimitReached(limit, value) {
+    return limit > 0 && value >= limit;
+  }
+  function optionalLimitReached(limit, value) {
+    return Boolean(limit && value >= limit);
+  }
+  function addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count) {
+    if (!isRandomListTerm(entry, rank)) return count;
+    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
+  }
+  function addCommonTermToReservoir(entry, rank, seen, reservoir, limit, count) {
+    if (!isCommonDictionaryTerm(entry, rank)) return count;
+    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
+  }
+  function addUniqueTermToReservoir(entry, seen, reservoir, limit, count) {
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return count;
+    seen.add(key);
+    const nextCount = count + 1;
+    if (reservoir.length < limit) {
+      reservoir.push(entry);
+      return nextCount;
+    }
+    const index = Math.floor(Math.random() * nextCount);
+    if (index < limit) reservoir[index] = entry;
+    return nextCount;
+  }
+  function isRandomListTerm(entry, rank) {
+    if (!entry.expression) return false;
+    if (!JAPANESE_RE$1.test(entry.expression)) return false;
+    if (entry.expression.length > 6) return false;
+    return dictionaryEnabled(entry.dictionary, rank);
+  }
+  function addTopFrequencyExpression(expressions, entry, maxRank, rank) {
+    if (entry.mode !== "freq") return;
+    if (!entry.expression) return;
+    if (!dictionaryEnabled(entry.dictionary, rank)) return;
+    const freq = extractFrequency(entry.data);
+    if (freq === void 0) return;
+    if (freq > maxRank) return;
+    expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
+  }
+  function addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank) {
+    if (!entry.expression?.includes(character)) return;
+    if (!dictionaryEnabled(entry.dictionary, rank)) return;
+    addUniqueTermEntry(entries, seen, entry);
+  }
+  function addUniqueTermEntry(entries, seen, entry) {
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return;
+    seen.add(key);
+    entries.push(entry);
+  }
+  function termExpressionReadingKey(entry) {
+    return `${entry.expression}
+${entry.reading}`;
+  }
+  function formatDexieImportProgress(text2, imported, totalRows) {
+    const importedCount = imported.toLocaleString();
+    if (totalRows > 0) {
+      return `${text2("dictionaryImported")} ${importedCount} / ${totalRows.toLocaleString()} ${text2("dictionaryRecords")}...`;
+    }
+    return `${text2("dictionaryImported")} ${importedCount} ${text2("dictionaryRecords")}...`;
+  }
+  function formatDexieStoreImportProgress(text2, store, imported, tableTotal, totalImported, totalRows) {
+    const importedCount = imported.toLocaleString();
+    if (tableTotal > 0 && totalRows > 0) {
+      return `${text2("dictionaryImporting")} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text2("dictionaryEntries")} (${totalImported.toLocaleString()} / ${totalRows.toLocaleString()} ${text2("dictionaryTotal")})...`;
+    }
+    return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
+  }
+  function glossaryIndexSearchOptions(options) {
+    return {
+      maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
+      maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS
+    };
+  }
+  function glossaryFallbackSearchOptions(options) {
+    return {
+      maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
+      maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS
+    };
+  }
+  function glossaryCursorSearchExpired(options, visited, startedAt) {
+    return Boolean(options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs);
+  }
+  function hasReadyEmptyGlossarySearchIndex(indexedCount, building) {
+    return indexedCount > 0 && !building;
+  }
+  function shouldSkipGlossaryFallback(building, options) {
+    return building && options.fallbackWhileIndexing === false;
+  }
+  function yomitanZipDictionaryName(index, filename) {
+    return index.title?.trim() || filename.replace(/\.zip$/i, "");
+  }
+  function yomitanZipVersion(index) {
+    return index.format ?? index.version ?? 3;
+  }
+  async function yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl) {
+    return {
+      title: dictionary,
+      alias: dictionary,
+      enabled: true,
+      priority: 0,
+      styles: await readOptionalZipText(zip, "styles.css"),
+      revision: typeof index.revision === "string" ? index.revision : void 0,
+      downloadUrl: sourceUrl || void 0,
+      importDate: Date.now()
+    };
+  }
+  async function readOptionalZipText(zip, name) {
+    return readZipText(zip, name).catch(() => "");
+  }
+  async function readZipText(zip, name) {
+    return zip.text(name);
+  }
+  async function inlineStructuredImageDataUrls(zip, value) {
+    if (value == null) return;
+    if (Array.isArray(value)) {
+      for (const item of value) await inlineStructuredImageDataUrls(zip, item);
+      return;
+    }
+    if (typeof value !== "object") return;
+    const record = value;
+    const path = typeof record.path === "string" ? normalizeMediaPath(record.path) : "";
+    if (path && record.type === "image") {
+      const dataUrl = await zipImageDataUrl(zip, path);
+      if (dataUrl) record.path = dataUrl;
+    }
+    await inlineStructuredImageDataUrls(zip, record.content);
+  }
+  async function zipImageDataUrl(zip, path) {
+    const bytes = await zip.bytes(path).catch(() => null);
+    return bytes ? `data:${imageMimeType(path)};base64,${bytesToBase64(bytes)}` : "";
+  }
+  function imageMimeType(path) {
+    const lower = path.toLowerCase();
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".gif")) return "image/gif";
+    if (lower.endsWith(".svg")) return "image/svg+xml";
+    return "image/png";
+  }
+  function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 32768;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      const chunk = bytes.subarray(index, index + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
+  }
+  function normalizeZipTermRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
+    if (typeof expression !== "string") return null;
+    return {
+      expression,
+      reading: zipTermReading(reading, expression),
+      definitionTags: zipStringField(definitionTags),
+      rules: zipStringField(rules),
+      score: zipNumberField(score, 0),
+      glossary: zipGlossaryField(glossary),
+      sequence: zipOptionalNumberField(sequence),
+      termTags: zipStringField(termTags),
+      dictionary
+    };
+  }
+  function zipTermReading(value, expression) {
+    return typeof value === "string" && value ? value : expression;
+  }
+  function zipStringField(value) {
+    return typeof value === "string" ? value : "";
+  }
+  function zipNumberField(value, fallback) {
+    return typeof value === "number" ? value : fallback;
+  }
+  function zipOptionalNumberField(value) {
+    return typeof value === "number" ? value : void 0;
+  }
+  function zipGlossaryField(value) {
+    return Array.isArray(value) ? value : [];
+  }
+  function normalizeZipKanjiRow(row, dictionary, version) {
+    if (!Array.isArray(row)) return null;
+    const [character, onyomi, kunyomi, tags, meaningsOrFirst, stats] = row;
+    if (typeof character !== "string") return null;
+    const meanings = version === 1 ? row.slice(4) : meaningsOrFirst;
+    return {
+      character,
+      onyomi: splitTags(onyomi),
+      kunyomi: splitTags(kunyomi),
+      tags: splitTags(tags),
+      meanings: Array.isArray(meanings) ? meanings.map(String) : [],
+      stats,
+      dictionary
+    };
+  }
+  function normalizeZipTermMetaRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [expression, mode, data] = row;
+    return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
+  }
+  function normalizeZipKanjiMetaRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [character, mode, data] = row;
+    return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
+  }
+  function normalizeDexieTermRow(row) {
+    const record = dexieRowRecord(row);
+    if (!record) return null;
+    if (typeof record.expression !== "string" || typeof record.dictionary !== "string") return null;
+    return {
+      expression: record.expression,
+      reading: dexieStringField(record, "reading", record.expression),
+      definitionTags: dexieStringField(record, "definitionTags"),
+      rules: dexieStringField(record, "rules"),
+      score: dexieNumberField(record, "score", 0),
+      glossary: dexieGlossaryField(record),
+      sequence: dexieOptionalNumberField(record, "sequence"),
+      termTags: dexieStringField(record, "termTags"),
+      dictionary: record.dictionary
+    };
+  }
+  function dexieStringField(record, key, fallback = "") {
+    const value = record[key];
+    return typeof value === "string" && value ? value : fallback;
+  }
+  function dexieNumberField(record, key, fallback) {
+    const value = record[key];
+    return typeof value === "number" ? value : fallback;
+  }
+  function dexieOptionalNumberField(record, key) {
+    const value = record[key];
+    return typeof value === "number" ? value : void 0;
+  }
+  function dexieGlossaryField(record) {
+    return Array.isArray(record.glossary) ? record.glossary : [];
+  }
+  function termLookupDedupKey(entry) {
+    const glossaryKey = JSON.stringify(entry.glossary);
+    return entry.sequence !== void 0 ? `${entry.dictionary}
+sequence:${entry.sequence}
+${glossaryKey}` : `${entry.dictionary}
+${entry.expression}
+${entry.reading}
+${glossaryKey}`;
+  }
+  function bestTermLookupEntry(entries, expression, rank) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const entry of [...entries].sort((a, b) => compareTermLookupEntries(a, b, expression, rank))) {
+      if (!dictionaryEnabled(entry.dictionary, rank)) continue;
+      const key = termLookupDedupKey(entry);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      return entry;
+    }
+    return null;
+  }
+  function compareTermLookupEntries(a, b, expression, rank) {
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || Number(b.expression === expression) - Number(a.expression === expression) || (b.score ?? 0) - (a.score ?? 0);
+  }
+  function normalizeTermSearchQuery(value) {
+    return value.replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+  function shouldSearchTermGlossaries(query) {
+    return !JAPANESE_RE$1.test(query);
+  }
+  function termSearchIndexToken(query) {
+    return glossaryWords(normalizeGlossarySearchText(query)).find((word) => word.length >= TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH) ?? "";
+  }
+  function termSearchPrefixRange(query) {
+    return IDBKeyRange.bound(query, `${query}${TERM_SEARCH_PREFIX_BOUNDARY}`, false, false);
+  }
+  function rankedTermSearchResults(candidates, query, limit, rank) {
+    const seen = /* @__PURE__ */ new Set();
+    return candidates.filter((candidate) => dictionaryEnabled(candidate.entry.dictionary, rank)).sort((a, b) => compareTermSearchCandidates(a, b, query, rank)).filter((candidate) => {
+      const key = termLookupDedupKey(candidate.entry);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).map((candidate) => candidate.entry).slice(0, limit);
+  }
+  function indexedTermSearchRank(entry, query) {
+    if (entry.expression === query) return 0;
+    if (entry.reading === query) return 4;
+    if (entry.expression.startsWith(query)) return 10;
+    if (entry.reading.startsWith(query)) return 12;
+    if (entry.expression.includes(query)) return 24;
+    if (entry.reading.includes(query)) return 26;
+    return 60;
+  }
+  function glossaryTermSearchRank(glossary, query) {
+    const normalizedQuery = normalizeGlossarySearchText(query);
+    if (!normalizedQuery) return Number.POSITIVE_INFINITY;
+    const text2 = normalizeGlossarySearchText(glossaryValueToSearchText(glossary));
+    if (!text2) return Number.POSITIVE_INFINITY;
+    if (text2 === normalizedQuery) return 30;
+    if (glossaryHasExactWord(text2, normalizedQuery)) return 34;
+    if (glossaryHasWordPrefix(text2, normalizedQuery)) return 44;
+    if (text2.includes(normalizedQuery)) return 68;
+    return Number.POSITIVE_INFINITY;
+  }
+  function glossaryHasExactWord(text2, query) {
+    return glossaryWords(text2).some((word) => word === query);
+  }
+  function glossaryHasWordPrefix(text2, query) {
+    return glossaryWords(text2).some((word) => word.startsWith(query));
+  }
+  function glossaryWords(text2) {
+    return text2.split(/\s+/u).filter(Boolean);
+  }
+  function termSearchEntries(entry) {
+    const { id: _id, ...entryWithoutId } = entry;
+    return glossarySearchTokens(entry.glossary).map((token) => ({
+      ...entryWithoutId,
+      token
+    }));
+  }
+  function termEntryFromSearchEntry(entry) {
+    const { id: _id, token: _token, ...term } = entry;
+    return term;
+  }
+  function termKanjiEntries(entry) {
+    const { id: _id, ...entryWithoutId } = entry;
+    return uniqueExpressionKanji(entry.expression).map((character) => ({
+      ...entryWithoutId,
+      character
+    }));
+  }
+  function termEntryFromKanjiEntry(entry) {
+    const { id: _id, character: _character, ...term } = entry;
+    return term;
+  }
+  function uniqueExpressionKanji(expression) {
+    const seen = /* @__PURE__ */ new Set();
+    return Array.from(expression).filter((character) => {
+      if (!isKanji(character) || seen.has(character)) return false;
+      seen.add(character);
+      return true;
+    });
+  }
+  function glossarySearchTokens(glossary) {
+    return uniqueSearchTokens(glossaryWords(normalizeGlossarySearchText(glossaryValueToSearchText(glossary))).flatMap(glossaryWordSearchTokens)).slice(0, TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM);
+  }
+  function glossaryWordSearchTokens(word) {
+    const tokens = [];
+    const variants = uniqueSearchTokens([
+      word,
+      word.endsWith("'s") ? word.slice(0, -2) : "",
+      word.endsWith("s") ? word.slice(0, -1) : ""
+    ]);
+    for (const variant of variants) {
+      tokens.push(variant);
+      for (let start = 1; start <= variant.length - TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH; start++) {
+        tokens.push(variant.slice(start));
+      }
+    }
+    return tokens;
+  }
+  function uniqueSearchTokens(tokens) {
+    const seen = /* @__PURE__ */ new Set();
+    return tokens.filter((token) => {
+      if (token.length < TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH || seen.has(token)) return false;
+      seen.add(token);
+      return true;
+    });
+  }
+  function trimTermSearchCandidates(candidates, candidateLimit, query, rank) {
+    if (candidates.length <= candidateLimit * 2) return;
+    candidates.sort((a, b) => compareTermSearchCandidates(a, b, query, rank));
+    candidates.length = candidateLimit;
+  }
+  function compareTermSearchCandidates(a, b, query, rank) {
+    return a.rank - b.rank || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank) || (b.entry.score ?? 0) - (a.entry.score ?? 0) || Number(b.entry.expression === query) - Number(a.entry.expression === query) || a.entry.expression.length - b.entry.expression.length;
+  }
+  function normalizeDexieKanjiRow(row) {
+    const record = dexieKanjiRecord(row);
+    return record ? {
+      character: record.character,
+      onyomi: dexieStringList(record.onyomi),
+      kunyomi: dexieStringList(record.kunyomi),
+      tags: dexieStringList(record.tags),
+      meanings: Array.isArray(record.meanings) ? record.meanings.map(String) : [],
+      stats: record.stats,
+      dictionary: record.dictionary
+    } : null;
+  }
+  function dexieKanjiRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.character === "string" && typeof record.dictionary === "string" ? record : null;
+  }
+  function dexieStringList(value) {
+    return Array.isArray(value) ? value.map(String) : splitTags(value);
+  }
+  function normalizeDexieTermMetaRow(row) {
+    const record = dexieTermMetaRecord(row);
+    return record ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
+  }
+  function normalizeDexieKanjiMetaRow(row) {
+    const record = dexieKanjiMetaRecord(row);
+    return record ? { character: record.character, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
+  }
+  function dexieTermMetaRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.expression === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
+  }
+  function dexieKanjiMetaRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.character === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
+  }
+  function normalizeDexieDictionaryRow(row) {
+    const record = dexieDictionaryRecord(row);
+    if (!record) return null;
+    if (typeof record.title !== "string") return null;
+    return {
+      title: record.title,
+      alias: dictionaryAlias(record, record.title),
+      enabled: dictionaryInfoEnabled(record.enabled),
+      priority: dictionaryInfoPriority(record.priority),
+      counts: record.counts,
+      type: dictionaryInfoType(record.type),
+      styles: stringField(record.styles) ?? "",
+      revision: stringField(record.revision),
+      downloadUrl: stringField(record.downloadUrl),
+      importDate: numberField(record.importDate)
+    };
+  }
+  function dexieDictionaryRecord(row) {
+    return dexieRowRecord(row);
+  }
+  function dictionaryInfoEnabled(value) {
+    return typeof value === "boolean" ? value : true;
+  }
+  function dictionaryInfoPriority(value) {
+    return Number.isFinite(Number(value)) ? Number(value) : 0;
+  }
+  function dictionaryAlias(record, fallback) {
+    return typeof record.alias === "string" && record.alias ? record.alias : fallback;
+  }
+  function dictionaryInfoType(value) {
+    return value === "terms" || value === "kanji" || value === "frequency" || value === "metadata" ? value : void 0;
+  }
+  function stringField(value) {
+    return typeof value === "string" ? value : void 0;
+  }
+  function numberField(value) {
+    return typeof value === "number" ? value : void 0;
+  }
+  function unwrapDexieRow(row) {
+    if (row && typeof row === "object" && "$" in row) {
+      const value = row.$;
+      return Array.isArray(value) ? value.find((item) => item && typeof item === "object" && !Array.isArray(item)) : value;
+    }
+    return row;
+  }
+  function dexieRowRecord(row) {
+    const candidate = unwrapDexieRow(row);
+    return candidate && typeof candidate === "object" ? candidate : null;
+  }
+  function isReaderDictionaryExport(value) {
+    const record = readerDictionaryExportRecord(value);
+    return Boolean(record && isReaderDictionaryExportFormat(record) && hasReaderDictionaryExportRows(record));
+  }
+  function readerDictionaryExportRecord(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  function isReaderDictionaryExportFormat(record) {
+    return record.formatName === "yomu-yomitan-dictionaries" || record.formatName === "jpdb-reader-yomitan-dictionaries";
+  }
+  function hasReaderDictionaryExportRows(record) {
+    return Array.isArray(record.entries) || Array.isArray(record.terms) || Array.isArray(record.kanji) || Array.isArray(record.termMeta) || Array.isArray(record.kanjiMeta);
+  }
+  function uniqueDictionaryNames(names) {
+    return [...new Set(names.filter((name) => typeof name === "string" && Boolean(name)))];
+  }
+  function splitTags(value) {
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
+  }
+  function reservoirSample(items, limit) {
+    const reservoir = [];
+    let count = 0;
+    for (const item of items) {
+      count++;
+      if (reservoir.length < limit) {
+        reservoir.push(item);
+      } else {
+        const index = Math.floor(Math.random() * count);
+        if (index < limit) reservoir[index] = item;
+      }
+    }
+    return reservoir;
+  }
+  function isCommonDictionaryTerm(entry, rank) {
+    return isCommonDictionaryTermCandidate(entry, rank) && (hasCommonDictionaryTags(entry) || hasCommonDictionaryScore(entry));
+  }
+  function isCommonDictionaryTermCandidate(entry, rank) {
+    return Boolean(entry.expression && JAPANESE_RE$1.test(entry.expression) && entry.expression.length <= 8 && dictionaryEnabled(entry.dictionary, rank));
+  }
+  function hasCommonDictionaryTags(entry) {
+    return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry));
+  }
+  function dictionaryTermTags(entry) {
+    return `${entry.definitionTags ?? ""} ${entry.termTags ?? ""} ${entry.rules ?? ""}`.toLowerCase();
+  }
+  function hasCommonDictionaryScore(entry) {
+    return typeof entry.score === "number" && entry.score >= 5;
+  }
+  function isKanji(value) {
+    const code = value.codePointAt(0) ?? 0;
+    return code >= 13312 && code <= 40959;
+  }
+  function ensureStore(db, tx, name) {
+    return db.objectStoreNames.contains(name) ? tx.objectStore(name) : db.createObjectStore(name, { keyPath: "id", autoIncrement: true });
+  }
+  function hasStore(db, name) {
+    return db.objectStoreNames.contains(name);
+  }
+  function ensureIndex(store, name, keyPath) {
+    if (!store.indexNames.contains(name)) store.createIndex(name, keyPath);
+  }
+  function existingStores(db, names) {
+    return names.filter((name) => db.objectStoreNames.contains(name));
+  }
+  function normalizeMediaPath(path) {
+    return path.trim().replace(/^\.?\//, "").replace(/\\/g, "/");
+  }
+  function readwriteTransaction(db, storeNames) {
+    try {
+      return db.transaction(storeNames, "readwrite", { durability: "relaxed" });
+    } catch {
+      return db.transaction(storeNames, "readwrite");
+    }
+  }
+  function commitTransaction(tx) {
+    try {
+      tx.commit?.();
+    } catch {
+    }
+  }
+  function clearStores(db, stores) {
+    if (!stores.length) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const tx = readwriteTransaction(db, stores);
+      for (const store of stores) tx.objectStore(store).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
+      tx.onabort = () => reject(transactionError(tx, `Could not clear dictionary stores: ${stores.join(", ")}.`));
+      commitTransaction(tx);
+    });
+  }
+  async function deleteByDictionary(db, storeName, dictionary) {
+    while (await deleteDictionaryBatch(db, storeName, dictionary, DICTIONARY_DELETE_BATCH_SIZE) >= DICTIONARY_DELETE_BATCH_SIZE) {
+      await nextTask();
+    }
+  }
+  function deleteDictionaryBatch(db, storeName, dictionary, limit) {
+    return new Promise((resolve, reject) => {
+      let deleted = 0;
+      const tx = readwriteTransaction(db, storeName);
+      const index = tx.objectStore(storeName).index("dictionary");
+      const request = index.openCursor(IDBKeyRange.only(dictionary));
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor || deleted >= limit) return;
+        cursor.delete();
+        deleted++;
+        if (deleted >= limit) return;
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error ?? new Error(`Could not delete ${dictionary} entries from ${storeName}.`));
+      tx.oncomplete = () => resolve(deleted);
+      tx.onerror = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
+      tx.onabort = () => reject(transactionError(tx, `Could not delete ${dictionary} entries from ${storeName}.`));
+    });
+  }
+  function transactionError(tx, fallback) {
+    return tx.error ?? new Error(fallback);
+  }
+  function nextTask() {
+    return new Promise((resolve) => window.setTimeout(resolve, 0));
+  }
+  function formatMetaFrequency(value) {
+    const display = metaFrequencyDisplayValue(value);
+    if (display == null) return "";
+    return `#${display}`;
+  }
+  function metaFrequencyDisplayValue(value) {
+    const primitive = primitiveMetaValue(value);
+    if (primitive !== null) return primitive;
+    const record = objectRecord$1(value);
+    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+  }
+  function scalarMetaValue(value) {
+    const primitive = primitiveMetaValue(value);
+    if (primitive !== null) return primitive;
+    const record = objectRecord$1(value);
+    return record ? scalarMetaValue(nestedMetaValue(record)) : null;
+  }
+  function primitiveMetaValue(value) {
+    return typeof value === "number" || typeof value === "string" ? String(value) : null;
+  }
+  function objectRecord$1(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  function nestedMetaValue(record) {
+    return record.displayValue ?? record.frequency ?? record.value;
+  }
+  function groupTermEntriesByDictionary(entries) {
+    const grouped = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      const group = grouped.get(entry.dictionary) ?? [];
+      group.push(entry);
+      grouped.set(entry.dictionary, group);
+    }
+    return grouped;
+  }
+  function groupTermEntriesByHeadword(entries) {
+    const grouped = /* @__PURE__ */ new Map();
+    const meaningKeys = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      const key = termHeadwordKey(entry);
+      const group = grouped.get(key) ?? createLearnerTermGroup(entry);
+      group.entries.push(entry);
+      updateLearnerTermFrequency(group, entry);
+      addLearnerTermMeaning(group, entry, key, meaningKeys);
+      grouped.set(key, group);
+    }
+    return [...grouped.values()];
+  }
+  function termHeadwordKey(entry) {
+    return `${entry.expression || entry.reading}
+${entry.reading || ""}`;
+  }
+  function createLearnerTermGroup(entry) {
+    return { expression: entry.expression || entry.reading, reading: entry.reading || "", entries: [], meanings: [] };
+  }
+  function updateLearnerTermFrequency(group, entry) {
+    if (entry.jpdbFrequency !== void 0 && (group.frequency === void 0 || entry.jpdbFrequency < group.frequency)) {
+      group.frequency = entry.jpdbFrequency;
+    }
+  }
+  function addLearnerTermMeaning(group, entry, key, meaningKeys) {
+    const meaning = summarizeLearnerGlossary(entry);
+    if (!meaning) return;
+    const seen = meaningKeys.get(key) ?? /* @__PURE__ */ new Set();
+    const meaningKey = meaning.toLocaleLowerCase();
+    if (!seen.has(meaningKey)) {
+      seen.add(meaningKey);
+      group.meanings.push(meaning);
+    }
+    meaningKeys.set(key, seen);
+  }
+  function summarizeLearnerGlossary(entry) {
+    return summarizeLearnerGlossaryTexts(entry.glossary.map((item) => glossaryToText(item)));
+  }
   const JPDB_RELATED_WORD_SELECTOR = '.jpdb-reader-word[data-jpdb-reader-related-word="true"]';
   const JPDB_RELATED_WORD_STATE = "not-in-deck";
   const JPDB_RELATED_WORD_PITCH_CLASS = "unknown";
@@ -21807,7 +18451,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const identityAttributes = vid === null ? "" : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
     const { classes, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml$1(options.sentence ?? term)}" data-expression="${escapeHtml$1(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function passiveJpdbRelatedWordContent(term, reading, options) {
     const termHtml = options.termHtml?.trim() ?? "";
@@ -21845,9 +18489,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function definitionSourceStateKey$2(sourceId) {
     return `definition-source:${sourceId}`;
   }
-  function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
+  function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel, reference) {
     const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
-    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, settings.interfaceLanguage, reference)).filter(Boolean);
+    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel, settings.interfaceLanguage, reference)).filter(Boolean);
     if (!dictionarySections.length) return "";
     const sourceCount = groupsByDictionary.length;
     const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
@@ -21867,7 +18511,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         </details>
     `;
   }
-  function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel2, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
+  function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
     if (!entries.length) return "";
     const heading = title ?? uiText(language, "kanjiDictionaries");
     return `
@@ -21877,7 +18521,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">
                         <span class="jpdb-reader-kanji-char">${escapeHtml$1(entry.character)}</span>
-                        <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel2(entry.dictionary))}</span>
+                        <span class="jpdb-reader-local-dict">${escapeHtml$1(dictionaryLabel(entry.dictionary))}</span>
                     </div>
                     <div class="jpdb-reader-kanji-readings">
                         ${entry.onyomi.length ? `<span>${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(entry.onyomi.join("、"))}</span>` : ""}
@@ -21891,12 +18535,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         </details>
     `;
   }
-  function renderFrequencyPills(metaEntries, settings, dictionaryLabel2) {
+  function renderFrequencyPills(metaEntries, settings, dictionaryLabel) {
     return bestFrequencyEntries(metaEntries).filter((entry) => entry.mode === "freq").sort((a, b) => {
       const priority2 = dictionaryPreferencePriority$1(settings, a.dictionary) - dictionaryPreferencePriority$1(settings, b.dictionary);
       if (priority2) return priority2;
-      return dictionaryLabel2(a.dictionary).localeCompare(dictionaryLabel2(b.dictionary), "ja");
-    }).map((entry) => renderFrequencyPill(entry, dictionaryLabel2)).filter(Boolean).slice(0, 8);
+      return dictionaryLabel(a.dictionary).localeCompare(dictionaryLabel(b.dictionary), "ja");
+    }).map((entry) => renderFrequencyPill(entry, dictionaryLabel)).filter(Boolean).slice(0, 8);
   }
   function definitionSourceStateKey$1(sourceId) {
     return `definition-source:${sourceId}`;
@@ -21907,25 +18551,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function kanjiSourceStateKey(sourceId) {
     return `kanji:${sourceId}`;
   }
-  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, language, reference) {
+  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel, language, reference) {
     const entryCount = groups.length;
     return `
         <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}">
-                <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
+            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel(dictionary))}">
+                <span>${escapeHtml$1(dictionaryLabel(dictionary))}</span>
                 <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
             </summary>
             <div class="jpdb-reader-local-terms">
-                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, { showDictionaryTag: false })).join("")}
+                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel, language, reference, { showDictionaryTag: false })).join("")}
             </div>
         </details>
     `;
   }
-  function renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, options = {}) {
+  function renderLocalTermGroup(dictionary, group, dictionaryLabel, language, reference, options = {}) {
     return `
         <article class="jpdb-reader-local-entry jpdb-reader-local-term">
             ${renderLocalTermHead(group, reference)}
-            ${renderLocalTermTags(dictionary, group, dictionaryLabel2, options.showDictionaryTag ?? true, language)}
+            ${renderLocalTermTags(dictionary, group, dictionaryLabel, options.showDictionaryTag ?? true, language)}
             ${renderLocalTermMeaning(dictionary, group)}
         </article>
     `;
@@ -21954,9 +18598,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderLocalTermReading(group) {
     return group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : "";
   }
-  function renderLocalTermTags(dictionary, group, dictionaryLabel2, showDictionaryTag, language) {
+  function renderLocalTermTags(dictionary, group, dictionaryLabel, showDictionaryTag, language) {
     const tagItems = [
-      showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel2(dictionary))}</span>` : "",
+      showDictionaryTag ? `<span class="jpdb-reader-dict-tag jpdb-reader-source-tag">${escapeHtml$1(dictionaryLabel(dictionary))}</span>` : "",
       ...localTermTags(group.entries, language).map((tag) => `<span class="jpdb-reader-dict-tag" data-tag="${escapeHtml$1(tag)}">${escapeHtml$1(tag)}</span>`)
     ].filter(Boolean);
     return tagItems.length ? `<div class="jpdb-reader-local-tags">${tagItems.join("")}</div>` : "";
@@ -22010,8 +18654,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return HAS_JAPANESE$1.test(text2);
     });
   }
-  function renderFrequencyPill(entry, dictionaryLabel2) {
-    const label = dictionaryLabel2(entry.dictionary);
+  function renderFrequencyPill(entry, dictionaryLabel) {
+    const label = dictionaryLabel(entry.dictionary);
     const value = normalizeFrequencyChipValue(label, formatMetaFrequency(entry.data));
     return value ? `<span class="jpdb-reader-pill jpdb-reader-frequency-pill" data-dictionary="${escapeHtml$1(entry.dictionary)}" style="${pillStyle(`frequency:${entry.dictionary}`)}" title="${escapeHtml$1(label)}">${escapeHtml$1(label)} ${escapeHtml$1(value)}</span>` : "";
   }
@@ -22069,7 +18713,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     imageDataUrl,
     videoImageDataUrl,
     fetchImageDataUrl,
-    fetchAudioDataUrl: fetchAudioDataUrl2
+    fetchAudioDataUrl
   }) {
     const done = log$f.time("Resolve mining context", {
       term,
@@ -22090,7 +18734,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         activeContext,
         storedContext,
         fetchImageDataUrl,
-        fetchAudioDataUrl: fetchAudioDataUrl2
+        fetchAudioDataUrl
       });
       return immersion ?? resolvePageMiningContext(term, cleanSentence, sourceKind);
     } finally {
@@ -22107,12 +18751,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return null;
   }
   async function resolveStoredImmersionMiningContext(options) {
-    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl: fetchAudioDataUrl2 } = options;
+    const { term, settings, activeContext, storedContext, fetchImageDataUrl, fetchAudioDataUrl } = options;
     const chosen = activeContext?.term === term ? activeContext : storedContext ?? void 0;
     if (!chosen || !shouldUseImmersionContext(settings, chosen)) return null;
     const [fetchedImageDataUrl, fetchedAudioDataUrl] = await Promise.all([
       fetchMiningContextImage(chosen, settings, fetchImageDataUrl),
-      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl2)
+      fetchMiningContextAudio(chosen, settings, fetchAudioDataUrl)
     ]);
     return { ...chosen, imageDataUrl: fetchedImageDataUrl, audioDataUrl: fetchedAudioDataUrl };
   }
@@ -22122,9 +18766,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return void 0;
     });
   }
-  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl2) {
-    if (!context.audioUrls?.length || !fetchAudioDataUrl2) return Promise.resolve(void 0);
-    return fetchAudioDataUrl2(context.audioUrls, settings.audioTimeoutMs).catch(() => {
+  function fetchMiningContextAudio(context, settings, fetchAudioDataUrl) {
+    if (!context.audioUrls?.length || !fetchAudioDataUrl) return Promise.resolve(void 0);
+    return fetchAudioDataUrl(context.audioUrls, settings.audioTimeoutMs).catch(() => {
       return void 0;
     });
   }
@@ -22285,6 +18929,48 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     url.searchParams.set("sort", "sentence_length:asc");
     url.searchParams.set("page", String(index + 1));
     return url.toString();
+  }
+  const POS_LABELS = {
+    adj: "adjective",
+    adv: "adverb",
+    aux: "auxiliary",
+    "aux-v": "auxiliary verb",
+    conj: "conjunction",
+    cop: "copula",
+    ctr: "counter",
+    exp: "expression",
+    int: "interjection",
+    n: "noun",
+    num: "number",
+    pn: "pronoun",
+    pref: "prefix",
+    prt: "particle",
+    suf: "suffix",
+    unc: "unclassified",
+    vi: "intransitive verb",
+    vt: "transitive verb",
+    v1: "ichidan verb",
+    v5: "godan verb",
+    v5aru: "aru ending",
+    v5b: "bu ending",
+    v5g: "gu ending",
+    v5k: "ku ending",
+    v5m: "mu ending",
+    v5n: "nu ending",
+    v5r: "ru ending",
+    v5s: "su ending",
+    v5t: "tsu ending",
+    v5u: "u ending",
+    vk: "kuru verb",
+    vs: "suru verb",
+    vz: "zuru verb"
+  };
+  function formatPartOfSpeech(tags = []) {
+    const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
+    return [...new Set(labels)].join(", ");
+  }
+  function formatPartOfSpeechDetails(tags = []) {
+    return tags.length ? tags.join(", ").toUpperCase() : "";
   }
   Logger.scope("KanjiOrigin");
   const KANJI_RE$1 = /[\p{Script=Han}\u2e80-\u2eff\u2f00-\u2fdf\u31c0-\u31ef\u3005\u3006\u3007々〆ヶ]/u;
@@ -22649,7 +19335,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         cardStates,
         state,
         storedContext: data.loading ? null : loadMiningContext(card.spelling),
-        jpdbUrl: jpdbVocabularyUrl$2(card),
+        jpdbUrl: jpdbVocabularyUrl$1(card),
         cardPos: formatPartOfSpeech(card.partOfSpeech),
         cardPosDetails: formatPartOfSpeechDetails(card.partOfSpeech),
         language,
@@ -23202,8 +19888,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJitenVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jitenDefinitionsEnabled || !hasJitenApiCredential(settings) || !isJitenBackedCard(card) || typeof this.dependencies.jiten?.lookupVocabularyInfo !== "function") return Promise.resolve(null);
-      return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfo(card).catch((error) => {
+      if (!settings.jitenDefinitionsEnabled || !hasJitenApiCredential(settings) || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+      return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfoForCard(card).catch((error) => {
         log$e.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
       }), null);
@@ -23653,14 +20339,31 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
+    const headword = renderJitenDefinitionHeadword(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    const body = meanings || extras ? `${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}` : `<div class="jpdb-reader-help jpdb-reader-no-definitions">${language === "ja" ? "Jiten定義なし。" : "No Jiten definitions."}</div>`;
+    if (!meanings && !extras) return "";
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">Jiten</summary>
             ${body}
         </details>
     `;
+  }
+  function renderJitenDefinitionHeadword(card, info) {
+    const reference = jitenDefinitionHeadwordReference(card, info);
+    if (!reference) return "";
+    return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: "jpdb-reader-jiten-headword-target" })}</div>`;
+  }
+  function jitenDefinitionHeadwordReference(card, info) {
+    const text2 = (info?.mainReading?.text || card.spelling || card.reading).trim();
+    if (!text2 || !hasJapaneseText$1(text2)) return null;
+    return {
+      text: text2,
+      reading: card.reading || text2,
+      wordId: info?.wordId ?? card.jitenWordId,
+      readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex
+    };
   }
   function jitenDefinitionMeanings(card, info) {
     const groups = jitenDefinitionMeaningGroups(card, info);
@@ -23719,7 +20422,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function renderJitenVocabularyExtras(info, sourceAttributes, language, card) {
     if (!info || !info.composedOf.length && !info.usedIn.length && !info.examples.length) return "";
-    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenRelatedWords(info.composedOf, "jitenCompositeWords", `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenUsedIn(info, sourceAttributes, language)}${renderJitenExamples(info.examples, sourceAttributes, language, card)}</div>`;
+    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenRelatedWords(info.composedOf, "jitenCompositeWords", `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenUsedIn(info, sourceAttributes, language)}${renderJitenExamples(info.examples, sourceAttributes, language, card, info)}</div>`;
   }
   function renderJitenUsedIn(info, sourceAttributes, language) {
     const status = info.usedInTotal > info.usedIn.length ? `${info.usedIn.length}/${info.usedInTotal}` : String(info.usedIn.length);
@@ -23744,19 +20447,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderJitenRelatedWord(entry, language) {
     const lookup = cleanJitenWordSurface$1(entry);
     const reading = jitenAnnotatedKana$1(entry.readingFurigana) || cleanJitenAnnotatedText$1(entry.reading);
+    const reference = renderPassiveJitenReference({
+      text: lookup,
+      reading,
+      wordId: entry.wordId,
+      readingIndex: entry.readingIndex
+    });
     return `
         <li class="jpdb-reader-jpdb-used-in-row jpdb-reader-jiten-related-row has-audio">
             ${renderJitenAudioButton(lookup, language, jitenWordAudioAttributes(entry))}
             <span class="jpdb-reader-jpdb-used-in-main jpdb-reader-jiten-related-main">
                 <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-jiten-related-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml$1(lookup)}" data-dictionary-reading="${escapeHtml$1(reading)}" data-dictionary="Jiten" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head jpdb-reader-jiten-related-head">${renderJitenAnnotatedReading$1(entry.readingFurigana || entry.reading)}</span>
+                    <span class="jpdb-reader-jpdb-compound-head jpdb-reader-jiten-related-head">${reference || renderJitenAnnotatedReading$1(entry.readingFurigana || entry.reading)}</span>
                 </a>
                 ${entry.frequencyRank ? `<small>#${escapeHtml$1(String(entry.frequencyRank))}${entry.mainDefinition ? ` · ${escapeHtml$1(entry.mainDefinition)}` : ""}</small>` : entry.mainDefinition ? `<small>${escapeHtml$1(entry.mainDefinition)}</small>` : ""}
             </span>
         </li>
     `;
   }
-  function renderJitenExamples(examples, sourceAttributes, language, card) {
+  function renderJitenExamples(examples, sourceAttributes, language, card, info) {
     return examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JITEN_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
@@ -23765,31 +20474,33 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-examples">
-                    ${examples.map((example) => renderJitenExample(example, card, language)).join("")}
+                    ${examples.map((example) => renderJitenExample(example, card, language, info)).join("")}
                 </ul>
             </div>
         </details>
     ` : "";
   }
-  function renderJitenExample(example, card, language) {
+  function renderJitenExample(example, card, language, info) {
     return `
         <li class="jpdb-reader-jpdb-example jpdb-reader-jiten-example">
             <div class="jpdb-reader-jpdb-example-row jpdb-reader-jiten-example-row has-audio">
                 ${renderJitenAudioButton(example.text, language, jitenExampleAudioAttributes(example))}
                 <div class="jpdb-reader-jpdb-example-text jpdb-reader-jiten-example-text">
-                    <div class="jpdb-reader-example-sentence jpdb-reader-jiten-example-sentence jpdb-reader-parseable">${renderJitenExampleSentence(example, card)}</div>
+                    <div class="jpdb-reader-example-sentence jpdb-reader-jiten-example-sentence jpdb-reader-parseable">${renderJitenExampleSentence(example, card, info)}</div>
                     ${example.sourceTitle ? `<div class="jpdb-reader-example-translation">${escapeHtml$1(example.sourceTitle)}</div>` : ""}
                 </div>
             </div>
         </li>
     `;
   }
-  function renderJitenExampleSentence(example, card) {
+  function renderJitenExampleSentence(example, card, info) {
     if (example.wordPosition < 0 || example.wordLength <= 0) return renderCardHighlightedTextHtml(example.text, card);
     const before = example.text.slice(0, example.wordPosition);
     const target = example.text.slice(example.wordPosition, example.wordPosition + example.wordLength);
     const after = example.text.slice(example.wordPosition + example.wordLength);
-    return `${escapeHtml$1(before)}<mark class="jpdb-reader-example-target jpdb-reader-jiten-example-target">${escapeHtml$1(target)}</mark>${escapeHtml$1(after)}`;
+    const reference = jitenExampleTargetReference(target, card, info);
+    const targetHtml = reference ? renderPassiveJitenReference(reference, { className: "jpdb-reader-example-target jpdb-reader-jiten-example-target", sentence: example.text }) : `<mark class="jpdb-reader-example-target jpdb-reader-jiten-example-target">${escapeHtml$1(target)}</mark>`;
+    return `${escapeHtml$1(before)}${targetHtml}${escapeHtml$1(after)}`;
   }
   function renderJitenAudioButton(text2, language, extraAttributes = "") {
     const audioText = text2.trim();
@@ -23881,6 +20592,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       readingIndex: word.readingIndex
     };
   }
+  function jitenExampleTargetReference(target, card, info) {
+    const text2 = target.trim();
+    if (!text2) return null;
+    return jitenDefinitionTextReferences(card, info).find((reference) => reference.text === text2) ?? null;
+  }
   function renderJitenTextWithReferences(text2, references) {
     if (!references.length) return escapeHtml$1(text2);
     let html = "";
@@ -23897,7 +20613,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     return html;
   }
-  function renderPassiveJitenReference(reference) {
+  function renderPassiveJitenReference(reference, options = {}) {
     const reading = visibleJitenReferenceReading(reference.text, reference.reading);
     const identity = [
       reference.wordId !== void 0 ? `data-vid="${escapeHtml$1(String(reference.wordId))}"` : "",
@@ -23905,8 +20621,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ].filter(Boolean).join(" ");
     const readingAttribute = reading ? ` data-reading="${escapeHtml$1(reading)}"` : "";
     const identityAttributes = identity ? ` ${identity}` : "";
-    const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}`;
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${renderJitenReferenceContent(reference.text, reading)}</span>`;
+    const extraClass = options.className?.trim();
+    const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$1(extraClass)}` : ""}`;
+    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(options.sentence ?? reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${renderJitenReferenceContent(reference.text, reading)}</span>`;
   }
   function renderJitenReferenceContent(text2, reading) {
     return reading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(text2)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(reading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(text2);
@@ -27165,6 +23882,17 @@ ${spelling}`);
       normalized.examples = await this.lookupVocabularyExamples(reference).catch(() => []);
       return normalized;
     }
+    async lookupVocabularyInfoForCard(card) {
+      if (isJitenReferenceableCard(card)) return this.lookupVocabularyInfo(card);
+      const jitenCard = await this.lookupJitenCardForVocabularyInfo(card);
+      return jitenCard ? this.lookupVocabularyInfo(jitenCard) : null;
+    }
+    async lookupJitenCardForVocabularyInfo(card) {
+      const spelling = card.spelling.trim();
+      if (!spelling) return null;
+      const [tokens] = await this.parse([spelling]);
+      return bestParsedJitenCard(card, spelling, tokens ?? []);
+    }
     async lookupKanji(character) {
       const kanji = character.trim();
       if (!kanji) return null;
@@ -27377,6 +24105,20 @@ ${spelling}`);
     }
     return { wordId, readingIndex };
   }
+  function isJitenReferenceableCard(card) {
+    try {
+      jitenCardReference(card);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function bestParsedJitenCard(card, spelling, tokens) {
+    const fullSpan = tokens.filter((token) => token.start === 0 && token.end === spelling.length).map((token) => token.card).filter((candidate) => isJitenReferenceableCard(candidate));
+    if (!fullSpan.length) return null;
+    const reading = card.reading.trim();
+    return fullSpan.find((candidate) => candidate.spelling === spelling && (!reading || candidate.reading === reading)) ?? fullSpan.find((candidate) => candidate.spelling === spelling) ?? fullSpan[0] ?? null;
+  }
   function jitenRatingForGrade(grade) {
     if (grade === "easy") return 4;
     if (grade === "okay" || grade === "pass") return 3;
@@ -27517,23 +24259,28 @@ ${spelling}`);
     6: "redundant"
   };
   function normalizeJitenVocabularyInfo(value) {
-    if (!isJsonRecord$1(value)) return null;
-    const wordId = finiteJitenInteger(value.wordId);
+    const record = jitenPayloadRecord(value);
+    if (!record) return null;
+    const wordId = finiteJitenInteger(record.wordId);
     if (wordId === void 0 || wordId <= 0) return null;
-    const mainReading = normalizeJitenVocabularyReading(value.mainReading);
+    const mainReading = normalizeJitenVocabularyReading(record.mainReading);
     return {
       wordId,
       mainReading,
-      alternativeReadings: arrayOfRecords(value.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
-      partsOfSpeech: arrayOfStrings(value.partsOfSpeech),
-      definitions: arrayOfRecords(value.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
-      pitchAccents: jitenStateNumbers(value.pitchAccents),
-      knownStates: Array.isArray(value.knownStates) ? jitenKnownStateToCardStates(value.knownStates) : [],
-      composedOf: normalizeJitenVocabularyWordSummaries(value.composedOf),
-      usedIn: normalizeJitenVocabularyWordSummaries(value.usedIn),
-      usedInTotal: finiteJitenInteger(value.usedInTotal) ?? 0,
+      alternativeReadings: arrayOfRecords(record.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item) => Boolean(item)),
+      partsOfSpeech: arrayOfStrings(record.partsOfSpeech),
+      definitions: arrayOfRecords(record.definitions).map(normalizeJitenVocabularyDefinition).filter((item) => Boolean(item)),
+      pitchAccents: jitenStateNumbers(record.pitchAccents),
+      knownStates: Array.isArray(record.knownStates) ? jitenKnownStateToCardStates(record.knownStates) : [],
+      composedOf: normalizeJitenVocabularyWordSummaries(record.composedOf),
+      usedIn: normalizeJitenVocabularyWordSummaries(record.usedIn),
+      usedInTotal: finiteJitenInteger(record.usedInTotal) ?? 0,
       examples: []
     };
+  }
+  function jitenPayloadRecord(value) {
+    if (!isJsonRecord$1(value)) return null;
+    return isJsonRecord$1(value.data) ? value.data : value;
   }
   function normalizeJitenVocabularyReading(value) {
     if (!isJsonRecord$1(value)) return null;
@@ -27549,12 +24296,12 @@ ${spelling}`);
   }
   function normalizeJitenVocabularyDefinition(value) {
     if (!isJsonRecord$1(value)) return null;
-    const meanings = arrayOfStrings(value.meanings);
+    const meanings = firstNonEmptyStringArray(value.meanings, value.englishMeanings);
     if (!meanings.length) return null;
     return {
-      index: finiteJitenInteger(value.index) ?? 0,
+      index: finiteJitenInteger(value.index) ?? finiteJitenInteger(value.senseIndex) ?? 0,
       meanings,
-      partsOfSpeech: arrayOfStrings(value.partsOfSpeech),
+      partsOfSpeech: firstNonEmptyStringArray(value.partsOfSpeech, value.pos),
       field: arrayOfStrings(value.field),
       dial: arrayOfStrings(value.dial),
       misc: arrayOfStrings(value.misc),
@@ -27578,7 +24325,9 @@ ${spelling}`);
       mainDefinition: firstRecordString(value, ["mainDefinition"]) ?? "",
       frequencyRank: nullableFiniteInteger(value.frequencyRank),
       matchSurface: firstRecordString(value, ["matchSurface"]) ?? "",
-      audioUrls: normalizeJitenAudioUrls(value)
+      audioUrls: normalizeJitenAudioUrls(value),
+      knownStates: Array.isArray(value.knownStates) ? jitenKnownStateToCardStates(value.knownStates) : void 0,
+      pitchAccents: jitenStateNumbers(value.pitchAccents)
     };
   }
   function normalizeJitenVocabularyExamples(value) {
@@ -27731,6 +24480,13 @@ ${spelling}`);
   function arrayOfStrings(value) {
     if (Array.isArray(value)) return value.filter((item) => typeof item === "string");
     return typeof value === "string" ? [value] : [];
+  }
+  function firstNonEmptyStringArray(...values) {
+    for (const value of values) {
+      const strings = arrayOfStrings(value);
+      if (strings.length) return strings;
+    }
+    return [];
   }
   function arrayOfRecords(value) {
     return Array.isArray(value) ? value.filter(isJsonRecord$1) : [];
@@ -32711,6 +29467,13 @@ ${glossaryKey}`;
     "[data-overflow-menu]"
   ];
   const YOUTUBE_CHROME_ROOTS = [
+    "yt-chip-cloud-chip-renderer button",
+    'yt-chip-cloud-chip-renderer [role="tab"]',
+    "yt-chip-cloud-chip-view-model button",
+    'yt-chip-cloud-chip-view-model [role="tab"]',
+    "yt-chip-cloud-chip-view-model",
+    "yt-tab-shape button",
+    'yt-tab-shape [role="tab"]',
     "ytd-feed-filter-chip-bar-renderer chip-shape button",
     'ytd-feed-filter-chip-bar-renderer [role="tab"]',
     "yt-chip-cloud-renderer chip-shape button",
@@ -32718,11 +29481,19 @@ ${glossaryKey}`;
     "ytm-feed-filter-chip-bar-renderer button",
     'ytm-feed-filter-chip-bar-renderer [role="tab"]',
     "ytd-mini-guide-renderer ytd-mini-guide-entry-renderer a#endpoint",
+    "ytd-mini-guide-renderer yt-mini-guide-entry-renderer a[href]",
     "ytd-guide-renderer ytd-guide-entry-renderer a#endpoint",
+    "ytd-guide-renderer yt-guide-entry-renderer a[href]",
     "ytm-pivot-bar-renderer a",
     "ytm-pivot-bar-item-renderer a",
     "ytd-masthead yt-button-shape button",
+    "ytd-masthead yt-button-view-model button",
+    "ytd-masthead button-view-model button",
     "ytd-masthead button[aria-label]",
+    "ytd-masthead ytd-searchbox",
+    "ytd-masthead yt-searchbox",
+    "ytd-masthead .ytSearchboxComponentInputBox",
+    "ytd-masthead .ytSearchboxComponentSearchButton",
     "ytd-masthead .ytAttributedStringHost",
     "ytd-masthead yt-attributed-string"
   ];
@@ -32977,25 +29748,29 @@ ${glossaryKey}`;
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
-        // Watch metadata, descriptions, comments, live-chat, feed cards,
-        // and transcript rows. Player/topbar/navigation/chip chrome is
-        // handled by the dedicated passive YouTube chrome parser above.
-        "ytd-rich-grid-renderer",
-        "ytd-rich-item-renderer",
-        "ytd-video-renderer",
-        "yt-lockup-view-model",
-        "ytm-rich-grid-renderer",
-        "ytm-video-with-context-renderer",
-        "ytm-shorts-lockup-view-model",
-        "ytm-item-section-renderer",
-        "ytd-watch-next-secondary-results-renderer",
-        "ytd-compact-video-renderer",
+        // High-value watch text comes first so huge virtualized grids or
+        // recommendation rails cannot starve the visible title,
+        // description, transcript panel, or watch sidebar inside one
+        // capped scan pass.
         "ytd-transcript-segment-renderer",
+        "ytm-transcript-segment-renderer",
         "ytd-watch-metadata h1",
+        "ytd-watch-metadata #title",
+        "ytd-watch-metadata #owner",
+        "ytd-watch-metadata #info",
+        "ytd-watch-metadata #info-strings",
+        "ytd-watch-metadata #metadata",
+        "ytd-watch-metadata #metadata-line",
         "ytd-watch-metadata #description-inline-expander",
+        "ytd-watch-metadata #description yt-attributed-string",
+        "ytd-watch-metadata #description .yt-core-attributed-string",
+        "ytd-watch-metadata #description-text",
         "ytd-watch-metadata ytd-text-inline-expander",
         "ytd-watch-metadata #attributed-snippet-text",
+        "ytd-watch-metadata #attributed-description-text",
+        "ytd-watch-metadata yt-attributed-string#attributed-description-text",
         "ytm-slim-video-metadata-section-renderer h1",
+        "ytm-slim-video-metadata-section-renderer #title",
         "ytm-expandable-video-description-body-renderer",
         "ytm-structured-description-content-renderer",
         "#content-text",
@@ -33006,7 +29781,19 @@ ${glossaryKey}`;
         "yt-live-chat-membership-item-renderer #author-name",
         "yt-live-chat-membership-item-renderer #message",
         "yt-live-chat-viewer-engagement-message-renderer",
-        "yt-live-chat-ticker-renderer"
+        "yt-live-chat-ticker-renderer",
+        "ytd-watch-next-secondary-results-renderer",
+        "ytd-compact-video-renderer",
+        // General feed/search grids are useful, but lower priority because
+        // YouTube can hydrate hundreds of them.
+        "ytd-rich-grid-renderer",
+        "ytd-rich-item-renderer",
+        "ytd-video-renderer",
+        "yt-lockup-view-model",
+        "ytm-rich-grid-renderer",
+        "ytm-video-with-context-renderer",
+        "ytm-shorts-lockup-view-model",
+        "ytm-item-section-renderer"
       ],
       exclude: YOUTUBE_TEXT_EXCLUDE,
       allowUiText: true,
@@ -33516,12 +30303,21 @@ ${glossaryKey}`;
   function actionPillLink(target) {
     return target?.closest?.("a.jpdb-reader-action-pill[href]") ?? null;
   }
+  function actionPillUrl(link) {
+    try {
+      const url = new URL(link.getAttribute("href") ?? "", location.href);
+      return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null;
+    } catch {
+      return null;
+    }
+  }
   function handleReaderActionPillLink(event, open = openUrlInNewTab) {
     const link = actionPillLink(event.target);
     if (!link) return false;
     event.preventDefault();
     event.stopPropagation();
-    const url = link.href;
+    const url = actionPillUrl(link);
+    if (!url) return true;
     if (!open(url)) location.href = url;
     return true;
   }
@@ -34283,9 +31079,9 @@ ${glossaryKey}`;
     const rect = image.getBoundingClientRect();
     const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
     const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
-    const visibleArea2 = visibleWidth * visibleHeight;
+    const visibleArea = visibleWidth * visibleHeight;
     const viewportArea = Math.max(1, window.innerWidth * window.innerHeight);
-    return visibleArea2 >= IMAGE_READING_MIN_AREA && visibleArea2 / viewportArea >= IMAGE_READING_MIN_VIEWPORT_RATIO && Math.min(visibleWidth, visibleHeight) >= IMAGE_READING_MIN_EDGE;
+    return visibleArea >= IMAGE_READING_MIN_AREA && visibleArea / viewportArea >= IMAGE_READING_MIN_VIEWPORT_RATIO && Math.min(visibleWidth, visibleHeight) >= IMAGE_READING_MIN_EDGE;
   }
   function wait(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -35144,8 +31940,11 @@ ${glossaryKey}`;
   const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
     ".jpdb-reader-theme-title",
     '[role="tab"]',
+    ".jpdb-reader-settings-actions .jpdb-reader-btn",
+    ".jpdb-reader-help-actions .jpdb-reader-btn",
     ".footer button"
   ].join(",");
+  const SETTINGS_SELECT_META_PARSE_SELECTOR = "[data-settings-select-options-meta]";
   const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     "[hidden]",
     '[aria-hidden="true"]',
@@ -35157,10 +31956,11 @@ ${glossaryKey}`;
     "use",
     ".jpdb-reader-word"
   ].join(",");
-  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
+  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = `${SETTINGS_PARSE_EXCLUDE_SELECTOR},${SETTINGS_SELECT_META_PARSE_SELECTOR}`;
   const SETTINGS_PARSE_ROOT_SELECTOR = [
     "h2",
     ".jpdb-reader-settings-search>label",
+    SETTINGS_SELECT_META_PARSE_SELECTOR,
     "[data-settings-search-empty]",
     "[data-audio-source-row] [data-settings-select-options-meta]",
     "[data-settings-panel]",
@@ -35208,6 +32008,7 @@ ${glossaryKey}`;
   }
   function settingsParseExcludeSelector(parseRoot) {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
+    if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
     return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
   }
   function isSettingsChromeParseRoot(parseRoot) {
@@ -37823,6 +34624,8 @@ ${glossaryKey}`;
   const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
   const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1200;
   const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
+  const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
+  const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 3;
   const ASB_SCAN_BATCH_LIMIT = 12;
   const ASB_SCAN_DRAIN_DELAY_MS = 80;
   class VisiblePageScanner {
@@ -37975,6 +34778,12 @@ ${glossaryKey}`;
       return this.destroyed || generation !== this.scanGeneration;
     }
     async parseAndApplyTargets(targets, generation, scanStartSettings) {
+      if (visibleScanParsePrefetchConcurrency(scanStartSettings) > 1) {
+        return this.parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings);
+      }
+      return this.parseAndApplyTargetsSequentially(targets, generation, scanStartSettings);
+    }
+    async parseAndApplyTargetsSequentially(targets, generation, scanStartSettings) {
       let cursor = 0;
       let parsedAnyTokens = false;
       const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
@@ -38000,6 +34809,56 @@ ${glossaryKey}`;
         if (cursor < targets.length) await waitForVisibleScanTurn();
       }
       return parsedAnyTokens;
+    }
+    async parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings) {
+      let cursor = 0;
+      let parsedAnyTokens = false;
+      const pending = [];
+      const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
+      const concurrency = visibleScanParsePrefetchConcurrency(scanStartSettings);
+      const schedule = () => {
+        while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
+          const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
+          cursor = next.cursor;
+          if (!next.batch.length) continue;
+          pending.push({
+            batch: next.batch,
+            result: this.dependencies.parseJapanese(
+              next.batch.map((target) => target.text),
+              scanParseOptions(this.dependencies.getSettings(), next.batch)
+            ).then(
+              (parsed) => ({ parsed }),
+              (error) => ({ error })
+            )
+          });
+        }
+      };
+      schedule();
+      while (pending.length) {
+        if (this.isStaleScan(generation)) return parsedAnyTokens;
+        const work = pending.shift();
+        const result = await work.result;
+        if ("error" in result) throw result.error;
+        const parsed = result.parsed;
+        if (parsed.some((tokens) => tokens.length > 0)) parsedAnyTokens = true;
+        if (this.isStaleScan(generation)) return parsedAnyTokens;
+        await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
+        schedule();
+        if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
+      }
+      return parsedAnyTokens;
+    }
+    async applyParsedBatch(batch, parsed, scanStartSettings, generation) {
+      const tokens = parsed.flat();
+      const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
+      if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
+      const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
+      const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
+      applyAnkiColors?.(changedRoots);
+      this.preloadParsed(parsed, changedRoots, {
+        skipAnki: Boolean(applyAnkiColors),
+        skipPitch: pitchStartedBeforeApply
+      });
     }
     async applyTokens(targets, parsed, scanStartSettings, generation) {
       const allChangedRoots = /* @__PURE__ */ new Set();
@@ -38099,6 +34958,10 @@ ${glossaryKey}`;
   function visibleScanApplyBatchSize(settings) {
     if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_APPLY_BATCH_SIZE;
     return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
+  }
+  function visibleScanParsePrefetchConcurrency(settings) {
+    if (isYouTubeVisibleScanHost()) return YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH;
+    return hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
   }
   function isNarrowVisibleScanViewport() {
     return typeof window !== "undefined" && window.innerWidth > 0 && window.innerWidth <= VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH;
@@ -41600,7 +38463,7 @@ ${glossaryKey}`;
     updatePopoverWordPills(popover, card, metaEntries, ankiLookup) {
       updateHeadingWordPills(popover, {
         card,
-        jpdbUrl: jpdbVocabularyUrl$2(card),
+        jpdbUrl: jpdbVocabularyUrl$1(card),
         settings: this.settings,
         metaEntries,
         ankiLookup,
@@ -42258,8 +39121,8 @@ ${glossaryKey}`;
         jitenVocabularyInfo,
         extraSectionsOrOptions,
         jpdbLanguage: this.settings.interfaceLanguage,
-        renderTranslationSource: (renderSentence2) => this.studySources.renderTranslationSource(renderSentence2),
-        renderGrammarSource: (renderSentence2) => this.studySources.renderGrammarSource(renderSentence2),
+        renderTranslationSource: (renderSentence) => this.studySources.renderTranslationSource(renderSentence),
+        renderGrammarSource: (renderSentence) => this.studySources.renderGrammarSource(renderSentence),
         renderImmersionSource: () => renderDefinitionSourceImmersionMount(
           this.settings,
           (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded)

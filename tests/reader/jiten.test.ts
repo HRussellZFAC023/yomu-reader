@@ -904,6 +904,18 @@ describe('JitenApiClient', () => {
         expect(rendered).toContain('university; college');
         expect(rendered).not.toContain('No Jiten definitions');
         expect(empty).toBe('');
+
+        const mount = document.createElement('div');
+        mount.innerHTML = rendered;
+        const headword = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-headword .jpdb-reader-word[data-expression="大学"]');
+        expect(headword).not.toBeNull();
+        expect(headword?.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(headword?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(headword?.dataset.dictionary).toBe('Jiten');
+        expect(headword?.dataset.vid).toBe('321');
+        expect(headword?.dataset.sid).toBe('0');
+        expect(headword?.dataset.reading).toBe('だいがく');
+        expect(headword?.querySelector('rt')?.textContent).toBe('だいがく');
     });
 });
 

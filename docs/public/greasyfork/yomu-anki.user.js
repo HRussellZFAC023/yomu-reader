@@ -1,5 +1,16 @@
 (function() {
   "use strict";
+  async function runLimited(items, concurrency, worker) {
+    if (!items.length) return;
+    const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
+    let nextIndex = 0;
+    await Promise.all(Array.from({ length: workerCount }, async () => {
+      while (nextIndex < items.length) {
+        const index = nextIndex++;
+        await worker(items[index], index);
+      }
+    }));
+  }
   const CORE_COLOR_TOKENS = {
     white: "#ffffff"
   };
@@ -11,16 +22,149 @@
     warn: "#a15c00",
     error: "#b91c1c"
   };
-  initialWindowMethod("dispatchEvent");
-  initialWindowMethod("addEventListener");
-  initialWindowMethod("removeEventListener");
+  const ANKI_CARD_COLOR_TOKENS = {
+    text: "#f4f7fb",
+    background: "#15181e",
+    muted: "#bac3d0",
+    sentenceBorder: "#323843",
+    sentenceBackground: "#1e232b",
+    sentenceText: "#d8dee8",
+    highlight: "#7ad119",
+    sectionBorder: "#303641",
+    sectionBackground: "#1b2028",
+    headingText: "#c2cad7",
+    labelText: "#92a0b3",
+    expressionText: CORE_COLOR_TOKENS.white,
+    readingText: "#aab4c2",
+    chipBorder: "#4b5565",
+    chipText: "#cdd5e1",
+    metaLabelText: "#8f9aaa",
+    tableBorder: "#353c47"
+  };
+  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  function createWindowCustomEvent(type, detail, init = {}) {
+    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+    const documentEvent = createDocumentCustomEvent(type, eventInit);
+    if (documentEvent) return documentEvent;
+    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+    if (CustomEventConstructor) {
+      try {
+        return new CustomEventConstructor(type, eventInit);
+      } catch {
+      }
+    }
+    throw new Error(`Unable to create window custom event: ${type}`);
+  }
+  function cloneCustomEventDetail(detail) {
+    if (detail === void 0 || typeof window === "undefined") return detail;
+    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+  }
+  function dispatchWindowEvent(event) {
+    const target = window;
+    const directDispatch = readMethod(target, "dispatchEvent");
+    const directResult = callEventTargetMethod(directDispatch, target, event);
+    if (directResult.called) return directResult.result;
+    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+    if (initialResult.called) return initialResult.result;
+    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+    if (prototypeResult.called) return prototypeResult.result;
+    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+    if (unshadowedResult.called) return unshadowedResult.result;
+    return false;
+  }
+  function addWindowEventListener(type, listener, options) {
+    const target = window;
+    const directAdd = readMethod(target, "addEventListener");
+    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function removeWindowEventListener(type, listener, options) {
+    const target = window;
+    const directRemove = readMethod(target, "removeEventListener");
+    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
   function initialWindowMethod(key) {
     if (typeof window === "undefined") return void 0;
     return readMethod(window, key);
   }
+  function dispatchWithPrototypeMethod(target, directDispatch, event) {
+    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+      if (prototypeDispatch === directDispatch) continue;
+      const result = callEventTargetMethod(prototypeDispatch, target, event);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+      if (prototypeAdd === directAdd) continue;
+      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+      if (prototypeRemove === directRemove) continue;
+      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function eventConstructor(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function createDocumentCustomEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("CustomEvent");
+      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+      return event;
+    } catch {
+      return void 0;
+    }
+  }
+  function eventTargetPrototypeMethods(target, key) {
+    const methods = [];
+    const add = (method) => {
+      if (method && !methods.includes(method)) methods.push(method);
+    };
+    let prototype = Object.getPrototypeOf(target);
+    while (prototype) {
+      add(readOwnMethod(prototype, key));
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    const WindowEventTarget = readProperty(window, "EventTarget");
+    add(readMethod(WindowEventTarget?.prototype, key));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+    return methods;
+  }
   function readMethod(source, key) {
     const value = readProperty(source, key);
     return typeof value === "function" ? value : void 0;
+  }
+  function readOwnMethod(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+    return readMethod(source, key);
   }
   function readProperty(source, key) {
     if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
@@ -30,6 +174,81 @@
       return void 0;
     }
   }
+  function callEventTargetMethod(method, target, event) {
+    if (!method) return { called: false };
+    try {
+      return { called: true, result: method.call(target, event) };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callAddEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callRemoveEventListener$1(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callWithUnshadowedWindowDispatch(event) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("dispatchEvent", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("addEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("addEventListener", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("removeEventListener", descriptor);
+    }
+  }
+  function restoreWindowProperty(key, descriptor) {
+    try {
+      const target = window.wrappedJSObject || window;
+      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+    } catch {
+    }
+  }
+  function pageCompartmentDescriptor(descriptor, _target) {
+    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+  }
   function pageCompartmentValue(value, options = {}) {
     const cloneInto = readMethod(globalThis, "cloneInto");
     if (!cloneInto || typeof window === "undefined") return value;
@@ -37,6 +256,41 @@
       return cloneInto(value, window, options);
     } catch {
       return value;
+    }
+  }
+  function safeWindowPropertyDescriptor(key) {
+    try {
+      const target = window.wrappedJSObject || window;
+      return Object.getOwnPropertyDescriptor(target, key);
+    } catch {
+      return void 0;
+    }
+  }
+  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+    if (!descriptor) return false;
+    try {
+      return typeof descriptor.value !== "function";
+    } catch {
+      return false;
+    }
+  }
+  function normalizedPropertyDescriptor(descriptor) {
+    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+    if (!hasDataShape || !hasAccessorShape) return descriptor;
+    try {
+      return {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        value: descriptor.value,
+        writable: descriptor.writable
+      };
+    } catch {
+      return {
+        configurable: true,
+        value: void 0,
+        writable: true
+      };
     }
   }
   let trustedHtmlPolicy;
@@ -98,6 +352,24 @@
     "jpdb-reader-",
     "jpdb-popup-reader-"
   ];
+  async function gmStorageGet(key, fallback) {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
+      try {
+        const value = await getValue(key, MISSING);
+        if (value !== MISSING) return value;
+        const migrated = localStorageGet(key, MISSING);
+        if (migrated !== MISSING) {
+          await gmStorageSet(key, migrated);
+          return migrated;
+        }
+        return fallback;
+      } catch (error) {
+        debugStorageError("GM storage read failed", key, error);
+      }
+    }
+    return localStorageGet(key, fallback);
+  }
   function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
@@ -203,6 +475,11 @@
   }
   function isPromiseLike(value) {
     return Boolean(value) && typeof value.then === "function";
+  }
+  function asyncGmGetValue() {
+    if (typeof GM_getValue === "function") return GM_getValue;
+    const modern = globalThis.GM?.getValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
   }
   function asyncGmSetValue() {
     if (typeof GM_setValue === "function") return GM_setValue;
@@ -564,6 +841,746 @@
   }
   function formatPartOfSpeechDetails(tags = []) {
     return tags.length ? tags.join(", ").toUpperCase() : "";
+  }
+  const DEFAULT_YOMU_PUBLIC_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev";
+  const BUILT_IN_PROXY_BUILDERS = [
+    (targetUrl) => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""
+  ];
+  const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
+  const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
+  const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
+    /^(?:0|10|127)\./,
+    /^169\.254\./,
+    /^192\.168\./,
+    /^172\.(?:1[6-9]|2\d|3[0-1])\./
+  ];
+  const PRIVATE_IPV6_HOSTNAME_PREFIXES = ["fc", "fd", "fe80:"];
+  const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
+    "apiv2express.immersionkit.com",
+    "apiv2.immersionkit.com"
+  ]);
+  const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = /* @__PURE__ */ new Set([
+    "d1pra95f92lrn3.cloudfront.net",
+    "d1vjc5dkcd3yh2.cloudfront.net"
+  ]);
+  const SPECIALIZED_PROXY_ROUTE_RULES = [
+    {
+      method: "GET",
+      route: "jisho-search",
+      matches: (target) => target.hostname === "jisho.org" && target.pathname.startsWith("/search/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php"
+    },
+    {
+      method: "POST",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post"
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => isKnownCorsBlockedPublicAudioCdnUrl(target)
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")
+    },
+    {
+      method: "GET",
+      route: "yomu-public-only",
+      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse")
+    }
+  ];
+  function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
+    const proxyUrl = configuredProxyUrl.trim();
+    if (!proxyUrl) return null;
+    try {
+      const url = new URL(proxyUrl);
+      url.searchParams.set("url", targetUrl);
+      return url.href;
+    } catch {
+      return null;
+    }
+  }
+  function isProxySafeRequest(targetUrl, options) {
+    return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
+  }
+  function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
+    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && (isHostedGithubPagesApp() || isAppleTouchBrowser()) && isCrossOriginHttpUrl(targetUrl);
+  }
+  function isKnownCorsBlockedPublicAudioCdnUrl(target) {
+    try {
+      const url = typeof target === "string" ? typeof location === "undefined" ? new URL(target) : new URL(target, location.href) : target;
+      return KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(url.hostname) && url.pathname.startsWith("/audio/");
+    } catch {
+      return false;
+    }
+  }
+  function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isCrossOriginHttpTarget(target) && (specializedProxyRoute(target, requestMethod(options)) || isJpdbPublicLookupTarget(target, requestMethod(options)) || isLocalHostedBrowserCorsTarget(target, requestMethod(options))));
+  }
+  function builtInProxyUrls(targetUrl, options) {
+    const specialized = specializedProxyUrls(targetUrl, options);
+    const candidates = specialized ?? BUILT_IN_PROXY_BUILDERS.map((builder) => builder(targetUrl));
+    return candidates.filter(Boolean);
+  }
+  function isJpdbPublicAudioUrl(targetUrl) {
+    try {
+      const target = new URL(targetUrl, location.href);
+      return target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/") || isKnownCorsBlockedPublicAudioCdnUrl(target);
+    } catch {
+      return false;
+    }
+  }
+  function isYomuPublicProxyUrl(candidateUrl) {
+    try {
+      return new URL(candidateUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    } catch {
+      return false;
+    }
+  }
+  function isKnownDirectCorsTarget(targetUrl) {
+    try {
+      const target = new URL(targetUrl, location.href);
+      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co";
+    } catch {
+      return false;
+    }
+  }
+  function isJpdbPublicLookupTarget(target, method) {
+    return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
+  }
+  function isLocalHostedBrowserCorsTarget(target, method) {
+    return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
+  }
+  function specializedProxyUrls(targetUrl, options) {
+    const target = fetchTarget(targetUrl);
+    const route = target ? specializedProxyRoute(target, requestMethod(options)) : null;
+    if (!target || !route) return null;
+    const proxyTargetUrl = target.href;
+    if (route === "jisho-search") {
+      return [
+        yomuPublicProxyUrl(proxyTargetUrl)
+      ];
+    }
+    return [yomuPublicProxyUrl(proxyTargetUrl)];
+  }
+  function specializedProxyRoute(target, method) {
+    return SPECIALIZED_PROXY_ROUTE_RULES.find((rule) => rule.method === method && rule.matches(target))?.route ?? null;
+  }
+  function yomuPublicProxyUrl(targetUrl) {
+    return configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? "";
+  }
+  function isHostedGithubPagesApp() {
+    if (typeof location === "undefined") return false;
+    try {
+      const current = new URL(location.href);
+      return current.origin === GITHUB_PAGES_ORIGIN && current.pathname.replace(/\/index\.html$/, "/").startsWith(`/${APP_REPOSITORY_NAME}/`);
+    } catch {
+      return false;
+    }
+  }
+  function isLocalHostedApp() {
+    if (typeof location === "undefined") return false;
+    return ["127.0.0.1", "localhost", "::1"].includes(location.hostname);
+  }
+  function isCrossOriginHttpUrl(targetUrl) {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isCrossOriginHttpTarget(target));
+  }
+  function isCrossOriginHttpTarget(target) {
+    return typeof location !== "undefined" && /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+  }
+  function fetchTarget(targetUrl) {
+    try {
+      return typeof location === "undefined" ? new URL(targetUrl) : new URL(targetUrl, location.href);
+    } catch {
+      return null;
+    }
+  }
+  function requestMethod(options) {
+    return String(options.method ?? "GET").toUpperCase();
+  }
+  function hasSensitiveRequestHeaders(headers) {
+    if (!headers) return false;
+    if (headers instanceof Headers) {
+      return Array.from(headers.keys()).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+    }
+    if (Array.isArray(headers)) return headers.some(([header]) => SENSITIVE_REQUEST_KEY_RE.test(header));
+    return Object.keys(headers).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+  }
+  function hasCredentialedRequest(credentials) {
+    return credentials === "include";
+  }
+  function isPrivateJpdbTarget(targetUrl, options) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      if (url.hostname !== "jpdb.io") return false;
+      if (!isReadMethod(options.method)) return true;
+      return url.pathname.startsWith("/api/") || /^\/(?:prioritize|review|settings|login)(?:\/|$)/.test(url.pathname);
+    } catch {
+      return false;
+    }
+  }
+  function isPrivateNetworkTarget(targetUrl) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      return isPrivateHostname(url.hostname);
+    } catch {
+      return false;
+    }
+  }
+  function isPrivateHostname(hostname) {
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    return isLocalhostHostname(host) || isPrivateIpv4Hostname(host) || isPrivateIpv6Hostname(host);
+  }
+  function isLocalhostHostname(host) {
+    return host === "localhost" || host.endsWith(".localhost");
+  }
+  function isPrivateIpv4Hostname(host) {
+    return PRIVATE_IPV4_HOSTNAME_PATTERNS.some((pattern) => pattern.test(host));
+  }
+  function isPrivateIpv6Hostname(host) {
+    if (!host.includes(":")) return false;
+    return host === "::1" || PRIVATE_IPV6_HOSTNAME_PREFIXES.some((prefix) => host.startsWith(prefix));
+  }
+  function hasSensitiveUrlParams(targetUrl) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      return Array.from(url.searchParams.keys()).some((key) => SENSITIVE_REQUEST_KEY_RE.test(key));
+    } catch {
+      return false;
+    }
+  }
+  function isReadMethod(method) {
+    return READ_METHODS.has(String(method ?? "GET").toUpperCase());
+  }
+  async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
+    const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
+    if (!candidates.length) throw new Error("Cross-origin request needs a configured proxy or userscript HTTP bridge.");
+    let lastError;
+    for (const [index, candidate] of candidates.entries()) {
+      try {
+        const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
+        const response = await fetchWithTimeout(attempt.url, attempt.options);
+        if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
+          lastError = new Error(`Proxy request failed (${response.status}).`);
+          continue;
+        }
+        return response;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
+  }
+  function fetchAttemptForCandidate(targetUrl, candidate, options) {
+    if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
+      return { url: candidate.url, options };
+    }
+    return {
+      url: proxyControlUrl(candidate.url, options.headers),
+      options: {
+        ...options,
+        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
+      }
+    };
+  }
+  function proxyControlUrl(candidateUrl, headers) {
+    const forceCaf = headerValue(headers, "x-forcecaf");
+    if (!forceCaf) return candidateUrl;
+    try {
+      const url = new URL(candidateUrl);
+      url.searchParams.set("x-forcecaf", forceCaf);
+      return url.href;
+    } catch {
+      return candidateUrl;
+    }
+  }
+  function stripProxyOnlyHeaders(headers, names) {
+    if (!headers) return headers;
+    const excluded = new Set(names.map((name) => name.toLowerCase()));
+    const sanitized = {};
+    new Headers(headers).forEach((value, key) => {
+      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
+    });
+    return Object.keys(sanitized).length ? sanitized : void 0;
+  }
+  function headerValue(headers, name) {
+    if (!headers) return "";
+    return new Headers(headers).get(name) ?? "";
+  }
+  function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
+    const direct = directFetchUrl(targetUrl, options);
+    const proxySafe = isProxySafeRequest(targetUrl, options);
+    const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl) : null;
+    const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
+    const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
+    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
+    const proxyCandidates = [
+      configured ? { url: configured, kind: "configured-proxy" } : null,
+      ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
+    ].filter((candidate) => Boolean(candidate));
+    const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
+    return uniqueFetchCandidates([
+      ...orderedCandidates
+    ]);
+  }
+  function directFetchUrl(targetUrl, options) {
+    if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
+    if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    return targetUrl;
+  }
+  function uniqueFetchCandidates(candidates) {
+    const seen = /* @__PURE__ */ new Set();
+    return candidates.filter((candidate) => {
+      if (!candidate || seen.has(candidate.url)) return false;
+      seen.add(candidate.url);
+      return true;
+    });
+  }
+  function shouldTryNextFetchCandidate(response, _candidate, index, candidates) {
+    return !response.ok && response.status !== 429 && index < candidates.length - 1;
+  }
+  function browserReadableUrl(url) {
+    if (!isHttpUrl$1(url)) return url;
+    try {
+      const target = new URL(url, location.href);
+      return target.origin === location.origin ? target.href : null;
+    } catch {
+      return null;
+    }
+  }
+  function isHttpUrl$1(url) {
+    return /^https?:\/\//i.test(url);
+  }
+  function fetchWithTimeout(url, options) {
+    const {
+      timeoutMs,
+      allowPublicProxies: _allowPublicProxies,
+      allowConfiguredProxy: _allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
+      allowDirectCrossOrigin: _allowDirectCrossOrigin,
+      signal,
+      ...init
+    } = options;
+    if (!timeoutMs) return fetch(url, { ...init, signal });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
+      window.clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+    });
+  }
+  function bridgeResponseEventDetail(event) {
+    const detail = normalizedBridgeEventDetail(event);
+    const id = safeReadString(detail, "id");
+    const kind = safeReadString(detail, "kind");
+    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+    return {
+      id,
+      kind,
+      response: safeReadProperty(detail, "response"),
+      message: safeReadString(detail, "message")
+    };
+  }
+  function bridgeEventDetail(detail) {
+    if (detail === void 0) return void 0;
+    const json = bridgeEventJsonDetail(detail);
+    return json ?? detail;
+  }
+  function bridgeEventJsonDetail(detail) {
+    let unsupported = false;
+    try {
+      const json = JSON.stringify(detail, (_key, value) => {
+        if (isUnsupportedBridgeJsonValue(value)) {
+          unsupported = true;
+          return void 0;
+        }
+        return value;
+      });
+      return unsupported || typeof json !== "string" ? void 0 : json;
+    } catch {
+      return void 0;
+    }
+  }
+  function normalizedBridgeEventDetail(event) {
+    const detail = safeEventDetail(event);
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function isUnsupportedBridgeJsonValue(value) {
+    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+  }
+  function isUnsupportedPrimitiveBridgeJsonValue(value) {
+    return typeof value === "function" || typeof value === "symbol";
+  }
+  function isArrayBufferBridgeJsonValue(value) {
+    if (typeof ArrayBuffer === "undefined") return false;
+    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+  }
+  function isBlobBridgeJsonValue(value) {
+    return typeof Blob !== "undefined" && value instanceof Blob;
+  }
+  function isFormDataBridgeJsonValue(value) {
+    return typeof FormData !== "undefined" && value instanceof FormData;
+  }
+  function safeEventDetail(event) {
+    try {
+      return event.detail;
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadString(source, key) {
+    const value = safeReadProperty(source, key);
+    return typeof value === "string" ? value : void 0;
+  }
+  function userscriptRequestCandidates() {
+    const candidates = [];
+    const add = (request, thisArg) => {
+      candidates.push({ request, thisArg });
+    };
+    const direct = directUserscriptGlobals();
+    add(direct.GM_xmlhttpRequest, globalThis);
+    add(direct.GM?.xmlHttpRequest, direct.GM);
+    add(direct.GM?.xmlhttpRequest, direct.GM);
+    for (const source of userscriptRequestSources()) {
+      add(readSourceProperty(source, "GM_xmlhttpRequest"), source);
+      const gm = readSourceProperty(source, "GM");
+      add(readSourceProperty(gm, "xmlHttpRequest"), gm);
+      add(readSourceProperty(gm, "xmlhttpRequest"), gm);
+    }
+    return candidates;
+  }
+  function asUserscriptRequest(value) {
+    return typeof value === "function" ? value : void 0;
+  }
+  function directUserscriptGlobals() {
+    return {
+      GM_xmlhttpRequest: typeof GM_xmlhttpRequest === "function" ? GM_xmlhttpRequest : void 0,
+      GM: typeof GM === "object" && GM ? GM : void 0
+    };
+  }
+  function userscriptRequestSources() {
+    const sources = [];
+    const seen = /* @__PURE__ */ new Set();
+    const add = (value) => {
+      if (!isRequestSource(value) || seen.has(value)) return;
+      seen.add(value);
+      sources.push(value);
+    };
+    for (const mounted of mountedMonkeyWindows()) add(mounted);
+    add(globalThis);
+    if (typeof window !== "undefined") add(window);
+    return sources;
+  }
+  function mountedMonkeyWindows() {
+    if (typeof document === "undefined") return [];
+    return Object.getOwnPropertyNames(document).filter((key) => key.startsWith("__monkeyWindow-")).map((key) => readSourceProperty(document, key)).filter(isRequestSource);
+  }
+  function isRequestSource(value) {
+    return Boolean(value) && (typeof value === "object" || typeof value === "function");
+  }
+  function readSourceProperty(source, key) {
+    if (!isRequestSource(source)) return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
+  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
+  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
+  const BRIDGE_TIMEOUT_MS = 3e4;
+  function getUserscriptHttpRequest() {
+    for (const candidate of userscriptRequestCandidates()) {
+      const request = asUserscriptRequest(candidate.request);
+      if (request) {
+        return request.bind(candidate.thisArg);
+      }
+    }
+    return userscriptHttpEventBridge();
+  }
+  function userscriptHttpEventBridge() {
+    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+    return (options) => new Promise((resolve, reject) => {
+      const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        options.ontimeout?.();
+        reject(new Error("Request timed out."));
+      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
+      let cleanupBridgeResponseListener = noop;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        cleanupBridgeResponseListener();
+      };
+      const onResponse = (event) => {
+        handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
+      };
+      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+    });
+  }
+  function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
+    const detail = bridgeResponseEventDetail(event);
+    if (!detail || detail.id !== id) return;
+    cleanup();
+    if (detail.kind === "load" && detail.response) {
+      options.onload?.(detail.response);
+      resolve(detail.response);
+      return;
+    }
+    rejectBridgeResponse(detail, options, reject);
+  }
+  function rejectBridgeResponse(detail, options, reject) {
+    const message = detail.message || "Request failed.";
+    if (detail.kind === "timeout") options.ontimeout?.();
+    else options.onerror?.(new Error(message));
+    reject(new Error(message));
+  }
+  function addBridgeEventListener(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget && callAddEventListener(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent(type, detail) {
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+    const documentTarget = bridgeDocumentTarget();
+    if (documentTarget) {
+      dispatched = callDispatchEvent(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
+  }
+  function callAddEventListener(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function noop() {
+  }
+  async function requestHttp(url, options = {}) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
+      try {
+        return await requestViaFetch(url, options);
+      } catch (error) {
+        if (!userscriptRequest) throw error;
+        return await requestViaUserscript(url, options, userscriptRequest);
+      }
+    }
+    if (userscriptRequest) {
+      try {
+        return await requestViaUserscript(url, options, userscriptRequest);
+      } catch (error) {
+        if (!shouldRetryWithFetch(error)) throw error;
+      }
+    }
+    return requestViaFetch(url, options);
+  }
+  function requestViaUserscript(url, options, userscriptRequest) {
+    return new Promise((resolve, reject) => {
+      const signal = options.signal;
+      if (signal?.aborted) {
+        reject(abortError());
+        return;
+      }
+      let handle;
+      const tryAbort = () => {
+        try {
+          handle?.abort?.();
+        } catch {
+        }
+      };
+      const handleLoad = (response) => {
+        if (response.status < 200 || response.status >= 300) {
+          reject(new Error(formatStatusFailure(options, response.status)));
+          return;
+        }
+        try {
+          resolve(normalizeUserscriptResponse(response, options.responseType ?? "text"));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      const onAbort = () => {
+        tryAbort();
+        reject(abortError());
+      };
+      if (signal) signal.addEventListener("abort", onAbort, { once: true });
+      const result = userscriptRequest({
+        method: options.method ?? "GET",
+        url,
+        headers: recordHeaders(options.headers),
+        data: options.data,
+        responseType: options.responseType,
+        timeout: options.timeoutMs,
+        anonymous: options.anonymous,
+        withCredentials: options.withCredentials,
+        cookie: options.cookie,
+        onload: handleLoad,
+        onerror: (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))),
+        ontimeout: () => {
+          tryAbort();
+          reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`));
+        }
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+      } else if (result && typeof result.abort === "function") {
+        handle = result;
+      }
+    });
+  }
+  function abortError() {
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
+  }
+  function normalizeUserscriptResponse(response, responseType) {
+    return USERSCRIPT_RESPONSE_NORMALIZERS[responseType]?.(response) ?? userscriptTextResponse(response);
+  }
+  const USERSCRIPT_RESPONSE_NORMALIZERS = {
+    blob: (response) => response.response,
+    arraybuffer: (response) => response.response,
+    json: userscriptJsonResponse,
+    text: userscriptTextResponse
+  };
+  function userscriptJsonResponse(response) {
+    return response.response !== void 0 && typeof response.response !== "string" ? response.response : JSON.parse(String(response.responseText ?? response.response ?? "null"));
+  }
+  function userscriptTextResponse(response) {
+    return String(response.responseText ?? response.response ?? "");
+  }
+  async function requestViaFetch(url, options) {
+    const response = await fetchWithCorsFallbacks(url, options.proxyUrl ?? "", {
+      method: options.method ?? "GET",
+      headers: options.headers,
+      body: options.data,
+      credentials: options.credentials ?? "omit",
+      redirect: options.redirect ?? "follow",
+      referrerPolicy: options.referrerPolicy ?? "no-referrer",
+      timeoutMs: options.timeoutMs,
+      allowConfiguredProxy: options.allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
+      allowPublicProxies: options.allowPublicProxies,
+      allowDirectCrossOrigin: options.allowDirectCrossOrigin,
+      signal: options.signal
+    });
+    if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
+    return readFetchResponseBody(response, options.responseType);
+  }
+  function readFetchResponseBody(response, responseType) {
+    return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
+  }
+  const FETCH_RESPONSE_READERS = {
+    blob: (response) => response.blob(),
+    arraybuffer: (response) => response.arrayBuffer(),
+    json: (response) => response.json(),
+    text: (response) => response.text()
+  };
+  function formatFailure(options) {
+    return options.failureMessage ?? `${options.failureLabel ?? "Request"} failed.`;
+  }
+  function formatStatusFailure(options, status) {
+    return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+  }
+  function isSameOriginUrl(url) {
+    if (typeof location === "undefined") return false;
+    try {
+      return new URL(url, location.href).origin === location.origin;
+    } catch {
+      return false;
+    }
+  }
+  function shouldRetryWithFetch(error) {
+    if (!(error instanceof Error)) return true;
+    if (/\(\d{3}\)/.test(error.message)) return false;
+    if (/timed out|timeout/i.test(error.message)) return false;
+    return /network|cors|blocked|request failed/i.test(error.message);
+  }
+  function recordHeaders(headers) {
+    if (!headers) return void 0;
+    if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+    if (Array.isArray(headers)) return Object.fromEntries(headers);
+    return headers;
+  }
+  async function requestText(url, options = {}) {
+    const value = await requestHttp(url, { ...options, responseType: "text" });
+    return typeof value === "string" ? value : String(value ?? "");
+  }
+  async function requestBlob(url, options = {}) {
+    const value = await requestHttp(url, { ...options, responseType: "blob" });
+    if (value instanceof Blob) return value;
+    if (isBlobLike(value)) return new Blob([await value.arrayBuffer()], { type: value.type });
+    throw new Error(options.blobFailureMessage ?? `${options.failureLabel ?? "Request"} did not return a blob.`);
+  }
+  function isBlobLike(value) {
+    return Boolean(value && typeof value === "object" && typeof value.arrayBuffer === "function" && typeof value.type === "string");
   }
   const COPY = {
     en: {
@@ -3431,6 +4448,85 @@ recommendedJiten	jiten.moe頻度データです。
     return grouped;
   }
   const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE = "AnkiConnect needs the userscript request bridge for cross-origin endpoints.";
+  async function postAnkiJson(url, body, timeoutMs) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
+    if (!canDirectFetchAnkiConnect(url)) {
+      return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
+    }
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    return await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: controller.signal
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
+      return response.json();
+    }).catch((error) => {
+      if (error instanceof DOMException && error.name === "AbortError") throw new Error("AnkiConnect timed out.");
+      throw error;
+    }).finally(() => {
+      window.clearTimeout(timeoutId);
+    });
+  }
+  function hasUserscriptAnkiBridge() {
+    return Boolean(getUserscriptHttpRequest());
+  }
+  function isAnkiConnectAvailabilityError(error) {
+    if (error instanceof Error && error.cause && error.cause !== error) {
+      return isAnkiConnectAvailabilityError(error.cause);
+    }
+    if (!(error instanceof Error)) return false;
+    return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
+  }
+  function postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const handleLoad = (response) => {
+        if (response.status >= 200 && response.status < 300) resolve(response.response);
+        else reject(new Error(`AnkiConnect request failed (${response.status}).`));
+      };
+      const result = userscriptRequest({
+        method: "POST",
+        url,
+        headers: { "Content-Type": "application/json" },
+        data: body,
+        responseType: "json",
+        timeout: timeoutMs,
+        onload: handleLoad,
+        onerror: (error) => reject(error instanceof Error ? error : new Error("AnkiConnect request failed.")),
+        ontimeout: () => reject(new Error("AnkiConnect timed out."))
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, reject);
+      }
+    });
+  }
+  function canDirectFetchAnkiConnect(url) {
+    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$1());
+  }
+  function canDirectFetchAnkiConnectFrom(url, currentHref) {
+    const current = readAnkiUrl(currentHref);
+    if (!current) return false;
+    const target = readAnkiUrl(url, current.href);
+    if (!target || !isHttpUrl(target)) return false;
+    return target.origin === current.origin;
+  }
+  function readAnkiUrl(value, base) {
+    try {
+      return new URL(value, base);
+    } catch {
+      return null;
+    }
+  }
+  function isHttpUrl(url) {
+    return url.protocol === "http:" || url.protocol === "https:";
+  }
+  function safeLocationHref$1() {
+    return typeof location === "undefined" ? "" : location.href;
+  }
   const ankiFieldNames = (names) => names.split("|");
   const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
     "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
@@ -3438,8 +4534,8 @@ recommendedJiten	jiten.moe頻度データです。
   const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
     "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
   );
-  ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-  [
+  const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+  const ANKI_HEADWORD_FIELD_NAMES = [
     ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
     "Expression Reading",
     "Japanese Expression",
@@ -3473,6 +4569,21 @@ recommendedJiten	jiten.moe頻度データです。
     audio: ANKI_AUDIO_FIELD_NAMES,
     image: ANKI_IMAGE_FIELD_NAMES
   };
+  function scanAnkiModelFields(modelName, fields, sampleNotes = []) {
+    const usedFields = /* @__PURE__ */ new Set();
+    const samples = ankiFieldContentSamples(fields, sampleNotes);
+    const suggestions = Object.keys(ANKI_FIELD_ROLE_CANDIDATES).map((role) => {
+      const suggestion = suggestAnkiField(role, fields, usedFields, samples);
+      if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
+      return suggestion;
+    });
+    return {
+      modelName,
+      fields,
+      suggestions,
+      score: ankiModelScanScore(suggestions)
+    };
+  }
   function suggestAnkiField(role, fields, usedFields, samples = {}) {
     const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
     const availableFields = fields.filter((field) => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
@@ -3525,10 +4636,33 @@ recommendedJiten	jiten.moe頻度データです。
     const normalizedFieldName = normalizeAnkiFieldName(fieldName);
     return fieldNames.find((candidate) => normalizeAnkiFieldName(candidate) === normalizedFieldName) ?? "";
   }
+  function ankiFieldMappingsSettingsKey(mappings) {
+    const normalized = {};
+    for (const modelName of Object.keys(mappings ?? {}).sort()) {
+      const mapping = mappings?.[modelName];
+      if (!mapping) continue;
+      const modelMapping = {};
+      for (const role of ANKI_FIELD_ROLES) {
+        const fieldName = mapping[role]?.trim();
+        if (fieldName) modelMapping[role] = fieldName;
+      }
+      if (Object.keys(modelMapping).length) normalized[modelName] = modelMapping;
+    }
+    return normalized;
+  }
   function fieldNameForRole(fieldNames, role, mapping) {
     const mapped = mappedFieldName(fieldNames, mapping, role);
     if (mapped) return mapped;
     return suggestAnkiField(role, fieldNames, /* @__PURE__ */ new Set()).fieldName ?? "";
+  }
+  function mappedRoleForField(fieldName, mapping) {
+    if (!mapping) return null;
+    const normalized = normalizeAnkiFieldName(fieldName);
+    for (const role of ANKI_FIELD_ROLES) {
+      const mapped = mapping[role];
+      if (mapped && normalizeAnkiFieldName(mapped) === normalized) return role;
+    }
+    return null;
   }
   function yomuFieldForRole(role) {
     return {
@@ -3540,11 +4674,54 @@ recommendedJiten	jiten.moe頻度データです。
       image: "Image"
     }[role];
   }
+  function flattenNoteFields(fields) {
+    const out = {};
+    Object.entries(fields ?? {}).forEach(([name, value]) => {
+      out[name] = stripHtml$1(String(value?.value ?? ""));
+    });
+    return out;
+  }
+  function noteLooksLikeCard(note, card, settings) {
+    const fields = flattenNoteFields(note.fields);
+    const mapping = settings ? ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields)) : void 0;
+    const expressionTargets = noteCardExpressionTargets(card);
+    return noteHasExactTarget(fields, expressionTargets) || noteExpressionContainsTarget(fields, expressionTargets, mapping) || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
+  }
+  function noteCardExpressionTargets(card) {
+    return unique$3([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+  }
+  function noteFieldValues(fields) {
+    return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
+  }
+  function firstNoteReading(fields) {
+    return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
+  }
+  function firstNoteExpressionValue(fields, mapping) {
+    return noteExpressionCandidates(fields, mapping)[0]?.value ?? "";
+  }
+  function mappedNoteField(fields, mapping, role) {
+    const fieldName = mappedFieldName(Object.keys(fields), mapping, role);
+    return fieldName ? fields[fieldName] ?? "" : "";
+  }
+  function lookupKeyTermsForCard(card) {
+    return unique$3([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+  }
+  function isKanaStatusLookupSurface(value) {
+    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
+  }
+  function japaneseFieldContainsStandaloneTarget(value, target) {
+    const normalizedValue = normalizeFieldValue(value);
+    if (normalizedValue === target) return true;
+    return normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some((part) => part === target);
+  }
   function japaneseCharacterCount(value) {
     return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
   }
   function normalizeAnkiFieldName(value) {
     return value.replace(/[_\s-]+/g, "").toLowerCase();
+  }
+  function stripHtml$1(value) {
+    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
   }
   function suggestAnkiFieldFromContent(role, fields, samples) {
     const ranked = fields.map((fieldName) => ({
@@ -3621,6 +4798,17 @@ recommendedJiten	jiten.moe頻度データです。
     if (/\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#"'\s>]|$)/.test(value)) return 75;
     return 0;
   }
+  function ankiFieldContentSamples(fields, notes) {
+    const out = Object.fromEntries(fields.map((field) => [field, []]));
+    for (const note of notes) {
+      for (const fieldName of fields) {
+        const raw = String(note.fields?.[fieldName]?.value ?? "");
+        if (!raw.trim()) continue;
+        out[fieldName]?.push({ raw, text: stripHtml$1(raw) });
+      }
+    }
+    return out;
+  }
   function isGenericAnkiFieldName(fieldName) {
     const normalized = normalizeAnkiFieldName(fieldName);
     return /^(?:front|back|primary|secondary|text|field\d+|f\d+)$/.test(normalized);
@@ -3664,10 +4852,123 @@ recommendedJiten	jiten.moe頻度データです。
       return normalizedNames.some((name) => normalized.includes(name));
     }) ?? "";
   }
+  function ankiModelScanScore(suggestions) {
+    return suggestions.reduce((score, suggestion) => {
+      if (!suggestion.fieldName) return score;
+      const roleWeight = suggestion.role === "expression" ? 6 : suggestion.role === "meaning" ? 4 : suggestion.role === "reading" || suggestion.role === "sentence" ? 3 : 1;
+      const confidenceWeight = suggestion.confidence === "high" ? 2 : 1;
+      return score + roleWeight * confidenceWeight;
+    }, 0);
+  }
+  function noteHasExactTarget(fields, exactTargets) {
+    const values = noteFieldValues(fields);
+    return exactTargets.some((target) => values.some((value) => value === target));
+  }
+  function noteExpressionContainsTarget(fields, exactTargets, mapping) {
+    const expressions = noteExpressionCandidates(fields, mapping);
+    return expressions.some((expression) => exactTargets.some(
+      (target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression.value, target) && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target))
+    ));
+  }
+  function firstNoteField(fields, names) {
+    const exact = names.map((name) => fields[name]).find(Boolean);
+    if (exact) return exact;
+    const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
+    return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? "";
+  }
+  function noteReadingContainsTarget(fields, card, mapping, expressionTargets) {
+    const spelling = normalizeFieldValue(card.spelling);
+    const readingTarget = normalizeFieldValue(card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : ""));
+    const expressionValues = noteExpressionValues(fields, mapping);
+    if (expressionValues.length && !expressionValues.some(
+      (expression) => expressionTargets.some((target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target))
+    ) && !isKanaStatusLookupSurface(spelling)) {
+      return false;
+    }
+    const readings = unique$3([
+      mappedNoteField(fields, mapping, "reading"),
+      firstNoteReading(fields)
+    ].filter(Boolean));
+    return Boolean(readingTarget && readingTarget.length >= 2 && readings.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
+  }
+  function noteExpressionValues(fields, mapping) {
+    return unique$3(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
+  }
+  function noteExpressionCandidates(fields, mapping) {
+    const candidates = [];
+    const mapped = mappedNoteField(fields, mapping, "expression");
+    if (mapped) candidates.push({ value: mapped, generic: false });
+    const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
+    if (headword) candidates.push({ value: headword, generic: false });
+    const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
+    if (generic) candidates.push({ value: generic, generic: true });
+    const seen = /* @__PURE__ */ new Set();
+    return candidates.filter((candidate) => {
+      const key = normalizeFieldValue(candidate.value);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function genericExpressionLooksLikeHeadword(value, target) {
+    const normalizedValue = normalizeFieldValue(value);
+    if (normalizedValue === target) return true;
+    if (/[。！？!?]/u.test(normalizedValue)) return false;
+    return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
+  }
   function normalizeFieldValue(value) {
     return value.replace(/\s+/g, " ").trim();
   }
-  function ankiMediaFilenameFromCardUrl(value) {
+  function unique$3(items) {
+    return [...new Set(items)];
+  }
+  const ANKI_CARD_STATE_PRIORITY = ["failed", "due", "learning", "known", "new", "suspended", "in-deck", "not-in-deck"];
+  function emptyAnkiLookupResult() {
+    return { state: "not-in-deck", notes: [], primary: null };
+  }
+  function untrustedAnkiLookupResult() {
+    return { ...emptyAnkiLookupResult(), trusted: false };
+  }
+  function cardsByNoteId(cards) {
+    const cardsByNote = /* @__PURE__ */ new Map();
+    for (const cardInfo of cards) addCardInfoByNoteId(cardsByNote, cardInfo);
+    return cardsByNote;
+  }
+  function ankiExistingNoteFromInfo(note, noteCards) {
+    for (const noteCard of noteCards) applyComputedAnkiNextReviews(noteCard);
+    const reviewGradeIntervals = reviewGradeIntervalsFromAnkiCards(noteCards);
+    return {
+      noteId: note.noteId,
+      modelName: note.modelName,
+      cardIds: note.cards ?? [],
+      fields: flattenNoteFields(note.fields),
+      renderedCards: ankiRenderedCards(noteCards),
+      tags: note.tags ?? [],
+      ...reviewGradeIntervals ? { reviewGradeIntervals } : {},
+      ...ankiCardDetailSummary(note, noteCards)
+    };
+  }
+  function ankiStatusIndexEntryFromInfo(note, noteCards) {
+    return {
+      noteId: note.noteId,
+      modelName: note.modelName,
+      ...ankiCardDetailSummary(note, noteCards)
+    };
+  }
+  function ankiNoteHasRenderableDetails(note) {
+    if (note.renderedCards?.some((card) => card.question.trim() || card.answer.trim())) return true;
+    return Object.values(note.fields).some((value) => value.trim());
+  }
+  function ankiRenderedCardMediaFilenames(card) {
+    return unique$2([card.question, card.answer].flatMap(ankiCardHtmlMediaFilenames).filter(shouldHydrateRenderedAnkiMedia));
+  }
+  function ankiCardTemplateLabel(card) {
+    const explicit = [card.cardName, card.card, card.template, card.name].map((value) => typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "").find(Boolean);
+    if (explicit) return explicit;
+    const ordinal = Number(card.ord);
+    return Number.isInteger(ordinal) && ordinal >= 0 ? `Card ${ordinal + 1}` : "";
+  }
+  function ankiMediaFilenameFromCardUrl$1(value) {
     const trimmed = value.trim();
     if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("/") || trimmed.startsWith("\\")) return null;
     if (/^(?:https?|data|blob|file|mailto|tel|javascript|vbscript):/i.test(trimmed)) return null;
@@ -3679,11 +4980,2096 @@ recommendedJiten	jiten.moe頻度データです。
       return filename;
     }
   }
-  Logger.scope("Anki");
-  Logger.scope("Anki");
+  function ankiMediaMimeType(filename) {
+    const extension = filename.split(".").pop()?.toLowerCase() ?? "";
+    return ANKI_MEDIA_MIME_TYPES[extension] ?? "audio/mpeg";
+  }
+  function stateFromAnkiCards(cards) {
+    if (!cards.length) return "known";
+    if (cards.some((card) => card.type === 3 || card.queue === 3)) return "failed";
+    if (cards.some(isAnkiCardDue)) return "due";
+    if (cards.some((card) => card.queue === 1 || card.type === 1)) return "learning";
+    if (cards.some((card) => card.queue === 0 || card.type === 0)) return "new";
+    if (cards.every((card) => card.queue === -1)) return "suspended";
+    return "known";
+  }
+  function stateFromExistingNotes(notes) {
+    return ANKI_CARD_STATE_PRIORITY.slice(0, 6).find((state) => notes.some((note) => note.state === state)) ?? (notes.length ? "known" : "not-in-deck");
+  }
+  function pickPrimaryCard(cards) {
+    const order = (card) => {
+      if (card.type === 3 || card.queue === 3) return 0;
+      if (isAnkiCardDue(card)) return 1;
+      if (card.queue === 1 || card.type === 1) return 2;
+      if (card.queue === 0 || card.type === 0) return 3;
+      return 4;
+    };
+    return [...cards].sort((a, b) => order(a) - order(b))[0] ?? null;
+  }
+  function applyComputedAnkiNextReviews(card) {
+    if (Array.isArray(card.nextReviews) && card.nextReviews.length) return;
+    if (card.type !== 2) return;
+    const interval = Number(card.interval);
+    const ease = Number(card.factor) / 1e3;
+    if (!Number.isFinite(interval) || interval <= 0 || !Number.isFinite(ease) || ease <= 0) return;
+    const hard = Math.max(interval * 1.2, interval + 1);
+    const good = Math.max(hard + 1, interval * ease);
+    const easy = Math.max(good + 1, good * 1.3);
+    card.buttons = [2, 3, 4];
+    card.nextReviews = [hard, good, easy].map(formatAnkiIntervalDays);
+  }
+  function formatAnkiIntervalDays(days) {
+    if (days < 30) return `${Math.round(days)}d`;
+    if (days < 365) return `${(days / 30.44).toFixed(1).replace(/\.0$/, "")}mo`;
+    return `${(days / 365.25).toFixed(1).replace(/\.0$/, "")}y`;
+  }
+  function reviewGradeIntervalsFromAnkiCards(cards) {
+    return reviewGradeIntervalsFromAnkiCard(pickPrimaryCard(cards));
+  }
+  function reviewGradeIntervalsFromAnkiCard(card) {
+    const nextReviews = Array.isArray(card?.nextReviews) ? card.nextReviews.map(normalizeAnkiReviewIntervalLabel).filter(Boolean) : [];
+    if (!nextReviews.length) return void 0;
+    const buttons = ankiReviewButtons(card?.buttons, nextReviews.length);
+    const labels = ankiReviewButtonLabels(buttons);
+    const intervals = {};
+    nextReviews.forEach((intervalLabel, index) => {
+      const button = buttons[index];
+      if (!button) return;
+      const buttonLabel = labels[index] ?? ankiReviewButtonLabel(button);
+      const interval = reviewGradeInterval(buttonLabel, intervalLabel);
+      for (const grade of ankiGradesForButton(button)) intervals[grade] = interval;
+    });
+    return Object.keys(intervals).length ? intervals : void 0;
+  }
+  function normalizeAnkiReviewIntervalLabel(value) {
+    return typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
+  }
+  function ankiReviewButtons(value, count) {
+    const explicit = Array.isArray(value) ? value.map(Number).filter((button) => Number.isInteger(button) && button > 0) : [];
+    if (explicit.length === count) return explicit;
+    if (count === 4) return [1, 2, 3, 4];
+    if (count === 3) return [1, 2, 3];
+    if (count === 2) return [1, 2];
+    return Array.from({ length: count }, (_, index) => index + 1);
+  }
+  function ankiReviewButtonLabels(buttons) {
+    if (buttons.length === 3 && buttons.every((button, index) => button === index + 1)) {
+      return ["Again", "Good", "Easy"];
+    }
+    if (buttons.length === 2 && buttons.every((button, index) => button === index + 1)) {
+      return ["Again", "Good"];
+    }
+    return buttons.map(ankiReviewButtonLabel);
+  }
+  function ankiReviewButtonLabel(button) {
+    return ANKI_REVIEW_BUTTON_LABELS[button] ?? `Button ${button}`;
+  }
+  function ankiGradesForButton(button) {
+    return ANKI_GRADES_BY_BUTTON[button] ?? [];
+  }
+  function reviewGradeInterval(buttonLabel, intervalLabel) {
+    return {
+      buttonLabel,
+      intervalLabel,
+      label: `${buttonLabel} ${intervalLabel}`,
+      source: "anki-next-reviews"
+    };
+  }
+  function isAnkiCardDue(card) {
+    if (card.queue !== 2) return false;
+    if (typeof card.isDue === "boolean") return card.isDue;
+    return Number(card.due ?? 0) <= 0;
+  }
+  function pickPrimaryExistingNote(notes) {
+    return [...notes].sort((a, b) => ankiCardStateRank(a.state) - ankiCardStateRank(b.state))[0] ?? null;
+  }
+  function ankiCardStateRank(state) {
+    const index = ANKI_CARD_STATE_PRIORITY.indexOf(state);
+    return index < 0 ? ANKI_CARD_STATE_PRIORITY.length : index;
+  }
+  function addCardInfoByNoteId(cardsByNote, cardInfo) {
+    const noteId = Number(cardInfo.note);
+    if (!Number.isFinite(noteId)) return;
+    const list = cardsByNote.get(noteId) ?? [];
+    list.push(cardInfo);
+    cardsByNote.set(noteId, list);
+  }
+  function ankiRenderedCards(noteCards) {
+    return noteCards.filter((card) => card.question || card.answer).map((card) => {
+      const cardName = ankiCardTemplateLabel(card);
+      return {
+        cardId: card.cardId,
+        deckName: card.deckName,
+        ...cardName ? { cardName } : {},
+        question: String(card.question ?? ""),
+        answer: String(card.answer ?? "")
+      };
+    });
+  }
+  function ankiCardHtmlMediaFilenames(html) {
+    return Array.from(
+      html.matchAll(/\b(?:src|poster)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi),
+      (match) => ankiMediaFilenameFromCardUrl$1(match[1] ?? match[2] ?? match[3] ?? "")
+    ).filter((filename) => Boolean(filename));
+  }
+  function shouldHydrateRenderedAnkiMedia(filename) {
+    return ankiMediaMimeType(filename).startsWith("image/");
+  }
+  function ankiNoteDeckNames(noteCards) {
+    return unique$2(noteCards.map((item) => item.deckName).filter(Boolean));
+  }
+  function ankiNotePrimaryCardId(note, noteCards) {
+    return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
+  }
+  const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
+  function ankiCardDetailSummary(note, noteCards) {
+    return {
+      deckNames: ankiNoteDeckNames(noteCards),
+      primaryCardId: ankiNotePrimaryCardId(note, noteCards),
+      state: ankiNoteState(note, noteCards),
+      ...ankiNoteReviewMetrics(noteCards)
+    };
+  }
+  function ankiNoteState(note, noteCards) {
+    if ((note.tags ?? []).includes(ANKI_NEVER_FORGET_TAG)) return "never-forget";
+    return stateFromAnkiCards(noteCards);
+  }
+  function ankiNoteReviewMetrics(noteCards) {
+    return {
+      reps: sumAnkiCardMetric(noteCards, "reps"),
+      lapses: sumAnkiCardMetric(noteCards, "lapses")
+    };
+  }
+  function sumAnkiCardMetric(cards, metric) {
+    return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
+  }
+  function unique$2(items) {
+    return [...new Set(items)];
+  }
+  const ANKI_MEDIA_MIME_TYPES = {
+    "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "jfif": "image/jpeg",
+    "pjpeg": "image/jpeg",
+    "pjp": "image/jpeg",
+    "webp": "image/webp",
+    "gif": "image/gif",
+    "bmp": "image/bmp",
+    "avif": "image/avif",
+    "svg": "image/svg+xml",
+    "mp3": "audio/mpeg",
+    "wav": "audio/wav",
+    "ogg": "audio/ogg",
+    "oga": "audio/ogg",
+    "opus": "audio/ogg",
+    "webm": "audio/webm",
+    "m4a": "audio/mp4",
+    "mp4": "audio/mp4",
+    "aac": "audio/mp4",
+    "flac": "audio/flac"
+  };
+  const ANKI_REVIEW_BUTTON_LABELS = {
+    1: "Again",
+    2: "Hard",
+    3: "Good",
+    4: "Easy"
+  };
+  const ANKI_GRADES_BY_BUTTON = {
+    1: ["nothing", "fail"],
+    2: ["something", "hard"],
+    3: ["okay", "pass"],
+    4: ["easy"]
+  };
+  const ANKI_STATUS_INDEX_STORAGE_KEY = "yomu:anki-status-index:v1";
+  const ANKI_STATUS_INDEX_VERSION = 1;
+  const ANKI_STATUS_INDEX_COUNT_CHECK_MS = 5 * 60 * 1e3;
+  const ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS = 2 * 60 * 1e3;
+  const ANKI_STATUS_INDEX_MAX_STALE_MS = 30 * 60 * 1e3;
+  const ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE = 500;
+  const ANKI_STATUS_INDEX_NOTE_CONCURRENCY = 3;
+  const ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY = "yomu:anki-status-index-rebuild:v1";
+  const ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS = 15 * 60 * 1e3;
+  const ANKI_STATUS_INDEX_DB_NAME = "yomu-anki-status-index";
+  const ANKI_STATUS_INDEX_DB_VERSION = 1;
+  const ANKI_STATUS_INDEX_META_STORE = "meta";
+  const ANKI_STATUS_INDEX_ENTRY_STORE = "entries";
+  const ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE = 500;
+  const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
+  const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
+  const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
+  const log$1 = Logger.scope("Anki");
+  function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
+    const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
+    if (!isAnkiStatusIndexRebuildLease(lease)) return null;
+    if (lease.expiresAt <= now) {
+      gmStorageDeleteSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY);
+      return null;
+    }
+    if (settingsKey && lease.settingsKey !== settingsKey) return null;
+    return lease;
+  }
+  function claimAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
+    if (activeAnkiStatusIndexRebuildLease(void 0, now)) return null;
+    const owner = createAnkiStatusIndexRebuildLeaseOwner();
+    const lease = {
+      owner,
+      settingsKey,
+      startedAt: now,
+      expiresAt: now + ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS
+    };
+    gmStorageSetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, lease);
+    return activeAnkiStatusIndexRebuildLease(void 0, now)?.owner === owner ? owner : null;
+  }
+  function touchAnkiStatusIndexRebuildLease(owner, settingsKey, now = Date.now()) {
+    const lease = activeAnkiStatusIndexRebuildLease(void 0, now);
+    if (!lease || lease.owner !== owner) return;
+    gmStorageSetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, {
+      ...lease,
+      settingsKey,
+      expiresAt: now + ANKI_STATUS_INDEX_REBUILD_LEASE_TTL_MS
+    });
+  }
+  function releaseAnkiStatusIndexRebuildLease(owner) {
+    const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
+    if (isAnkiStatusIndexRebuildLease(lease) && lease.owner === owner) {
+      gmStorageDeleteSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY);
+    }
+  }
+  async function saveAnkiStatusIndex(index) {
+    try {
+      await saveAnkiStatusIndexToIndexedDb(index);
+      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
+    } catch (error) {
+      log$1.warn("Anki status save fell back", error);
+      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
+    }
+  }
+  async function saveAnkiStatusIndexCheckedAt(index) {
+    if (index.entryStore !== "indexeddb") {
+      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
+      return;
+    }
+    const meta = ankiStatusIndexMeta(index);
+    try {
+      await putStoredAnkiStatusIndexMeta(meta);
+      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
+    } catch (error) {
+      log$1.warn("Anki status metadata failed", error);
+      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
+    }
+  }
+  async function saveAnkiStatusIndexDirtyMarker(index) {
+    const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: index.dirtyAt ?? Date.now() };
+    if (dirty.entryStore !== "indexeddb") {
+      gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY, { ...dirty, entryStore: void 0 });
+      return;
+    }
+    const meta = ankiStatusIndexMeta(dirty);
+    gmStorageSetSync(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
+    await putStoredAnkiStatusIndexMeta(meta);
+  }
+  async function loadAnkiStatusIndexFromIndexedDb() {
+    if (!canUseIndexedDb()) return null;
+    const db = await openAnkiStatusIndexDb();
+    try {
+      const meta = await idbRequest(
+        db.transaction(ANKI_STATUS_INDEX_META_STORE, "readonly").objectStore(ANKI_STATUS_INDEX_META_STORE).get("current")
+      );
+      if (!meta) return null;
+      return {
+        version: meta.version,
+        settingsKey: meta.settingsKey,
+        syncedAt: meta.syncedAt,
+        checkedAt: meta.checkedAt,
+        cardCount: meta.cardCount,
+        entryCount: meta.entryCount,
+        entryStore: "indexeddb",
+        entries: {},
+        readingKeys: meta.readingKeys,
+        dirtyAt: meta.dirtyAt
+      };
+    } finally {
+      db.close();
+    }
+  }
+  async function loadAnkiStatusIndexEntriesFromIndexedDb(keys) {
+    if (!canUseIndexedDb()) return /* @__PURE__ */ new Map();
+    const db = await openAnkiStatusIndexDb();
+    try {
+      const records = [];
+      for (const chunk of chunkArray$1(unique$1(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
+        const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
+        const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
+        const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record) => [key, record])));
+        await idbTransactionDone(tx);
+        records.push(...chunkRecords);
+      }
+      return new Map(records.filter((record) => Boolean(record[1])).map(([key, record]) => [key, record.entry]));
+    } finally {
+      db.close();
+    }
+  }
+  async function saveAnkiStatusIndexToIndexedDb(index) {
+    if (!canUseIndexedDb()) throw new Error("IndexedDB is unavailable.");
+    const db = await openAnkiStatusIndexDb();
+    try {
+      await clearAnkiStatusIndexStores(db);
+      const entries = Object.entries(index.entries).map(([key, entry]) => ({ key, entry }));
+      for (const chunk of chunkArray$1(entries, ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE)) {
+        await putAnkiStatusIndexEntries(db, chunk);
+      }
+      await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
+    } finally {
+      db.close();
+    }
+  }
+  function ankiStatusIndexMeta(index) {
+    return {
+      id: "current",
+      version: index.version,
+      settingsKey: index.settingsKey,
+      syncedAt: index.syncedAt,
+      checkedAt: index.checkedAt,
+      cardCount: index.cardCount,
+      entryCount: index.entryCount ?? Object.keys(index.entries).length,
+      entryStore: "indexeddb",
+      entries: {},
+      readingKeys: index.readingKeys,
+      dirtyAt: index.dirtyAt
+    };
+  }
+  function clearAnkiStatusIndexStores(db) {
+    const tx = db.transaction([ANKI_STATUS_INDEX_META_STORE, ANKI_STATUS_INDEX_ENTRY_STORE], "readwrite");
+    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).clear();
+    tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).clear();
+    return idbTransactionDone(tx);
+  }
+  function putAnkiStatusIndexMeta(db, meta) {
+    const tx = db.transaction(ANKI_STATUS_INDEX_META_STORE, "readwrite");
+    tx.objectStore(ANKI_STATUS_INDEX_META_STORE).put(meta);
+    return idbTransactionDone(tx);
+  }
+  function putBestAnkiStatusIndexEntries(db, entries) {
+    if (!entries.length) return Promise.resolve();
+    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readwrite");
+    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
+    entries.forEach((candidate) => {
+      const request = store.get(candidate.key);
+      request.onsuccess = () => {
+        const current = request.result?.entry;
+        if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate.entry)) store.put(candidate);
+      };
+    });
+    return idbTransactionDone(tx);
+  }
+  function countAnkiStatusIndexEntries(db) {
+    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
+    const done = idbTransactionDone(tx);
+    const count = idbRequest(tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE).count());
+    return count.then(async (value) => {
+      await done;
+      return value;
+    });
+  }
+  function openAnkiStatusIndexDb() {
+    return new Promise((resolve, reject) => {
+      const request = indexedDB.open(ANKI_STATUS_INDEX_DB_NAME, ANKI_STATUS_INDEX_DB_VERSION);
+      request.onerror = () => reject(request.error ?? new Error("Could not open Anki status index database."));
+      request.onblocked = () => reject(new Error("Anki status index database upgrade was blocked."));
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_META_STORE)) {
+          db.createObjectStore(ANKI_STATUS_INDEX_META_STORE, { keyPath: "id" });
+        }
+        if (!db.objectStoreNames.contains(ANKI_STATUS_INDEX_ENTRY_STORE)) {
+          db.createObjectStore(ANKI_STATUS_INDEX_ENTRY_STORE, { keyPath: "key" });
+        }
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        db.onversionchange = () => db.close();
+        resolve(db);
+      };
+    });
+  }
+  function canUseIndexedDb() {
+    return typeof indexedDB !== "undefined";
+  }
+  function statusIndexEntriesForNotes(notes, cardData, settings, updatedAt) {
+    const entries = /* @__PURE__ */ new Map();
+    for (const note of notes) {
+      const candidate = statusIndexEntryFromStatusData(note, cardData, updatedAt);
+      for (const key of statusIndexKeysForNote(note, settings)) {
+        const current = entries.get(key);
+        if (!current || shouldReplaceAnkiStatusIndexEntry(current, candidate)) entries.set(key, candidate);
+      }
+    }
+    return [...entries].map(([key, entry]) => ({ key, entry }));
+  }
+  function statusIndexKeysForCard(card) {
+    const keys = noteCardExpressionTargets(card).map(statusIndexKey);
+    if (shouldUseStatusReadingKey(card)) keys.push(statusIndexReadingKey(card.reading || card.spelling));
+    return unique$1(keys);
+  }
+  function statusIndexEntryForCard(index, card, entries) {
+    for (const key of statusIndexKeysForCard(card)) {
+      const entry = entries?.get(key) ?? index.entries[key];
+      if (entry && isAnkiStatusIndexEntryFreshForIndex(index, entry)) return entry;
+    }
+    return null;
+  }
+  function statusIndexEntryFromStatusData(note, cardData, updatedAt) {
+    const noteCards = cardData.cardsByNote.get(note.noteId) ?? [];
+    const entry = noteCards.length ? ankiStatusIndexEntryFromInfo(note, noteCards) : statusIndexEntryFromStatusSets(note, cardData.sets);
+    return updatedAt === void 0 ? entry : { ...entry, updatedAt };
+  }
+  function shouldReplaceAnkiStatusIndexEntry(current, candidate) {
+    if (sameAnkiStatusIndexEntryIdentity(current, candidate)) {
+      return ankiStatusIndexEntryUpdatedAt(candidate) >= ankiStatusIndexEntryUpdatedAt(current);
+    }
+    return ankiCardStateRank(candidate.state) < ankiCardStateRank(current.state);
+  }
+  function sameAnkiStatusIndexEntryIdentity(current, candidate) {
+    return current.noteId === candidate.noteId || current.primaryCardId !== null && current.primaryCardId === candidate.primaryCardId;
+  }
+  function isAnkiStatusIndexEntryFreshForIndex(index, entry) {
+    return !index.dirtyAt || ankiStatusIndexEntryUpdatedAt(entry) > index.dirtyAt;
+  }
+  function ankiStatusIndexEntryUpdatedAt(entry) {
+    return Number(entry.updatedAt) || 0;
+  }
+  function putAnkiStatusIndexEntries(db, entries) {
+    const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readwrite");
+    const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
+    entries.forEach((entry) => store.put(entry));
+    return idbTransactionDone(tx);
+  }
+  async function putStoredAnkiStatusIndexMeta(meta) {
+    if (!canUseIndexedDb()) throw new Error("IndexedDB is unavailable.");
+    const db = await openAnkiStatusIndexDb();
+    try {
+      await putAnkiStatusIndexMeta(db, meta);
+    } finally {
+      db.close();
+    }
+  }
+  function idbRequest(request) {
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed."));
+    });
+  }
+  function idbTransactionDone(tx) {
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted."));
+      tx.onerror = () => reject(tx.error ?? new Error("IndexedDB transaction failed."));
+    });
+  }
+  function isAnkiStatusIndexRebuildLease(value) {
+    if (!value || typeof value !== "object") return false;
+    const lease = value;
+    return typeof lease.owner === "string" && typeof lease.settingsKey === "string" && typeof lease.startedAt === "number" && typeof lease.expiresAt === "number";
+  }
+  function createAnkiStatusIndexRebuildLeaseOwner() {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+  function statusIndexKey(value) {
+    return normalizeFieldValue(value).toLocaleLowerCase();
+  }
+  function statusIndexReadingKey(value) {
+    return `${ANKI_STATUS_INDEX_READING_KEY_PREFIX}${statusIndexKey(value)}`;
+  }
+  function statusIndexKeysForNote(note, settings) {
+    const fields = flattenNoteFields(note.fields);
+    const mapping = ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields));
+    const keys = /* @__PURE__ */ new Set();
+    addStatusIndexKeys(keys, statusIndexFieldValues(fields, mapping), statusIndexKey, 2);
+    addStatusIndexKeys(keys, statusIndexReadingFieldValues(fields, mapping), statusIndexReadingKey, ANKI_STATUS_INDEX_READING_KEY_PREFIX.length + 2);
+    return [...keys].filter(Boolean);
+  }
+  function addStatusIndexKeys(keys, values, keyForValue, minPartKeyLength) {
+    for (const value of values) {
+      if (value.length <= 80) keys.add(keyForValue(value));
+      value.split(ANKI_STATUS_INDEX_KEY_PART_SEPARATOR).map(keyForValue).filter((key) => key.length >= minPartKeyLength).forEach((key) => keys.add(key));
+    }
+  }
+  function statusIndexFieldValues(fields, mapping) {
+    const expression = firstNoteExpressionValue(fields, mapping);
+    const reading = mappedNoteField(fields, mapping, "reading") || firstNoteReading(fields);
+    const preferred = (expression ? [expression] : [reading]).map(normalizeFieldValue).filter(Boolean);
+    if (preferred.length) return unique$1(preferred);
+    return noteFieldValues(fields).filter((value) => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
+  }
+  function statusIndexReadingFieldValues(fields, mapping) {
+    return unique$1([
+      mappedNoteField(fields, mapping, "reading"),
+      firstNoteReading(fields)
+    ].map(normalizeFieldValue).filter((value) => value.length >= 2));
+  }
+  function shouldUseStatusReadingKey(card) {
+    const reading = normalizeFieldValue(card.reading || "");
+    const spelling = normalizeFieldValue(card.spelling || "");
+    const spellingIsKana = isKanaStatusLookupSurface(spelling);
+    const readingTarget = reading || (spellingIsKana ? spelling : "");
+    if (readingTarget.length < 2 || spelling.length < 2) return false;
+    return spelling === readingTarget || spellingIsKana;
+  }
+  function statusIndexEntryFromStatusSets(note, cardSets) {
+    const cardIds = (note.cards ?? []).map(Number).filter(Number.isFinite);
+    const primaryCardId = pickPrimaryCardIdFromStatusSets(cardIds, cardSets);
+    const state = stateFromStatusIndexCardIds(cardIds, cardSets);
+    return {
+      noteId: note.noteId,
+      modelName: note.modelName,
+      deckNames: [],
+      primaryCardId,
+      state,
+      reps: 0,
+      lapses: 0
+    };
+  }
+  function stateFromStatusIndexCardIds(cardIds, cardSets) {
+    if (!cardIds.length) return "known";
+    if (cardIds.some((cardId) => cardSets.due.has(cardId))) return "due";
+    if (cardIds.some((cardId) => cardSets.learning.has(cardId))) return "learning";
+    if (cardIds.some((cardId) => cardSets.new.has(cardId))) return "new";
+    if (cardIds.every((cardId) => cardSets.suspended.has(cardId))) return "suspended";
+    return "known";
+  }
+  function pickPrimaryCardIdFromStatusSets(cardIds, cardSets) {
+    const orderedSets = [cardSets.due, cardSets.learning, cardSets.new, cardSets.all, cardSets.suspended];
+    for (const set of orderedSets) {
+      const match = cardIds.find((cardId) => set.has(cardId));
+      if (match !== void 0) return match;
+    }
+    return cardIds[0] ?? null;
+  }
+  function unique$1(items) {
+    return Array.from(new Set(items));
+  }
+  function chunkArray$1(items, size) {
+    return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
+  }
+  const ANKI_SEARCH_SPECIALS_RE = /([\\"*_])/g;
+  function escapeAnkiSearchText(term) {
+    return term.replace(ANKI_SEARCH_SPECIALS_RE, "\\$1");
+  }
+  function quoteAnkiSearch(term) {
+    return `"${escapeAnkiSearchText(term)}"`;
+  }
+  const ANKI_VERSION = 6;
+  const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1e3;
+  const ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE = 50;
+  const ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY = 3;
+  const ANKI_CONNECT_REQUEST_TIMEOUT_MS = 5e3;
+  const ANKI_BACKGROUND_REQUEST_TIMEOUT_MS = 1500;
+  const ANKI_BACKGROUND_AVAILABILITY_TTL_MS = 15e3;
+  const ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS = 6e4;
+  const ANKI_STATUS_INDEX_BACKGROUND_REFRESH_DELAY_MS = 2500;
+  const ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT = 24;
+  const ANKI_MODEL_SCAN_CONCURRENCY = 3;
+  const ANKI_STATUS_INDEX_CARD_CHUNK_SIZE = 500;
+  const ANKI_EDITED_SWEEP_MAX_DAYS = 30;
+  const ANKI_EDITED_SWEEP_MOD_LIMIT = 2e3;
+  const ANKI_EDITED_SWEEP_DAY_MS = 24 * 60 * 60 * 1e3;
+  const ANKI_STATUS_INDEX_CARD_CONCURRENCY = 3;
+  const ANKI_RENDERED_MEDIA_LIMIT = 12;
+  const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
+  const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
+  const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
+  const ANKI_MOBILE_FALLBACK_DECK = "Default";
+  const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);
+  const log = Logger.scope("Anki");
+  const ANKI_EASE_BY_GRADE = {
+    nothing: 1,
+    fail: 1,
+    something: 2,
+    hard: 2,
+    okay: 3,
+    pass: 3,
+    easy: 4
+  };
+  const YOMU_MODEL_FIELDS = [
+    "Expression",
+    "Reading",
+    "Meaning",
+    "Sentence",
+    "Url",
+    "Frequency",
+    "PartOfSpeech",
+    "Image",
+    "Audio",
+    "JPDB",
+    "Status",
+    "Pitch",
+    "DictionaryDefinitions",
+    "Kanji",
+    "Source"
+  ];
+  function ankiLookupWithUnavailableDetails(lookup) {
+    const mark = (note) => ankiNoteHasRenderableDetails(note) ? note : { ...note, detailsUnavailable: true };
+    const notes = lookup.notes.map(mark);
+    const primary = lookup.primary ? mark(lookup.primary) : null;
+    return { ...lookup, notes, primary };
+  }
+  class AnkiDuplicateNoteError extends Error {
+    constructor(message) {
+      super(message);
+      this.name = "AnkiDuplicateNoteError";
+    }
+  }
+  function isAnkiDuplicateNoteError(error) {
+    return error instanceof AnkiDuplicateNoteError;
+  }
+  class AnkiConnectClient {
+    constructor(getSettings) {
+      this.getSettings = getSettings;
+      this.installFocusStatusRefresh();
+    }
+    lookupCache = /* @__PURE__ */ new Map();
+    // Media manifest cache (P1): base64 payloads from retrieveMediaFile are
+    // expensive; repeat plays/hydrations reuse the same data URL by sanitized
+    // filename. Failures are evicted so a transient error can retry.
+    mediaDataUrlCache = /* @__PURE__ */ new Map();
+    statusLookupCache = /* @__PURE__ */ new Map();
+    lookupInflight = /* @__PURE__ */ new Map();
+    statusIndex;
+    statusIndexLoad;
+    statusIndexRefresh;
+    statusIndexRefreshQueued = false;
+    availabilityProbe;
+    availabilityCheckedAt = 0;
+    unavailableUntil = 0;
+    fieldTargetPlanCache;
+    isDestroyed = false;
+    focusStatusRefreshListener;
+    lastFocusStatusRefreshAt = 0;
+    destroy() {
+      this.isDestroyed = true;
+      this.lookupInflight.clear();
+      this.statusIndexLoad = void 0;
+      this.statusIndexRefresh = void 0;
+      this.statusIndexRefreshQueued = false;
+      this.availabilityProbe = void 0;
+      if (this.focusStatusRefreshListener) {
+        window.removeEventListener("focus", this.focusStatusRefreshListener);
+        document.removeEventListener("visibilitychange", this.focusStatusRefreshListener);
+        this.focusStatusRefreshListener = void 0;
+      }
+    }
+    // The status index is validated by deck card COUNT, which misses reviews
+    // done in Anki itself (state changes, same count). Returning to the tab
+    // after being away is exactly when that happens, so expire the index then.
+    installFocusStatusRefresh() {
+      if (typeof window === "undefined") return;
+      this.focusStatusRefreshListener = () => {
+        if (this.isDestroyed || document.visibilityState === "hidden") return;
+        const awayMs = Date.now() - this.lastFocusStatusRefreshAt;
+        if (awayMs < ANKI_STATUS_INDEX_FOCUS_REFRESH_MIN_MS) return;
+        this.lastFocusStatusRefreshAt = Date.now();
+        const index = this.validStatusIndex(this.statusIndex);
+        if (!index) return;
+        this.statusIndex = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
+        this.queueStatusIndexRefresh();
+      };
+      window.addEventListener("focus", this.focusStatusRefreshListener);
+      document.addEventListener("visibilitychange", this.focusStatusRefreshListener);
+    }
+    // Used by settings connection checks through the Anki client dependency.
+    async isConnected() {
+      try {
+        await this.invoke("version");
+        this.markAvailable();
+        return true;
+      } catch (error) {
+        log.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        return false;
+      }
+    }
+    async isAvailableForBackground() {
+      if (this.isDestroyed) return false;
+      if (this.isLookupCoolingDown()) return false;
+      const now = Date.now();
+      if (now - this.availabilityCheckedAt < ANKI_BACKGROUND_AVAILABILITY_TTL_MS) return true;
+      if (this.availabilityProbe) return this.availabilityProbe;
+      this.availabilityProbe = this.invokeWithTimeout("version", {}, ANKI_BACKGROUND_REQUEST_TIMEOUT_MS).then(() => {
+        if (this.isDestroyed) return false;
+        this.markAvailable();
+        return true;
+      }).catch((error) => {
+        log.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
+        this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
+        return false;
+      }).finally(() => {
+        this.availabilityProbe = void 0;
+      });
+      return this.availabilityProbe;
+    }
+    async deckNames() {
+      const decks = await this.invoke("deckNames");
+      return decks;
+    }
+    async modelNames() {
+      const models = await this.invoke("modelNames");
+      return models;
+    }
+    // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
+    // exactly which fields a mining write will target instead of silently
+    // retargeting into an existing non-Yomu model at write time.
+    async noteFieldTargetPlan() {
+      const settings = this.getSettings();
+      if (!settings.ankiEnabled) return null;
+      if (canUseMobileAnkiHandoff$1(settings) && !hasUserscriptAnkiBridge()) return null;
+      const modelName = resolvedAnkiModelName(settings);
+      const key = `${settings.ankiConnectUrl}|${modelName}`;
+      const now = Date.now();
+      if (this.fieldTargetPlanCache?.key === key && this.fieldTargetPlanCache.expiresAt > now) return this.fieldTargetPlanCache.promise;
+      const promise = this.loadNoteFieldTargetPlan(modelName, settings).catch(() => null);
+      this.fieldTargetPlanCache = { key, expiresAt: now + ANKI_FIELD_TARGET_PLAN_TTL_MS, promise };
+      return promise;
+    }
+    async loadNoteFieldTargetPlan(modelName, settings) {
+      const modelNames = await this.modelNames();
+      if (!modelNames.includes(modelName)) return { modelName, yomuManaged: true, fieldNames: [] };
+      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
+      return { modelName, yomuManaged: shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames), fieldNames };
+    }
+    // Used by settings library scan through the Anki client dependency.
+    async scanLibrary() {
+      const [deckNames, modelNames] = await Promise.all([
+        this.deckNames().catch(() => []),
+        this.modelNames().catch(() => [])
+      ]);
+      const models = [];
+      await runLimited(modelNames, ANKI_MODEL_SCAN_CONCURRENCY, async (modelName) => {
+        const [fields, sampleNotes] = await Promise.all([
+          this.invokeOrDefault("modelFieldNames", { modelName }, []),
+          this.sampleModelNotes(modelName)
+        ]);
+        models.push(scanAnkiModelFields(modelName, fields, sampleNotes));
+      });
+      const sortedModels = [...models].sort((a, b) => b.score - a.score || a.modelName.localeCompare(b.modelName));
+      return {
+        deckNames,
+        models: sortedModels,
+        suggestedModel: sortedModels[0] ?? null
+      };
+    }
+    async sampleModelNotes(modelName) {
+      const noteIds = await this.invokeOrDefault("findNotes", { query: `note:${quoteAnkiSearch(modelName)}` }, []);
+      const sampleIds = Array.isArray(noteIds) ? unique(noteIds.map(Number).filter(Number.isFinite)).slice(0, ANKI_MODEL_SCAN_SAMPLE_NOTE_LIMIT) : [];
+      if (!sampleIds.length) return [];
+      return await this.invokeOrDefault("notesInfo", { notes: sampleIds }, []);
+    }
+    warmStatusIndex() {
+      if (this.isDestroyed) return Promise.resolve(null);
+      return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? this.loadStatusIndex();
+    }
+    async findExistingCards(card) {
+      return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult();
+    }
+    async findCachedStatusBatch(cards) {
+      const empty = emptyAnkiLookupResult();
+      const untrustedEmpty = untrustedAnkiLookupResult();
+      if (!cards.length) return [];
+      if (!this.canUseCachedStatusLookup()) return cards.map(() => untrustedEmpty);
+      const results = cards.map(() => untrustedEmpty);
+      const pending = this.collectPendingLookupGroups(cards, results, (cacheKey) => this.readStatusLookupCache(cacheKey));
+      if (!pending.length) return results;
+      const context = await this.cachedStatusLookupContext(pending);
+      if (this.isDestroyed) return cards.map(() => untrustedEmpty);
+      const unresolved = this.applyCachedStatusLookupPlan(
+        pending,
+        results,
+        context.statusIndex,
+        context.statusEntries,
+        context.canUseStatusIndexHits,
+        context.canTrustStatusMiss,
+        empty
+      );
+      await this.resolveUncachedStatusLookups(unresolved, results, empty);
+      return results;
+    }
+    canUseCachedStatusLookup() {
+      if (this.isDestroyed) return false;
+      if (!this.getSettings().ankiEnabled) return false;
+      return !this.isLookupCoolingDown();
+    }
+    queueStatusIndexRefreshForLookup(statusIndex) {
+      if (!statusIndex || this.statusIndexNeedsCountCheck(statusIndex) || this.statusIndexIsTooStale(statusIndex)) {
+        this.queueStatusIndexRefresh({ rebuildIfMissing: false });
+      }
+    }
+    async cachedStatusLookupContext(pending) {
+      const statusIndex = await this.loadStatusIndex();
+      if (statusIndex) this.queueStatusIndexRefreshForLookup(statusIndex);
+      const statusEntries = await this.loadStatusEntriesForCards(statusIndex, pending.map((item) => item.card));
+      const canUseStatusIndexHits = this.canUseStatusIndexHits(statusIndex);
+      const hasActiveRebuildLease = this.hasActiveStatusIndexRebuildLease(statusIndex);
+      return {
+        statusIndex,
+        statusEntries,
+        canUseStatusIndexHits,
+        hasActiveRebuildLease,
+        canTrustStatusMiss: this.canTrustStatusIndexMiss(statusIndex, {
+          canUseStatusIndexHits,
+          hasActiveRebuildLease,
+          statusEntries
+        })
+      };
+    }
+    canUseStatusIndexHits(statusIndex) {
+      return Boolean(statusIndex && this.statusIndexHasEntries(statusIndex));
+    }
+    hasActiveStatusIndexRebuildLease(statusIndex) {
+      return Boolean(activeAnkiStatusIndexRebuildLease(statusIndex?.settingsKey));
+    }
+    canTrustStatusIndexMiss(statusIndex, context) {
+      if (!statusIndex) return false;
+      if (!context.canUseStatusIndexHits || context.hasActiveRebuildLease) return false;
+      if (!this.isStatusIndexFreshForMissTrust(statusIndex)) return false;
+      if (this.hasPendingStatusIndexRefresh()) return false;
+      if (this.statusIndexNeedsCountCheck(statusIndex)) return false;
+      if (this.statusIndexIsTooStale(statusIndex)) return false;
+      return this.hasStatusIndexMissCoverage(statusIndex, context.statusEntries);
+    }
+    isStatusIndexFreshForMissTrust(statusIndex) {
+      return statusIndex.syncedAt > 0 && !this.statusIndexIsDirty(statusIndex);
+    }
+    hasPendingStatusIndexRefresh() {
+      return Boolean(this.statusIndexRefresh || this.statusIndexRefreshQueued);
+    }
+    hasStatusIndexMissCoverage(statusIndex, statusEntries) {
+      return statusIndex.entryStore !== "indexeddb" || Boolean(statusEntries);
+    }
+    applyCachedStatusLookupPlan(pending, results, statusIndex, statusEntries, canUseStatusIndexHits, canTrustStatusMiss, empty) {
+      const unresolved = [];
+      for (const group of pending) {
+        const indexed = canUseStatusIndexHits ? this.lookupStatusIndex(statusIndex, group.card, statusEntries) : null;
+        if (indexed) {
+          this.writeStatusLookupCache(group.cacheKey, indexed);
+          this.applyLookupGroupResult(results, group.indexes, indexed);
+          continue;
+        }
+        if (!canTrustStatusMiss) {
+          unresolved.push(group);
+          continue;
+        }
+        this.writeStatusLookupCache(group.cacheKey, empty);
+        this.applyLookupGroupResult(results, group.indexes, empty);
+      }
+      return unresolved;
+    }
+    async resolveUncachedStatusLookups(unresolved, results, empty) {
+      if (!unresolved.length) return;
+      this.queueStatusIndexRefresh();
+      try {
+        const resolved = await this.findExistingCardsBatchUncachedWithInflight(unresolved, empty);
+        for (const group of unresolved) {
+          const result = resolved.get(group.cacheKey) ?? empty;
+          this.writeStatusLookupCache(group.cacheKey, result);
+          this.applyLookupGroupResult(results, group.indexes, result);
+        }
+      } catch (error) {
+        log.warn("Exact Anki status lookup failed", error);
+      }
+    }
+    collectPendingLookupGroups(cards, results, readCache) {
+      const pendingByCacheKey = /* @__PURE__ */ new Map();
+      cards.forEach((card, index) => {
+        const cacheKey = this.lookupCacheKey(card);
+        const cached = readCache(cacheKey);
+        if (cached) {
+          results[index] = cached;
+          return;
+        }
+        let pending = pendingByCacheKey.get(cacheKey);
+        if (!pending) {
+          pending = { card, indexes: [], cacheKey };
+          pendingByCacheKey.set(cacheKey, pending);
+        }
+        pending.indexes.push(index);
+      });
+      return [...pendingByCacheKey.values()];
+    }
+    async findExistingCardsBatch(cards) {
+      const empty = emptyAnkiLookupResult();
+      if (!cards.length) return [];
+      if (this.isDestroyed) return cards.map(() => empty);
+      const results = cards.map(() => empty);
+      const pending = this.collectPendingLookupGroups(cards, results, (cacheKey) => this.readLookupCache(cacheKey));
+      if (!pending.length) return results;
+      const batches = this.pendingLookupBatches(pending);
+      try {
+        const done = log.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
+        if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
+        if (this.isDestroyed) return results;
+        const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
+        if (this.isDestroyed) return results;
+        this.applyResolvedLookupResults(resolved, batches.pendingByCacheKey, results);
+        done();
+        return results;
+      } catch (error) {
+        log.warn("Anki batch lookup failed", { terms: pending.length }, error);
+        this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
+        return results;
+      }
+    }
+    pendingLookupBatches(pending) {
+      const inFlight = [];
+      const uncached = [];
+      const pendingByCacheKey = new Map(pending.map((group) => [group.cacheKey, group]));
+      for (const group of pending) {
+        const promise = this.lookupInflight.get(group.cacheKey);
+        if (promise) inFlight.push([group, promise]);
+        else uncached.push(group);
+      }
+      return { inFlight, uncached, pendingByCacheKey };
+    }
+    async applyInFlightLookupResults(inFlight, results) {
+      await Promise.all(inFlight.map(async ([group, promise]) => {
+        const result = await promise;
+        if (this.isDestroyed) return;
+        this.writeLookupCache(group.cacheKey, result);
+        this.applyLookupGroupResult(results, group.indexes, result);
+      }));
+    }
+    async resolveUncachedLookupBatches(uncached, empty) {
+      return uncached.length ? await this.findExistingCardsBatchUncachedWithInflight(uncached, empty) : /* @__PURE__ */ new Map();
+    }
+    applyResolvedLookupResults(resolved, pendingByCacheKey, results) {
+      for (const [cacheKey, result] of resolved) {
+        this.writeLookupCache(cacheKey, result);
+        const indexes = pendingByCacheKey.get(cacheKey)?.indexes;
+        if (indexes) this.applyLookupGroupResult(results, indexes, result);
+      }
+    }
+    lookupCacheKey(card) {
+      return lookupKeyTermsForCard(card).join("|");
+    }
+    applyLookupGroupResult(results, indexes, result) {
+      indexes.forEach((index) => {
+        results[index] = result;
+      });
+    }
+    statusIndexSettingsKey(settings = this.getSettings()) {
+      const fieldMappings = ankiFieldMappingsSettingsKey(settings.ankiFieldMappings);
+      return JSON.stringify({
+        url: settings.ankiConnectUrl || "http://127.0.0.1:8765",
+        ...Object.keys(fieldMappings).length ? { fieldMappings } : {}
+      });
+    }
+    loadStatusIndex() {
+      if (this.statusIndex !== void 0) return Promise.resolve(this.validStatusIndex(this.statusIndex));
+      const syncIndex = this.validStatusIndex(gmStorageGetSync(ANKI_STATUS_INDEX_STORAGE_KEY, null));
+      if (syncIndex && syncIndex.entryStore !== "indexeddb") {
+        this.statusIndex = syncIndex;
+        return Promise.resolve(syncIndex);
+      }
+      if (!this.statusIndexLoad) {
+        this.statusIndexLoad = this.loadStoredStatusIndex().then((index) => {
+          this.statusIndex = index;
+          return this.statusIndex;
+        }).finally(() => {
+          this.statusIndexLoad = void 0;
+        });
+      }
+      return this.statusIndexLoad;
+    }
+    async loadStoredStatusIndex() {
+      const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
+        log.warn("Anki status load failed", error);
+        return null;
+      });
+      const validIndexed = this.validStatusIndex(indexed);
+      if (validIndexed) return validIndexed;
+      const stored = await gmStorageGet(ANKI_STATUS_INDEX_STORAGE_KEY, null);
+      const validStored = this.validStatusIndex(stored);
+      return validStored?.entryStore === "indexeddb" ? null : validStored;
+    }
+    validStatusIndex(index) {
+      if (!index || index.version !== ANKI_STATUS_INDEX_VERSION) return null;
+      return index.settingsKey === this.statusIndexSettingsKey() ? index : null;
+    }
+    async loadStatusEntriesForCards(index, cards) {
+      if (!index) return null;
+      if (index.entryStore !== "indexeddb") return null;
+      const keys = unique(cards.flatMap(statusIndexKeysForCard));
+      if (!keys.length) return /* @__PURE__ */ new Map();
+      return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
+        log.warn("Anki status entry failed", error);
+        return null;
+      });
+    }
+    lookupStatusIndex(index, card, entries) {
+      const entry = index ? statusIndexEntryForCard(index, card, entries) : null;
+      if (!entry) return null;
+      if (index?.dirtyAt && (!entry.updatedAt || entry.updatedAt < index.dirtyAt)) return null;
+      const note = {
+        noteId: entry.noteId,
+        modelName: entry.modelName,
+        deckNames: entry.deckNames,
+        cardIds: entry.primaryCardId ? [entry.primaryCardId] : [],
+        primaryCardId: entry.primaryCardId,
+        state: entry.state,
+        fields: {},
+        tags: [],
+        reps: entry.reps,
+        lapses: entry.lapses
+      };
+      return {
+        state: entry.state,
+        notes: [note],
+        primary: note
+      };
+    }
+    statusIndexHasEntries(index) {
+      return index.cardCount === 0 || (index.entryCount ?? Object.keys(index.entries).length) > 0;
+    }
+    refreshStatusIndexIfNeeded(options = {}) {
+      if (this.isDestroyed || this.isLookupCoolingDown()) return null;
+      if (this.statusIndexRefresh) return this.statusIndexRefresh;
+      this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
+        log.warn("Anki status index refresh failed", error);
+        return null;
+      }).finally(() => {
+        this.statusIndexRefresh = void 0;
+      });
+      return this.statusIndexRefresh;
+    }
+    async runStatusIndexRefresh(options) {
+      const index = await this.loadStatusIndex();
+      if (this.isDestroyed) return null;
+      const now = Date.now();
+      const needsReadingKeyRefresh = this.statusIndexNeedsReadingKeyRefresh(index);
+      if (this.canReuseRecentlyCheckedStatusIndex(index, needsReadingKeyRefresh, now)) return index;
+      if (this.shouldSkipMissingStatusIndexRebuild(index, options)) return null;
+      if (!await this.isAvailableForBackground()) return index;
+      if (this.isDestroyed) return null;
+      const countCheck = await this.refreshStatusIndexFromCollectionCount(index, needsReadingKeyRefresh, now, options);
+      if (countCheck.handled) return countCheck.index;
+      return this.rebuildStatusIndexWithLease(index, needsReadingKeyRefresh);
+    }
+    statusIndexNeedsReadingKeyRefresh(index) {
+      return Boolean(index && !index.readingKeys);
+    }
+    statusIndexIsDirty(index) {
+      const dirtyAt = Number(index.dirtyAt) || 0;
+      return dirtyAt > 0 && index.syncedAt <= dirtyAt;
+    }
+    canReuseRecentlyCheckedStatusIndex(index, needsReadingKeyRefresh, now) {
+      return Boolean(index && !needsReadingKeyRefresh && !this.statusIndexIsDirty(index) && index.syncedAt > 0 && now - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS && now - index.checkedAt < ANKI_STATUS_INDEX_COUNT_CHECK_MS);
+    }
+    shouldSkipMissingStatusIndexRebuild(index, options) {
+      return !index && !options.rebuildIfMissing;
+    }
+    async refreshStatusIndexFromCollectionCount(index, needsReadingKeyRefresh, now, options) {
+      if (!index) return { handled: false, index: null };
+      const deckStatsCardCount = await this.collectionCardCountFromDeckStats();
+      if (this.isDestroyed) return { handled: true, index: null };
+      if (this.canMarkStatusIndexCountCurrent(index, deckStatsCardCount, needsReadingKeyRefresh, now)) {
+        const edited = await this.statusIndexEditedSinceSync(index, now);
+        if (this.isDestroyed) return { handled: true, index: null };
+        if (!edited) {
+          return { handled: true, index: await this.saveCheckedStatusIndex(index, now) };
+        }
+        const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: now };
+        this.statusIndex = dirty;
+        await saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
+          log.warn("Anki edited-sweep dirty marker failed", error);
+        });
+        return { handled: false, index: dirty };
+      }
+      if (this.canDeferStatusIndexRebuild(index, needsReadingKeyRefresh, options)) {
+        return { handled: true, index: await this.saveCheckedStatusIndex(index, now, deckStatsCardCount) };
+      }
+      return { handled: false, index };
+    }
+    async statusIndexEditedSinceSync(index, now) {
+      const sinceMs = index.syncedAt;
+      if (!(sinceMs > 0)) return false;
+      const days = Math.min(ANKI_EDITED_SWEEP_MAX_DAYS, Math.max(1, Math.ceil((now - sinceMs) / ANKI_EDITED_SWEEP_DAY_MS) + 1));
+      try {
+        const ids = await this.invoke("findCards", { query: `edited:${days}` });
+        if (this.isDestroyed || !ids.length) return false;
+        const mods = await this.invoke("cardsModTime", { cards: ids.slice(0, ANKI_EDITED_SWEEP_MOD_LIMIT) });
+        const sinceSeconds = Math.floor(sinceMs / 1e3);
+        return mods.some((entry) => Number(entry?.mod) > sinceSeconds);
+      } catch {
+        return false;
+      }
+    }
+    canMarkStatusIndexCountCurrent(index, deckStatsCardCount, needsReadingKeyRefresh, now) {
+      return !needsReadingKeyRefresh && !this.statusIndexIsDirty(index) && deckStatsCardCount !== null && deckStatsCardCount === index.cardCount && index.syncedAt >= 0 && now >= index.syncedAt;
+    }
+    canDeferStatusIndexRebuild(index, needsReadingKeyRefresh, options) {
+      return Boolean(index && !needsReadingKeyRefresh && (!this.statusIndexIsDirty(index) || options.deferDirtyIfCountUnchanged) && !options.rebuildIfMissing);
+    }
+    async saveCheckedStatusIndex(index, checkedAt, deckStatsCardCount) {
+      const cardCountChanged = deckStatsCardCount !== void 0 && deckStatsCardCount !== null && deckStatsCardCount !== index.cardCount;
+      const checked = {
+        ...index,
+        checkedAt,
+        ...deckStatsCardCount !== void 0 && deckStatsCardCount !== null ? { cardCount: deckStatsCardCount } : {},
+        ...cardCountChanged ? { syncedAt: 0 } : {}
+      };
+      this.statusIndex = checked;
+      await saveAnkiStatusIndexCheckedAt(checked);
+      return checked;
+    }
+    async rebuildStatusIndexWithLease(index, needsReadingKeyRefresh) {
+      const settingsKey = this.statusIndexSettingsKey();
+      const rebuildLeaseOwner = claimAnkiStatusIndexRebuildLease(settingsKey);
+      if (!rebuildLeaseOwner) return index;
+      try {
+        return await this.rebuildStatusIndexWithClaimedLease(
+          index,
+          needsReadingKeyRefresh,
+          settingsKey,
+          rebuildLeaseOwner
+        );
+      } finally {
+        releaseAnkiStatusIndexRebuildLease(rebuildLeaseOwner);
+      }
+    }
+    async rebuildStatusIndexWithClaimedLease(index, needsReadingKeyRefresh, settingsKey, rebuildLeaseOwner) {
+      const rebuildStartedAt = Date.now();
+      const cardIds = await this.invoke("findCards", { query: "deck:*" });
+      touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      if (this.isDestroyed) return null;
+      if (this.canReuseStatusIndexAfterCardScan(index, needsReadingKeyRefresh, cardIds.length, rebuildStartedAt)) {
+        return await this.saveCheckedStatusIndex(index, rebuildStartedAt);
+      }
+      return await this.rebuildStatusIndex(cardIds, rebuildStartedAt, rebuildLeaseOwner);
+    }
+    canReuseStatusIndexAfterCardScan(index, needsReadingKeyRefresh, scannedCardCount, rebuildStartedAt) {
+      return Boolean(index && !needsReadingKeyRefresh && scannedCardCount === index.cardCount && rebuildStartedAt - index.syncedAt < ANKI_STATUS_INDEX_MAX_STALE_MS);
+    }
+    queueStatusIndexRefresh(options = {}) {
+      if (this.isDestroyed || this.isLookupCoolingDown() || this.statusIndexRefresh || this.statusIndexRefreshQueued) return;
+      this.statusIndexRefreshQueued = true;
+      const run = () => {
+        this.statusIndexRefreshQueued = false;
+        if (this.isDestroyed) return;
+        void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
+          log.warn("Queued Anki status index refresh failed", error);
+          return null;
+        });
+      };
+      if (typeof window !== "undefined" && typeof window.setTimeout === "function") {
+        window.setTimeout(run, ANKI_STATUS_INDEX_BACKGROUND_REFRESH_DELAY_MS);
+      } else {
+        void Promise.resolve().then(run);
+      }
+    }
+    statusIndexNeedsCountCheck(index, now = Date.now()) {
+      return now - index.checkedAt >= ANKI_STATUS_INDEX_COUNT_CHECK_MS;
+    }
+    statusIndexIsTooStale(index, now = Date.now()) {
+      return now - index.syncedAt >= ANKI_STATUS_INDEX_MAX_STALE_MS;
+    }
+    async collectionCardCountFromDeckStats() {
+      const deckNames = await this.deckNames().catch(() => []);
+      if (!Array.isArray(deckNames) || !deckNames.length) return null;
+      const stats = await this.invokeOrDefault("getDeckStats", { decks: deckNames }, null);
+      if (!stats || typeof stats !== "object") return null;
+      const totals = Object.values(stats).map((deck) => Number(deck?.total_in_deck)).filter((count) => Number.isFinite(count) && count >= 0);
+      if (!totals.length) return null;
+      return totals.reduce((sum, count) => sum + count, 0);
+    }
+    async rebuildStatusIndex(cardIds, now = Date.now(), rebuildLeaseOwner) {
+      const rebuild = await this.loadStatusIndexRebuildContext(cardIds, now, rebuildLeaseOwner);
+      if (!rebuild) return null;
+      const indexed = await this.tryRebuildStatusIndexToIndexedDb(rebuild);
+      if (indexed || this.isDestroyed) return indexed;
+      return await this.rebuildStatusIndexToValueStorage(rebuild);
+    }
+    async loadStatusIndexRebuildContext(cardIds, now, rebuildLeaseOwner) {
+      if (this.isDestroyed) return null;
+      const settings = this.getSettings();
+      const settingsKey = this.statusIndexSettingsKey(settings);
+      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      const allCardIds = cardIds ?? await this.invoke("findCards", { query: "deck:*" });
+      if (this.isDestroyed) return null;
+      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      const cardData = await this.loadStatusIndexCardData(allCardIds, rebuildLeaseOwner, settingsKey);
+      if (this.isDestroyed) return null;
+      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      const noteIds = this.statusIndexNoteIdsFromCardData(cardData) ?? await this.findStatusIndexNoteIds(allCardIds);
+      if (this.isDestroyed) return null;
+      this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      return { allCardIds, cardData, noteIds, now, rebuildLeaseOwner, settings, settingsKey };
+    }
+    touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey) {
+      if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+    }
+    async findStatusIndexNoteIds(allCardIds) {
+      return allCardIds.length ? await this.invokeOrDefault("findNotes", { query: "deck:*" }, []) : [];
+    }
+    statusIndexNoteIdsFromCardData(cardData) {
+      const noteIds = [...cardData.cardsByNote.keys()].filter(Number.isFinite);
+      return noteIds.length ? noteIds : null;
+    }
+    async tryRebuildStatusIndexToIndexedDb(rebuild) {
+      if (!canUseIndexedDb()) return null;
+      return await this.rebuildStatusIndexToIndexedDb(
+        rebuild.noteIds,
+        rebuild.cardData,
+        rebuild.allCardIds.length,
+        rebuild.now,
+        rebuild.settings,
+        rebuild.settingsKey,
+        rebuild.rebuildLeaseOwner
+      ).catch((error) => {
+        log.warn("Anki status rebuild fell back", error);
+        return null;
+      });
+    }
+    async rebuildStatusIndexToValueStorage(rebuild) {
+      const { allCardIds, cardData, noteIds, now, rebuildLeaseOwner, settings, settingsKey } = rebuild;
+      const noteChunks = chunkArray(noteIds, ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
+      const notesByChunk = Array.from({ length: noteChunks.length }, () => []);
+      await runLimited(noteChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk, index2) => {
+        notesByChunk[index2] = await this.invokeOrDefault("notesInfo", { notes: chunk }, []);
+        this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      });
+      const notes = notesByChunk.flat();
+      if (this.isDestroyed) return null;
+      const entries = {};
+      for (const { key, entry } of statusIndexEntriesForNotes(notes, cardData, settings, now)) entries[key] = entry;
+      const index = {
+        version: ANKI_STATUS_INDEX_VERSION,
+        settingsKey,
+        syncedAt: now,
+        checkedAt: now,
+        cardCount: allCardIds.length,
+        entryCount: Object.keys(entries).length,
+        entries,
+        readingKeys: true
+      };
+      this.statusIndex = index;
+      this.statusLookupCache.clear();
+      await saveAnkiStatusIndex(index);
+      return index;
+    }
+    async rebuildStatusIndexToIndexedDb(noteIds, cardData, cardCount, now, settings, settingsKey, rebuildLeaseOwner) {
+      if (this.isDestroyed) return null;
+      const db = await openAnkiStatusIndexDb();
+      try {
+        await clearAnkiStatusIndexStores(db);
+        const noteChunks = chunkArray(noteIds, ANKI_STATUS_INDEX_NOTE_CHUNK_SIZE);
+        let writeQueue = Promise.resolve();
+        await runLimited(noteChunks, ANKI_STATUS_INDEX_NOTE_CONCURRENCY, async (chunk) => {
+          const notes = await this.invokeOrDefault("notesInfo", { notes: chunk }, []);
+          if (this.isDestroyed) return;
+          if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+          const entries = statusIndexEntriesForNotes(notes, cardData, settings, now);
+          if (!entries.length) return;
+          writeQueue = writeQueue.then(() => putBestAnkiStatusIndexEntries(db, entries));
+          await writeQueue;
+        });
+        await writeQueue;
+        if (this.isDestroyed) return null;
+        const entryCount = await countAnkiStatusIndexEntries(db);
+        const index = {
+          version: ANKI_STATUS_INDEX_VERSION,
+          settingsKey,
+          syncedAt: now,
+          checkedAt: now,
+          cardCount,
+          entryCount,
+          entryStore: "indexeddb",
+          entries: {},
+          readingKeys: true
+        };
+        await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
+        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
+        this.statusIndex = index;
+        this.statusLookupCache.clear();
+        return index;
+      } finally {
+        db.close();
+      }
+    }
+    async loadStatusIndexCardData(allCardIds, rebuildLeaseOwner, settingsKey) {
+      const sets = await this.loadStatusIndexCardSets(allCardIds);
+      if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      const cardsByNote = await this.loadStatusIndexCardsByNote(allCardIds, sets, rebuildLeaseOwner, settingsKey);
+      if (rebuildLeaseOwner) touchAnkiStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      return {
+        sets,
+        cardsByNote
+      };
+    }
+    async loadStatusIndexCardsByNote(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
+      const fast = await this.loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey);
+      if (fast) return fast;
+      const cardChunks = chunkArray(unique(allCardIds).map(Number).filter(Number.isFinite), ANKI_STATUS_INDEX_CARD_CHUNK_SIZE);
+      const cardsByChunk = Array.from({ length: cardChunks.length }, () => []);
+      await runLimited(cardChunks, ANKI_STATUS_INDEX_CARD_CONCURRENCY, async (chunk, index) => {
+        const cards = await this.invokeOrDefault("cardsInfo", { cards: chunk }, []);
+        cardsByChunk[index] = (Array.isArray(cards) ? cards : []).map((card) => this.statusIndexCardInfoWithDueFlag(card, sets));
+        this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+      });
+      return cardsByNoteId(cardsByChunk.flat());
+    }
+    async loadStatusIndexCardsByNoteFast(allCardIds, sets, rebuildLeaseOwner, settingsKey) {
+      const cardIds = unique(allCardIds).map(Number).filter(Number.isFinite);
+      if (!cardIds.length) return /* @__PURE__ */ new Map();
+      try {
+        const [noteIds, decks, relearning] = await Promise.all([
+          this.invoke("cardsToNotes", { cards: cardIds }),
+          this.invoke("getDecks", { cards: cardIds }),
+          this.findCardIdSet("deck:* is:learn is:review")
+        ]);
+        if (!Array.isArray(noteIds) || noteIds.length !== cardIds.length || !decks || typeof decks !== "object") return null;
+        this.touchStatusIndexRebuildLease(rebuildLeaseOwner, settingsKey);
+        const deckByCard = /* @__PURE__ */ new Map();
+        for (const [deckName, deckCardIds] of Object.entries(decks)) {
+          for (const id of deckCardIds ?? []) deckByCard.set(Number(id), deckName);
+        }
+        const cards = cardIds.map((cardId, index) => this.syntheticStatusIndexCardInfo(cardId, Number(noteIds[index]), deckByCard.get(cardId) ?? "", sets, relearning));
+        return cardsByNoteId(cards);
+      } catch {
+        return null;
+      }
+    }
+    // queue/type synthesized so stateFromAnkiCards classifies exactly like
+    // the rendering path: relearn > due > learning > new > suspended > known.
+    syntheticStatusIndexCardInfo(cardId, noteId, deckName, sets, relearning) {
+      const queue = relearning.has(cardId) ? 3 : sets.learning.has(cardId) ? 1 : sets.new.has(cardId) ? 0 : sets.suspended.has(cardId) ? -1 : 2;
+      return {
+        cardId,
+        note: noteId,
+        deckName,
+        queue,
+        type: queue === 3 ? 3 : queue === 1 ? 1 : queue === 0 ? 0 : 2,
+        reps: 0,
+        lapses: 0,
+        isDue: sets.due.has(cardId)
+      };
+    }
+    statusIndexCardInfoWithDueFlag(card, sets) {
+      const cardId = Number(card.cardId);
+      return Number.isFinite(cardId) ? { ...card, isDue: sets.due.has(cardId) } : card;
+    }
+    async loadStatusIndexCardSets(allCardIds) {
+      const all = new Set(unique(allCardIds).map(Number).filter(Number.isFinite));
+      if (!all.size) return { all, due: /* @__PURE__ */ new Set(), learning: /* @__PURE__ */ new Set(), new: /* @__PURE__ */ new Set(), suspended: /* @__PURE__ */ new Set() };
+      const [due, learning, newCards, suspended] = await Promise.all([
+        this.findCardIdSet("deck:* is:due"),
+        this.findCardIdSet("deck:* is:learn"),
+        this.findCardIdSet("deck:* is:new"),
+        this.findCardIdSet("deck:* is:suspended")
+      ]);
+      return { all, due, learning, new: newCards, suspended };
+    }
+    async findCardIdSet(query) {
+      const cardIds = await this.invokeOrDefault("findCards", { query }, []);
+      return new Set(cardIds.map(Number).filter(Number.isFinite));
+    }
+    isLookupCoolingDown() {
+      if (Date.now() >= this.unavailableUntil) return false;
+      if (hasUserscriptAnkiBridge()) {
+        this.markAvailable();
+        return false;
+      }
+      return true;
+    }
+    readLookupCache(cacheKey) {
+      const cached = this.lookupCache.get(cacheKey);
+      if (!cached || Date.now() - cached.at >= 45e3) return null;
+      return cached.result;
+    }
+    readStatusLookupCache(cacheKey) {
+      const cached = this.statusLookupCache.get(cacheKey);
+      if (!cached || Date.now() - cached.at >= 45e3) return null;
+      return cached.result;
+    }
+    writeLookupCache(cacheKey, result) {
+      this.lookupCache.set(cacheKey, { at: Date.now(), result });
+    }
+    writeStatusLookupCache(cacheKey, result) {
+      this.statusLookupCache.set(cacheKey, { at: Date.now(), result });
+    }
+    async findExistingCardsBatchUncachedWithInflight(groups, fallback) {
+      if (this.isDestroyed) return new Map(groups.map((group) => [group.cacheKey, fallback]));
+      const batch = this.findExistingCardsBatchUncached(groups);
+      for (const { cacheKey } of groups) {
+        const promise = batch.then((results) => results.get(cacheKey) ?? fallback).finally(() => {
+          this.lookupInflight.delete(cacheKey);
+        });
+        this.lookupInflight.set(cacheKey, promise);
+        void promise.catch(() => void 0);
+      }
+      return batch;
+    }
+    async findExistingCardsBatchUncached(groups) {
+      const empty = emptyAnkiLookupResult();
+      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
+      const statusNoteIdsByKey = await this.findStatusIndexNoteIdsByLookupKey(groups);
+      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
+      const noteIdsByKey = await this.findCombinedCandidateNoteIdsByLookupKey(groups, statusNoteIdsByKey);
+      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
+      const allNoteIds = this.uniqueLookupNoteIds(noteIdsByKey);
+      if (!allNoteIds.length) return this.emptyLookupResultsForGroups(groups, empty);
+      const notes = await this.invoke("notesInfo", { notes: allNoteIds });
+      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
+      const matching = this.matchingNotesByLookupKey(groups, noteIdsByKey, notes, statusNoteIdsByKey);
+      const cardsByNote = await this.loadCardsByNote(matching.uniqueNotes);
+      if (this.isDestroyed) return this.emptyLookupResultsForGroups(groups, empty);
+      return await this.existingLookupResultsFromMatches(groups, matching.notesByCacheKey, cardsByNote, empty);
+    }
+    async findCombinedCandidateNoteIdsByLookupKey(groups, statusNoteIdsByKey) {
+      const noteIdsByKey = this.copyNoteIdsByLookupKey(statusNoteIdsByKey);
+      const searchedNoteIds = await this.findCandidateNoteIdsByLookupKey(groups);
+      this.mergeNoteIdsByLookupKey(noteIdsByKey, searchedNoteIds);
+      return noteIdsByKey;
+    }
+    copyNoteIdsByLookupKey(noteIdsByKey) {
+      return new Map([...noteIdsByKey].map(([cacheKey, noteIds]) => [cacheKey, new Set(noteIds)]));
+    }
+    mergeNoteIdsByLookupKey(target, source) {
+      for (const [cacheKey, noteIds] of source) {
+        const merged = target.get(cacheKey) ?? /* @__PURE__ */ new Set();
+        noteIds.forEach((noteId) => merged.add(noteId));
+        target.set(cacheKey, merged);
+      }
+    }
+    uniqueLookupNoteIds(noteIdsByKey) {
+      return unique(Array.from(noteIdsByKey.values()).flatMap((noteIds) => [...noteIds]));
+    }
+    matchingNotesByLookupKey(groups, noteIdsByKey, notes, trustedNoteIdsByKey) {
+      const notesById = new Map(notes.map((note) => [note.noteId, note]));
+      const notesByCacheKey = /* @__PURE__ */ new Map();
+      const uniqueNotesById = /* @__PURE__ */ new Map();
+      for (const { cacheKey, card } of groups) {
+        const trustedNoteIds = trustedNoteIdsByKey?.get(cacheKey);
+        const matchingNotes = [...noteIdsByKey.get(cacheKey) ?? []].map((noteId) => notesById.get(noteId)).filter((note) => this.isMatchingAnkiNoteForCard(note, card, trustedNoteIds));
+        notesByCacheKey.set(cacheKey, matchingNotes);
+        matchingNotes.forEach((note) => uniqueNotesById.set(note.noteId, note));
+      }
+      return {
+        notesByCacheKey,
+        uniqueNotes: [...uniqueNotesById.values()]
+      };
+    }
+    isMatchingAnkiNoteForCard(note, card, trustedNoteIds) {
+      if (!note) return false;
+      if (trustedNoteIds?.has(note.noteId)) return true;
+      return noteLooksLikeCard(note, card, this.getSettings());
+    }
+    async existingLookupResultsFromMatches(groups, matchingNotesByKey, cardsByNote, empty) {
+      const results = /* @__PURE__ */ new Map();
+      for (const { cacheKey } of groups) {
+        const matchingNotes = matchingNotesByKey.get(cacheKey) ?? [];
+        const existing = matchingNotes.map((note) => ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? []));
+        if (existing.length) await this.hydrateExistingNoteRenderedMedia(existing);
+        results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
+      }
+      await this.rememberStatusIndexNotes(unique([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
+        log.warn("Anki status cache update failed", error);
+      });
+      return results;
+    }
+    async rememberStatusIndexNotes(notes, cardsByNote) {
+      if (!notes.length || this.isDestroyed) return;
+      const settings = this.getSettings();
+      const settingsKey = this.statusIndexSettingsKey(settings);
+      const now = Date.now();
+      const entries = this.rememberedStatusIndexEntries(notes, cardsByNote, settings, now);
+      if (!entries.length || this.isDestroyed) return;
+      const current = this.validStatusIndex(await this.loadStatusIndex());
+      const base = await this.baseStatusIndexForRememberedNotes(current, settingsKey, now, entries.length);
+      const checkedAt = Math.max(base.checkedAt, now);
+      if (this.shouldRememberStatusIndexEntriesInIndexedDb(base, current)) {
+        await this.rememberIndexedDbStatusIndexEntries({ ...base, checkedAt, entryStore: "indexeddb", entries: {} }, entries);
+        return;
+      }
+      await this.rememberValueStatusIndexEntries(base, checkedAt, entries);
+    }
+    rememberedStatusIndexEntries(notes, cardsByNote, settings, updatedAt) {
+      return statusIndexEntriesForNotes(notes, {
+        cardsByNote,
+        sets: emptyAnkiStatusIndexCardSets()
+      }, settings, updatedAt);
+    }
+    async baseStatusIndexForRememberedNotes(current, settingsKey, now, rememberedCount) {
+      if (current) return current;
+      return {
+        version: ANKI_STATUS_INDEX_VERSION,
+        settingsKey,
+        syncedAt: 0,
+        checkedAt: now,
+        cardCount: rememberedCount,
+        entryCount: 0,
+        entries: {},
+        readingKeys: true
+      };
+    }
+    shouldRememberStatusIndexEntriesInIndexedDb(base, current) {
+      return base.entryStore === "indexeddb" || !current && canUseIndexedDb();
+    }
+    async rememberValueStatusIndexEntries(base, checkedAt, entries) {
+      const mergedEntries = { ...base.entries };
+      for (const candidate of entries) {
+        const currentEntry = mergedEntries[candidate.key];
+        if (!currentEntry || shouldReplaceAnkiStatusIndexEntry(currentEntry, candidate.entry)) {
+          mergedEntries[candidate.key] = candidate.entry;
+        }
+      }
+      const index = {
+        ...base,
+        checkedAt,
+        entryCount: Object.keys(mergedEntries).length,
+        entries: mergedEntries,
+        readingKeys: true
+      };
+      this.statusIndex = index;
+      await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, index);
+    }
+    async rememberIndexedDbStatusIndexEntries(index, entries) {
+      const db = await openAnkiStatusIndexDb();
+      try {
+        await putBestAnkiStatusIndexEntries(db, entries);
+        const entryCount = await countAnkiStatusIndexEntries(db);
+        const next = {
+          ...index,
+          entryStore: "indexeddb",
+          entries: {},
+          entryCount,
+          readingKeys: true
+        };
+        await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(next));
+        await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(next));
+        this.statusIndex = next;
+      } finally {
+        db.close();
+      }
+    }
+    emptyLookupResultsForGroups(groups, empty) {
+      return new Map(groups.map((group) => [group.cacheKey, empty]));
+    }
+    async findStatusIndexNoteIdsByLookupKey(groups) {
+      const noteIdsByKey = new Map(groups.map((group) => [group.cacheKey, /* @__PURE__ */ new Set()]));
+      const statusIndex = await this.loadStatusIndex();
+      if (!statusIndex || this.isDestroyed) return noteIdsByKey;
+      const statusEntries = await this.loadStatusEntriesForCards(statusIndex, groups.map((group) => group.card));
+      if (this.isDestroyed) return noteIdsByKey;
+      for (const { cacheKey, card } of groups) {
+        const noteId = Number(this.lookupStatusIndex(statusIndex, card, statusEntries)?.primary?.noteId);
+        if (Number.isFinite(noteId) && noteId > 0) noteIdsByKey.get(cacheKey)?.add(noteId);
+      }
+      return noteIdsByKey;
+    }
+    async findCandidateNoteIdsByLookupKey(groups) {
+      const noteIdsByKey = new Map(groups.map((group) => [group.cacheKey, /* @__PURE__ */ new Set()]));
+      if (this.isDestroyed) return noteIdsByKey;
+      const keysByTerm = /* @__PURE__ */ new Map();
+      for (const { cacheKey, card } of groups) {
+        for (const term of lookupKeyTermsForCard(card)) {
+          const keys = keysByTerm.get(term) ?? /* @__PURE__ */ new Set();
+          keys.add(cacheKey);
+          keysByTerm.set(term, keys);
+        }
+      }
+      const terms = [...keysByTerm.keys()];
+      const lookupFields = this.statusLookupFieldNames();
+      if (lookupFields.length) {
+        const fieldQuery = (term) => lookupFields.map((field) => quoteAnkiSearch(`${field}:${term}`)).join(" OR ");
+        await this.collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, fieldQuery);
+        if (this.isDestroyed) return noteIdsByKey;
+      }
+      const unresolvedTerms = lookupFields.length ? terms.filter((term) => [...keysByTerm.get(term) ?? []].some((cacheKey) => (noteIdsByKey.get(cacheKey)?.size ?? 0) === 0)) : terms;
+      if (unresolvedTerms.length) {
+        await this.collectCandidateNoteIds(unresolvedTerms, keysByTerm, noteIdsByKey, (term) => quoteAnkiSearch(term));
+      }
+      return noteIdsByKey;
+    }
+    statusLookupFieldNames() {
+      const settings = this.getSettings();
+      const mapping = settings.ankiFieldMappings?.[resolvedAnkiModelName(settings)];
+      return [...new Set([mapping?.expression, mapping?.reading].map((value) => value?.trim()).filter((value) => Boolean(value)))];
+    }
+    async collectCandidateNoteIds(terms, keysByTerm, noteIdsByKey, buildQuery) {
+      const chunks = chunkArray(terms, ANKI_STATUS_LOOKUP_TERM_CHUNK_SIZE);
+      const chunkResponses = new Array(chunks.length);
+      await runLimited(chunks, ANKI_STATUS_LOOKUP_CHUNK_CONCURRENCY, async (chunk, index) => {
+        chunkResponses[index] = await this.invokeMulti(chunk.map((term) => ({
+          action: "findNotes",
+          params: { query: buildQuery(term) }
+        })));
+      });
+      if (this.isDestroyed) return;
+      const responses = chunkResponses.flat();
+      terms.forEach((term, index) => {
+        const ids = responses[index] ?? [];
+        for (const cacheKey of keysByTerm.get(term) ?? []) {
+          const noteIds = noteIdsByKey.get(cacheKey);
+          ids.forEach((id) => noteIds?.add(id));
+        }
+      });
+    }
+    async loadExistingNotes(card, noteIds) {
+      if (this.isDestroyed) return { existing: [], candidateNotes: 0 };
+      const notes = await this.invoke("notesInfo", { notes: [...noteIds] });
+      if (this.isDestroyed) return { existing: [], candidateNotes: notes.length };
+      const matchingNotes = notes.filter((note) => noteLooksLikeCard(note, card, this.getSettings()));
+      const cardsByNote = await this.loadCardsByNote(matchingNotes);
+      const existing = matchingNotes.map((note) => ankiExistingNoteFromInfo(note, cardsByNote.get(note.noteId) ?? []));
+      await this.hydrateExistingNoteRenderedMedia(existing);
+      return {
+        existing,
+        candidateNotes: notes.length
+      };
+    }
+    async hydrateExistingNoteRenderedMedia(notes) {
+      const cards = notes.flatMap((note) => note.renderedCards ?? []);
+      if (!cards.length || this.isDestroyed) return;
+      await runLimited(cards, ANKI_RENDERED_MEDIA_CONCURRENCY, async (card) => {
+        const filenames = ankiRenderedCardMediaFilenames(card).slice(0, ANKI_RENDERED_MEDIA_LIMIT);
+        if (!filenames.length || this.isDestroyed) return;
+        const mediaDataUrls = {};
+        await runLimited(filenames, ANKI_RENDERED_MEDIA_CONCURRENCY, async (filename) => {
+          if (this.isDestroyed) return;
+          try {
+            mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
+          } catch (error) {
+            log.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
+          }
+        });
+        if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
+      });
+    }
+    async loadCardsByNote(notes) {
+      if (this.isDestroyed) return /* @__PURE__ */ new Map();
+      const cardIds = unique(notes.flatMap((note) => note.cards ?? []));
+      const cards = cardIds.length ? await this.invokeOrDefault("cardsInfo", { cards: cardIds }, []) : [];
+      if (this.isDestroyed) return /* @__PURE__ */ new Map();
+      return cardsByNoteId(await this.annotateDueCards(cards));
+    }
+    async annotateDueCards(cards) {
+      if (this.isDestroyed) return cards;
+      const reviewCardIds = cards.filter((card) => card.queue === 2).map((card) => Number(card.cardId)).filter(Number.isFinite);
+      if (!reviewCardIds.length) return cards;
+      const dueFlags = await this.invokeOrDefault("areDue", { cards: reviewCardIds }, []);
+      if (this.isDestroyed) return cards;
+      const dueByCardId = new Map(reviewCardIds.map((cardId, index) => [cardId, dueFlags[index]]));
+      return cards.map((card) => card.queue === 2 && dueByCardId.has(Number(card.cardId)) ? { ...card, isDue: dueByCardId.get(Number(card.cardId)) === true } : card);
+    }
+    async answerCard(cardId, grade) {
+      const ease = ankiEaseFromGrade(grade);
+      log.info("Answering Anki card", { cardId, grade, ease });
+      await this.invoke("answerCards", { answers: [{ cardId, ease }] });
+      this.lookupCache.clear();
+      this.statusLookupCache.clear();
+      this.markStatusIndexDirtyAfterMutation("review");
+    }
+    // Suspension is Anki's native blacklist analog: suspended cards never
+    // come up for review and already render with the dedicated state color.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
+    async setCardsSuspended(cardIds, suspended) {
+      if (!cardIds.length) return;
+      log.info("Setting Anki card suspension", { cardIds, suspended });
+      await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
+      this.lookupCache.clear();
+      this.statusLookupCache.clear();
+      this.markStatusIndexDirtyAfterMutation("review");
+    }
+    // The never-forget analog: a tag the user can also filter on inside Anki.
+    // Used by the card action controller's deck-state mapping.
+    // fallow-ignore-next-line unused-class-member
+    async setNotesTag(noteIds, tag, present) {
+      if (!noteIds.length) return;
+      log.info("Setting Anki note tag", { noteIds, tag, present });
+      await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
+      this.lookupCache.clear();
+      this.statusLookupCache.clear();
+      this.markStatusIndexDirtyAfterMutation("merge");
+    }
+    // Used by card action controls to open existing notes from rendered Anki status.
+    // fallow-ignore-next-line unused-class-member
+    async browseNote(noteId) {
+      log.info("Opening Anki note browser", { noteId });
+      await this.invoke("guiBrowse", { query: `nid:${noteId}` });
+    }
+    async mediaFileDataUrl(filename) {
+      const cleanFilename = filename.trim();
+      if (!cleanFilename) throw new Error(this.text("ankiAudioFileNotFound"));
+      const cached = this.mediaDataUrlCache.get(cleanFilename);
+      if (cached) return cached;
+      const promise = this.fetchMediaFileDataUrl(cleanFilename).catch((error) => {
+        this.mediaDataUrlCache.delete(cleanFilename);
+        throw error;
+      });
+      this.mediaDataUrlCache.set(cleanFilename, promise);
+      if (this.mediaDataUrlCache.size > ANKI_MEDIA_DATA_URL_CACHE_LIMIT) {
+        const oldest = this.mediaDataUrlCache.keys().next().value;
+        if (oldest !== void 0) this.mediaDataUrlCache.delete(oldest);
+      }
+      return promise;
+    }
+    async fetchMediaFileDataUrl(cleanFilename) {
+      const data = await this.invoke("retrieveMediaFile", { filename: cleanFilename });
+      if (!data) throw new Error(this.text("ankiAudioFileNotFound"));
+      return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
+    }
+    // Used by card action controls to merge mining context into existing Anki notes.
+    async mergeYomuData(noteId, card, sentence = "", options = {}) {
+      const [note] = await this.invoke("notesInfo", { notes: [noteId] });
+      if (!note) throw new Error(this.text("ankiNoteNotFound"));
+      const merge = this.buildYomuNoteMerge(note, card, sentence, options);
+      if (!merge.updatedFields.length && !merge.audioAdded && !merge.imageAdded) {
+        return merge;
+      }
+      await this.invoke("updateNoteFields", { note: merge.note });
+      this.clearLookupCachesForCard(card);
+      this.markStatusIndexDirtyAfterMutation("merge");
+      return merge;
+    }
+    // Used by card action controls for desktop Anki mining.
+    async addCard(card, sentence = "", options = {}) {
+      const settings = this.getSettings();
+      if (!settings.ankiEnabled) {
+        return null;
+      }
+      const note = this.buildAnkiNote(card, sentence, settings, options);
+      if (canUseMobileAnkiHandoff$1(settings) && !hasUserscriptAnkiBridge()) {
+        if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
+        return null;
+      }
+      try {
+        return await this.addNoteViaConnect(note, card);
+      } catch (error) {
+        return this.addCardWithFallback(error, settings, note, card);
+      }
+    }
+    // Used by card action controls for mobile Anki handoff mining.
+    // fallow-ignore-next-line unused-class-member
+    async addCardViaMobileHandoff(card, sentence = "", options = {}) {
+      const settings = this.getSettings();
+      if (!settings.ankiEnabled) return null;
+      if (!canUseMobileAnkiHandoff$1(settings)) throw new Error("Mobile Anki handoff is not available here.");
+      const note = retargetAnkiNoteForMobileHandoff(this.buildAnkiNote(card, sentence, settings, options), settings);
+      if (!openMobileAnkiHandoff(note)) throw new Error(this.text("ankiHandoffCancelled"));
+      return null;
+    }
+    buildAnkiNote(card, sentence, settings, options) {
+      const note = {
+        deckName: this.ankiDeckName(options, settings),
+        modelName: settings.ankiModel || "よむ Japanese",
+        fields: buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings)),
+        tags: tagsFromString(settings.ankiTags),
+        options: {
+          allowDuplicate: false,
+          duplicateScope: "collection"
+        }
+      };
+      this.attachAnkiNoteImage(note, options.imageDataUrl, card);
+      this.attachAnkiNoteAudio(note, options, card);
+      return note;
+    }
+    buildYomuNoteMerge(note, card, sentence, options) {
+      const settings = this.getSettings();
+      const fieldNames = Object.keys(note.fields ?? {});
+      const existingFields = flattenNoteFields(note.fields);
+      const yomuFields = buildYomuAnkiFields(card, sentence, this.ankiFieldContext(options, settings));
+      const canOwnYomuFields = noteLooksLikeYomuModel(note.modelName, settings, fieldNames);
+      const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
+      const fields = mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping);
+      const audio = mergeAudioFilesForNote(fieldNames, options, card, mapping);
+      const picture = mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping);
+      applyMediaFieldClears(fields, audio, picture, options.audioMergeMode, canOwnYomuFields);
+      return {
+        noteId: note.noteId,
+        modelName: note.modelName,
+        updatedFields: Object.keys(fields),
+        audioAdded: Boolean(audio.length),
+        imageAdded: Boolean(picture.length),
+        note: {
+          id: note.noteId,
+          fields,
+          ...audio.length ? { audio } : {},
+          ...picture.length ? { picture } : {}
+        }
+      };
+    }
+    ankiDeckName(options, settings) {
+      return options.deckName?.trim() || settings.ankiDeck || "よむ";
+    }
+    ankiFieldContext(options, settings) {
+      return {
+        ...options,
+        sourceUrl: options.sourceUrl ?? safeLocationHref(),
+        sourceTitle: options.sourceTitle ?? safeDocumentTitle(),
+        dictionaryPreferences: options.dictionaryPreferences ?? settings.dictionaryPreferences,
+        interfaceLanguage: options.interfaceLanguage ?? settings.interfaceLanguage
+      };
+    }
+    attachAnkiNoteImage(note, imageDataUrl, card) {
+      const image = imageDataUrl ? imageFromDataUrl(imageDataUrl, card) : null;
+      if (image) note.picture = [image];
+    }
+    attachAnkiNoteAudio(note, options, card) {
+      const audio = audioFilesFromContext(options, card);
+      if (audio.length) note.audio = audio;
+    }
+    logAnkiNoteAdd(card, note) {
+      log.info("Adding Anki note", {
+        term: card.spelling,
+        deck: note.deckName,
+        model: note.modelName,
+        hasImage: Boolean(note.picture?.length),
+        hasAudio: Boolean(note.audio?.length),
+        tags: note.tags
+      });
+    }
+    async addNoteViaConnect(note, card) {
+      const preparedNote = await this.prepareAnkiNoteForConnect(note);
+      await this.ensureAnkiNoteCanAdd(preparedNote);
+      this.logAnkiNoteAdd(card, preparedNote);
+      const noteId = await this.invoke("addNote", { note: preparedNote });
+      log.info("Anki note added", { term: card.spelling, noteId });
+      await this.refreshLookupCacheAfterAdd(card, noteId);
+      if (noteId === null) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
+      return noteId;
+    }
+    async ensureAnkiNoteCanAdd(note) {
+      const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
+        if (isAnkiConnectAvailabilityError(error)) throw error;
+        log.warn("Anki duplicate preflight failed", error);
+        return [true];
+      });
+      if (canAdd === false) throw new AnkiDuplicateNoteError(this.text("alreadyInAnki"));
+    }
+    async prepareAnkiNoteForConnect(note) {
+      const settings = this.getSettings();
+      await this.ensureDeck(note.deckName);
+      const modelNames = await this.modelNames().catch(() => []);
+      if (!modelNames.includes(note.modelName)) {
+        await this.createYomuModel(note.modelName, settings);
+        return note;
+      }
+      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName: note.modelName }, []);
+      if (shouldTreatExistingModelAsYomuManaged(note.modelName, settings, fieldNames)) {
+        await this.updateExistingModel(note.modelName, settings);
+        return note;
+      }
+      return retargetAnkiNoteToExistingModel(note, fieldNames, settings);
+    }
+    async refreshLookupCacheAfterAdd(card, noteId) {
+      const cacheKey = this.lookupCacheKey(card);
+      this.statusLookupCache.delete(cacheKey);
+      if (!noteId) {
+        this.lookupCache.delete(cacheKey);
+        return;
+      }
+      try {
+        const { existing } = await this.loadExistingNotes(card, /* @__PURE__ */ new Set([noteId]));
+        const result = {
+          state: stateFromExistingNotes(existing),
+          notes: existing,
+          primary: pickPrimaryExistingNote(existing)
+        };
+        this.writeLookupCache(cacheKey, result);
+        this.writeStatusLookupCache(cacheKey, result);
+        this.markStatusIndexDirtyAfterMutation("add");
+      } catch (error) {
+        log.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        this.lookupCache.delete(cacheKey);
+        this.statusLookupCache.delete(cacheKey);
+        this.markStatusIndexDirtyAfterMutation("add");
+      }
+    }
+    clearLookupCachesForCard(card) {
+      const cacheKey = this.lookupCacheKey(card);
+      this.lookupCache.delete(cacheKey);
+      this.statusLookupCache.delete(cacheKey);
+    }
+    markStatusIndexDirtyAfterMutation(reason) {
+      const dirtyLoadedIndex = (index) => {
+        const valid = this.validStatusIndex(index);
+        if (!valid) return false;
+        const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
+        this.statusIndex = dirty;
+        void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
+          log.warn("Anki dirty marker failed", { reason }, error);
+        }).finally(() => {
+          if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
+        });
+        return true;
+      };
+      if (this.statusIndex !== void 0) {
+        dirtyLoadedIndex(this.statusIndex);
+        return;
+      }
+      void this.loadStatusIndex().then((index) => {
+        if (this.isDestroyed) return;
+        dirtyLoadedIndex(index);
+      }).catch((error) => {
+        log.warn("Anki dirty marker failed", { reason }, error);
+      });
+    }
+    addCardWithFallback(error, settings, note, card) {
+      if (!canUseMobileAnkiHandoff$1(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
+      log.warn("AnkiConnect add failed", { term: card.spelling }, error);
+      if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
+      return null;
+    }
+    // Used by settings save/setup flow to prepare the configured Anki deck and model.
+    // fallow-ignore-next-line unused-class-member
+    async ensureDeckAndModel(deckOverride) {
+      const settings = this.getSettings();
+      const deckName = resolvedAnkiDeckName(deckOverride, settings);
+      const modelName = resolvedAnkiModelName(settings);
+      await this.ensureDeck(deckName);
+      const modelNames = await this.modelNames().catch(() => []);
+      await this.ensureYomuModel(modelNames, modelName, settings);
+    }
+    async ensureDeck(deckName) {
+      await this.invokeOrDefault("createDeck", { deck: deckName }, null);
+    }
+    async updateExistingModel(modelName, settings) {
+      await this.ensureModelFields(modelName);
+      await this.invoke("updateModelTemplates", { model: { name: modelName, templates: yomuCardTemplates(settings) } });
+      await this.invoke("updateModelStyling", { model: { name: modelName, css: yomuCardCss() } });
+    }
+    async ensureYomuModel(modelNames, modelName, settings) {
+      return modelNames.includes(modelName) ? await this.updateExistingModel(modelName, settings) : await this.createYomuModel(modelName, settings);
+    }
+    async createYomuModel(modelName, settings) {
+      await this.invoke("createModel", {
+        modelName,
+        inOrderFields: YOMU_MODEL_FIELDS,
+        css: yomuCardCss(),
+        cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
+      });
+      log.info("Anki model created", { modelName });
+    }
+    async ensureModelFields(modelName) {
+      const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
+      const existing = new Set(fieldNames);
+      for (const fieldName of YOMU_MODEL_FIELDS) {
+        if (!existing.has(fieldName)) {
+          await this.invoke("modelFieldAdd", { modelName, fieldName });
+        }
+      }
+    }
+    async invoke(action, params = {}) {
+      return this.invokeWithTimeout(action, params, ANKI_CONNECT_REQUEST_TIMEOUT_MS);
+    }
+    async invokeOrDefault(action, params, fallback) {
+      return this.invoke(action, params).catch(() => fallback);
+    }
+    async invokeWithTimeout(action, params, timeoutMs) {
+      const settings = this.getSettings();
+      const url = settings.ankiConnectUrl || "http://127.0.0.1:8765";
+      const body = JSON.stringify({ action, version: ANKI_VERSION, params });
+      const response = await postAnkiJson(url, body, timeoutMs).catch((error) => {
+        if (isAnkiConnectAvailabilityError(error)) this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
+        throw this.localizedConnectError(error);
+      });
+      this.markAvailable();
+      if (response.error) {
+        log.warn("AnkiConnect action returned error", { action, error: response.error });
+        throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
+      }
+      return response.result;
+    }
+    async invokeMulti(actions) {
+      if (!actions.length) return [];
+      try {
+        const responses = await this.invoke("multi", { actions });
+        return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
+      } catch (error) {
+        if (isAnkiConnectAvailabilityError(error)) {
+          log.warn("AnkiConnect multi failed; cooling down", error);
+          this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
+          return actions.map(() => void 0);
+        }
+        log.warn("AnkiConnect multi failed; retrying solo", error);
+        return Promise.all(actions.map(
+          (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
+        ));
+      }
+    }
+    text(key) {
+      return uiText(this.getSettings().interfaceLanguage, key);
+    }
+    localizedConnectError(error) {
+      const language = this.getSettings().interfaceLanguage;
+      if (resolveUiLanguage(language) !== "ja") return error instanceof Error ? error : new Error(this.text("ankiConnectRequestFailed"));
+      if (error instanceof Error && /timed out/i.test(error.message)) return new Error(this.text("ankiConnectTimedOut"), { cause: error });
+      const status = error instanceof Error ? error.message.match(/\((\d{3})\)/)?.[1] : "";
+      const suffix = status ? `（${status}）` : "";
+      return new Error(`${this.text("ankiConnectRequestFailed")}${suffix}`, error instanceof Error ? { cause: error } : void 0);
+    }
+    markAvailable() {
+      this.availabilityCheckedAt = Date.now();
+      this.unavailableUntil = 0;
+    }
+  }
+  function isAnkiMultiActionResponse(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value) && Object.prototype.hasOwnProperty.call(value, "result") && Object.prototype.hasOwnProperty.call(value, "error");
+  }
+  function emptyAnkiStatusIndexCardSets() {
+    return {
+      all: /* @__PURE__ */ new Set(),
+      due: /* @__PURE__ */ new Set(),
+      learning: /* @__PURE__ */ new Set(),
+      new: /* @__PURE__ */ new Set(),
+      suspended: /* @__PURE__ */ new Set()
+    };
+  }
+  function lookupResultFromExistingNotes(existing, empty) {
+    return existing.length ? {
+      state: stateFromExistingNotes(existing),
+      notes: existing,
+      primary: pickPrimaryExistingNote(existing)
+    } : empty;
+  }
+  function captureActiveVideoFrame() {
+    const video = Array.from(document.querySelectorAll("video")).filter((item) => item.readyState >= 2 && item.videoWidth > 0 && item.videoHeight > 0).sort((a, b) => visibleArea(b) - visibleArea(a))[0];
+    if (!video) {
+      return void 0;
+    }
+    try {
+      const canvas = document.createElement("canvas");
+      const maxWidth = 960;
+      const scale = Math.min(1, maxWidth / video.videoWidth);
+      canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+      canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return void 0;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
+      return dataUrl;
+    } catch (error) {
+      log.warn("Active video frame capture failed", error);
+      return void 0;
+    }
+  }
+  function resolvedAnkiDeckName(deckOverride, settings) {
+    return deckOverride?.trim() || settings.ankiDeck || "よむ";
+  }
+  function resolvedAnkiModelName(settings) {
+    return settings.ankiModel || "よむ Japanese";
+  }
+  function isMobileHandoffRecoverableAddError(error) {
+    if (isAnkiConnectAvailabilityError(error)) return true;
+    if (error instanceof Error && error.cause && error.cause !== error) {
+      return isMobileHandoffRecoverableAddError(error.cause);
+    }
+    if (!(error instanceof Error)) return false;
+    return /unsupported action|action.*unsupported|unknown action|invalid action|not supported/i.test(error.message);
+  }
   function buildYomuAnkiFields(card, sentence = "", context = {}) {
     const fieldContext = ankiFieldContext(context);
-    const jpdbUrl = jpdbVocabularyUrl(card);
+    const jpdbUrl = jpdbVocabularyUrl$1(card);
     return {
       Expression: escapeHtml$1(card.spelling),
       Reading: renderCardReading(card),
@@ -3702,7 +7088,7 @@ recommendedJiten	jiten.moe頻度データです。
       Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
     };
   }
-  function buildYomuAnkiPreviewFields(card, sentence, settings, context = {}, fieldTargetPlan) {
+  function buildYomuAnkiPreviewFields$1(card, sentence, settings, context = {}, fieldTargetPlan) {
     const yomuFields = buildYomuAnkiFields(card, sentence, {
       ...context,
       interfaceLanguage: settings.interfaceLanguage
@@ -3750,13 +7136,73 @@ recommendedJiten	jiten.moe頻度データです。
   function fallbackString(value) {
     return value ?? "";
   }
-  function jpdbVocabularyUrl(card) {
+  function jpdbVocabularyUrl$1(card) {
     return card.source === "local" || card.source === "anki" ? "" : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
   }
   function renderCardStatus(card, language) {
     if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$1(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
     if (card.source === "anki") return '<span class="yomu-chip">Anki</span>';
     return card.cardState.map((state) => `<span class="yomu-chip">${escapeHtml$1(state)}</span>`).join(" ");
+  }
+  function tagsFromString(value) {
+    return value.split(/[,\s]+/).map((tag) => tag.trim()).filter(Boolean);
+  }
+  function retargetAnkiNoteToExistingModel(note, fieldNames, settings) {
+    const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
+    const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
+    const audioField = fieldNameForRole(fieldNames, "audio", mapping);
+    const imageField = fieldNameForRole(fieldNames, "image", mapping);
+    return {
+      deckName: note.deckName,
+      modelName: note.modelName,
+      fields,
+      tags: note.tags,
+      options: note.options,
+      ...audioField && note.audio?.length ? { audio: retargetMediaFiles(note.audio, audioField) } : {},
+      ...imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}
+    };
+  }
+  function ankiNoteForDuplicatePreflight(note) {
+    return {
+      deckName: note.deckName,
+      modelName: note.modelName,
+      fields: note.fields,
+      tags: note.tags,
+      options: note.options
+    };
+  }
+  function retargetAnkiNoteForMobileHandoff(note, settings) {
+    const mapping = activeMobileHandoffMapping(note, settings);
+    if (!mapping) return note;
+    return {
+      ...note,
+      fields: mobileHandoffFieldsWithMappings(note.fields, mapping),
+      ...retargetMobileHandoffMedia(note, mapping)
+    };
+  }
+  function activeMobileHandoffMapping(note, settings) {
+    const mapping = settings.ankiFieldMappings?.[note.modelName];
+    return mapping && Object.values(mapping).some((value) => value?.trim()) ? mapping : null;
+  }
+  function mobileHandoffFieldsWithMappings(yomuFields, mapping) {
+    const fields = { ...yomuFields };
+    for (const role of ANKI_FIELD_ROLES) {
+      const fieldName = mobileMappedFieldName(mapping, role);
+      const value = yomuFields[yomuFieldForRole(role)];
+      if (fieldName && value) fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function retargetMobileHandoffMedia(note, mapping) {
+    const media = {};
+    const audioField = mobileMappedFieldName(mapping, "audio");
+    const imageField = mobileMappedFieldName(mapping, "image");
+    if (audioField && note.audio?.length) media.audio = retargetMediaFiles(note.audio, audioField);
+    if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
+    return media;
+  }
+  function mobileMappedFieldName(mapping, role) {
+    return mapping[role]?.trim() ?? "";
   }
   function retargetYomuFieldsToExistingModel(yomuFields, fieldNames, mapping) {
     const valuesByRole = {
@@ -3773,7 +7219,36 @@ recommendedJiten	jiten.moe頻度データです。
     }
     return fields;
   }
-  Object.fromEntries([
+  function imageFromDataUrl(dataUrl, card) {
+    const parsed = parseAnkiImageDataUrl(dataUrl);
+    if (!parsed) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${Date.now()}.${parsed.extension}`,
+      data: parsed.data,
+      fields: ["Image"]
+    };
+  }
+  function mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping) {
+    const fields = {};
+    for (const fieldName of fieldNames) {
+      const value = yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields);
+      if (!value) continue;
+      if (!canOwnYomuFields && existingFields[fieldName]) continue;
+      fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields) {
+    const mappedRole = mappedRoleForField(fieldName, mapping);
+    if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? "";
+    const alias = yomuFieldAlias(fieldName);
+    if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
+    return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
+  }
+  function yomuFieldAlias(fieldName) {
+    return YOMU_FIELD_ALIASES[normalizeAnkiFieldName(fieldName)] ?? "";
+  }
+  const YOMU_FIELD_ALIASES = Object.fromEntries([
     ...yomuAliasEntries("Expression", "baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front"),
     ...yomuAliasEntries("Reading", "expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi"),
     ...yomuAliasEntries("Meaning", "def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back"),
@@ -3786,18 +7261,358 @@ recommendedJiten	jiten.moe頻度データです。
   function yomuAliasEntries(field, aliases) {
     return aliases.split("|").map((alias) => [alias, field]);
   }
+  function noteLooksLikeYomuModel(modelName, settings, fieldNames) {
+    const configuredModel = resolvedAnkiModelName(settings);
+    if (modelName === configuredModel) return true;
+    return yomuModelFieldSet(fieldNames);
+  }
+  function shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames) {
+    const configuredModel = resolvedAnkiModelName(settings);
+    if (modelName === configuredModel && isDefaultYomuModelName(configuredModel)) return true;
+    return yomuModelFieldSet(fieldNames);
+  }
+  function isDefaultYomuModelName(modelName) {
+    return modelName === "よむ Japanese" || modelName === "Yomu Japanese";
+  }
+  function yomuModelFieldSet(fieldNames) {
+    const fieldSet = new Set(fieldNames);
+    return ["Expression", "Meaning", "Sentence", "DictionaryDefinitions"].every((field) => fieldSet.has(field));
+  }
+  function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
+    if (options.audioMergeMode === "theirs") return [];
+    const fieldName = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
+    if (!fieldName) return [];
+    return retargetMediaFiles(audioFilesFromContext(options, card), fieldName);
+  }
+  function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
+    const fieldName = fieldNameForRole(fieldNames, "image", mapping);
+    if (!fieldName || !options.imageDataUrl) return [];
+    if (!canOwnYomuFields && existingFields[fieldName]) return [];
+    const image = imageFromDataUrl(options.imageDataUrl, card);
+    return image ? [{ ...image, fields: [fieldName] }] : [];
+  }
+  function applyMediaFieldClears(fields, audio, picture, audioMergeMode, canOwnYomuFields) {
+    if (audio.length && audioMergeMode === "ours") fields[audio[0].fields[0]] = "";
+    if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = "";
+  }
+  function mediaFieldName(fieldNames, preferredNames) {
+    const exact = preferredNames.find((name) => fieldNames.includes(name));
+    if (exact) return exact;
+    const preferredLower = new Set(preferredNames.map((name) => name.toLowerCase()));
+    return fieldNames.find((name) => preferredLower.has(name.toLowerCase())) ?? "";
+  }
+  function retargetMediaFiles(files, fieldName) {
+    return files.map((file) => ({ ...file, fields: [fieldName] }));
+  }
+  function audioFilesFromContext(options, card) {
+    const files = [
+      audioFromMedia({ dataUrl: options.wordAudioDataUrl, url: options.wordAudioUrl, kind: "word" }, card),
+      audioFromMedia({ dataUrl: options.audioDataUrl, url: options.audioUrl, kind: "context" }, card)
+    ].filter((file) => Boolean(file));
+    return uniqueAnkiAudioFiles(files);
+  }
+  function audioFromMedia(media, card) {
+    const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
+    if (fromData) return fromData;
+    return media.url ? audioFromUrl(media.url, card, media.kind) : null;
+  }
+  function audioFromDataUrl(dataUrl, card, kind) {
+    const parsed = parseAnkiAudioDataUrl(dataUrl);
+    if (!parsed) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
+      data: parsed.data,
+      fields: ["Audio"]
+    };
+  }
+  function audioFromUrl(url, card, kind) {
+    const cleanUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
+      url: cleanUrl,
+      fields: ["Audio"]
+    };
+  }
+  function uniqueAnkiAudioFiles(files) {
+    const seen = /* @__PURE__ */ new Set();
+    return files.filter((file) => {
+      const key = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function parseAnkiImageDataUrl(dataUrl) {
+    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
+  }
+  function parseAnkiAudioDataUrl(dataUrl) {
+    const match = /^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
+  }
+  const ANKI_IMAGE_EXTENSION_ALIASES = {
+    "jpeg": "jpg",
+    "svg+xml": "svg"
+  };
+  function ankiImageExtension(rawExtension) {
+    const extension = rawExtension.toLowerCase();
+    return ANKI_IMAGE_EXTENSION_ALIASES[extension] ?? extension;
+  }
+  const ANKI_AUDIO_EXTENSION_ALIASES = {
+    "mpeg": "mp3",
+    "mp3": "mp3",
+    "wav": "wav",
+    "wave": "wav",
+    "x-wav": "wav",
+    "ogg": "ogg",
+    "oga": "ogg",
+    "webm": "webm",
+    "mp4": "mp4",
+    "aac": "aac",
+    "flac": "flac"
+  };
+  function ankiAudioExtension(rawExtension) {
+    return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.toLowerCase()] ?? "mp3";
+  }
+  function audioUrlExtension(url) {
+    try {
+      const pathname = new URL(url, location.href).pathname;
+      const match = /\.([a-z0-9]+)$/i.exec(pathname);
+      if (match) return `.${ankiAudioExtension(match[1])}`;
+    } catch {
+    }
+    return ".mp3";
+  }
+  function safeAnkiMediaName(card) {
+    return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
+  }
   function isMobileAnkiHandoffEnvironment() {
     const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
     return isAppleTouchBrowser() || /Android/i.test(userAgent) && /Chrome|Firefox|Firefox\/|FxiOS|EdgA/i.test(userAgent);
   }
-  function canUseMobileAnkiHandoff(settings) {
+  function canUseMobileAnkiHandoff$1(settings) {
     return settings.ankiEnabled && settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment();
   }
-  function mobileAnkiHandoffAppName() {
+  function openMobileAnkiHandoff(note) {
+    const handoff = mobileAnkiHandoffTarget(note);
+    if (!window.confirm(mobileAnkiHandoffPrompt(note, handoff.appName))) return false;
+    location.href = handoff.url;
+    return true;
+  }
+  function mobileAnkiHandoffTarget(note) {
+    if (isAndroidUserAgent()) return { appName: "AnkiDroid", url: androidAnkiDroidIntentUrl(note) };
+    return { appName: "AnkiMobile", url: iosAnkiMobileUrl(note) };
+  }
+  function mobileAnkiHandoffAppName$1() {
     return isAndroidUserAgent() ? "AnkiDroid" : "AnkiMobile";
   }
   function isAndroidUserAgent() {
     return /Android/i.test(typeof navigator === "undefined" ? "" : navigator.userAgent);
+  }
+  function mobileAnkiHandoffPrompt(note, appName) {
+    const title = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "this note");
+    return `Open ${appName} to add "${title}"? This creates a new note only.`;
+  }
+  function iosAnkiMobileUrl(note) {
+    const params = [];
+    const add = (key, value) => params.push(`${key}=${encodeURIComponent(value)}`);
+    add("type", note.modelName);
+    add("deck", iosAnkiMobileDeckName(note.deckName));
+    if (note.tags?.length) add("tags", note.tags.join(" "));
+    Object.entries(iosAnkiMobileFields(note)).forEach(([field, value]) => {
+      const handoffValue = iosAnkiMobileFieldValue(field, value);
+      if (handoffValue !== null) add(`fld${field}`, handoffValue);
+    });
+    return `anki://x-callback-url/addnote?${params.join("&")}`;
+  }
+  function iosAnkiMobileDeckName(deckName) {
+    const trimmed = deckName.trim();
+    return YOMU_DEFAULT_DECK_NAMES.has(trimmed.toLowerCase()) ? ANKI_MOBILE_FALLBACK_DECK : trimmed || ANKI_MOBILE_FALLBACK_DECK;
+  }
+  function iosAnkiMobileFields(note) {
+    const fields = { ...note.fields };
+    const audioUrl = firstMobileHandoffMediaUrl(note.audio);
+    const audioField = firstMobileHandoffMediaField(note.audio) || "Audio";
+    if (audioUrl && !(fields[audioField] ?? "").trim()) fields[audioField] = audioUrl;
+    const imageUrl = firstMobileHandoffMediaUrl(note.picture);
+    const imageField = firstMobileHandoffMediaField(note.picture) || "Image";
+    if (imageUrl && !(fields[imageField] ?? "").trim()) fields[imageField] = imageUrl;
+    return fields;
+  }
+  function firstMobileHandoffMediaUrl(files) {
+    return files?.map((file) => "url" in file ? file.url ?? "" : "").find(isMobileHandoffMediaUrl) ?? "";
+  }
+  function firstMobileHandoffMediaField(files) {
+    return files?.flatMap((file) => file.fields ?? []).map((field) => field.trim()).find(Boolean) ?? "";
+  }
+  function isMobileHandoffMediaUrl(value) {
+    return /^https?:\/\//i.test(value) && /\.(?:aac|flac|gif|jpe?g|m4a|mp3|mp4|oga|ogg|opus|png|svg|webm|webp|wav)(?:[?#].*)?$/i.test(value);
+  }
+  function iosAnkiMobileFieldValue(field, value) {
+    if (field !== "Image") return value;
+    const trimmed = value.trim();
+    if (!trimmed || /^data:/i.test(trimmed)) return null;
+    return trimmed;
+  }
+  function androidAnkiDroidIntentUrl(note) {
+    const front = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "");
+    const back = stripForMobileHandoff([
+      note.fields.Reading,
+      note.fields.Meaning,
+      note.fields.DictionaryDefinitions,
+      note.fields.Source
+    ].filter(Boolean).join("\n\n"));
+    return [
+      "intent:#Intent",
+      "action=android.intent.action.SEND",
+      "type=text/plain",
+      "package=com.ichi2.anki",
+      `S.android.intent.extra.SUBJECT=${encodeURIComponent(front)}`,
+      `S.android.intent.extra.TEXT=${encodeURIComponent(back)}`,
+      `S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=com.ichi2.anki")}`,
+      "end"
+    ].join(";");
+  }
+  function stripForMobileHandoff(value) {
+    return stripHtml$1(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  function visibleArea(element) {
+    const rect = element.getBoundingClientRect();
+    const width = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+    const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+    return width * height;
+  }
+  function unique(items) {
+    return [...new Set(items)];
+  }
+  function chunkArray(items, size) {
+    const chunks = [];
+    for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+    return chunks;
+  }
+  function ankiEaseFromGrade(grade) {
+    return ANKI_EASE_BY_GRADE[grade] ?? 3;
+  }
+  const YOMU_RECOGNITION_TEMPLATE_NAME = "Recognition";
+  const YOMU_CONTEXT_TEMPLATE_NAME = "Context";
+  function yomuCardTemplates(settings) {
+    const language = settings.interfaceLanguage;
+    const recognitionFront = `
+<main class="yomu-card yomu-front">
+    <div class="yomu-expression">{{Expression}}</div>
+    ${settings.ankiFrontReading ? '{{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}' : ""}
+    ${settings.ankiFrontSentence ? '{{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}' : ""}
+    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
+</main>`;
+    const contextFront = `
+<main class="yomu-card yomu-front">
+    {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
+    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
+    <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
+</main>`;
+    const back = `
+{{FrontSide}}
+<main class="yomu-card yomu-back">
+    <section class="yomu-section yomu-answer">
+        <div class="yomu-expression">{{Expression}}</div>
+        {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
+        {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
+    </section>
+    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
+    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
+    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
+    <section class="yomu-section yomu-meta">
+        {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
+        {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
+        {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
+        {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
+        {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
+    </section>
+</main>`;
+    const templateName = settings.ankiTemplateMode === "context" ? YOMU_CONTEXT_TEMPLATE_NAME : YOMU_RECOGNITION_TEMPLATE_NAME;
+    return {
+      [templateName]: {
+        Front: settings.ankiTemplateMode === "context" ? contextFront : recognitionFront,
+        Back: back
+      }
+    };
+  }
+  function yomuCardCss() {
+    const color = ANKI_CARD_COLOR_TOKENS;
+    return `
+.card {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+    font-size: 20px;
+    line-height: 1.45;
+    text-align: left;
+    color: ${color.text};
+    background: ${color.background};
+}
+.yomu-card { max-width: 760px; margin: 0 auto; padding: 22px; }
+.yomu-expression { font-size: 44px; font-weight: 850; letter-spacing: 0; line-height: 1.1; }
+.yomu-reading { margin-top: 6px; color: ${color.muted}; font-size: 24px; }
+.yomu-prompt { margin-top: 14px; color: ${color.muted}; font-size: 16px; }
+.yomu-sentence {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid ${color.sentenceBorder};
+    border-radius: 12px;
+    background: ${color.sentenceBackground};
+    color: ${color.sentenceText};
+}
+.yomu-highlight { color: ${color.highlight}; font-weight: 800; }
+.yomu-sentence-front { font-size: 28px; }
+.yomu-image img, .yomu-image { max-width: 100%; border-radius: 10px; margin-top: 16px; }
+.yomu-section {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px solid ${color.sectionBorder};
+    border-radius: 12px;
+    background: ${color.sectionBackground};
+}
+.yomu-section h2 {
+    margin: 0 0 10px;
+    color: ${color.headingText};
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.yomu-definition, .yomu-dict-entry, .yomu-kanji-entry { margin-top: 12px; }
+.yomu-definition:first-child, .yomu-dict-entry:first-child, .yomu-kanji-entry:first-child { margin-top: 0; }
+.yomu-pos, .yomu-dict-label, .yomu-tags {
+    display: inline-block;
+    margin: 0 8px 6px 0;
+    color: ${color.labelText};
+    font-size: 14px;
+    font-style: italic;
+}
+.yomu-glossary div { margin-top: 4px; }
+.yomu-dict-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.yomu-dict-expression, .yomu-kanji-char { color: ${color.expressionText}; font-size: 24px; font-weight: 800; }
+.yomu-dict-reading, .yomu-kanji-reading { color: ${color.readingText}; }
+.yomu-kanji-char { font-size: 34px; }
+.yomu-chip {
+    display: inline-block;
+    margin: 2px 6px 2px 0;
+    padding: 2px 8px;
+    border: 1px solid ${color.chipBorder};
+    border-radius: 999px;
+    color: ${color.chipText};
+    font-size: 14px;
+}
+.yomu-meta > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.yomu-meta > div:first-child { margin-top: 0; }
+.yomu-meta strong { min-width: 112px; color: ${color.metaLabelText}; }
+a { color: ${color.highlight}; text-decoration: none; }
+a:hover { text-decoration: underline; }
+ul, ol { margin: 6px 0 0 22px; padding: 0; }
+table { max-width: 100%; border-collapse: collapse; }
+td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
+`;
   }
   function renderJpdbMeanings(card) {
     return card.meanings.slice(0, 8).map((meaning) => {
@@ -3938,6 +7753,1185 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function formatPitchPosition(position) {
     return typeof position === "number" ? String(position) : "";
+  }
+  function safeLocationHref() {
+    return typeof location === "undefined" ? "" : location.href;
+  }
+  function safeDocumentTitle() {
+    return typeof document === "undefined" ? "" : document.title;
+  }
+  class ShuffledAudioDeck {
+    constructor(random = Math.random) {
+      this.random = random;
+    }
+    bags = /* @__PURE__ */ new Map();
+    order(key, ids) {
+      if (!ids.length) return ids;
+      const signature = ids.join("\0");
+      const current = this.bags.get(key);
+      if (reusableAudioBag(current, signature)) return audioDeckOrderWithFallbacks(current.remaining, ids);
+      const next = this.buildAudioBag(ids, signature, current);
+      this.bags.set(key, next);
+      return audioDeckOrderWithFallbacks(next.remaining, ids);
+    }
+    buildAudioBag(ids, signature, current) {
+      const remaining = this.shuffle(ids);
+      const lastPlayed = current?.lastPlayed;
+      rotateRepeatedAudioLead(remaining, lastPlayed);
+      return { signature, remaining, lastPlayed };
+    }
+    markPlayed(key, id) {
+      const current = this.bags.get(key);
+      if (!current) return;
+      removeAudioDeckId(current.remaining, id);
+      current.lastPlayed = id;
+    }
+    markSkipped(key, id) {
+      const current = this.bags.get(key);
+      if (!current) return;
+      removeAudioDeckId(current.remaining, id);
+    }
+    shuffle(values) {
+      const shuffled = [...values];
+      for (let index = shuffled.length - 1; index > 0; index--) {
+        const swapIndex = Math.floor(this.random() * (index + 1));
+        [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+      }
+      return shuffled;
+    }
+  }
+  function reusableAudioBag(bag, signature) {
+    return Boolean(bag && bag.signature === signature && bag.remaining.length);
+  }
+  function audioDeckOrderWithFallbacks(remaining, ids) {
+    const unplayed = new Set(remaining);
+    return [
+      ...remaining,
+      ...ids.filter((id) => !unplayed.has(id))
+    ];
+  }
+  function rotateRepeatedAudioLead(ids, lastPlayed) {
+    if (lastPlayed && ids.length > 1 && ids[0] === lastPlayed) ids.push(ids.shift());
+  }
+  function removeAudioDeckId(ids, id) {
+    const index = ids.indexOf(id);
+    if (index >= 0) ids.splice(index, 1);
+  }
+  const REQUIRED_JA_AUDIO_SOURCES = ["jpod101", "language-pod-101", "jisho", "jiten-tts", "jpdb-tts", "text-to-speech"];
+  function getOrderedAudioSources(settings) {
+    const sources = settings.audioSources.filter((source) => source.enabled);
+    if (!settings.audioEnableDefaultSources) return sources;
+    const configuredTypes = new Set(settings.audioSources.map((source) => source.type));
+    return [
+      ...sources,
+      ...REQUIRED_JA_AUDIO_SOURCES.filter((type) => !configuredTypes.has(type)).map((type) => ({ type, url: "", voice: "", enabled: true }))
+    ];
+  }
+  function orderAudioCandidates(candidates, mode, bagKey, shuffledAudio) {
+    return orderAudioDeckEntries(candidates.map((candidate, index) => ({
+      candidate,
+      id: audioCandidateDeckId(candidate, index)
+    })), mode, bagKey, shuffledAudio);
+  }
+  function orderAudioSources(sources, mode, card, shuffledAudio) {
+    const bagKey = getAudioSourceBagKey(sources, card);
+    return orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
+  }
+  function audioSourceDeckEntries(sources, bagKey) {
+    return sources.map((source, index) => {
+      const signature = getAudioSourceSignature(source);
+      return {
+        source,
+        id: getAudioSourceDeckId(signature, index),
+        bagKey,
+        signature
+      };
+    });
+  }
+  function isBrowserTextToSpeechSource(source) {
+    return source.type === "text-to-speech" || source.type === "text-to-speech-reading";
+  }
+  function registerAudioAttempt(triedUrls, candidate) {
+    const candidateKey = normalizeAttemptedAudioUrl(candidate.url);
+    if (triedUrls.has(candidateKey)) return false;
+    triedUrls.add(candidateKey);
+    return true;
+  }
+  function getAudioBagKey(source, card) {
+    return [
+      source.type,
+      source.url,
+      source.voice,
+      card.spelling,
+      card.reading
+    ].join("");
+  }
+  function normalizeAttemptedAudioUrl(value) {
+    try {
+      const url = new URL(value, location.href);
+      url.hash = "";
+      return url.href;
+    } catch {
+      return value;
+    }
+  }
+  function audioCandidateDeckId(candidate, index) {
+    if (candidate.jpdbAudioId) return `jpdb:${candidate.jpdbAudioId}`;
+    return [
+      normalizeAttemptedAudioUrl(candidate.url),
+      normalizeAttemptedAudioUrl(candidate.sourceUrl),
+      index
+    ].join("\0");
+  }
+  function orderAudioDeckEntries(entries, mode, bagKey, shuffledAudio) {
+    if (mode !== "random" || !entries.length) return entries;
+    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    const ordered = [];
+    for (const id of shuffledAudio.order(bagKey, entries.map((entry) => entry.id))) {
+      const entry = byId.get(id);
+      if (entry) ordered.push(entry);
+    }
+    return ordered;
+  }
+  function getAudioSourceBagKey(sources, card) {
+    return [
+      "audio-sources",
+      card.spelling,
+      card.reading,
+      ...sources.map(getAudioSourceSignature)
+    ].join("");
+  }
+  function getAudioSourceDeckId(signature, index) {
+    return `${index}\0${signature}`;
+  }
+  function getAudioSourceSignature(source) {
+    return [
+      source.type,
+      source.url.trim(),
+      source.voice.trim()
+    ].join("\0");
+  }
+  function requestAudioUrl(responseUrl, responseType, timeoutMs, options = {}) {
+    const language = options.language ?? "en";
+    const requestOptions = {
+      method: options.method ?? "GET",
+      headers: options.headers,
+      data: options.data,
+      proxyUrl: options.proxyUrl,
+      allowDirectCrossOrigin: options.allowDirectCrossOrigin ?? true,
+      allowPublicProxies: options.allowPublicProxies,
+      allowConfiguredProxy: options.allowConfiguredProxy,
+      preferFetch: options.preferFetch ?? shouldPreferFetchForAudioRequests(),
+      credentials: options.credentials,
+      withCredentials: options.withCredentials,
+      timeoutMs,
+      failureLabel: uiText(language, "audioRequest"),
+      timeoutLabel: uiText(language, "audioRequestTimedOut")
+    };
+    return responseType === "blob" ? requestBlob(responseUrl, requestOptions) : requestText(responseUrl, requestOptions);
+  }
+  function shouldPreferFetchForAudioRequests() {
+    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
+  }
+  function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
+      reader.readAsDataURL(blob);
+    });
+  }
+  const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
+  function isValidJpdbAudioId(value) {
+    return Boolean(value && JPDB_AUDIO_ID_RE.test(value) && !value.includes("..") && !value.startsWith("//"));
+  }
+  function normalizeJpdbAudioGroup(value) {
+    const ids = value.split("+").map((item) => item.trim()).filter(Boolean);
+    return ids.length && ids.every(isValidJpdbAudioId) ? ids.join("+") : "";
+  }
+  const JPDB_AUDIO_BASE_URL = "https://jpdb.io/static/v";
+  const JPDB_AUDIO_ACCESS_HEADER = "please don't steal these files";
+  const JPDB_AUDIO_XOR_BYTES = [6, 35, 84, 15];
+  const LOOPBACK_AUDIO_HOSTS$1 = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
+  function normalizeJpdbAudioIds(value) {
+    return uniqueJpdbAudioValues(normalizeJpdbAudioGroups(value).flatMap((group) => group.split("+")));
+  }
+  function jpdbAudioRequest(audioId, language = "en") {
+    if (!isValidJpdbAudioId(audioId)) throw new Error(uiText(language, "invalidJpdbAudioId"));
+    if (audioId.startsWith("/static/user/")) {
+      return { url: new URL(audioId, "https://jpdb.io").toString(), encoded: false };
+    }
+    const devUrl = localDevJpdbAudioUrl(audioId);
+    if (devUrl) {
+      return {
+        url: devUrl,
+        headers: jpdbAudioHeaders(),
+        encoded: true
+      };
+    }
+    return {
+      url: `${JPDB_AUDIO_BASE_URL}/${encodeJpdbAudioPath(audioId)}`,
+      headers: jpdbAudioHeaders(),
+      encoded: true
+    };
+  }
+  async function fetchJpdbAudioBlob(audioId, settings) {
+    const request = jpdbAudioRequest(audioId, settings.interfaceLanguage);
+    const response = await requestAudioUrl(request.url, "blob", settings.audioTimeoutMs, {
+      headers: request.headers,
+      proxyUrl: settings.corsProxyUrl,
+      language: settings.interfaceLanguage,
+      credentials: "same-origin",
+      withCredentials: true
+    });
+    if (!(response instanceof Blob)) throw new Error(uiText(settings.interfaceLanguage, "jpdbAudioPlayableFileMissing"));
+    return decodeJpdbAudioBlob(response, request.encoded, settings.interfaceLanguage);
+  }
+  async function decodeJpdbAudioBlob(response, encoded, language = "en") {
+    const bytes = new Uint8Array(await blobArrayBuffer(response, language));
+    const decoded = encoded ? decodeJpdbAudioBytes(bytes) : bytes;
+    const sniffedType = jpdbAudioMimeTypeForBytes(decoded);
+    if (!sniffedType) {
+      if (!encoded && isAudioBlobType(response.type)) return new Blob([blobPart(decoded)], { type: response.type });
+      throw new Error(uiText(language, "jpdbAudioResponseNotPlayable"));
+    }
+    return new Blob([blobPart(decoded)], { type: sniffedType });
+  }
+  function jpdbAudioPageSourceUrl(audioId) {
+    return audioId.startsWith("/static/user/") ? "https://jpdb.io/" : JPDB_AUDIO_BASE_URL;
+  }
+  function normalizeJpdbAudioGroups(value) {
+    const values = Array.isArray(value) ? value : value.split(",");
+    return uniqueJpdbAudioValues(values.map(normalizeJpdbAudioGroup).filter(Boolean));
+  }
+  function blobArrayBuffer(blob, language = "en") {
+    if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error ?? new Error(uiText(language, "couldNotReadAudioBlob")));
+      reader.readAsArrayBuffer(blob);
+    });
+  }
+  function jpdbAudioHeaders() {
+    const headers = { "X-Access": JPDB_AUDIO_ACCESS_HEADER };
+    if (shouldForceJpdbCafAudio()) headers["X-ForceCAF"] = "1";
+    return headers;
+  }
+  function shouldForceJpdbCafAudio() {
+    const audio = document.createElement("audio");
+    return audio.canPlayType("audio/ogg; codecs=opus") === "" && audio.canPlayType("audio/x-caf") !== "";
+  }
+  function decodeJpdbAudioBytes(bytes) {
+    const decoded = new Uint8Array(bytes);
+    JPDB_AUDIO_XOR_BYTES.forEach((mask, index) => {
+      if (index < decoded.length) decoded[index] = decoded[index] ^ mask;
+    });
+    return decoded;
+  }
+  function jpdbAudioMimeTypeForBytes(bytes) {
+    if (startsWithAscii(bytes, "OggS")) return "audio/ogg; codecs=opus";
+    if (startsWithAscii(bytes, "caff")) return "audio/x-caf";
+    if (startsWithAscii(bytes, "RIFF")) return "audio/wav";
+    if (startsWithAscii(bytes, "ID3") || isMp3Frame(bytes)) return "audio/mpeg";
+    if (asciiAt(bytes, 4, "ftyp")) return "audio/mp4";
+    return "";
+  }
+  function startsWithAscii(bytes, signature) {
+    return asciiAt(bytes, 0, signature);
+  }
+  function asciiAt(bytes, offset, signature) {
+    if (bytes.length < offset + signature.length) return false;
+    return Array.from(signature).every((char, index) => bytes[offset + index] === char.charCodeAt(0));
+  }
+  function isMp3Frame(bytes) {
+    return bytes.length >= 2 && bytes[0] === 255 && (bytes[1] & 224) === 224;
+  }
+  function isAudioBlobType(type) {
+    return /^audio\//i.test(type.trim());
+  }
+  function blobPart(bytes) {
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  }
+  function localDevJpdbAudioUrl(audioId) {
+    if (!isLocalNewTabDevOrigin()) return "";
+    const url = new URL(`/__yomu-jpdb-audio/${encodeJpdbAudioPath(audioId)}`, location.href);
+    if (shouldForceJpdbCafAudio()) url.searchParams.set("force_caf", "1");
+    return url.toString();
+  }
+  function isLocalNewTabDevOrigin() {
+    if (typeof window === "undefined" || typeof location === "undefined") return false;
+    if (window.__YOMU_READER_RUNTIME__ !== "newtab") return false;
+    return /^https?:$/.test(location.protocol) && LOOPBACK_AUDIO_HOSTS$1.has(location.hostname.replace(/^\[|\]$/g, ""));
+  }
+  function encodeJpdbAudioPath(value) {
+    return value.split("/").map(encodeURIComponent).join("/");
+  }
+  function uniqueJpdbAudioValues(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.filter((value) => {
+      const key = normalizeAttemptedAudioUrl(value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function jpdbVocabularyIdentityFromUrl$1(value) {
+    if (!value) return null;
+    try {
+      const url = new URL(value, "https://jpdb.io");
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts[0] !== "vocabulary") return null;
+      const vid = Number.parseInt(parts[1] ?? "", 10);
+      return {
+        vid: Number.isFinite(vid) ? vid : 0,
+        spelling: decodeUrlPathPart(parts[2] ?? ""),
+        reading: decodeUrlPathPart(parts[3] ?? "")
+      };
+    } catch {
+      return null;
+    }
+  }
+  function decodeUrlPathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function uniqueStrings(values, options = {}) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values) {
+      const normalized = options.trim ? value?.trim() : value;
+      if (normalized === void 0 || normalized === null) continue;
+      if (options.dropEmpty && !normalized) continue;
+      if (seen.has(normalized)) continue;
+      seen.add(normalized);
+      result.push(normalized);
+    }
+    return result;
+  }
+  const JITEN_TTS_API_BASE_URL = "https://api.jiten.moe/api/tts";
+  const JITEN_TTS_RANDOM_VOICES = ["female", "female2", "male", "male2", "asmr"];
+  function jitenTtsVoicesForValue(value) {
+    const voice = value?.trim();
+    return voice ? [voice] : [...JITEN_TTS_RANDOM_VOICES];
+  }
+  function jitenWordTtsUrl(wordId, readingIndex, voice) {
+    return `${JITEN_TTS_API_BASE_URL}/word/${wordId}/${readingIndex}?voice=${encodeURIComponent(voice)}`;
+  }
+  const JAPANESE_POD_101_UNAVAILABLE_SIZE = 52288;
+  const JAPANESE_POD_101_UNAVAILABLE_SHA256 = "ae6398b5a27bc8c0a771df6c907ade794be15518174773c58c7c7ddd17098906";
+  const LOOPBACK_AUDIO_HOSTS = /* @__PURE__ */ new Set(["localhost", "127.0.0.1", "::1"]);
+  const KANA_ONLY_RE = /^[\u3040-\u30ffー・]+$/u;
+  const JPDB_VOCABULARY_BASE_URL = "https://jpdb.io/vocabulary";
+  const JPDB_SEARCH_URL = "https://jpdb.io/search";
+  const JITEN_VOCABULARY_SEARCH_URL = "https://api.jiten.moe/api/vocabulary/search";
+  const JPDB_TTS_VOICE_PREFIXES = {
+    female: ["f"],
+    male: ["m"],
+    f1: ["f1"],
+    f2: ["f2"],
+    m1: ["m1"],
+    m2: ["m2"]
+  };
+  const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
+  const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  function formatAudioUrl(template, card) {
+    const replacements = {
+      term: card.spelling,
+      reading: card.reading,
+      language: "ja"
+    };
+    return template.replace(
+      /\{(term|reading|language)\}/g,
+      (_, key) => encodeURIComponent(replacements[key] ?? "")
+    );
+  }
+  function findAudioUrl(value, sourceUrl, mode = "first") {
+    const urls = findAudioUrls(value, sourceUrl);
+    if (!urls.length) return null;
+    return mode === "random" ? urls[Math.floor(Math.random() * urls.length)] : urls[0];
+  }
+  function findAudioUrls(value, sourceUrl) {
+    const direct = directAudioUrlsForValue(value, sourceUrl);
+    return direct ?? [];
+  }
+  function blobToDataUrl(blob, language = "en") {
+    return readBlobAsDataUrl(blob, uiText(language, "couldNotReadAudio"));
+  }
+  async function fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language = "en") {
+    const response = await requestAudioUrl(url, "blob", timeoutMs, { proxyUrl, language });
+    if (isJsonAudioResponse(response)) {
+      const nestedUrl = findAudioUrl(JSON.parse(await response.text()), sourceUrl, mode);
+      if (!nestedUrl) throw new Error(uiText(language, "audioJsonMissingPlayableUrl"));
+      return fetchAudioBlob(nestedUrl, sourceUrl, timeoutMs, mode, proxyUrl, language);
+    }
+    if (!(response instanceof Blob)) throw new Error(uiText(language, "audioSourceReturnedNoAudio"));
+    await assertPlayableAudioBlob(response, url, sourceUrl, language);
+    return response;
+  }
+  function directAudioUrlsForValue(value, sourceUrl) {
+    if (!value) return [];
+    if (typeof value === "string") return findAudioUrlsInString(value, sourceUrl);
+    return structuredAudioUrlsForValue(value, sourceUrl);
+  }
+  function structuredAudioUrlsForValue(value, sourceUrl) {
+    if (Array.isArray(value)) return uniqueAudioUrls(value.flatMap((item) => findAudioUrls(item, sourceUrl)));
+    return typeof value === "object" ? findAudioUrlsInRecord(value, sourceUrl) : null;
+  }
+  function findAudioUrlsInString(value, sourceUrl) {
+    if (value.startsWith("data:audio/")) return [value];
+    if (/^https?:\/\//.test(value) && isLikelyAudioUrl(value)) return [normalizeAudioUrl(value, sourceUrl)];
+    return uniqueAudioUrls(Array.from(value.matchAll(/https?:\/\/[^\s)"'<>\]]+/gi)).map((match) => match[0]).filter(isLikelyAudioUrl).map((url) => normalizeAudioUrl(url, sourceUrl)));
+  }
+  function findAudioUrlsInRecord(record, sourceUrl) {
+    const known = uniqueAudioUrls([...preferredAudioRecordUrls(record, sourceUrl), ...directAudioRecordUrls(record, sourceUrl)]);
+    return known.length ? known : nestedAudioRecordUrls(record, sourceUrl);
+  }
+  function preferredAudioRecordUrls(record, sourceUrl) {
+    return ["audioSources", "sources", "audio", "audioUrl", "src", "source"].flatMap((key) => findAudioUrls(record[key], sourceUrl));
+  }
+  function directAudioRecordUrls(record, sourceUrl) {
+    return typeof record.url === "string" && isLikelyAudioRecord(record) ? findAudioUrls(record.url, sourceUrl) : [];
+  }
+  function nestedAudioRecordUrls(record, sourceUrl) {
+    const knownKeys = /* @__PURE__ */ new Set(["url", "audioSources", "sources", "audio", "audioUrl", "src", "source"]);
+    return uniqueAudioUrls(Object.entries(record).filter(([key]) => !knownKeys.has(key)).flatMap(([, nested]) => findAudioUrls(nested, sourceUrl)));
+  }
+  async function isUnavailableJapanesePod101Audio(blob) {
+    if (blob.size !== JAPANESE_POD_101_UNAVAILABLE_SIZE) return false;
+    try {
+      const digest = await crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
+      const hash = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+      return hash === JAPANESE_POD_101_UNAVAILABLE_SHA256;
+    } catch {
+      return true;
+    }
+  }
+  function isJsonAudioResponse(response) {
+    return response instanceof Blob && response.type.includes("json");
+  }
+  async function assertPlayableAudioBlob(response, url, sourceUrl, language = "en") {
+    if (isErrorDocumentAudioBlob(response) || !isLikelyAudioBlob(response) && !isLikelyAudioUrl(url) && !isLikelyAudioUrl(sourceUrl)) {
+      throw new Error(formatNonAudioResponseMessage(language, response.type));
+    }
+    if ((isJapanesePod101Url(url) || isJapanesePod101Url(sourceUrl)) && await isUnavailableJapanesePod101Audio(response)) {
+      throw new Error(uiText(language, "japanesePod101NoAudio"));
+    }
+  }
+  function formatNonAudioResponseMessage(language, contentType) {
+    const label = contentType || uiText(language, "audioUnknownContentType");
+    return uiText(language, "audioRequestReturnedNonAudioWithType").replace("{type}", label);
+  }
+  function isErrorDocumentAudioBlob(blob) {
+    const type = blob.type.toLowerCase();
+    return type.startsWith("text/") || ["html", "xml", "json"].some((marker) => type.includes(marker));
+  }
+  function isLikelyAudioBlob(blob) {
+    return blob.type.toLowerCase().startsWith("audio/");
+  }
+  async function getAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    return await (AUDIO_CANDIDATE_LOADERS[source.type] ?? loadNoAudioCandidates)(source, card, timeoutMs, proxyUrl);
+  }
+  const AUDIO_CANDIDATE_LOADERS = {
+    custom: loadCustomAudioCandidates,
+    "custom-json": loadCustomJsonAudioCandidates,
+    jpod101: loadJapanesePod101AudioCandidates,
+    "language-pod-101": loadLanguagePod101AudioCandidates,
+    jisho: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getJishoAudioUrls(card, timeoutMs, proxyUrl)),
+    "lingua-libre": async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "lingua-libre", timeoutMs, proxyUrl)),
+    wiktionary: async (_source, card, timeoutMs, proxyUrl) => urlsToAudioCandidates(await getCommonsAudioUrls(card.spelling, "wiktionary", timeoutMs, proxyUrl)),
+    "jiten-tts": async (source, card, timeoutMs, proxyUrl) => jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl),
+    "jpdb-tts": async (source, card, timeoutMs, proxyUrl) => jpdbAudioIdsToCandidates(filterJpdbAudioIdsForVoice(await getJpdbTtsAudioIds(card, timeoutMs, proxyUrl), source.voice))
+  };
+  async function loadNoAudioCandidates() {
+    return [];
+  }
+  async function loadCustomAudioCandidates(source, card) {
+    if (!source.url.trim()) return [];
+    const url = formatAudioUrl(source.url, card);
+    return [{ url, sourceUrl: url }];
+  }
+  async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    if (!source.url.trim()) return [];
+    const sourceUrl = formatAudioUrl(source.url, card);
+    const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
+    const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
+    return urls.map((url) => ({ url, sourceUrl }));
+  }
+  async function loadJapanesePod101AudioCandidates(_source, card) {
+    const url = getJapanesePod101Url(card);
+    return [{ url, sourceUrl: url }];
+  }
+  async function loadLanguagePod101AudioCandidates(_source, card, timeoutMs, proxyUrl) {
+    const urls = await getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl);
+    return urlsToAudioCandidates(urls.length ? urls : [getJapanesePod101Url(card)]);
+  }
+  function urlsToAudioCandidates(urls) {
+    return urls.map((url) => ({ url, sourceUrl: url }));
+  }
+  function jpdbAudioIdsToCandidates(audioIds) {
+    return normalizeJpdbAudioIds(audioIds).map((audioId) => ({
+      url: jpdbAudioRequest(audioId).url,
+      sourceUrl: jpdbAudioPageSourceUrl(audioId),
+      jpdbAudioId: audioId
+    }));
+  }
+  function filterJpdbAudioIdsForVoice(audioIds, voice) {
+    const normalized = voice.trim().toLowerCase();
+    const prefixes = JPDB_TTS_VOICE_PREFIXES[normalized];
+    if (prefixes) return audioIds.filter((audioId) => jpdbAudioIdMatchesVoice(audioId, prefixes));
+    return audioIds;
+  }
+  function jpdbAudioIdMatchesVoice(audioId, prefixes) {
+    const normalized = audioId.trim().toLowerCase();
+    return prefixes.some((prefix) => normalized.startsWith(`${prefix}/`) || prefix.length === 1 && new RegExp(`^${escapeRegExp(prefix)}\\d+/`).test(normalized));
+  }
+  async function jitenTtsAudioCandidates(source, card, timeoutMs, proxyUrl) {
+    const reference = jitenAudioReferenceFromCard(card) ?? await lookupJitenAudioReference(card, timeoutMs, proxyUrl);
+    if (!reference) return [];
+    const voices = jitenTtsVoicesForSource(source);
+    return voices.map((voice) => {
+      const url = jitenWordTtsUrl(reference.wordId, reference.readingIndex, voice);
+      return { url, sourceUrl: url };
+    });
+  }
+  function jitenTtsVoicesForSource(source) {
+    return jitenTtsVoicesForValue(source.voice);
+  }
+  function jitenAudioReferenceFromCard(card) {
+    const wordId = finitePositiveInteger(card.jitenWordId) ?? (card.source === "jiten" ? finitePositiveInteger(card.vid) : void 0);
+    const readingIndex = finiteNonNegativeInteger(card.jitenReadingIndex) ?? (card.source === "jiten" ? finiteNonNegativeInteger(card.sid) : void 0);
+    return wordId === void 0 || readingIndex === void 0 ? null : { wordId, readingIndex };
+  }
+  async function lookupJitenAudioReference(card, timeoutMs, proxyUrl) {
+    const queries = uniqueStrings([card.spelling, card.reading].map((value) => value.trim()).filter(Boolean));
+    for (const query of queries) {
+      const url = `${JITEN_VOCABULARY_SEARCH_URL}?query=${encodeURIComponent(query)}&limit=8`;
+      const response = await requestAudioUrl(url, "text", timeoutMs, {
+        proxyUrl,
+        allowDirectCrossOrigin: false,
+        preferFetch: true
+      }).catch(() => "");
+      if (typeof response !== "string") continue;
+      const reference = bestJitenAudioReference(card, jitenVocabularySearchResults(response));
+      if (reference) return reference;
+    }
+    return null;
+  }
+  function jitenVocabularySearchResults(response) {
+    try {
+      const payload = JSON.parse(response);
+      if (!payload || typeof payload !== "object") return [];
+      const results = payload.results;
+      return Array.isArray(results) ? results.map(normalizeJitenAudioReferenceSearchResult).filter((result) => Boolean(result)) : [];
+    } catch {
+      return [];
+    }
+  }
+  function normalizeJitenAudioReferenceSearchResult(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    const wordId = finitePositiveInteger(record.wordId);
+    const readingIndex = finiteNonNegativeInteger(record.readingIndex);
+    if (wordId === void 0 || readingIndex === void 0) return null;
+    return {
+      wordId,
+      readingIndex,
+      text: typeof record.text === "string" ? record.text.trim() : "",
+      reading: cleanJitenRubyText(typeof record.rubyText === "string" ? record.rubyText : "").trim()
+    };
+  }
+  function bestJitenAudioReference(card, results) {
+    if (!results.length) return null;
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim();
+    const exact = results.find((result) => result.text === spelling && (!reading || result.reading === reading));
+    const spellingOnly = exact ?? results.find((result) => result.text === spelling);
+    const readingOnly = spellingOnly ?? results.find((result) => reading && result.reading === reading);
+    const match = readingOnly ?? results[0];
+    return match ? { wordId: match.wordId, readingIndex: match.readingIndex } : null;
+  }
+  function cleanJitenRubyText(value) {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
+  }
+  function finitePositiveInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : void 0;
+  }
+  function finiteNonNegativeInteger(value) {
+    return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : void 0;
+  }
+  function getJapanesePod101Url(card) {
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim() || spelling;
+    const params = new URLSearchParams();
+    if (spelling && spelling !== reading) params.set("kanji", spelling);
+    params.set("kana", reading);
+    return `https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?${params.toString()}`;
+  }
+  function isJapanesePod101Url(value) {
+    try {
+      const url = new URL(value);
+      return url.hostname === "assets.languagepod101.com" && url.pathname.endsWith("/audiomp3.php");
+    } catch {
+      return false;
+    }
+  }
+  async function getJpdbTtsAudioIds(card, timeoutMs, proxyUrl = "") {
+    for (const url of jpdbVocabularyAudioLookupUrls(card)) {
+      const response = await requestAudioUrl(url, "text", timeoutMs, { proxyUrl, credentials: "same-origin", withCredentials: true }).catch(() => "");
+      if (typeof response !== "string") continue;
+      const audioIds = extractJpdbVocabularyAudioIds(response, card, url);
+      if (audioIds.length) return audioIds;
+    }
+    return [];
+  }
+  function jpdbVocabularyAudioLookupUrls(card) {
+    const urls = [];
+    if (card.vid > 0) urls.push(jpdbVocabularyUrl(card.vid, card.spelling, card.reading));
+    for (const query of uniqueStrings([card.spelling, card.reading].filter(Boolean))) {
+      urls.push(`${JPDB_SEARCH_URL}?q=${encodeURIComponent(query)}`);
+    }
+    return uniqueStrings(urls);
+  }
+  function jpdbVocabularyUrl(vid, spelling, reading) {
+    return `${JPDB_VOCABULARY_BASE_URL}/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading || spelling)}`;
+  }
+  function extractJpdbVocabularyAudioIds(html, card, sourceUrl = "") {
+    return uniqueStrings(jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl).flatMap(extractJpdbVocabularyAudioIdsFromHtml));
+  }
+  function jpdbVocabularyAudioHtmlBlocks(html, card, sourceUrl = "") {
+    const resultBlocks = findHtmlBlocksByClass(html, "result").filter((block) => htmlBlockHasClass(block, "vocabulary") && jpdbVocabularyBlockMatchesCard(block, card));
+    if (resultBlocks.length) return resultBlocks;
+    const singleSearchResultBlocks = findHtmlBlocksByClass(html, "result").filter((block) => htmlBlockHasClass(block, "vocabulary"));
+    if (canUseSingleJpdbAliasAudioResult(singleSearchResultBlocks, card, sourceUrl)) return singleSearchResultBlocks;
+    return jpdbHtmlMatchesCard(html, card) ? [html] : [];
+  }
+  function canUseSingleJpdbAliasAudioResult(resultBlocks, card, sourceUrl) {
+    return resultBlocks.length === 1 && isJpdbSearchUrl(sourceUrl) && isJpdbAliasLookup(card, sourceUrl) && extractJpdbVocabularyAudioIdsFromHtml(resultBlocks[0] ?? "").length > 0;
+  }
+  function isJpdbSearchUrl(value) {
+    try {
+      const url = new URL(value, "https://jpdb.io");
+      return url.hostname === "jpdb.io" && url.pathname === "/search";
+    } catch {
+      return false;
+    }
+  }
+  function isJpdbAliasLookup(card, sourceUrl) {
+    const query = jpdbSearchQuery(sourceUrl);
+    if (!query || JAPANESE_TEXT_RE.test(query)) return false;
+    const normalizedQuery = cleanJpdbIdentityText(query);
+    return [card.spelling, card.reading].some((value) => cleanJpdbIdentityText(value) === normalizedQuery);
+  }
+  function jpdbSearchQuery(value) {
+    try {
+      return new URL(value, "https://jpdb.io").searchParams.get("q")?.trim() ?? "";
+    } catch {
+      return "";
+    }
+  }
+  function jpdbVocabularyBlockMatchesCard(html, card) {
+    return jpdbVocabularyIdentities(html).some((identity) => jpdbVocabularyIdentityMatches(identity, card));
+  }
+  function jpdbHtmlMatchesCard(html, card) {
+    if (jpdbVocabularyBlockMatchesCard(html, card)) return true;
+    const canonical = getHtmlAttributeFromOpeningTag(html, "link", "href", /\brel\s*=\s*(["'])canonical\1/i);
+    return canonical ? jpdbVocabularyIdentityMatches(jpdbVocabularyIdentityFromUrl(canonical), card) : false;
+  }
+  function jpdbVocabularyIdentities(html) {
+    const pattern = /\bhref\s*=\s*(["'])([\s\S]*?\/vocabulary\/[\s\S]*?)\1/gi;
+    const identities = [];
+    let match;
+    while (match = pattern.exec(html)) identities.push(jpdbVocabularyIdentityFromUrl(match[2] ?? ""));
+    return identities;
+  }
+  function jpdbVocabularyIdentityFromUrl(value) {
+    const identity = jpdbVocabularyIdentityFromUrl$1(value);
+    return identity ? { vid: identity.vid, expression: identity.spelling, reading: identity.reading } : null;
+  }
+  function jpdbVocabularyIdentityMatches(identity, card) {
+    if (!identity) return false;
+    if (jpdbVocabularyVidMatches(identity, card)) return true;
+    return jpdbVocabularyTextIdentityMatches(identity, jpdbCardVocabularyIdentity(card));
+  }
+  function jpdbVocabularyVidMatches(identity, card) {
+    return card.vid > 0 && identity.vid === card.vid;
+  }
+  function jpdbCardVocabularyIdentity(card) {
+    const spelling = cleanJpdbIdentityText(card.spelling);
+    const reading = cleanJpdbIdentityText(card.reading);
+    return {
+      requested: new Set([spelling, reading].filter(Boolean)),
+      reading,
+      spelling
+    };
+  }
+  function jpdbVocabularyTextIdentityMatches(identity, card) {
+    if (!card.requested.size) return true;
+    const expression = cleanJpdbIdentityText(identity.expression);
+    const reading = cleanJpdbIdentityText(identity.reading);
+    if (!jpdbVocabularyCandidateSharesRequestedText(expression, reading, card.requested)) return false;
+    return jpdbVocabularyCandidateReadingMatches(expression, reading, card);
+  }
+  function jpdbVocabularyCandidateSharesRequestedText(expression, reading, requested) {
+    return requested.has(expression) || requested.has(reading);
+  }
+  function jpdbVocabularyCandidateReadingMatches(expression, reading, card) {
+    if (!card.reading) return true;
+    return reading === card.reading || expression === card.reading || expression === card.spelling;
+  }
+  function cleanJpdbIdentityText(value) {
+    return value.replace(/\s+/g, "").trim();
+  }
+  function extractJpdbVocabularyAudioIdsFromHtml(html) {
+    const audioIds = [];
+    const pattern = /<a\b([^>]*)>/gi;
+    let match;
+    while (match = pattern.exec(html)) {
+      const attributes = match[1] ?? "";
+      if (!attributesHaveClass(attributes, "vocabulary-audio")) continue;
+      audioIds.push(...normalizeJpdbAudioIds(getHtmlAttribute(attributes, "data-audio") ?? ""));
+    }
+    return audioIds;
+  }
+  function htmlBlockHasClass(html, className) {
+    const opening = /^<[^/\s>]+\b([^>]*)>/i.exec(html)?.[1] ?? "";
+    return attributesHaveClass(opening, className);
+  }
+  function getHtmlAttributeFromOpeningTag(html, tag, attribute, attributePattern) {
+    const pattern = new RegExp(`<${tag}\\b([^>]*)>`, "gi");
+    let match;
+    while (match = pattern.exec(html)) {
+      const attributes = match[1] ?? "";
+      if (attributes && (!attributePattern || attributePattern.test(attributes))) {
+        return getHtmlAttribute(attributes, attribute);
+      }
+    }
+    return null;
+  }
+  async function getJishoAudioUrls(card, timeoutMs, proxyUrl = "") {
+    const url = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const response = shouldSkipJishoHtmlLookup(proxyUrl) ? "" : await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
+      preferFetch: false
+    }).catch(() => "");
+    if (typeof response === "string" && response) {
+      const audioHtml = findJishoAudioElement(response, card);
+      const urls = audioHtml ? jishoAudioSourceUrls(audioHtml, url) : [];
+      if (urls.length) return urls;
+      return [];
+    }
+    return getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl);
+  }
+  function shouldSkipJishoHtmlLookup(proxyUrl) {
+    return !getUserscriptHttpRequest() && !hasCustomJishoHtmlProxy(proxyUrl);
+  }
+  function hasCustomJishoHtmlProxy(proxyUrl) {
+    const normalized = proxyUrl.trim();
+    if (!normalized) return false;
+    try {
+      return new URL(normalized).origin !== DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    } catch {
+      return false;
+    }
+  }
+  async function getJishoPublicFallbackAudioUrls(card, timeoutMs, proxyUrl) {
+    return getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl);
+  }
+  function jishoAudioSourceUrls(audioHtml, baseUrl) {
+    return extractAudioSourceUrls(audioHtml, baseUrl).filter(isLikelyAudioUrl);
+  }
+  async function getJishoTextProxyAudioUrls(card, timeoutMs, proxyUrl) {
+    const url = `${JISHO_TEXT_PROXY_BASE_URL}/${encodeURIComponent(card.spelling)}`;
+    const response = await requestAudioUrl(url, "text", timeoutMs, {
+      proxyUrl,
+      allowDirectCrossOrigin: true,
+      allowPublicProxies: false,
+      allowConfiguredProxy: false,
+      preferFetch: true
+    }).catch(() => "");
+    return typeof response === "string" ? extractJishoTextProxyAudioUrls(response, card).slice(0, 1) : [];
+  }
+  function extractJishoTextProxyAudioUrls(markdown, card) {
+    const wordsSection = markdownSection(markdown, /^#{1,6}\s+Words\b/im);
+    const rawCandidates = findAudioUrls(wordsSection || markdown).filter((url) => {
+      try {
+        const target = new URL(url);
+        return target.hostname === "d1vjc5dkcd3yh2.cloudfront.net" && target.pathname.startsWith("/audio/");
+      } catch {
+        return false;
+      }
+    });
+    if (!rawCandidates.length) return [];
+    const context = compactJapaneseText((wordsSection || markdown).slice(0, Math.max(0, (wordsSection || markdown).indexOf(rawCandidates[0] ?? "")) + 280));
+    const spelling = compactJapaneseText(card.spelling);
+    const reading = compactJapaneseText(card.reading);
+    if (spelling && !context.includes(spelling) && reading && !context.includes(reading)) return [];
+    return uniqueAudioUrls(rawCandidates.map(normalizeJishoCloudfrontAudioUrl));
+  }
+  function normalizeJishoCloudfrontAudioUrl(url) {
+    return url.replace(/^http:\/\//i, "https://");
+  }
+  function markdownSection(markdown, startPattern) {
+    const start = markdown.search(startPattern);
+    if (start < 0) return "";
+    const rest = markdown.slice(start);
+    const nextHeading = rest.slice(1).search(/^#{1,6}\s+/m);
+    return nextHeading < 0 ? rest : rest.slice(0, nextHeading + 1);
+  }
+  function compactJapaneseText(value) {
+    return value.replace(/[^\u3040-\u30ff\u3400-\u9fffー・]/g, "");
+  }
+  function findJishoAudioElement(html, card) {
+    const exact = findHtmlElementById(html, "audio", `audio_${card.spelling}:${card.reading}`);
+    if (exact) return exact;
+    if (!canUseKanaJishoAudioFallback(card)) return null;
+    return findUniqueJishoReadingAudioElement(html, card.reading.trim());
+  }
+  function canUseKanaJishoAudioFallback(card) {
+    const spelling = card.spelling.trim();
+    const reading = card.reading.trim();
+    return Boolean(spelling && reading && KANA_ONLY_RE.test(spelling));
+  }
+  function findUniqueJishoReadingAudioElement(html, reading) {
+    const matches = findHtmlElements(html, "audio").filter((element) => jishoAudioReading(element).trim() === reading);
+    return matches.length === 1 ? matches[0] : null;
+  }
+  function jishoAudioReading(audioHtml) {
+    const id = htmlAttributeValue(audioHtml, "id") ?? "";
+    const marker = id.startsWith("audio_") ? id.slice("audio_".length) : "";
+    const colon = marker.lastIndexOf(":");
+    return colon >= 0 ? marker.slice(colon + 1) : "";
+  }
+  async function getLanguagePod101AudioUrls(card, timeoutMs, proxyUrl = "") {
+    const url = "https://www.japanesepod101.com/learningcenter/reference/dictionary_post";
+    const response = await requestAudioUrl(url, "text", timeoutMs, { ...languagePod101RequestOptions(card), proxyUrl }).catch(() => "");
+    if (typeof response !== "string") return [];
+    const urls = [];
+    for (const row of findHtmlBlocksByClass(response, "dc-result-row")) {
+      if (!languagePod101RowMatchesCard(row, card)) continue;
+      urls.push(...extractAudioSourceUrls(row, url));
+    }
+    return uniqueAudioUrls(urls);
+  }
+  function languagePod101RequestOptions(card) {
+    return {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      data: languagePod101RequestBody(card)
+    };
+  }
+  function languagePod101RequestBody(card) {
+    const searchQuery = card.spelling.trim() || card.reading;
+    return new URLSearchParams({
+      post: "dictionary_reference",
+      match_type: "exact",
+      search_query: searchQuery,
+      vulgar: "true"
+    }).toString();
+  }
+  function languagePod101RowMatchesCard(row, card) {
+    return card.reading === card.spelling || languagePod101RowKana(row) === card.reading;
+  }
+  function languagePod101RowKana(row) {
+    const kanaHtml = findHtmlElementByClass(row, "span", "dc-vocab_kana");
+    return stripHtml(kanaHtml ?? "").trim();
+  }
+  async function getCommonsAudioUrls(term, source, timeoutMs, proxyUrl = "") {
+    const apiUrl = commonsSearchApiUrl(term, source);
+    const response = await requestAudioUrl(apiUrl, "text", timeoutMs, { proxyUrl });
+    if (typeof response !== "string") return [];
+    const urls = [];
+    for (const title of commonsSearchTitles(response)) {
+      urls.push(...await getCommonsAudioUrlsForTitle(title, term, source, timeoutMs, proxyUrl));
+    }
+    return urls;
+  }
+  function commonsSearchApiUrl(term, source) {
+    const search = source === "lingua-libre" ? `intitle:/-(${escapeRegExp(term)}).wav/i incategory:"Lingua_Libre_pronunciation-jpn"` : `intitle:/ja(-[a-zA-Z]{2})?-${escapeRegExp(term)}[0123456789]*.ogg/i`;
+    return `https://commons.wikimedia.org/w/api.php?action=query&format=json&list=search&srnamespace=6&origin=*&srsearch=${encodeURIComponent(search)}`;
+  }
+  function commonsSearchTitles(response) {
+    const pages = JSON.parse(response).query?.search ?? [];
+    return pages.slice(0, 6).map((page) => page.title).filter((title) => Boolean(title));
+  }
+  async function getCommonsAudioUrlsForTitle(title, term, source, timeoutMs, proxyUrl = "") {
+    const info = await requestAudioUrl(commonsImageInfoUrl(title), "text", timeoutMs, { proxyUrl }).catch(() => null);
+    if (typeof info !== "string") return [];
+    return commonsImageInfoUrls(info, title, term, source);
+  }
+  function commonsImageInfoUrl(title) {
+    return `https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=url&origin=*&titles=${encodeURIComponent(title)}`;
+  }
+  function commonsImageInfoUrls(info, title, term, source) {
+    const filePages = JSON.parse(info).query?.pages ?? {};
+    return Object.values(filePages).map((filePage) => filePage.imageinfo?.[0]).filter((image) => Boolean(image?.url && isValidCommonsAudioFilename(title, image.user ?? "", term, source))).map((image) => image?.url ?? "");
+  }
+  function findHtmlElementById(html, tag, id) {
+    return findHtmlElement(html, tag, new RegExp(`\\bid\\s*=\\s*(["'])${escapeRegExp(id)}\\1`, "i"));
+  }
+  function htmlAttributeValue(html, attribute) {
+    const match = new RegExp(`\\b${escapeRegExp(attribute)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(html);
+    return match?.[2] ?? null;
+  }
+  function findHtmlElementByClass(html, tag, className) {
+    return findHtmlElementsByClass(html, tag, className)[0] ?? null;
+  }
+  function findHtmlElementsByClass(html, tag, className) {
+    return findHtmlElements(html, tag).filter((element) => htmlElementHasClass(element, tag, className));
+  }
+  function findHtmlBlocksByClass(html, className) {
+    const starts = [];
+    const startPattern = /<[^/!][^>]*>/gi;
+    let match;
+    while (match = startPattern.exec(html)) {
+      if (tagAttributesHaveClass(match[0], className)) starts.push(match.index);
+    }
+    return starts.map((start, index) => html.slice(start, starts[index + 1] ?? html.length));
+  }
+  function findHtmlElement(html, tag, attributePattern) {
+    return findHtmlElements(html, tag, attributePattern)[0] ?? null;
+  }
+  function findHtmlElements(html, tag, attributePattern) {
+    const pattern = new RegExp(`<${tag}\\b([^>]*)>[\\s\\S]*?<\\/${tag}>`, "gi");
+    const matches = [];
+    let match;
+    while (match = pattern.exec(html)) {
+      if (htmlElementMatchesAttributes(match, attributePattern)) matches.push(match[0]);
+    }
+    return matches;
+  }
+  function htmlElementMatchesAttributes(match, attributePattern) {
+    const attributes = match[1] ?? "";
+    return attributePattern ? attributePattern.test(attributes) : true;
+  }
+  function htmlElementHasClass(element, tag, className) {
+    const opening = new RegExp(`^<${tag}\\b([^>]*)>`, "i").exec(element)?.[1] ?? "";
+    return attributesHaveClass(opening, className);
+  }
+  function tagAttributesHaveClass(openingTag, className) {
+    const attributes = /^<[^/\s>]+\b([^>]*)>/i.exec(openingTag)?.[1] ?? "";
+    return attributesHaveClass(attributes, className);
+  }
+  function attributesHaveClass(attributes, className) {
+    return (getHtmlAttribute(attributes, "class") ?? "").split(/\s+/).includes(className);
+  }
+  function extractAudioSourceUrls(html, baseUrl) {
+    const urls = [];
+    const sourcePattern = /<source\b([^>]*)>/gi;
+    let match;
+    while (match = sourcePattern.exec(html)) {
+      const src = getHtmlAttribute(match[1] ?? "", "src");
+      const url = src ? resolveAudioSourceUrl(src, baseUrl) : "";
+      if (url) urls.push(url);
+    }
+    return uniqueAudioUrls(urls);
+  }
+  function resolveAudioSourceUrl(src, baseUrl) {
+    try {
+      return new URL(src, baseUrl).href;
+    } catch {
+      return "";
+    }
+  }
+  function getHtmlAttribute(attributes, name) {
+    const match = new RegExp(`\\b${escapeRegExp(name)}\\s*=\\s*(["'])([\\s\\S]*?)\\1`, "i").exec(attributes);
+    return match ? decodeHtmlAttribute(match[2]) : null;
+  }
+  function decodeHtmlAttribute(value) {
+    return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
+  }
+  function stripHtml(value) {
+    return decodeHtmlAttribute(value.replace(/<[^>]+>/g, ""));
+  }
+  function isValidCommonsAudioFilename(filename, fileUser, term, source) {
+    if (!filename) return false;
+    if (source === "lingua-libre") {
+      return new RegExp(`^File:LL-Q\\d+\\s+\\(jpn\\)-${escapeRegExp(fileUser)}-${escapeRegExp(term)}\\.wav$`, "i").test(filename);
+    }
+    return new RegExp(`^File:ja(-\\w\\w)?-${escapeRegExp(term)}\\d*\\.ogg$`, "i").test(filename);
+  }
+  function normalizeAudioUrl(value, sourceUrl) {
+    try {
+      const nested = new URL(value);
+      if (sourceUrl) alignLoopbackAudioUrl(nested, new URL(sourceUrl));
+      return normalizeAudioUrlSlashes(nested.href);
+    } catch {
+      return normalizeAudioUrlSlashes(value);
+    }
+  }
+  function alignLoopbackAudioUrl(nested, source) {
+    if (!shouldAlignLoopbackAudioUrl(nested, source)) return;
+    nested.protocol = source.protocol;
+    nested.hostname = source.hostname;
+  }
+  function shouldAlignLoopbackAudioUrl(nested, source) {
+    return isLoopbackAudioHost(nested.hostname) && !isLoopbackAudioHost(source.hostname) && nested.port === source.port;
+  }
+  function isLoopbackAudioHost(hostname) {
+    return LOOPBACK_AUDIO_HOSTS.has(hostname);
+  }
+  function normalizeAudioUrlSlashes(value) {
+    return value.replace(/\\/g, "/");
+  }
+  function isLikelyAudioRecord(record) {
+    return typeof record.url === "string" && audioRecordHasPlayableSignal(record);
+  }
+  function audioRecordHasPlayableSignal(record) {
+    return isLikelyAudioUrl(String(record.url)) || ["audio", "audioSource"].includes(String(record.type ?? "")) || typeof record.name === "string";
+  }
+  function isLikelyAudioUrl(value) {
+    if (value.startsWith("data:audio/")) return true;
+    try {
+      const url = new URL(value, location.href);
+      const pathname = url.pathname.toLowerCase();
+      return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)$/.test(pathname) || /(^|[-_/])(audio|sound|voice|pronunciation)([-_/]|$)/i.test(pathname);
+    } catch {
+      return /\.(mp3|m4a|aac|wav|ogg|oga|opus|flac|webm)(?:$|[?#])/i.test(value);
+    }
+  }
+  function uniqueAudioUrls(urls) {
+    const seen = /* @__PURE__ */ new Set();
+    return urls.filter((url) => {
+      const key = normalizeAttemptedAudioUrl(url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function escapeRegExp(value) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+  let activationTrackingInstalled = false;
+  function installPageActivationTracking() {
+    if (activationTrackingInstalled || typeof window === "undefined") return;
+    activationTrackingInstalled = true;
+    const markActive = () => {
+    };
+    for (const eventName of ["click", "keydown", "pointerdown", "touchstart"]) {
+      window.addEventListener(eventName, markActive, { capture: true, passive: true });
+    }
+  }
+  installPageActivationTracking();
+  Logger.scope("Audio");
+  async function resolveAnkiWordAudio(card, settings) {
+    if (!settings.audioEnabled) return null;
+    const sources = orderAudioSources(
+      getOrderedAudioSources(settings).filter((source) => !isBrowserTextToSpeechSource(source)),
+      settings.audioSelectionMode,
+      card,
+      new ShuffledAudioDeck()
+    );
+    const triedUrls = /* @__PURE__ */ new Set();
+    for (const { source } of sources) {
+      const audio = await resolveAnkiWordAudioFromSource(source, card, settings, triedUrls).catch(() => null);
+      if (audio) return audio;
+    }
+    return null;
+  }
+  async function resolveAnkiWordAudioFromSource(source, card, settings, triedUrls) {
+    const candidates = await getAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
+    const bagKey = getAudioBagKey(source, card);
+    const shuffled = new ShuffledAudioDeck();
+    for (const { candidate } of orderAudioCandidates(candidates, settings.audioSelectionMode, bagKey, shuffled)) {
+      if (!registerAudioAttempt(triedUrls, candidate)) continue;
+      const audio = await ankiAudioMediaFromCandidate(candidate, source.type, settings).catch(() => null);
+      if (audio) return audio;
+    }
+    return null;
+  }
+  async function ankiAudioMediaFromCandidate(candidate, sourceType, settings) {
+    if (candidate.url.startsWith("data:audio/")) return { dataUrl: candidate.url };
+    if (candidate.jpdbAudioId) return { dataUrl: await jpdbAudioDataUrl(candidate.jpdbAudioId, settings) };
+    try {
+      const dataUrl = await fetchAudioDataUrl(candidate.url, candidate.sourceUrl, settings.audioTimeoutMs, settings.audioSelectionMode, settings.corsProxyUrl, settings.interfaceLanguage);
+      if (dataUrl) return { dataUrl };
+    } catch (error) {
+      if (!canUseAnkiRemoteAudioFallback(candidate, sourceType, error)) return null;
+    }
+    return /^https?:\/\//i.test(candidate.url) ? { url: candidate.url } : null;
+  }
+  function canUseAnkiRemoteAudioFallback(candidate, sourceType, error) {
+    if (!/^https?:\/\//i.test(candidate.url)) return false;
+    if (sourceType === "jpod101" || isJapanesePod101Url(candidate.url) || isJapanesePod101Url(candidate.sourceUrl)) return false;
+    const message = error instanceof Error ? error.message : String(error);
+    if (/instead of audio|no audio|failed \(\d{3}\)/i.test(message)) return false;
+    return true;
+  }
+  async function jpdbAudioDataUrl(audioId, settings) {
+    return blobToDataUrl(await fetchJpdbAudioBlob(audioId, settings), settings.interfaceLanguage);
+  }
+  async function fetchAudioDataUrl(url, sourceUrl, timeoutMs, mode, proxyUrl, language) {
+    return blobToDataUrl(await fetchAudioBlob(url, sourceUrl, timeoutMs, mode, proxyUrl, language), language);
+  }
+  let sandboxCompanions = {};
+  function registerYomuCompanion(key, value) {
+    writeYomuCompanions({
+      ...yomuCompanions(),
+      [key]: value
+    });
+  }
+  function yomuAnkiCompanion() {
+    return yomuCompanions().anki;
+  }
+  function yomuCompanions() {
+    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
+  }
+  function writeYomuCompanions(value) {
+    sandboxCompanions = value;
+    if (writeYomuCompanionsTarget(globalThis, value)) return;
+  }
+  function writeYomuCompanionsTarget(target, value) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return false;
+    const writable = target;
+    try {
+      writable.__yomuCompanions = value;
+      return true;
+    } catch {
+    }
+    try {
+      Object.defineProperty(writable, "__yomuCompanions", {
+        configurable: true,
+        enumerable: false,
+        writable: true,
+        value
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function readYomuCompanions(target) {
+    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
+    try {
+      return target.__yomuCompanions;
+    } catch {
+      return void 0;
+    }
+  }
+  function ankiMediaFilenameFromCardUrl(value) {
+    const trimmed = value.trim();
+    if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("/") || trimmed.startsWith("\\")) return null;
+    if (/^(?:https?|data|blob|file|mailto|tel|javascript|vbscript):/i.test(trimmed)) return null;
+    const filename = trimmed.split(/[?#]/, 1)[0]?.replace(/^\.\//, "") ?? "";
+    if (!filename || filename.includes("..") || /^[a-z][a-z0-9+.-]*:/i.test(filename)) return null;
+    try {
+      return decodeURIComponent(filename);
+    } catch {
+      return filename;
+    }
+  }
+  function buildYomuAnkiPreviewFields(card, sentence, settings, context = {}, fieldTargetPlan) {
+    return yomuAnkiCompanion()?.buildYomuAnkiPreviewFields(card, sentence, settings, context, fieldTargetPlan) ?? {};
+  }
+  function canUseMobileAnkiHandoff(settings) {
+    return yomuAnkiCompanion()?.canUseMobileAnkiHandoff(settings) ?? false;
+  }
+  function mobileAnkiHandoffAppName() {
+    return yomuAnkiCompanion()?.mobileAnkiHandoffAppName() ?? "AnkiMobile";
   }
   function speakerIcon() {
     return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -4592,49 +9586,17 @@ recommendedJiten	jiten.moe頻度データです。
     if (!/^[A-Z0-9\s]+$/.test(cleaned) || !/[A-Z]/.test(cleaned)) return cleaned;
     return cleaned.toLowerCase().replace(/\b[a-z]/g, (char) => char.toUpperCase());
   }
-  let sandboxCompanions = {};
-  function registerYomuCompanion(key, value) {
-    writeYomuCompanions({
-      ...yomuCompanions(),
-      [key]: value
-    });
-  }
-  function yomuCompanions() {
-    return readYomuCompanions(globalThis) ?? sandboxCompanions ?? (typeof window === "undefined" ? void 0 : readYomuCompanions(window)) ?? {};
-  }
-  function writeYomuCompanions(value) {
-    sandboxCompanions = value;
-    if (writeYomuCompanionsTarget(globalThis, value)) return;
-  }
-  function writeYomuCompanionsTarget(target, value) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return false;
-    const writable = target;
-    try {
-      writable.__yomuCompanions = value;
-      return true;
-    } catch {
-    }
-    try {
-      Object.defineProperty(writable, "__yomuCompanions", {
-        configurable: true,
-        enumerable: false,
-        writable: true,
-        value
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function readYomuCompanions(target) {
-    if (!target || typeof target !== "object" && typeof target !== "function") return void 0;
-    try {
-      return target.__yomuCompanions;
-    } catch {
-      return void 0;
-    }
-  }
   registerYomuCompanion("anki", {
+    AnkiConnectClient,
+    AnkiDuplicateNoteError,
+    ankiLookupWithUnavailableDetails,
+    buildYomuAnkiFields,
+    buildYomuAnkiPreviewFields: buildYomuAnkiPreviewFields$1,
+    canUseMobileAnkiHandoff: canUseMobileAnkiHandoff$1,
+    captureActiveVideoFrame,
+    isAnkiDuplicateNoteError,
+    mobileAnkiHandoffAppName: mobileAnkiHandoffAppName$1,
+    resolveAnkiWordAudio,
     renderAnkiActionRow,
     renderAnkiExistingSection,
     renderAnkiNewCardPreview,

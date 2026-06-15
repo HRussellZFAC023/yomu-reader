@@ -7187,6 +7187,10 @@ html.jpdb-reader-doodle-active * {
   display: flex;
   align-items: flex-end;
 }
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) {
+  min-height: 0;
+  display: block;
+}
 .jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > .jpdb-reader-settings-label-text,
 .jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > .jpdb-reader-settings-label-text {
   min-height: 0;
@@ -8765,12 +8769,13 @@ html.jpdb-reader-doodle-active * {
   color: var(--jpdb-reader-text) !important;
   display: grid;
   place-items: center;
+  align-content: center;
   min-width: 0;
   overflow-wrap: normal;
   word-break: normal;
   text-align: center;
   font-size: 28px;
-  line-height: 2.15;
+  line-height: 1.48;
   user-select: none;
 }
 .jpdb-reader-settings-appearance-preview .jpdb-reader-word {
@@ -8799,7 +8804,7 @@ html.jpdb-reader-doodle-active * {
   text-underline-offset: .14em !important;
 }
 .jpdb-reader-settings-appearance-preview .jpdb-reader-word.jpdb-reader-has-furi {
-  line-height: 1.72;
+  line-height: 1.28;
 }
 .jpdb-reader-settings-appearance-preview .jpdb-reader-furi {
   color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;

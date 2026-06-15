@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.55] - 2026-06-15
+
+### Fixed
+
+- JPDB definition example sentences no longer double-count the headword as a "used-in" related word. The example sentence is parsed in place (nested, clickable) and highlights the headword inline, instead of also emitting a passive related-word token that inflated the related-word list.
+- Integrated the in-progress P0 end-to-end fixes (action-pill navigation handlers, Jiten/JPDB definition source rendering, scanner coverage, and nested-parse refinements) onto the latest upstream `main`.
+
 ## [0.7.54] - 2026-06-15
 
 ### Fixed

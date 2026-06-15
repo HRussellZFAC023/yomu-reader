@@ -26,15 +26,33 @@ interface RenderJitenReferenceOptions {
 
 export function renderJitenDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JitenVocabularyInfo | null = null, language: InterfaceLanguage = 'en'): string {
     const meanings = jitenDefinitionMeanings(card, info);
+    const headword = renderJitenDefinitionHeadword(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
     if (!meanings && !extras) return '';
-    const body = `${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`;
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">Jiten</summary>
             ${body}
         </details>
     `;
+}
+
+function renderJitenDefinitionHeadword(card: JPDBCard, info: JitenVocabularyInfo | null): string {
+    const reference = jitenDefinitionHeadwordReference(card, info);
+    if (!reference) return '';
+    return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: 'jpdb-reader-jiten-headword-target' })}</div>`;
+}
+
+function jitenDefinitionHeadwordReference(card: JPDBCard, info: JitenVocabularyInfo | null): JitenTextReference | null {
+    const text = (info?.mainReading?.text || card.spelling || card.reading).trim();
+    if (!text || !hasJapaneseText(text)) return null;
+    return {
+        text,
+        reading: card.reading || text,
+        wordId: info?.wordId ?? card.jitenWordId,
+        readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex,
+    };
 }
 
 function jitenDefinitionMeanings(card: JPDBCard, info: JitenVocabularyInfo | null): string {
