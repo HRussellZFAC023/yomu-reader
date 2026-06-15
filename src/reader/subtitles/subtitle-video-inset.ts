@@ -41,6 +41,7 @@ export class SubtitleVideoInsetAdapter {
         const metrics = videoInsetMetrics(options);
         if (metrics.signature === this.lastSignature) return false;
 
+        captureYouTubePlayerContainerBaseRects(youtubePlayerContainers(options.side));
         this.lastSignature = metrics.signature;
         document.documentElement.classList.toggle('jpdb-subtitle-video-inset-left', options.side === 'left');
         document.documentElement.classList.toggle('jpdb-subtitle-video-inset-right', options.side === 'right');
@@ -180,6 +181,14 @@ export function createSubtitleVideoInsetAdapter(): SubtitleVideoInsetAdapter {
     return new SubtitleVideoInsetAdapter();
 }
 
+function visibleViewportWidth(): number {
+    return Math.max(1, Math.round(window.visualViewport?.width ?? window.innerWidth));
+}
+
+function visibleViewportHeight(): number {
+    return Math.max(1, Math.round(window.visualViewport?.height ?? window.innerHeight));
+}
+
 export function subtitleVideoLayoutRect(video?: HTMLVideoElement): DOMRect {
     if (isYouTubePage()) {
         const scopedRect = video ? youtubePlayerRectForVideo(video) : undefined;
@@ -188,7 +197,7 @@ export function subtitleVideoLayoutRect(video?: HTMLVideoElement): DOMRect {
         if (rect) return rect;
     }
     return subtitleVideoLayoutTarget(video)?.getBoundingClientRect()
-        ?? new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+        ?? new DOMRect(0, 0, visibleViewportWidth(), visibleViewportHeight());
 }
 
 export function subtitleVideoLayoutTarget(video?: HTMLVideoElement): HTMLElement | undefined {
@@ -223,7 +232,7 @@ function isUsefulTranscriptAvoidanceTarget(element: HTMLElement, video: HTMLVide
 }
 
 function isViewportSizedVideoRect(rect: DOMRect): boolean {
-    return rect.width > window.innerWidth * 0.92 || rect.height > window.innerHeight * 0.9;
+    return rect.width > visibleViewportWidth() * 0.92 || rect.height > visibleViewportHeight() * 0.9;
 }
 
 function hasMeaningfulVideoInsetSpace(rect: DOMRect, videoRect: DOMRect): boolean {
@@ -241,9 +250,11 @@ function videoAspectRatio(video?: HTMLVideoElement): number {
 
 function applyYouTubePlayerInset(side: SubtitleVideoInsetSide, width: number, inset: number, height: number): void {
     const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+    const containers = youtubePlayerContainers(side);
+    captureYouTubePlayerContainerBaseRects(containers);
     applyYouTubeWatchFlexyInset(watchFlexy, side, width, height);
     applyYouTubeWatchContentInset(side, inset);
-    for (const element of youtubePlayerContainers(side)) {
+    for (const element of containers) {
         applyYouTubePlayerContainerInset(element, side, width, inset, bottomInsetHeight(side, height));
     }
 }
@@ -254,17 +265,27 @@ function applyYouTubeWatchFlexyInset(watchFlexy: HTMLElement | null, side: Subti
     if (side === 'bottom' && height) watchFlexy?.style.setProperty('--ytd-watch-flexy-min-player-height', `${height}px`);
 }
 
-function applyYouTubeWatchContentInset(side: SubtitleVideoInsetSide, inset: number): void {
+function applyYouTubeWatchContentInset(_side: SubtitleVideoInsetSide, _inset: number): void {
     const columns = document.querySelector<HTMLElement>('ytd-watch-flexy #columns');
     if (!columns) return;
-    setStylePropertyIfChanged(columns, 'margin-left', side === 'left' ? `${Math.max(0, Math.round(inset))}px` : '0px');
+    setStylePropertyIfChanged(columns, 'margin-left', '');
 }
 
 function bottomInsetHeight(side: SubtitleVideoInsetSide, height: number): number {
     return side === 'bottom' ? height : 0;
 }
 
-const youtubePlayerContainerBaseRects = new WeakMap<HTMLElement, { left: number; right: number }>();
+const youtubePlayerContainerBaseRects = new WeakMap<HTMLElement, { left: number; right: number; viewportWidth: number }>();
+
+function captureYouTubePlayerContainerBaseRects(elements: HTMLElement[]): void {
+    const viewportWidth = visibleViewportWidth();
+    for (const element of elements) {
+        const baseRect = youtubePlayerContainerBaseRects.get(element);
+        if (baseRect?.viewportWidth === viewportWidth) continue;
+        const rect = element.getBoundingClientRect();
+        youtubePlayerContainerBaseRects.set(element, { left: rect.left, right: rect.right, viewportWidth });
+    }
+}
 
 function youtubePlayerContainers(side: SubtitleVideoInsetSide): HTMLElement[] {
     if (!isYouTubePage()) return [];
@@ -319,7 +340,7 @@ function applySideYouTubePlayerContainerInset(element: HTMLElement, side: Exclud
     let baseRect = youtubePlayerContainerBaseRects.get(element);
     if (!baseRect) {
         const rect = element.getBoundingClientRect();
-        baseRect = { left: rect.left, right: rect.right };
+        baseRect = { left: rect.left, right: rect.right, viewportWidth: visibleViewportWidth() };
         youtubePlayerContainerBaseRects.set(element, baseRect);
     }
     const widthValue = `${width}px`;
@@ -327,16 +348,22 @@ function applySideYouTubePlayerContainerInset(element: HTMLElement, side: Exclud
     setStylePropertyIfChanged(element, 'max-width', widthValue);
     setStylePropertyIfChanged(element, 'min-width', '0px');
     const margin = side === 'left'
-        ? leftYouTubePlayerMargin(inset, baseRect)
-        : `${Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)))}px`;
+        ? leftYouTubePlayerMargin(inset, element)
+        : `${Math.max(0, Math.round(Math.min(baseRect.right, visibleViewportWidth()) - (visibleViewportWidth() - inset)))}px`;
     setStylePropertyIfChanged(element, side === 'left' ? 'margin-left' : 'margin-right', margin);
     setStylePropertyIfChanged(element, side === 'left' ? 'margin-right' : 'margin-left', '0px');
 }
 
-function leftYouTubePlayerMargin(inset: number, baseRect: { left: number }): string {
-    return document.querySelector('ytd-watch-flexy #columns')
-        ? '0px'
-        : `${Math.max(0, Math.round(inset - baseRect.left))}px`;
+function leftYouTubePlayerMargin(inset: number, element: HTMLElement): string {
+    if (element.matches('#primary-inner')) return '0px';
+    const columns = element.closest<HTMLElement>('#columns');
+    if (columns && getComputedStyle(columns).display.includes('flex')) {
+        return `${Math.max(0, Math.round(inset))}px`;
+    }
+    const rect = element.getBoundingClientRect();
+    const currentMargin = Number.parseFloat(element.style.marginLeft) || 0;
+    const naturalLeft = rect.left - currentMargin;
+    return `${Math.max(0, Math.round(inset - naturalLeft))}px`;
 }
 
 function youtubeVisiblePlayerRect(): DOMRect | undefined {
@@ -374,10 +401,12 @@ function compareVideoLayoutRects(a: DOMRect, b: DOMRect): number {
 }
 
 function rectViewportIntersectionArea(rect: DOMRect): number {
-    const left = Math.max(0, Math.min(window.innerWidth, rect.left));
-    const top = Math.max(0, Math.min(window.innerHeight, rect.top));
-    const right = Math.max(left, Math.min(window.innerWidth, rect.right));
-    const bottom = Math.max(top, Math.min(window.innerHeight, rect.bottom));
+    const viewportWidth = visibleViewportWidth();
+    const viewportHeight = visibleViewportHeight();
+    const left = Math.max(0, Math.min(viewportWidth, rect.left));
+    const top = Math.max(0, Math.min(viewportHeight, rect.top));
+    const right = Math.max(left, Math.min(viewportWidth, rect.right));
+    const bottom = Math.max(top, Math.min(viewportHeight, rect.bottom));
     return Math.max(0, right - left) * Math.max(0, bottom - top);
 }
 
@@ -556,7 +585,7 @@ function applyGenericSideInset(target: HTMLElement, side: SubtitleVideoInsetSide
     const inset = Number.parseFloat(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')) || 0;
     const margin = side === 'left'
         ? Math.max(0, Math.round(inset - baseRect.left))
-        : Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)));
+        : Math.max(0, Math.round(Math.min(baseRect.right, visibleViewportWidth()) - (visibleViewportWidth() - inset)));
     const stableHeight = sideInsetStableHeight(target, height);
     setStylePropertyIfChanged(target, 'width', `${Math.round(size)}px`);
     setStylePropertyIfChanged(target, 'max-width', `${Math.round(size)}px`);

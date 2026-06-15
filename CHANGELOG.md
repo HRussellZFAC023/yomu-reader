@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.67] - 2026-06-15
+
+### Fixed
+
+- YouTube transcript sidebars now open with a lightweight preview first and defer the full transcript render/hydration, removing the long synchronous panel-open pause on iPad/tablet watch pages while keeping Auto pause-panel reopening immediate.
+- Left-side YouTube transcript placement now anchors YouTube's flex watch columns to the viewport start and shifts only the primary watch column, so the video, title, and actions sit against the panel instead of sliding too far left or underneath it. The Playwright iPad/mobile/desktop layout matrix now asserts this flex anchoring, preview render path, resize behavior, Auto behavior, and bottom safe-area alignment.
+
 ## [0.7.66] - 2026-06-15
 
 ### Fixed

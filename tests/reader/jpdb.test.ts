@@ -16108,7 +16108,7 @@ describe('reader helpers', () => {
                 expect(primary.style.maxWidth).toBe('1080px');
                 expect(primary.style.minWidth).toBe('0px');
                 expect(primary.style.marginRight).toBe('32px');
-                expect(columns.style.marginLeft).toBe('0px');
+                expect(columns.style.marginLeft).toBe('');
                 expect(primaryInner.style.width).toBe('1080px');
                 expect(primaryInner.style.maxWidth).toBe('1080px');
                 expect(setSize).toHaveBeenCalledWith(1080, 675);
@@ -16146,7 +16146,7 @@ describe('reader helpers', () => {
         });
     });
 
-    it('shifts YouTube watch columns right for a left transcript drawer without covering the metadata area', () => {
+    it('shifts the YouTube primary watch column right for a left transcript drawer without covering metadata', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -16189,10 +16189,11 @@ describe('reader helpers', () => {
 
                 expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-left')).toBe(true);
                 expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('444px');
-                expect(columns.style.marginLeft).toBe('444px');
+                expect(columns.style.marginLeft).toBe('');
                 expect(primary.style.width).toBe('552px');
-                expect(primary.style.marginLeft).toBe('0px');
+                expect(primary.style.marginLeft).toBe('444px');
                 expect(primaryInner.style.width).toBe('552px');
+                expect(primaryInner.style.marginLeft).toBe('0px');
                 expect(setSize).toHaveBeenCalledWith(552, 518);
             } finally {
                 adapter.clear();
@@ -16207,6 +16208,116 @@ describe('reader helpers', () => {
             expect(primary.style.marginLeft).toBe('');
             expect(primary.style.width).toBe('');
             expect(primaryInner.style.width).toBe('');
+            expect(primaryInner.style.marginLeft).toBe('');
+        });
+    });
+
+    it('uses the full left inset for flex-centered YouTube watch columns', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withViewport(1024, 1366, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="columns" style="display: flex; justify-content: center;">
+                        <div id="primary"><div id="primary-inner"><div id="movie_player"></div></div></div>
+                    </div>
+                </ytd-watch-flexy>
+            `;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            moviePlayer.setSize = vi.fn();
+            Object.defineProperty(primary, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(185, 0, 654, 518),
+            });
+            Object.defineProperty(primaryInner, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(185, 0, 654, 518),
+            });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    side: 'left',
+                    playerSize: 552,
+                    panelSize: 420,
+                    videoRect: new DOMRect(185, 84, 920, 518),
+                    margin: 12,
+                });
+
+                expect(primary.style.marginLeft).toBe('444px');
+                expect(primaryInner.style.marginLeft).toBe('0px');
+            } finally {
+                adapter.clear();
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
+        });
+    });
+
+    it('uses the visual viewport when iPad YouTube exposes an oversized layout viewport', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withBrowserViewport(3099, 2324, () => {
+            const { restore } = installVisualViewportFixture({ width: 1366, height: 1024 });
+            try {
+                document.body.innerHTML = `
+                    <ytd-watch-flexy>
+                        <div id="columns" style="display: flex; justify-content: flex-start;">
+                            <div id="primary"><div id="primary-inner"><div id="movie_player"></div></div></div>
+                        </div>
+                    </ytd-watch-flexy>
+                `;
+                const primary = document.querySelector<HTMLElement>('#primary')!;
+                const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+                const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+                moviePlayer.setSize = vi.fn();
+                Object.defineProperty(primary, 'getBoundingClientRect', {
+                    configurable: true,
+                    value: () => new DOMRect(480, 68, 2095, 1178),
+                });
+                Object.defineProperty(primaryInner, 'getBoundingClientRect', {
+                    configurable: true,
+                    value: () => new DOMRect(480, 68, 2095, 1178),
+                });
+
+                const adapter = createSubtitleVideoInsetAdapter();
+                try {
+                    adapter.apply({
+                        side: 'right',
+                        playerSize: 886,
+                        panelSize: 460,
+                        videoRect: new DOMRect(480, 68, 2095, 1178),
+                        margin: 10,
+                    });
+
+                    expect(primary.style.width).toBe('886px');
+                    expect(primary.style.marginRight).toBe('470px');
+                    expect(primaryInner.style.width).toBe('886px');
+                    expect(primaryInner.style.marginRight).toBe('470px');
+                } finally {
+                    adapter.clear();
+                }
+            } finally {
+                restore();
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
         });
     });
 

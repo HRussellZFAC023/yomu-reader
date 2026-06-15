@@ -14487,7 +14487,7 @@ html.jpdb-subtitle-video-inset-right ytd-watch-flexy #columns {
   justify-content: flex-start !important;
 }
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #columns {
-  justify-content: flex-end !important;
+  justify-content: flex-start !important;
 }
 html.jpdb-subtitle-video-inset-right ytd-watch-flexy #primary {
   margin-left: 0 !important;
