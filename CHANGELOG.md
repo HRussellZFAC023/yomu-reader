@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.58] - 2026-06-15
+
+### Fixed
+
+- No-key Jiten definition panels now render real imported Jitendex/Jiten term entries, including readings and structured example text, instead of replacing the section with only an external Jiten button. The same Jiten source renderer is used for API-backed details and local no-key entries, while the external Jiten link remains an extra action when real content is available.
+
 ## [0.7.57] - 2026-06-15
 
 ### Fixed

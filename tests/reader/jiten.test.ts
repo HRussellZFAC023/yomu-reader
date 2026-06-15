@@ -884,7 +884,7 @@ describe('JitenApiClient', () => {
         expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
-    it('renders real Jiten vocabulary definitions and keyless external fallback sections', () => {
+    it('renders real Jiten vocabulary definitions and local keyless Jitendex sections', () => {
         const card = jitenCard({ spelling: '大学', reading: 'だいがく' });
         const info = jitenVocabularyInfo({
             wordId: 321,
@@ -899,15 +899,24 @@ describe('JitenApiClient', () => {
             usedIn: [],
             examples: [],
         }), 'en');
+        const local = renderJitenDefinitionSource(card, () => '', null, 'en', [{
+            expression: '大学',
+            reading: 'だいがく',
+            glossary: ['university from Jitendex', { type: 'structured-content', content: { tag: 'div', content: '大学で日本語を勉強する。' } }],
+            score: 10,
+            dictionary: 'Jitendex',
+        }]);
 
         expect(rendered).toContain('data-source="jiten"');
         expect(rendered).toContain('university; college');
         expect(rendered).not.toContain('No Jiten definitions');
-        expect(empty).toContain('data-source="jiten"');
-        expect(empty).toContain('Open in Jiten');
-        expect(empty).toContain('https://jiten.moe/parse?text=%E5%A4%A7%E5%AD%A6');
-        expect(empty).not.toContain('university; college');
-        expect(empty).not.toContain('No Jiten definitions');
+        expect(empty).toBe('');
+        expect(local).toContain('data-source="jiten"');
+        expect(local).toContain('university from Jitendex');
+        expect(local).toContain('大学で日本語を勉強する。');
+        expect(local).toContain('Open in Jiten');
+        expect(local).toContain('https://jiten.moe/parse?text=%E5%A4%A7%E5%AD%A6');
+        expect(local).not.toContain('No Jiten definitions');
 
         const mount = document.createElement('div');
         mount.innerHTML = rendered;

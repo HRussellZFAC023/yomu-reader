@@ -9008,6 +9008,97 @@ describe('new tab review helpers', () => {
         root.remove();
     });
 
+    it('renders no-key Jiten search details from local Jitendex entries for 復習', async () => {
+        const jitenLookup = vi.fn(async () => {
+            throw new Error('Jiten API should not be called without a key');
+        });
+        const publicCard = newTabTestCard({
+            vid: 1776400,
+            sid: 0,
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            meanings: [{ glosses: ['JPDB review wording'], partOfSpeech: [] }],
+            source: 'jpdb',
+            sentence: '復習',
+        });
+        const jitendexEntry = {
+            expression: '復習',
+            reading: 'ふくしゅう',
+            glossary: [
+                'review; revision',
+                { type: 'structured-content', content: { tag: 'div', content: '毎日復習する。' } },
+            ],
+            score: 10,
+            dictionary: 'Jitendex',
+        };
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            jpdbDefinitionsEnabled: false,
+            jitenDefinitionsEnabled: true,
+            localDictionariesEnabled: true,
+            ankiEnabled: false,
+            ankiSectionEnabled: false,
+            studyTranslationEnabled: false,
+            studyGrammarEnabled: false,
+            immersionKitEnabled: false,
+        }, {
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: vi.fn(async () => [publicCard]) } as never,
+            jiten: { lookupVocabularyInfoForCard: jitenLookup } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                localCardFromEntry: vi.fn(entry => newTabTestCard({
+                    vid: -42,
+                    sid: -42,
+                    spelling: entry.expression,
+                    reading: entry.reading,
+                    meanings: [{ glosses: ['local card fallback'], partOfSpeech: [] }],
+                    source: 'local',
+                    sentence: entry.expression,
+                })),
+                fallbackCardFromText: vi.fn(newTabFallbackCardFromText),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => ({
+                    dictionaries: [{ title: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' }],
+                    terms: 1,
+                    kanji: 0,
+                    termMeta: 0,
+                    kanjiMeta: 0,
+                })),
+                searchTerms: vi.fn(async () => [jitendexEntry]),
+                lookup: vi.fn(async () => [jitendexEntry]),
+                lookupKanji: vi.fn(async () => []),
+                lookupTermMeta: vi.fn(async () => []),
+            } as never,
+        });
+        const root = renderPerformedNewTabSearch(controller, '復習', 'dictionary');
+
+        try {
+            await waitForExpect(() => {
+                expect(root.querySelector('[data-newtab-search-results]')?.textContent).toContain('復習');
+            });
+            const wordButton = root.querySelector<HTMLButtonElement>('[data-newtab-action="search-result-word"]');
+            wordButton?.click();
+            const detail = () => wordButton
+                ?.closest<HTMLElement>('[data-newtab-search-card-shell]')
+                ?.querySelector<HTMLElement>('[data-newtab-search-detail]');
+
+            await waitForExpect(() => {
+                const jiten = detail()?.querySelector<HTMLElement>('[data-source="jiten"]');
+                expect(jiten).not.toBeNull();
+                expect(jiten?.textContent).toContain('review; revision');
+                expect(jiten?.textContent).toContain('毎日復習する。');
+                expect(jiten?.textContent).toContain('ふくしゅう');
+                expect(jiten?.querySelector('.jpdb-reader-jiten-external-lookup')).not.toBeNull();
+            });
+            expect(jitenLookup).not.toHaveBeenCalled();
+        } finally {
+            root.remove();
+        }
+    });
+
     it('dedupes placeholder search words and renders kanji above words', async () => {
         const placeholderCard = newTabTestCard({
             vid: -1,

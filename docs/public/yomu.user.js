@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.57
+// @version      0.7.58
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -20346,13 +20346,15 @@ ${entry.reading || ""}`;
   function delay$1(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
-  function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
+  function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en", localEntries = []) {
+    const localJitenEntries = jitenLocalDefinitionEntries(localEntries);
     const meanings = jitenDefinitionMeanings(card, info);
+    const localDefinitions = !info ? renderJitenLocalDefinitions(localJitenEntries, card) : "";
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    const hasDetails = Boolean(meanings || extras);
-    const headword = renderJitenDefinitionHeadword(card, hasDetails ? info : null);
-    const fallback = !meanings && !extras ? renderJitenExternalLookup(card, language) : "";
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}${fallback}`;
+    const hasDetails = Boolean(meanings || localDefinitions || extras);
+    if (!hasDetails) return "";
+    const headword = renderJitenDefinitionHeadword(card, info, localJitenEntries);
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${localDefinitions}${extras}${renderJitenExternalLookup(card, language)}`;
     if (!body.trim()) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
@@ -20361,8 +20363,8 @@ ${entry.reading || ""}`;
         </details>
     `;
   }
-  function renderJitenDefinitionHeadword(card, info) {
-    const reference = jitenDefinitionHeadwordReference(card, info);
+  function renderJitenDefinitionHeadword(card, info, localEntries = []) {
+    const reference = jitenDefinitionHeadwordReference(card, info, localEntries);
     if (!reference) return "";
     return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: "jpdb-reader-jiten-headword-target" })}</div>`;
   }
@@ -20375,15 +20377,51 @@ ${entry.reading || ""}`;
         <a class="jpdb-reader-btn" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(label)}</a>
     </div>`;
   }
-  function jitenDefinitionHeadwordReference(card, info) {
-    const text2 = (info?.mainReading?.text || card.spelling || card.reading).trim();
+  function jitenDefinitionHeadwordReference(card, info, localEntries = []) {
+    const localEntry = localEntries.find((entry) => (entry.expression || entry.reading).trim());
+    const text2 = (info?.mainReading?.text || localEntry?.expression || card.spelling || localEntry?.reading || card.reading).trim();
     if (!text2 || !hasJapaneseText$1(text2)) return null;
     return {
       text: text2,
-      reading: card.reading || text2,
+      reading: card.reading || localEntry?.reading || text2,
       wordId: info?.wordId ?? card.jitenWordId,
       readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex
     };
+  }
+  function jitenLocalDefinitionEntries(entries) {
+    return entries.filter((entry) => /(?:^|[^a-z])(?:jitendex|jiten)(?:[^a-z]|$)/i.test(entry.dictionary));
+  }
+  function renderJitenLocalDefinitions(entries, card) {
+    const groups = groupTermEntriesByHeadword(entries).slice(0, 6);
+    if (!groups.length) return "";
+    return `<div class="jpdb-reader-jiten-local-definitions">${groups.map((group) => renderJitenLocalDefinitionGroup(group, card)).join("")}</div>`;
+  }
+  function renderJitenLocalDefinitionGroup(group, card) {
+    const head = renderJitenLocalDefinitionHead(group, card);
+    const body = group.entries.map((entry, index) => renderJitenLocalGlossaryEntry(entry, group.entries.length > 1 ? index + 1 : 0)).filter(Boolean).join("");
+    if (!body) return "";
+    return `<article class="jpdb-reader-local-entry jpdb-reader-jiten-local-entry">
+        ${head}
+        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(group.entries[0]?.dictionary ?? "Jitendex")}">
+            ${body}
+        </div>
+    </article>`;
+  }
+  function renderJitenLocalDefinitionHead(group, card) {
+    const repeatsLookup = group.expression === card.spelling && (!card.reading || group.reading === card.reading || group.reading === group.expression);
+    if (repeatsLookup) return "";
+    return `<div class="jpdb-reader-local-head">
+        <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
+        ${group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : ""}
+    </div>`;
+  }
+  function renderJitenLocalGlossaryEntry(entry, index) {
+    const content = entry.glossary.map((item) => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })).filter((html) => html.replace(/<[^>]+>/g, "").trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map((html) => `<div>${html}</div>`).join("");
+    if (!content) return "";
+    return `<div class="jpdb-reader-local-glossary-entry ${index ? "" : "no-index"}">
+        ${index ? `<span class="jpdb-reader-local-sense-index">${index}</span>` : ""}
+        <div>${content}</div>
+    </div>`;
   }
   function jitenDefinitionMeanings(card, info) {
     const groups = jitenDefinitionMeaningGroups(card, info);
@@ -20750,7 +20788,8 @@ ${entry.reading || ""}`;
       context.card,
       params.sourceAttributes,
       context.jitenVocabularyInfo,
-      params.jpdbLanguage ?? params.settings.interfaceLanguage
+      params.jpdbLanguage ?? params.settings.interfaceLanguage,
+      params.entries
     );
   }
   function renderAnkiDefinitionSourceSection(context) {

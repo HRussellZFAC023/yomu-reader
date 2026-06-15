@@ -276,7 +276,7 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
             return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
         }
         if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
-            return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage);
+            return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage, detail.localEntries);
         }
         if (sourceId === ANKI_SOURCE_ID) {
             return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : '';

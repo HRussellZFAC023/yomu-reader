@@ -178,6 +178,7 @@ function renderJitenDefinitionSourceSection(context: DefinitionSourceStackContex
         params.sourceAttributes,
         context.jitenVocabularyInfo,
         params.jpdbLanguage ?? params.settings.interfaceLanguage,
+        params.entries,
     );
 }
 
