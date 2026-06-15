@@ -31022,6 +31022,35 @@ describe('reader helpers', () => {
         expect(document.querySelector('.ytp-caption-segment .jpdb-reader-word')).toBeNull();
     });
 
+    it('prioritizes YouTube watch title, description, and transcript ahead of large virtualized grids', () => {
+        const targets = collectYouTubeTargets(`
+            <ytd-rich-grid-renderer>
+                ${Array.from({ length: 80 }, (_, index) => `
+                    <ytd-rich-item-renderer>
+                        <a id="video-title-link" href="/watch?v=${index}">関連動画${index}の日本語タイトル</a>
+                    </ytd-rich-item-renderer>
+                `).join('')}
+            </ytd-rich-grid-renderer>
+            <ytd-watch-metadata>
+                <h1 id="title"><yt-attributed-string>日本語タイトルを読む</yt-attributed-string></h1>
+                <div id="description">
+                    <yt-attributed-string id="attributed-description-text">説明文で日本語を勉強します。</yt-attributed-string>
+                </div>
+            </ytd-watch-metadata>
+            <ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+                <ytd-transcript-segment-renderer>
+                    <yt-formatted-string class="segment-text">字幕で確認します。</yt-formatted-string>
+                </ytd-transcript-segment-renderer>
+            </ytd-engagement-panel-section-list-renderer>
+        `, YOUTUBE_WATCH_TEST_URL, 6);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '日本語タイトルを読む',
+            '説明文で日本語を勉強します。',
+            '字幕で確認します。',
+        ]));
+    });
+
     it('scans YouTube masthead and mini-guide chrome passively', () => {
         const targets = collectYouTubeTargets(`
             <ytd-masthead>
@@ -31079,6 +31108,51 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(createWord)).toBe('作成');
         expect(createWord.dataset.jpdbReaderPassive).toBe('true');
         expect(createWord.tabIndex).toBe(-1);
+    });
+
+    it('scans modern YouTube view-model chrome passively', () => {
+        const targets = collectYouTubeTargets(`
+            <ytd-masthead>
+                <yt-button-view-model>
+                    <button type="button" aria-label="作成">
+                        <span class="yt-core-attributed-string ytAttributedStringHost">作成</span>
+                    </button>
+                </yt-button-view-model>
+            </ytd-masthead>
+            <ytd-mini-guide-renderer role="navigation">
+                <yt-mini-guide-entry-renderer>
+                    <a href="/" aria-label="ホーム"><span class="title">ホーム</span></a>
+                </yt-mini-guide-entry-renderer>
+            </ytd-mini-guide-renderer>
+            <yt-chip-cloud-chip-view-model>
+                <button role="tab" aria-selected="false">
+                    <span class="yt-core-attributed-string ytAttributedStringHost">関連動画</span>
+                </button>
+            </yt-chip-cloud-chip-view-model>
+        `, 'https://www.youtube.com/', 10);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '作成',
+            'ホーム',
+            '関連動画',
+        ]));
+        expect(targets.every(target => target.passiveInteraction === true)).toBe(true);
+
+        const related = targets.find(target => target.text === '関連動画')!;
+        applyTokensToScanTarget(related, [{
+            card: { ...card, cardState: ['known'], spelling: '関連動画', reading: 'かんれんどうが', source: 'jpdb' },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'かんれんどうが', start: 0, end: 4, length: 4 }],
+            pitchClass: 'heiban',
+            sentence: '関連動画',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const chipWord = document.querySelector<HTMLElement>('yt-chip-cloud-chip-view-model .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(chipWord)).toBe('関連動画');
+        expect(chipWord.dataset.jpdbReaderPassive).toBe('true');
+        expectRenderedPitchWord(chipWord, 'heiban');
     });
 
     it('scans YouTube chip cloud tabs passively while ignoring feedback chrome', () => {

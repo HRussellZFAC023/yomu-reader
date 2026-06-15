@@ -37,6 +37,7 @@ const VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH = 700;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
 const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1_200;
 const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
+const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
 interface VisibleScanParseOptions {
@@ -254,6 +255,13 @@ export class VisiblePageScanner {
     }
 
     private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
+        if (visibleScanParsePrefetchConcurrency() > 1) {
+            return this.parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings);
+        }
+        return this.parseAndApplyTargetsSequentially(targets, generation, scanStartSettings);
+    }
+
+    private async parseAndApplyTargetsSequentially(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
         let cursor = 0;
         let parsedAnyTokens = false;
         const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
@@ -283,6 +291,61 @@ export class VisiblePageScanner {
             if (cursor < targets.length) await waitForVisibleScanTurn();
         }
         return parsedAnyTokens;
+    }
+
+    private async parseAndApplyTargetsWithPrefetch(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
+        let cursor = 0;
+        let parsedAnyTokens = false;
+        const pending: VisibleScanParseWork[] = [];
+        const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
+        const concurrency = visibleScanParsePrefetchConcurrency();
+        const schedule = (): void => {
+            while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
+                const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
+                cursor = next.cursor;
+                if (!next.batch.length) continue;
+                pending.push({
+                    batch: next.batch,
+                    result: this.dependencies.parseJapanese(
+                        next.batch.map(target => target.text),
+                        scanParseOptions(this.dependencies.getSettings(), next.batch),
+                    ).then(
+                        parsed => ({ parsed }),
+                        error => ({ error }),
+                    ),
+                });
+            }
+        };
+
+        schedule();
+        while (pending.length) {
+            if (this.isStaleScan(generation)) return parsedAnyTokens;
+            const work = pending.shift()!;
+            const result = await work.result;
+            if ('error' in result) throw result.error;
+            const parsed = result.parsed;
+            if (parsed.some(tokens => tokens.length > 0)) parsedAnyTokens = true;
+            if (this.isStaleScan(generation)) return parsedAnyTokens;
+            await this.applyParsedBatch(work.batch, parsed, scanStartSettings, generation);
+            schedule();
+            if (pending.length || cursor < targets.length) await waitForVisibleScanTurn();
+        }
+        return parsedAnyTokens;
+    }
+
+    private async applyParsedBatch(batch: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation: number): Promise<void> {
+        const tokens = parsed.flat();
+        const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
+        if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
+        const applyAnkiColors = this.shouldEnrichAnkiWords()
+            ? this.dependencies.beginAnkiWordEnrichment?.(tokens)
+            : undefined;
+        const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
+        applyAnkiColors?.(changedRoots);
+        this.preloadParsed(parsed, changedRoots, {
+            skipAnki: Boolean(applyAnkiColors),
+            skipPitch: pitchStartedBeforeApply,
+        });
     }
 
     private async applyTokens(targets: ScanTextTarget[], parsed: JPDBToken[][], scanStartSettings: ReaderSettings, generation?: number): Promise<ParentNode[]> {
@@ -398,6 +461,10 @@ function visibleScanTargetTextChunkSize(settings: ReaderSettings): number {
 function visibleScanApplyBatchSize(settings: ReaderSettings): number {
     if (!isNarrowVisibleScanViewport()) return VISIBLE_SCAN_APPLY_BATCH_SIZE;
     return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
+}
+
+function visibleScanParsePrefetchConcurrency(): number {
+    return isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : 1;
 }
 
 function isNarrowVisibleScanViewport(): boolean {
@@ -551,6 +618,11 @@ function chunkBoundaryBefore(text: string, start: number, hardEnd: number, chunk
 interface ScanApplyPlan {
     target: ScanTextTarget;
     tokens: JPDBToken[];
+}
+
+interface VisibleScanParseWork {
+    batch: ScanTextTarget[];
+    result: Promise<{ parsed: JPDBToken[][] } | { error: unknown }>;
 }
 
 function scanApplyPlans(batch: ScanTextTarget[], parsed: JPDBToken[][], start: number): ScanApplyPlan[] {

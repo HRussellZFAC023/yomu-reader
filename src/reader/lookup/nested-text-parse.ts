@@ -35,6 +35,7 @@ const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
     '[role="tab"]',
     '.footer button',
 ].join(',');
+const SETTINGS_SELECT_META_PARSE_SELECTOR = '[data-settings-select-options-meta]';
 const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     '[hidden]',
     '[aria-hidden="true"]',
@@ -46,10 +47,11 @@ const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     'use',
     '.jpdb-reader-word',
 ].join(',');
-const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
+const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = `${SETTINGS_PARSE_EXCLUDE_SELECTOR},${SETTINGS_SELECT_META_PARSE_SELECTOR}`;
 const SETTINGS_PARSE_ROOT_SELECTOR = [
     'h2',
     '.jpdb-reader-settings-search>label',
+    SETTINGS_SELECT_META_PARSE_SELECTOR,
     '[data-settings-search-empty]',
     '[data-audio-source-row] [data-settings-select-options-meta]',
     '[data-settings-panel]',
@@ -120,6 +122,7 @@ function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
 
 function settingsParseExcludeSelector(parseRoot: HTMLElement): string {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
+    if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
     return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
 }
 

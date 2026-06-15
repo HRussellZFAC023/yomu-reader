@@ -1,7 +1,5 @@
-import { AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from '../anki/index';
-import { ANKI_NEVER_FORGET_TAG } from '../anki/card-details';
+import { ANKI_NEVER_FORGET_TAG, AnkiConnectClient, canUseMobileAnkiHandoff, isAnkiDuplicateNoteError, resolveAnkiWordAudio, type AnkiAudioMergeMode, type AnkiCardContext, type AnkiLookupResult, type AnkiMergeYomuResult } from '../anki/index';
 import { publishCardStateSignal } from '../app/card-state-signal';
-import { resolveAnkiWordAudio } from '../anki/audio';
 import { copyText } from '../ui/browser';
 import { normalizeCardStates } from './state';
 import { readerWordSurfaceText } from '../dom/index';

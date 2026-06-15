@@ -4,6 +4,7 @@ import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
 import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
+import type { JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
 
 function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
@@ -27,6 +28,7 @@ function renderSources(
     sourceCard: JPDBCard,
     settings: ReaderSettings = DEFAULT_SETTINGS,
     extraSectionsOrOptions?: Parameters<typeof renderDefinitionSourcesStack>[0]['extraSectionsOrOptions'],
+    jitenVocabularyInfo?: JitenVocabularyInfo | null,
 ): string {
     return renderDefinitionSourcesStack({
         card: sourceCard,
@@ -36,10 +38,35 @@ function renderSources(
         dictionaryLabel: name => name,
         noDefinitionsHtml: () => '<p>No definitions</p>',
         extraSectionsOrOptions,
+        jitenVocabularyInfo,
         renderTranslationSource: () => '',
         renderGrammarSource: () => '',
         renderImmersionSource: () => '',
     });
+}
+
+function jitenInfo(meanings: string[]): JitenVocabularyInfo {
+    return {
+        wordId: 10,
+        mainReading: { text: '大学', readingIndex: 0, frequencyRank: 500, usedInMediaAmount: null },
+        alternativeReadings: [],
+        partsOfSpeech: ['noun'],
+        definitions: [{
+            index: 0,
+            meanings,
+            partsOfSpeech: ['noun'],
+            field: [],
+            dial: [],
+            misc: [],
+            restrictedToReadingIndices: [],
+        }],
+        pitchAccents: [],
+        knownStates: ['not-in-deck'],
+        composedOf: [],
+        usedIn: [],
+        usedInTotal: 0,
+        examples: [],
+    };
 }
 
 describe('definition source stack', () => {
@@ -50,13 +77,27 @@ describe('definition source stack', () => {
         ]));
     });
 
-    it('renders a Jiten source panel without copying JPDB card meanings', () => {
+    it('hides an empty Jiten source instead of rendering a no-definitions panel', () => {
         const html = renderSources(card({ source: 'jpdb' }));
 
         expect(html).toContain('data-source="jpdb"');
-        expect(html).toContain('data-source="jiten"');
-        expect(html).toContain('jpdb-reader-no-definitions');
+        expect(html).not.toContain('data-source="jiten"');
+        expect(html).not.toContain('jpdb-reader-no-definitions');
         expect(html.match(/to read/g)).toHaveLength(1);
+    });
+
+    it('renders Jiten source definitions from loaded Jiten info without copying JPDB meanings', () => {
+        const html = renderSources(card({
+            source: 'jpdb',
+            spelling: '大学',
+            reading: 'だいがく',
+            meanings: [{ glosses: ['JPDB meaning only'], partOfSpeech: [] }],
+        }), DEFAULT_SETTINGS, undefined, jitenInfo(['university; college']));
+
+        expect(html).toContain('data-source="jpdb"');
+        expect(html).toContain('data-source="jiten"');
+        expect(html).toContain('JPDB meaning only');
+        expect(html).toContain('university; college');
     });
 
     it('does not render JPDB from Jiten card meanings when both sources are enabled', () => {
@@ -71,7 +112,7 @@ describe('definition source stack', () => {
     });
 
     it('keeps Jiten available when the JPDB source panel is disabled', () => {
-        const html = renderSources(card({ source: 'jpdb' }), DEFAULT_SETTINGS, { includeJpdbSource: false });
+        const html = renderSources(card({ source: 'jpdb' }), DEFAULT_SETTINGS, { includeJpdbSource: false }, jitenInfo(['dictionary definition']));
 
         expect(html).toContain('data-source="jiten"');
         expect(html).not.toContain('data-source="jpdb"');

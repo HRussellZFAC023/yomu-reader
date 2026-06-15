@@ -426,6 +426,14 @@ function readerWordSurfaceText(word: HTMLElement): string {
     return clone.textContent ?? '';
 }
 
+function normalizedSearchWordIdentity(value: string): string {
+    return normalizeSearchQuery(value).replace(/\s+/g, '').toLocaleLowerCase();
+}
+
+function normalizedKeywordText(value: string): string {
+    return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+}
+
 function isSearchLocalKanjiDictionaryCard(card: JPDBCard): boolean {
     const characters = Array.from(card.spelling.trim());
     return characters.length === 1 && isKanjiCharacter(characters[0] ?? '') && (card.reading === card.spelling || Boolean(card.kanjiKeyword));
@@ -5484,9 +5492,13 @@ export class NewTabController {
             this.renderKanjiMiningControls(fullInfo),
         );
         const keywordMount = wrap.querySelector<HTMLElement>('.jpdb-reader-newtab-kanji-keywords');
-        if (keywordMount) setInnerHtml(keywordMount, jitenInfo
-            ? renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage)
-            : renderKanjiKeywordLine(fullInfo, rtk, localEntries));
+        if (keywordMount) {
+            const keywordLine = jitenInfo
+                ? renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage)
+                : this.renderNewTabKanjiKeywordLine(fullInfo, rtk, localEntries, facts, settings.interfaceLanguage);
+            if (keywordLine) setInnerHtml(keywordMount, keywordLine);
+            else keywordMount.remove();
+        }
         this.dependencies.installDictionarySourceTracking?.(wrap);
         return wrap;
     }
@@ -5640,6 +5652,33 @@ export class NewTabController {
             fact('Heisig', heisigFact(fullInfo, rtk)),
             fact(uiText(language, 'factOldForms'), oldFormsFact(fullInfo)),
         ]);
+    }
+
+    private newTabKanjiDisplayedKeyword(facts: [string, string][], language: ReaderSettings['interfaceLanguage']): string {
+        const keywordLabel = uiText(language, 'factKeyword');
+        return facts.find(([label]) => label === keywordLabel)?.[1] ?? '';
+    }
+
+    private renderNewTabKanjiKeywordLine(
+        fullInfo: JpdbKanjiInfo | null,
+        rtk: RtkInfo | null,
+        localEntries: YomitanKanjiEntry[],
+        facts: [string, string][],
+        language: ReaderSettings['interfaceLanguage'],
+    ): string {
+        const line = renderKanjiKeywordLine(fullInfo, rtk, localEntries, language);
+        const displayedKeyword = this.newTabKanjiDisplayedKeyword(facts, language);
+        if (!displayedKeyword) return line;
+        const root = htmlToFirstElement(line);
+        if (!root || root.classList.contains('jpdb-reader-help')) return line;
+        const duplicateKey = normalizedKeywordText(displayedKeyword);
+        root.querySelectorAll<HTMLElement>('.jpdb-reader-kanji-keyword').forEach(chip => {
+            const text = Array.from(chip.children)
+                .find(child => child.tagName.toLowerCase() === 'span')
+                ?.textContent ?? '';
+            if (normalizedKeywordText(text) === duplicateKey) chip.remove();
+        });
+        return root.querySelector('.jpdb-reader-kanji-keyword') ? root.outerHTML : '';
     }
 
     private sourceAttributes(sourceStateKey: string, initiallyExpanded = true): string {
@@ -6513,14 +6552,22 @@ export class NewTabController {
             ...kanjiCharacters(query),
             ...wordCards.flatMap(card => kanjiCharacters(card.spelling)),
         ]).slice(0, NEW_TAB_SEARCH_KANJI_LIMIT);
+        const summaryWordCards = wordCards.filter(card => !this.searchWordMatchesQueryExactly(card, query));
         const wordsByCharacter = new Map<string, JPDBCard[]>();
-        wordCards.forEach(card => {
+        summaryWordCards.forEach(card => {
             kanjiCharacters(card.spelling).forEach(character => {
                 wordsByCharacter.set(character, [...(wordsByCharacter.get(character) ?? []), card]);
             });
         });
         const results = await Promise.all(characters.map(character => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [])));
         return results.filter((result): result is NewTabSearchKanjiResult => Boolean(result));
+    }
+
+    private searchWordMatchesQueryExactly(card: JPDBCard, query: string): boolean {
+        const normalizedQuery = normalizedSearchWordIdentity(query);
+        return Boolean(normalizedQuery)
+            && (normalizedSearchWordIdentity(card.spelling) === normalizedQuery
+                || normalizedSearchWordIdentity(newTabCardReading(card)) === normalizedQuery);
     }
 
     private async searchKanjiResult(character: string, words: JPDBCard[] = []): Promise<NewTabSearchKanjiResult | null> {

@@ -303,6 +303,19 @@ export class JitenApiClient {
         return normalized;
     }
 
+    async lookupVocabularyInfoForCard(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
+        if (isJitenReferenceableCard(card)) return this.lookupVocabularyInfo(card);
+        const jitenCard = await this.lookupJitenCardForVocabularyInfo(card);
+        return jitenCard ? this.lookupVocabularyInfo(jitenCard) : null;
+    }
+
+    private async lookupJitenCardForVocabularyInfo(card: JPDBCard): Promise<JPDBCard | null> {
+        const spelling = card.spelling.trim();
+        if (!spelling) return null;
+        const [tokens] = await this.parse([spelling]);
+        return bestParsedJitenCard(card, spelling, tokens ?? []);
+    }
+
     async lookupKanji(character: string): Promise<JitenKanjiInfo | null> {
         const kanji = character.trim();
         if (!kanji) return null;
@@ -548,6 +561,28 @@ export function jitenCardReference(card: JPDBCard): JitenCardReference {
         throw new JitenApiError('Card is not backed by Jiten.');
     }
     return { wordId, readingIndex };
+}
+
+function isJitenReferenceableCard(card: JPDBCard): boolean {
+    try {
+        jitenCardReference(card);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function bestParsedJitenCard(card: JPDBCard, spelling: string, tokens: JPDBToken[]): JPDBCard | null {
+    const fullSpan = tokens
+        .filter(token => token.start === 0 && token.end === spelling.length)
+        .map(token => token.card)
+        .filter(candidate => isJitenReferenceableCard(candidate));
+    if (!fullSpan.length) return null;
+    const reading = card.reading.trim();
+    return fullSpan.find(candidate => candidate.spelling === spelling && (!reading || candidate.reading === reading))
+        ?? fullSpan.find(candidate => candidate.spelling === spelling)
+        ?? fullSpan[0]
+        ?? null;
 }
 
 export function jitenRatingForGrade(grade: JPDBGrade): number {

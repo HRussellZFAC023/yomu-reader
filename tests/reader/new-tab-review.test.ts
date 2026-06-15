@@ -8642,8 +8642,10 @@ describe('new tab review helpers', () => {
             expect(publicPitch).toHaveBeenCalledWith('学習能力', 'がくしゅうのうりょく');
             expect(parseContent).toHaveBeenCalled();
             expect(root.querySelector('.jpdb-reader-newtab-search-suggestion-term.jpdb-reader-parseable')?.textContent).toBe('学習能力');
-            expect(root.querySelector('.jpdb-reader-newtab-search-kanji-card .jpdb-reader-newtab-search-meta.jpdb-reader-parseable')?.textContent)
-                .toContain('学習能力');
+            expect(Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-search-kanji-card'))
+                .map(card => card.querySelector('.jpdb-reader-newtab-search-kanji-char')?.textContent)).toEqual(['学', '習', '能', '力']);
+            expect(Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-newtab-search-kanji-card .jpdb-reader-newtab-search-meta'))
+                .map(meta => meta.textContent ?? '').join('\n')).not.toContain('学習能力');
         } finally {
             root.remove();
         }
@@ -9406,6 +9408,8 @@ describe('new tab review helpers', () => {
         expect(take.querySelector('.jpdb-reader-newtab-search-kanji-item-title')?.textContent).toContain('take');
         expect(read.querySelector('.jpdb-reader-newtab-kanji-details')).not.toBeNull();
         expect(take.querySelector('.jpdb-reader-newtab-kanji-details')).not.toBeNull();
+        expect(read.querySelector('.jpdb-reader-kanji-facts')?.textContent).toContain('Keywordread');
+        expect(read.querySelector('.jpdb-reader-newtab-kanji-keywords .jpdb-reader-kanji-keyword')).toBeNull();
     });
 
     it('keeps the search detail speaker on lookup audio for the rendered card', () => {

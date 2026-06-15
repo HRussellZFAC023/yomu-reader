@@ -814,6 +814,57 @@ describe('JitenApiClient', () => {
         expect(jitenCardReference(jitenCard({ source: 'jiten', vid: 99, sid: 1 }))).toEqual({ wordId: 99, readingIndex: 1 });
         expect(() => jitenCardReference(jitenCard({ source: 'jpdb', vid: 99, sid: 1 }))).toThrow(JitenApiError);
     });
+
+    it('resolves JPDB-shaped cards through Jiten parse before loading vocabulary info', async () => {
+        const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
+            const endpoint = String(url);
+            if (endpoint.endsWith('/reader/parse')) {
+                expect(init?.body).toBe(JSON.stringify({ text: ['大学'] }));
+                return jsonResponse({
+                    vocabulary: [{
+                        wordId: 321,
+                        readingIndex: 0,
+                        spelling: '大学',
+                        reading: '大学[だいがく]',
+                        frequencyRank: 475,
+                        partsOfSpeech: ['noun'],
+                        meaningsChunks: [['university; college']],
+                        meaningsPartOfSpeech: ['noun'],
+                        knownState: [],
+                        pitchAccents: [0],
+                    }],
+                    tokens: [[{ wordId: 321, readingIndex: 0, start: 0, end: 2, length: 2 }]],
+                });
+            }
+            if (endpoint.endsWith('/vocabulary/321/0/info')) {
+                return jsonResponse({
+                    wordId: 321,
+                    mainReading: { text: '大学', readingIndex: 0, frequencyRank: 475, usedInMediaAmount: null },
+                    partsOfSpeech: ['noun'],
+                    definitions: [{ index: 0, meanings: ['university; college'], partsOfSpeech: ['noun'] }],
+                    pitchAccents: [0],
+                    knownStates: [],
+                });
+            }
+            if (endpoint.endsWith('/vocabulary/321/0/random-example-sentences')) return jsonResponse([]);
+            return jsonResponse({ success: false }, 404);
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        const info = await client.lookupVocabularyInfoForCard(jitenCard({
+            source: 'jpdb',
+            vid: 999,
+            sid: 1,
+            spelling: '大学',
+            reading: 'だいがく',
+        }));
+
+        expect(info).toMatchObject({
+            wordId: 321,
+            definitions: [{ meanings: ['university; college'] }],
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
 });
 
 function jitenVocabulary(overrides: Record<string, unknown> = {}) {

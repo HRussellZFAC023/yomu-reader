@@ -98,6 +98,45 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('prefetches the next YouTube parse batch while the first batch is still resolving', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-comments>
+                ${Array.from({ length: 170 }, (_, index) => `
+                    <ytd-comment-view-model>
+                        <yt-attributed-string id="content-text">日本語コメント${index}です。</yt-attributed-string>
+                    </ytd-comment-view-model>
+                `).join('')}
+            </ytd-comments>
+        `;
+        const firstBatch = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn((paragraphs: string[]): Promise<JPDBToken[][]> => {
+            if (parseJapanese.mock.calls.length === 1) return firstBatch.promise;
+            return Promise.resolve(paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        });
+        const scanner = createVisiblePageScanner({ parseJapanese });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+            expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
+            expect(parseJapanese.mock.calls[1]?.[0]).toHaveLength(40);
+
+            firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
+            await scan;
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('keeps the larger first-pass target cap for YouTube on narrow no-key viewports', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {

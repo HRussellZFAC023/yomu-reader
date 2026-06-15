@@ -1,12 +1,6 @@
-import {
-    ANKI_EXPRESSION_FIELD_NAMES,
-    ANKI_MEANING_FIELD_NAMES,
-    ANKI_READING_FIELD_NAMES,
-    ANKI_SENTENCE_FIELD_NAMES,
-    type AnkiConnectClient,
-} from './index';
+import type { AnkiConnectClient } from './index';
 import { ankiCardTemplateLabel, applyComputedAnkiNextReviews, pickPrimaryCard, reviewGradeIntervalsFromAnkiCards, stateFromAnkiCards } from './card-details';
-import { flattenNoteFields, normalizeAnkiFieldName } from './field-mapping';
+import { ANKI_EXPRESSION_FIELD_NAMES, ANKI_MEANING_FIELD_NAMES, ANKI_READING_FIELD_NAMES, ANKI_SENTENCE_FIELD_NAMES, flattenNoteFields, normalizeAnkiFieldName } from './field-mapping';
 import { quoteAnkiSearch } from './search-escape';
 import { Logger } from '../app/logger';
 import { stablePositiveHashId } from '../core/stable-hash';

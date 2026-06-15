@@ -57,9 +57,29 @@ export type PruneRedundantAnkiGlyphRepeatsFn = typeof import('../anki/render-imp
 export type RenderAnkiRenderedCardStudyBodyFn = typeof import('../anki/render-impl').renderAnkiRenderedCardStudyBody;
 export type RenderReviewButtonsFn = typeof import('../anki/render-impl').renderReviewButtons;
 export type ReviewButtonGradesFn = typeof import('../anki/render-impl').reviewButtonGrades;
+export type AnkiConnectClientClass = typeof import('../anki/client').AnkiConnectClient;
+export type AnkiDuplicateNoteErrorClass = typeof import('../anki/client').AnkiDuplicateNoteError;
+export type AnkiLookupWithUnavailableDetailsFn = typeof import('../anki/client').ankiLookupWithUnavailableDetails;
+export type BuildYomuAnkiFieldsFn = typeof import('../anki/client').buildYomuAnkiFields;
+export type BuildYomuAnkiPreviewFieldsFn = typeof import('../anki/client').buildYomuAnkiPreviewFields;
+export type CanUseMobileAnkiHandoffFn = typeof import('../anki/client').canUseMobileAnkiHandoff;
+export type CaptureActiveVideoFrameFn = typeof import('../anki/client').captureActiveVideoFrame;
+export type IsAnkiDuplicateNoteErrorFn = typeof import('../anki/client').isAnkiDuplicateNoteError;
+export type MobileAnkiHandoffAppNameFn = typeof import('../anki/client').mobileAnkiHandoffAppName;
+export type ResolveAnkiWordAudioFn = typeof import('../anki/audio').resolveAnkiWordAudio;
 
 interface YomuCompanionRegistry {
     anki?: {
+        AnkiConnectClient: AnkiConnectClientClass;
+        AnkiDuplicateNoteError: AnkiDuplicateNoteErrorClass;
+        ankiLookupWithUnavailableDetails: AnkiLookupWithUnavailableDetailsFn;
+        buildYomuAnkiFields: BuildYomuAnkiFieldsFn;
+        buildYomuAnkiPreviewFields: BuildYomuAnkiPreviewFieldsFn;
+        canUseMobileAnkiHandoff: CanUseMobileAnkiHandoffFn;
+        captureActiveVideoFrame: CaptureActiveVideoFrameFn;
+        isAnkiDuplicateNoteError: IsAnkiDuplicateNoteErrorFn;
+        mobileAnkiHandoffAppName: MobileAnkiHandoffAppNameFn;
+        resolveAnkiWordAudio: ResolveAnkiWordAudioFn;
         renderAnkiActionRow: RenderAnkiActionRowFn;
         renderAnkiExistingSection: RenderAnkiExistingSectionFn;
         renderAnkiNewCardPreview: RenderAnkiNewCardPreviewFn;
