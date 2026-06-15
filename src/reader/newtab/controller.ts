@@ -87,7 +87,6 @@ import {
 } from './index';
 import { NEW_TAB_FILTERS, normalizeNewTabUiState } from './state';
 import {
-    decodeNewTabImmersionImage,
     newTabImmersionAudioUrls,
     newTabImmersionImageUrl,
     newTabImmersionProviderLabel,
@@ -4779,14 +4778,12 @@ export class NewTabController {
         const requestId = `${key}:${performance.now()}:${Math.random()}`;
         meaning.dataset.newtabImmersionRequest = requestId;
         const immersion = this.renderNewTabImmersionCard(card, examples, index);
-        const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
         if (meaning.dataset.newtabImmersionRequest !== requestId) return false;
         if (!this.canAppendImmersionExample(meaning, key, examples)) return false;
         const existing = meaning.querySelector<HTMLElement>(':scope > .jpdb-reader-newtab-immersion');
         if (existing) existing.replaceWith(immersion);
         else meaning.append(immersion);
-        if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
-        else this.loadNewTabImmersionImage(immersion, examples[index]);
+        this.loadNewTabImmersionImage(immersion, examples[index]);
         await this.parseNewTabImmersionExample(immersion, card, key);
         return true;
     }
@@ -4803,13 +4800,11 @@ export class NewTabController {
         const requestId = `${kanji}:${performance.now()}:${Math.random()}`;
         body.dataset.newtabKanjiImmersionRequest = requestId;
         const immersion = this.renderNewTabKanjiImmersionCard(card, examples[index], index, examples.length);
-        const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
         if (body.dataset.newtabKanjiImmersionRequest !== requestId || !this.canApplyNewTabKanjiImmersion(body, kanji)) return false;
         const existing = body.querySelector<HTMLElement>(':scope > [data-newtab-kanji-immersion]');
         if (existing) existing.replaceWith(immersion);
         else replaceChildrenWith(body, immersion);
-        if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
-        else this.loadNewTabImmersionImage(immersion, examples[index]);
+        this.loadNewTabImmersionImage(immersion, examples[index]);
         await this.parseNewTabKanjiImmersionExample(immersion, card);
         return true;
     }
@@ -4819,24 +4814,6 @@ export class NewTabController {
         if (index >= 0 && index < examples.length) return index;
         this.immersionExampleIndex.set(key, 0);
         return 0;
-    }
-
-    private async prepareNewTabImmersionImage(root: HTMLElement, example: ImmersionKitExample): Promise<boolean> {
-        const image = root.querySelector<HTMLImageElement>('[data-yomu-immersion-image-src]');
-        if (!image) return true;
-        const urls = this.dependencies.immersionKit.mediaUrls(example, 'image');
-        if (!urls.length) {
-            this.hideNewTabImmersionImage(root, image);
-            return true;
-        }
-        const settings = this.dependencies.getSettings();
-        const src = await this.dependencies.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-            .catch(() => '');
-        if (!src) return false;
-        await decodeNewTabImmersionImage(src);
-        image.src = src;
-        image.dataset.yomuImmersionImageSrc = src;
-        return true;
     }
 
     private loadNewTabImmersionImage(root: HTMLElement, example: ImmersionKitExample): void {

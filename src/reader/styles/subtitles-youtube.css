@@ -441,11 +441,14 @@
   .jpdb-subtitle-primary {
   color: var(--subtitle-color);
   font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
+  padding: 0.08em 0.34em;
+  border-radius: 4px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: keep-all;
   text-wrap: wrap;
   background: var(--subtitle-background-rgba);
+  box-decoration-break: clone;
   box-shadow: none;
   text-shadow:
     0 1px 2px var(--subtitle-outline),

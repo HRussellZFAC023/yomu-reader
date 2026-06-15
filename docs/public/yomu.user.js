@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.26
+// @version      0.7.27
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -24723,8 +24723,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const cleanPath = path.startsWith("/") ? path : `/${path}`;
     return API_BASES.map((base) => `${base}${cleanPath}`);
   }
-  const JAPANESE_QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const JAPANESE_SCRIPT_GROUP_RE$1 = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+  const SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
   const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
   function normalizeImmersionSearchQuery(value) {
@@ -24746,16 +24746,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
   }
   function immersionSentenceContainsQuery(sentence, query) {
-    const normalizedSentence = normalizeImmersionSurface(sentence);
-    const normalizedQuery = normalizeImmersionSurface(query);
-    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
+    const s = normalizeSurface(sentence);
+    const q = normalizeSurface(query);
+    return Boolean(q) && s.includes(q);
   }
   function isUsefulImmersionFallbackQuery(query, exactQuery) {
     if (isSameImmersionQuery(query, exactQuery)) return false;
-    return isUsefulStandaloneImmersionQuery(query);
+    return isUsefulStandaloneQuery(query);
   }
   function isUsefulImmersionPreloadQuery(query) {
-    return isUsefulStandaloneImmersionQuery(query);
+    return isUsefulStandaloneQuery(query);
   }
   function uniqueImmersionQueries(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -24771,31 +24771,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function immersionFallbackFragments(value) {
     const fragments = [];
-    const runs = normalizeImmersionSearchQuery(value).match(JAPANESE_QUERY_RUN_RE) ?? [];
+    const runs = normalizeImmersionSearchQuery(value).match(QUERY_RUN_RE) ?? [];
     for (const run of runs) {
-      fragments.push(...scriptGroupFallbackFragments(run));
+      fragments.push(...scriptFragments(run));
     }
-    return uniqueImmersionQueries(fragments).sort(compareImmersionFallbackFragments);
+    return uniqueImmersionQueries(fragments).sort(compareFallbackFragments);
   }
-  function normalizeImmersionSurface(value) {
+  function normalizeSurface(value) {
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
   function isSameImmersionQuery(query, exactQuery) {
     return queryKey(query) === queryKey(exactQuery);
   }
-  function isUsefulStandaloneImmersionQuery(query) {
+  function isUsefulStandaloneQuery(query) {
     if (!query || !HAS_JAPANESE$1.test(query)) return false;
     if (COMMON_PARTICLES.has(queryKey(query))) return false;
     return queryLength(query) >= 2;
   }
-  function scriptGroupFallbackFragments(run) {
-    const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE$1) ?? [];
-    if (scriptGroups.length <= 1) return scriptGroups;
-    return [...scriptGroups, ...scriptGroups.filter(queryHasKanji)];
+  function scriptFragments(run) {
+    const groups = run.match(SCRIPT_GROUP_RE) ?? [];
+    if (groups.length <= 1) return groups;
+    const result = [...groups];
+    for (let i = 0; i < groups.length; i++) {
+      let q = groups[i];
+      for (let j = i + 1; j < groups.length; j++) {
+        q += groups[j];
+        result.push(q);
+      }
+    }
+    result.push(groups.filter(queryHasKanji).join(""));
+    return result;
   }
-  function compareImmersionFallbackFragments(a, b) {
-    const kanjiOrder = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
-    if (kanjiOrder) return kanjiOrder;
+  function compareFallbackFragments(a, b) {
+    const order = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
+    if (order) return order;
     return queryLength(b) - queryLength(a);
   }
   function loadCachedParsedTokens(cache, key, limit, parse, shouldCache) {

@@ -27575,7 +27575,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const LOCAL_PARSE_CACHE_LIMIT = 600;
   const LOCAL_PITCH_CACHE_LIMIT = 800;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
-  const JAPANESE_SCRIPT_GROUP_RE$1 = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
   const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
@@ -28074,7 +28074,7 @@ ${spelling}`);
   function segmentJapaneseText(text2) {
     const segmenter = japaneseWordSegmenter();
     if (!segmenter) {
-      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE$1)).flatMap((match) => {
+      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
         const start = match.index ?? 0;
         return fallbackJapaneseRunSegment(match[0], start);
       });
@@ -46887,8 +46887,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!spelling || !KANA_ONLY_RE.test(spelling)) return false;
     return LOW_VALUE_EXAMPLE_PART_RE.test(token.card.partOfSpeech.join(" "));
   }
-  const JAPANESE_QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const QUERY_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+  const SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const COMMON_PARTICLES = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "で", "と", "も", "の", "や", "か", "ね", "よ", "ぞ", "ぜ", "な", "わ", "から", "まで", "だけ", "しか", "より"]);
   const IMMERSION_FALLBACK_QUERY_LIMIT = 5;
   function normalizeImmersionSearchQuery(value) {
@@ -46910,13 +46910,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return queryHasKanji(query) || shouldRequireOriginalSurfaceMatch(query);
   }
   function immersionSentenceContainsQuery(sentence, query) {
-    const normalizedSentence = normalizeImmersionSurface(sentence);
-    const normalizedQuery = normalizeImmersionSurface(query);
-    return Boolean(normalizedQuery) && normalizedSentence.includes(normalizedQuery);
+    const s = normalizeSurface(sentence);
+    const q = normalizeSurface(query);
+    return Boolean(q) && s.includes(q);
   }
   function isUsefulImmersionFallbackQuery(query, exactQuery) {
     if (isSameImmersionQuery(query, exactQuery)) return false;
-    return isUsefulStandaloneImmersionQuery(query);
+    return isUsefulStandaloneQuery(query);
   }
   function uniqueImmersionQueries(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -46932,31 +46932,40 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function immersionFallbackFragments(value) {
     const fragments = [];
-    const runs = normalizeImmersionSearchQuery(value).match(JAPANESE_QUERY_RUN_RE) ?? [];
+    const runs = normalizeImmersionSearchQuery(value).match(QUERY_RUN_RE) ?? [];
     for (const run of runs) {
-      fragments.push(...scriptGroupFallbackFragments(run));
+      fragments.push(...scriptFragments(run));
     }
-    return uniqueImmersionQueries(fragments).sort(compareImmersionFallbackFragments);
+    return uniqueImmersionQueries(fragments).sort(compareFallbackFragments);
   }
-  function normalizeImmersionSurface(value) {
+  function normalizeSurface(value) {
     return value.normalize("NFKC").replace(/\s+/g, "").toLowerCase();
   }
   function isSameImmersionQuery(query, exactQuery) {
     return queryKey(query) === queryKey(exactQuery);
   }
-  function isUsefulStandaloneImmersionQuery(query) {
+  function isUsefulStandaloneQuery(query) {
     if (!query || !HAS_JAPANESE.test(query)) return false;
     if (COMMON_PARTICLES.has(queryKey(query))) return false;
     return queryLength(query) >= 2;
   }
-  function scriptGroupFallbackFragments(run) {
-    const scriptGroups = run.match(JAPANESE_SCRIPT_GROUP_RE) ?? [];
-    if (scriptGroups.length <= 1) return scriptGroups;
-    return [...scriptGroups, ...scriptGroups.filter(queryHasKanji)];
+  function scriptFragments(run) {
+    const groups = run.match(SCRIPT_GROUP_RE) ?? [];
+    if (groups.length <= 1) return groups;
+    const result = [...groups];
+    for (let i2 = 0; i2 < groups.length; i2++) {
+      let q = groups[i2];
+      for (let j = i2 + 1; j < groups.length; j++) {
+        q += groups[j];
+        result.push(q);
+      }
+    }
+    result.push(groups.filter(queryHasKanji).join(""));
+    return result;
   }
-  function compareImmersionFallbackFragments(a, b) {
-    const kanjiOrder = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
-    if (kanjiOrder) return kanjiOrder;
+  function compareFallbackFragments(a, b) {
+    const order = Number(queryHasKanji(b)) - Number(queryHasKanji(a));
+    if (order) return order;
     return queryLength(b) - queryLength(a);
   }
   const IMMERSION_SOURCE_TITLES_JA = {
@@ -53300,14 +53309,6 @@ ${newTabCardReading(card)}`;
     const scale = Math.sqrt(Math.min(rect.width / 1280, rect.height / 720));
     const size = Math.max(13, Math.min(18, Math.round(22 * Math.max(0.55, scale))));
     media.style.setProperty("--subtitle-font-size", `${size}px`);
-  }
-  async function decodeNewTabImmersionImage(src) {
-    if (!src || typeof Image === "undefined") return;
-    const image = new Image();
-    image.decoding = "async";
-    image.referrerPolicy = "no-referrer";
-    image.src = src;
-    if (typeof image.decode === "function") await image.decode().catch(() => void 0);
   }
   function shouldRenderNewTabImmersionTranslation(example, settings) {
     return settings.immersionKitShowTranslation && Boolean(example.translation);
@@ -59918,14 +59919,12 @@ ${entry.url}`),
       const requestId = `${key}:${performance.now()}:${Math.random()}`;
       meaning.dataset.newtabImmersionRequest = requestId;
       const immersion = this.renderNewTabImmersionCard(card, examples, index);
-      const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
       if (meaning.dataset.newtabImmersionRequest !== requestId) return false;
       if (!this.canAppendImmersionExample(meaning, key, examples)) return false;
       const existing = meaning.querySelector(":scope > .jpdb-reader-newtab-immersion");
       if (existing) existing.replaceWith(immersion);
       else meaning.append(immersion);
-      if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
-      else this.loadNewTabImmersionImage(immersion, examples[index]);
+      this.loadNewTabImmersionImage(immersion, examples[index]);
       await this.parseNewTabImmersionExample(immersion, card, key);
       return true;
     }
@@ -59935,13 +59934,11 @@ ${entry.url}`),
       const requestId = `${kanji}:${performance.now()}:${Math.random()}`;
       body.dataset.newtabKanjiImmersionRequest = requestId;
       const immersion = this.renderNewTabKanjiImmersionCard(card, examples[index], index, examples.length);
-      const imagePrepared = await this.prepareNewTabImmersionImage(immersion, examples[index]);
       if (body.dataset.newtabKanjiImmersionRequest !== requestId || !this.canApplyNewTabKanjiImmersion(body, kanji)) return false;
       const existing = body.querySelector(":scope > [data-newtab-kanji-immersion]");
       if (existing) existing.replaceWith(immersion);
       else replaceChildrenWith(body, immersion);
-      if (imagePrepared) syncNewTabImmersionFrameSubtitleSize(immersion);
-      else this.loadNewTabImmersionImage(immersion, examples[index]);
+      this.loadNewTabImmersionImage(immersion, examples[index]);
       await this.parseNewTabKanjiImmersionExample(immersion, card);
       return true;
     }
@@ -59950,22 +59947,6 @@ ${entry.url}`),
       if (index >= 0 && index < examples.length) return index;
       this.immersionExampleIndex.set(key, 0);
       return 0;
-    }
-    async prepareNewTabImmersionImage(root, example) {
-      const image = root.querySelector("[data-yomu-immersion-image-src]");
-      if (!image) return true;
-      const urls = this.dependencies.immersionKit.mediaUrls(example, "image");
-      if (!urls.length) {
-        this.hideNewTabImmersionImage(root, image);
-        return true;
-      }
-      const settings = this.dependencies.getSettings();
-      const src = await this.dependencies.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
-      if (!src) return false;
-      await decodeNewTabImmersionImage(src);
-      image.src = src;
-      image.dataset.yomuImmersionImageSrc = src;
-      return true;
     }
     loadNewTabImmersionImage(root, example) {
       const image = root.querySelector(".jpdb-reader-newtab-immersion [data-yomu-immersion-image-src]");

@@ -3101,17 +3101,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence {
   position: absolute;
-  left: clamp(14px, 4%, 26px);
-  right: clamp(14px, 4%, 26px);
+  left: 50%;
   bottom: clamp(8px, 5%, 18px);
   z-index: 1;
   justify-self: stretch;
   box-sizing: border-box;
-  width: auto;
-  max-width: none;
+  max-width: calc(100% - clamp(28px, 8%, 52px));
   padding: 2px 6px;
   border-radius: 4px;
-  transform: none;
+  transform: translateX(-50%);
   color: var(--subtitle-color, var(--jpdb-reader-video-text));
   font:
     var(--subtitle-weight, 760)
@@ -3124,6 +3122,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   word-break: keep-all;
   text-wrap: wrap;
   background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));
+  box-decoration-break: clone;
   box-shadow:
     0 6px 16px var(--jpdb-reader-shadow),
     inset 0 0 0 1px var(--jpdb-reader-ocr-inset);
@@ -8866,17 +8865,15 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence {
   position: absolute;
-  left: clamp(10px, 4%, 18px);
-  right: clamp(10px, 4%, 18px);
+  left: 50%;
   bottom: clamp(8px, 5%, 18px);
   z-index: 1;
   justify-self: stretch;
   box-sizing: border-box;
-  width: auto;
-  max-width: none;
+  max-width: calc(100% - clamp(20px, 8%, 36px));
   padding: 2px 6px;
   border-radius: 4px;
-  transform: none;
+  transform: translateX(-50%);
   color: var(--jpdb-reader-white);
   font-size: 13px;
   font-weight: var(--jpdb-reader-popup-font-weight, 400);
@@ -8886,6 +8883,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   word-break: keep-all;
   text-wrap: wrap;
   background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));
+  box-decoration-break: clone;
   box-shadow:
     0 6px 16px var(--jpdb-reader-shadow),
     inset 0 0 0 1px var(--jpdb-reader-ocr-inset);
@@ -14041,11 +14039,14 @@ html.jpdb-reader-doodle-active * {
   .jpdb-subtitle-primary {
   color: var(--subtitle-color);
   font: var(--subtitle-weight) var(--subtitle-font-size)/1.36 var(--subtitle-family);
+  padding: 0.08em 0.34em;
+  border-radius: 4px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: keep-all;
   text-wrap: wrap;
   background: var(--subtitle-background-rgba);
+  box-decoration-break: clone;
   box-shadow: none;
   text-shadow:
     0 1px 2px var(--subtitle-outline),
