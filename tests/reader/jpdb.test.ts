@@ -4270,7 +4270,9 @@ describe('reader helpers', () => {
                     allowJpdbTimeoutFallback: true,
                     allowSegmentedFallback: true,
                     includeLocalPitch: false,
-                    jpdbTimeoutMs: 10_000,
+                    jpdbTimeoutMs: 1_200,
+                    requireJpdb: false,
+                    skipJpdb: true,
                 }),
             );
             const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
