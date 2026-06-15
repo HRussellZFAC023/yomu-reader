@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.48] - 2026-06-15
+
+### Fixed
+
+- Japanese settings in ruby mode now use compact, grouped media controls so audio, Immersion Kit, OCR, video, and YouTube settings align cleanly without the large empty gaps and scattered checkbox/select rows seen in the reopened layout report.
+- Added a responsive browser smoke for Japanese ruby settings at desktop, tablet, and mobile widths to catch control overlap, overflow, and excessive row gaps.
+
 ## [0.7.47] - 2026-06-15
 
 ### Fixed
