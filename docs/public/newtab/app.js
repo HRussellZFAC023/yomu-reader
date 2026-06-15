@@ -59964,7 +59964,7 @@ ${entry.url}`),
       if (existing) existing.replaceWith(immersion);
       else meaning.append(immersion);
       this.loadNewTabImmersionImage(immersion, examples[index]);
-      await this.parseNewTabImmersionExample(immersion, card, key);
+      void this.parseNewTabImmersionExample(immersion, card, key);
       return true;
     }
     async replaceNewTabKanjiImmersionExample(root, kanji, card, examples, index) {
@@ -59978,7 +59978,7 @@ ${entry.url}`),
       if (existing) existing.replaceWith(immersion);
       else replaceChildrenWith(body, immersion);
       this.loadNewTabImmersionImage(immersion, examples[index]);
-      await this.parseNewTabKanjiImmersionExample(immersion, card);
+      void this.parseNewTabKanjiImmersionExample(immersion, card);
       return true;
     }
     normalizedImmersionExampleIndex(key, examples) {
@@ -60042,20 +60042,26 @@ ${entry.url}`),
       const source = this.newTabImmersionAudioSource(example);
       if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
       const requestId = this.beginNewTabImmersionAudio(source.key);
+      if (await this.playNewTabImmersionAudioCandidates(source.urls, requestId, source.key, isCurrent)) return;
       const blobSrc = await this.fetchNewTabImmersionAudio(source.urls);
-      for (const src of uniqueNewTabImmersionAudioCandidates([blobSrc, ...source.urls])) {
-        if (!this.isCurrentImmersionAudioRequest(requestId, source.key) || !isCurrent()) return;
+      if (blobSrc) await this.playNewTabImmersionAudioCandidates([blobSrc], requestId, source.key, isCurrent);
+      if (this.isCurrentImmersionAudioRequest(requestId, source.key)) this.clearNewTabImmersionAudioRequest();
+    }
+    async playNewTabImmersionAudioCandidates(urls, requestId, key, isCurrent) {
+      for (const src of uniqueNewTabImmersionAudioCandidates(urls)) {
+        if (!this.isCurrentImmersionAudioRequest(requestId, key) || !isCurrent()) return false;
         const audio = this.attachNewTabImmersionAudio(src);
         const cleanup = () => this.clearNewTabImmersionAudio(audio);
         audio.addEventListener("ended", cleanup, { once: true });
         audio.addEventListener("error", cleanup, { once: true });
         try {
           await audio.play();
-          return;
+          return true;
         } catch {
-          cleanup();
+          this.detachFailedNewTabImmersionAudio(audio);
         }
       }
+      return false;
     }
     isCurrentRevealedWordCard(key) {
       return this.state.mode === "word" && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
@@ -60090,6 +60096,12 @@ ${entry.url}`),
     }
     clearNewTabImmersionAudio(audio) {
       if (this.immersionAudio !== audio) return;
+      this.clearNewTabImmersionAudioRequest();
+    }
+    detachFailedNewTabImmersionAudio(audio) {
+      if (this.immersionAudio === audio) this.immersionAudio = void 0;
+    }
+    clearNewTabImmersionAudioRequest() {
       this.immersionAudio = void 0;
       this.immersionAudioKey = "";
     }

@@ -4788,7 +4788,7 @@ export class NewTabController {
         if (existing) existing.replaceWith(immersion);
         else meaning.append(immersion);
         this.loadNewTabImmersionImage(immersion, examples[index]);
-        await this.parseNewTabImmersionExample(immersion, card, key);
+        void this.parseNewTabImmersionExample(immersion, card, key);
         return true;
     }
 
@@ -4809,7 +4809,7 @@ export class NewTabController {
         if (existing) existing.replaceWith(immersion);
         else replaceChildrenWith(body, immersion);
         this.loadNewTabImmersionImage(immersion, examples[index]);
-        await this.parseNewTabKanjiImmersionExample(immersion, card);
+        void this.parseNewTabKanjiImmersionExample(immersion, card);
         return true;
     }
 
@@ -4881,20 +4881,32 @@ export class NewTabController {
         const source = this.newTabImmersionAudioSource(example);
         if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
         const requestId = this.beginNewTabImmersionAudio(source.key);
+        if (await this.playNewTabImmersionAudioCandidates(source.urls, requestId, source.key, isCurrent)) return;
         const blobSrc = await this.fetchNewTabImmersionAudio(source.urls);
-        for (const src of uniqueNewTabImmersionAudioCandidates([blobSrc, ...source.urls])) {
-            if (!this.isCurrentImmersionAudioRequest(requestId, source.key) || !isCurrent()) return;
+        if (blobSrc) await this.playNewTabImmersionAudioCandidates([blobSrc], requestId, source.key, isCurrent);
+        if (this.isCurrentImmersionAudioRequest(requestId, source.key)) this.clearNewTabImmersionAudioRequest();
+    }
+
+    private async playNewTabImmersionAudioCandidates(
+        urls: string[],
+        requestId: number,
+        key: string,
+        isCurrent: () => boolean,
+    ): Promise<boolean> {
+        for (const src of uniqueNewTabImmersionAudioCandidates(urls)) {
+            if (!this.isCurrentImmersionAudioRequest(requestId, key) || !isCurrent()) return false;
             const audio = this.attachNewTabImmersionAudio(src);
             const cleanup = () => this.clearNewTabImmersionAudio(audio);
             audio.addEventListener('ended', cleanup, { once: true });
             audio.addEventListener('error', cleanup, { once: true });
             try {
                 await audio.play();
-                return;
+                return true;
             } catch {
-                cleanup();
+                this.detachFailedNewTabImmersionAudio(audio);
             }
         }
+        return false;
     }
 
     private isCurrentRevealedWordCard(key: string): boolean {
@@ -4941,6 +4953,14 @@ export class NewTabController {
 
     private clearNewTabImmersionAudio(audio: HTMLAudioElement): void {
         if (this.immersionAudio !== audio) return;
+        this.clearNewTabImmersionAudioRequest();
+    }
+
+    private detachFailedNewTabImmersionAudio(audio: HTMLAudioElement): void {
+        if (this.immersionAudio === audio) this.immersionAudio = undefined;
+    }
+
+    private clearNewTabImmersionAudioRequest(): void {
         this.immersionAudio = undefined;
         this.immersionAudioKey = '';
     }

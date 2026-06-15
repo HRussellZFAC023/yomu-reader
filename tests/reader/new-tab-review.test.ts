@@ -12247,6 +12247,7 @@ describe('new tab review helpers', () => {
             } as never,
             dictionaries: {} as never,
             onSettingsChange: vi.fn(),
+            parseContent: vi.fn(),
             applyTheme: vi.fn(),
             showSettings: vi.fn(),
             dismiss: vi.fn(),
@@ -12295,8 +12296,8 @@ describe('new tab review helpers', () => {
             expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/second.jpg'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
 
             await privateController.playCurrentImmersionAudio(card);
-            expect(played).toEqual(['blob:http://localhost/second.mp3']);
-            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/second.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+            expect(played).toEqual(['https://media.test/second.mp3']);
+            expect(fetchBlobUrl).not.toHaveBeenCalledWith(['https://media.test/second.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
 
             resolveSecondImage('blob:http://localhost/second.jpg');
 
@@ -12306,6 +12307,115 @@ describe('new tab review helpers', () => {
         } finally {
             root.remove();
             vi.unstubAllGlobals();
+        }
+    });
+
+    it('does not block new-tab Immersion Kit navigation on sentence parsing', async () => {
+        const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
+        const examples: ImmersionKitExample[] = [
+            {
+                id: 'ik-1',
+                sentence: 'お母ちゃん中学生？',
+                sentenceWithFurigana: '',
+                translation: 'Are you a middle schooler, kid?',
+                sourceTitle: 'First Source',
+                titleSlug: 'first-source',
+                category: 'anime',
+                soundFile: '',
+                imageFile: '',
+                soundUrl: '',
+                imageUrl: '',
+            },
+            {
+                id: 'ik-2',
+                sentence: '中学生です。',
+                sentenceWithFurigana: '',
+                translation: 'I am a junior high school student.',
+                sourceTitle: 'Second Source',
+                titleSlug: 'second-source',
+                category: 'anime',
+                soundFile: '',
+                imageFile: '',
+                soundUrl: '',
+                imageUrl: '',
+            },
+        ];
+        let resolveParse!: (tokens: JPDBToken[][]) => void;
+        const parse = vi.fn(() => new Promise<JPDBToken[][]>(resolve => {
+            resolveParse = resolve;
+        }));
+        const parseContent = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {
+                mediaUrls: vi.fn(() => []),
+                fetchBlobUrl: vi.fn(),
+            } as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                canParse: () => true,
+                parse,
+            } as never,
+            dictionaries: {} as never,
+            onSettingsChange: vi.fn(),
+            parseContent,
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = document.createElement('main');
+        const meaning = document.createElement('div');
+        meaning.dataset.newtabMeaning = 'true';
+        root.append(meaning);
+        document.body.append(root);
+        const privateController = controller as unknown as {
+            renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
+            performNewTabImmersionAction(root: HTMLElement, action: string): void;
+            playCurrentImmersionAudio(card: JPDBCard): Promise<void>;
+            immersionCacheKey(card: JPDBCard): string;
+            immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
+            visibleWords: JPDBCard[];
+            index: number;
+            state: { mode: string; sort: string; filter: string; source: string; revealAnswer: boolean };
+        };
+        privateController.visibleWords = [card];
+        privateController.index = 0;
+        privateController.state = {
+            mode: 'word',
+            sort: 'random',
+            filter: 'study',
+            source: 'dictionary',
+            revealAnswer: true,
+        };
+        privateController.immersionCache.set(privateController.immersionCacheKey(card), Promise.resolve(examples));
+        meaning.append(privateController.renderNewTabImmersionCard(card, examples, 0));
+
+        try {
+            privateController.performNewTabImmersionAction(root, 'next');
+            await Promise.resolve();
+            await Promise.resolve();
+
+            expect(meaning.textContent).toContain('中学生です。');
+            expect(meaning.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
+            expect(parse).toHaveBeenCalledWith(['中学生です。'], expect.anything());
+            expect(parseContent).not.toHaveBeenCalled();
+
+            await privateController.playCurrentImmersionAudio(card);
+            expect(parse).toHaveBeenCalledTimes(1);
+            expect(parseContent).not.toHaveBeenCalled();
+
+            resolveParse([[newTabSentenceToken(card, '中学生です。')]]);
+
+            await waitForExpect(() => {
+                expect(meaning.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('中学生');
+            });
+        } finally {
+            root.remove();
         }
     });
 
@@ -12602,38 +12712,65 @@ describe('new tab review helpers', () => {
     it('plays Immersion Kit audio by default when revealing a new-tab word card', async () => {
         const example = newTabAudioImmersionExample('ik-1');
         const search = vi.fn(async () => [example]);
-        const { root, played, fetchBlobUrl, reveal } = newTabImmersionAudioRevealFixture(search);
+        const { root, played, reveal } = newTabImmersionAudioRevealFixture(search);
 
         try {
             reveal();
 
-            await waitForExpect(() => expect(played).toEqual(['blob:http://localhost/line.mp3']));
+            await waitForExpect(() => expect(played).toEqual(['https://media.test/line.mp3']));
             expect(search).toHaveBeenCalledWith(
                 '発音',
                 expect.objectContaining({ immersionKitAutoPlayAudio: true }),
                 expect.objectContaining({ requestLimit: 48, resultLimit: DEFAULT_SETTINGS.immersionKitLimit }),
             );
-            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
         } finally {
             root.remove();
         }
     });
 
-    it('falls back to direct Immersion Kit media URLs for new-tab audio when blob hydration fails', async () => {
+    it('plays direct new-tab Immersion Kit audio while blob hydration is still pending', async () => {
         const example = newTabAudioImmersionExample('ik-direct');
         const search = vi.fn(async () => [example]);
-        const fetchBlobUrl = vi.fn(async (): Promise<string> => {
-            throw new Error('proxy offline');
-        });
+        const fetchBlobUrl = vi.fn(() => new Promise<string>(() => undefined));
         const { root, played, reveal } = newTabImmersionAudioRevealFixture(search, { fetchBlobUrl });
 
         try {
             reveal();
 
             await waitForExpect(() => expect(played).toEqual(['https://media.test/line.mp3']));
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('falls back to blob-hydrated new-tab Immersion Kit audio when direct playback fails', async () => {
+        const example = newTabAudioImmersionExample('ik-blob-fallback');
+        const search = vi.fn(async () => [example]);
+        const fetchBlobUrl = vi.fn(async () => 'blob:http://localhost/line.mp3');
+        const { root, played, reveal } = newTabImmersionAudioRevealFixture(search, { fetchBlobUrl });
+        class DirectBlockedAudio {
+            playbackRate = 1;
+            ended = false;
+            constructor(public src: string) {}
+            addEventListener(): void {}
+            play(): Promise<void> {
+                played.push(this.src);
+                return this.src.startsWith('blob:')
+                    ? Promise.resolve()
+                    : Promise.reject(new Error('direct media blocked'));
+            }
+            pause(): void {}
+        }
+        vi.stubGlobal('Audio', DirectBlockedAudio);
+
+        try {
+            reveal();
+
+            await waitForExpect(() => expect(played).toEqual(['https://media.test/line.mp3', 'blob:http://localhost/line.mp3']));
             expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/line.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
         } finally {
             root.remove();
+            vi.unstubAllGlobals();
         }
     });
 
