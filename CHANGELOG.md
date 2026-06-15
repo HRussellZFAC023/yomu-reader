@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.43] - 2026-06-15
+
+### Fixed
+
+- Hosted new-tab searches such as `読み取る` and `よむ` now load keyless Word and Kanji study cards when switching from Search into Study, instead of getting stuck on "Looking for more words...".
+- Empty study sources now show actionable Starter words, Settings, and Search controls instead of inactive review navigation buttons.
+
 ## [0.7.42] - 2026-06-15
 
 ### Fixed

@@ -676,6 +676,7 @@ export class NewTabController {
         skip: (_root, _target, event) => this.navigateFromPointer('next', event),
         previous: (_root, _target, event) => this.navigateFromPointer('previous', event),
         reveal: root => this.toggleReveal(root),
+        'empty-fallback': root => { void this.startStarterWordStudy(root); },
         'undo-review': root => { void this.undoLastReview(root); },
         'continue-batch': root => { void this.continueAfterBatch(root); },
         grade: (root, target) => this.gradeFromStudyClick(root, target),
@@ -2490,6 +2491,7 @@ export class NewTabController {
         if (this.shouldLoadAutoSettingStudyFallback(accumulator)) return true;
         if (this.shouldLoadUnconfiguredAutoStudyFallback(plan, accumulator)) return true;
         if (this.shouldLoadUnavailableExplicitAnkiFallback(plan, accumulator)) return true;
+        if (this.shouldLoadQueryStudyFallback(accumulator)) return true;
         if (plan.studyFallback.kind !== 'study-supplement') return false;
         if (this.shouldLoadEmptyApiStudyFallback(accumulator)) return true;
         if (accumulator.reviewCountMode) return false;
@@ -2503,6 +2505,12 @@ export class NewTabController {
     private shouldLoadEmptyApiStudyFallback(accumulator: NewTabLoadAccumulator): boolean {
         return !this.currentModeStudyCardCount(accumulator.cards)
             && accumulator.reviewCountMode
+            && !this.shouldKeepEmptyReviewLoad(accumulator);
+    }
+
+    private shouldLoadQueryStudyFallback(accumulator: NewTabLoadAccumulator): boolean {
+        return Boolean(normalizeSearchQuery(this.searchQuery))
+            && !this.currentModeStudyCardCount(accumulator.cards)
             && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
 
@@ -3088,6 +3096,11 @@ export class NewTabController {
         if (shouldClearReviewHistory) this.clearReviewHistory();
         this.persistState();
         this.syncMode(root);
+        if ((this.state.mode === 'word' || this.state.mode === 'kanji') && !this.allWords.length) {
+            this.ensureStudySurface(root);
+            void this.loadWordsInto(root, options.preserveWord, { useOfflineCache: true });
+            return;
+        }
         this.applyWords(root, options.preserveWord, preferredCardKey);
     }
 
@@ -3345,7 +3358,7 @@ export class NewTabController {
 
     private emptyStudyMessageKey(): NewTabCopyKey {
         if (this.reviewCountMode) return this.state.mode === 'kanji' ? 'noReviewKanjiReady' : 'noReviewWordsReady';
-        return this.state.mode === 'kanji' ? 'noKanjiCardsYet' : 'noWordsYet';
+        return 'noCards';
     }
 
     private newTabPoolSignature(cards: JPDBCard[]): string {
@@ -5846,9 +5859,31 @@ export class NewTabController {
         if (!controls) return;
         controls.hidden = false;
         replaceChildrenWith(controls,
-            el('button', { type: 'button', dataset: { newtabAction: 'previous' } }, this.text('previousWord')),
-            el('button', { type: 'button', dataset: { newtabAction: 'reveal' } }, this.text('reveal')),
-            el('button', { type: 'button', dataset: { newtabAction: 'next' } }, this.text('nextWord')),
+            el('button', { type: 'button', dataset: { newtabAction: 'empty-fallback' } }, this.text('starterWords')),
+            el('button', { type: 'button', dataset: { newtabAction: 'settings' } }, uiText(this.language(), 'settings')),
+            el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'search' } }, this.text('search')),
+        );
+    }
+
+    private async startStarterWordStudy(root: HTMLElement): Promise<void> {
+        const loadGeneration = ++this.loadGeneration;
+        this.dependencies.dismiss({ suppressHoverTarget: false });
+        this.allWords = [];
+        this.visibleWords = [];
+        this.visiblePoolSignature = '';
+        this.index = 0;
+        this.reviewCountMode = false;
+        this.emptyLoadMessageKey = null;
+        this.fallbackStudyNotice = false;
+        this.setStatus(root, this.text('loading'));
+        await this.applyLoadedWords(
+            root,
+            false,
+            loadGeneration,
+            this.loadBuiltInFreshStudyWords(),
+            false,
+            false,
+            this.navigationGeneration,
         );
     }
 

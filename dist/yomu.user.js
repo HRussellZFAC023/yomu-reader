@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.42
+// @version      0.7.43
 // @author       Henry
-// @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
+// @description  Japanese popup reader.
 // @license      MIT
 // @icon         https://hrussellzfac023.github.io/yomu-reader/yomu-icon.svg
 // @icon64       https://hrussellzfac023.github.io/yomu-reader/yomu-icon.svg
@@ -20421,6 +20421,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       offlineSourceSuffix: "offline",
       noWordsYet: "Looking for more words...",
       noKanjiCardsYet: "Looking for more kanji...",
+      noCards: "No cards.",
       noReviewWordsReady: "No review cards ready.",
       starterWords: "Starter words",
       reviewFallbackNotice: "No reviews ready — showing practice words",
@@ -20572,6 +20573,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     offlineSourceSuffix: "オフライン",
     noWordsYet: "さらに単語を探しています…",
     noKanjiCardsYet: "さらに漢字を探しています…",
+    noCards: "カードなし。",
     noReviewWordsReady: "復習する単語カードは今ありません。",
     starterWords: "入門単語",
     reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
