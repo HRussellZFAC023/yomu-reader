@@ -57,15 +57,35 @@ export type PruneRedundantAnkiGlyphRepeatsFn = typeof import('../anki/render-imp
 export type RenderAnkiRenderedCardStudyBodyFn = typeof import('../anki/render-impl').renderAnkiRenderedCardStudyBody;
 export type RenderReviewButtonsFn = typeof import('../anki/render-impl').renderReviewButtons;
 export type ReviewButtonGradesFn = typeof import('../anki/render-impl').reviewButtonGrades;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type AnkiConnectClientClass = typeof import('../anki/client').AnkiConnectClient;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type AnkiDuplicateNoteErrorClass = typeof import('../anki/client').AnkiDuplicateNoteError;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type AnkiLookupWithUnavailableDetailsFn = typeof import('../anki/client').ankiLookupWithUnavailableDetails;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type BuildYomuAnkiFieldsFn = typeof import('../anki/client').buildYomuAnkiFields;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type BuildYomuAnkiPreviewFieldsFn = typeof import('../anki/client').buildYomuAnkiPreviewFields;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type CanUseMobileAnkiHandoffFn = typeof import('../anki/client').canUseMobileAnkiHandoff;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type CaptureActiveVideoFrameFn = typeof import('../anki/client').captureActiveVideoFrame;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type IsAnkiDuplicateNoteErrorFn = typeof import('../anki/client').isAnkiDuplicateNoteError;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type MobileAnkiHandoffAppNameFn = typeof import('../anki/client').mobileAnkiHandoffAppName;
+// Consumed by the registry slot type below and the companion build.
+// fallow-ignore-next-line unused-type
 export type ResolveAnkiWordAudioFn = typeof import('../anki/audio').resolveAnkiWordAudio;
 
 interface YomuCompanionRegistry {

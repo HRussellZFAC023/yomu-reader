@@ -26152,7 +26152,7 @@ describe('reader helpers', () => {
             pitchAccent: ['HL'],
         });
         const line = document.createElement('div');
-        line.className = 'jpdb-ocr-line';
+        line.className = 'jpdb-ocr-line jpdb-ocr-line-active';
         line.dataset.ocrText = '読む';
         const word = appendRenderedReaderWord(fallbackCard, { parent: line });
         document.body.append(line);
@@ -26184,6 +26184,50 @@ describe('reader helpers', () => {
             expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
             expect(word.querySelector('.jpdb-ocr-ruby-base')?.textContent).toBe('読');
             expect(word.querySelector('.jpdb-ocr-plain')?.textContent).toBe('む');
+            expect(readerWordSurfaceText(word)).toBe('読む');
+        } finally {
+            line.remove();
+            app.destroy();
+        }
+    });
+
+    it('does not leave public vocabulary furigana on inactive OCR fallback words', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -10002,
+            sid: -10002,
+            spelling: '読む',
+        });
+        const publicCard = testPublicCard({
+            vid: 1556420,
+            spelling: '読む',
+            reading: 'よむ',
+            pitchAccent: ['HL'],
+        });
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line';
+        line.dataset.ocrText = '読む';
+        const word = appendRenderedReaderWord(fallbackCard, { parent: line });
+        document.body.append(line);
+
+        const search = vi.fn(async () => [publicCard]);
+        const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            settings: { furiganaMode: 'all', showFurigana: true },
+        });
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard, '読む')]);
+
+            expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(cacheCards).toHaveBeenCalledWith([publicCard]);
+            expect(word.dataset.vid).toBe('1556420');
+            expect(word.dataset.reading).toBe('よむ');
+            expect(word.dataset.pitchClass).toBe('atamadaka');
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
+            expect(line.dataset.hasFuri).not.toBe('true');
+            expect(word.querySelector('.jpdb-ocr-furi')).toBeNull();
             expect(readerWordSurfaceText(word)).toBe('読む');
         } finally {
             line.remove();

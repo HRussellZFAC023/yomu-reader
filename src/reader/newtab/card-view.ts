@@ -3,7 +3,6 @@ import { renderTokensToHtml, setInnerHtml } from '../dom/index';
 import { el, type DomAttrs } from '../dom/builder';
 import { exampleSentenceLookupTokens } from '../lookup/example-sentence-tokens';
 import type { ImmersionKitClient, ImmersionKitExample } from '../immersion/kit';
-import { localizedImmersionProviderLabel } from '../immersion/labels';
 import { uiText } from '../app/i18n';
 import { effectiveFuriganaMode } from '../settings/index';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -74,10 +73,6 @@ export function newTabImmersionImageUrl(
 
 export function newTabImmersionAudioUrls(example: ImmersionKitExample, client: ImmersionKitClient): string[] {
     return client.mediaUrls(example, 'sound');
-}
-
-export function newTabImmersionProviderLabel(example: ImmersionKitExample, language: ReaderSettings['interfaceLanguage']): string {
-    return localizedImmersionProviderLabel(example, language);
 }
 
 export function renderNewTabImmersionImage(imageUrl: string, overlay: HTMLElement | null = null): HTMLElement | null {

@@ -85,6 +85,7 @@
     "smoke:subtitles": "node scripts/subtitle-player-smoke.mjs",
     "smoke:youtube": "node scripts/youtube-feature-smoke.mjs",
     "smoke:youtube-auto-translation": "node scripts/youtube-auto-translation-smoke.mjs",
+    "smoke:youtube-fullscreen": "node scripts/youtube-fullscreen-smoke.mjs",
     "smoke:youtube-homepage-performance": "node scripts/youtube-homepage-performance-profile.mjs",
     "test": "vitest run",
     "test:ci": "node scripts/run-ci-suite.mjs",

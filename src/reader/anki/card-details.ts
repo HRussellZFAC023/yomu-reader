@@ -72,7 +72,7 @@ export function ankiCardTemplateLabel(card: Pick<AnkiCardInfo, 'card' | 'cardNam
     return Number.isInteger(ordinal) && ordinal >= 0 ? `Card ${ordinal + 1}` : '';
 }
 
-export function ankiMediaFilenameFromCardUrl(value: string): string | null {
+function ankiMediaFilenameFromCardUrl(value: string): string | null {
     const trimmed = value.trim();
     if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('/') || trimmed.startsWith('\\')) return null;
     if (/^(?:https?|data|blob|file|mailto|tel|javascript|vbscript):/i.test(trimmed)) return null;
@@ -266,7 +266,7 @@ function ankiNotePrimaryCardId(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): n
 // Yomu's JPDB-parity never-forget marker, set from the popover deck-state
 // menu (Anki has no native never-forget deck). Shared with the card action
 // controller so writes and ranking always agree on the tag.
-export const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
+const ANKI_NEVER_FORGET_TAG = 'yomu-never-forget';
 
 function ankiCardDetailSummary(note: AnkiNoteInfo, noteCards: AnkiCardInfo[]): Pick<AnkiExistingNote, 'deckNames' | 'primaryCardId' | 'state' | 'reps' | 'lapses'> {
     return {

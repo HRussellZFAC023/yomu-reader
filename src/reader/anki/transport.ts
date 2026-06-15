@@ -105,7 +105,7 @@ function canDirectFetchAnkiConnect(url: string): boolean {
 // block when the endpoint is same-origin with the current page. Everything else
 // (the usual loopback endpoint reached from a hosted/content page) needs the
 // userscript/extension request bridge.
-export function canDirectFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
+function canDirectFetchAnkiConnectFrom(url: string, currentHref: string): boolean {
     const current = readAnkiUrl(currentHref);
     if (!current) return false;
     const target = readAnkiUrl(url, current.href);

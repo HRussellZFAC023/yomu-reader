@@ -52,7 +52,7 @@ export function renderImmersionExampleToolbar(options: {
     );
 }
 
-export function renderImmersionExampleActions(hasAudio: boolean, language: InterfaceLanguage): HTMLElement {
+function renderImmersionExampleActions(hasAudio: boolean, language: InterfaceLanguage): HTMLElement {
     return el('div', { class: 'jpdb-reader-example-actions', role: 'group', 'aria-label': uiText(language, 'immersionExampleControls') },
         renderImmersionActionButton('previous', uiText(language, 'previousExample'), '‹'),
         hasAudio ? renderImmersionActionButton('audio', uiText(language, 'playExampleAudio'), speakerIcon()) : null,
