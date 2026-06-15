@@ -89,6 +89,53 @@ async function runPersona(browser, baseUrl, persona) {
     return { persona: persona.name, ...observed, timeToFirstCardMs, consoleErrors: consoleErrors.slice(0, 5), feedback };
 }
 
+async function runQueryStudyMode(browser, baseUrl, query, mode) {
+    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 980, height: 760 } });
+    const page = await context.newPage();
+    const consoleErrors = [];
+    page.on('pageerror', error => consoleErrors.push(String(error).slice(0, 200)));
+    page.on('console', message => {
+        if (message.type() === 'error') consoleErrors.push(message.text().slice(0, 200));
+    });
+    await page.route('**/api.jiten.moe/**', route => route.abort('connectionrefused'));
+    await page.route('**/jpdb.io/**', route => route.abort('connectionrefused'));
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: baseSettings({
+            newTabSource: 'dictionary',
+            localDictionariesEnabled: false,
+            newTabAnkiEnabled: false,
+            ankiEnabled: false,
+        }),
+    });
+    const startedAt = Date.now();
+    await page.goto(`${baseUrl}/newtab/index.html?q=${encodeURIComponent(query)}&query-study=${mode}`, { waitUntil: 'domcontentloaded' });
+    const label = mode === 'kanji' ? 'Kanji' : 'Word';
+    await page.getByRole('button', { name: label, exact: true }).click();
+    try {
+        await page.waitForFunction(() => {
+            const study = document.querySelector('[data-newtab-study]');
+            const answer = document.querySelector('[data-newtab-answer]')?.textContent?.trim() ?? '';
+            const status = document.querySelector('[data-newtab-status]')?.textContent?.trim() ?? '';
+            const stuck = /Looking for more (?:words|kanji)|さらに(?:単語|漢字)を探しています/u.test(`${answer} ${status}`);
+            return Boolean(study?.getAttribute('data-newtab-card')) && !stuck;
+        }, null, { timeout: 6_000 });
+    } catch (error) {
+        const snapshot = await page.evaluate(() => ({
+            prompt: document.querySelector('[data-newtab-prompt]')?.textContent?.trim() ?? '',
+            answer: document.querySelector('[data-newtab-answer]')?.textContent?.trim() ?? '',
+            status: document.querySelector('[data-newtab-status]')?.textContent?.trim() ?? '',
+            count: document.querySelector('[data-newtab-count]')?.textContent?.trim() ?? '',
+            card: document.querySelector('[data-newtab-study]')?.getAttribute('data-newtab-card') ?? '',
+            rootClass: document.querySelector('.jpdb-reader-newtab')?.className ?? '',
+        }));
+        throw new Error(`Query ${mode} study for ${query} stayed empty/loading: ${JSON.stringify(snapshot)}`);
+    } finally {
+        await context.close();
+    }
+    return { query, mode, timeToCardMs: Date.now() - startedAt, consoleErrors: consoleErrors.slice(0, 5) };
+}
+
 const PERSONAS = [
     {
         name: 'keyless-beginner',
@@ -147,8 +194,13 @@ async function main() {
     try {
         const results = [];
         for (const persona of PERSONAS) results.push(await runPersona(browser, fixture.origin, persona));
+        const queryStudy = [];
+        for (const query of ['読み取る', 'よむ']) {
+            queryStudy.push(await runQueryStudyMode(browser, fixture.origin, query, 'word'));
+            queryStudy.push(await runQueryStudyMode(browser, fixture.origin, query, 'kanji'));
+        }
         const blockers = results.flatMap(result => result.feedback.filter(item => item.startsWith('BUG')));
-        console.log(JSON.stringify({ ok: !blockers.length, results }, null, 2));
+        console.log(JSON.stringify({ ok: !blockers.length, results, queryStudy }, null, 2));
         if (blockers.length) process.exitCode = 1;
     } finally {
         await browser.close();

@@ -43037,6 +43037,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       offlineSourceSuffix: "offline",
       noWordsYet: "Looking for more words...",
       noKanjiCardsYet: "Looking for more kanji...",
+      noCards: "No cards.",
       noReviewWordsReady: "No review cards ready.",
       starterWords: "Starter words",
       reviewFallbackNotice: "No reviews ready — showing practice words",
@@ -43188,6 +43189,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     offlineSourceSuffix: "オフライン",
     noWordsYet: "さらに単語を探しています…",
     noKanjiCardsYet: "さらに漢字を探しています…",
+    noCards: "カードなし。",
     noReviewWordsReady: "復習する単語カードは今ありません。",
     starterWords: "入門単語",
     reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
@@ -56556,6 +56558,9 @@ ${entry.url}`),
       skip: (_root, _target, event) => this.navigateFromPointer("next", event),
       previous: (_root, _target, event) => this.navigateFromPointer("previous", event),
       reveal: (root) => this.toggleReveal(root),
+      "empty-fallback": (root) => {
+        void this.startStarterWordStudy(root);
+      },
       "undo-review": (root) => {
         void this.undoLastReview(root);
       },
@@ -58147,6 +58152,7 @@ ${entry.url}`),
       if (this.shouldLoadAutoSettingStudyFallback(accumulator)) return true;
       if (this.shouldLoadUnconfiguredAutoStudyFallback(plan, accumulator)) return true;
       if (this.shouldLoadUnavailableExplicitAnkiFallback(plan, accumulator)) return true;
+      if (this.shouldLoadQueryStudyFallback(accumulator)) return true;
       if (plan.studyFallback.kind !== "study-supplement") return false;
       if (this.shouldLoadEmptyApiStudyFallback(accumulator)) return true;
       if (accumulator.reviewCountMode) return false;
@@ -58155,6 +58161,9 @@ ${entry.url}`),
     }
     shouldLoadEmptyApiStudyFallback(accumulator) {
       return !this.currentModeStudyCardCount(accumulator.cards) && accumulator.reviewCountMode && !this.shouldKeepEmptyReviewLoad(accumulator);
+    }
+    shouldLoadQueryStudyFallback(accumulator) {
+      return Boolean(normalizeSearchQuery(this.searchQuery)) && !this.currentModeStudyCardCount(accumulator.cards) && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
     shouldKeepEmptyReviewLoad(accumulator) {
       return accumulator.labels.some((label) => label.includes(this.text("liveReview")));
@@ -58628,6 +58637,11 @@ ${entry.url}`),
       if (shouldClearReviewHistory) this.clearReviewHistory();
       this.persistState();
       this.syncMode(root);
+      if ((this.state.mode === "word" || this.state.mode === "kanji") && !this.allWords.length) {
+        this.ensureStudySurface(root);
+        void this.loadWordsInto(root, options.preserveWord, { useOfflineCache: true });
+        return;
+      }
       this.applyWords(root, options.preserveWord, preferredCardKey);
     }
     isRenderedReviewSource(source) {
@@ -58848,7 +58862,7 @@ ${entry.url}`),
     }
     emptyStudyMessageKey() {
       if (this.reviewCountMode) return this.state.mode === "kanji" ? "noReviewKanjiReady" : "noReviewWordsReady";
-      return this.state.mode === "kanji" ? "noKanjiCardsYet" : "noWordsYet";
+      return "noCards";
     }
     newTabPoolSignature(cards) {
       return [
@@ -60913,9 +60927,30 @@ ${entry.url}`),
       controls.hidden = false;
       replaceChildrenWith(
         controls,
-        el("button", { type: "button", dataset: { newtabAction: "previous" } }, this.text("previousWord")),
-        el("button", { type: "button", dataset: { newtabAction: "reveal" } }, this.text("reveal")),
-        el("button", { type: "button", dataset: { newtabAction: "next" } }, this.text("nextWord"))
+        el("button", { type: "button", dataset: { newtabAction: "empty-fallback" } }, this.text("starterWords")),
+        el("button", { type: "button", dataset: { newtabAction: "settings" } }, uiText(this.language(), "settings")),
+        el("button", { type: "button", dataset: { newtabAction: "mode", mode: "search" } }, this.text("search"))
+      );
+    }
+    async startStarterWordStudy(root) {
+      const loadGeneration = ++this.loadGeneration;
+      this.dependencies.dismiss({ suppressHoverTarget: false });
+      this.allWords = [];
+      this.visibleWords = [];
+      this.visiblePoolSignature = "";
+      this.index = 0;
+      this.reviewCountMode = false;
+      this.emptyLoadMessageKey = null;
+      this.fallbackStudyNotice = false;
+      this.setStatus(root, this.text("loading"));
+      await this.applyLoadedWords(
+        root,
+        false,
+        loadGeneration,
+        this.loadBuiltInFreshStudyWords(),
+        false,
+        false,
+        this.navigationGeneration
       );
     }
     handleSearchClick(root, target, event, action) {

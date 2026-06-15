@@ -101,7 +101,7 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         name: 'よむ',
         namespace: repoUrl,
         version: pkg.version,
-        description: 'Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.',
+        description: 'Japanese popup reader.',
         author: 'Henry',
         // See docs/store-review-notes.md before narrowing these; broad page
         // access is Yomu's core "read Japanese anywhere" behavior.

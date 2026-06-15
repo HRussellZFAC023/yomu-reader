@@ -530,7 +530,7 @@ function newTabPublicFallbackController(
     });
 }
 
-function newTabBuiltInFallbackFixture(source: 'auto' | 'anki') {
+function newTabBuiltInFallbackFixture(source: 'auto' | 'anki' | 'dictionary') {
     resetNewTabReviewStorage();
     const publicSearch = vi.fn(async () => []);
     const fallbackCardFromText = vi.fn((text: string) => newTabTestCard({
@@ -13200,7 +13200,10 @@ describe('new tab review helpers', () => {
 
         expect(summary).toHaveBeenCalledTimes(1);
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
-        expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('Looking for more words...');
+        expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
+        expect(document.querySelector('[data-newtab-action="empty-fallback"]')?.textContent).toBe('Starter words');
+        expect(document.querySelector('[data-newtab-action="settings"]')?.textContent).toBe('Settings');
+        expect(document.querySelector('[data-newtab-action="mode"][data-mode="search"]')?.textContent).toBe('Search');
         document.body.replaceChildren();
     });
 
@@ -13222,7 +13225,7 @@ describe('new tab review helpers', () => {
 
         await controller.renderPage();
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
-        expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('Looking for more words...');
+        expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
 
         settings.dictionaryPreferences = [{ name: 'Local', alias: 'Tiny Alias', enabled: true, priority: 0, type: 'terms' }];
         await controller.renderPage();
@@ -13256,7 +13259,7 @@ describe('new tab review helpers', () => {
 
         await controller.renderPage();
         expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
-        expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('Looking for more words...');
+        expect(document.querySelector('[data-newtab-answer]')?.textContent).toBe('No cards.');
 
         await controller.refreshExternalData();
 
@@ -13464,6 +13467,41 @@ describe('new tab review helpers', () => {
             const prompt = document.querySelector('[data-newtab-prompt] [data-kanji]')?.textContent ?? '';
             expect(prompt).toMatch(/^[一-龯]$/u);
             expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('Looking for more kanji...');
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
+    it('uses keyless fallback material for a query-bearing empty dictionary Word tab', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('dictionary');
+        const internals = controller as unknown as {
+            searchQuery: string;
+            loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }>;
+        };
+        internals.searchQuery = '読み取る';
+
+        try {
+            const result = await expectBuiltInFallbackWords(controller, fallbackCardFromText);
+            expect(result.cards.length).toBeGreaterThan(0);
+            expect(result.sourceLabel).toBe('Starter words');
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
+    it('uses keyless fallback material for a query-bearing empty dictionary Kanji tab', async () => {
+        const { controller, fallbackCardFromText } = newTabBuiltInFallbackFixture('dictionary');
+        const internals = controller as unknown as {
+            searchQuery: string;
+            state: NewTabRenderedState['state'];
+            kanjiStudyCardsFromSourceCards(cards: JPDBCard[]): JPDBCard[];
+        };
+        internals.searchQuery = 'よむ';
+        internals.state = { ...internals.state, mode: 'kanji', revealAnswer: false };
+
+        try {
+            const result = await expectBuiltInFallbackWords(controller, fallbackCardFromText);
+            expect(internals.kanjiStudyCardsFromSourceCards(result.cards).length).toBeGreaterThan(0);
         } finally {
             resetNewTabReviewStorage();
         }
