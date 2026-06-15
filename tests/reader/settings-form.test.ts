@@ -1659,9 +1659,20 @@ describe('settings form localization', () => {
         expect(meta.textContent).toContain('ブラウザ読み上げ');
 
         const plan = nestedSettingsTextParsePlan(form, 640)!;
-        expect(plan.targets.some(target => target.text.includes('ブラウザ読み上げ'))).toBe(false);
+        const targetIndex = plan.targets.findIndex(target => target.text === meta.textContent);
+        expect(targetIndex).toBeGreaterThanOrEqual(0);
+        const parsed = plan.targets.map(() => [] as JPDBToken[]);
+        const browserStart = meta.textContent!.indexOf('ブラウザ読み上げ');
+        parsed[targetIndex] = [
+            settingsToken('選択肢', 0, 'せんたくし'),
+            settingsToken('ブラウザ', browserStart),
+            settingsToken('読み上げ', browserStart + 'ブラウザ'.length, 'よみあげ'),
+        ];
+
+        applyNestedParsePlan(plan, parsed, DEFAULT_SETTINGS);
+
         expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-icon-mini')?.nextElementSibling).toBeNull();
-        expect(meta.querySelectorAll('.jpdb-reader-word')).toHaveLength(0);
+        expect(meta.querySelectorAll('.jpdb-reader-word')).toHaveLength(3);
     });
 
     it('renders fixed voice selectors for Jiten and JPDB text-to-speech sources', () => {

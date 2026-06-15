@@ -215,6 +215,7 @@ describe('nested text parse plans', () => {
                 <div data-settings-panel="basics">
                     <fieldset><legend>基本</legend></fieldset>
                     <label>設定言語<select><option>日本語</option></select><div data-settings-select-options-meta>選択肢: 自動 / 日本語</div></label>
+                    <div data-audio-source-row><div class="jpdb-reader-audio-source-choice"><select><option>内蔵音声</option></select><div data-settings-select-options-meta>選択肢: 内蔵音声 / ブラウザ読み上げ</div><button type="button">試聴</button></div></div>
                     <div class="jpdb-reader-local-title">新規タブ</div>
                     <div class="jpdb-reader-help">日本語の説明を読む</div>
                     <div class="jpdb-reader-help" data-anki-setup-help>デスクトップAnkiの説明を読む</div>
@@ -242,6 +243,8 @@ describe('nested text parse plans', () => {
         expect(texts).toContain('設定言語');
         expect(texts).toContain('選択肢: 自動 / 日本語');
         expect(texts.filter(text => text === '選択肢: 自動 / 日本語')).toHaveLength(1);
+        expect(texts).toContain('選択肢: 内蔵音声 / ブラウザ読み上げ');
+        expect(texts).not.toContain('試聴');
         expect(texts).toContain('新規タブ');
         expect(texts).toContain('テーマ');
         expect(texts).toContain('外観');

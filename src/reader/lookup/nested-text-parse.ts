@@ -19,7 +19,6 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '[aria-hidden="true"]',
     '[data-anki-setup-help]',
     '.jpdb-reader-audio-source-choice',
-    '.jpdb-reader-status-line',
     'a[href]',
     'button',
     'input',
@@ -114,7 +113,9 @@ function settingsParseRootPriority(parseRoot: HTMLElement): number {
 }
 
 function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
-    return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
+    return !parseRoot.hasAttribute('data-settings-select-options-meta')
+        && !isSettingsChromeParseRoot(parseRoot)
+        && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
 }
 
 function settingsParseExcludeSelector(parseRoot: HTMLElement): string {

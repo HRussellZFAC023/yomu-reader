@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.51
+// @version      0.7.52
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -12061,6 +12061,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -35130,7 +35131,6 @@ ${glossaryKey}`;
     '[aria-hidden="true"]',
     "[data-anki-setup-help]",
     ".jpdb-reader-audio-source-choice",
-    ".jpdb-reader-status-line",
     "a[href]",
     "button",
     "input",
@@ -35205,7 +35205,7 @@ ${glossaryKey}`;
     return panel?.hasAttribute("hidden") ? 1 : 0;
   }
   function isExcludedSettingsParseRoot(parseRoot) {
-    return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
+    return !parseRoot.hasAttribute("data-settings-select-options-meta") && !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
   }
   function settingsParseExcludeSelector(parseRoot) {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;

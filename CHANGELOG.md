@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.52] - 2026-06-15
+
+### Fixed
+
+- Japanese settings helper text inside audio source rows is now parsed for furigana and pitch while leaving the adjacent preview audio button untouched.
+
 ## [0.7.51] - 2026-06-15
 
 ### Fixed
