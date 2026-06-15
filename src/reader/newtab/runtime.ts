@@ -94,6 +94,7 @@ import {
 } from '../settings';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
+import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
 import { showReaderToast } from '../ui/toast';
 import { ReaderAudioActions } from '../audio/actions';
@@ -126,6 +127,7 @@ import { YomitanDictionaryStore, type YomitanKanjiEntry, type YomitanMetaEntry, 
 
 const log = Logger.scope('NewTabRuntime');
 const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1_200;
+const NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS = 10_000;
 const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
 const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
 const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
@@ -2106,11 +2108,22 @@ export class NewTabRuntime {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
+        if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
+            form.dataset.yomuSettingsSelfEnhancePending = 'true';
+            return;
+        }
+        form.dataset.yomuSettingsSelfEnhancing = 'true';
         unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word' });
         clearNestedParseState(form);
-        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.parser.canParse()) return;
+        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.parser.canParse()) {
+            delete form.dataset.yomuSettingsSelfEnhancing;
+            return;
+        }
         const plan = nestedSettingsTextParsePlan(form, 640);
-        if (!plan) return;
+        if (!plan) {
+            delete form.dataset.yomuSettingsSelfEnhancing;
+            return;
+        }
         const parseLoadingId = `${Date.now()}:${Math.random()}`;
         form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
         form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
@@ -2119,19 +2132,31 @@ export class NewTabRuntime {
                 allowJpdbTimeoutFallback: true,
                 allowSegmentedFallback: true,
                 includeLocalPitch: false,
-                jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
-                skipJpdb: true,
+                jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS,
             });
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
-            applyNestedParsePlan(plan, parsed, this.settings);
+            const renderSettings = settingsForSettingsFormParse(form, this.settings);
+            applyNestedParsePlan(plan, parsed, renderSettings);
+            addSettingsRubyFromRenderedReadings(form, renderSettings);
+            highlightCardTargetScopes(form);
+            refreshReaderWordContrast(form);
             form.dataset.jpdbReaderParseKey = plan.parseKey;
+            form.dataset.yomuSettingsSelfEnhanced = 'true';
             void this.enrichPublicVocabularyWords(parsed.flat());
             void this.enrichPitchWords(parsed.flat());
         } catch {
         } finally {
             clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+            if (this.isCurrentSettingsRoot(form)) {
+                const pending = form.dataset.yomuSettingsSelfEnhancePending === 'true';
+                delete form.dataset.yomuSettingsSelfEnhancing;
+                delete form.dataset.yomuSettingsSelfEnhancePending;
+                if (pending) {
+                    void this.parseSettingsJapanese(form);
+                }
+            }
         }
     }
 
@@ -2142,6 +2167,44 @@ export class NewTabRuntime {
 
 function markNewTabRuntime(): void {
     (window as YomuNewTabWindow).__YOMU_READER_RUNTIME__ = 'newtab';
+}
+
+function settingsForSettingsFormParse(form: HTMLFormElement, settings: ReaderSettings): ReaderSettings {
+    const furiganaMode = form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')?.value;
+    const showPitchAccent = form.querySelector<HTMLInputElement>('input[name="showPitchAccent"]')?.checked;
+    if (furiganaMode !== 'all' && furiganaMode !== 'difficult-kanji' && furiganaMode !== 'known-status' && furiganaMode !== 'hover' && furiganaMode !== 'off') {
+        return typeof showPitchAccent === 'boolean' ? { ...settings, showPitchAccent } : settings;
+    }
+    return {
+        ...settings,
+        showFurigana: furiganaMode !== 'off',
+        furiganaMode,
+        showPitchAccent: typeof showPitchAccent === 'boolean' ? showPitchAccent : settings.showPitchAccent,
+    };
+}
+
+function addSettingsRubyFromRenderedReadings(form: HTMLFormElement, settings: ReaderSettings): void {
+    if (!settings.showFurigana || settings.furiganaMode === 'off') return;
+    for (const word of form.querySelectorAll<HTMLElement>('.jpdb-reader-word')) {
+        if (word.querySelector('rt,.jpdb-reader-furi')) continue;
+        const reading = word.dataset.reading?.trim() ?? '';
+        const surface = word.dataset.surface?.trim() || word.dataset.expression?.trim() || word.textContent?.trim() || '';
+        if (!surface || !reading || reading === surface || !/[\u3400-\u9fff]/u.test(surface) || !/^[\u3040-\u30ffー・]+$/u.test(reading)) continue;
+        const ruby = document.createElement('ruby');
+        const base = document.createElement('span');
+        base.className = 'jpdb-reader-ruby-base';
+        base.textContent = surface;
+        const open = document.createElement('rp');
+        open.textContent = '(';
+        const rt = document.createElement('rt');
+        rt.className = 'jpdb-reader-furi';
+        rt.textContent = reading;
+        const close = document.createElement('rp');
+        close.textContent = ')';
+        ruby.append(base, open, rt, close);
+        word.replaceChildren(ruby);
+        word.classList.add('jpdb-reader-has-furi');
+    }
 }
 
 function refreshableNoop(): { refresh: () => void } {

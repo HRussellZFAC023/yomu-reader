@@ -241,6 +241,9 @@
   const DOODLE_COLOR_TOKENS = {
     ink: "#141820"
   };
+  const PAGE_WORD_COLOR_TOKENS = {
+    unknownBackgroundShadow: "var(--jpdb-reader-word-unknown-bg-shadow)"
+  };
   const LOGGER_COLOR_TOKENS = {
     debug: "#6b7280",
     warn: "#a15c00",
@@ -9259,6 +9262,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -25108,7 +25112,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const input2 = form.querySelector("[data-settings-search]");
       input2?.addEventListener("input", () => {
         applySettingsSearch(form, input2.value);
-        this.refreshSettingsJapaneseParse(form);
       });
     }
     bindFocusedControlScrolling(form) {
@@ -25128,7 +25131,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         event.preventDefault();
         tabs[nextIndex]?.focus();
         activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? "api");
-        this.refreshSettingsJapaneseParse(form);
       });
     }
     afterSettingsSaved(form, saveRequestId) {
@@ -25796,7 +25798,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (action === "settings-panel") {
         const panel = selectedSettingsPanel(control);
         activateSettingsPanel(form, panel);
-        this.refreshSettingsJapaneseParse(form);
         return true;
       }
       if (isDictionarySourceOrderAction(action)) {
@@ -51843,7 +51844,7 @@ ${normalizedReading}`;
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
     "[data-settings-preview-lookup]",
-    "[hidden]",
+    "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
     "[data-anki-setup-help]",
     "a[href]",
@@ -51857,10 +51858,10 @@ ${normalizedReading}`;
     ".jpdb-reader-order-toggle",
     ".footer"
   ].join(",");
-  const SETTINGS_SELECT_OPTIONS_META_SELECTOR = "[data-settings-select-options-meta]";
   const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
     ".jpdb-reader-theme-title",
-    '.jpdb-reader-settings-tabs [role="tab"]'
+    '[role="tab"]',
+    ".footer button"
   ].join(",");
   const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     "[hidden]",
@@ -51873,17 +51874,12 @@ ${normalizedReading}`;
     "use",
     ".jpdb-reader-word"
   ].join(",");
-  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = [
-    SETTINGS_PARSE_EXCLUDE_SELECTOR,
-    SETTINGS_SELECT_OPTIONS_META_SELECTOR
-  ].join(",");
+  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
   const SETTINGS_PARSE_ROOT_SELECTOR = [
     "h2",
-    "[data-settings-panel]:not([hidden]) legend",
-    "[data-settings-panel]:not([hidden]) label",
-    "[data-settings-panel]:not([hidden]) .jpdb-reader-local-title",
-    "[data-settings-panel]:not([hidden]) .jpdb-reader-help:not(.jpdb-reader-status-line)",
-    `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`,
+    ".jpdb-reader-settings-search>label",
+    "[data-settings-search-empty]",
+    "[data-settings-panel]",
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
   function nestedTextParsePlan(root, limit) {
@@ -51903,7 +51899,7 @@ ${normalizedReading}`;
   }
   function nestedSettingsTextParsePlan(root, limit) {
     const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(SETTINGS_PARSE_ROOT_SELECTOR));
-    const targets = parseRoots.filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[hidden], [aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
+    const targets = parseRoots.filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
       parseRoot,
       limit,
       false,
@@ -51924,7 +51920,7 @@ ${normalizedReading}`;
   }
   function settingsParseExcludeSelector(parseRoot) {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
-    return parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR) ? SETTINGS_PARSE_EXCLUDE_SELECTOR : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
+    return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
   }
   function isSettingsChromeParseRoot(parseRoot) {
     return parseRoot.matches(SETTINGS_CHROME_PARSE_ROOT_SELECTOR);
@@ -52115,6 +52111,88 @@ ${normalizedReading}`;
       parseInt(safe.slice(3, 5), 16),
       parseInt(safe.slice(5, 7), 16)
     ];
+  }
+  function cssColorToHex(value, backdrop) {
+    const color = cssColorToRgba(value);
+    if (!color) return null;
+    if (color.alpha >= 1) return rgbaToHex(color);
+    return backdrop ? rgbaToHex(blendRgba(color, backdrop)) : null;
+  }
+  function cssColorToRgba(value) {
+    const color = value.trim().toLowerCase();
+    if (!color || color === "transparent") return { red: 0, green: 0, blue: 0, alpha: 0 };
+    const hex = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
+    if (hex) return hexToRgbaColor(expandHexColor(hex[1]));
+    if (color.startsWith("rgb(") || color.startsWith("rgba(")) return parseRgbFunction(color);
+    if (color.startsWith("color(srgb ")) return parseSrgbFunction(color);
+    return null;
+  }
+  function blendRgba(foreground, background) {
+    const alpha = foreground.alpha + background.alpha * (1 - foreground.alpha);
+    if (alpha <= 0) return { red: 0, green: 0, blue: 0, alpha: 0 };
+    const channel = (front, back) => Math.round((front * foreground.alpha + back * background.alpha * (1 - foreground.alpha)) / alpha);
+    return {
+      red: channel(foreground.red, background.red),
+      green: channel(foreground.green, background.green),
+      blue: channel(foreground.blue, background.blue),
+      alpha
+    };
+  }
+  function rgbaToHex(color) {
+    return `#${[color.red, color.green, color.blue].map((value) => clampChannel(value).toString(16).padStart(2, "0")).join("")}`;
+  }
+  function expandHexColor(value) {
+    return value.length === 3 ? `#${value[0]}${value[0]}${value[1]}${value[1]}${value[2]}${value[2]}` : `#${value}`;
+  }
+  function hexToRgbaColor(color) {
+    const [red, green, blue] = sharedHexToRgb(color, sanitizeAccentColor);
+    return { red, green, blue, alpha: 1 };
+  }
+  function parseRgbFunction(value) {
+    const parts = colorFunctionNumbers(value);
+    if (parts.length < 3) return null;
+    return {
+      red: parseRgbChannel(parts[0]),
+      green: parseRgbChannel(parts[1]),
+      blue: parseRgbChannel(parts[2]),
+      alpha: parts[3] ? parseAlpha(parts[3]) : 1
+    };
+  }
+  function parseSrgbFunction(value) {
+    const parts = colorFunctionNumbers(value);
+    if (parts.length < 3) return null;
+    return {
+      red: parseSrgbChannel(parts[0]),
+      green: parseSrgbChannel(parts[1]),
+      blue: parseSrgbChannel(parts[2]),
+      alpha: parts[3] ? parseAlpha(parts[3]) : 1
+    };
+  }
+  function colorFunctionNumbers(value) {
+    return value.match(/-?\d*\.?\d+%?/g) ?? [];
+  }
+  function parseRgbChannel(value) {
+    return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value));
+  }
+  function parseSrgbChannel(value) {
+    return clampChannel(value.endsWith("%") ? Number.parseFloat(value) * 2.55 : Number.parseFloat(value) * 255);
+  }
+  function parseAlpha(value) {
+    const alpha = value.endsWith("%") ? Number.parseFloat(value) / 100 : Number.parseFloat(value);
+    return Math.max(0, Math.min(1, Number.isFinite(alpha) ? alpha : 1));
+  }
+  function clampChannel(value) {
+    return Math.max(0, Math.min(255, Math.round(Number.isFinite(value) ? value : 0)));
+  }
+  function readableOn(color, background, targetContrast) {
+    const safe = sanitizeAccentColor(color);
+    if (contrastRatio(safe, background) >= targetContrast) return safe;
+    const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+    for (let amount = 0.08; amount <= 1; amount += 0.08) {
+      const mixed = mixHex(safe, toward, amount);
+      if (contrastRatio(mixed, background) >= targetContrast) return mixed;
+    }
+    return toward;
   }
   function readableOnAll(color, backgrounds, targetContrast) {
     const safe = sanitizeAccentColor(color);
@@ -63469,6 +63547,9 @@ ${entry.url}`),
     "--jpdb-reader-word-highlight-text",
     "--jpdb-reader-word-contrast-shadow"
   ];
+  const RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW = RENDERED_WORD_CONTRAST_VARS.filter(
+    (name) => name !== "--jpdb-reader-word-contrast-shadow"
+  );
   const RENDERED_WORD_CARD_STATES = [
     "new",
     "learning",
@@ -63583,6 +63664,215 @@ ${entry.url}`),
     const tools = popover.querySelector(".jpdb-reader-card-tools");
     if (!tools || !showPitchAccent) return;
     replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
+  }
+  const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
+  const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
+  const TEXT_CONTRAST = 4.5;
+  const DECORATION_CONTRAST = 3;
+  const HIGHLIGHT_CONTRAST = 1.45;
+  const COLORED_READER_WORD_CLASSES = /* @__PURE__ */ new Set([
+    "jpdb-new",
+    "jpdb-in-deck",
+    "jpdb-learning",
+    "jpdb-known",
+    "jpdb-never-forget",
+    "jpdb-redundant",
+    "jpdb-due",
+    "jpdb-failed",
+    "jpdb-suspended",
+    "jpdb-blacklisted",
+    "jpdb-locked",
+    "anki-new",
+    "anki-learning",
+    "anki-known",
+    "anki-due",
+    "anki-failed",
+    "anki-suspended",
+    "jpdb-pitch-heiban",
+    "jpdb-pitch-atamadaka",
+    "jpdb-pitch-nakadaka",
+    "jpdb-pitch-odaka",
+    "jpdb-pitch-kifuku"
+  ]);
+  const pendingHoverContrastRefresh = /* @__PURE__ */ new WeakSet();
+  function refreshReaderWordContrast(root = document) {
+    const words = readerWords(root);
+    const activeWords = [];
+    const activeBackgrounds = [];
+    const unknownBackgroundWords = [];
+    const neutralWords = [];
+    const backgroundByParent = /* @__PURE__ */ new Map();
+    const cachedPageBackgroundFor = (word) => {
+      const parent = word.parentElement;
+      if (!parent) return pageBackgroundFor(word);
+      if (backgroundByParent.has(parent)) return backgroundByParent.get(parent) ?? null;
+      const background = pageBackgroundFor(word);
+      backgroundByParent.set(parent, background);
+      return background;
+    };
+    for (const word of words) {
+      const hasAnkiAccessibleColor = Boolean(word.dataset.ankiState && word.style.getPropertyValue("--jpdb-reader-word-accessible-color"));
+      const hasInlineTextColor = Boolean(word.style.getPropertyValue("color"));
+      if (word.dataset.ankiPreserveContrast === "true" && hasAnkiAccessibleColor && !hasInlineTextColor) {
+        delete word.dataset.ankiPreserveContrast;
+        continue;
+      }
+      if (word.closest(YOMU_SURFACE_SELECTOR)) {
+        neutralWords.push(word);
+        continue;
+      }
+      if (isNeutralReaderWord(word)) {
+        neutralWords.push(word);
+        continue;
+      }
+      const isHovered = word.matches(":hover, :focus");
+      if (hasAnkiAccessibleColor) {
+        if (isHovered && !hasInlineTextColor) {
+          scheduleHoverSettledContrastRefresh(word);
+          continue;
+        }
+      }
+      if (isHovered) {
+        scheduleHoverSettledContrastRefresh(word);
+      }
+      const background = cachedPageBackgroundFor(word);
+      if (!background) {
+        if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
+        unknownBackgroundWords.push(word);
+        continue;
+      }
+      activeWords.push(word);
+      activeBackgrounds.push(background);
+    }
+    const savedVars = activeWords.map((word, i2) => {
+      const saved = RENDERED_WORD_CONTRAST_VARS.map((name) => ({
+        name,
+        value: word.style.getPropertyValue(name),
+        priority: word.style.getPropertyPriority(name)
+      }));
+      RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
+      word.style.setProperty("--jpdb-reader-highlight-backdrop", activeBackgrounds[i2].css);
+      return saved;
+    });
+    const measurements = activeWords.map((word) => {
+      const style = getComputedStyle(word);
+      const parentStyle = getComputedStyle(word.parentElement ?? word);
+      const furi = word.querySelector("rt.jpdb-reader-furi");
+      const furiStyle = furi ? getComputedStyle(furi) : null;
+      return {
+        bgColor: style.backgroundColor,
+        color: style.color,
+        decoration: style.textDecorationColor,
+        parentColor: parentStyle.color,
+        furiColor: furiStyle?.color
+      };
+    });
+    neutralWords.forEach((word) => clearContrastVars(word));
+    unknownBackgroundWords.forEach((word) => applyUnknownBackgroundFallback(word));
+    activeWords.forEach((word, i2) => {
+      savedVars[i2].forEach(({ name, value, priority }) => {
+        if (value) word.style.setProperty(name, value, priority);
+      });
+      applyWordContrastVars(word, activeBackgrounds[i2], measurements[i2]);
+    });
+  }
+  function applyWordContrastVars(word, background, m) {
+    word.style.setProperty("--jpdb-reader-page-bg", background.css);
+    word.style.setProperty("--jpdb-reader-highlight-backdrop", background.css);
+    word.style.removeProperty("--jpdb-reader-word-contrast-shadow");
+    const preserveHostPaint = word.classList.contains("jpdb-reader-passive-word");
+    const { accessibleHex, accessibleRgba } = resolveAccessibleHighlight(word, background, m.bgColor, preserveHostPaint);
+    const textBackdropHex = preserveHostPaint ? background.hex : accessibleHex;
+    const sourceText = cssColorToHex(m.color, accessibleRgba);
+    const nativeText = cssColorToHex(m.parentColor, accessibleRgba) ?? bestTextColor(textBackdropHex);
+    const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
+    const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
+    const textSource = word.classList.contains("jpdb-reader-passive-word") ? nativeText : sourceText ?? nativeText;
+    word.style.setProperty("--jpdb-reader-word-highlight-text", readableOn(nativeText, textBackdropHex, TEXT_CONTRAST));
+    word.style.setProperty("--jpdb-reader-word-accessible-color", readableOn(textSource, textBackdropHex, TEXT_CONTRAST));
+    if (furiText) word.style.setProperty("--jpdb-reader-furi-accessible-color", readableOn(furiText, textBackdropHex, TEXT_CONTRAST));
+    else word.style.removeProperty("--jpdb-reader-furi-accessible-color");
+    if (decoration) word.style.setProperty("--jpdb-reader-word-accessible-underline", readableOn(decoration, accessibleHex, DECORATION_CONTRAST));
+    else word.style.removeProperty("--jpdb-reader-word-accessible-underline");
+  }
+  function resolveAccessibleHighlight(word, background, wordBgColor, preserveHostPaint = false) {
+    const colorRgba = cssColorToRgba(wordBgColor);
+    const hasPaint = Boolean(colorRgba && colorRgba.alpha > 0);
+    const rgba = colorRgba && colorRgba.alpha > 0 ? blendRgba(colorRgba, background.rgba) : background.rgba;
+    const paintBackgroundHex = rgbaToHex(rgba);
+    let accessibleHighlightColor = null;
+    if (hasPaint && !preserveHostPaint) {
+      accessibleHighlightColor = readableHighlightBackground(paintBackgroundHex, background.hex);
+      word.style.setProperty("--jpdb-reader-word-accessible-highlight", accessibleHighlightColor);
+    } else {
+      word.style.removeProperty("--jpdb-reader-word-accessible-highlight");
+    }
+    const accessibleRgba = accessibleHighlightColor ? cssColorToRgba(accessibleHighlightColor) ?? rgba : rgba;
+    const accessibleHex = accessibleHighlightColor ? rgbaToHex(accessibleRgba) : paintBackgroundHex;
+    return { accessibleHex, accessibleRgba };
+  }
+  function resolveDecorationHex(decorationColor, accessibleRgba) {
+    const decorationColorRgba = cssColorToRgba(decorationColor);
+    return decorationColorRgba && decorationColorRgba.alpha > 0 ? rgbaToHex(decorationColorRgba.alpha < 1 ? blendRgba(decorationColorRgba, accessibleRgba) : decorationColorRgba) : null;
+  }
+  function refreshReaderWordContrastForWord(word) {
+    refreshReaderWordContrast(word.parentElement ?? word);
+  }
+  function isNeutralReaderWord(word) {
+    if (!word.classList.contains("jpdb-not-in-deck") && !word.classList.contains("anki-not-in-deck")) return false;
+    return !Array.from(word.classList).some((className) => COLORED_READER_WORD_CLASSES.has(className));
+  }
+  function scheduleHoverSettledContrastRefresh(word) {
+    if (pendingHoverContrastRefresh.has(word)) return;
+    pendingHoverContrastRefresh.add(word);
+    window.setTimeout(() => {
+      pendingHoverContrastRefresh.delete(word);
+      if (!word.isConnected) return;
+      refreshReaderWordContrastForWord(word);
+    }, 120);
+  }
+  function readerWords(root) {
+    const words = /* @__PURE__ */ new Set();
+    if (root instanceof HTMLElement && root.matches(PAGE_WORD_SELECTOR)) words.add(root);
+    root.querySelectorAll(PAGE_WORD_SELECTOR).forEach((word) => words.add(word));
+    return [...words];
+  }
+  function pageBackgroundFor(word) {
+    const ancestors = [];
+    for (let element = word.parentElement; element; element = element.parentElement) ancestors.push(element);
+    let found = false;
+    let hasImageBackdrop = false;
+    let rgba = { red: 255, green: 255, blue: 255, alpha: 1 };
+    for (const element of ancestors.reverse()) {
+      const style = getComputedStyle(element);
+      hasImageBackdrop ||= Boolean(style.backgroundImage && style.backgroundImage !== "none");
+      const color = cssColorToRgba(style.backgroundColor);
+      if (!color || color.alpha <= 0) continue;
+      rgba = blendRgba(color, rgba);
+      found = true;
+    }
+    if (!found && hasImageBackdrop) return null;
+    const hex = rgbaToHex(rgba);
+    return { css: `rgb(${rgba.red}, ${rgba.green}, ${rgba.blue})`, hex, rgba };
+  }
+  function bestTextColor(background) {
+    return contrastRatio(CORE_COLOR_TOKENS.black, background) >= contrastRatio(CORE_COLOR_TOKENS.white, background) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+  }
+  function readableHighlightBackground(color, background) {
+    if (contrastRatio(color, background) >= HIGHLIGHT_CONTRAST) return color;
+    const toward = contrastRatio(background, CORE_COLOR_TOKENS.black) > contrastRatio(background, CORE_COLOR_TOKENS.white) ? CORE_COLOR_TOKENS.black : CORE_COLOR_TOKENS.white;
+    for (let amount = 0.04; amount <= 0.24; amount += 0.04) {
+      const mixed = mixHex(color, toward, amount);
+      if (contrastRatio(mixed, background) >= HIGHLIGHT_CONTRAST) return mixed;
+    }
+    return color;
+  }
+  function applyUnknownBackgroundFallback(word) {
+    RENDERED_WORD_CONTRAST_VARS_WITHOUT_SHADOW.forEach((name) => word.style.removeProperty(name));
+    word.style.setProperty("--jpdb-reader-word-contrast-shadow", PAGE_WORD_COLOR_TOKENS.unknownBackgroundShadow);
+  }
+  function clearContrastVars(word) {
+    RENDERED_WORD_CONTRAST_VARS.forEach((name) => word.style.removeProperty(name));
   }
   const COLOR_SOURCE_CLASSES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_CHANNELS = ["highlight", "underline", "text"];
@@ -64404,6 +64694,7 @@ ${entry.url}`),
   }
   const log = Logger.scope("NewTabRuntime");
   const NEW_TAB_POPOVER_PARSE_TIMEOUT_MS = 1200;
+  const NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS = 1e4;
   const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15e3;
   const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
   const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8e3;
@@ -66091,11 +66382,22 @@ ${entry.url}`),
     }
     async parseSettingsJapanese(form) {
       if (!this.isCurrentSettingsRoot(form)) return;
+      if (form.dataset.yomuSettingsSelfEnhancing === "true") {
+        form.dataset.yomuSettingsSelfEnhancePending = "true";
+        return;
+      }
+      form.dataset.yomuSettingsSelfEnhancing = "true";
       unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word" });
       clearNestedParseState(form);
-      if (resolveUiLanguage(this.settings.interfaceLanguage) !== "ja" || !this.parser.canParse()) return;
+      if (resolveUiLanguage(this.settings.interfaceLanguage) !== "ja" || !this.parser.canParse()) {
+        delete form.dataset.yomuSettingsSelfEnhancing;
+        return;
+      }
       const plan = nestedSettingsTextParsePlan(form, 640);
-      if (!plan) return;
+      if (!plan) {
+        delete form.dataset.yomuSettingsSelfEnhancing;
+        return;
+      }
       const parseLoadingId = `${Date.now()}:${Math.random()}`;
       form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
       form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
@@ -66104,17 +66406,29 @@ ${entry.url}`),
           allowJpdbTimeoutFallback: true,
           allowSegmentedFallback: true,
           includeLocalPitch: false,
-          jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
-          skipJpdb: true
+          jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS
         });
         if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
-        applyNestedParsePlan(plan, parsed, this.settings);
+        const renderSettings = settingsForSettingsFormParse(form, this.settings);
+        applyNestedParsePlan(plan, parsed, renderSettings);
+        addSettingsRubyFromRenderedReadings(form, renderSettings);
+        highlightCardTargetScopes(form);
+        refreshReaderWordContrast(form);
         form.dataset.jpdbReaderParseKey = plan.parseKey;
+        form.dataset.yomuSettingsSelfEnhanced = "true";
         void this.enrichPublicVocabularyWords(parsed.flat());
         void this.enrichPitchWords(parsed.flat());
       } catch {
       } finally {
         clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+        if (this.isCurrentSettingsRoot(form)) {
+          const pending = form.dataset.yomuSettingsSelfEnhancePending === "true";
+          delete form.dataset.yomuSettingsSelfEnhancing;
+          delete form.dataset.yomuSettingsSelfEnhancePending;
+          if (pending) {
+            void this.parseSettingsJapanese(form);
+          }
+        }
       }
     }
     isCurrentSettingsRoot(root) {
@@ -66123,6 +66437,42 @@ ${entry.url}`),
   }
   function markNewTabRuntime() {
     window.__YOMU_READER_RUNTIME__ = "newtab";
+  }
+  function settingsForSettingsFormParse(form, settings) {
+    const furiganaMode = form.querySelector('select[name="furiganaMode"]')?.value;
+    const showPitchAccent = form.querySelector('input[name="showPitchAccent"]')?.checked;
+    if (furiganaMode !== "all" && furiganaMode !== "difficult-kanji" && furiganaMode !== "known-status" && furiganaMode !== "hover" && furiganaMode !== "off") {
+      return typeof showPitchAccent === "boolean" ? { ...settings, showPitchAccent } : settings;
+    }
+    return {
+      ...settings,
+      showFurigana: furiganaMode !== "off",
+      furiganaMode,
+      showPitchAccent: typeof showPitchAccent === "boolean" ? showPitchAccent : settings.showPitchAccent
+    };
+  }
+  function addSettingsRubyFromRenderedReadings(form, settings) {
+    if (!settings.showFurigana || settings.furiganaMode === "off") return;
+    for (const word of form.querySelectorAll(".jpdb-reader-word")) {
+      if (word.querySelector("rt,.jpdb-reader-furi")) continue;
+      const reading = word.dataset.reading?.trim() ?? "";
+      const surface = word.dataset.surface?.trim() || word.dataset.expression?.trim() || word.textContent?.trim() || "";
+      if (!surface || !reading || reading === surface || !/[\u3400-\u9fff]/u.test(surface) || !/^[\u3040-\u30ffー・]+$/u.test(reading)) continue;
+      const ruby = document.createElement("ruby");
+      const base = document.createElement("span");
+      base.className = "jpdb-reader-ruby-base";
+      base.textContent = surface;
+      const open = document.createElement("rp");
+      open.textContent = "(";
+      const rt = document.createElement("rt");
+      rt.className = "jpdb-reader-furi";
+      rt.textContent = reading;
+      const close = document.createElement("rp");
+      close.textContent = ")";
+      ruby.append(base, open, rt, close);
+      word.replaceChildren(ruby);
+      word.classList.add("jpdb-reader-has-furi");
+    }
   }
   function refreshableNoop() {
     return { refresh: () => void 0 };

@@ -10095,7 +10095,6 @@ recommendedJiten	jiten.moe頻度データです。
       const input2 = form.querySelector("[data-settings-search]");
       input2?.addEventListener("input", () => {
         applySettingsSearch(form, input2.value);
-        this.refreshSettingsJapaneseParse(form);
       });
     }
     bindFocusedControlScrolling(form) {
@@ -10115,7 +10114,6 @@ recommendedJiten	jiten.moe頻度データです。
         event.preventDefault();
         tabs[nextIndex]?.focus();
         activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? "api");
-        this.refreshSettingsJapaneseParse(form);
       });
     }
     afterSettingsSaved(form, saveRequestId) {
@@ -10783,7 +10781,6 @@ recommendedJiten	jiten.moe頻度データです。
       if (action === "settings-panel") {
         const panel = selectedSettingsPanel(control);
         activateSettingsPanel(form, panel);
-        this.refreshSettingsJapaneseParse(form);
         return true;
       }
       if (isDictionarySourceOrderAction(action)) {
