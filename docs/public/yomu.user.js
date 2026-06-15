@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.35
+// @version      0.7.36
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -23652,12 +23652,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    if (!meanings && !extras) return "";
+    const body = meanings || extras ? `${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}` : `<div class="jpdb-reader-help jpdb-reader-no-definitions">${language === "ja" ? "Jiten定義なし。" : "No Jiten definitions."}</div>`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">Jiten</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
-            ${extras}
+            ${body}
         </details>
     `;
   }
@@ -24008,7 +24007,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function renderJitenDefinitionSourceSection(context, params) {
-    if (!context.includeJpdbSource) return "";
     return renderJitenDefinitionSource(
       context.card,
       params.sourceAttributes,

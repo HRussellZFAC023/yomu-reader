@@ -45595,12 +45595,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    if (!meanings && !extras) return "";
+    const body = meanings || extras ? `${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}` : `<div class="jpdb-reader-help jpdb-reader-no-definitions">${language === "ja" ? "Jiten定義なし。" : "No Jiten definitions."}</div>`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">Jiten</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
-            ${extras}
+            ${body}
         </details>
     `;
   }
@@ -45951,7 +45950,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function renderJitenDefinitionSourceSection(context, params) {
-    if (!context.includeJpdbSource) return "";
     return renderJitenDefinitionSource(
       context.card,
       params.sourceAttributes,
@@ -53132,7 +53130,7 @@ ${newTabCardReading(card)}`;
   }
   function searchWordDefinitionsHtml(card, detail, context) {
     if (detail.loading) return "";
-    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo) ?? searchFallbackDefinitionSourcesHtml(card, detail, context);
+    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo, detail.jitenVocabularyInfo ?? null) ?? searchFallbackDefinitionSourcesHtml(card, detail, context);
   }
   function searchWordLoadingHtml(detail, context) {
     if (!detail.loading) return "";
@@ -53205,6 +53203,9 @@ ${newTabCardReading(card)}`;
     const definitionSections = sourceIds.map((sourceId) => {
       if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
         return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
+      }
+      if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
+        return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage);
       }
       if (sourceId === ANKI_SOURCE_ID) {
         return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : "";
@@ -63059,7 +63060,8 @@ ${entry.url}`),
       kanjiEntries: data.kanjiEntries,
       metaEntries: data.metaEntries,
       ankiLookup: data.ankiLookup,
-      jpdbVocabularyInfo: data.jpdbVocabularyInfo
+      jpdbVocabularyInfo: data.jpdbVocabularyInfo,
+      jitenVocabularyInfo: data.jitenVocabularyInfo ?? null
     };
   }
   function ankiAudioFilenamesFromFields(fields) {
@@ -64772,7 +64774,7 @@ ${entry.url}`),
           userGesture: options?.userGesture
         }),
         loadCardRenderData: (card) => this.cardRenderData.load(card).all,
-        renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, null, { includeStudySources: false }),
+        renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, { includeStudySources: false }),
         renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
           card,
           jpdbUrl: jpdbVocabularyUrl$1(card),
