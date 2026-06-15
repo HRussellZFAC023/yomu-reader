@@ -2103,7 +2103,7 @@ export class ReaderApp {
     }
 
     private backgroundPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        if (isYouTubeRuntimeHost()) return { publicLookup: false };
+        if (isYouTubeRuntimeHost()) return { publicLookupLimit: 0 };
         return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
     }
 

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.52
+// @version      0.7.53
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -12061,6 +12061,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -37989,7 +37990,7 @@ ${glossaryKey}`;
         if (this.isStaleScan(generation)) return parsedAnyTokens;
         const tokens = parsed.flat();
         const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
-        if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
+        if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
         const applyAnkiColors = this.shouldEnrichAnkiWords() ? this.dependencies.beginAnkiWordEnrichment?.(tokens) : void 0;
         const changedRoots = await this.applyTokens(batch, parsed, scanStartSettings, generation);
         applyAnkiColors?.(changedRoots);
@@ -39886,7 +39887,7 @@ ${glossaryKey}`;
       return this.settings.audioEnabled && this.settings.autoPlayAudio && !isYouTubeRuntimeHost();
     }
     backgroundPitchEnrichmentOptions() {
-      if (isYouTubeRuntimeHost()) return { publicLookup: false };
+      if (isYouTubeRuntimeHost()) return { publicLookupLimit: 0 };
       return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
     }
     nestedPitchEnrichmentOptions() {

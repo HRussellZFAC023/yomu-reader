@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.53] - 2026-06-15
+
+### Fixed
+
+- YouTube visible-page enhancement now hydrates fallback text with deferred public vocabulary lookups instead of disabling public lookup entirely, restoring ruby/pitch on live YouTube titles and chrome without blocking first paint.
+- Visible-page scans now await async pre-render enrichment for fallback tokens that need readings, so resolved ruby is present before the DOM is wrapped instead of racing behind the initial render.
+
 ## [0.7.52] - 2026-06-15
 
 ### Fixed

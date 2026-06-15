@@ -342,9 +342,10 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
             return callback();
         });
-        const enrichPitchWords = vi.fn((tokens: JPDBToken[]) => {
+        const enrichPitchWords = vi.fn(async (tokens: JPDBToken[]) => {
             order.push('pitch');
             expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            await new Promise(resolve => setTimeout(resolve, 0));
             tokens[0]!.card = {
                 ...tokens[0]!.card,
                 source: 'jpdb',

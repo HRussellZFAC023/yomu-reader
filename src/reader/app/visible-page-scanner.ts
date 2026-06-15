@@ -268,7 +268,7 @@ export class VisiblePageScanner {
             if (this.isStaleScan(generation)) return parsedAnyTokens;
             const tokens = parsed.flat();
             const pitchStartedBeforeApply = shouldStartPitchEnrichmentBeforeApply(tokens);
-            if (pitchStartedBeforeApply) void this.dependencies.enrichPitchWords(tokens);
+            if (pitchStartedBeforeApply) await this.dependencies.enrichPitchWords(tokens);
             // Kick the status-color lookup off before touching the DOM so the
             // IndexedDB roundtrip overlaps the apply work.
             const applyAnkiColors = this.shouldEnrichAnkiWords()
