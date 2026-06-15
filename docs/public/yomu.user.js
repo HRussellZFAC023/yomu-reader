@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.59
+// @version      0.7.60
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-zFyC3z6KcNIrqtkGWsmteEp9hiuWQTiWDHUjyRSWgEE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tBQq6OB+YEjJPJ1iCxde9i2SvRrGSCxVlgTJgE/nWMg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-2w+6kOcn77CCgiNOkhDgBBejEhr6EW1Iu8aekFydiGA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-BJHo1FdmHIQWKUJgIg3KZKKuGfvSzwbyE7grmh3ALMc=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -10354,9 +10354,81 @@ recommendedJiten	jiten.moe頻度データです。
   const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
   class AnkiConnectClient {
     constructor(getSettings) {
-      const Client = ankiCompanionOrThrow().AnkiConnectClient;
+      const companion = yomuAnkiCompanion();
+      if (!companion) return new DisabledAnkiConnectClient();
+      const Client = companion.AnkiConnectClient;
       return new Client(getSettings);
     }
+  }
+  class DisabledAnkiConnectClient {
+    destroy() {
+    }
+    isConnected() {
+      return Promise.resolve(false);
+    }
+    isAvailableForBackground() {
+      return Promise.resolve(false);
+    }
+    deckNames() {
+      return Promise.resolve([]);
+    }
+    modelNames() {
+      return Promise.resolve([]);
+    }
+    noteFieldTargetPlan() {
+      return Promise.resolve(null);
+    }
+    scanLibrary() {
+      return Promise.resolve({ deckNames: [], models: [], suggestedModel: null });
+    }
+    warmStatusIndex() {
+      return Promise.resolve(null);
+    }
+    findExistingCards(_card) {
+      return Promise.resolve(untrustedAnkiLookupResult());
+    }
+    findCachedStatusBatch(cards) {
+      return Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
+    }
+    findExistingCardsBatch(cards) {
+      return Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
+    }
+    rebuildStatusIndex() {
+      return Promise.resolve(null);
+    }
+    answerCard() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    setCardsSuspended() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    setNotesTag() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    browseNote() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    mediaFileDataUrl() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    mergeYomuData() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    addCard() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    addCardViaMobileHandoff() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    ensureDeckAndModel() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    invoke() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+  }
+  function ankiCompanionUnavailableError() {
+    return new Error("Yomu Anki companion is unavailable.");
   }
   class AnkiDuplicateNoteError extends Error {
     constructor(message) {
@@ -10384,11 +10456,6 @@ recommendedJiten	jiten.moe頻度データです。
   }
   async function resolveAnkiWordAudio(card, settings) {
     return yomuAnkiCompanion()?.resolveAnkiWordAudio(card, settings) ?? null;
-  }
-  function ankiCompanionOrThrow() {
-    const companion = yomuAnkiCompanion();
-    if (!companion) throw new Error("Yomu Anki companion is unavailable.");
-    return companion;
   }
   function localAnkiLookupWithUnavailableDetails(lookup) {
     const mark = (note) => ankiNoteHasRenderableDetails(note) ? note : { ...note, detailsUnavailable: true };

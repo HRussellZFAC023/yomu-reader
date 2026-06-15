@@ -282,6 +282,13 @@ function pointInRect(x: number, y: number, rect: DOMRect): boolean {
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
 }
 
+// Position + size signature of the video's on-screen box, rounded so sub-pixel
+// jitter does not churn alignment. Used to detect when the active video has
+// moved (e.g. a Shorts reel swipe) without a resize/scroll/navigation event.
+function videoRectKey(rect: DOMRect): string {
+    return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
+}
+
 function clearWindowTimeout(id: number | undefined): undefined {
     if (id !== undefined) window.clearTimeout(id);
     return undefined;
@@ -465,6 +472,8 @@ export class SubtitlePlayerController {
     private discoverTimer?: number;
     private tickTimer?: number;
     private alignFrame?: number;
+    private lastAlignedVideoRectKey = '';
+    private lastShortsNavVideoId = '';
     private destroyed = false;
     private selectedTrackId = '';
     private secondaryTrackId = '';
@@ -1133,7 +1142,9 @@ export class SubtitlePlayerController {
         this.refreshSubtitleSourcesForTick();
         this.refreshNativeCueLists();
         this.setNativeTrackModes();
+        this.syncShortsReelNavigation();
         this.updateFromLoadedCues();
+        this.realignIfVideoMoved();
         this.syncPlayerChromeIdleState();
         this.syncAsbPlayerSubtitleMoveHandles(settings);
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
@@ -1214,18 +1225,62 @@ export class SubtitlePlayerController {
         if (!this.video) {
             this.root.classList.remove('jpdb-subtitle-has-video-frame', 'jpdb-subtitle-compact-video');
             this.root.classList.add('jpdb-subtitle-video-out-of-view');
+            this.lastAlignedVideoRectKey = '';
             this.positionTranscriptPanel();
             return;
         }
         const rect = this.videoLayoutRect();
+        this.lastAlignedVideoRectKey = videoRectKey(rect);
         this.applyVideoLayout(rect);
+    }
+
+    // Reel-to-reel Shorts swipes (and other in-page layout shifts) move the
+    // active <video> WITHOUT a resize, window scroll, or yt-navigate-finish, so
+    // none of the alignment triggers fire and the overlay stays stuck
+    // out-of-view until a play/pause re-aligns it. The tick already runs while
+    // playing; cheaply re-align whenever the video's on-screen box has moved.
+    private realignIfVideoMoved(): void {
+        if (!this.video || !this.root) return;
+        const rect = this.videoLayoutRect();
+        // Re-align when the video moved (a Shorts swipe reuses the element at the
+        // same box, but other layout shifts move it) OR when the overlay's shown
+        // state no longer matches what it should be — e.g. a reel becomes
+        // renderable again after a transient hidden frame during the swipe, which
+        // otherwise leaves the overlay latched out-of-view.
+        const shouldShow = this.isVideoOverlayVisible(rect);
+        const isShowing = !this.root.classList.contains('jpdb-subtitle-video-out-of-view');
+        if (shouldShow !== isShowing || videoRectKey(rect) !== this.lastAlignedVideoRectKey) this.scheduleAlignToVideo();
+    }
+
+    // Swiping between Shorts reels reuses the same <video> element at the same
+    // position and emits no yt-navigate-finish, so the controller never treats
+    // it as navigation: tracks/overlay stay bound to the previous reel and the
+    // overlay can latch out-of-view until an unrelated DOM mutation (a manual
+    // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
+    // from the tick and run the normal navigation path when it changes.
+    private syncShortsReelNavigation(): void {
+        if (!location.pathname.startsWith('/shorts/')) {
+            this.lastShortsNavVideoId = '';
+            return;
+        }
+        const videoId = getYouTubeVideoId();
+        if (!videoId || videoId === this.lastShortsNavVideoId) return;
+        const firstSync = this.lastShortsNavVideoId === '';
+        this.lastShortsNavVideoId = videoId;
+        // The very first short is already handled by initial discovery; only act
+        // on genuine reel-to-reel changes.
+        if (!firstSync) this.handleYouTubeNavigation();
+    }
+
+    private isVideoOverlayVisible(rect: DOMRect): boolean {
+        return isSubtitleOverlayVideoVisible(rect)
+            && (!this.video || isSubtitleVideoElementRenderable(this.video))
+            && this.videoHasPlayerAffordances();
     }
 
     private applyVideoLayout(rect: DOMRect): void {
         if (!this.root) return;
-        const videoVisible = isSubtitleOverlayVideoVisible(rect)
-            && (!this.video || isSubtitleVideoElementRenderable(this.video))
-            && this.videoHasPlayerAffordances();
+        const videoVisible = this.isVideoOverlayVisible(rect);
         this.root.classList.toggle('jpdb-subtitle-video-out-of-view', !videoVisible);
         this.root.classList.toggle('jpdb-subtitle-has-video-frame', videoVisible);
         if (!videoVisible) {

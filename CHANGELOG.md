@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.60] - 2026-06-15
+
+### Fixed
+
+- YouTube Shorts now skips non-Japanese reels on the desktop player too (iPad's "Request Desktop Website" serves `ytd-shorts`, not m.youtube.com). The active short is classified by its URL video id + original (oEmbed/tab) title instead of the per-reel title, which on a non-English UI locale is auto-translated into Japanese and made every English short look Japanese. A dropped first nav-click no longer parks the player on a short forever.
+- YouTube Shorts subtitles now appear on autoplay without needing a manual pause/resume. Swiping between reels reuses one `<video>` element and emits no navigation event, so the overlay used to latch "out of view"; the player now re-detects the active reel and self-heals the overlay when the video becomes visible again.
+- The reader now starts with a disabled Anki client when the Anki companion library is missing, so dictionary popovers and action pills still initialize instead of failing the whole page with "Yomu Anki companion is unavailable."
+- Removed an accidentally tracked `node_modules` symlink from the repository so fresh worktrees and worker setup are not blocked by a self-referential dependency path.
+
 ## [0.7.59] - 2026-06-15
 
 ### Fixed

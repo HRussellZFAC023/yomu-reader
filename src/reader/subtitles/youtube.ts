@@ -99,6 +99,11 @@ const YOUTUBE_FILTER_COLLAPSE_DURATION_MS = 240;
 const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
 const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
 const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
+// How long to wait before re-advancing the SAME short. Long enough to let an
+// in-flight navigation settle (so we don't over-skip past the next short), but
+// short enough to retry when a click was dropped — e.g. the first scan fires
+// during init() before the Shorts player has wired its nav button.
+const YOUTUBE_SHORTS_ADVANCE_RETRY_MS = 1000;
 const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = '--yomu-youtube-filter-card-height';
 // Multiple of the list's 4/2/1-column layouts so the compact shelf fills its rows.
 const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
@@ -351,7 +356,7 @@ export class YoutubeImmersionFilter {
         });
 
         this.restoreCurrentShortsWatchItem();
-        this.advancePastFilteredMobileShortsReel();
+        this.advancePastFilteredActiveShort();
 
         const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
         result.decisions.forEach(decision => this.applyFilterDecision(decision));
@@ -387,11 +392,13 @@ export class YoutubeImmersionFilter {
 
     private applyFilterDecision(decision: YouTubeFilterDecision): void {
         if (isCurrentYouTubeShortsWatchCard(decision.candidate.card)) {
-            // The active reel must stay visible, but when it would have been
-            // filtered, step the player forward so the feed lands on the next
-            // Japanese short instead of parking on an English one.
+            // The active reel must stay visible. Stepping the player forward is
+            // owned by advancePastFilteredActiveShort(), which classifies the
+            // active short from the URL video id + its original title — the
+            // per-card title/videoId here can lag a reel behind the URL or be
+            // auto-translated, which would wrongly skip a Japanese short or keep
+            // an English one.
             this.showCard(decision.candidate.card);
-            if (decision.kind === 'hide') this.advancePastFilteredShort(decision.candidate.videoId || decision.candidate.filterText);
             return;
         }
         if (decision.kind === 'skip') {
@@ -483,8 +490,19 @@ export class YoutubeImmersionFilter {
 
     private advancePastFilteredShort(shortKey = currentYouTubeShortsVideoId() || location.pathname): void {
         const advanceKey = `${location.pathname}:${shortKey}`;
-        if (this.lastAdvancedShortKey === advanceKey) return;
         const now = performance.now();
+        // Same short as our last advance: hold off only until the retry window
+        // elapses. Within it, YouTube's navigation is likely still in flight and
+        // re-clicking would over-skip; past it, the click was dropped and we
+        // retry (otherwise a lost first click parks the player on this short
+        // forever).
+        if (this.lastAdvancedShortKey === advanceKey) {
+            const sinceAdvance = now - this.lastShortAdvanceAt;
+            if (sinceAdvance < YOUTUBE_SHORTS_ADVANCE_RETRY_MS) {
+                this.schedule(Math.ceil(YOUTUBE_SHORTS_ADVANCE_RETRY_MS - sinceAdvance) + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
+                return;
+            }
+        }
         const throttleRemaining = YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS - (now - this.lastShortAdvanceAt);
         if (throttleRemaining > 0) {
             this.schedule(Math.ceil(throttleRemaining) + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
@@ -503,20 +521,25 @@ export class YoutubeImmersionFilter {
         this.schedule(YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
     }
 
-    // m.youtube.com shorts player (2026): the active reel lives in a JS
-    // carousel (shorts-page > shorts-carousel) with no per-item card elements,
-    // so the card scan can never classify it and swiping lands on unfiltered
-    // English shorts. Classify the ACTIVE short from the player overlay title
-    // through the same decision rules as cards, and step past it when it
-    // would have been hidden.
-    private advancePastFilteredMobileShortsReel(): void {
+    // Shorts watch player (2026): the active reel lives in a JS carousel —
+    // mobile is shorts-page > shorts-carousel, desktop (and iPad's
+    // "Request Desktop Website") is ytd-shorts > ytd-reel-video-renderer. The
+    // per-card title for the active reel is unreliable: it lags a reel behind
+    // the URL, and under a non-English UI locale YouTube auto-translates it into
+    // the UI language so an English short looks Japanese. Classify the ACTIVE
+    // short from the URL video id + its ORIGINAL (oEmbed/tab) title instead, on
+    // both platforms, and step past it when it would have been hidden.
+    private advancePastFilteredActiveShort(): void {
         if (!isYouTubeShortsWatchPage()) return;
-        if (document.querySelector('ytd-shorts')) return; // desktop handles itself
-        const overlay = document.querySelector<HTMLElement>('shorts-page, shorts-carousel, shorts-video');
+        const overlay = document.querySelector<HTMLElement>('ytd-shorts, shorts-page, shorts-carousel, shorts-video');
         if (!overlay) return;
         const videoId = currentYouTubeShortsVideoId();
-        const title = mobileShortsActiveTitle();
-        if (!videoId || !title) return;
+        if (!videoId) return;
+        // The local title can be momentarily unavailable (tab title still
+        // "YouTube", overlay not yet painted). Keep going on the video id alone:
+        // resolveTitleForFiltering still fetches the oEmbed original title and
+        // re-scans once it lands, rather than parking on an unclassified short.
+        const title = activeShortsTitle();
         const resolvedTitle = this.resolveTitleForFiltering({ card: overlay, title, videoId });
         const candidate: YouTubeFilterCandidate = {
             card: overlay,
@@ -2194,10 +2217,17 @@ function isActiveYouTubeShortsReel(item: HTMLElement): boolean {
     return rect.top <= viewportCenter && rect.bottom >= viewportCenter;
 }
 
-function mobileShortsActiveTitle(): string {
-    const overlayTitle = document.querySelector('yt-shorts-video-title-view-model')?.textContent?.trim() ?? '';
-    if (overlayTitle) return overlayTitle;
-    return document.title.replace(/\s*-\s*YouTube\s*$/i, '').trim();
+function activeShortsTitle(): string {
+    // The browser tab title carries the ORIGINAL (untranslated) video title;
+    // the on-screen overlay (yt-shorts-video-title-view-model) is auto-translated
+    // into the UI language for non-English locales, which would make an English
+    // short look Japanese to the language filter. Prefer the tab title; the
+    // overlay is only a fallback before navigation settles. The oEmbed original
+    // title (keyed by video id in resolveTitleForFiltering) remains the final
+    // authority either way.
+    const tabTitle = document.title.replace(/\s*-\s*YouTube\s*$/i, '').trim();
+    if (tabTitle && tabTitle.toLowerCase() !== 'youtube') return tabTitle;
+    return document.querySelector('yt-shorts-video-title-view-model')?.textContent?.trim() ?? '';
 }
 
 function currentYouTubeShortsVideoId(): string {

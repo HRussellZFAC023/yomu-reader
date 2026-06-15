@@ -70,9 +70,40 @@ export interface AnkiConnectClient {
 
 export class AnkiConnectClient {
     constructor(getSettings: () => ReaderSettings) {
-        const Client = ankiCompanionOrThrow().AnkiConnectClient;
+        const companion = yomuAnkiCompanion();
+        if (!companion) return new DisabledAnkiConnectClient() as AnkiConnectClient;
+        const Client = companion.AnkiConnectClient;
         return new Client(getSettings) as AnkiConnectClient;
     }
+}
+
+class DisabledAnkiConnectClient implements AnkiConnectClient {
+    destroy(): void {}
+    isConnected(): Promise<boolean> { return Promise.resolve(false); }
+    isAvailableForBackground(): Promise<boolean> { return Promise.resolve(false); }
+    deckNames(): Promise<string[]> { return Promise.resolve([]); }
+    modelNames(): Promise<string[]> { return Promise.resolve([]); }
+    noteFieldTargetPlan(): Promise<import('./client').AnkiNoteFieldTargetPlan | null> { return Promise.resolve(null); }
+    scanLibrary(): Promise<AnkiLibraryScanResult> { return Promise.resolve({ deckNames: [], models: [], suggestedModel: null }); }
+    warmStatusIndex(): Promise<AnkiStatusIndex | null> { return Promise.resolve(null); }
+    findExistingCards(_card: JPDBCard): Promise<AnkiLookupResult> { return Promise.resolve(untrustedAnkiLookupResult()); }
+    findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> { return Promise.resolve(cards.map(() => untrustedAnkiLookupResult())); }
+    findExistingCardsBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> { return Promise.resolve(cards.map(() => untrustedAnkiLookupResult())); }
+    rebuildStatusIndex(): Promise<AnkiStatusIndex | null> { return Promise.resolve(null); }
+    answerCard(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
+    setCardsSuspended(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
+    setNotesTag(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
+    browseNote(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
+    mediaFileDataUrl(): Promise<string> { return Promise.reject(ankiCompanionUnavailableError()); }
+    mergeYomuData(): Promise<AnkiMergeYomuResult> { return Promise.reject(ankiCompanionUnavailableError()); }
+    addCard(): Promise<number | null> { return Promise.reject(ankiCompanionUnavailableError()); }
+    addCardViaMobileHandoff(): Promise<null> { return Promise.reject(ankiCompanionUnavailableError()); }
+    ensureDeckAndModel(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
+    invoke<T>(): Promise<T> { return Promise.reject(ankiCompanionUnavailableError()); }
+}
+
+function ankiCompanionUnavailableError(): Error {
+    return new Error('Yomu Anki companion is unavailable.');
 }
 
 export class AnkiDuplicateNoteError extends Error {
@@ -158,12 +189,6 @@ export function captureActiveVideoFrame(): string | undefined {
 
 export async function resolveAnkiWordAudio(card: JPDBCard, settings: ReaderSettings): Promise<AnkiWordAudioMedia | null> {
     return yomuAnkiCompanion()?.resolveAnkiWordAudio(card, settings) ?? null;
-}
-
-function ankiCompanionOrThrow(): NonNullable<ReturnType<typeof yomuAnkiCompanion>> {
-    const companion = yomuAnkiCompanion();
-    if (!companion) throw new Error('Yomu Anki companion is unavailable.');
-    return companion;
 }
 
 function localAnkiLookupWithUnavailableDetails(lookup: AnkiLookupResult): AnkiLookupResult {

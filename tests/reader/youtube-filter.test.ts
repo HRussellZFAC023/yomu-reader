@@ -266,6 +266,7 @@ describe('YouTube immersion filter', () => {
         vi.unstubAllGlobals();
         sessionStorage.clear();
         document.body.replaceChildren();
+        document.title = '';
     });
 
     it('reads video card titles without treating Japanese channel names as Japanese videos', () => {
@@ -1628,6 +1629,76 @@ describe('YouTube immersion filter', () => {
             performanceNow.mockRestore();
             filter.destroy();
         }
+    });
+
+    // iPad's "Request Desktop Website" (the default for youtube.com) serves the
+    // desktop ytd-shorts player, not m.youtube.com. The active reel must skip
+    // non-Japanese shorts there exactly like the mobile carousel does.
+    const desktopShortsLocation = (videoId: string) => ({
+        href: `https://www.youtube.com/shorts/${videoId}`,
+        origin: 'https://www.youtube.com',
+        hostname: 'www.youtube.com',
+        pathname: `/shorts/${videoId}`,
+        search: '',
+    });
+    const desktopShortsHtml = (videoId: string, overlayTitle: string) => `
+        <ytd-shorts>
+            <ytd-reel-video-renderer data-case="active">
+                <a id="video-title" href="/shorts/${videoId}">${overlayTitle}</a>
+                <yt-shorts-video-title-view-model>${overlayTitle}</yt-shorts-video-title-view-model>
+            </ytd-reel-video-renderer>
+            <div id="navigation-button-down"><button aria-label="次の動画"></button></div>
+        </ytd-shorts>`;
+    // The active short can advance synchronously inside filter.init() (when the
+    // tab title is already the original), so the click counter must be wired
+    // BEFORE init — exactly like the mobile carousel test.
+    const runDesktopShort = async (
+        { videoId, tabTitle, overlayTitle, oEmbedTitle }: { videoId: string; tabTitle: string; overlayTitle: string; oEmbedTitle: string },
+    ): Promise<{ clicks: number; filter: YoutubeImmersionFilter }> => {
+        vi.useFakeTimers();
+        stubOEmbedTitles({ [videoId]: oEmbedTitle });
+        vi.stubGlobal('location', desktopShortsLocation(videoId));
+        document.title = tabTitle;
+        document.body.innerHTML = desktopShortsHtml(videoId, overlayTitle);
+        let clicks = 0;
+        document.querySelector<HTMLButtonElement>('ytd-shorts #navigation-button-down button')!
+            .addEventListener('click', () => { clicks += 1; });
+        const filter = createYoutubeFilter(() => youtubeFilterSettings());
+        filter.init();
+        await flushPendingFilterWork();
+        return { clicks, filter };
+    };
+
+    it('advances the desktop (iPad) ytd-shorts player past a non-Japanese active short', async () => {
+        const { clicks, filter } = await runDesktopShort({
+            videoId: 'deskEnglish', tabTitle: 'Crazy gym fail compilation - YouTube',
+            overlayTitle: 'Crazy gym fail compilation', oEmbedTitle: 'Crazy gym fail compilation',
+        });
+        expect(clicks).toBeGreaterThan(0);
+        // The active reel itself must never be offscreen-hidden.
+        expect(card('active').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        filter.destroy();
+    });
+
+    it('does not advance the desktop ytd-shorts player on a Japanese active short', async () => {
+        const { clicks, filter } = await runDesktopShort({
+            videoId: 'deskJp', tabTitle: '大阪で食べ歩きラーメン - YouTube',
+            overlayTitle: '大阪で食べ歩きラーメン', oEmbedTitle: '大阪で食べ歩きラーメン',
+        });
+        expect(clicks).toBe(0);
+        filter.destroy();
+    });
+
+    it('advances a desktop short whose on-screen title was auto-translated to the UI locale', async () => {
+        // The locale bug: an English video shows a Japanese-translated overlay
+        // title. The oEmbed ORIGINAL title (English) is the authority, so the
+        // short is still recognised as non-Japanese and skipped.
+        const { clicks, filter } = await runDesktopShort({
+            videoId: 'deskTranslated', tabTitle: 'YouTube', // tab title not settled — force reliance on oEmbed
+            overlayTitle: '音は聞かないで', oEmbedTitle: "Don't check the sound",
+        });
+        expect(clicks).toBeGreaterThan(0);
+        filter.destroy();
     });
 
     it('does not strip reader words from the YouTube watch title while filtering', async () => {

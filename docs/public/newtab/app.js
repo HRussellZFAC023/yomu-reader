@@ -17679,9 +17679,81 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const ANKI_NEVER_FORGET_TAG = "yomu-never-forget";
   class AnkiConnectClient {
     constructor(getSettings) {
-      const Client = ankiCompanionOrThrow().AnkiConnectClient;
+      const companion = yomuAnkiCompanion();
+      if (!companion) return new DisabledAnkiConnectClient();
+      const Client = companion.AnkiConnectClient;
       return new Client(getSettings);
     }
+  }
+  class DisabledAnkiConnectClient {
+    destroy() {
+    }
+    isConnected() {
+      return Promise.resolve(false);
+    }
+    isAvailableForBackground() {
+      return Promise.resolve(false);
+    }
+    deckNames() {
+      return Promise.resolve([]);
+    }
+    modelNames() {
+      return Promise.resolve([]);
+    }
+    noteFieldTargetPlan() {
+      return Promise.resolve(null);
+    }
+    scanLibrary() {
+      return Promise.resolve({ deckNames: [], models: [], suggestedModel: null });
+    }
+    warmStatusIndex() {
+      return Promise.resolve(null);
+    }
+    findExistingCards(_card) {
+      return Promise.resolve(untrustedAnkiLookupResult());
+    }
+    findCachedStatusBatch(cards) {
+      return Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
+    }
+    findExistingCardsBatch(cards) {
+      return Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
+    }
+    rebuildStatusIndex() {
+      return Promise.resolve(null);
+    }
+    answerCard() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    setCardsSuspended() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    setNotesTag() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    browseNote() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    mediaFileDataUrl() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    mergeYomuData() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    addCard() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    addCardViaMobileHandoff() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    ensureDeckAndModel() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+    invoke() {
+      return Promise.reject(ankiCompanionUnavailableError());
+    }
+  }
+  function ankiCompanionUnavailableError() {
+    return new Error("Yomu Anki companion is unavailable.");
   }
   class AnkiDuplicateNoteError extends Error {
     constructor(message) {
@@ -17731,11 +17803,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   async function resolveAnkiWordAudio(card, settings) {
     return yomuAnkiCompanion()?.resolveAnkiWordAudio(card, settings) ?? null;
-  }
-  function ankiCompanionOrThrow() {
-    const companion = yomuAnkiCompanion();
-    if (!companion) throw new Error("Yomu Anki companion is unavailable.");
-    return companion;
   }
   function localAnkiLookupWithUnavailableDetails(lookup) {
     const mark = (note) => ankiNoteHasRenderableDetails(note) ? note : { ...note, detailsUnavailable: true };
@@ -36164,6 +36231,9 @@ ${spelling}`);
   function pointInRect(x2, y, rect) {
     return x2 >= rect.left && x2 <= rect.right && y >= rect.top && y <= rect.bottom;
   }
+  function videoRectKey(rect) {
+    return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
+  }
   function clearWindowTimeout(id) {
     if (id !== void 0) window.clearTimeout(id);
     return void 0;
@@ -36297,6 +36367,8 @@ ${spelling}`);
     discoverTimer;
     tickTimer;
     alignFrame;
+    lastAlignedVideoRectKey = "";
+    lastShortsNavVideoId = "";
     destroyed = false;
     selectedTrackId = "";
     secondaryTrackId = "";
@@ -36898,7 +36970,9 @@ ${spelling}`);
       this.refreshSubtitleSourcesForTick();
       this.refreshNativeCueLists();
       this.setNativeTrackModes();
+      this.syncShortsReelNavigation();
       this.updateFromLoadedCues();
+      this.realignIfVideoMoved();
       this.syncPlayerChromeIdleState();
       this.syncAsbPlayerSubtitleMoveHandles(settings);
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
@@ -36962,15 +37036,49 @@ ${spelling}`);
       if (!this.video) {
         this.root.classList.remove("jpdb-subtitle-has-video-frame", "jpdb-subtitle-compact-video");
         this.root.classList.add("jpdb-subtitle-video-out-of-view");
+        this.lastAlignedVideoRectKey = "";
         this.positionTranscriptPanel();
         return;
       }
       const rect = this.videoLayoutRect();
+      this.lastAlignedVideoRectKey = videoRectKey(rect);
       this.applyVideoLayout(rect);
+    }
+    // Reel-to-reel Shorts swipes (and other in-page layout shifts) move the
+    // active <video> WITHOUT a resize, window scroll, or yt-navigate-finish, so
+    // none of the alignment triggers fire and the overlay stays stuck
+    // out-of-view until a play/pause re-aligns it. The tick already runs while
+    // playing; cheaply re-align whenever the video's on-screen box has moved.
+    realignIfVideoMoved() {
+      if (!this.video || !this.root) return;
+      const rect = this.videoLayoutRect();
+      const shouldShow = this.isVideoOverlayVisible(rect);
+      const isShowing = !this.root.classList.contains("jpdb-subtitle-video-out-of-view");
+      if (shouldShow !== isShowing || videoRectKey(rect) !== this.lastAlignedVideoRectKey) this.scheduleAlignToVideo();
+    }
+    // Swiping between Shorts reels reuses the same <video> element at the same
+    // position and emits no yt-navigate-finish, so the controller never treats
+    // it as navigation: tracks/overlay stay bound to the previous reel and the
+    // overlay can latch out-of-view until an unrelated DOM mutation (a manual
+    // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
+    // from the tick and run the normal navigation path when it changes.
+    syncShortsReelNavigation() {
+      if (!location.pathname.startsWith("/shorts/")) {
+        this.lastShortsNavVideoId = "";
+        return;
+      }
+      const videoId = getYouTubeVideoId();
+      if (!videoId || videoId === this.lastShortsNavVideoId) return;
+      const firstSync = this.lastShortsNavVideoId === "";
+      this.lastShortsNavVideoId = videoId;
+      if (!firstSync) this.handleYouTubeNavigation();
+    }
+    isVideoOverlayVisible(rect) {
+      return isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
     }
     applyVideoLayout(rect) {
       if (!this.root) return;
-      const videoVisible = isSubtitleOverlayVideoVisible(rect) && (!this.video || isSubtitleVideoElementRenderable(this.video)) && this.videoHasPlayerAffordances();
+      const videoVisible = this.isVideoOverlayVisible(rect);
       this.root.classList.toggle("jpdb-subtitle-video-out-of-view", !videoVisible);
       this.root.classList.toggle("jpdb-subtitle-has-video-frame", videoVisible);
       if (!videoVisible) {
@@ -39864,6 +39972,7 @@ ${spelling}`);
   const YOUTUBE_VISIBLE_BACKFILL_TARGET = 24;
   const YOUTUBE_BACKFILL_THROTTLE_MS = 1200;
   const YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS = 800;
+  const YOUTUBE_SHORTS_ADVANCE_RETRY_MS = 1e3;
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
   const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
@@ -40036,7 +40145,7 @@ ${spelling}`);
         }
       });
       this.restoreCurrentShortsWatchItem();
-      this.advancePastFilteredMobileShortsReel();
+      this.advancePastFilteredActiveShort();
       const result = classifyYouTubeFilterCandidates(this.collectFilterCandidates(), { revealed: this.revealed });
       result.decisions.forEach((decision) => this.applyFilterDecision(decision));
       this.syncFilterableVideoShelves();
@@ -40064,7 +40173,6 @@ ${spelling}`);
     applyFilterDecision(decision) {
       if (isCurrentYouTubeShortsWatchCard(decision.candidate.card)) {
         this.showCard(decision.candidate.card);
-        if (decision.kind === "hide") this.advancePastFilteredShort(decision.candidate.videoId || decision.candidate.filterText);
         return;
       }
       if (decision.kind === "skip") {
@@ -40134,8 +40242,14 @@ ${spelling}`);
     }
     advancePastFilteredShort(shortKey = currentYouTubeShortsVideoId() || location.pathname) {
       const advanceKey = `${location.pathname}:${shortKey}`;
-      if (this.lastAdvancedShortKey === advanceKey) return;
       const now = performance.now();
+      if (this.lastAdvancedShortKey === advanceKey) {
+        const sinceAdvance = now - this.lastShortAdvanceAt;
+        if (sinceAdvance < YOUTUBE_SHORTS_ADVANCE_RETRY_MS) {
+          this.schedule(Math.ceil(YOUTUBE_SHORTS_ADVANCE_RETRY_MS - sinceAdvance) + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
+          return;
+        }
+      }
       const throttleRemaining = YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS - (now - this.lastShortAdvanceAt);
       if (throttleRemaining > 0) {
         this.schedule(Math.ceil(throttleRemaining) + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
@@ -40150,20 +40264,21 @@ ${spelling}`);
       next.click();
       this.schedule(YOUTUBE_SHORTS_ADVANCE_THROTTLE_MS + YOUTUBE_FILTER_MUTATION_RESCAN_DELAY_MS);
     }
-    // m.youtube.com shorts player (2026): the active reel lives in a JS
-    // carousel (shorts-page > shorts-carousel) with no per-item card elements,
-    // so the card scan can never classify it and swiping lands on unfiltered
-    // English shorts. Classify the ACTIVE short from the player overlay title
-    // through the same decision rules as cards, and step past it when it
-    // would have been hidden.
-    advancePastFilteredMobileShortsReel() {
+    // Shorts watch player (2026): the active reel lives in a JS carousel —
+    // mobile is shorts-page > shorts-carousel, desktop (and iPad's
+    // "Request Desktop Website") is ytd-shorts > ytd-reel-video-renderer. The
+    // per-card title for the active reel is unreliable: it lags a reel behind
+    // the URL, and under a non-English UI locale YouTube auto-translates it into
+    // the UI language so an English short looks Japanese. Classify the ACTIVE
+    // short from the URL video id + its ORIGINAL (oEmbed/tab) title instead, on
+    // both platforms, and step past it when it would have been hidden.
+    advancePastFilteredActiveShort() {
       if (!isYouTubeShortsWatchPage()) return;
-      if (document.querySelector("ytd-shorts")) return;
-      const overlay = document.querySelector("shorts-page, shorts-carousel, shorts-video");
+      const overlay = document.querySelector("ytd-shorts, shorts-page, shorts-carousel, shorts-video");
       if (!overlay) return;
       const videoId = currentYouTubeShortsVideoId();
-      const title = mobileShortsActiveTitle();
-      if (!videoId || !title) return;
+      if (!videoId) return;
+      const title = activeShortsTitle();
       const resolvedTitle = this.resolveTitleForFiltering({ card: overlay, title, videoId });
       const candidate = {
         card: overlay,
@@ -41524,10 +41639,10 @@ ${spelling}`);
     const viewportCenter = window.innerHeight / 2;
     return rect.top <= viewportCenter && rect.bottom >= viewportCenter;
   }
-  function mobileShortsActiveTitle() {
-    const overlayTitle = document.querySelector("yt-shorts-video-title-view-model")?.textContent?.trim() ?? "";
-    if (overlayTitle) return overlayTitle;
-    return document.title.replace(/\s*-\s*YouTube\s*$/i, "").trim();
+  function activeShortsTitle() {
+    const tabTitle = document.title.replace(/\s*-\s*YouTube\s*$/i, "").trim();
+    if (tabTitle && tabTitle.toLowerCase() !== "youtube") return tabTitle;
+    return document.querySelector("yt-shorts-video-title-view-model")?.textContent?.trim() ?? "";
   }
   function currentYouTubeShortsVideoId() {
     return location.pathname.match(/^\/shorts\/([^/?#]+)/)?.[1] ?? "";
