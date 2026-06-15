@@ -286,6 +286,22 @@ const YOMU_VIDEO_PLAYER_ROOTS = [
     '[data-settings-trigger]',
     '[data-overflow-menu]',
 ];
+const YOUTUBE_CHROME_ROOTS = [
+    'ytd-feed-filter-chip-bar-renderer chip-shape button',
+    'ytd-feed-filter-chip-bar-renderer [role="tab"]',
+    'yt-chip-cloud-renderer chip-shape button',
+    'yt-chip-cloud-renderer [role="tab"]',
+    'ytm-feed-filter-chip-bar-renderer button',
+    'ytm-feed-filter-chip-bar-renderer [role="tab"]',
+    'ytd-mini-guide-renderer ytd-mini-guide-entry-renderer a#endpoint',
+    'ytd-guide-renderer ytd-guide-entry-renderer a#endpoint',
+    'ytm-pivot-bar-renderer a',
+    'ytm-pivot-bar-item-renderer a',
+    'ytd-masthead yt-button-shape button',
+    'ytd-masthead button[aria-label]',
+    'ytd-masthead .ytAttributedStringHost',
+    'ytd-masthead yt-attributed-string',
+];
 const GOOGLE_SEARCH_ROOTS = [
     '#search',
     '#rso',
@@ -520,6 +536,21 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         heading: true,
         fallbackToWholePage: true,
         matches: url => url.hostname === 'tadoku.org' || url.hostname.endsWith('.tadoku.org'),
+    },
+    {
+        id: 'youtube-chrome-parser',
+        name: 'YouTube chrome',
+        description: 'Stable Japanese YouTube chips, navigation, and topbar controls.',
+        roots: YOUTUBE_CHROME_ROOTS,
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        includeUiChrome: true,
+        singlePassScan: true,
+        includePassiveInteractionRoots: false,
+        matches: url => url.hostname === 'youtube.com'
+            || url.hostname.endsWith('.youtube.com')
+            || url.hostname === 'youtu.be',
     },
     {
         id: 'youtube-comments-parser',
@@ -759,6 +790,7 @@ function addUniqueSiteScanTarget(
 ): boolean {
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length || nodes.some(node => context.seen.has(node))) return false;
+    if (isResidualReaderParticleTarget(target)) return false;
     nodes.forEach(node => context.seen.add(node));
     context.targets.push(siteScanTargetWithProfileOptions(profile, target));
     return true;
@@ -1029,10 +1061,17 @@ function genericProseCollectionFull(collection: GenericProseCollection): boolean
 function appendGenericProseTarget(targets: FragmentTextTarget[], seen: Set<Text>, target: FragmentTextTarget): boolean {
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length) return false;
+    if (isResidualReaderParticleTarget(target)) return false;
     if (nodes.some(node => seen.has(node))) return false;
     nodes.forEach(node => seen.add(node));
     targets.push({ ...target, parserId: target.parserId ?? 'generic-prose-parser' });
     return true;
+}
+
+function isResidualReaderParticleTarget(target: FragmentTextTarget): boolean {
+    const text = target.text.replace(/\s+/g, '');
+    return /^[のはをがにでへもとやかねよな]$/u.test(text)
+        && Boolean(target.parent.querySelector('.jpdb-reader-word'));
 }
 
 function textNodesForFragmentTarget(target: FragmentTextTarget): Text[] {
