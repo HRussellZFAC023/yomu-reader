@@ -53034,7 +53034,7 @@ ${newTabCardReading(card)}`;
     return el(
       "section",
       { class: "jpdb-reader-newtab-search-section" },
-      el("h2", {}, context.text("words")),
+      el("h2", { class: "jpdb-reader-parseable", lang: "ja" }, context.text("words")),
       el(
         "div",
         { class: "jpdb-reader-newtab-search-list" },
@@ -53074,7 +53074,7 @@ ${newTabCardReading(card)}`;
     return el(
       "section",
       { class: "jpdb-reader-newtab-search-section" },
-      el("h2", {}, context.text("kanji")),
+      el("h2", { class: "jpdb-reader-parseable", lang: "ja" }, context.text("kanji")),
       el(
         "div",
         { class: "jpdb-reader-newtab-search-kanji-grid" },
@@ -53092,7 +53092,7 @@ ${newTabCardReading(card)}`;
       end: spelling.length,
       length: spelling.length,
       rubies: [],
-      pitchClass: "",
+      pitchClass: getPitchClass(card.pitchAccent, reading),
       sentence: spelling
     };
     return renderTokensToHtml(spelling, [token], settings);
@@ -53115,9 +53115,9 @@ ${newTabCardReading(card)}`;
           dataset: { newtabAction: "search-result-kanji", kanji: result.character },
           "aria-expanded": "false"
         },
-        el("span", { class: "jpdb-reader-newtab-search-kanji-char", lang: "ja" }, result.character),
-        detail ? el("span", { class: "jpdb-reader-newtab-search-meaning" }, detail) : null,
-        words ? el("span", { class: "jpdb-reader-newtab-search-meta", lang: "ja" }, words) : null
+        el("span", { class: "jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable", lang: "ja" }, result.character),
+        detail ? el("span", { class: "jpdb-reader-newtab-search-meaning jpdb-reader-parseable", lang: "ja" }, detail) : null,
+        words ? el("span", { class: "jpdb-reader-newtab-search-meta jpdb-reader-parseable", lang: "ja" }, words) : null
       ),
       el("div", { class: "jpdb-reader-newtab-search-detail", dataset: { newtabSearchDetail: true }, hidden: true })
     );
@@ -56320,6 +56320,7 @@ ${entry.url}`),
   const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
   const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
   const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2500;
+  const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
   const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
   const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
   const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
@@ -56336,7 +56337,7 @@ ${entry.url}`),
     return el(
       "details",
       { id: "jpdb-reader-newtab-handwriting", class: "jpdb-reader-newtab-handwriting", dataset: { newtabHandwriting: true } },
-      el("summary", {}, newTabText(language, "drawKanji")),
+      el("summary", { class: "jpdb-reader-parseable", lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "drawKanji")),
       el(
         "div",
         { class: "jpdb-reader-newtab-handwriting-body" },
@@ -56357,9 +56358,10 @@ ${entry.url}`),
   }
   function renderSearchHandwritingManualAction(language) {
     return el("button", {
-      class: "jpdb-reader-newtab-handwriting-manual-action",
+      class: "jpdb-reader-newtab-handwriting-manual-action jpdb-reader-parseable",
       type: "button",
-      dataset: { newtabAction: "search-focus" }
+      dataset: { newtabAction: "search-focus" },
+      lang: resolveUiLanguage(language) === "ja" ? "ja" : "en"
     }, newTabText(language, "typeOrPasteKanji"));
   }
   function readerWordSurfaceText(word) {
@@ -56708,10 +56710,10 @@ ${entry.url}`),
             el(
               "div",
               { class: "jpdb-reader-newtab-mode", role: "group", "aria-label": newTabText(language, "newTabMode") },
-              el("button", { type: "button", dataset: { newtabAction: "mode", mode: "word" } }, uiText(language, "word")),
-              el("button", { type: "button", dataset: { newtabAction: "mode", mode: "kanji" } }, uiText(language, "kanji")),
-              el("button", { type: "button", dataset: { newtabAction: "mode", mode: "search" } }, uiText(language, "search")),
-              el("button", { type: "button", dataset: { newtabAction: "mode", mode: "stats" } }, newTabText(language, "stats"))
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "word" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "word")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "kanji" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "kanji")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "search" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "search")),
+              el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "mode", mode: "stats" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, newTabText(language, "stats"))
             ),
             el(
               "div",
@@ -56759,7 +56761,7 @@ ${entry.url}`),
                 el(
                   "div",
                   { class: "jpdb-reader-newtab-more-menu", role: "menu" },
-                  el("button", { type: "button", role: "menuitem", dataset: { newtabAction: "settings" } }, uiText(language, "settings"))
+                  el("button", { class: "jpdb-reader-parseable", type: "button", role: "menuitem", dataset: { newtabAction: "settings" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "settings"))
                 )
               )
             )
@@ -56768,7 +56770,7 @@ ${entry.url}`),
             "section",
             { class: "jpdb-reader-newtab-study", dataset: { newtabStudy: true }, "aria-live": "polite" },
             el("div", { class: "jpdb-reader-newtab-count", dataset: { newtabCount: true }, hidden: true }),
-            el("h1", { class: "jpdb-reader-newtab-prompt", dataset: { newtabPrompt: true }, lang: "ja" }, APP_NAME),
+            el("h1", { class: "jpdb-reader-newtab-prompt jpdb-reader-parseable", dataset: { newtabPrompt: true }, lang: "ja" }, APP_NAME),
             el(
               "div",
               { class: "jpdb-reader-newtab-answer", dataset: { newtabAnswer: true } },
@@ -56810,14 +56812,16 @@ ${entry.url}`),
                   "aria-controls": "jpdb-reader-newtab-autocomplete",
                   "aria-expanded": "false"
                 }),
-                el("button", { type: "submit", dataset: { newtabAction: "search-submit" } }, uiText(language, "search")),
+                el("button", { class: "jpdb-reader-parseable", type: "submit", dataset: { newtabAction: "search-submit" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "search")),
                 el("button", {
+                  class: "jpdb-reader-parseable",
                   type: "button",
                   dataset: { newtabAction: "search-handwriting-toggle" },
+                  lang: resolveUiLanguage(language) === "ja" ? "ja" : "en",
                   "aria-controls": "jpdb-reader-newtab-handwriting",
                   "aria-expanded": "false"
                 }, newTabText(language, "draw")),
-                el("button", { type: "button", dataset: { newtabAction: "search-clear" }, "aria-label": newTabText(language, "clearSearch") }, uiText(language, "clear"))
+                el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "search-clear" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en", "aria-label": newTabText(language, "clearSearch") }, uiText(language, "clear"))
               ),
               el("div", {
                 id: "jpdb-reader-newtab-autocomplete",
@@ -60993,6 +60997,7 @@ ${entry.url}`),
       } else if (results?.dataset.searchQuery !== query) {
         this.performSearch(root, query);
       }
+      void this.parseSearchSurfaces(root, this.searchGeneration, query);
       this.focusSearchInput(root);
       this.renderInstallCta(root);
     }
@@ -61231,11 +61236,12 @@ ${entry.url}`),
       replaceChildrenWith(
         mount,
         candidates.map((candidate) => el("button", {
+          class: "jpdb-reader-parseable",
           type: "button",
           dataset: { newtabAction: "handwriting-candidate", query: candidate },
           lang: "ja"
         }, candidate)),
-        message ? el("span", { class: "jpdb-reader-newtab-handwriting-message" }, message) : null,
+        message ? el("span", { class: "jpdb-reader-newtab-handwriting-message jpdb-reader-parseable", lang: resolveUiLanguage(this.language()) === "ja" ? "ja" : "en" }, message) : null,
         message && !candidates.length ? renderSearchHandwritingManualAction(this.language()) : null
       );
     }
@@ -61800,8 +61806,8 @@ ${entry.url}`),
           "aria-label": detail ? `${suggestion.query}, ${detail}` : suggestion.query,
           "aria-selected": "false"
         },
-        el("span", { class: "jpdb-reader-newtab-search-suggestion-term" }, suggestion.query),
-        detail ? el("span", { class: "jpdb-reader-newtab-search-suggestion-detail" }, detail) : null
+        el("span", { class: "jpdb-reader-newtab-search-suggestion-term jpdb-reader-parseable", lang: "ja" }, suggestion.query),
+        detail ? el("span", { class: "jpdb-reader-newtab-search-suggestion-detail jpdb-reader-parseable", lang: "ja" }, detail) : null
       );
     }
     renderSearchAutocomplete(root, query, suggestions) {
@@ -61847,7 +61853,23 @@ ${entry.url}`),
         results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
         resultCount ? null : this.renderSearchNoResults(results)
       );
+      void this.parseSearchSurfaces(root, this.searchGeneration, results.query);
+      void this.enrichSearchResultPitch(root, results, this.searchGeneration);
       void this.enrichSearchWordStatusRows(root, results, this.searchGeneration);
+    }
+    async parseSearchSurfaces(root, generation, query) {
+      if (!this.isCurrentSearch(root, generation, query)) return;
+      await this.dependencies.parseContent?.(root, newTabShortParseOptions())?.catch(() => void 0);
+    }
+    async enrichSearchResultPitch(root, results, generation) {
+      const cards = results.words.filter((card) => this.shouldEnrichWordPitch(card));
+      if (!cards.length) return;
+      await runLimited(cards, NEW_TAB_SEARCH_PITCH_CONCURRENCY, async (card) => {
+        const pitchAccent = await this.loadWordPitch(card);
+        if (!pitchAccent.length || !this.isCurrentSearch(root, generation, results.query)) return;
+        if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+        this.updateRenderedWordPitch(root, card);
+      });
     }
     async enrichSearchWordStatusRows(root, results, generation) {
       if (!this.dependencies.loadCardRenderData || !results.words.length) return;
@@ -66059,6 +66081,7 @@ ${entry.url}`),
       try {
         const parsed = await this.parser.parse(plan.targets.map((target) => target.text), {
           allowJpdbTimeoutFallback: true,
+          allowSegmentedFallback: true,
           includeLocalPitch: false,
           jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
           skipJpdb: true

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.34] - 2026-06-15
+
+### Fixed
+
+- Hosted new-tab search now applies reader parsing and pitch enrichment to Japanese search chrome, autocomplete suggestions, kanji result cards, word result cards, and the Japanese settings dialog opened from search. Searches such as `学習能力` now hydrate from unknown pitch to concrete pitch underline/color classes when local or public pitch data is available, and settings chrome such as `よむ 設定` can render furigana/pitch via the same bounded parser.
+
 ## [0.7.33] - 2026-06-15
 
 ### Fixed
