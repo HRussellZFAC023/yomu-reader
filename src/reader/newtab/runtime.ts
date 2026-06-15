@@ -2148,14 +2148,17 @@ export class NewTabRuntime {
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
+            const currentPlan = nestedSettingsTextParsePlan(form, 640);
+            if (!currentPlan) return;
+            const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan);
             const renderSettings = settingsForSettingsFormParse(form, this.settings);
-            applyNestedParsePlan(plan, parsed, renderSettings);
+            applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
             addSettingsRubyFromRenderedReadings(form, renderSettings);
             highlightCardTargetScopes(form);
             refreshReaderWordContrast(form);
-            form.dataset.jpdbReaderParseKey = plan.parseKey;
+            form.dataset.jpdbReaderParseKey = currentPlan.parseKey;
             form.dataset.yomuSettingsSelfEnhanced = 'true';
-            const tokens = parsed.flat();
+            const tokens = currentParsed.flat();
             void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
             void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
         } catch {
@@ -2197,6 +2200,20 @@ export class NewTabRuntime {
 
 function markNewTabRuntime(): void {
     (window as YomuNewTabWindow).__YOMU_READER_RUNTIME__ = 'newtab';
+}
+
+function parsedSettingsTargetsForCurrentPlan(
+    previousPlan: NonNullable<ReturnType<typeof nestedSettingsTextParsePlan>>,
+    previousParsed: JPDBToken[][],
+    currentPlan: NonNullable<ReturnType<typeof nestedSettingsTextParsePlan>>,
+): JPDBToken[][] {
+    const parsedByText = new Map<string, JPDBToken[][]>();
+    previousPlan.targets.forEach((target, index) => {
+        const queue = parsedByText.get(target.text) ?? [];
+        queue.push(previousParsed[index] ?? []);
+        parsedByText.set(target.text, queue);
+    });
+    return currentPlan.targets.map(target => parsedByText.get(target.text)?.shift() ?? []);
 }
 
 function settingsForSettingsFormParse(form: HTMLFormElement, settings: ReaderSettings): ReaderSettings {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.51] - 2026-06-15
+
+### Fixed
+
+- Hosted new-tab Settings now rebinds parsed Japanese labels to the current settings DOM before rendering, so relocalized labels such as 設定 and 設定の表示言語 keep furigana and pitch underlines instead of only enhancing preview/sample words.
+
 ## [0.7.50] - 2026-06-15
 
 ### Fixed

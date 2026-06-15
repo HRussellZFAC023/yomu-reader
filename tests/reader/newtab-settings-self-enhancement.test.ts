@@ -69,6 +69,60 @@ describe('hosted newtab settings self enhancement', () => {
             runtime.destroy();
         }
     });
+
+    it('renders settings labels when equivalent text nodes refresh while parsing', async () => {
+        const runtime = new NewTabRuntime();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja' as const,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+            showPitchAccent: true,
+        };
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.dataset.jpdbReaderRoot = 'true';
+        form.innerHTML = `
+            <h2>よむ 設定</h2>
+            <fieldset data-settings-panel="appearance">
+                <label><span class="jpdb-reader-settings-label-text">設定の表示言語</span><select name="furiganaMode"><option value="all">すべて</option></select></label>
+            </fieldset>
+        `;
+        document.body.append(form);
+        const labelText = form.querySelector<HTMLElement>('.jpdb-reader-settings-label-text')!;
+        const parse = vi.fn(async (texts: string[], parseOptions?: unknown): Promise<JPDBToken[][]> => {
+            void parseOptions;
+            labelText.replaceChildren(document.createTextNode('設定の表示言語'));
+            return texts.map(text => settingsJapaneseTokenForText(text, {
+                tokens: [{ spelling: '設定', reading: 'せってい', vid: 9820 }],
+            }));
+        });
+        const internals = runtime as unknown as {
+            settings: typeof settings;
+            activeDialog?: HTMLElement;
+            parser: { canParse: () => boolean; parse: typeof parse };
+            parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+            enrichPublicVocabularyWords(tokens: JPDBToken[]): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = settings;
+        internals.activeDialog = form;
+        internals.parser = { canParse: () => true, parse };
+        internals.enrichPublicVocabularyWords = vi.fn(async () => undefined);
+        internals.enrichPitchWords = vi.fn(async () => undefined);
+
+        try {
+            await internals.parseSettingsJapanese(form);
+
+            const labelWord = labelText.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="設定"]');
+            expect(labelWord).toBeTruthy();
+            expect(labelWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
+            expect(labelWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(form.querySelector('option .jpdb-reader-word')).toBeNull();
+        } finally {
+            runtime.destroy();
+        }
+    });
 });
 
 function newTabSettingsJapaneseParserFixture(options: {
