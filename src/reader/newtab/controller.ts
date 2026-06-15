@@ -1463,7 +1463,7 @@ export class NewTabController {
         }
     }
 
-    private handleStatsClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
+    private handleStatsClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action?: string): boolean {
         const request = this.statsClickRequest(root, target, action, event);
         if (!request) return false;
         event.preventDefault();

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -12,6 +12,7 @@ import {
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
     readJsonBody,
+    serveFile,
     startLoopbackServer,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
@@ -19,13 +20,26 @@ import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib
 
 const {
     root: ROOT,
+    dist: DIST,
     artifacts: ARTIFACTS,
     scriptPath: SCRIPT_PATH,
     cssPath: CSS_PATH,
     newTabDir: NEWTAB_DIR,
 } = createSmokePaths(import.meta.dirname);
 const NEWTAB_CSS_PATH = path.join(NEWTAB_DIR, 'styles.css');
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, NEWTAB_CSS_PATH], ROOT, 'Run npm run build first.');
+const BUILT_NEWTAB_ROUTES = new Map([
+    ['/yomu-reader/newtab', [path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8']],
+    ['/yomu-reader/newtab/index.html', [path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8']],
+    ['/yomu-reader/newtab/app.js', [path.join(NEWTAB_DIR, 'app.js'), 'text/javascript; charset=utf-8']],
+    ['/yomu-reader/newtab/styles.css', [path.join(NEWTAB_DIR, 'styles.css'), 'text/css; charset=utf-8']],
+    ['/yomu-reader/newtab/sw.js', [path.join(NEWTAB_DIR, 'sw.js'), 'text/javascript; charset=utf-8']],
+    ['/yomu-reader/newtab/version.json', [path.join(NEWTAB_DIR, 'version.json'), 'application/json; charset=utf-8']],
+    ['/yomu-reader/yomu-icon.svg', [path.join(DIST, 'yomu-icon.svg'), 'image/svg+xml']],
+    ['/yomu-reader/favicon-32x32.png', [path.join(DIST, 'favicon-32x32.png'), 'image/png']],
+    ['/yomu-reader/favicon-16x16.png', [path.join(DIST, 'favicon-16x16.png'), 'image/png']],
+    ['/yomu-reader/apple-touch-icon.png', [path.join(DIST, 'apple-touch-icon.png'), 'image/png']],
+]);
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, NEWTAB_CSS_PATH, path.join(NEWTAB_DIR, 'index.html'), path.join(NEWTAB_DIR, 'app.js')], ROOT, 'Run npm run build first.');
 mkdirSync(ARTIFACTS, { recursive: true });
 
 const VOCABULARY = [
@@ -39,6 +53,11 @@ const VOCABULARY = [
     ['手順', '手順', 'てじゅん', 'steps', ['n'], 1100, ['not-in-deck'], ['LHHH']],
     ['検索', '検索', 'けんさく', 'search', ['n'], 500, ['not-in-deck'], ['LHHH']],
     ['復習', '復習', 'ふくしゅう', 'review', ['n'], 820, ['not-in-deck'], ['LHHH']],
+    ['外観', '外観', 'がいかん', 'appearance', ['n'], 880, ['not-in-deck'], ['LHHH']],
+    ['表示', '表示', 'ひょうじ', 'display', ['n'], 760, ['not-in-deck'], ['LHHH']],
+    ['言語', '言語', 'げんご', 'language', ['n'], 710, ['not-in-deck'], ['LHHH']],
+    ['自動', '自動', 'じどう', 'automatic', ['n'], 620, ['not-in-deck'], ['LHHH']],
+    ['保存', '保存', 'ほぞん', 'save', ['n'], 560, ['not-in-deck'], ['LHHH']],
 ];
 
 const SETTINGS = {
@@ -76,7 +95,8 @@ const requests = [];
 try {
     const docs = await runCoveragePage('/yomu-reader/', 'docs');
     const newtab = await runCoveragePage('/yomu-reader/newtab-smoke/?q=%E3%82%88%E3%82%80', 'newtab');
-    const report = { docs, newtab, requests };
+    const settings = await runSettingsModalCoverage();
+    const report = { docs, newtab, settings, requests };
     const reportPath = path.join(ARTIFACTS, 'enhancement-coverage.json');
     writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
     console.log(JSON.stringify(report, null, 2));
@@ -174,6 +194,121 @@ async function runCoveragePage(pagePath, name) {
     return { ...state, screenshot };
 }
 
+async function runSettingsModalCoverage() {
+    const context = await browser.newContext({
+        bypassCSP: true,
+        locale: 'ja-JP',
+        viewport: { width: 1180, height: 820 },
+        deviceScaleFactor: 1,
+    });
+    const page = await context.newPage();
+    page.on('console', message => {
+        if (process.env.SMOKE_DEBUG) console.error('[settings]', message.type(), message.text());
+    });
+    page.on('pageerror', error => {
+        if (process.env.SMOKE_DEBUG) console.error('[settings pageerror]', error.message);
+    });
+    await page.exposeFunction('__yomuEnhancementCoverageRequest', request => handleYomuRequest(request, requests));
+    await addGmStorageBridgeInitScript(page, {
+        key: YOMU_SETTINGS_KEY,
+        value: SETTINGS,
+        requestBridgeName: '__yomuEnhancementCoverageRequest',
+    });
+    await page.goto(`${server.origin}/yomu-reader/newtab/index.html?q=%E8%AA%AD%E3%81%BF%E5%8F%96%E3%82%8B`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.jpdb-reader-newtab-overflow', { timeout: 20_000 });
+    await page.click('.jpdb-reader-newtab-overflow');
+    await page.click('[data-newtab-action="settings"]');
+    await page.waitForSelector('.jpdb-reader-settings', { timeout: 10_000 });
+    await page.locator('[data-action="settings-panel"][data-panel="appearance"]').evaluate(button => button.click());
+    await page.waitForSelector('[data-settings-panel="appearance"]:not([hidden])', { timeout: 10_000 });
+    await waitForSettingsWord(page, '日本語');
+    await page.waitForTimeout(360);
+
+    const state = await page.evaluate(() => {
+        const form = document.querySelector('.jpdb-reader-settings');
+        if (!(form instanceof HTMLElement)) return { missing: true };
+        const words = [...form.querySelectorAll('.jpdb-reader-word')].filter(word => word instanceof HTMLElement);
+        return {
+            url: location.href,
+            wordCount: words.length,
+            rubyCount: words.filter(word => word.querySelector('rt,.jpdb-reader-furi')).length,
+            pitchCount: words.filter(word => /\bjpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)\b/u.test(word.className)).length,
+            surfaces: words.map(word => ({
+                text: word.dataset.expression || word.textContent?.trim() || '',
+                hasRuby: Boolean(word.querySelector('rt,.jpdb-reader-furi')),
+                pitch: word.dataset.pitchClass || '',
+                scope: settingsScopeName(word),
+            })),
+            underline: underlineMeasures(words),
+        };
+
+        function settingsScopeName(word) {
+            if (word.closest('.jpdb-reader-settings-tabs')) return 'tabs';
+            if (word.closest('.jpdb-reader-theme-title')) return 'heading';
+            if (word.closest('[data-settings-panel="appearance"]')) return 'appearance';
+            if (word.closest('[data-settings-panel="api"]')) return 'api';
+            return 'settings';
+        }
+
+        function underlineMeasures(words) {
+            return words.map(word => {
+                const rect = word.getBoundingClientRect();
+                const style = getComputedStyle(word);
+                const after = getComputedStyle(word, '::after');
+                return {
+                    text: word.dataset.expression || word.textContent?.trim() || '',
+                    scope: settingsScopeName(word),
+                    hasRuby: Boolean(word.querySelector('rt,.jpdb-reader-furi')),
+                    lineHeight: style.lineHeight,
+                    lineTop: Math.round(rect.top),
+                    bottom: Math.round(rect.bottom * 100) / 100,
+                    insetBlockEnd: after.insetBlockEnd || after.bottom,
+                    borderBlockEndColor: after.borderBlockEndColor || after.borderBottomColor,
+                };
+            });
+        }
+    });
+
+    const screenshot = path.join(ARTIFACTS, 'enhancement-coverage-settings.png');
+    await page.screenshot({ path: screenshot, fullPage: true });
+    await context.close();
+
+    assert(!state.missing, 'settings modal did not render', state);
+    assert(state.wordCount >= 8, 'settings modal did not render enough reader words', state);
+    assert(state.rubyCount >= 4, 'settings modal did not render enough ruby coverage', state);
+    assert(state.pitchCount >= 4, 'settings modal did not render enough pitch-colored words', state);
+    assertSettingsSurfaces(state);
+    assertUnderlineBaselines('settings', state);
+    return { ...state, screenshot };
+}
+
+async function waitForSettingsWord(page, expression) {
+    try {
+        await page.waitForFunction(targetExpression => {
+            const form = document.querySelector('.jpdb-reader-settings');
+            const words = form ? [...form.querySelectorAll('.jpdb-reader-word')].filter(word => word instanceof HTMLElement) : [];
+            return words.some(word => word.dataset.expression === targetExpression && word.querySelector('rt,.jpdb-reader-furi'));
+        }, expression, { timeout: 20_000 });
+    } catch (error) {
+        const diagnostics = await page.evaluate(() => {
+            const form = document.querySelector('.jpdb-reader-settings');
+            const words = form ? [...form.querySelectorAll('.jpdb-reader-word')].filter(word => word instanceof HTMLElement) : [];
+            return {
+                activePanel: form?.querySelector('[data-settings-panel]:not([hidden])')?.getAttribute('data-settings-panel') ?? '',
+                parseKey: form?.getAttribute('data-jpdb-reader-parse-key') ?? '',
+                loadingKey: form?.getAttribute('data-jpdb-reader-parse-loading-key') ?? '',
+                surfaces: words.slice(0, 80).map(word => ({
+                    text: word.dataset.expression || word.textContent?.trim() || '',
+                    hasRuby: Boolean(word.querySelector('rt,.jpdb-reader-furi')),
+                    pitch: word.dataset.pitchClass || '',
+                    panel: word.closest('[data-settings-panel]')?.getAttribute('data-settings-panel') ?? '',
+                })),
+            };
+        });
+        throw new Error(`Timed out waiting for settings word "${expression}"\n${JSON.stringify(diagnostics, null, 2)}\n${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
 function assertExpectedSurfaces(name, state) {
     const expected = name === 'docs'
         ? [
@@ -207,6 +342,20 @@ function assertUnderlineBaselines(name, state) {
     }
 }
 
+function assertSettingsSurfaces(state) {
+    const expected = [
+        ['設定', 'settings'],
+        ['日本語', 'appearance'],
+        ['外観', 'tabs'],
+    ];
+    for (const [text, scope] of expected) {
+        const match = state.surfaces.find(surface => surface.text === text && surface.scope === scope);
+        assert(match, `settings modal did not enhance ${scope} text "${text}"`, { expected, surfaces: state.surfaces });
+        assert(match.hasRuby, `settings modal enhanced ${text} without ruby`, match);
+        assert(match.pitch && match.pitch !== 'unknown', `settings modal enhanced ${text} without pitch`, match);
+    }
+}
+
 function groupedByLine(items) {
     const groups = new Map();
     for (const item of items) {
@@ -231,15 +380,76 @@ async function handleYomuRequest(request, requestsLog) {
         return jsonHttpResponse(mockJpdbParseFromVocabulary(body, VOCABULARY));
     }
     if (url.origin === 'https://jpdb.io' && url.pathname === '/search') {
-        requestsLog.push({ kind: 'jpdb-public-pitch', url: request.url });
-        return { status: 200, responseText: '<!doctype html><html><body></body></html>', contentType: 'text/html; charset=utf-8' };
+        const query = url.searchParams.get('q') ?? '';
+        requestsLog.push({ kind: 'jpdb-public-search', query, url: request.url });
+        return { status: 200, responseText: jpdbPublicSearchHtml(query), contentType: 'text/html; charset=utf-8' };
     }
     requestsLog.push({ kind: 'unexpected', url: request.url });
     return { status: 404, responseText: '' };
 }
 
+function jpdbPublicSearchHtml(query) {
+    const rows = matchingVocabularyRows(query);
+    return `<!doctype html><html><body><div class="results search">${rows.map(publicVocabularyResultHtml).join('')}</div></body></html>`;
+}
+
+function matchingVocabularyRows(query) {
+    const normalized = String(query).replace(/\s+/g, '');
+    const exact = VOCABULARY.filter(row => [row[0], row[1], row[2]].some(value => String(value).replace(/\s+/g, '') === normalized));
+    return exact.length ? exact : [];
+}
+
+function publicVocabularyResultHtml(row, index) {
+    const [surface, spelling, reading, gloss, partOfSpeech, frequency, , pitch] = row;
+    const vid = 90_000 + index + spelling.charCodeAt(0);
+    const href = `/vocabulary/${vid}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading)}#a`;
+    return `
+        <div class="result vocabulary">
+            <a href="${href}">${escapeHtml(spelling)}</a>
+            <div class="subsection-headword">
+                <div class="primary-spelling"><div class="spelling">${rubyHtml(surface, reading)}</div></div>
+            </div>
+            <div class="subsection-meanings">
+                <div class="part-of-speech">${partOfSpeech.map(item => `<div>${escapeHtml(item)}</div>`).join('')}</div>
+                <div class="description">1. ${escapeHtml(gloss)}</div>
+            </div>
+            <div class="tags"><div class="tag">Top ${Number(frequency).toLocaleString('en-US')}</div></div>
+            <div class="subsection-pitch-accent">
+                <div class="subsection"><div><div>${pitchPatternHtml(reading, pitch?.[0] ?? '')}</div></div></div>
+            </div>
+            <a class="view-conjugations-link" href="${href}">More details...</a>
+        </div>
+    `;
+}
+
+function rubyHtml(surface, reading) {
+    return `<ruby>${escapeHtml(surface)}<rt>${escapeHtml(reading)}</rt></ruby>`;
+}
+
+function pitchPatternHtml(reading, pattern) {
+    const kana = Array.from(String(reading));
+    const levels = Array.from(String(pattern || 'LH'.padEnd(kana.length, 'H')));
+    return kana.map((character, index) => {
+        const level = levels[index] === 'H' ? 'high' : 'low';
+        return `<div style="background-image: linear-gradient(to top,var(--pitch-${level}-s),var(--pitch-${level}-e));"><div>${escapeHtml(character)}</div></div>`;
+    }).join('');
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 function serveFixture(request, response) {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    const route = builtNewtabRoute(url);
+    if (route) {
+        serveFile(response, route[0], route[1], request.method ?? 'GET');
+        return;
+    }
     if (url.pathname === '/yomu-reader/' || url.pathname === '/yomu-reader/index.html') {
         response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
         response.end(docsFixtureHtml());
@@ -252,6 +462,12 @@ function serveFixture(request, response) {
     }
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
+}
+
+function builtNewtabRoute(url) {
+    const pathname = url.pathname.replace(/\/+$/, '') || '/';
+    const route = BUILT_NEWTAB_ROUTES.get(pathname);
+    return route && existsSync(route[0]) ? route : null;
 }
 
 function docsFixtureHtml() {

@@ -2141,6 +2141,8 @@ export class NewTabRuntime {
                 allowSegmentedFallback: true,
                 includeLocalPitch: false,
                 jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS,
+                requireJpdb: false,
+                skipJpdb: true,
             });
             await this.hydrateSettingsFallbackTokens(parsed);
             if (!this.isCurrentSettingsRoot(form)

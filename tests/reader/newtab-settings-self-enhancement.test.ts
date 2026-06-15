@@ -32,9 +32,10 @@ describe('hosted newtab settings self enhancement', () => {
                     allowJpdbTimeoutFallback: true,
                     allowSegmentedFallback: true,
                     includeLocalPitch: false,
+                    requireJpdb: false,
+                    skipJpdb: true,
                 }),
             );
-            expect(parse.mock.calls[0]?.[1]).not.toEqual(expect.objectContaining({ skipJpdb: true }));
             const parsedTexts = parse.mock.calls[0]?.[0] ?? [];
             expect(parsedTexts).toEqual(expect.arrayContaining(['設定を検索', '外観', 'キャンセル', '保存']));
 

@@ -255,6 +255,29 @@ describe('nested text parse plans', () => {
         expect(texts).not.toContain('詳細');
     });
 
+    it('prioritizes visible settings panels before inactive panel text', () => {
+        document.body.innerHTML = `
+            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
+                <h2>よむ 設定</h2>
+                <div data-settings-panel="api" hidden>
+                    <label>APIアクセス</label>
+                </div>
+                <div data-settings-panel="appearance">
+                    <label>設定の表示言語 <span data-settings-select-options-meta>選択肢: 自動 / 英語 / 日本語</span></label>
+                </div>
+            </form>
+        `;
+        const root = document.body.querySelector<HTMLElement>('form')!;
+
+        const plan = nestedSettingsTextParsePlan(root, 24)!;
+
+        expect(plan.targets.map(target => target.text)).toEqual([
+            'よむ 設定',
+            '設定の表示言語 選択肢: 自動 / 英語 / 日本語',
+            'APIアクセス',
+        ]);
+    });
+
     it('renders reader-owned settings chrome labels as passive parsed words', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">

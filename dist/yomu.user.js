@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.49
+// @version      0.7.50
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nu/owJapQGpcwPVua63DP2aDkRUxzxhjNdeMhD6Ya30=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ZXL88bXCkmMxdLTpTgK7sSvUy0sdeZkh+XKA8Zsbvis=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-XVIqFA1yu1PKDGZLmpqNg0RB2njgu86UFavyIxSbM2I=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -51,8 +51,6 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
-
-/* Bundled dependency source information: fflate*/
 
 (function () {
   'use strict';
@@ -12061,6 +12059,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -35129,6 +35128,7 @@ ${glossaryKey}`;
     "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
     "[data-anki-setup-help]",
+    ".jpdb-reader-audio-source-choice",
     ".jpdb-reader-status-line",
     "a[href]",
     "button",
@@ -35162,6 +35162,7 @@ ${glossaryKey}`;
     "h2",
     ".jpdb-reader-settings-search>label",
     "[data-settings-search-empty]",
+    "[data-audio-source-row] [data-settings-select-options-meta]",
     "[data-settings-panel]",
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
@@ -35182,7 +35183,7 @@ ${glossaryKey}`;
   }
   function nestedSettingsTextParsePlan(root, limit) {
     const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(SETTINGS_PARSE_ROOT_SELECTOR));
-    const targets = parseRoots.filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
+    const targets = parseRoots.sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right)).filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
       parseRoot,
       limit,
       false,
@@ -35197,6 +35198,10 @@ ${glossaryKey}`;
       }
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+  }
+  function settingsParseRootPriority(parseRoot) {
+    const panel = parseRoot.closest("[data-settings-panel]");
+    return panel?.hasAttribute("hidden") ? 1 : 0;
   }
   function isExcludedSettingsParseRoot(parseRoot) {
     return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));

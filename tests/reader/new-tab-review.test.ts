@@ -10383,6 +10383,63 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('uses segmented fallback for hosted Japanese settings chrome without JPDB', async () => {
+        const runtime = new NewTabRuntime();
+        const parse = vi.fn(async () => [[]]);
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.innerHTML = `
+            <h2>よむ 設定</h2>
+            <nav class="jpdb-reader-settings-tabs"><button type="button" role="tab">外観</button></nav>
+            <input data-settings-search value="" aria-label="設定を検索">
+            <fieldset data-settings-panel="appearance">
+                <legend>外観</legend>
+                <label>設定の表示言語 <span data-settings-select-options-meta>日本語</span></label>
+            </fieldset>
+        `;
+        document.body.append(form);
+        const internals = runtime as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            activeDialog?: HTMLElement;
+            parser: { canParse(): boolean; parse: typeof parse };
+            jpdbVocabulary: { search(query: string, limit?: number): Promise<JPDBCard[]> };
+            jpdbPublicPitch: { lookup(expression: string, reading: string): Promise<string[]> };
+            parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja',
+            apiKey: '',
+            localDictionariesEnabled: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+        };
+        internals.activeDialog = form;
+        internals.parser = { canParse: () => true, parse };
+        internals.jpdbVocabulary = { search: vi.fn(async () => []) };
+        internals.jpdbPublicPitch = { lookup: vi.fn(async () => []) };
+
+        try {
+            await internals.parseSettingsJapanese(form);
+
+            expect(parse).toHaveBeenCalledWith(
+                expect.arrayContaining(['よむ 設定', '外観', '設定の表示言語 日本語']),
+                expect.objectContaining({
+                    allowJpdbTimeoutFallback: true,
+                    allowSegmentedFallback: true,
+                    includeLocalPitch: false,
+                    jpdbTimeoutMs: 10_000,
+                    requireJpdb: false,
+                    skipJpdb: true,
+                }),
+            );
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('uses a longer JPDB parse window for hosted new-tab study text than popovers', async () => {
         const runtime = new NewTabRuntime();
         const parse = vi.fn(async () => [[]]);
@@ -10791,7 +10848,14 @@ describe('new tab review helpers', () => {
             jpdbPublicPitch: { lookup: typeof pitch };
             parseNewTabContent(root: HTMLElement): Promise<void>;
         };
-        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false, showPitchAccent: true };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            localDictionariesEnabled: false,
+            showFurigana: true,
+            furiganaMode: 'all',
+            showPitchAccent: true,
+        };
         internals.parser = { canParse: () => true, parse, cacheCards };
         internals.jpdbVocabulary = { search };
         internals.jpdbPublicPitch = { lookup: pitch };
@@ -10801,10 +10865,11 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 const word = root.querySelector<HTMLElement>('.jpdb-reader-word');
-                expect(word?.textContent).toBe('会話');
+                expect(word?.dataset.expression).toBe('会話');
                 expect(word?.dataset.vid).toBe('1234');
                 expect(word?.dataset.reading).toBe('かいわ');
                 expect(word?.dataset.pitchClass).toBe('heiban');
+                expect(word?.querySelector('rt')?.textContent).toBe('かいわ');
             });
             expect(search).toHaveBeenCalledWith('会話', 1);
             expect(pitch).toHaveBeenCalledWith('会話', 'かいわ');

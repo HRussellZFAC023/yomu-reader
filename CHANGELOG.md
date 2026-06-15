@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.50] - 2026-06-15
+
+### Fixed
+
+- Hosted new-tab settings now self-enhance Japanese settings chrome and appearance controls with furigana and pitch underlines, including stable labels such as 設定, 外観, 表示言語, 自動, and 日本語.
+- Public JPDB fallback enrichment now re-applies furigana when a hosted new-tab fallback word resolves to a public vocabulary card, so no-key/settings UI parses gain readings instead of only updating hidden card metadata.
+- Settings parsing now prioritizes visible settings controls before inactive panels while still covering hidden panels up front, so broad self-enhancement does not starve the current view.
+
 ## [0.7.49] - 2026-06-15
 
 ### Fixed

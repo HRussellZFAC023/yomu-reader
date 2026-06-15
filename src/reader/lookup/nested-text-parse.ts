@@ -18,6 +18,7 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '[hidden]:not([data-settings-panel])',
     '[aria-hidden="true"]',
     '[data-anki-setup-help]',
+    '.jpdb-reader-audio-source-choice',
     '.jpdb-reader-status-line',
     'a[href]',
     'button',
@@ -51,6 +52,7 @@ const SETTINGS_PARSE_ROOT_SELECTOR = [
     'h2',
     '.jpdb-reader-settings-search>label',
     '[data-settings-search-empty]',
+    '[data-audio-source-row] [data-settings-select-options-meta]',
     '[data-settings-panel]',
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR,
 ].join(',');
@@ -85,6 +87,7 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
         ? [root]
         : Array.from(root.querySelectorAll<HTMLElement>(SETTINGS_PARSE_ROOT_SELECTOR));
     const targets = parseRoots
+        .sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right))
         .filter(parseRoot => !isExcludedSettingsParseRoot(parseRoot))
         .filter(parseRoot => !parseRoot.closest('[aria-hidden="true"]'))
         .flatMap(parseRoot => collectFragmentTextTargetsIn(
@@ -103,6 +106,11 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
         ))
         .slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
+}
+
+function settingsParseRootPriority(parseRoot: HTMLElement): number {
+    const panel = parseRoot.closest<HTMLElement>('[data-settings-panel]');
+    return panel?.hasAttribute('hidden') ? 1 : 0;
 }
 
 function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {

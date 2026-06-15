@@ -4267,11 +4267,15 @@ describe('reader helpers', () => {
             expect(parseJapanese).toHaveBeenCalledWith(
                 expect.arrayContaining(['よむ 設定']),
                 expect.objectContaining({
+                    allowApiTimeoutFallback: true,
                     allowJpdbTimeoutFallback: true,
                     allowSegmentedFallback: true,
+                    apiTimeoutMs: 1_200,
                     includeLocalPitch: false,
                     jpdbTimeoutMs: 1_200,
+                    requireApi: false,
                     requireJpdb: false,
+                    skipApi: true,
                     skipJpdb: true,
                 }),
             );
