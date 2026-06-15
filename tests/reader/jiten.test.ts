@@ -930,6 +930,60 @@ describe('JitenApiClient', () => {
         expect(headword?.dataset.reading).toBe('だいがく');
         expect(headword?.querySelector('rt')?.textContent).toBe('だいがく');
     });
+
+    it('allows keyless requests to public endpoints and throws for auth-required ones', async () => {
+        const fetchMock = createFetchMock({ success: true });
+        const client = new JitenApiClient(() => '', { fetchImpl: fetchMock });
+
+        await expect(client.lookupKanji('復')).resolves.toBeDefined();
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/kanji/%E5%BE%A9`, expect.objectContaining({
+            headers: expect.not.objectContaining({ Authorization: expect.any(String) }),
+        }));
+
+        await expect(client.parse(['test'])).rejects.toThrow(JitenApiError);
+        await expect(client.parse(['test'])).rejects.toThrow('Jiten API key is not set.');
+    });
+
+    it('falls back to vocabulary/search when resolving a card without an API key', async () => {
+        const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+            const endpoint = String(url);
+            if (endpoint.includes('/vocabulary/search')) {
+                return jsonResponse({
+                    results: [{
+                        wordId: 1500800,
+                        readingIndex: 0,
+                        text: '復習',
+                        rubyText: '復[ふく]習[しゅう]',
+                        frequencyRank: 12435,
+                        partsOfSpeech: ['n'],
+                        meanings: ['review'],
+                    }],
+                });
+            }
+            if (endpoint.endsWith('/vocabulary/1500800/0/info')) {
+                return jsonResponse({
+                    wordId: 1500800,
+                    mainReading: { text: '復習', readingIndex: 0 },
+                    partsOfSpeech: ['n'],
+                    definitions: [{ senseIndex: 0, englishMeanings: ['review'], pos: ['n'] }],
+                });
+            }
+            return jsonResponse([]);
+        });
+        const client = new JitenApiClient(() => '', { fetchImpl: fetchMock });
+
+        const info = await client.lookupVocabularyInfoForCard(jitenCard({
+            source: 'jpdb',
+            spelling: '復習',
+            reading: 'ふくしゅう',
+        }));
+
+        expect(info).toMatchObject({
+            wordId: 1500800,
+            definitions: [{ meanings: ['review'] }],
+        });
+        expect(fetchMock).toHaveBeenCalledTimes(3); // search, info, examples
+    });
 });
 
 function jitenVocabulary(overrides: Record<string, unknown> = {}) {

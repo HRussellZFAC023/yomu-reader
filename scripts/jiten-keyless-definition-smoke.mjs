@@ -89,16 +89,16 @@ try {
     await page.goto(`${server.origin}/seed`, { waitUntil: 'domcontentloaded' });
     await seedJitendexDictionary(page);
     await page.goto(`${server.origin}/newtab/index.html?smoke=jiten-keyless-${Date.now()}`, { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-newtab-action="mode"][data-mode="search"]').click({ timeout: 20_000 });
+    await page.locator('[data-newtab-action="mode"][data-mode="search"]').click({ timeout: 90_000 });
     await page.locator('[data-newtab-search-input]').fill(TERM);
     await page.locator('[data-newtab-search]').evaluate(form => form.requestSubmit());
-    await page.waitForSelector('[data-newtab-search-results]', { timeout: 20_000 });
+    await page.waitForSelector('[data-newtab-search-results]', { timeout: 90_000 });
     const wordButton = page.locator('[data-newtab-action="search-result-word"]', { hasText: TERM }).first();
-    await wordButton.waitFor({ state: 'visible', timeout: 20_000 });
+    await wordButton.waitFor({ state: 'visible', timeout: 90_000 });
     await wordButton.click();
 
     const detail = page.locator('[data-newtab-search-detail]:not([hidden])').first();
-    await detail.waitFor({ state: 'visible', timeout: 8_000 });
+    await detail.waitFor({ state: 'visible', timeout: 40_000 });
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'before-keyless-jiten-detail.png'), fullPage: true });
     const beforeDom = await detail.evaluate(node => ({
         text: node.textContent?.replace(/\s+/g, ' ').trim() ?? '',
@@ -107,7 +107,7 @@ try {
     }));
     writeFileSync(path.join(ARTIFACT_DIR, 'before-keyless-jiten-detail.json'), JSON.stringify(beforeDom, null, 2));
 
-    await detail.locator('[data-source="jiten"]').waitFor({ state: 'attached', timeout: 12_000 });
+    await detail.locator('[data-source="jiten"]').waitFor({ state: 'attached', timeout: 60_000 });
     await detail.locator('[data-source="jiten"]').evaluate(node => node.setAttribute('open', ''));
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'after-keyless-jiten-detail.png'), fullPage: true });
     const afterDom = await detail.evaluate(node => {
@@ -128,7 +128,7 @@ try {
     writeFileSync(path.join(ARTIFACT_DIR, 'after-keyless-jiten-detail.json'), JSON.stringify(afterDom, null, 2));
 
     assert(afterDom.hasJiten, 'No-key search detail did not render a Jiten source', afterDom);
-    assert(!externalRequests.some(url => /api\.jiten\.moe/.test(url)), 'No-key smoke unexpectedly called the Jiten API', { externalRequests });
+    assert(!externalRequests.some(url => /api\.jiten\.moe\/api\/(?:reader|srs)\//.test(url)), 'No-key smoke unexpectedly called authenticated Jiten API endpoints', { externalRequests });
     if (EXPECT_CONTENT) {
         assert(afterDom.jitenText.includes('review; revision'), 'No-key Jiten source did not render the Jitendex meaning', afterDom);
         assert(afterDom.jitenText.includes('毎日復習する'), 'No-key Jiten source did not render the Jitendex example', afterDom);

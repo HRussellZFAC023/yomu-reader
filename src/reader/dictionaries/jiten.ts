@@ -311,11 +311,64 @@ export class JitenApiClient {
         return jitenCard ? this.lookupVocabularyInfo(jitenCard) : null;
     }
 
+    async searchVocabulary(query: string, limit = 10): Promise<JPDBCard[]> {
+        const response = await this.requestEndpoint<unknown>('vocabulary/search', undefined, {
+            method: 'GET',
+            query: { query, limit },
+        });
+        if (!isJsonRecord(response) || !Array.isArray(response.results)) return [];
+        return response.results.map((result: any) => ({
+            vid: result.wordId,
+            sid: result.readingIndex,
+            rid: 0,
+            spelling: result.text,
+            reading: cleanJitenAnnotatedReading(result.rubyText || result.text),
+            frequencyRank: typeof result.frequencyRank === 'number' ? result.frequencyRank : null,
+            partOfSpeech: Array.isArray(result.partsOfSpeech) ? result.partsOfSpeech.map(String) : [],
+            meanings: (Array.isArray(result.meanings) ? result.meanings : []).map((meaning: string) => ({
+                glosses: [meaning],
+                partOfSpeech: [],
+            })),
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+            wordWithReading: result.rubyText || null,
+            source: 'jiten' as const,
+            reviewSource: 'jiten-api' as const,
+            jitenWordId: result.wordId,
+            jitenReadingIndex: result.readingIndex,
+        }));
+    }
+
     private async lookupJitenCardForVocabularyInfo(card: JPDBCard): Promise<JPDBCard | null> {
         const spelling = card.spelling.trim();
         if (!spelling) return null;
-        const [tokens] = await this.parse([spelling]);
-        return bestParsedJitenCard(card, spelling, tokens ?? []);
+        let tokens: JPDBToken[] = [];
+        const apiKey = this.getApiKey().trim();
+        if (apiKey) {
+            try {
+                const [parsed] = await this.parse([spelling]);
+                tokens = parsed ?? [];
+            } catch (error) {
+                // Ignore parse failures and fall back to search
+            }
+        }
+        if (!tokens.length) {
+            try {
+                const searchCards = await this.searchVocabulary(spelling);
+                tokens = searchCards.map(c => ({
+                    card: c,
+                    start: 0,
+                    end: spelling.length,
+                    length: spelling.length,
+                    rubies: [],
+                    pitchClass: '',
+                    sentence: spelling,
+                }));
+            } catch (error) {
+                // Ignore search failures
+            }
+        }
+        return bestParsedJitenCard(card, spelling, tokens);
     }
 
     async lookupKanji(character: string): Promise<JitenKanjiInfo | null> {
@@ -457,7 +510,8 @@ export class JitenApiClient {
 
     private async requestEndpoint<T>(endpoint: string, body: unknown, options: JitenRequestOptions = {}): Promise<T> {
         const apiKey = this.getApiKey().trim();
-        if (!apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
+        const requiresAuth = endpoint.startsWith('reader/') || endpoint.startsWith('srs/');
+        if (requiresAuth && !apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
         const method = options.method ?? 'POST';
         const data = method === 'GET' ? undefined : body === undefined ? undefined : JSON.stringify(body);
         const url = endpointUrl(this.options.baseUrl, endpoint, options.query);
@@ -511,11 +565,14 @@ export class JitenApiClient {
     }
 
     private headers(apiKey: string): Record<string, string> {
-        return {
+        const headers: Record<string, string> = {
             'Content-Type': 'application/json',
-            Authorization: `ApiKey ${apiKey}`,
             Accept: 'application/json',
         };
+        if (apiKey) {
+            headers.Authorization = `ApiKey ${apiKey}`;
+        }
+        return headers;
     }
 }
 

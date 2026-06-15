@@ -1328,7 +1328,7 @@ export class SubtitlePlayerController {
     // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
     // from the tick and run the normal navigation path when it changes.
     private syncShortsReelNavigation(): void {
-        if (!location.pathname.startsWith('/shorts/')) {
+        if (!location?.pathname?.startsWith('/shorts/')) {
             this.lastShortsNavVideoId = '';
             return;
         }

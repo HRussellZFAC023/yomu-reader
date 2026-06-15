@@ -207,7 +207,7 @@ export class CardRenderDataLoader {
 
     private loadJitenVocabularyInfo(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         const settings = this.settings();
-        if (!settings.jitenDefinitionsEnabled || !hasJitenApiCredential(settings) || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
+        if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
         return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, 'Jiten vocabulary details', this.dependencies.jiten.lookupVocabularyInfoForCard(card).catch(error => {
             log.warn('Jiten vocabulary lookup failed', { term: card.spelling }, error);
             return null;
