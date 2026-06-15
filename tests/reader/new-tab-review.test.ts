@@ -10313,7 +10313,6 @@ describe('new tab review helpers', () => {
                 allowJpdbTimeoutFallback: true,
                 allowSegmentedFallback: true,
                 includeLocalPitch: false,
-                skipJpdb: true,
             }));
             const titleWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
             expect(titleWord).toBeTruthy();
