@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.32] - 2026-06-15
+
+### Fixed
+
+- YouTube filter chips, mini-guide labels, and topbar controls such as 作成 now use the passive reader scan path, so stable Japanese control text can show ruby, pitch underlines, and source colors while native YouTube clicks still pass through.
+
 ## [0.7.31] - 2026-06-15
 
 ### Fixed

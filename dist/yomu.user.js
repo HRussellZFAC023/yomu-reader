@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.31
+// @version      0.7.32
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -12061,6 +12061,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -32710,6 +32711,22 @@ ${glossaryKey}`;
     "[data-settings-trigger]",
     "[data-overflow-menu]"
   ];
+  const YOUTUBE_CHROME_ROOTS = [
+    "ytd-feed-filter-chip-bar-renderer chip-shape button",
+    'ytd-feed-filter-chip-bar-renderer [role="tab"]',
+    "yt-chip-cloud-renderer chip-shape button",
+    'yt-chip-cloud-renderer [role="tab"]',
+    "ytm-feed-filter-chip-bar-renderer button",
+    'ytm-feed-filter-chip-bar-renderer [role="tab"]',
+    "ytd-mini-guide-renderer ytd-mini-guide-entry-renderer a#endpoint",
+    "ytd-guide-renderer ytd-guide-entry-renderer a#endpoint",
+    "ytm-pivot-bar-renderer a",
+    "ytm-pivot-bar-item-renderer a",
+    "ytd-masthead yt-button-shape button",
+    "ytd-masthead button[aria-label]",
+    "ytd-masthead .ytAttributedStringHost",
+    "ytd-masthead yt-attributed-string"
+  ];
   const GOOGLE_SEARCH_ROOTS = [
     "#search",
     "#rso",
@@ -32944,6 +32961,19 @@ ${glossaryKey}`;
       matches: (url) => url.hostname === "tadoku.org" || url.hostname.endsWith(".tadoku.org")
     },
     {
+      id: "youtube-chrome-parser",
+      name: "YouTube chrome",
+      description: "Stable Japanese YouTube chips, navigation, and topbar controls.",
+      roots: YOUTUBE_CHROME_ROOTS,
+      exclude: COMMON_EXCLUDE,
+      allowUiText: true,
+      minLength: 1,
+      includeUiChrome: true,
+      singlePassScan: true,
+      includePassiveInteractionRoots: false,
+      matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
+    },
+    {
       id: "youtube-comments-parser",
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
@@ -33148,6 +33178,7 @@ ${glossaryKey}`;
   function addUniqueSiteScanTarget(profile, target, context) {
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length || nodes.some((node) => context.seen.has(node))) return false;
+    if (isResidualReaderParticleTarget(target)) return false;
     nodes.forEach((node) => context.seen.add(node));
     context.targets.push(siteScanTargetWithProfileOptions(profile, target));
     return true;
@@ -33346,10 +33377,15 @@ ${glossaryKey}`;
   function appendGenericProseTarget(targets, seen, target) {
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length) return false;
+    if (isResidualReaderParticleTarget(target)) return false;
     if (nodes.some((node) => seen.has(node))) return false;
     nodes.forEach((node) => seen.add(node));
     targets.push({ ...target, parserId: target.parserId ?? "generic-prose-parser" });
     return true;
+  }
+  function isResidualReaderParticleTarget(target) {
+    const text2 = target.text.replace(/\s+/g, "");
+    return /^[のはをがにでへもとやかねよな]$/u.test(text2) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
   }
   function textNodesForFragmentTarget(target) {
     const nodes = [];
