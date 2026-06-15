@@ -432,6 +432,18 @@ function normalizedKeywordText(value: string): string {
     return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
 
+function sourceResult<T>(value: T, state: KanjiDetailSourceState): KanjiDetailSourceResult<T> {
+    return { value, state };
+}
+
+function searchParentMeaningKeys(cards: JPDBCard[], kanji: string): Set<string> {
+    return new Set(cards
+        .filter(card => card.spelling !== kanji && kanjiCharacters(card.spelling).includes(kanji))
+        .flatMap(card => firstCardMeaning(card).split(/;\s*/u))
+        .map(normalizedKeywordText)
+        .filter(Boolean));
+}
+
 function isSearchLocalKanjiDictionaryCard(card: JPDBCard): boolean {
     const characters = Array.from(card.spelling.trim());
     return characters.length === 1 && isKanjiCharacter(characters[0] ?? '') && (card.reading === card.spelling || Boolean(card.kanjiKeyword));
@@ -518,6 +530,22 @@ interface KanjiDetailBundle {
     rtk: RtkInfo | null;
     vg: KanjiVGInfo | null;
     local: YomitanKanjiEntry[];
+    sourceStates: KanjiDetailSourceStates;
+}
+
+type KanjiDetailSourceState = 'disabled' | 'ok' | 'not-found' | 'unavailable';
+
+interface KanjiDetailSourceStates {
+    jpdb: KanjiDetailSourceState;
+    jiten: KanjiDetailSourceState;
+    rtk: KanjiDetailSourceState;
+    vg: KanjiDetailSourceState;
+    local: KanjiDetailSourceState;
+}
+
+interface KanjiDetailSourceResult<T> {
+    value: T;
+    state: KanjiDetailSourceState;
 }
 
 interface NewTabKanjiSourceRenderContext {
@@ -538,11 +566,11 @@ interface NewTabKanjiSourceRenderContext {
 interface KanjiDetailCacheEntry {
     details?: Promise<KanjiDetailBundle>;
     detailsSignature?: string;
-    jpdb?: Promise<JpdbKanjiInfo | null>;
-    jiten?: Promise<JitenKanjiInfo | null>;
-    rtk?: Promise<RtkInfo | null>;
-    vg?: Promise<KanjiVGInfo | null>;
-    local?: Promise<YomitanKanjiEntry[]>;
+    jpdb?: Promise<KanjiDetailSourceResult<JpdbKanjiInfo | null>>;
+    jiten?: Promise<KanjiDetailSourceResult<JitenKanjiInfo | null>>;
+    rtk?: Promise<KanjiDetailSourceResult<RtkInfo | null>>;
+    vg?: Promise<KanjiDetailSourceResult<KanjiVGInfo | null>>;
+    local?: Promise<KanjiDetailSourceResult<YomitanKanjiEntry[]>>;
 }
 
 interface KanjiPromptKeyword {
@@ -3332,7 +3360,8 @@ export class NewTabController {
 
     private kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard {
         if (isStandaloneKanjiCard(card, kanji)) return normalizeNewTabCard({ ...card, spelling: kanji, reading: card.reading || kanji });
-        const firstKanji = kanjiCharacters(card.spelling)[0] ?? '';
+        const sourceKanji = kanjiCharacters(card.spelling);
+        const sourceKeyword = sourceKanji.length === 1 && sourceKanji[0] === kanji ? card.kanjiKeyword : undefined;
         return normalizeNewTabCard({
             ...card,
             vid: stableNegativeNewTabId(`kanji-study:${this.cardReviewSource(card)}:${kanji}`),
@@ -3348,7 +3377,7 @@ export class NewTabController {
             reviewSource: undefined,
             ankiCardId: card.ankiCardId,
             jpdbReviewId: undefined,
-            kanjiKeyword: firstKanji === kanji ? card.kanjiKeyword : undefined,
+            kanjiKeyword: sourceKeyword,
             sourceCardKey: card.sourceCardKey ?? cardKey(card),
             fallbackLookupTerms: [card.spelling, card.reading, ...(card.fallbackLookupTerms ?? [])].filter(Boolean),
         });
@@ -5232,9 +5261,19 @@ export class NewTabController {
         if (slots.prompt && !this.state.revealAnswer) {
             replaceChildrenWith(slots.prompt, this.renderKanjiPromptKeywords(
                 this.kanjiPromptKeywordsFromDetails(card, details),
-                this.text('noKanjiKeyword'),
+                this.kanjiKeywordEmptyText(details),
             ));
         }
+    }
+
+    private kanjiKeywordEmptyText(details: KanjiDetailBundle): string {
+        return this.kanjiSourcesUnavailable(details) ? this.text('kanjiSourcesUnavailable') : this.text('noKanjiKeyword');
+    }
+
+    private kanjiSourcesUnavailable(details: KanjiDetailBundle): boolean {
+        const states = Object.values(details.sourceStates);
+        return states.some(state => state === 'unavailable')
+            && states.every(state => state === 'disabled' || state === 'unavailable');
     }
 
     private async applyEnrichedUchisenKeyword(
@@ -5706,47 +5745,82 @@ export class NewTabController {
     private primeJpdbKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
         const lookupJpdbKanji = this.dependencies.jpdbKanji.lookup;
         if (!settings.jpdbKanjiEnabled || typeof lookupJpdbKanji !== 'function' || cache.jpdb) return;
-        cache.jpdb = promiseWithTimeout(lookupJpdbKanji.call(this.dependencies.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'JPDB kanji lookup timed out.')
-            .catch(() => null);
+        cache.jpdb = this.remoteKanjiSourceResult(
+            promiseWithTimeout(lookupJpdbKanji.call(this.dependencies.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'JPDB kanji lookup timed out.'),
+            null,
+        );
     }
 
     private primeJitenKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
         const lookupJitenKanji = this.dependencies.jiten?.lookupKanji;
         if (!settings.jpdbKanjiEnabled || !this.isJitenApiActive(settings) || typeof lookupJitenKanji !== 'function' || cache.jiten) return;
-        cache.jiten = promiseWithTimeout(lookupJitenKanji.call(this.dependencies.jiten, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'Jiten kanji lookup timed out.')
-            .catch(() => null);
+        cache.jiten = this.remoteKanjiSourceResult(
+            promiseWithTimeout(lookupJitenKanji.call(this.dependencies.jiten, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'Jiten kanji lookup timed out.'),
+            null,
+        );
     }
 
     private primeRtkKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
         const lookupRtk = this.dependencies.rtk.lookup;
         if (!settings.rtkEnabled || typeof lookupRtk !== 'function' || cache.rtk) return;
-        cache.rtk = promiseWithTimeout(lookupRtk.call(this.dependencies.rtk, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'RTK lookup timed out.')
-            .catch(() => null);
+        cache.rtk = this.remoteKanjiSourceResult(
+            promiseWithTimeout(lookupRtk.call(this.dependencies.rtk, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'RTK lookup timed out.'),
+            null,
+        );
     }
 
     private primeKanjiVGDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
         const lookupKanjiVG = this.dependencies.kanjiVG.lookup;
         if (!this.shouldLoadKanjiVG(settings) || typeof lookupKanjiVG !== 'function' || cache.vg) return;
-        cache.vg = promiseWithTimeout(lookupKanjiVG.call(this.dependencies.kanjiVG, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'KanjiVG lookup timed out.')
-            .catch(() => null);
+        cache.vg = this.remoteKanjiSourceResult(
+            promiseWithTimeout(lookupKanjiVG.call(this.dependencies.kanjiVG, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'KanjiVG lookup timed out.'),
+            null,
+        );
     }
 
     private primeLocalKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
         if (!this.shouldLoadLocalKanjiDetails(settings) || cache.local) return;
-        cache.local = this.localSearchWithTimeout(
+        cache.local = this.localKanjiSourceResult(this.localSearchWithTimeout(
             this.dependencies.dictionaries.lookupKanji?.(kanji, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
             [] as YomitanKanjiEntry[],
-        );
+        ));
     }
 
     private resolveKanjiDetailBundle(cache: KanjiDetailCacheEntry, settings: ReaderSettings): Promise<KanjiDetailBundle> {
         return Promise.all([
-            settings.jpdbKanjiEnabled ? cache.jpdb ?? Promise.resolve(null) : Promise.resolve(null),
-            settings.jpdbKanjiEnabled && this.isJitenApiActive(settings) ? cache.jiten ?? Promise.resolve(null) : Promise.resolve(null),
-            settings.rtkEnabled ? cache.rtk ?? Promise.resolve(null) : Promise.resolve(null),
-            this.shouldLoadKanjiVG(settings) ? cache.vg ?? Promise.resolve(null) : Promise.resolve(null),
-            this.shouldLoadLocalKanjiDetails(settings) ? cache.local ?? Promise.resolve([]) : Promise.resolve([]),
-        ]).then(([jpdb, jiten, rtk, vg, local]) => ({ jpdb, jiten, rtk, vg, local }));
+            settings.jpdbKanjiEnabled ? cache.jpdb ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
+            settings.jpdbKanjiEnabled && this.isJitenApiActive(settings) ? cache.jiten ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
+            settings.rtkEnabled ? cache.rtk ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
+            this.shouldLoadKanjiVG(settings) ? cache.vg ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
+            this.shouldLoadLocalKanjiDetails(settings) ? cache.local ?? Promise.resolve(sourceResult([] as YomitanKanjiEntry[], 'unavailable')) : Promise.resolve(sourceResult([] as YomitanKanjiEntry[], 'disabled')),
+        ]).then(([jpdb, jiten, rtk, vg, local]) => ({
+            jpdb: jpdb.value,
+            jiten: jiten.value,
+            rtk: rtk.value,
+            vg: vg.value,
+            local: local.value,
+            sourceStates: {
+                jpdb: jpdb.state,
+                jiten: jiten.state,
+                rtk: rtk.state,
+                vg: vg.state,
+                local: local.state,
+            },
+        }));
+    }
+
+    private async remoteKanjiSourceResult<T>(promise: Promise<T | null>, emptyValue: T | null): Promise<KanjiDetailSourceResult<T | null>> {
+        try {
+            const value = await promise;
+            return sourceResult(value, value ? 'ok' : 'not-found');
+        } catch {
+            return sourceResult(emptyValue, 'unavailable');
+        }
+    }
+
+    private async localKanjiSourceResult(promise: Promise<YomitanKanjiEntry[]>): Promise<KanjiDetailSourceResult<YomitanKanjiEntry[]>> {
+        const value = await promise;
+        return sourceResult(value, value.length ? 'ok' : 'not-found');
     }
 
     private kanjiDetailCacheEntry(kanji: string): KanjiDetailCacheEntry {
@@ -6531,7 +6605,7 @@ export class NewTabController {
                 wordsByCharacter.set(character, [...(wordsByCharacter.get(character) ?? []), card]);
             });
         });
-        const results = await Promise.all(characters.map(character => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [])));
+        const results = await Promise.all(characters.map(character => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [], wordCards)));
         return results.filter((result): result is NewTabSearchKanjiResult => Boolean(result));
     }
 
@@ -6542,20 +6616,27 @@ export class NewTabController {
                 || normalizedSearchWordIdentity(newTabCardReading(card)) === normalizedQuery);
     }
 
-    private async searchKanjiResult(character: string, words: JPDBCard[] = []): Promise<NewTabSearchKanjiResult | null> {
-        const settings = this.dependencies.getSettings();
-        const local = settings.localDictionariesEnabled && settings.localDictionaryShowKanji
-            ? await this.localSearchWithTimeout(
-                this.dependencies.dictionaries.lookupKanji?.(character, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
-                [] as YomitanKanjiEntry[],
-            )
-            : [];
-        const meanings = uniqueStrings(local.flatMap(entry => entry.meanings)).slice(0, 6);
-        const readings = newTabKanjiReadings(null, uniqueStrings(local.flatMap(entry => [...entry.onyomi, ...entry.kunyomi]))).slice(0, 8);
+    private async searchKanjiResult(character: string, words: JPDBCard[] = [], parentCards: JPDBCard[] = []): Promise<NewTabSearchKanjiResult | null> {
+        const details = await this.loadKanjiDetails(character).catch(error => {
+            log.debug('Search kanji summary details unavailable', { kanji: character, error });
+            return { jpdb: null, jiten: null, rtk: null, vg: null, local: [] } satisfies KanjiDetailBundle;
+        });
+        const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
+        const parentMeanings = searchParentMeaningKeys(parentCards, character);
+        const meanings = uniqueStrings([
+            ...(details.jiten?.meanings ?? []),
+            ...details.local.flatMap(entry => entry.meanings),
+        ])
+            .filter(meaning => !parentMeanings.has(normalizedKeywordText(meaning)))
+            .slice(0, 6);
+        const readings = details.jiten
+            ? jitenKanjiReadingRows(details.jiten).slice(0, 8)
+            : newTabKanjiReadings(fullInfo, uniqueStrings(details.local.flatMap(entry => [...entry.onyomi, ...entry.kunyomi]))).slice(0, 8);
         const card = this.dependencies.parser.fallbackCardFromText?.(character) ?? fallbackSearchKanjiCard(character);
+        const sourceKeyword = this.keywordFromDetails(card, fullInfo, details.jiten, details.rtk);
         return {
             character,
-            keyword: newTabKanjiKeyword(card, null, null, meanings),
+            keyword: sourceKeyword || meanings[0] || '',
             readings,
             meanings,
             words,
@@ -6778,12 +6859,8 @@ export class NewTabController {
     private renderSearchWordKanjiItem(card: JPDBCard, item: NewTabSearchWordKanjiDetail): HTMLElement {
         const fullInfo = item.details.jpdb ? normalizeJpdbKanjiInfo(item.details.jpdb) : null;
         const kanjiCard = this.dependencies.parser.fallbackCardFromText?.(item.kanji) ?? fallbackSearchKanjiCard(item.kanji);
-        kanjiCard.kanjiKeyword = item.details.jiten?.meanings[0] ?? newTabKanjiKeyword(
-            kanjiCard,
-            fullInfo,
-            item.details.rtk,
-            uniqueStrings(item.details.local.flatMap(entry => entry.meanings)).slice(0, 6),
-        );
+        const localMeanings = uniqueStrings(item.details.local.flatMap(entry => entry.meanings)).slice(0, 6);
+        kanjiCard.kanjiKeyword = this.keywordFromDetails(kanjiCard, fullInfo, item.details.jiten, item.details.rtk) || localMeanings[0] || '';
         const kanjiDetail = this.renderKanjiDetails(
             kanjiCard,
             item.kanji,
@@ -6815,7 +6892,8 @@ export class NewTabController {
             if (!existing.isConnected || button.getAttribute('aria-expanded') !== 'true') return;
             const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
             const card = this.dependencies.parser.fallbackCardFromText(kanji);
-            card.kanjiKeyword = details.jiten?.meanings[0] ?? newTabKanjiKeyword(card, fullInfo, details.rtk, uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6));
+            const localMeanings = uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6);
+            card.kanjiKeyword = this.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || '';
             replaceChildrenWith(existing, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
             this.renderNewTabUchisen(existing, kanji);
             this.renderNewTabKanjiImmersion(existing, kanji);

@@ -2883,18 +2883,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-example-card.has-image
   .jpdb-reader-example-sentence {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
-  color: var(--jpdb-reader-text);
-  background: color-mix(
-    in srgb,
-    var(--jpdb-reader-surface) 94%,
-    var(--jpdb-reader-white) 6%
-  );
-  box-shadow:
-    0 8px 24px var(--jpdb-reader-shadow),
-    inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
-  text-shadow: none;
-  -webkit-text-stroke: 0 transparent;
-  paint-order: normal;
+  background: transparent;
+  box-shadow: none;
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)
@@ -2903,15 +2893,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-example-sentence
   .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
-  color: var(
-    --jpdb-reader-word-accessible-color,
-    var(--jpdb-reader-word-color-source, var(--jpdb-reader-text))
-  ) !important;
   background: transparent !important;
-  box-shadow: none !important;
-  text-shadow: none;
-  -webkit-text-stroke: 0 transparent;
-  paint-order: normal;
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)

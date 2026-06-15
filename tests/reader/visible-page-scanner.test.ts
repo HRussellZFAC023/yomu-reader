@@ -63,7 +63,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('does not continue draining full YouTube page scans after the first pass', async () => {
+    it('leaves YouTube comment text native instead of inline-enhancing framework DOM', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
@@ -86,10 +86,9 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
-            expect(parseJapanese).toHaveBeenCalled();
-            expect(parsedText).toContain('日本語コメント0');
-            expect(parsedText).not.toContain('日本語コメント169');
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('ytd-comments .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('ytd-comment-view-model')?.textContent).toContain('日本語コメント0');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -98,7 +97,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('prefetches multiple YouTube parse batches while the first batch is still resolving', async () => {
+    it('does not prefetch parse batches for YouTube-owned comment DOM', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
@@ -114,20 +113,15 @@ describe('VisiblePageScanner', () => {
                 `).join('')}
             </ytd-comments>
         `;
-        const firstBatch = deferred<JPDBToken[][]>();
-        const parseJapanese = vi.fn((paragraphs: string[]): Promise<JPDBToken[][]> => {
-            if (parseJapanese.mock.calls.length === 1) return firstBatch.promise;
-            return Promise.resolve(paragraphs.map(text => [testToken(text, text, 0, text.length)]));
-        });
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
         const scanner = createVisiblePageScanner({ parseJapanese });
 
         try {
-            const scan = scanner.scanVisiblePage({ silent: true });
-            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(3));
-            expect(parseJapanese.mock.calls.slice(0, 3).every(call => call[0].length > 0 && call[0].length < 80)).toBe(true);
+            await scanner.scanVisiblePage({ silent: true });
 
-            firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
-            await scan;
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('ytd-comments .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('yt-attributed-string')?.textContent).toContain('日本語コメント0です');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -166,16 +160,13 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('keeps the larger first-pass target cap for YouTube on narrow no-key viewports', async () => {
+    it('leaves mobile YouTube comment text native on narrow no-key viewports', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://m.youtube.com/',
             origin: 'https://m.youtube.com',
             hostname: 'm.youtube.com',
         });
-        // Feed/recommendation title renderers are deliberately left native, so
-        // exercise the larger YouTube first-pass cap with comment text, which is
-        // still scanned. The cap, not the renderer type, is what's under test.
         document.body.innerHTML = `
             <ytm-browse>
                 ${Array.from({ length: 90 }, (_, index) => `
@@ -193,9 +184,327 @@ describe('VisiblePageScanner', () => {
 
         try {
             await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
-            const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
-            expect(parsedText).toContain('日本語コメント0');
-            expect(parsedText).toContain('日本語コメント89');
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('ytm-browse .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('ytm-comment-renderer')?.textContent).toContain('日本語コメント0です');
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('leaves YouTube filter chips native while preserving clicks', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-app>
+                <ytd-feed-filter-chip-bar-renderer>
+                    <iron-selector id="chips" role="tablist">
+                        <yt-chip-cloud-chip-renderer>
+                            <chip-shape>
+                                <button class="ytChipShapeButtonReset" role="tab" aria-selected="true">
+                                    <div class="ytChipShapeChip"><div>すべて</div></div>
+                                </button>
+                            </chip-shape>
+                        </yt-chip-cloud-chip-renderer>
+                        <yt-chip-cloud-chip-renderer>
+                            <chip-shape>
+                                <button class="ytChipShapeButtonReset" role="tab" aria-selected="false">
+                                    <div class="ytChipShapeChip"><div>最近アップロードされた動画</div></div>
+                                </button>
+                            </chip-shape>
+                        </yt-chip-cloud-chip-renderer>
+                    </iron-selector>
+                </ytd-feed-filter-chip-bar-renderer>
+            </ytd-app>
+        `;
+        const clicks: string[] = [];
+        document.querySelectorAll<HTMLButtonElement>('button').forEach(button => {
+            const nativeLabel = button.textContent?.replace(/\s+/g, '').trim() ?? '';
+            button.addEventListener('click', () => clicks.push(nativeLabel));
+        });
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer')?.textContent).toContain('最近アップロードされた動画');
+
+            document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
+            document.querySelectorAll<HTMLButtonElement>('button')[1]?.click();
+            expect(clicks).toEqual(['すべて', '最近アップロードされた動画']);
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('leaves YouTube mini-guide labels native while preserving link dispatch', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-app>
+                <ytd-mini-guide-renderer role="navigation" mini-guide-visible>
+                    <div id="items">
+                        <ytd-mini-guide-entry-renderer>
+                            <a id="endpoint" class="yt-simple-endpoint" aria-label="ホーム" title="ホーム" href="/">
+                                <span class="title">ホーム</span>
+                            </a>
+                            <tp-yt-paper-tooltip hidden><div id="tooltip">ホーム</div></tp-yt-paper-tooltip>
+                        </ytd-mini-guide-entry-renderer>
+                        <ytd-mini-guide-entry-renderer>
+                            <a id="endpoint" class="yt-simple-endpoint" aria-label="登録チャンネル" title="登録チャンネル" href="/feed/subscriptions">
+                                <span class="title">登録チャンネル</span>
+                            </a>
+                            <span hidden><button type="button" id="ally-menu-button" aria-label="登録チャンネル"></button></span>
+                        </ytd-mini-guide-entry-renderer>
+                        <ytd-mini-guide-entry-renderer>
+                            <a id="endpoint" class="yt-simple-endpoint" aria-label="マイページ" title="マイページ" href="/feed/you">
+                                <span class="title">マイページ</span>
+                            </a>
+                        </ytd-mini-guide-entry-renderer>
+                    </div>
+                </ytd-mini-guide-renderer>
+            </ytd-app>
+        `;
+        const navigations: string[] = [];
+        document.querySelectorAll<HTMLAnchorElement>('a#endpoint').forEach(anchor => {
+            anchor.addEventListener('click', event => {
+                event.preventDefault();
+                navigations.push(anchor.getAttribute('href') ?? '');
+            });
+        });
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(guide.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(guide.textContent).toContain('登録チャンネル');
+            expect(guide.querySelector('tp-yt-paper-tooltip .jpdb-reader-word')).toBeNull();
+            expect(guide.querySelector('span[hidden] .jpdb-reader-word')).toBeNull();
+
+            document.querySelector<HTMLAnchorElement>('a[href="/feed/subscriptions"]')?.click();
+            expect(navigations).toEqual(['/feed/subscriptions']);
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('leaves YouTube topbar create button text native while preserving button dispatch', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-app>
+                <ytd-masthead>
+                    <yt-button-shape>
+                        <button class="ytSpecButtonShapeNextHost" type="button" aria-label="作成">
+                            <span class="yt-core-attributed-string ytAttributedStringHost">作成</span>
+                        </button>
+                    </yt-button-shape>
+                </ytd-masthead>
+            </ytd-app>
+        `;
+        let clicked = false;
+        document.querySelector<HTMLButtonElement>('button')?.addEventListener('click', () => { clicked = true; });
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('ytd-masthead .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('ytd-masthead button')?.textContent).toContain('作成');
+
+            document.querySelector<HTMLButtonElement>('button')?.click();
+            expect(clicked).toBe(true);
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('leaves YouTube search chrome native while preserving form and button dispatch', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-app>
+                <ytd-masthead>
+                    <ytd-searchbox>
+                        <form id="search-form">
+                            <div id="search-input">
+                                <span class="placeholder">検索</span>
+                                <input name="search_query" placeholder="検索" value="">
+                            </div>
+                            <button id="search-icon-legacy" type="submit" aria-label="検索">
+                                <span class="yt-core-attributed-string ytAttributedStringHost">検索</span>
+                            </button>
+                        </form>
+                    </ytd-searchbox>
+                </ytd-masthead>
+            </ytd-app>
+        `;
+        let submitted = false;
+        let clicked = false;
+        document.querySelector<HTMLFormElement>('form')?.addEventListener('submit', event => {
+            event.preventDefault();
+            submitted = true;
+        });
+        document.querySelector<HTMLButtonElement>('button')?.addEventListener('click', () => { clicked = true; });
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('ytd-searchbox .jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('ytd-searchbox')?.textContent).toContain('検索');
+            expect(document.querySelector('input .jpdb-reader-word')).toBeNull();
+
+            document.querySelector<HTMLButtonElement>('button')?.click();
+            expect(clicked).toBe(true);
+            expect(submitted).toBe(true);
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('leaves YouTube watch title and metadata native without wrapping controls', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-watch-flexy>
+                <ytd-watch-metadata>
+                    <h1><yt-formatted-string id="title">日本語の習慣を学ぶ</yt-formatted-string></h1>
+                    <div id="owner">
+                        <ytd-channel-name><a href="/@nihongo">日本語チャンネル</a></ytd-channel-name>
+                        <button type="button"><span>登録</span></button>
+                    </div>
+                    <div id="info">
+                        <span id="info-strings">視聴回数 12万回</span>
+                        <div id="metadata-line"><span>日本語学習</span><span>昨日</span></div>
+                    </div>
+                </ytd-watch-metadata>
+            </ytd-watch-flexy>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeWatchMetadataText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const metadata = document.querySelector<HTMLElement>('ytd-watch-metadata')!;
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(metadata.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(metadata.textContent).toContain('日本語の習慣を学ぶ');
+            expect(metadata.textContent).toContain('日本語チャンネル');
+            expect(metadata.textContent).toContain('視聴回数 12万回');
+            expect(metadata.querySelector('button .jpdb-reader-word')).toBeNull();
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('leaves YouTube transcript, watch sidebar, and feed rows native', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-app>
+                <ytd-transcript-segment-renderer>
+                    <yt-formatted-string class="segment-text">字幕の行です</yt-formatted-string>
+                </ytd-transcript-segment-renderer>
+                <ytd-watch-next-secondary-results-renderer>
+                    <ytd-compact-video-renderer>
+                        <a href="/watch?v=next"><span id="video-title">おすすめ講座</span></a>
+                    </ytd-compact-video-renderer>
+                </ytd-watch-next-secondary-results-renderer>
+                <ytd-rich-grid-renderer>
+                    ${Array.from({ length: 170 }, (_, index) => `
+                        <ytd-rich-item-renderer>
+                            <a href="/watch?v=feed-${index}">
+                                <span id="video-title">日本語フィード動画${index}</span>
+                            </a>
+                        </ytd-rich-item-renderer>
+                    `).join('')}
+                </ytd-rich-grid-renderer>
+            </ytd-app>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeWatchMetadataText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(document.querySelector('ytd-transcript-segment-renderer')?.textContent).toContain('字幕の行です');
+            expect(document.querySelector('ytd-compact-video-renderer')?.textContent).toContain('おすすめ講座');
+            expect(document.querySelector('ytd-rich-grid-renderer')?.textContent).toContain('日本語フィード動画0');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -368,160 +677,6 @@ describe('VisiblePageScanner', () => {
 
             document.querySelector<HTMLButtonElement>('button')?.click();
             expect(clicked).toBe(true);
-        } finally {
-            scanner.destroy();
-            vi.unstubAllGlobals();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('enhances YouTube search chrome while preserving form and button dispatch', async () => {
-        const restoreRects = mockVisibleElementRects();
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-        });
-        document.body.innerHTML = `
-            <ytd-app>
-                <ytd-masthead>
-                    <ytd-searchbox>
-                        <form id="search-form">
-                            <div id="search-input">
-                                <span class="placeholder">検索</span>
-                                <input name="search_query" placeholder="検索" value="">
-                            </div>
-                            <button id="search-icon-legacy" type="submit" aria-label="検索">
-                                <span class="yt-core-attributed-string ytAttributedStringHost">検索</span>
-                            </button>
-                        </form>
-                    </ytd-searchbox>
-                </ytd-masthead>
-            </ytd-app>
-        `;
-        let submitted = false;
-        let clicked = false;
-        document.querySelector<HTMLFormElement>('form')?.addEventListener('submit', event => {
-            event.preventDefault();
-            submitted = true;
-        });
-        document.querySelector<HTMLButtonElement>('button')?.addEventListener('click', () => { clicked = true; });
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeChromeText));
-        const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
-            parseJapanese,
-        });
-
-        try {
-            await scanner.scanVisiblePage({ silent: true });
-
-            const searchWords = [...document.querySelectorAll<HTMLElement>('ytd-searchbox .jpdb-reader-word[data-expression="検索"]')];
-            expect(searchWords.length).toBeGreaterThanOrEqual(2);
-            expect(searchWords.every(word => word.classList.contains('jpdb-pitch-heiban'))).toBe(true);
-            expect(searchWords.every(word => word.querySelector('rt')?.textContent === 'けんさく')).toBe(true);
-            const buttonWord = document.querySelector<HTMLElement>('ytd-searchbox button .jpdb-reader-word[data-expression="検索"]');
-            expect(buttonWord?.classList.contains('jpdb-reader-passive-word')).toBe(true);
-            expect(document.querySelector('input .jpdb-reader-word')).toBeNull();
-
-            document.querySelector<HTMLButtonElement>('button')?.click();
-            expect(clicked).toBe(true);
-            expect(submitted).toBe(true);
-        } finally {
-            scanner.destroy();
-            vi.unstubAllGlobals();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('enhances YouTube watch title and metadata text without wrapping metadata controls', async () => {
-        const restoreRects = mockVisibleElementRects();
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/watch?v=abc123',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-        });
-        document.body.innerHTML = `
-            <ytd-watch-flexy>
-                <ytd-watch-metadata>
-                    <h1><yt-formatted-string id="title">日本語の習慣を学ぶ</yt-formatted-string></h1>
-                    <div id="owner">
-                        <ytd-channel-name><a href="/@nihongo">日本語チャンネル</a></ytd-channel-name>
-                        <button type="button"><span>登録</span></button>
-                    </div>
-                    <div id="info">
-                        <span id="info-strings">視聴回数 12万回</span>
-                        <div id="metadata-line"><span>日本語学習</span><span>昨日</span></div>
-                    </div>
-                </ytd-watch-metadata>
-            </ytd-watch-flexy>
-        `;
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeWatchMetadataText));
-        const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
-            parseJapanese,
-        });
-
-        try {
-            await scanner.scanVisiblePage({ silent: true });
-
-            const metadata = document.querySelector<HTMLElement>('ytd-watch-metadata')!;
-            const words = [...metadata.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-            expect(words.map(word => word.dataset.expression)).toEqual(expect.arrayContaining(['日本語', '習慣', 'チャンネル', '視聴', '学習', '昨日']));
-            expect(words.find(word => word.dataset.expression === '日本語')?.querySelector('rt')?.textContent).toBe('にほんご');
-            expect(words.find(word => word.dataset.expression === '視聴')?.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(metadata.querySelector('button .jpdb-reader-word')).toBeNull();
-        } finally {
-            scanner.destroy();
-            vi.unstubAllGlobals();
-            restoreRects();
-            document.body.innerHTML = '';
-        }
-    });
-
-    it('prioritizes YouTube transcript and watch sidebar rows ahead of oversized feeds', async () => {
-        const restoreRects = mockVisibleElementRects();
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/watch?v=abc123',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-        });
-        document.body.innerHTML = `
-            <ytd-app>
-                <ytd-transcript-segment-renderer>
-                    <yt-formatted-string class="segment-text">字幕の行です</yt-formatted-string>
-                </ytd-transcript-segment-renderer>
-                <ytd-watch-next-secondary-results-renderer>
-                    <ytd-compact-video-renderer>
-                        <a href="/watch?v=next"><span id="video-title">おすすめ講座</span></a>
-                    </ytd-compact-video-renderer>
-                </ytd-watch-next-secondary-results-renderer>
-                <ytd-rich-grid-renderer>
-                    ${Array.from({ length: 170 }, (_, index) => `
-                        <ytd-rich-item-renderer>
-                            <a href="/watch?v=feed-${index}">
-                                <span id="video-title">日本語フィード動画${index}</span>
-                            </a>
-                        </ytd-rich-item-renderer>
-                    `).join('')}
-                </ytd-rich-grid-renderer>
-            </ytd-app>
-        `;
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForYouTubeWatchMetadataText));
-        const scanner = createVisiblePageScanner({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
-            parseJapanese,
-        });
-
-        try {
-            await scanner.scanVisiblePage({ silent: true });
-
-            const parsedText = parseJapanese.mock.calls.flatMap(call => call[0]).join('\n');
-            expect(parsedText).toContain('字幕の行です');
-            expect(parsedText).toContain('おすすめ講座');
-            expect(document.querySelector<HTMLElement>('ytd-transcript-segment-renderer .jpdb-reader-word[data-expression="字幕"]')?.querySelector('rt')?.textContent).toBe('じまく');
-            expect(document.querySelector<HTMLElement>('ytd-compact-video-renderer .jpdb-reader-word[data-expression="講座"]')?.querySelector('rt')?.textContent).toBe('こうざ');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
