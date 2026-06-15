@@ -15980,6 +15980,23 @@ describe('reader helpers', () => {
         expect(layout.top + layout.height).toBe(900);
     });
 
+    it('keeps explicit bottom transcript placement flush with the viewport edge on tablet layouts', () => {
+        const layout = computeSubtitleDrawerLayout({
+            viewportWidth: 1024,
+            viewportHeight: 1366,
+            anchorTop: 96,
+            compactPanel: false,
+            preferredPlacement: 'bottom',
+            size: { bottomHeight: 420 },
+        });
+
+        expect(layout.placement).toBe('bottom');
+        expect(layout.left).toBe(0);
+        expect(layout.width).toBe(1024);
+        expect(layout.top + layout.height).toBe(1366);
+        expect(layout.margin).toBe(0);
+    });
+
     it('applies generic video inset through a reversible adapter', () => {
         withViewport(1600, 900, () => {
             document.body.innerHTML = '<main id="player" style="width:1200px;max-width:1200px"><video></video><button class="player-control" type="button">Play</button></main>';
@@ -16038,7 +16055,7 @@ describe('reader helpers', () => {
         });
     });
 
-    it('applies YouTube side drawer insets to the current watch player columns', () => {
+    it('applies YouTube right drawer insets to the current watch player columns', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -16048,9 +16065,10 @@ describe('reader helpers', () => {
         withViewport(1600, 900, () => {
             document.body.innerHTML = `
                 <ytd-watch-flexy>
-                    <div id="primary"><div id="primary-inner"><div id="movie_player"></div></div></div>
+                    <div id="columns"><div id="primary"><div id="primary-inner"><div id="movie_player"></div></div></div></div>
                 </ytd-watch-flexy>
             `;
+            const columns = document.querySelector<HTMLElement>('#columns')!;
             const primary = document.querySelector<HTMLElement>('#primary')!;
             const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
             const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
@@ -16089,6 +16107,7 @@ describe('reader helpers', () => {
                 expect(primary.style.maxWidth).toBe('1080px');
                 expect(primary.style.minWidth).toBe('0px');
                 expect(primary.style.marginRight).toBe('32px');
+                expect(columns.style.marginLeft).toBe('0px');
                 expect(primaryInner.style.width).toBe('1080px');
                 expect(primaryInner.style.maxWidth).toBe('1080px');
                 expect(setSize).toHaveBeenCalledWith(1080, 675);
@@ -16120,8 +16139,128 @@ describe('reader helpers', () => {
 
             expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(false);
             expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('');
+            expect(columns.style.marginLeft).toBe('');
             expect(primary.style.width).toBe('');
             expect(primaryInner.style.width).toBe('');
+        });
+    });
+
+    it('shifts YouTube watch columns right for a left transcript drawer without covering the metadata area', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withViewport(1024, 1366, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="columns">
+                        <div id="primary"><div id="primary-inner"><div id="movie_player"></div><h1 id="title">日本語の動画</h1></div></div>
+                        <div id="secondary"></div>
+                    </div>
+                </ytd-watch-flexy>
+            `;
+            const columns = document.querySelector<HTMLElement>('#columns')!;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            const setSize = vi.fn();
+            moviePlayer.setSize = setSize;
+            Object.defineProperty(primary, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 920, 518),
+            });
+            Object.defineProperty(primaryInner, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 920, 518),
+            });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    side: 'left',
+                    playerSize: 552,
+                    panelSize: 420,
+                    videoRect: new DOMRect(0, 84, 920, 518),
+                    margin: 12,
+                });
+
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-left')).toBe(true);
+                expect(document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset')).toBe('444px');
+                expect(columns.style.marginLeft).toBe('444px');
+                expect(primary.style.width).toBe('552px');
+                expect(primary.style.marginLeft).toBe('0px');
+                expect(primaryInner.style.width).toBe('552px');
+                expect(setSize).toHaveBeenCalledWith(552, 518);
+            } finally {
+                adapter.clear();
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
+
+            expect(columns.style.marginLeft).toBe('');
+            expect(primary.style.marginLeft).toBe('');
+            expect(primary.style.width).toBe('');
+            expect(primaryInner.style.width).toBe('');
+        });
+    });
+
+    it('applies YouTube bottom drawer height only to player nodes, not the watch metadata column', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withViewport(1024, 1366, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="columns">
+                        <div id="primary">
+                            <div id="primary-inner">
+                                <div id="player"><div id="player-container-outer"><div id="player-container-inner"><ytd-player><div id="movie_player"></div></ytd-player></div></div></div>
+                                <h1 id="title">日本語の動画</h1>
+                                <div id="actions">Like Share Save</div>
+                            </div>
+                        </div>
+                    </div>
+                </ytd-watch-flexy>
+            `;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const player = document.querySelector<HTMLElement>('#player')!;
+            const playerInner = document.querySelector<HTMLElement>('#player-container-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            moviePlayer.setSize = vi.fn();
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                adapter.apply({
+                    side: 'bottom',
+                    playerSize: 900,
+                    panelSize: 420,
+                    videoRect: new DOMRect(0, 84, 1024, 576),
+                    margin: 0,
+                });
+
+                expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-bottom')).toBe(true);
+                expect(primary.style.height).toBe('');
+                expect(primaryInner.style.height).toBe('');
+                expect(player.style.height).toBe('900px');
+                expect(playerInner.style.height).toBe('900px');
+                expect(moviePlayer.style.height).toBe('900px');
+            } finally {
+                adapter.clear();
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
         });
     });
 
@@ -16245,10 +16384,19 @@ describe('reader helpers', () => {
         });
     });
 
-    it('can defer video layout resize events while inset updates are still changing', async () => {
+    it('can defer video layout resize events and YouTube setSize while inset updates are still changing', async () => {
         vi.useFakeTimers();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
         const onResize = vi.fn();
         window.addEventListener('resize', onResize);
+        document.body.innerHTML = '<ytd-watch-flexy><div id="primary"><div id="primary-inner"><div id="movie_player"></div></div></div></ytd-watch-flexy>';
+        const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+        const setSize = vi.fn();
+        moviePlayer.setSize = setSize;
         const adapter = createSubtitleVideoInsetAdapter();
         try {
             adapter.apply({
@@ -16260,6 +16408,7 @@ describe('reader helpers', () => {
                 resizeEventMode: 'settled',
             });
             expect(onResize).not.toHaveBeenCalled();
+            expect(setSize).not.toHaveBeenCalled();
 
             adapter.apply({
                 side: 'right',
@@ -16271,12 +16420,20 @@ describe('reader helpers', () => {
             });
             await vi.advanceTimersByTimeAsync(79);
             expect(onResize).not.toHaveBeenCalled();
+            expect(setSize).not.toHaveBeenCalled();
 
             await vi.advanceTimersByTimeAsync(1);
             expect(onResize).toHaveBeenCalledTimes(1);
+            expect(setSize).toHaveBeenCalledTimes(1);
+            expect(setSize).toHaveBeenCalledWith(1040, 675);
         } finally {
             window.removeEventListener('resize', onResize);
             adapter.clear();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            document.body.innerHTML = '';
             await vi.runOnlyPendingTimersAsync();
             vi.useRealTimers();
         }

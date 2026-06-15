@@ -34,9 +34,9 @@ export interface SubtitleDrawerLayoutOptions {
 }
 
 export function computeSubtitleDrawerLayout(options: SubtitleDrawerLayoutOptions): TranscriptPanelLayout {
-    const margin = options.compactPanel ? 0 : TRANSCRIPT_PANEL_MARGIN;
     const size = options.size ?? {};
     const preferredPlacement = options.preferredPlacement ?? 'right';
+    const margin = options.compactPanel || preferredPlacement === 'bottom' ? 0 : TRANSCRIPT_PANEL_MARGIN;
     return options.compactPanel || preferredPlacement === 'bottom'
         ? compactSubtitleDrawerLayout(options, size, margin)
         : sideSubtitleDrawerLayout(options, size, margin, preferredPlacement);

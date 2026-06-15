@@ -68,6 +68,7 @@
     "smoke:live-browser": "node scripts/live-browser-smoke.mjs",
     "smoke:mobile-docs": "node scripts/mobile-docs-regression-smoke.mjs",
     "smoke:mobile-youtube": "node scripts/mobile-youtube-overlap-probe.mjs",
+    "smoke:youtube-sidebar-layout": "node scripts/youtube-sidebar-layout-matrix.mjs",
     "smoke:popover-actions": "node scripts/popover-action-pills-smoke.mjs",
     "smoke:youtube-grid": "node scripts/youtube-grid-probe.mjs",
     "smoke:youtube-performance": "node scripts/youtube-performance-profile.mjs",
