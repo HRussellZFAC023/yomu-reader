@@ -6,7 +6,7 @@ import { renderJitenDefinitionSource } from '../../src/reader/jiten/jiten-defini
 import { jitenKanjiFactRows, jitenKanjiOriginFactLabels, jitenKanjiVocabulary, renderJitenKanjiInfo } from '../../src/reader/jiten/jiten-kanji-info-render';
 import { renderKanjiOrigins } from '../../src/reader/popup/kanji-origin';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import type { JPDBCard } from '../../src/reader/app/types';
+import type { CardState, JPDBCard } from '../../src/reader/app/types';
 import type { JitenKanjiInfo, JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
 
 const POPOVER_CORE_CSS = readFileSync('src/reader/styles/popover-core.css', 'utf8');
@@ -456,7 +456,7 @@ describe('JitenApiClient', () => {
             mainDefinition: `word ${index}`,
             frequencyRank: 600 + index,
             matchSurface: `語${index}`,
-            knownStates: index === 0 ? ['due'] : [],
+            knownStates: index === 0 ? ['due' as CardState] : [],
             pitchAccents: index === 0 ? [1] : [],
         }));
         const info: JitenKanjiInfo = {
@@ -689,12 +689,30 @@ describe('JitenApiClient', () => {
         expect(relatedLink?.dataset.dictionary).toBe('Jiten');
         const relatedHead = relatedLink?.querySelector<HTMLElement>('.jpdb-reader-jiten-related-head');
         expect(relatedHead?.innerHTML).toContain('<ruby>');
+        const relatedWord = relatedHead?.querySelector<HTMLElement>('.jpdb-reader-word.jpdb-reader-passive-word');
+        expect(relatedWord).not.toBeNull();
+        expect(relatedWord?.classList.contains('jpdb-reader-parseable')).toBe(true);
+        expect(relatedWord?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(relatedWord?.dataset.dictionary).toBe('Jiten');
+        expect(relatedWord?.dataset.vid).toBe('7');
+        expect(relatedWord?.dataset.sid).toBe('0');
+        expect(relatedWord?.dataset.expression).toBe('訓む');
+        expect(relatedWord?.dataset.reading).toBe('よむ');
 
         const exampleRow = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-example-row.has-audio');
         expect(exampleRow).not.toBeNull();
         const target = exampleRow?.querySelector<HTMLElement>('.jpdb-reader-jiten-example-target');
-        expect(target?.tagName).toBe('MARK');
-        expect(target?.textContent).toBe('訓む');
+        expect(target?.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(target?.classList.contains('jpdb-reader-parseable')).toBe(true);
+        expect(target?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(target?.dataset.dictionary).toBe('Jiten');
+        expect(target?.dataset.vid).toBe('7');
+        expect(target?.dataset.sid).toBe('0');
+        expect(target?.dataset.expression).toBe('訓む');
+        expect(target?.dataset.reading).toBe('よむ');
+        expect(target?.dataset.sentence).toBe('訓むこともある。');
+        expect(target?.innerHTML).toContain('<ruby>');
+        expect(target?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓む');
     });
 
     it('marks long Jiten related words with horizontal wrapping and neutral decoration hooks', () => {
@@ -841,7 +859,7 @@ describe('JitenApiClient', () => {
                     wordId: 321,
                     mainReading: { text: '大学', readingIndex: 0, frequencyRank: 475, usedInMediaAmount: null },
                     partsOfSpeech: ['noun'],
-                    definitions: [{ index: 0, meanings: ['university; college'], partsOfSpeech: ['noun'] }],
+                    definitions: [{ senseIndex: 0, englishMeanings: ['university; college'], pos: ['noun'] }],
                     pitchAccents: [0],
                     knownStates: [],
                 });
@@ -861,9 +879,31 @@ describe('JitenApiClient', () => {
 
         expect(info).toMatchObject({
             wordId: 321,
-            definitions: [{ meanings: ['university; college'] }],
+            definitions: [{ meanings: ['university; college'], partsOfSpeech: ['noun'] }],
         });
         expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('renders real Jiten vocabulary definitions and omits empty Jiten sections', () => {
+        const card = jitenCard({ spelling: '大学', reading: 'だいがく' });
+        const info = jitenVocabularyInfo({
+            wordId: 321,
+            mainReading: { text: '大学', readingIndex: 0, frequencyRank: 475, usedInMediaAmount: null },
+            definitions: [jitenDefinition({ meanings: ['university; college'], partsOfSpeech: ['noun'] })],
+        });
+
+        const rendered = renderJitenDefinitionSource(card, () => '', info, 'en');
+        const empty = renderJitenDefinitionSource(card, () => '', jitenVocabularyInfo({
+            definitions: [],
+            composedOf: [],
+            usedIn: [],
+            examples: [],
+        }), 'en');
+
+        expect(rendered).toContain('data-source="jiten"');
+        expect(rendered).toContain('university; college');
+        expect(rendered).not.toContain('No Jiten definitions');
+        expect(empty).toBe('');
     });
 });
 

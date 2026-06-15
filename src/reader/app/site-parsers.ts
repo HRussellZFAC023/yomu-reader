@@ -310,6 +310,10 @@ const YOUTUBE_CHROME_ROOTS = [
     'ytd-masthead yt-button-view-model button',
     'ytd-masthead button-view-model button',
     'ytd-masthead button[aria-label]',
+    'ytd-masthead ytd-searchbox',
+    'ytd-masthead yt-searchbox',
+    'ytd-masthead .ytSearchboxComponentInputBox',
+    'ytd-masthead .ytSearchboxComponentSearchButton',
     'ytd-masthead .ytAttributedStringHost',
     'ytd-masthead yt-attributed-string',
 ];
@@ -570,11 +574,17 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         roots: [
             // High-value watch text comes first so huge virtualized grids or
             // recommendation rails cannot starve the visible title,
-            // description, or transcript panel inside one capped scan pass.
+            // description, transcript panel, or watch sidebar inside one
+            // capped scan pass.
             'ytd-transcript-segment-renderer',
             'ytm-transcript-segment-renderer',
             'ytd-watch-metadata h1',
             'ytd-watch-metadata #title',
+            'ytd-watch-metadata #owner',
+            'ytd-watch-metadata #info',
+            'ytd-watch-metadata #info-strings',
+            'ytd-watch-metadata #metadata',
+            'ytd-watch-metadata #metadata-line',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata #description yt-attributed-string',
             'ytd-watch-metadata #description .yt-core-attributed-string',
@@ -596,8 +606,10 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'yt-live-chat-membership-item-renderer #message',
             'yt-live-chat-viewer-engagement-message-renderer',
             'yt-live-chat-ticker-renderer',
-            // Feed cards and recommendation rails are useful, but lower
-            // priority because YouTube can hydrate hundreds of them.
+            'ytd-watch-next-secondary-results-renderer',
+            'ytd-compact-video-renderer',
+            // General feed/search grids are useful, but lower priority because
+            // YouTube can hydrate hundreds of them.
             'ytd-rich-grid-renderer',
             'ytd-rich-item-renderer',
             'ytd-video-renderer',
@@ -606,8 +618,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-video-with-context-renderer',
             'ytm-shorts-lockup-view-model',
             'ytm-item-section-renderer',
-            'ytd-watch-next-secondary-results-renderer',
-            'ytd-compact-video-renderer',
         ],
         exclude: YOUTUBE_TEXT_EXCLUDE,
         allowUiText: true,

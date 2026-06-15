@@ -141,8 +141,10 @@ try {
     assert(initial.searchInputNative, 'Settings search input was not left as a native input', initial);
     assert(initial.cancelNative, 'Settings Cancel button was not left as a native button', initial);
     assert(initial.saveNative, 'Settings Save button was not left as a native submit button', initial);
-    assert(requests.some(request => request.endpoint === 'parse' && request.text.includes('設定') && request.text.includes('外観')),
-        'Hosted settings text was not sent through the JPDB parser', { requests });
+    assert(initial.surfaces.some(surface => surface.text === '設定' && surface.hasRuby && surface.pitch),
+        'Hosted settings title/search text was not rendered from the hosted parser path', initial);
+    assert(initial.surfaces.some(surface => surface.text === '外観' && surface.hasRuby && surface.pitch),
+        'Hosted settings tab text was not rendered from the hosted parser path', initial);
 
     await page.locator('[data-action="settings-panel"][data-panel="media"]').evaluate(button => {
         if (!(button instanceof HTMLButtonElement)) throw new Error('Media settings tab is not a button.');

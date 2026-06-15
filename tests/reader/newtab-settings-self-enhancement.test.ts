@@ -20,6 +20,8 @@ describe('hosted newtab settings self enhancement', () => {
                 { spelling: '外観', reading: 'がいかん', vid: 9754 },
                 { spelling: 'キャンセル', reading: 'キャンセル', vid: 9755 },
                 { spelling: '保存', reading: 'ほぞん', vid: 9756 },
+                { spelling: '学習', reading: 'がくしゅう', vid: 9757 },
+                { spelling: '設定', reading: 'せってい', vid: 9758 },
             ],
         });
 
@@ -37,7 +39,14 @@ describe('hosted newtab settings self enhancement', () => {
                 }),
             );
             const parsedTexts = parse.mock.calls[0]?.[0] ?? [];
-            expect(parsedTexts).toEqual(expect.arrayContaining(['設定を検索', '外観', 'キャンセル', '保存']));
+            expect(parsedTexts).toEqual(expect.arrayContaining([
+                '設定を検索',
+                '外観',
+                'キャンセル',
+                '保存',
+                '学習を開く',
+                '設定JSONをインポート',
+            ]));
 
             const parsedWord = form.querySelector<HTMLElement>('.jpdb-reader-settings-search .jpdb-reader-word[data-expression="検索"]');
             expect(parsedWord).toBeTruthy();
@@ -65,6 +74,21 @@ describe('hosted newtab settings self enhancement', () => {
             expect(saveWord?.dataset.jpdbReaderPassive).toBe('true');
             expect(saveWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('ほぞん');
             expect(saveWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+
+            const openStudyWord = form.querySelector<HTMLElement>('[data-newtab-url-link] .jpdb-reader-word[data-expression="学習"]');
+            expect(openStudyWord).toBeTruthy();
+            expect(openStudyWord?.closest('.jpdb-reader-btn')).toBeInstanceOf(HTMLAnchorElement);
+            expect(openStudyWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('がくしゅう');
+            expect(openStudyWord?.dataset.jpdbReaderPassive).toBe('true');
+
+            const importWord = form.querySelector<HTMLElement>('[data-action="import-yomitan-settings"] .jpdb-reader-word[data-expression="設定"]');
+            expect(importWord).toBeTruthy();
+            expect(importWord?.closest('.jpdb-reader-btn')).toBeInstanceOf(HTMLButtonElement);
+            expect(importWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
+            expect(importWord?.dataset.jpdbReaderPassive).toBe('true');
+
+            const cancelKanaOnlyWord = form.querySelector<HTMLElement>('.footer [data-action="cancel"] .jpdb-reader-word[data-expression="キャンセル"]');
+            expect(cancelKanaOnlyWord?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         } finally {
             runtime.destroy();
         }

@@ -187,6 +187,8 @@ export interface JitenVocabularyWordSummary {
     frequencyRank: number | null;
     matchSurface: string;
     audioUrls?: string[];
+    knownStates?: CardState[];
+    pitchAccents?: number[];
 }
 
 export interface JitenVocabularyExample {
@@ -751,23 +753,29 @@ const JITEN_CARD_STATE_MAP: Record<number, CardState> = {
 };
 
 function normalizeJitenVocabularyInfo(value: unknown): JitenVocabularyInfo | null {
-    if (!isJsonRecord(value)) return null;
-    const wordId = finiteJitenInteger(value.wordId);
+    const record = jitenPayloadRecord(value);
+    if (!record) return null;
+    const wordId = finiteJitenInteger(record.wordId);
     if (wordId === undefined || wordId <= 0) return null;
-    const mainReading = normalizeJitenVocabularyReading(value.mainReading);
+    const mainReading = normalizeJitenVocabularyReading(record.mainReading);
     return {
         wordId,
         mainReading,
-        alternativeReadings: arrayOfRecords(value.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item): item is JitenVocabularyReading => Boolean(item)),
-        partsOfSpeech: arrayOfStrings(value.partsOfSpeech),
-        definitions: arrayOfRecords(value.definitions).map(normalizeJitenVocabularyDefinition).filter((item): item is JitenVocabularyDefinition => Boolean(item)),
-        pitchAccents: jitenStateNumbers(value.pitchAccents),
-        knownStates: Array.isArray(value.knownStates) ? jitenKnownStateToCardStates(value.knownStates) : [],
-        composedOf: normalizeJitenVocabularyWordSummaries(value.composedOf),
-        usedIn: normalizeJitenVocabularyWordSummaries(value.usedIn),
-        usedInTotal: finiteJitenInteger(value.usedInTotal) ?? 0,
+        alternativeReadings: arrayOfRecords(record.alternativeReadings).map(normalizeJitenVocabularyReading).filter((item): item is JitenVocabularyReading => Boolean(item)),
+        partsOfSpeech: arrayOfStrings(record.partsOfSpeech),
+        definitions: arrayOfRecords(record.definitions).map(normalizeJitenVocabularyDefinition).filter((item): item is JitenVocabularyDefinition => Boolean(item)),
+        pitchAccents: jitenStateNumbers(record.pitchAccents),
+        knownStates: Array.isArray(record.knownStates) ? jitenKnownStateToCardStates(record.knownStates) : [],
+        composedOf: normalizeJitenVocabularyWordSummaries(record.composedOf),
+        usedIn: normalizeJitenVocabularyWordSummaries(record.usedIn),
+        usedInTotal: finiteJitenInteger(record.usedInTotal) ?? 0,
         examples: [],
     };
+}
+
+function jitenPayloadRecord(value: unknown): Record<string, unknown> | null {
+    if (!isJsonRecord(value)) return null;
+    return isJsonRecord(value.data) ? value.data : value;
 }
 
 function normalizeJitenVocabularyReading(value: unknown): JitenVocabularyReading | null {
@@ -785,12 +793,12 @@ function normalizeJitenVocabularyReading(value: unknown): JitenVocabularyReading
 
 function normalizeJitenVocabularyDefinition(value: unknown): JitenVocabularyDefinition | null {
     if (!isJsonRecord(value)) return null;
-    const meanings = arrayOfStrings(value.meanings);
+    const meanings = firstNonEmptyStringArray(value.meanings, value.englishMeanings);
     if (!meanings.length) return null;
     return {
-        index: finiteJitenInteger(value.index) ?? 0,
+        index: finiteJitenInteger(value.index) ?? finiteJitenInteger(value.senseIndex) ?? 0,
         meanings,
-        partsOfSpeech: arrayOfStrings(value.partsOfSpeech),
+        partsOfSpeech: firstNonEmptyStringArray(value.partsOfSpeech, value.pos),
         field: arrayOfStrings(value.field),
         dial: arrayOfStrings(value.dial),
         misc: arrayOfStrings(value.misc),
@@ -819,6 +827,8 @@ function normalizeJitenVocabularyWordSummary(value: unknown): JitenVocabularyWor
         frequencyRank: nullableFiniteInteger(value.frequencyRank),
         matchSurface: firstRecordString(value, ['matchSurface']) ?? '',
         audioUrls: normalizeJitenAudioUrls(value),
+        knownStates: Array.isArray(value.knownStates) ? jitenKnownStateToCardStates(value.knownStates) : undefined,
+        pitchAccents: jitenStateNumbers(value.pitchAccents),
     };
 }
 
@@ -994,6 +1004,14 @@ function splitJitenJapaneseTextIntoSentences(text: string): string[] {
 function arrayOfStrings(value: unknown): string[] {
     if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
     return typeof value === 'string' ? [value] : [];
+}
+
+function firstNonEmptyStringArray(...values: unknown[]): string[] {
+    for (const value of values) {
+        const strings = arrayOfStrings(value);
+        if (strings.length) return strings;
+    }
+    return [];
 }
 
 function arrayOfRecords(value: unknown): Record<string, unknown>[] {

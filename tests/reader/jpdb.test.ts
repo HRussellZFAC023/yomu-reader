@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import { isYomuHostedAppUrl, isYomuHostedPassivePage } from '../../src/reader/app/pages';
 import { AnkiConnectClient, AnkiDuplicateNoteError, buildYomuAnkiFields, YOMU_MODEL_FIELDS, type AnkiExistingNote, type AnkiLookupResult } from '../../src/reader/anki/index';
@@ -192,8 +192,23 @@ function readingTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     };
 }
 
+beforeEach(() => {
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    restoreInheritedButtonRectLookup();
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
+});
+
 afterEach(() => {
     uninstallUserscriptHttpBridge();
+    vi.restoreAllMocks();
+    restoreInheritedButtonRectLookup();
+    vi.unstubAllGlobals();
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
+    document.body.innerHTML = '';
+    document.head.innerHTML = '';
 });
 const READER_WORD_CSS = readerCssNeedsFallback(READER_CSS) ? readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8') : READER_CSS;
 const IMMERSION_STUDY_CSS = readFileSync('src/reader/styles/immersion-study.css', 'utf8');
@@ -2536,10 +2551,14 @@ function mockFloatingButtonRects(left = 700, top = 500, width = 52, height = 52)
         // leaves a lingering own property after mockRestore. That would shadow the
         // HTMLElement.prototype rect spies later tests rely on (making every <button>
         // report a 0x0 rect), so remove it to fully restore the inherited lookup.
-        if (Object.prototype.hasOwnProperty.call(HTMLButtonElement.prototype, 'getBoundingClientRect')) {
-            delete (HTMLButtonElement.prototype as unknown as Record<string, unknown>).getBoundingClientRect;
-        }
+        restoreInheritedButtonRectLookup();
     };
+}
+
+function restoreInheritedButtonRectLookup(): void {
+    if (Object.prototype.hasOwnProperty.call(HTMLButtonElement.prototype, 'getBoundingClientRect')) {
+        delete (HTMLButtonElement.prototype as unknown as Record<string, unknown>).getBoundingClientRect;
+    }
 }
 
 function sizedPopover(width: number, height: number): HTMLElement {
@@ -11673,6 +11692,42 @@ describe('reader helpers', () => {
             app.destroy();
             popover.remove();
         }
+    });
+
+    it('renders plain JPDB example targets as passive ruby/pitch words', () => {
+        const host = document.createElement('div');
+        host.innerHTML = renderJpdbDefinitionSource({
+            ...card,
+            vid: 1456360,
+            sid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            meanings: [{ glosses: ['to read'], partOfSpeech: [] }],
+            pitchAccent: [],
+        }, key => `data-source-state-key="${key}"`, {
+            meanings: ['to read'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [{
+                sentence: '空気を読む。',
+                translation: 'Read the room.',
+                audioIds: ['m1/plain-example'],
+            }],
+        });
+
+        const target = host.querySelector<HTMLElement>('.jpdb-reader-jpdb-example .jpdb-reader-word[data-expression="読む"]');
+        expect(target).not.toBeNull();
+        expect(target?.classList.contains('jpdb-reader-passive-word')).toBe(true);
+        expect(target?.classList.contains('jpdb-not-in-deck')).toBe(true);
+        expect(target?.classList.contains('jpdb-pitch-unknown')).toBe(true);
+        expect(target?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(target?.dataset.jpdbReaderRelatedWord).toBe('true');
+        expect(target?.dataset.vid).toBe('1456360');
+        expect(target?.dataset.sid).toBe('0');
+        expect(target?.dataset.reading).toBe('よむ');
+        expect(target?.dataset.sentence).toBe('空気を読む。');
+        expect(target?.querySelector('rt')?.textContent).toBe('よむ');
+        expect(host.querySelector('.jpdb-reader-jpdb-example-audio')?.getAttribute('data-jpdb-example-sentence')).toBe('空気を読む。');
     });
 
     it('keeps host page section spacing out of JPDB compound extras', () => {

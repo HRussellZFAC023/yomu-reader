@@ -19,6 +19,11 @@ interface JitenTextReference {
     readingIndex?: number;
 }
 
+interface RenderJitenReferenceOptions {
+    className?: string;
+    sentence?: string;
+}
+
 export function renderJitenDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JitenVocabularyInfo | null = null, language: InterfaceLanguage = 'en'): string {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
@@ -103,7 +108,7 @@ function dedupeText(values: string[]): string[] {
 
 function renderJitenVocabularyExtras(info: JitenVocabularyInfo | null, sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
     if (!info || (!info.composedOf.length && !info.usedIn.length && !info.examples.length)) return '';
-    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenRelatedWords(info.composedOf, 'jitenCompositeWords', `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenUsedIn(info, sourceAttributes, language)}${renderJitenExamples(info.examples, sourceAttributes, language, card)}</div>`;
+    return `<div class="jpdb-reader-jpdb-extras jpdb-reader-jiten-extras">${renderJitenRelatedWords(info.composedOf, 'jitenCompositeWords', `${JITEN_DEFINITION_SOURCE_ID}:composite`, sourceAttributes, language)}${renderJitenUsedIn(info, sourceAttributes, language)}${renderJitenExamples(info.examples, sourceAttributes, language, card, info)}</div>`;
 }
 
 function renderJitenUsedIn(info: JitenVocabularyInfo, sourceAttributes: SourceAttributes, language: InterfaceLanguage): string {
@@ -138,12 +143,18 @@ function renderJitenRelatedWords(
 function renderJitenRelatedWord(entry: JitenVocabularyWordSummary, language: InterfaceLanguage): string {
     const lookup = cleanJitenWordSurface(entry);
     const reading = jitenAnnotatedKana(entry.readingFurigana) || cleanJitenAnnotatedText(entry.reading);
+    const reference = renderPassiveJitenReference({
+        text: lookup,
+        reading,
+        wordId: entry.wordId,
+        readingIndex: entry.readingIndex,
+    });
     return `
         <li class="jpdb-reader-jpdb-used-in-row jpdb-reader-jiten-related-row has-audio">
             ${renderJitenAudioButton(lookup, language, jitenWordAudioAttributes(entry))}
             <span class="jpdb-reader-jpdb-used-in-main jpdb-reader-jiten-related-main">
                 <a class="gloss-link jpdb-reader-jpdb-used-in-link jpdb-reader-jiten-related-link" href="#jpdb-reader-dictionary-lookup" data-dictionary-lookup="${escapeHtml(lookup)}" data-dictionary-reading="${escapeHtml(reading)}" data-dictionary="Jiten" data-external="false">
-                    <span class="jpdb-reader-jpdb-compound-head jpdb-reader-jiten-related-head">${renderJitenAnnotatedReading(entry.readingFurigana || entry.reading)}</span>
+                    <span class="jpdb-reader-jpdb-compound-head jpdb-reader-jiten-related-head">${reference || renderJitenAnnotatedReading(entry.readingFurigana || entry.reading)}</span>
                 </a>
                 ${entry.frequencyRank ? `<small>#${escapeHtml(String(entry.frequencyRank))}${entry.mainDefinition ? ` · ${escapeHtml(entry.mainDefinition)}` : ''}</small>` : entry.mainDefinition ? `<small>${escapeHtml(entry.mainDefinition)}</small>` : ''}
             </span>
@@ -151,7 +162,7 @@ function renderJitenRelatedWord(entry: JitenVocabularyWordSummary, language: Int
     `;
 }
 
-function renderJitenExamples(examples: JitenVocabularyExample[], sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget): string {
+function renderJitenExamples(examples: JitenVocabularyExample[], sourceAttributes: SourceAttributes, language: InterfaceLanguage, card: CardHighlightTarget, info: JitenVocabularyInfo): string {
     return examples.length ? `
         <details class="jpdb-reader-local-entry jpdb-reader-dictionary-group jpdb-reader-jpdb-examples-group" ${sourceAttributes(definitionSourceStateKey(`${JITEN_DEFINITION_SOURCE_ID}:examples`))}>
             <summary class="jpdb-reader-local-title jpdb-reader-example-summary">
@@ -160,20 +171,20 @@ function renderJitenExamples(examples: JitenVocabularyExample[], sourceAttribute
             </summary>
             <div class="jpdb-reader-local-glossary">
                 <ul class="jpdb-reader-jpdb-examples">
-                    ${examples.map(example => renderJitenExample(example, card, language)).join('')}
+                    ${examples.map(example => renderJitenExample(example, card, language, info)).join('')}
                 </ul>
             </div>
         </details>
     ` : '';
 }
 
-function renderJitenExample(example: JitenVocabularyExample, card: CardHighlightTarget, language: InterfaceLanguage): string {
+function renderJitenExample(example: JitenVocabularyExample, card: CardHighlightTarget, language: InterfaceLanguage, info: JitenVocabularyInfo): string {
     return `
         <li class="jpdb-reader-jpdb-example jpdb-reader-jiten-example">
             <div class="jpdb-reader-jpdb-example-row jpdb-reader-jiten-example-row has-audio">
                 ${renderJitenAudioButton(example.text, language, jitenExampleAudioAttributes(example))}
                 <div class="jpdb-reader-jpdb-example-text jpdb-reader-jiten-example-text">
-                    <div class="jpdb-reader-example-sentence jpdb-reader-jiten-example-sentence jpdb-reader-parseable">${renderJitenExampleSentence(example, card)}</div>
+                    <div class="jpdb-reader-example-sentence jpdb-reader-jiten-example-sentence jpdb-reader-parseable">${renderJitenExampleSentence(example, card, info)}</div>
                     ${example.sourceTitle ? `<div class="jpdb-reader-example-translation">${escapeHtml(example.sourceTitle)}</div>` : ''}
                 </div>
             </div>
@@ -181,12 +192,16 @@ function renderJitenExample(example: JitenVocabularyExample, card: CardHighlight
     `;
 }
 
-function renderJitenExampleSentence(example: JitenVocabularyExample, card: CardHighlightTarget): string {
+function renderJitenExampleSentence(example: JitenVocabularyExample, card: CardHighlightTarget, info: JitenVocabularyInfo): string {
     if (example.wordPosition < 0 || example.wordLength <= 0) return renderCardHighlightedTextHtml(example.text, card);
     const before = example.text.slice(0, example.wordPosition);
     const target = example.text.slice(example.wordPosition, example.wordPosition + example.wordLength);
     const after = example.text.slice(example.wordPosition + example.wordLength);
-    return `${escapeHtml(before)}<mark class="jpdb-reader-example-target jpdb-reader-jiten-example-target">${escapeHtml(target)}</mark>${escapeHtml(after)}`;
+    const reference = jitenExampleTargetReference(target, card, info);
+    const targetHtml = reference
+        ? renderPassiveJitenReference(reference, { className: 'jpdb-reader-example-target jpdb-reader-jiten-example-target', sentence: example.text })
+        : `<mark class="jpdb-reader-example-target jpdb-reader-jiten-example-target">${escapeHtml(target)}</mark>`;
+    return `${escapeHtml(before)}${targetHtml}${escapeHtml(after)}`;
 }
 
 function renderJitenAudioButton(text: string, language: InterfaceLanguage, extraAttributes = ''): string {
@@ -292,6 +307,12 @@ function jitenWordSummaryTextReference(word: JitenVocabularyWordSummary): JitenT
     };
 }
 
+function jitenExampleTargetReference(target: string, card: CardHighlightTarget, info: JitenVocabularyInfo): JitenTextReference | null {
+    const text = target.trim();
+    if (!text) return null;
+    return jitenDefinitionTextReferences(card as JPDBCard, info).find(reference => reference.text === text) ?? null;
+}
+
 function renderJitenTextWithReferences(text: string, references: JitenTextReference[]): string {
     if (!references.length) return escapeHtml(text);
     let html = '';
@@ -309,7 +330,7 @@ function renderJitenTextWithReferences(text: string, references: JitenTextRefere
     return html;
 }
 
-function renderPassiveJitenReference(reference: JitenTextReference): string {
+function renderPassiveJitenReference(reference: JitenTextReference, options: RenderJitenReferenceOptions = {}): string {
     const reading = visibleJitenReferenceReading(reference.text, reference.reading);
     const identity = [
         reference.wordId !== undefined ? `data-vid="${escapeHtml(String(reference.wordId))}"` : '',
@@ -317,8 +338,9 @@ function renderPassiveJitenReference(reference: JitenTextReference): string {
     ].filter(Boolean).join(' ');
     const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
     const identityAttributes = identity ? ` ${identity}` : '';
-    const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? ' jpdb-reader-has-furi' : ''}`;
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml(reference.text)}" data-expression="${escapeHtml(reference.text)}"${readingAttribute} tabindex="-1">${renderJitenReferenceContent(reference.text, reading)}</span>`;
+    const extraClass = options.className?.trim();
+    const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? ' jpdb-reader-has-furi' : ''}${extraClass ? ` ${escapeHtml(extraClass)}` : ''}`;
+    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml(options.sentence ?? reference.text)}" data-expression="${escapeHtml(reference.text)}"${readingAttribute} tabindex="-1">${renderJitenReferenceContent(reference.text, reading)}</span>`;
 }
 
 function renderJitenReferenceContent(text: string, reading: string): string {

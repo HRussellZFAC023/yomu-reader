@@ -37,7 +37,8 @@ const VISIBLE_SCAN_MOBILE_VIEWPORT_WIDTH = 700;
 const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
 const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1_200;
 const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
-const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
+const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
+const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 3;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
 interface VisibleScanParseOptions {
@@ -255,7 +256,7 @@ export class VisiblePageScanner {
     }
 
     private async parseAndApplyTargets(targets: ScanTextTarget[], generation: number, scanStartSettings: ReaderSettings): Promise<boolean> {
-        if (visibleScanParsePrefetchConcurrency() > 1) {
+        if (visibleScanParsePrefetchConcurrency(scanStartSettings) > 1) {
             return this.parseAndApplyTargetsWithPrefetch(targets, generation, scanStartSettings);
         }
         return this.parseAndApplyTargetsSequentially(targets, generation, scanStartSettings);
@@ -298,7 +299,7 @@ export class VisiblePageScanner {
         let parsedAnyTokens = false;
         const pending: VisibleScanParseWork[] = [];
         const parseCharBudget = visibleScanParseCharBudget(scanStartSettings);
-        const concurrency = visibleScanParsePrefetchConcurrency();
+        const concurrency = visibleScanParsePrefetchConcurrency(scanStartSettings);
         const schedule = (): void => {
             while (!this.isStaleScan(generation) && pending.length < concurrency && cursor < targets.length) {
                 const next = nextVisibleScanParseBatch(targets, cursor, parseCharBudget);
@@ -463,8 +464,9 @@ function visibleScanApplyBatchSize(settings: ReaderSettings): number {
     return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
 }
 
-function visibleScanParsePrefetchConcurrency(): number {
-    return isYouTubeVisibleScanHost() ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : 1;
+function visibleScanParsePrefetchConcurrency(settings: ReaderSettings): number {
+    if (isYouTubeVisibleScanHost()) return YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH;
+    return hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
 }
 
 function isNarrowVisibleScanViewport(): boolean {

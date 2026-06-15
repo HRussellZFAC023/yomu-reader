@@ -6,7 +6,7 @@ import { cardKey } from '../../src/reader/cards/utils';
 import { APP_NAME } from '../../src/reader/app/constants';
 import type { ImmersionKitExample } from '../../src/reader/immersion/kit';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
-import { renderSearchWordResults, searchWordDetailHtml, searchWordMetaItems, searchWordSummaryMeta, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
+import { renderSearchWordResults, searchWordDetailHtml, searchWordMetaItems, searchWordSummaryMeta, type NewTabSearchDetailViewContext, type NewTabSearchWordDetailData } from '../../src/reader/newtab/search-view';
 import { newTabSourceLoadPlan } from '../../src/reader/newtab/source';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb/jpdb-review-bridge';
@@ -9118,9 +9118,9 @@ describe('new tab review helpers', () => {
             const meta = root.querySelector<HTMLElement>('[data-search-word-meta="1318480:0:自動販売機:じどうはんばいき"]');
             expect(meta?.textContent).toBe('#18900');
             const kanjiMeta = root.querySelector<HTMLElement>('[data-newtab-action="search-result-kanji"][data-kanji="自"] .jpdb-reader-newtab-search-meta');
-            expect(kanjiMeta?.textContent).toContain('自動販売機');
-            expect(kanjiMeta?.textContent).toContain('じどうはんばいき');
-            expect(kanjiMeta?.textContent).toContain('vending machine');
+            expect(kanjiMeta?.textContent).not.toContain('自動販売機');
+            expect(kanjiMeta?.textContent).toContain('自動');
+            expect(kanjiMeta?.textContent).toContain('自動化');
         });
         root.remove();
     });
@@ -9462,21 +9462,14 @@ describe('new tab review helpers', () => {
         expect(playJpdbExampleAudio).not.toHaveBeenCalled();
     });
 
-    it('renders the enabled Jiten source panel in expanded search word details', () => {
+    it('renders Jiten definitions in expanded search word details and omits empty Jiten panels', () => {
         const card = newTabTestCard({
             source: 'jpdb',
-            spelling: '学習能力',
-            reading: 'がくしゅうのうりょく',
-            meanings: [{ glosses: ['learning ability'], partOfSpeech: [] }],
+            spelling: '大学',
+            reading: 'だいがく',
+            meanings: [{ glosses: ['university'], partOfSpeech: [] }],
         });
-        const html = searchWordDetailHtml(card, {
-            localEntries: [],
-            kanjiEntries: [],
-            metaEntries: [],
-            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
-            jpdbVocabularyInfo: null,
-            jitenVocabularyInfo: null,
-        }, {
+        const context: NewTabSearchDetailViewContext = {
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
                 jpdbDefinitionsEnabled: false,
@@ -9493,14 +9486,52 @@ describe('new tab review helpers', () => {
             ].filter(Boolean).join(' '),
             dictionaryLabel: name => name,
             kanjiSourceTitle: sourceId => sourceId,
-        });
+        };
+        const detail: NewTabSearchWordDetailData = {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbVocabularyInfo: null,
+            jitenVocabularyInfo: {
+                wordId: 321,
+                mainReading: { text: '大学', readingIndex: 0, frequencyRank: 475, usedInMediaAmount: null },
+                alternativeReadings: [],
+                partsOfSpeech: ['noun'],
+                definitions: [{
+                    index: 0,
+                    meanings: ['university; college'],
+                    partsOfSpeech: ['noun'],
+                    field: [],
+                    dial: [],
+                    misc: [],
+                    restrictedToReadingIndices: [],
+                }],
+                pitchAccents: [],
+                knownStates: [],
+                composedOf: [],
+                usedIn: [],
+                usedInTotal: 0,
+                examples: [],
+            },
+        };
+        const html = searchWordDetailHtml(card, detail, context);
         const root = document.createElement('div');
         root.innerHTML = html;
 
         expect(root.querySelector('[data-source="jiten"]')).not.toBeNull();
         expect(root.textContent).toContain('Jiten');
-        expect(root.textContent).toContain('No Jiten definitions.');
+        expect(root.textContent).toContain('university; college');
+        expect(root.textContent).not.toContain('No Jiten definitions.');
         expect(root.querySelector('[data-source="jpdb"]')).toBeNull();
+
+        const emptyRoot = document.createElement('div');
+        emptyRoot.innerHTML = searchWordDetailHtml(card, {
+            ...detail,
+            jitenVocabularyInfo: { ...detail.jitenVocabularyInfo!, definitions: [] },
+        }, context);
+        expect(emptyRoot.querySelector('[data-source="jiten"]')).toBeNull();
+        expect(emptyRoot.textContent).not.toContain('No Jiten definitions.');
     });
 
     it('keeps handwriting candidates open and clears doodles in search mode', () => {
@@ -10437,7 +10468,7 @@ describe('new tab review helpers', () => {
             await internals.parseSettingsJapanese(form);
 
             expect(parse).toHaveBeenCalledWith(
-                expect.arrayContaining(['よむ 設定', '外観', '設定の表示言語 日本語']),
+                expect.arrayContaining(['よむ 設定', '外観', '設定の表示言語', '日本語']),
                 expect.objectContaining({
                     allowJpdbTimeoutFallback: true,
                     allowSegmentedFallback: true,
@@ -14433,6 +14464,48 @@ describe('new tab review helpers', () => {
         expect(jpdbFacts).not.toContain('Frame number');
         expect(rtkSection?.textContent).toContain('Attach the person to the inch.');
         expect(details.querySelector('[data-newtab-uchisen-mount]')).not.toBeNull();
+    });
+
+    it('does not repeat the displayed Jiten kanji meaning as a keyword pill', () => {
+        const details = renderTestKanjiDetails({
+            settings: {
+                apiKey: '',
+                jitenApiKey: 'ak_jiten-key',
+                rtkEnabled: true,
+            },
+            card: newTabTestCard({ spelling: '大', source: 'jiten', meanings: [{ glosses: ['large'], partOfSpeech: [] }] }),
+            kanji: '大',
+            info: null,
+            jiten: {
+                character: '大',
+                onReadings: ['ダイ'],
+                kunReadings: ['おお'],
+                meanings: ['large', 'big'],
+                strokeCount: 3,
+                jlptLevel: 5,
+                grade: 1,
+                frequencyRank: 7,
+                groupingTags: { kanken: null, wanikani: null, rtk: null, klc: null, tmw: null },
+                topWords: [],
+                wordsByReading: [],
+            },
+            rtk: {
+                kanji: '大',
+                keyword: 'large',
+                frameNumber: '112',
+                onYomi: '',
+                kunYomi: '',
+                elements: '',
+                componentKanji: [],
+                heisigStory: '',
+                heisigComment: '',
+                koohiiStories: [],
+            },
+        });
+
+        expect(details.querySelector('.jpdb-reader-jiten-kanji .jpdb-reader-kanji-facts')?.textContent).toContain('Meaninglarge, big');
+        expect(details.querySelector('.jpdb-reader-newtab-kanji-keywords .jpdb-reader-kanji-keyword')).toBeNull();
+        expect(details.textContent).not.toContain('Jiten/RTKlarge');
     });
 
     it('loads additional Jiten kanji words through real show-more pagination', async () => {

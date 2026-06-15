@@ -570,25 +570,37 @@ describe('OCR sentence focus', () => {
         }
     });
 
-    it('does not auto-scan or hover-scan YouTube thumbnail images', async () => {
+    it('does not auto-scan or hover-scan YouTube feed, watch sidebar, or mobile thumbnail images', async () => {
         stubInstantIntersectionObserver();
         const parseJapanese = vi.fn(async () => [parsedToken('サムネイルの文字')]);
         document.body.innerHTML = `
-            <ytd-rich-item-renderer>
-                <ytd-thumbnail>
-                    <a href="/watch?v=thumb">
-                        <img src="https://i.ytimg.com/vi/thumb/hqdefault.jpg" alt="">
-                    </a>
-                </ytd-thumbnail>
+            <ytd-rich-item-renderer data-case="feed">
+                <ytd-thumbnail><a href="/watch?v=feed"><img data-case="feed" src="https://i.ytimg.com/vi/feed/hqdefault.jpg" alt=""></a></ytd-thumbnail>
             </ytd-rich-item-renderer>
+            <ytd-watch-flexy>
+                <aside id="secondary">
+                    <ytd-compact-video-renderer data-case="sidebar">
+                        <ytd-thumbnail><a href="/watch?v=sidebar"><img data-case="sidebar" src="https://i.ytimg.com/vi/sidebar/hqdefault.jpg" alt=""></a></ytd-thumbnail>
+                    </ytd-compact-video-renderer>
+                </aside>
+            </ytd-watch-flexy>
+            <ytm-rich-grid-renderer>
+                <ytm-video-with-context-renderer data-case="mobile">
+                    <a class="media-item-thumbnail-container" href="/watch?v=mobile">
+                        <img data-case="mobile" src="https://i.ytimg.com/vi/mobile/hqdefault.jpg" alt="">
+                    </a>
+                </ytm-video-with-context-renderer>
+            </ytm-rich-grid-renderer>
         `;
-        const image = document.querySelector<HTMLImageElement>('img')!;
-        image.dataset.ocrLines = JSON.stringify([
-            { text: 'サムネイルの文字', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
-        ]);
-        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1280 });
-        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 720 });
-        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        const images = [...document.querySelectorAll<HTMLImageElement>('img')];
+        images.forEach((image, index) => {
+            image.dataset.ocrLines = JSON.stringify([
+                { text: 'サムネイルの文字', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
+            ]);
+            Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1280 });
+            Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 720 });
+            image.getBoundingClientRect = () => new DOMRect(20, 80 + index * 320, 500, 300);
+        });
 
         const controller = new ImageOcrController({
             getSettings: () => ({
@@ -607,7 +619,7 @@ describe('OCR sentence focus', () => {
 
         try {
             controller.init();
-            dispatchPointerEvent(image, 'pointerover');
+            images.forEach(image => dispatchPointerEvent(image, 'pointerover'));
             await Promise.resolve();
             await Promise.resolve();
 

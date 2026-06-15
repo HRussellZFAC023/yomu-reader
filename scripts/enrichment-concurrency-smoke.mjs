@@ -23,8 +23,9 @@ const {
     scriptPath: SCRIPT_PATH,
     cssPath: CSS_PATH,
 } = createSmokePaths(import.meta.dirname);
+const ANKI_COMPANION_PATH = path.join(ROOT, 'dist/greasyfork/yomu-anki.user.js');
 
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, ANKI_COMPANION_PATH], ROOT, 'Run npm run build first.');
 mkdirSync(ARTIFACTS, { recursive: true });
 
 const FIRST_PARAGRAPH = '猫'.repeat(2200);
@@ -97,6 +98,7 @@ try {
 
     await page.goto(`${server.origin}/concurrency/`, { waitUntil: 'domcontentloaded' });
     await installUserscriptCssResource(page, CSS_PATH);
+    await addScriptTagWithCspFallback(page, ANKI_COMPANION_PATH);
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
     await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-reader-word[data-expression="鳥"]')), null, { timeout: 20_000 });

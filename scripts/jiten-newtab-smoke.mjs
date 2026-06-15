@@ -59,6 +59,12 @@ const PUBLIC_SEARCH_FIXTURES = new Map([
     ['読み取る', { vid: 101001, expression: '読み取る', reading: 'よみとる', meaning: 'to read; to understand', rank: 5200 }],
     ['学習能力', { vid: 101002, expression: '学習能力', reading: 'がくしゅうのうりょく', meaning: 'learning ability', rank: 32900 }],
 ]);
+const JITEN_SEARCH_FIXTURES = new Map([
+    ['読む', { wordId: 201000, readingIndex: 0, expression: '読む', reading: 'よむ', annotated: '読[よ]む', meaning: 'to read', example: '本を読む。' }],
+    ['読み取る', { wordId: 201001, readingIndex: 0, expression: '読み取る', reading: 'よみとる', annotated: '読[よ]み取[と]る', meaning: 'to read; to understand', example: '意図を読み取る。' }],
+    ['学習能力', { wordId: 201002, readingIndex: 0, expression: '学習能力', reading: 'がくしゅうのうりょく', annotated: '学習能力[がくしゅうのうりょく]', meaning: 'learning ability', example: '学習能力が高い。' }],
+]);
+const JITEN_SEARCH_FIXTURES_BY_ID = new Map(Array.from(JITEN_SEARCH_FIXTURES.values()).map(item => [`${item.wordId}:${item.readingIndex}`, item]));
 
 function createNewTabFixtureServer() {
     return startLoopbackServer(serveNewTabFixtureRequest, 'Could not bind Jiten new-tab smoke server');
@@ -276,7 +282,7 @@ function mockedApiRequestInner(request, requests) {
 function mockedJitenRequest(url, request, requests) {
     assertApiAuth(request, 'ApiKey ', MOCK_JITEN_API_KEY, 'Jiten');
     const pathname = url.pathname.replace(/^\/api\/?/, '');
-    const handler = JITEN_REQUEST_HANDLERS.get(`${request.method} ${pathname}`) ?? jitenPingHandler(pathname);
+    const handler = JITEN_REQUEST_HANDLERS.get(`${request.method} ${pathname}`) ?? jitenDynamicHandler(request.method, pathname) ?? jitenPingHandler(pathname);
     if (handler) return handler(url, request, requests);
     throw new Error(`Unexpected Jiten request: ${request.method} ${url.href}`);
 }
@@ -309,8 +315,93 @@ function handleJitenPing(_url, _request, requests) {
     return jsonHttpResponse({});
 }
 
+function handleJitenParse(_url, request, requests) {
+    const body = readRequestJson(request.data);
+    const texts = Array.isArray(body.text) ? body.text.map(String) : [];
+    requests.push({ kind: 'jiten-parse', body });
+    const vocabularyByKey = new Map();
+    const tokens = texts.map(text => {
+        const fixture = JITEN_SEARCH_FIXTURES.get(text);
+        if (!fixture) return [];
+        const key = `${fixture.wordId}:${fixture.readingIndex}`;
+        vocabularyByKey.set(key, jitenSearchVocabulary(fixture));
+        return [{ wordId: fixture.wordId, readingIndex: fixture.readingIndex, start: 0, end: fixture.expression.length, length: fixture.expression.length }];
+    });
+    return jsonHttpResponse({ vocabulary: Array.from(vocabularyByKey.values()), tokens });
+}
+
+function handleJitenVocabularyInfo(url, _request, requests) {
+    const fixture = jitenFixtureFromVocabularyUrl(url);
+    requests.push({ kind: 'jiten-vocabulary-info', wordId: fixture?.wordId, readingIndex: fixture?.readingIndex });
+    assert(fixture, 'Jiten vocabulary info smoke requested an unknown word', { url: url.href });
+    return jsonHttpResponse({
+        wordId: fixture.wordId,
+        mainReading: { text: fixture.annotated, readingIndex: fixture.readingIndex, frequencyRank: 250, usedInMediaAmount: 12 },
+        alternativeReadings: [],
+        partsOfSpeech: ['noun'],
+        definitions: [{ senseIndex: 0, englishMeanings: [fixture.meaning], pos: ['noun'] }],
+        pitchAccents: [0],
+        knownStates: [],
+        composedOf: [],
+        usedIn: [{
+            wordId: fixture.wordId + 1000,
+            readingIndex: 0,
+            reading: `${fixture.expression}力`,
+            readingFurigana: `${fixture.expression}力[${fixture.reading}りょく]`,
+            mainDefinition: `${fixture.meaning} ability`,
+            frequencyRank: 9999,
+            matchSurface: `${fixture.expression}力`,
+            knownStates: [],
+            pitchAccents: [1],
+        }],
+        usedInTotal: 1,
+    });
+}
+
+function handleJitenVocabularyExamples(url, _request, requests) {
+    const fixture = jitenFixtureFromVocabularyUrl(url);
+    requests.push({ kind: 'jiten-vocabulary-examples', wordId: fixture?.wordId, readingIndex: fixture?.readingIndex });
+    assert(fixture, 'Jiten example smoke requested an unknown word', { url: url.href });
+    return jsonHttpResponse([{
+        sentenceId: fixture.wordId + 2000,
+        text: fixture.example,
+        wordPosition: fixture.example.indexOf(fixture.expression),
+        wordLength: fixture.expression.length,
+        difficulty: null,
+        sourceTitle: 'Smoke fixture',
+        audioUrls: [],
+    }]);
+}
+
 function jitenPingHandler(pathname) {
     return pathname === 'reader/ping' ? handleJitenPing : undefined;
+}
+
+function jitenDynamicHandler(method, pathname) {
+    if (method === 'POST' && pathname === 'reader/parse') return handleJitenParse;
+    if (method === 'GET' && /^vocabulary\/\d+\/\d+\/info$/.test(pathname)) return handleJitenVocabularyInfo;
+    if (method === 'POST' && /^vocabulary\/\d+\/\d+\/random-example-sentences$/.test(pathname)) return handleJitenVocabularyExamples;
+    return undefined;
+}
+
+function jitenFixtureFromVocabularyUrl(url) {
+    const match = /\/vocabulary\/(\d+)\/(\d+)\//.exec(url.pathname);
+    return match ? JITEN_SEARCH_FIXTURES_BY_ID.get(`${match[1]}:${match[2]}`) : undefined;
+}
+
+function jitenSearchVocabulary(fixture) {
+    return {
+        wordId: fixture.wordId,
+        readingIndex: fixture.readingIndex,
+        spelling: fixture.expression,
+        reading: fixture.annotated,
+        frequencyRank: 250,
+        partsOfSpeech: ['noun'],
+        meaningsChunks: [[fixture.meaning]],
+        meaningsPartOfSpeech: [['noun']],
+        knownState: [],
+        pitchAccents: [0],
+    };
 }
 
 function handleJpdbListUserDecks(body, requests) {
@@ -490,7 +581,7 @@ async function runSearchJitenSourcePanelSmoke(browser, fixture) {
     const requests = [];
     const settings = createSettings({
         apiKey: '',
-        jitenApiKey: '',
+        jitenApiKey: MOCK_JITEN_API_KEY,
         newTabSource: 'jpdb',
         jpdbDefinitionsEnabled: true,
         jitenDefinitionsEnabled: true,
@@ -523,7 +614,9 @@ async function runSearchJitenSourcePanelSmoke(browser, fixture) {
             );
             const jitenText = await detail.locator('[data-source="jiten"]').textContent();
             assert(sourceTitles.includes('Jiten'), `Expanded search detail did not list Jiten for ${term}`, { term, expression, sourceTitles });
-            assert(jitenText && /Jiten/.test(jitenText), `Jiten panel was empty or missing label for ${term}`, { term, expression, jitenText });
+            assert(jitenText && /Jiten/.test(jitenText) && /to read|learning ability/.test(jitenText), `Jiten panel was empty or missing definitions for ${term}`, { term, expression, jitenText });
+            const passiveTargets = await detail.locator('[data-source="jiten"] .jpdb-reader-passive-word').count();
+            assert(passiveTargets > 0, `Jiten panel did not render passive ruby/lookup targets for ${term}`, { term, expression });
             results.push({ term, expression, sourceTitles });
         }
         assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Search Jiten source smoke unexpectedly called JPDB API');

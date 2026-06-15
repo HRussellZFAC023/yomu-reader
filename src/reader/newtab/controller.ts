@@ -5494,7 +5494,10 @@ export class NewTabController {
         const keywordMount = wrap.querySelector<HTMLElement>('.jpdb-reader-newtab-kanji-keywords');
         if (keywordMount) {
             const keywordLine = jitenInfo
-                ? renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage)
+                ? this.suppressDuplicateKanjiKeywordLine(
+                    renderJitenKanjiKeywordLine(jitenInfo, rtk, localEntries, settings.interfaceLanguage),
+                    jitenInfo.meanings[0] ?? '',
+                )
                 : this.renderNewTabKanjiKeywordLine(fullInfo, rtk, localEntries, facts, settings.interfaceLanguage);
             if (keywordLine) setInnerHtml(keywordMount, keywordLine);
             else keywordMount.remove();
@@ -5668,6 +5671,10 @@ export class NewTabController {
     ): string {
         const line = renderKanjiKeywordLine(fullInfo, rtk, localEntries, language);
         const displayedKeyword = this.newTabKanjiDisplayedKeyword(facts, language);
+        return this.suppressDuplicateKanjiKeywordLine(line, displayedKeyword);
+    }
+
+    private suppressDuplicateKanjiKeywordLine(line: string, displayedKeyword: string): string {
         if (!displayedKeyword) return line;
         const root = htmlToFirstElement(line);
         if (!root || root.classList.contains('jpdb-reader-help')) return line;

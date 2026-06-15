@@ -33,6 +33,8 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
 const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
     '.jpdb-reader-theme-title',
     '[role="tab"]',
+    '.jpdb-reader-settings-actions .jpdb-reader-btn',
+    '.jpdb-reader-help-actions .jpdb-reader-btn',
     '.footer button',
 ].join(',');
 const SETTINGS_SELECT_META_PARSE_SELECTOR = '[data-settings-select-options-meta]';

@@ -136,6 +136,10 @@ function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: 
 }
 
 function renderJpdbExampleSentence(example: JpdbVocabularyInfo['examples'][number], card: CardHighlightTarget): string {
+    // The example sentence is `.jpdb-reader-parseable`, so the nested scanner
+    // parses and makes its words (incl. the headword) clickable. Highlight the
+    // card term inline only — do NOT wrap it as a passive related word, which
+    // would double-count as a "used-in" relation and pre-empt nested parsing.
     return example.sentenceHtml || renderCardHighlightedTextHtml(example.sentence, card);
 }
 
@@ -143,12 +147,12 @@ function renderJpdbUsedInTerm(term: string, reading: string, url: string, termHt
     return `<span class="jpdb-reader-jpdb-compound-term jpdb-reader-jpdb-used-in-term" data-dictionary="JPDB">${renderPassiveJpdbRelatedWord(term, reading, url, { termHtml })}</span>`;
 }
 
-function renderPassiveJpdbRelatedWord(term: string, reading: string, url: string, options: { className?: string; showReading?: boolean; termHtml?: string } = {}): string {
+function renderPassiveJpdbRelatedWord(term: string, reading: string, url: string, options: { className?: string; sentence?: string; showReading?: boolean; termHtml?: string } = {}): string {
     const vid = jpdbVocabularyVidFromUrl(url);
     const identityAttributes = vid === null ? '' : ` data-vid="${vid}" data-sid="0" data-card-source="jpdb" data-card-id="${vid}" data-reading-index="0"`;
     const readingAttribute = reading ? ` data-reading="${escapeHtml(reading)}"` : '';
     const { classes, content } = passiveJpdbRelatedWordContent(term, reading, options);
-    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml(term)}" data-expression="${escapeHtml(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-jpdb-reader-passive="true" data-jpdb-reader-related-word="true"${identityAttributes} data-card-state="${JPDB_RELATED_WORD_STATE}" data-pitch-class="${JPDB_RELATED_WORD_PITCH_CLASS}" data-sentence="${escapeHtml(options.sentence ?? term)}" data-expression="${escapeHtml(term)}"${readingAttribute} tabindex="-1">${content}</span>`;
 }
 
 function passiveJpdbRelatedWordContent(term: string, reading: string, options: { className?: string; showReading?: boolean; termHtml?: string }): { classes: string; content: string } {
