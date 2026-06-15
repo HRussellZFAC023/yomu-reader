@@ -4,6 +4,7 @@ import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPrevie
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
+import { isPlainReadingDuplicatedByVisibleRuby } from './reading-display';
 import { escapeHtml, renderKanjiNavigationText } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, uiText } from '../app/i18n';
@@ -406,7 +407,7 @@ export class CardPopoverRenderer {
         const settings = this.settings();
         const canShowProviderStatus = Boolean(provider?.hasApiKey);
         return [
-            renderMetaReading(card),
+            renderMetaReading(card, settings),
             card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '',
             canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
             renderAnkiMeta(data.ankiLookup, settings),
@@ -525,8 +526,9 @@ function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, l
     };
 }
 
-function renderMetaReading(card: JPDBCard): string {
+function renderMetaReading(card: JPDBCard, settings: ReaderSettings): string {
     const reading = cardPronunciationReading(card);
+    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return '';
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
 }
 
