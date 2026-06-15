@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.30
+// @version      0.7.31
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -21308,6 +21308,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sid: scope.dataset.cardHighlightSid
     };
   }
+  function compactReading(value) {
+    return value.replace(/\s+/g, "").trim();
+  }
+  function isPlainReadingDuplicatedByVisibleRuby(card, settings, plainReading) {
+    const spelling = card.spelling.trim();
+    const normalizedPlainReading = compactReading(plainReading);
+    if (!spelling || !normalizedPlainReading || normalizedPlainReading === compactReading(spelling)) return false;
+    const rubyReading = normalizedJapaneseCardReading(spelling, card.reading).trim();
+    if (!rubyReading || compactReading(rubyReading) !== normalizedPlainReading) return false;
+    const token = {
+      card: { ...card, spelling, reading: rubyReading },
+      start: 0,
+      end: spelling.length,
+      length: spelling.length,
+      rubies: []
+    };
+    return shouldRenderRuby(spelling, token, settings);
+  }
   const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
   const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
   const KANJI_RTK_SOURCE_ID = "__kanji_rtk__";
@@ -22860,7 +22878,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
       return [
-        renderMetaReading(card),
+        renderMetaReading(card, settings),
         card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "",
         canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
@@ -22959,8 +22977,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       blacklistLabel: isBlacklisted ? uiText(language, "unlist") : uiText(language, "blacklist")
     };
   }
-  function renderMetaReading(card) {
+  function renderMetaReading(card, settings) {
     const reading = cardPronunciationReading(card);
+    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
   }
   function renderAnkiMeta(lookup, settings) {

@@ -5,6 +5,7 @@ import { el } from '../dom/builder';
 import { uiText } from '../app/i18n';
 import { cardKey } from '../cards/utils';
 import { primaryCardState } from '../cards/state';
+import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display';
 import { escapeHtml, htmlToFirstElement, renderTokensToHtml, setInnerHtml } from '../dom';
 import { ANKI_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { normalizedJapaneseCardReading } from '../cards/highlight';
@@ -50,31 +51,10 @@ export function searchWordSummaryMeta(
     ankiLookup?: CardRenderData['ankiLookup'],
 ): string[] {
     return [
-        searchWordSummaryReading(card, context),
+        searchWordVisibleReading(card, context.settings),
         searchWordPooledStatusLabel(card, context, ankiLookup),
         card.frequencyRank ? `#${card.frequencyRank}` : '',
     ].filter(Boolean);
-}
-
-function searchWordSummaryReading(card: JPDBCard, context: NewTabSearchViewContext): string {
-    const reading = newTabCardOptionalReading(card);
-    if (!reading) return '';
-    const rubyReading = renderedSearchTermRubyReading(card, context.settings);
-    return rubyReading && compactReading(rubyReading) === compactReading(reading) ? '' : reading;
-}
-
-function renderedSearchTermRubyReading(card: JPDBCard, settings: ReaderSettings): string {
-    const html = renderSearchCardRubyHtml(card, settings);
-    if (!html.includes('<rt')) return '';
-    return Array.from(html.matchAll(/<rt\b[^>]*>(.*?)<\/rt>/g)).map(match => stripHtml(match[1] ?? '')).join('');
-}
-
-function stripHtml(value: string): string {
-    return value.replace(/<[^>]*>/g, '');
-}
-
-function compactReading(value: string): string {
-    return value.replace(/\s+/g, '').trim();
 }
 
 function searchWordPooledStatusLabel(
@@ -220,6 +200,7 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
     const settings = context.getSettings();
     const state = primaryCardState(card.cardState);
     const metaItems = searchWordMetaItems(card, state, detail, settings);
+    const visibleReading = searchWordVisibleReading(card, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : '';
     const pills = context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup) ?? '';
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? 'playAudio' : 'audioPlaybackDisabled');
@@ -227,7 +208,7 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
                 <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(settings.interfaceLanguage, 'showKanji'))}">${escapeHtml(card.spelling)}</div>
-                ${card.reading && card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml(card.reading)}</div>` : ''}
+                ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml(visibleReading)}</div>` : ''}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : ''}
             </div>
             ${pills}
@@ -241,16 +222,22 @@ function searchWordHeaderHtml(card: JPDBCard, detail: NewTabSearchWordDetailData
 
 export function searchWordMetaItems(card: JPDBCard, state: CardState, detail: NewTabSearchWordDetailData, settings: ReaderSettings): string[] {
     return [
-        searchWordReadingMeta(card),
+        searchWordReadingMeta(card, settings),
         searchWordFrequencyMeta(card),
         searchWordCardStateMeta(card, state, settings),
         searchWordLookupAnkiStateMeta(card, detail, settings),
     ].filter(Boolean);
 }
 
-function searchWordReadingMeta(card: JPDBCard): string {
+function searchWordReadingMeta(card: JPDBCard, settings: ReaderSettings): string {
     const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
+    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return '';
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml(reading)}</span>` : '';
+}
+
+function searchWordVisibleReading(card: JPDBCard, settings: ReaderSettings): string {
+    const reading = newTabCardOptionalReading(card);
+    return reading && !isPlainReadingDuplicatedByVisibleRuby(card, settings, reading) ? reading : '';
 }
 
 function searchWordFrequencyMeta(card: JPDBCard): string {

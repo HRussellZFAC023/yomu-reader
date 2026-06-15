@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.31] - 2026-06-15
+
+### Fixed
+
+- Lookup popovers and expanded search detail headers now use the same duplicate-reading suppression as new-tab search results, so a kanji headword with visible furigana no longer repeats the identical kana reading beside the title while alternate readings remain visible.
+
 ## [0.7.30] - 2026-06-15
 
 ### Fixed

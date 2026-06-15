@@ -4698,6 +4698,47 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
     });
 
+    it('suppresses duplicate reading metadata when the headword has visible furigana', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: 'test-key',
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            frequencyRank: 32900,
+            cardState: ['new'],
+            pitchAccent: [],
+        }, '学習能力を伸ばす。');
+
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('#32900');
+    });
+
+    it('keeps alternate reading metadata when it is not represented by ruby', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: 'test-key',
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: '人気',
+            reading: '人気',
+            wordWithReading: '人気[にんき]',
+            frequencyRank: 800,
+            cardState: ['new'],
+            pitchAccent: [],
+        }, '人気がある。');
+
+        expect(document.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('にんき');
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('#800');
+    });
+
     it('shows separate JPDB and Anki status when JPDB is not in deck but Anki exists', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',

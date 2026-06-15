@@ -12313,7 +12313,7 @@ ${entry.reading || ""}`;
   function flattenNoteFields(fields) {
     const out = {};
     Object.entries(fields ?? {}).forEach(([name, value]) => {
-      out[name] = stripHtml$3(String(value?.value ?? ""));
+      out[name] = stripHtml$2(String(value?.value ?? ""));
     });
     return out;
   }
@@ -12356,7 +12356,7 @@ ${entry.reading || ""}`;
   function normalizeAnkiFieldName(value) {
     return value.replace(/[_\s-]+/g, "").toLowerCase();
   }
-  function stripHtml$3(value) {
+  function stripHtml$2(value) {
     return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
   }
   function suggestAnkiFieldFromContent(role, fields, samples) {
@@ -12440,7 +12440,7 @@ ${entry.reading || ""}`;
       for (const fieldName of fields) {
         const raw = String(note.fields?.[fieldName]?.value ?? "");
         if (!raw.trim()) continue;
-        out[fieldName]?.push({ raw, text: stripHtml$3(raw) });
+        out[fieldName]?.push({ raw, text: stripHtml$2(raw) });
       }
     }
     return out;
@@ -15090,7 +15090,7 @@ ${entry.reading || ""}`;
     ].join(";");
   }
   function stripForMobileHandoff(value) {
-    return stripHtml$3(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    return stripHtml$2(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   }
   function unique$2(items) {
     return [...new Set(items)];
@@ -16177,7 +16177,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ...metrics,
       ...readings2,
       parts: readKanjiMapParts(jisho, kanji),
-      hint: stripHtml$2(stringValue$1(kanjiAlive?.mn_hint)),
+      hint: stripHtml$1(stringValue$1(kanjiAlive?.mn_hint)),
       radical,
       examples,
       references,
@@ -16213,7 +16213,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function readKanjiMapParts(jisho, kanji) {
     return stringArray(jisho?.parts).filter((part) => part !== kanji && JAPANESE_RE$1.test(part)).slice(0, 10);
   }
-  function stripHtml$2(value) {
+  function stripHtml$1(value) {
     return value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
   }
   function buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo = null) {
@@ -40293,7 +40293,7 @@ ${spelling}`);
   }
   function languagePod101RowKana(row) {
     const kanaHtml = findHtmlElementByClass(row, "span", "dc-vocab_kana");
-    return stripHtml$1(kanaHtml ?? "").trim();
+    return stripHtml(kanaHtml ?? "").trim();
   }
   async function getCommonsAudioUrls(term, source, timeoutMs, proxyUrl = "") {
     const apiUrl = commonsSearchApiUrl(term, source);
@@ -40399,7 +40399,7 @@ ${spelling}`);
   function decodeHtmlAttribute(value) {
     return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
   }
-  function stripHtml$1(value) {
+  function stripHtml(value) {
     return decodeHtmlAttribute(value.replace(/<[^>]+>/g, ""));
   }
   function isValidCommonsAudioFilename(filename, fileUser, term, source) {
@@ -43973,6 +43973,24 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sid: scope.dataset.cardHighlightSid
     };
   }
+  function compactReading(value) {
+    return value.replace(/\s+/g, "").trim();
+  }
+  function isPlainReadingDuplicatedByVisibleRuby(card, settings, plainReading) {
+    const spelling = card.spelling.trim();
+    const normalizedPlainReading = compactReading(plainReading);
+    if (!spelling || !normalizedPlainReading || normalizedPlainReading === compactReading(spelling)) return false;
+    const rubyReading = normalizedJapaneseCardReading(spelling, card.reading).trim();
+    if (!rubyReading || compactReading(rubyReading) !== normalizedPlainReading) return false;
+    const token = {
+      card: { ...card, spelling, reading: rubyReading },
+      start: 0,
+      end: spelling.length,
+      length: spelling.length,
+      rubies: []
+    };
+    return shouldRenderRuby(spelling, token, settings);
+  }
   const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
   const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
   const LOCAL_TERM_TAG_LABELS = /* @__PURE__ */ new Map([
@@ -45019,7 +45037,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const settings = this.settings();
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
       return [
-        renderMetaReading(card),
+        renderMetaReading(card, settings),
         card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "",
         canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
@@ -45118,8 +45136,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       blacklistLabel: isBlacklisted ? uiText(language, "unlist") : uiText(language, "blacklist")
     };
   }
-  function renderMetaReading(card) {
+  function renderMetaReading(card, settings) {
     const reading = cardPronunciationReading(card);
+    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
   }
   function renderAnkiMeta(lookup, settings) {
@@ -52994,27 +53013,10 @@ ${newTabCardReading(card)}`;
   }
   function searchWordSummaryMeta(card, context, ankiLookup) {
     return [
-      searchWordSummaryReading(card, context),
+      searchWordVisibleReading(card, context.settings),
       searchWordPooledStatusLabel(card, context, ankiLookup),
       card.frequencyRank ? `#${card.frequencyRank}` : ""
     ].filter(Boolean);
-  }
-  function searchWordSummaryReading(card, context) {
-    const reading = newTabCardOptionalReading(card);
-    if (!reading) return "";
-    const rubyReading = renderedSearchTermRubyReading(card, context.settings);
-    return rubyReading && compactReading(rubyReading) === compactReading(reading) ? "" : reading;
-  }
-  function renderedSearchTermRubyReading(card, settings) {
-    const html = renderSearchCardRubyHtml(card, settings);
-    if (!html.includes("<rt")) return "";
-    return Array.from(html.matchAll(/<rt\b[^>]*>(.*?)<\/rt>/g)).map((match) => stripHtml(match[1] ?? "")).join("");
-  }
-  function stripHtml(value) {
-    return value.replace(/<[^>]*>/g, "");
-  }
-  function compactReading(value) {
-    return value.replace(/\s+/g, "").trim();
   }
   function searchWordPooledStatusLabel(card, context, ankiLookup) {
     const language = context.language;
@@ -53141,6 +53143,7 @@ ${newTabCardReading(card)}`;
     const settings = context.getSettings();
     const state = primaryCardState(card.cardState);
     const metaItems = searchWordMetaItems(card, state, detail, settings);
+    const visibleReading = searchWordVisibleReading(card, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : "";
     const pills = context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup) ?? "";
     const audioTitle = uiText(settings.interfaceLanguage, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled");
@@ -53148,7 +53151,7 @@ ${newTabCardReading(card)}`;
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
                 <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "showKanji"))}">${escapeHtml$1(card.spelling)}</div>
-                ${card.reading && card.reading !== card.spelling ? `<div class="jpdb-reader-reading">${escapeHtml$1(card.reading)}</div>` : ""}
+                ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml$1(visibleReading)}</div>` : ""}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : ""}
             </div>
             ${pills}
@@ -53161,15 +53164,20 @@ ${newTabCardReading(card)}`;
   }
   function searchWordMetaItems(card, state, detail, settings) {
     return [
-      searchWordReadingMeta(card),
+      searchWordReadingMeta(card, settings),
       searchWordFrequencyMeta(card),
       searchWordCardStateMeta(card, state, settings),
       searchWordLookupAnkiStateMeta(card, detail, settings)
     ].filter(Boolean);
   }
-  function searchWordReadingMeta(card) {
+  function searchWordReadingMeta(card, settings) {
     const reading = normalizedJapaneseCardReading(card.spelling, card.reading).trim();
+    if (isPlainReadingDuplicatedByVisibleRuby(card, settings, reading)) return "";
     return reading ? `<span class="jpdb-reader-meta-reading">${escapeHtml$1(reading)}</span>` : "";
+  }
+  function searchWordVisibleReading(card, settings) {
+    const reading = newTabCardOptionalReading(card);
+    return reading && !isPlainReadingDuplicatedByVisibleRuby(card, settings, reading) ? reading : "";
   }
   function searchWordFrequencyMeta(card) {
     return card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "";
@@ -64929,6 +64937,7 @@ ${entry.url}`),
     }
     ensureNewTabLookupReading(titleRow, card) {
       const reading = cardPronunciationReading(card) || card.reading.trim();
+      if (isPlainReadingDuplicatedByVisibleRuby(card, this.settings, reading)) return;
       if (!reading) return;
       let readingElement = titleRow.querySelector(".jpdb-reader-reading");
       if (!readingElement) {

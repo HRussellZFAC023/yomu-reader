@@ -6,7 +6,7 @@ import { cardKey } from '../../src/reader/cards/utils';
 import { APP_NAME } from '../../src/reader/app/constants';
 import type { ImmersionKitExample } from '../../src/reader/immersion/kit';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
-import { searchWordMetaItems, searchWordSummaryMeta } from '../../src/reader/newtab/search-view';
+import { renderSearchWordResults, searchWordDetailHtml, searchWordMetaItems, searchWordSummaryMeta, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
 import { newTabSourceLoadPlan } from '../../src/reader/newtab/source';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb/jpdb-review-bridge';
@@ -9468,6 +9468,61 @@ describe('new tab review helpers', () => {
         } finally {
             root.remove();
         }
+    });
+
+    it('does not repeat the same reading next to a furigana search result headword', () => {
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
+        const card = newTabTestCard({
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            frequencyRank: 32900,
+            cardState: ['new'],
+        });
+        const root = renderSearchWordResults([card], {
+            language: 'en',
+            settings,
+            text: key => ({ words: 'Words', kanji: 'Kanji', dictionary: 'Dictionary' })[key],
+        });
+
+        try {
+            document.body.append(root);
+            const term = root.querySelector<HTMLElement>('.jpdb-reader-newtab-search-term')!;
+            const meta = root.querySelector<HTMLElement>('.jpdb-reader-newtab-search-meta')!;
+
+            expect(term.querySelector('rt')?.textContent).toContain('がくしゅうのうりょく');
+            expect(meta.textContent).toContain('#32900');
+            expect(meta.textContent).not.toContain('がくしゅうのうりょく');
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('does not repeat the same reading in expanded search detail headers when furigana is enabled', () => {
+        const settings = { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const };
+        const card = newTabTestCard({
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            frequencyRank: 32900,
+            cardState: ['new'],
+        });
+        const context: NewTabSearchDetailViewContext = {
+            getSettings: () => settings,
+            text: key => ({ noLocalResults: 'No local results', kanji: 'Kanji' })[key],
+            sourceAttributes: () => '',
+            dictionaryLabel: name => name,
+            kanjiSourceTitle: sourceId => sourceId,
+        };
+
+        document.body.innerHTML = searchWordDetailHtml(card, {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            jpdbVocabularyInfo: null,
+        }, context);
+
+        expect(document.querySelector('.jpdb-reader-reading')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('#32900');
     });
 
     it('searches kana prefixes in search mode autocomplete', async () => {
