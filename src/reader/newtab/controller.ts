@@ -470,6 +470,7 @@ type RootClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEve
 interface StatsClickRequest {
     action: string;
     chartDayTarget: HTMLElement | null;
+    target: HTMLElement;
 }
 
 type StatsClickHandler = (root: HTMLElement, target: HTMLElement, request: StatsClickRequest) => void;
@@ -1216,6 +1217,7 @@ export class NewTabController {
             request.target.closest<HTMLDetailsElement>('.jpdb-reader-newtab-more')?.removeAttribute('open');
             if (this.handleRootClickActions(root, request.target, event, request.action)) return;
         }
+        if (!request.action && this.handleStatsClick(root, request.target, event, request.action)) return;
         if (this.handleNestedLookupClick(root, request.target, event)) return;
         if (!request.action) {
             this.dependencies.dismissLookup?.();
@@ -1464,21 +1466,21 @@ export class NewTabController {
         const request = this.statsClickRequest(root, target, action, event);
         if (!request) return false;
         event.preventDefault();
-        return this.performStatsClick(root, target, request);
+        return this.performStatsClick(root, request);
     }
 
     private statsClickRequest(root: HTMLElement, target: HTMLElement, action: string | undefined, event: MouseEvent): StatsClickRequest | null {
         const chartDayTarget = action ? null : this.nearestStatsChartDayTarget(root, target, event);
         const resolvedAction = action ?? chartDayTarget?.dataset.newtabAction;
         return resolvedAction?.startsWith('stats-')
-            ? { action: resolvedAction, chartDayTarget }
+            ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target }
             : null;
     }
 
-    private performStatsClick(root: HTMLElement, target: HTMLElement, request: StatsClickRequest): boolean {
+    private performStatsClick(root: HTMLElement, request: StatsClickRequest): boolean {
         const handler = this.statsClickHandlers[request.action];
         if (!handler) return false;
-        handler(root, target, request);
+        handler(root, request.target, request);
         return true;
     }
 

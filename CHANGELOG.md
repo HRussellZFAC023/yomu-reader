@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.47] - 2026-06-15
+
+### Fixed
+
+- Compact stats chart gap taps now route through the resolved nearest day element, restoring coarse-pointer day selection and keeping the generated release shard aligned with the shipped interaction.
+
 ## [0.7.46] - 2026-06-15
 
 ### Fixed

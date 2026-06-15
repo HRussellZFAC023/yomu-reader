@@ -9262,6 +9262,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -57075,6 +57076,7 @@ ${entry.url}`),
         request.target.closest(".jpdb-reader-newtab-more")?.removeAttribute("open");
         if (this.handleRootClickActions(root, request.target, event, request.action)) return;
       }
+      if (!request.action && this.handleStatsClick(root, request.target, event, request.action)) return;
       if (this.handleNestedLookupClick(root, request.target, event)) return;
       if (!request.action) {
         this.dependencies.dismissLookup?.();
@@ -57285,17 +57287,17 @@ ${entry.url}`),
       const request = this.statsClickRequest(root, target, action, event);
       if (!request) return false;
       event.preventDefault();
-      return this.performStatsClick(root, target, request);
+      return this.performStatsClick(root, request);
     }
     statsClickRequest(root, target, action, event) {
       const chartDayTarget = action ? null : this.nearestStatsChartDayTarget(root, target, event);
       const resolvedAction = action ?? chartDayTarget?.dataset.newtabAction;
-      return resolvedAction?.startsWith("stats-") ? { action: resolvedAction, chartDayTarget } : null;
+      return resolvedAction?.startsWith("stats-") ? { action: resolvedAction, chartDayTarget, target: chartDayTarget ?? target } : null;
     }
-    performStatsClick(root, target, request) {
+    performStatsClick(root, request) {
       const handler = this.statsClickHandlers[request.action];
       if (!handler) return false;
-      handler(root, target, request);
+      handler(root, request.target, request);
       return true;
     }
     selectStatsSource(root, target) {
