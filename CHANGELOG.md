@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.39] - 2026-06-15
+
+### Fixed
+
+- Dictionary popover source headers now keep enhanced Japanese labels such as `イマージョンキット` compact after ruby and pitch parsing, instead of stretching each parsed token across the accordion row.
+
 ## [0.7.38] - 2026-06-15
 
 ### Fixed
