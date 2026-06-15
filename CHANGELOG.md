@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.37] - 2026-06-15
+
+### Fixed
+
+- Parsed Japanese new-tab chrome now preserves the original button action before nested word lookup. The Settings menu item can render reader ruby/pitch markup without turning clicks on `設定` into a search for parsed inner text such as `統計`.
+
 ## [0.7.36] - 2026-06-15
 
 ### Fixed

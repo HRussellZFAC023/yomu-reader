@@ -8649,6 +8649,49 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('preserves parsed Japanese chrome button actions instead of treating inner words as search terms', () => {
+        const showSettings = vi.fn();
+        const lookupText = vi.fn();
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'ja',
+                apiKey: '',
+                localDictionariesEnabled: false,
+                immersionKitEnabled: false,
+                furiganaMode: 'all',
+                showPitchAccent: true,
+            }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: { fallbackCardFromText: vi.fn(newTabFallbackCardFromText) } as never,
+            dictionaries: {} as never,
+            lookupText,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings,
+            dismiss: vi.fn(),
+        });
+        const root = renderBoundNewTabSearchRoot(controller);
+
+        try {
+            const button = root.querySelector<HTMLButtonElement>('button[data-newtab-action="settings"]')!;
+            button.innerHTML = '<span class="jpdb-reader-word jpdb-reader-passive-word jpdb-pitch-heiban" data-jpdb-reader-passive="true" data-expression="統計" data-reading="とうけい">設定</span>';
+            button.querySelector<HTMLElement>('.jpdb-reader-word')!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(showSettings).toHaveBeenCalledWith('api');
+            expect(lookupText).not.toHaveBeenCalled();
+            expect(root.querySelector<HTMLInputElement>('[data-newtab-search-input]')?.value).toBe('');
+        } finally {
+            root.remove();
+        }
+    });
+
     it('hydrates Kanji Immersion Kit inside expanded standalone search kanji details', async () => {
         const example: ImmersionKitExample = {
             id: 'ik-like',

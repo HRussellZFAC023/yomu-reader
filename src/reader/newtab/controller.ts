@@ -1209,11 +1209,17 @@ export class NewTabController {
     private handleRootClick(root: HTMLElement, event: MouseEvent): void {
         const request = this.rootClickRequest(event);
         if (!request) return;
+        if (request.action) {
+            this.dependencies.dismissLookup?.();
+            if (this.handleRootImmersionClick(root, request.target, event)) return;
+            request.target.closest<HTMLDetailsElement>('.jpdb-reader-newtab-more')?.removeAttribute('open');
+            if (this.handleRootClickActions(root, request.target, event, request.action)) return;
+        }
         if (this.handleNestedLookupClick(root, request.target, event)) return;
-        this.dependencies.dismissLookup?.();
-        if (this.handleRootImmersionClick(root, request.target, event)) return;
-        if (request.action) request.target.closest<HTMLDetailsElement>('.jpdb-reader-newtab-more')?.removeAttribute('open');
-        if (this.handleRootClickActions(root, request.target, event, request.action)) return;
+        if (!request.action) {
+            this.dependencies.dismissLookup?.();
+            if (this.handleRootImmersionClick(root, request.target, event)) return;
+        }
         if (this.shouldIgnoreRootStudyClick(root)) return;
         if (this.handleRootStudyActionClick(root, request.target, event, request.action)) return;
         this.handleStudyCardClick(root, request.target, event);
