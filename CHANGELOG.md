@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.7.22] - 2026-06-14
+
+### Fixed
+
+- Study mode now falls back to usable word and kanji practice material based on the active tab, preventing keyless or degraded queues from staying stuck while looking for more cards.
+- The Anki Study deck selector's "All vocabulary" option now loads the whole enabled collection instead of querying a literal deck named `all`.
+- Connected Anki cards now render through the split Anki companion during the release smoke, covering existing-card popovers and new-tab review actions.
+- The in-page Study deck selector now has Jiten deck scoping coverage alongside JPDB and Anki so the source selector behavior stays consistent.
+
 ## [0.7.21] - 2026-06-14
 
 ### Fixed
