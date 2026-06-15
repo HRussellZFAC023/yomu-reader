@@ -37173,7 +37173,7 @@ ${spelling}`);
     // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
     // from the tick and run the normal navigation path when it changes.
     syncShortsReelNavigation() {
-      if (!location.pathname.startsWith("/shorts/")) {
+      if (!location?.pathname?.startsWith("/shorts/")) {
         this.lastShortsNavVideoId = "";
         return;
       }
@@ -45879,7 +45879,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJitenVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jitenDefinitionsEnabled || !hasJitenApiCredential(settings) || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+      if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JITEN_DETAIL_TIMEOUT_MS, "Jiten vocabulary details", this.dependencies.jiten.lookupVocabularyInfoForCard(card).catch((error) => {
         log$d.warn("Jiten vocabulary lookup failed", { term: card.spelling }, error);
         return null;
@@ -49749,11 +49749,61 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const jitenCard = await this.lookupJitenCardForVocabularyInfo(card);
       return jitenCard ? this.lookupVocabularyInfo(jitenCard) : null;
     }
+    async searchVocabulary(query, limit = 10) {
+      const response = await this.requestEndpoint("vocabulary/search", void 0, {
+        method: "GET",
+        query: { query, limit }
+      });
+      if (!isJsonRecord(response) || !Array.isArray(response.results)) return [];
+      return response.results.map((result) => ({
+        vid: result.wordId,
+        sid: result.readingIndex,
+        rid: 0,
+        spelling: result.text,
+        reading: cleanJitenAnnotatedReading(result.rubyText || result.text),
+        frequencyRank: typeof result.frequencyRank === "number" ? result.frequencyRank : null,
+        partOfSpeech: Array.isArray(result.partsOfSpeech) ? result.partsOfSpeech.map(String) : [],
+        meanings: (Array.isArray(result.meanings) ? result.meanings : []).map((meaning) => ({
+          glosses: [meaning],
+          partOfSpeech: []
+        })),
+        cardState: ["not-in-deck"],
+        pitchAccent: [],
+        wordWithReading: result.rubyText || null,
+        source: "jiten",
+        reviewSource: "jiten-api",
+        jitenWordId: result.wordId,
+        jitenReadingIndex: result.readingIndex
+      }));
+    }
     async lookupJitenCardForVocabularyInfo(card) {
       const spelling = card.spelling.trim();
       if (!spelling) return null;
-      const [tokens] = await this.parse([spelling]);
-      return bestParsedJitenCard(card, spelling, tokens ?? []);
+      let tokens = [];
+      const apiKey = this.getApiKey().trim();
+      if (apiKey) {
+        try {
+          const [parsed] = await this.parse([spelling]);
+          tokens = parsed ?? [];
+        } catch (error) {
+        }
+      }
+      if (!tokens.length) {
+        try {
+          const searchCards = await this.searchVocabulary(spelling);
+          tokens = searchCards.map((c) => ({
+            card: c,
+            start: 0,
+            end: spelling.length,
+            length: spelling.length,
+            rubies: [],
+            pitchClass: "",
+            sentence: spelling
+          }));
+        } catch (error) {
+        }
+      }
+      return bestParsedJitenCard(card, spelling, tokens);
     }
     async lookupKanji(character) {
       const kanji = character.trim();
@@ -49874,7 +49924,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async requestEndpoint(endpoint, body, options = {}) {
       const apiKey = this.getApiKey().trim();
-      if (!apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
+      const requiresAuth = endpoint.startsWith("reader/") || endpoint.startsWith("srs/");
+      if (requiresAuth && !apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
       const method = options.method ?? "POST";
       const data = method === "GET" ? void 0 : body === void 0 ? void 0 : JSON.stringify(body);
       const url = endpointUrl(this.options.baseUrl, endpoint, options.query);
@@ -49920,11 +49971,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return typeof this.options.proxyUrl === "function" ? this.options.proxyUrl() : this.options.proxyUrl ?? "";
     }
     headers(apiKey) {
-      return {
+      const headers = {
         "Content-Type": "application/json",
-        Authorization: `ApiKey ${apiKey}`,
         Accept: "application/json"
       };
+      if (apiKey) {
+        headers.Authorization = `ApiKey ${apiKey}`;
+      }
+      return headers;
     }
   }
   function jitenParseResultToTokens(paragraphs, result) {
