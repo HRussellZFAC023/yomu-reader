@@ -89,6 +89,15 @@ function actionPillLink(target: EventTarget | null): HTMLAnchorElement | null {
     return (target as HTMLElement | null)?.closest?.<HTMLAnchorElement>('a.jpdb-reader-action-pill[href]') ?? null;
 }
 
+function actionPillUrl(link: HTMLAnchorElement): string | null {
+    try {
+        const url = new URL(link.getAttribute('href') ?? '', location.href);
+        return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : null;
+    } catch {
+        return null;
+    }
+}
+
 export function handleReaderActionPillLink(
     event: MouseEvent,
     open: (url: string) => boolean = openUrlInNewTab,
@@ -97,7 +106,8 @@ export function handleReaderActionPillLink(
     if (!link) return false;
     event.preventDefault();
     event.stopPropagation();
-    const url = link.href;
+    const url = actionPillUrl(link);
+    if (!url) return true;
     if (!open(url)) location.href = url;
     return true;
 }

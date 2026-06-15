@@ -12,6 +12,7 @@ import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display'
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
 import { APP_NAME, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
+import { handleReaderActionPillLink } from '../app/main-helpers';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
 import {
     kanjiSourceStateKey,
@@ -1440,6 +1441,7 @@ export class NewTabRuntime {
     }
 
     private lookupPopoverActionButton(event: MouseEvent, popover: HTMLElement): HTMLButtonElement | null {
+        if (handleReaderActionPillLink(event)) return null;
         if (this.handleLookupPopoverDictionaryLink(event, popover)) return null;
         if (this.handleLookupPopoverParsedWord(event, popover)) return null;
         const button = lookupPopoverActionButton(event, popover);

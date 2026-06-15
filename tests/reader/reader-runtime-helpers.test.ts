@@ -99,6 +99,23 @@ describe('reader runtime helpers', () => {
         document.removeEventListener('click', pageClick);
     });
 
+    it('consumes unsafe action-pill URLs without opening or page navigation', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <a class="jpdb-reader-pill jpdb-reader-action-pill" href="javascript:alert(1)" target="_blank" rel="noopener">Jisho</a>
+            </div>
+        `;
+        const open = vi.fn(() => true);
+        const link = document.querySelector<HTMLAnchorElement>('.jpdb-reader-action-pill')!;
+        link.addEventListener('click', event => handleReaderActionPillLink(event, open));
+
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        link.dispatchEvent(click);
+
+        expect(open).not.toHaveBeenCalled();
+        expect(click.defaultPrevented).toBe(true);
+    });
+
     it('prefers userscript tab APIs for action-pill URLs', () => {
         const openInTab = vi.fn();
         vi.stubGlobal('GM_openInTab', openInTab);

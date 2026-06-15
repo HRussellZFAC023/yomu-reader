@@ -9172,6 +9172,7 @@ describe('new tab review helpers', () => {
         const performCardAction = vi.fn();
         const renderSearchWordPills = vi.fn(() => `
             <div class="jpdb-reader-word-pills">
+                <a class="jpdb-reader-pill jpdb-reader-action-pill" href="https://jisho.org/search/%E7%8C%AB" target="_blank" rel="noopener"><span>Jisho</span></a>
                 <button type="button" data-action="copy-word">Copy</button>
                 <button type="button" data-action="anki">Anki</button>
                 <span>Freq Local 1600</span>
@@ -9297,6 +9298,14 @@ describe('new tab review helpers', () => {
             const jitenAudio = root.querySelector<HTMLButtonElement>('[data-action="jiten-audio"]')!;
             jitenAudio.click();
             expect(performCardAction).toHaveBeenCalledWith(jitenAudio, catCard, '猫が鳴く。', jitenAudio);
+
+            const openInTab = vi.fn();
+            vi.stubGlobal('GM_openInTab', openInTab);
+            const actionLinkLabel = root.querySelector<HTMLElement>('a.jpdb-reader-action-pill span')!;
+            const actionLinkClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+            actionLinkLabel.dispatchEvent(actionLinkClick);
+            expect(actionLinkClick.defaultPrevented).toBe(true);
+            expect(openInTab).toHaveBeenCalledWith('https://jisho.org/search/%E7%8C%AB', { active: true, insert: true, setParent: false });
 
             const copyPill = root.querySelector<HTMLButtonElement>('[data-action="copy-word"]')!;
             copyPill.click();
@@ -11183,6 +11192,44 @@ describe('new tab review helpers', () => {
             expect(showKanjiLookupCard).toHaveBeenCalledWith(card, '設', '設定する。', button, expect.objectContaining({
                 reuseActivePopover: true,
             }));
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('opens hosted new-tab lookup action pill links through userscript tabs', async () => {
+        const runtime = new NewTabRuntime();
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'popover' as const };
+        const anchor = document.createElement('span');
+        anchor.textContent = '辞書';
+        document.body.append(anchor);
+        const openInTab = vi.fn();
+        vi.stubGlobal('GM_openInTab', openInTab);
+        const internals = runtime as unknown as {
+            settings: typeof settings;
+            mountLookupPopover(popover: HTMLElement, anchor?: HTMLElement): void;
+            installLookupPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence?: string, anchor?: HTMLElement): void;
+        };
+        internals.settings = settings;
+
+        try {
+            const lookup = createReaderPopover('よむ', settings);
+            lookup.innerHTML = `
+                <div class="jpdb-reader-popover-body">
+                    <a class="jpdb-reader-pill jpdb-reader-action-pill" href="https://jiten.moe/search?query=%E8%BE%9E%E6%9B%B8" target="_blank" rel="noopener"><span>Jiten</span></a>
+                </div>
+            `;
+            internals.mountLookupPopover(lookup, anchor);
+            internals.installLookupPopoverHandlers(lookup, newTabTestCard({ spelling: '辞書', reading: 'じしょ' }), '辞書を引く。', anchor);
+
+            const label = lookup.querySelector<HTMLElement>('a.jpdb-reader-action-pill span')!;
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+            label.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(openInTab).toHaveBeenCalledWith('https://jiten.moe/search?query=%E8%BE%9E%E6%9B%B8', { active: true, insert: true, setParent: false });
+            expect(lookup.isConnected).toBe(true);
         } finally {
             runtime.destroy();
             document.body.replaceChildren();

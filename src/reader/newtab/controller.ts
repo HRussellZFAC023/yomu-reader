@@ -60,7 +60,7 @@ import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
 import type { JpdbReviewBridgeCard, JpdbReviewBridgeClient, JpdbReviewBridgeStatus } from '../jpdb/jpdb-review-bridge';
 import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
-import { FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, matchedReviewShortcutGrade } from '../app/main-helpers';
+import { FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { speakerIcon } from '../ui/icons';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
@@ -1209,6 +1209,7 @@ export class NewTabController {
     }
 
     private handleRootClick(root: HTMLElement, event: MouseEvent): void {
+        if (handleReaderActionPillLink(event)) return;
         const request = this.rootClickRequest(event);
         if (!request) return;
         if (request.action) {
