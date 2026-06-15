@@ -129,6 +129,22 @@ describe('study-page card browser (SH-3)', () => {
         expect(difficultOnly.querySelector('[data-expression="日本語"] rt')).toBeNull();
         expect(all.querySelector('[data-expression="日本語"] rt')?.textContent).toBe('にほんご');
     });
+
+    it('renders search result terms with pitch classes when pitch data is already available', () => {
+        const result = renderSearchWordResults([
+            card('学習能力', ['not-in-deck'], {
+                vid: 1932050,
+                reading: 'がくしゅうのうりょく',
+                pitchAccent: ['LHHHHHHHH'],
+            }),
+        ], searchContext('all'));
+
+        const word = result.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="学習能力"]');
+        expect(word?.dataset.pitchClass).toBe('heiban');
+        expect(word?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(word?.classList.contains('jpdb-pitch-unknown')).toBe(false);
+        expect(word?.querySelector('rt')?.textContent).toBe('がくしゅうのうりょく');
+    });
 });
 
 function searchContext(furiganaMode: typeof DEFAULT_SETTINGS.furiganaMode) {
