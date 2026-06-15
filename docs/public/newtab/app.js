@@ -1027,6 +1027,20 @@
       }
     };
   }
+  function subscribeToStoredValueChanges(key, onChange) {
+    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    if (typeof addValueChangeListener === "function") {
+      addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
+    }
+    const onStorage = (event) => {
+      if (event.key !== key) return;
+      onChange(JSON.parse(event.newValue || "null"));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+    };
+  }
   async function storageKeys(prefixes) {
     const keys = /* @__PURE__ */ new Set();
     await addPrefixedGmStorageKeys(keys, prefixes);
@@ -2174,9 +2188,7 @@
     puckPositionX: void 0,
     puckPositionY: void 0,
     showFurigana: true,
-    // UT-47: auto resolves to known-status hiding once an SRS source exists
-    // (the user-requested default), difficult-kanji otherwise.
-    furiganaMode: "auto",
+    furiganaMode: "difficult-kanji",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
     showPitchAccent: true,
@@ -2341,6 +2353,7 @@
       ...normalizeAnkiAndStudySettings(settingsValue),
       ...normalizePresentationSettings(settingsValue),
       ...normalizeMiningSettings(settingsValue),
+      ...normalizeRemovedDictionarySettings(settingsValue),
       dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
@@ -2461,6 +2474,15 @@
       lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
       hoverOpenDelayMs: clampNumber$3(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
       hoverCloseDelayMs: clampNumber$3(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+    };
+  }
+  function normalizeRemovedDictionarySettings(value) {
+    return {
+      jpdbDefinitionsEnabled: true,
+      localDictionariesEnabled: true,
+      dictionarySourcesInitiallyExpanded: true,
+      localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
+      localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };
   }
   function normalizeNewTabSettings(value) {
@@ -2794,10 +2816,14 @@
     return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && settings.apiKey?.trim());
   }
   function normalizeFuriganaMode(value, settings) {
+    if (value === "auto") return effectiveLegacyAutoFuriganaMode(settings);
     if (isFuriganaMode(value)) return value;
     if (legacyBooleanSettingIs(settings, "showFurigana", false)) return "off";
     if (legacyBooleanSettingIs(settings, "hideKnownFurigana", false)) return "all";
     return DEFAULT_SETTINGS.furiganaMode;
+  }
+  function effectiveLegacyAutoFuriganaMode(settings) {
+    return settings && hasPersonalizedFuriganaSource(settings) ? "known-status" : "difficult-kanji";
   }
   function isFuriganaMode(value) {
     return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
@@ -2815,7 +2841,11 @@
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
   }
   function hasPersonalizedFuriganaSource(settings) {
-    return Boolean(hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled);
+    const credentials = {
+      apiKey: settings.apiKey ?? "",
+      jitenApiKey: settings.jitenApiKey ?? ""
+    };
+    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled);
   }
   function shouldLookupAnkiStatus(settings) {
     return settings.ankiEnabled === true;
@@ -2940,6 +2970,9 @@
       log$A.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
+  }
+  function subscribeToSettingsStorageChanges(onSettings) {
+    return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, (value) => onSettings(mergeSettings(value)));
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
@@ -5866,7 +5899,6 @@
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.",
       dictionaryStatusUnavailable: "Dictionary status unavailable.",
       noLocalDictionariesImported: "No local dictionaries imported yet.",
-      dictionaryStorageEvicted: "Your {count} imported dictionaries are gone — the browser cleared site storage (Safari evicts inactive sites after ~7 days). Re-import them; regular use or a Home Screen shortcut prevents this.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Dictionary download did not return a ZIP file.",
@@ -6509,7 +6541,6 @@ dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
-dictionaryStorageEvicted	インポート済みの辞書{count}件が消えています。ブラウザがサイトのストレージを削除しました（Safariは約7日間使われないと削除します）。再インポートしてください。定期的な利用やホーム画面への追加で防げます。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
@@ -20976,7 +21007,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
-    const furiganaMode = readOption(get("furiganaMode"), ["auto", "all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode);
+    const furiganaMode = readOption(get("furiganaMode"), ["all", "difficult-kanji", "known-status", "hover", "off"], current.furiganaMode === "auto" ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
     const apiDefinitionRowsPresent = {
       jpdb: hasSourceRow(has, "jpdbDefinitions"),
       jiten: hasSourceRow(has, "jitenDefinitions")
@@ -21035,7 +21066,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
     return {
-      jpdbDefinitionsEnabled: rowsPresent.jpdb ? has("jpdbDefinitions.enabled") : has("jpdbDefinitionsEnabled"),
+      jpdbDefinitionsEnabled: true,
       jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
       jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
       jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
@@ -21160,11 +21191,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function readLocalDictionaryFormSettings(reader, current, kanjiPreferences) {
     const { has, clamped } = reader;
     return {
-      localDictionariesEnabled: has("localDictionariesEnabled"),
+      localDictionariesEnabled: true,
       localDictionaryShowKanji: has("kanjiDictionaries.enabled") || kanjiPreferences.some((preference) => preference.enabled),
       kanjiDictionariesPriority: clamped("kanjiDictionaries.priority", 0, 999, current.kanjiDictionariesPriority),
-      dictionarySourcesInitiallyExpanded: has("dictionarySourcesInitiallyExpanded"),
-      localDictionaryMaxResults: clamped("localDictionaryMaxResults", 1, 64, current.localDictionaryMaxResults)
+      dictionarySourcesInitiallyExpanded: true,
+      localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults
     };
   }
   function readAnkiFormSettings(reader, current) {
@@ -22837,7 +22868,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["no-colors", "Plain text"]
   ];
   const FURIGANA_MODE_OPTIONS = [
-    ["auto", "Smart default"],
     ["known-status", "Hide familiar words"],
     ["difficult-kanji", "Hard kanji only"],
     ["hover", "Show on hover"],
@@ -22851,7 +22881,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function renderFuriganaHiddenStateGroupControls(settings) {
     const selected = new Set(settings.furiganaHiddenStateGroups);
     const boxes = FURIGANA_HIDE_GROUPS.map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group))).join("");
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${settings.furiganaMode === "known-status" ? "" : " hidden"}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === "known-status" ? "" : " hidden"}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
   }
   function renderAppearancePreview() {
     return `
@@ -23011,7 +23041,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("lookupOnMiddleMouse", "Look up with middle-mouse hold", settings.lookupOnMiddleMouse)}
                     ${checkbox("showFloatingButton", uiText(settings.interfaceLanguage, "showFloatingButton"), settings.showFloatingButton)}
                     ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
-                    ${select("furiganaMode", "Furigana", settings.furiganaMode, FURIGANA_MODE_OPTIONS)}
+                    ${select("furiganaMode", "Furigana", effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select("wordColorStates", "Color words", settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${checkbox("showPitchAccent", "Show pitch accent", settings.showPitchAccent)}
@@ -23158,12 +23188,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>Sources</legend>
-                <div class="grid">
-                    ${checkbox("jpdbDefinitionsEnabled", "Show JPDB definitions", settings.jpdbDefinitionsEnabled)}
-                    ${checkbox("localDictionariesEnabled", "Show imported dictionary definitions", settings.localDictionariesEnabled)}
-                    ${checkbox("dictionarySourcesInitiallyExpanded", "Open popup sources by default", settings.dictionarySourcesInitiallyExpanded)}
-                    ${input("localDictionaryMaxResults", "Dictionary result limit", String(settings.localDictionaryMaxResults), "number")}
-                </div>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
@@ -24073,10 +24097,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "preferJapaneseSiteLanguage",
     "youtubeShowChannelRecommendations",
     "youtubeShowFilterNotice",
-    "jpdbDefinitionsEnabled",
-    "localDictionariesEnabled",
-    "dictionarySourcesInitiallyExpanded",
-    "localDictionaryMaxResults",
     "hoverOpenDelayMs",
     "hoverCloseDelayMs"
   ];
@@ -24893,12 +24913,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
-    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage, settings);
+    if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
     if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
   }
-  function dictionaryStatusText(summary, language, settings) {
+  function dictionaryStatusText(summary, language) {
     if (summary.dictionaries.length) {
       return formatUiTemplate(uiText(language, "dictionaryStatusSummary"), {
         dictionaries: summary.dictionaries.length.toLocaleString(),
@@ -24907,8 +24927,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         metadata: summary.termMeta.toLocaleString()
       });
     }
-    const remembered = settings?.dictionaryPreferences?.filter((item) => (item.type ?? "terms") === "terms").length ?? 0;
-    return remembered ? formatUiTemplate(uiText(language, "dictionaryStorageEvicted"), { count: String(remembered) }) : uiText(language, "noLocalDictionariesImported");
+    return uiText(language, "noLocalDictionariesImported");
   }
   function setDictionaryStatusError(status, error, language) {
     if (status) status.textContent = errorMessage(error, uiText(language, "dictionaryStatusUnavailable"));
@@ -25417,6 +25436,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const mode = form.querySelector('select[name="furiganaMode"]')?.value;
         if (fieldset) fieldset.hidden = mode !== "known-status";
       };
+      const smartFuriganaMode = () => this.settings.apiKey.trim() || this.settings.jitenApiKey.trim() || this.settings.ankiEnabled ? "known-status" : "difficult-kanji";
       form.querySelector('select[name="furiganaMode"]')?.addEventListener("change", syncGroupVisibility);
       const preset = form.querySelector('select[name="appearancePreset"]');
       preset?.addEventListener("change", () => {
@@ -25424,7 +25444,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (!value) return;
         if (value === "balanced" || value === "default") {
           setSelect("wordColorStates", "all");
-          setSelect("furiganaMode", "auto");
+          setSelect("furiganaMode", smartFuriganaMode());
           setGroups(["known", "due", "failed"]);
           setColorSources("jpdb", "pitch", "anki");
         } else if (value === "no-colors") {
@@ -25433,7 +25453,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           setColorSources("off", "off", "off");
         } else if (value === "new-only") {
           setSelect("wordColorStates", "new-only");
-          setSelect("furiganaMode", "auto");
+          setSelect("furiganaMode", smartFuriganaMode());
           setGroups(["known", "due", "failed"]);
           setColorSources("jpdb", "pitch", "anki");
         } else if (value === "underline-new") {
@@ -64350,6 +64370,7 @@ ${entry.url}`),
   }
   class NewTabRuntime {
     unsubscribeCardStateSignals;
+    unsubscribeSettingsStorageChanges;
     settings = DEFAULT_SETTINGS;
     isDestroyed = false;
     activeDialog;
@@ -64543,6 +64564,7 @@ ${entry.url}`),
       }
       this.scheduleAnkiStatusWarmup();
       this.installCardStateSignalSubscription();
+      this.installSettingsStorageSubscription();
     }
     // Cross-tab card-state mutation bus: grading or mining a card on a page
     // popover in another tab recolors this study tab's rendered occurrences
@@ -64553,6 +64575,26 @@ ${entry.url}`),
         if (this.isDestroyed) return;
         this.applyPublicVocabularyToRenderedWords(card, card);
       });
+    }
+    installSettingsStorageSubscription() {
+      this.unsubscribeSettingsStorageChanges?.();
+      this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges((settings) => {
+        if (this.isDestroyed) return;
+        void this.applyRemoteSettings(settings);
+      });
+    }
+    async applyRemoteSettings(settings) {
+      this.settings = settings;
+      configureLogger({ forceEnabled: settings.enableLogging });
+      this.cardRenderData.clear();
+      this.parseContentCache.clear();
+      this.jpdbVocabulary.clear();
+      this.parser.clearLocalCache();
+      this.applyTheme(settings);
+      this.applyWordColors(settings);
+      await this.refreshDictionaryStyles();
+      if (this.newTab?.isCurrentPage()) await this.newTab.renderPage();
+      this.scheduleAnkiStatusWarmup();
     }
     scheduleAnkiStatusWarmup() {
       scheduleReaderAnkiStatusWarmup({
@@ -64584,6 +64626,8 @@ ${entry.url}`),
       this.isDestroyed = true;
       this.unsubscribeCardStateSignals?.();
       this.unsubscribeCardStateSignals = void 0;
+      this.unsubscribeSettingsStorageChanges?.();
+      this.unsubscribeSettingsStorageChanges = void 0;
       this.externalRefreshController?.abort();
       this.externalRefreshController = void 0;
       this.factoryReset.destroy();

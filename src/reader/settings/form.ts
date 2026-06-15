@@ -3,7 +3,7 @@ import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { audioSourceLabel, resolveUiLanguage, uiText } from '../app/i18n';
 import { runningAsBrowserExtension } from '../app/runtime-env';
 import { externalLinkIcon } from '../ui/icons';
-import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, formatShortcutEvent, sanitizeAccentColor } from './index';
+import { AUDIO_GUIDE_URL, DEFAULT_OVERLAY_BACKGROUND_COLOR, DEFAULT_OVERLAY_OUTLINE_COLOR, DEFAULT_OVERLAY_TEXT_COLOR, DEFAULT_POPUP_FONT_FAMILY, DEFAULT_READER_FONT_FAMILY, accentToRgba, effectiveFuriganaMode, formatShortcutEvent, sanitizeAccentColor } from './index';
 import { SETTINGS_LABEL_TEXT_CLASS, checkbox, input, radioGroup, select, settingsTabButton, shortcutInput } from './form-controls';
 import { audioUrlPlaceholderKey, isAudioSourceTypeValue, renderAudioSourceEditor, renderDictionaryLookupLinkEditor } from './form-editors';
 import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJpdbApiCredential, mergeApiCredentialValues } from './api-credential';
@@ -406,7 +406,6 @@ const APPEARANCE_PRESET_OPTIONS: Array<[string, string]> = [
 ];
 
 const FURIGANA_MODE_OPTIONS: Array<[ReaderSettings['furiganaMode'], string]> = [
-    ['auto', 'Smart default'],
     ['known-status', 'Hide familiar words'],
     ['difficult-kanji', 'Hard kanji only'],
     ['hover', 'Show on hover'],
@@ -424,7 +423,7 @@ function renderFuriganaHiddenStateGroupControls(settings: ReaderSettings): strin
     const boxes = FURIGANA_HIDE_GROUPS
         .map(([group, label]) => checkbox(`furiganaHide-${group}`, label, selected.has(group)))
         .join('');
-    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${settings.furiganaMode === 'known-status' ? '' : ' hidden'}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
+    return `<fieldset class="jpdb-reader-radio-group" data-furigana-hide-groups${effectiveFuriganaMode(settings) === 'known-status' ? '' : ' hidden'}><legend>Hide furigana for</legend>${boxes}</fieldset>`;
 }
 
 // UT-47: a live sample sentence that mirrors the furigana/colour options.
@@ -603,7 +602,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
                     ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
                     ${select('appearancePreset', 'Quick setup', '', APPEARANCE_PRESET_OPTIONS)}
-                    ${select('furiganaMode', 'Furigana', settings.furiganaMode, FURIGANA_MODE_OPTIONS)}
+                    ${select('furiganaMode', 'Furigana', effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select('wordColorStates', 'Color words', settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
@@ -760,12 +759,6 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-dictionaries" role="tabpanel" data-settings-panel="dictionaries" data-legend-key="sources" hidden>
                 <legend>Sources</legend>
-                <div class="grid">
-                    ${checkbox('jpdbDefinitionsEnabled', 'Show JPDB definitions', settings.jpdbDefinitionsEnabled)}
-                    ${checkbox('localDictionariesEnabled', 'Show imported dictionary definitions', settings.localDictionariesEnabled)}
-                    ${checkbox('dictionarySourcesInitiallyExpanded', 'Open popup sources by default', settings.dictionarySourcesInitiallyExpanded)}
-                    ${input('localDictionaryMaxResults', 'Dictionary result limit', String(settings.localDictionaryMaxResults), 'number')}
-                </div>
                 <div class="jpdb-reader-dictionary-status" data-dictionary-status role="status" aria-live="polite">Checking imported dictionaries...</div>
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
@@ -1634,8 +1627,8 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',
     'ankiModel', 'ankiTemplateMode', 'ankiFrontReading', 'ankiFrontSentence', 'ankiFrontImage',
-    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowChannelRecommendations', 'youtubeShowFilterNotice', 'jpdbDefinitionsEnabled',
-    'localDictionariesEnabled', 'dictionarySourcesInitiallyExpanded', 'localDictionaryMaxResults', 'hoverOpenDelayMs', 'hoverCloseDelayMs',
+    'ankiTags', 'youtubeImmersionEnabled', 'preferJapaneseSiteLanguage', 'youtubeShowChannelRecommendations', 'youtubeShowFilterNotice',
+    'hoverOpenDelayMs', 'hoverCloseDelayMs',
 ] as const satisfies readonly SettingsTextKey[];
 
 const SETTINGS_CONTROL_LABEL_ALIASES = [

@@ -6,7 +6,7 @@ import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } from './api-credential';
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
-import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists } from '../app/storage';
+import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
 import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, JISHO_LOOKUP_LINK, JITEN_LOOKUP_LINK, JPDB_LOOKUP_LINK, YOMU_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
@@ -300,9 +300,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     puckPositionX: undefined,
     puckPositionY: undefined,
     showFurigana: true,
-    // UT-47: auto resolves to known-status hiding once an SRS source exists
-    // (the user-requested default), difficult-kanji otherwise.
-    furiganaMode: 'auto',
+    furiganaMode: 'difficult-kanji',
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],
     wordColorStates: 'all',
     showPitchAccent: true,
@@ -469,6 +467,7 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         ...normalizeAnkiAndStudySettings(settingsValue),
         ...normalizePresentationSettings(settingsValue),
         ...normalizeMiningSettings(settingsValue),
+        ...normalizeRemovedDictionarySettings(settingsValue),
         dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
         dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
@@ -631,6 +630,16 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
         lookupOnMiddleMouse: booleanSettingWithFallback(value, 'lookupOnMiddleMouse', true),
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
+    };
+}
+
+function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'dictionarySourcesInitiallyExpanded' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {
+    return {
+        jpdbDefinitionsEnabled: true,
+        localDictionariesEnabled: true,
+        dictionarySourcesInitiallyExpanded: true,
+        localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
+        localDictionaryShowKanji: booleanSetting(value, 'localDictionaryShowKanji'),
     };
 }
 
@@ -1053,10 +1062,15 @@ function hasLegacyMiningStatusSource(settings: LegacyReaderSettings): boolean {
 }
 
 function normalizeFuriganaMode(value: unknown, settings: Partial<ReaderSettings> | null | undefined): FuriganaMode {
+    if (value === 'auto') return effectiveLegacyAutoFuriganaMode(settings);
     if (isFuriganaMode(value)) return value;
     if (legacyBooleanSettingIs(settings, 'showFurigana', false)) return 'off';
     if (legacyBooleanSettingIs(settings, 'hideKnownFurigana', false)) return 'all';
     return DEFAULT_SETTINGS.furiganaMode;
+}
+
+function effectiveLegacyAutoFuriganaMode(settings: Partial<ReaderSettings> | null | undefined): Exclude<FuriganaMode, 'auto'> {
+    return settings && hasPersonalizedFuriganaSource(settings) ? 'known-status' : 'difficult-kanji';
 }
 
 function isFuriganaMode(value: unknown): value is FuriganaMode {
@@ -1080,8 +1094,12 @@ function normalizeDeckIdSetting(value: unknown, fallback: string): string {
     return typeof value === 'string' && value.trim() ? value.trim() : fallback;
 }
 
-function hasPersonalizedFuriganaSource(settings: ReaderSettings): boolean {
-    return Boolean(hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled);
+function hasPersonalizedFuriganaSource(settings: Partial<ReaderSettings>): boolean {
+    const credentials = {
+        apiKey: settings.apiKey ?? '',
+        jitenApiKey: settings.jitenApiKey ?? '',
+    };
+    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled);
 }
 
 export function shouldLookupAnkiStatus(settings: Partial<ReaderSettings>): boolean {
@@ -1291,6 +1309,10 @@ export async function loadSettings(): Promise<ReaderSettings> {
         log.warn('Settings load failed', { error });
         return mergeSettings(null);
     }
+}
+
+export function subscribeToSettingsStorageChanges(onSettings: (settings: ReaderSettings) => void): () => void {
+    return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, value => onSettings(mergeSettings(value as LegacyReaderSettings | null)));
 }
 
 export async function saveSettings(settings: ReaderSettings): Promise<void> {

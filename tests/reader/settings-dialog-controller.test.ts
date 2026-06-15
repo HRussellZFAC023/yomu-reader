@@ -507,7 +507,7 @@ describe('settings dialog keyboard dismissal', () => {
         choosePreset('new-only');
 
         expect(selectValue('wordColorStates')).toBe('new-only');
-        expect(selectValue('furiganaMode')).toBe('auto');
+        expect(selectValue('furiganaMode')).toBe('difficult-kanji');
         expect(selectValue('wordHighlightColorSource')).toBe('jpdb');
         expect(selectValue('wordUnderlineColorSource')).toBe('pitch');
         expect(selectValue('wordTextColorSource')).toBe('anki');

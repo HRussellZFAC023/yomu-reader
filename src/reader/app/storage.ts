@@ -275,6 +275,28 @@ export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSi
     };
 }
 
+export function subscribeToStoredValueChanges(key: string, onChange: (newValue: unknown) => void): () => void {
+    const addValueChangeListener = (globalThis as {
+        GM_addValueChangeListener?: (
+            key: string,
+            listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
+        ) => number;
+    }).GM_addValueChangeListener;
+    if (typeof addValueChangeListener === 'function') {
+        addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
+    }
+
+    const onStorage = (event: StorageEvent): void => {
+        if (event.key !== key) return;
+        onChange(JSON.parse(event.newValue || 'null'));
+    };
+    window.addEventListener('storage', onStorage);
+
+    return () => {
+        window.removeEventListener('storage', onStorage);
+    };
+}
+
 async function storageKeys(prefixes: string[]): Promise<string[]> {
     const keys = new Set<string>();
     await addPrefixedGmStorageKeys(keys, prefixes);
