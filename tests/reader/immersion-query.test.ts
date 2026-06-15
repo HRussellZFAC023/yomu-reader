@@ -175,4 +175,11 @@ describe('immersionFallbackFragments', () => {
         const unique = new Set(fragments);
         expect(unique.size).toBe(fragments.length);
     });
+
+    it('keeps useful mixed-script verb fragments for compound fallback searches', () => {
+        const fragments = immersionFallbackFragments('読み取る');
+
+        expect(fragments).toEqual(expect.arrayContaining(['読み取', 'み取る', '取る']));
+        expect(fragments.indexOf('読み取')).toBeLessThan(fragments.indexOf('取る'));
+    });
 });

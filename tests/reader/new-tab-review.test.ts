@@ -1479,11 +1479,16 @@ describe('new tab review helpers', () => {
 
     it('keeps light-mode Immersion Kit media text on dictionary theme surfaces', () => {
         const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
+        const imageSentenceRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence');
 
         expect(normalizedCss)
             .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: var(--jpdb-reader-text); background: color-mix( in srgb, var(--jpdb-reader-surface) 94%, var(--jpdb-reader-white) 6% );');
         expect(normalizedCss)
             .toContain('box-shadow: 0 8px 24px var(--jpdb-reader-shadow), inset 0 0 0 1px color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent); text-shadow: none; -webkit-text-stroke: 0 transparent; paint-order: normal; }');
+        expect(imageSentenceRule).toContain('left: 50%;');
+        expect(imageSentenceRule).toContain('max-width: calc(100% - clamp(28px, 8%, 52px));');
+        expect(imageSentenceRule).toContain('transform: translateX(-50%);');
+        expect(imageSentenceRule).not.toContain('right: clamp(');
         expect(normalizedCss)
             .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-reader-text)) ) !important; background: transparent !important; box-shadow: none !important; text-shadow: none; -webkit-text-stroke: 0 transparent; paint-order: normal; }');
         expect(normalizedCss)
@@ -11943,8 +11948,9 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('keeps the current new-tab Immersion Kit image until the next example image is ready', async () => {
+    it('updates new-tab Immersion Kit card state immediately while media hydrates', async () => {
         const card = newTabTestCard({ spelling: '中学生', reading: 'ちゅうがくせい' });
+        const played = stubNewTabAudioPlayback();
         const examples: ImmersionKitExample[] = [
             {
                 id: 'ik-1',
@@ -11954,7 +11960,7 @@ describe('new tab review helpers', () => {
                 sourceTitle: 'First Source',
                 titleSlug: 'first-source',
                 category: 'anime',
-                soundFile: '',
+                soundFile: 'first.mp3',
                 imageFile: 'first.jpg',
                 soundUrl: '',
                 imageUrl: '',
@@ -11967,7 +11973,7 @@ describe('new tab review helpers', () => {
                 sourceTitle: 'Second Source',
                 titleSlug: 'second-source',
                 category: 'anime',
-                soundFile: '',
+                soundFile: 'second.mp3',
                 imageFile: 'second.jpg',
                 soundUrl: '',
                 imageUrl: '',
@@ -11981,8 +11987,9 @@ describe('new tab review helpers', () => {
                     resolveSecondImage = resolve;
                 });
             }
-            return Promise.resolve('blob:http://localhost/first.jpg');
+            return Promise.resolve(`blob:http://localhost/${list[0]?.split('/').pop() ?? 'media'}`);
         });
+        const parse = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [newTabSentenceToken(card, text)]));
         const controller = new NewTabController({
             getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: true }),
             anki: {} as never,
@@ -11992,12 +11999,15 @@ describe('new tab review helpers', () => {
             rtk: {} as never,
             immersionKit: {
                 mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
-                    kind === 'image' ? [`https://media.test/${example.imageFile}`] : []
+                    kind === 'image' ? [`https://media.test/${example.imageFile}`] : [`https://media.test/${example.soundFile}`]
                 )),
                 fetchBlobUrl,
             } as never,
             jpdbReviewBridge: { onUpdate: () => () => {} } as never,
-            parser: {} as never,
+            parser: {
+                canParse: () => true,
+                parse,
+            } as never,
             dictionaries: {} as never,
             onSettingsChange: vi.fn(),
             applyTheme: vi.fn(),
@@ -12012,6 +12022,7 @@ describe('new tab review helpers', () => {
         const privateController = controller as unknown as {
             renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
             performNewTabImmersionAction(root: HTMLElement, action: string): void;
+            playCurrentImmersionAudio(card: JPDBCard): Promise<void>;
             immersionCacheKey(card: JPDBCard): string;
             immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
             visibleWords: JPDBCard[];
@@ -12035,18 +12046,29 @@ describe('new tab review helpers', () => {
             await Promise.resolve();
             await Promise.resolve();
 
-            expect(meaning.textContent).toContain('お母ちゃん中学生？');
-            expect(meaning.querySelector<HTMLImageElement>('.jpdb-reader-example-image')?.getAttribute('src')).toBe('https://media.test/first.jpg');
+            await waitForExpect(() => {
+                expect(meaning.textContent).toContain('中学生です。');
+                expect(meaning.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
+                expect(meaning.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionSentence).toBe('中学生です。');
+                expect(meaning.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionAudioUrls).toBe(JSON.stringify(['https://media.test/second.mp3']));
+                expect(meaning.querySelector('.jpdb-reader-example-translation')?.textContent).toBe('I am a junior high school student.');
+                expect(meaning.querySelector<HTMLElement>('.jpdb-reader-word')?.dataset.expression).toBe('中学生');
+            });
+            expect(meaning.querySelector<HTMLImageElement>('.jpdb-reader-example-image')?.getAttribute('src')).toBe('https://media.test/second.jpg');
             expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/second.jpg'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
+
+            await privateController.playCurrentImmersionAudio(card);
+            expect(played).toEqual(['blob:http://localhost/second.mp3']);
+            expect(fetchBlobUrl).toHaveBeenCalledWith(['https://media.test/second.mp3'], DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl, DEFAULT_SETTINGS.interfaceLanguage);
 
             resolveSecondImage('blob:http://localhost/second.jpg');
 
             await waitForExpect(() => {
-                expect(meaning.textContent).toContain('中学生です。');
                 expect(meaning.querySelector<HTMLImageElement>('.jpdb-reader-example-image')?.getAttribute('src')).toBe('blob:http://localhost/second.jpg');
             });
         } finally {
             root.remove();
+            vi.unstubAllGlobals();
         }
     });
 

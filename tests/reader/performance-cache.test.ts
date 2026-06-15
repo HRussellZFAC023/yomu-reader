@@ -408,13 +408,15 @@ describe('performance cache bounds', () => {
 
     it('keeps popover body scroll stable across Immersion carousel renders', async () => {
         const search = vi.fn(async () => [
-            { ...immersionExample('単語1'), id: 'example-1' },
-            { ...immersionExample('単語1'), id: 'example-2', sentence: 'また単語1を聞いた。' },
+            { ...immersionExample('単語1'), id: 'example-1', translation: 'I saw word one.', soundFile: 'first.mp3' },
+            { ...immersionExample('単語1'), id: 'example-2', sentence: 'また単語1を聞いた。', translation: 'I heard word one again.', sourceTitle: 'Second Source', soundFile: 'second.mp3' },
         ]);
         const controller = createImmersionController({
             search,
             preload: vi.fn(),
-            mediaUrls: vi.fn(() => []),
+            mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
+                kind === 'image' ? [] : [`https://media.test/${example.soundFile}`]
+            )),
         } as unknown as ImmersionKitClient);
         const popover = document.createElement('div');
         popover.innerHTML = '<div class="jpdb-reader-popover-body"><details data-immersion-kit open></details></div>';
@@ -443,6 +445,10 @@ describe('performance cache bounds', () => {
 
             expect(body.scrollTop).toBe(260);
             expect(popover.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
+            expect(popover.querySelector('.jpdb-reader-example-title')?.textContent).toBe('Second Source');
+            expect(popover.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionSentence).toBe('また単語1を聞いた。');
+            expect(popover.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionAudioUrls).toBe(JSON.stringify(['https://media.test/second.mp3']));
+            expect(popover.querySelector('.jpdb-reader-example-translation')?.textContent).toBe('I heard word one again.');
         } finally {
             popover.remove();
         }

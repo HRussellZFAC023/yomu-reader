@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.27] - 2026-06-15
+
+### Fixed
+
+- Immersion Kit next/previous controls on the new tab now update the sentence, count, translation, parsed text, image, and audio source immediately while media finishes hydrating in the background.
+- Immersion Kit cards now use a compact subtitle overlay across popovers, hosted search/new-tab views, and JPDB page addons instead of stretching a large floating caption box over screenshots.
+- Mixed-script Immersion Kit fallback searches now keep useful compound verb fragments such as `読み取` and `取る`, improving examples for terms like `読み取る`.
+
 ## [0.7.26] - 2026-06-15
 
 ### Changed

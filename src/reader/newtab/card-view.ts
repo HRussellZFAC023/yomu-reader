@@ -98,15 +98,6 @@ export function syncNewTabImmersionFrameSubtitleSize(root: HTMLElement): void {
     media.style.setProperty('--subtitle-font-size', `${size}px`);
 }
 
-export async function decodeNewTabImmersionImage(src: string): Promise<void> {
-    if (!src || typeof Image === 'undefined') return;
-    const image = new Image();
-    image.decoding = 'async';
-    image.referrerPolicy = 'no-referrer';
-    image.src = src;
-    if (typeof image.decode === 'function') await image.decode().catch(() => undefined);
-}
-
 function shouldRenderNewTabImmersionTranslation(example: ImmersionKitExample, settings: ReaderSettings): boolean {
     return settings.immersionKitShowTranslation && Boolean(example.translation);
 }
