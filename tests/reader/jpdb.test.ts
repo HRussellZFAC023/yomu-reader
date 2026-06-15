@@ -7305,6 +7305,51 @@ describe('reader helpers', () => {
         }
     });
 
+    it('skips YouTube feed thumbnail images while still reading non-thumbnail images', async () => {
+        // YouTube feed thumbnails (<img> inside yt-thumbnail-view-model /
+        // ytd-rich-item-renderer) are not reading material; auto-scan must never
+        // send them to the OCR provider, even though the feed is full of
+        // Japanese text. A regular nearby image is still read.
+        const tile = document.createElement('ytd-rich-item-renderer');
+        const lockup = document.createElement('yt-lockup-view-model');
+        const thumbWrap = document.createElement('yt-thumbnail-view-model');
+        thumbWrap.append(createFallbackOcrImage('チャンネル登録'));
+        lockup.append(thumbWrap);
+        tile.append(lockup);
+        const readable = createFallbackOcrImage('日本語');
+        readable.getBoundingClientRect = () => testDomRect({ left: 20, top: 420, width: 500, height: 300 });
+        document.body.replaceChildren(tile, readable);
+        stubInstantIntersectionObserver();
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: true,
+                ocrShowTextOverlay: true,
+                ocrProvider: 'google-lens' as const,
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese: vi.fn(async () => []),
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                const labels = Array.from(document.querySelectorAll('.jpdb-ocr-line'), line => line.getAttribute('aria-label'));
+                expect(labels).toEqual(['日本語']);
+            });
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('opens OCR line taps through the same sticky click lookup path as page words', async () => {
         const app = new ReaderApp();
         const lookupText = vi.fn(async () => undefined);
