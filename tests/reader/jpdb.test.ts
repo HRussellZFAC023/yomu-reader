@@ -3182,6 +3182,68 @@ describe('reader helpers', () => {
         }
     });
 
+    it('runs split JPDB parse batches concurrently while preserving paragraph order', async () => {
+        const client = new JpdbClient(() => 'token');
+        const first = '猫'.repeat(3000);
+        const second = '犬'.repeat(3000);
+        const requestOrder: string[] = [];
+        const responseOrder: string[] = [];
+        let resolveFirst!: () => void;
+        const responseFor = (text: string[]) => ({
+            status: 200,
+            ok: true,
+            text: async () => JSON.stringify({
+                vocabulary: text.map((paragraph, index) => [
+                    index + 1,
+                    index + 2,
+                    index + 3,
+                    paragraph.slice(0, 1),
+                    paragraph.slice(0, 1),
+                    100 + index,
+                    [],
+                    [[`meaning ${paragraph.slice(0, 1)}`]],
+                    [[]],
+                    ['new'],
+                    [],
+                ]),
+                tokens: text.map((_paragraph, index) => [[index, 0, 1, null]]),
+            }),
+        });
+        const fetchMock = vi.fn((_url: RequestInfo | URL, init?: RequestInit) => {
+            const body = JSON.parse(String(init?.body ?? '{}')) as { text?: string[] };
+            const text = body.text ?? [];
+            requestOrder.push(text[0] ?? '');
+            if (text[0] === first) {
+                return new Promise<ReturnType<typeof responseFor>>(resolve => {
+                    resolveFirst = () => {
+                        responseOrder.push('first');
+                        resolve(responseFor(text));
+                    };
+                });
+            }
+            responseOrder.push('second');
+            return Promise.resolve(responseFor(text));
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            const parsed = client.parse([first, second]);
+            await waitForExpect(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+            expect(requestOrder).toEqual([first, second]);
+            expect(responseOrder).toEqual(['second']);
+
+            resolveFirst();
+            const [firstTokens, secondTokens] = await parsed;
+
+            expect(firstTokens[0].card.spelling).toBe('猫');
+            expect(secondTokens[0].card.spelling).toBe('犬');
+            expect(responseOrder).toEqual(['second', 'first']);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('clears in-flight JPDB parses when caches are reset', async () => {
         const client = new JpdbClient(() => 'token');
         let resolveFirst!: (response: { status: number; ok: boolean; text: () => Promise<string> }) => void;

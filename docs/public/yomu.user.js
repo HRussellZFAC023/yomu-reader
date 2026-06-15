@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.41
+// @version      0.7.42
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -29719,6 +29719,7 @@ ${spelling}`);
   const PARAGRAPH_PARSE_CACHE_SIZE = 800;
   const PARSE_BATCH_BYTE_LIMIT = 16384;
   const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
+  const PARSE_BATCH_CONCURRENCY = 3;
   const VOCABULARY_LOOKUP_CHUNK_SIZE = 5e3;
   const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1e3;
   const USER_DECK_POOL_CONCURRENCY = 4;
@@ -29737,6 +29738,7 @@ ${spelling}`);
     parseInFlight = /* @__PURE__ */ new Map();
     paragraphParseCache = new LruCache(PARAGRAPH_PARSE_CACHE_SIZE);
     paragraphParseInFlight = /* @__PURE__ */ new Map();
+    parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
     userDeckPoolCache;
     // Used by ReaderParser as the live JPDB parse backend.
     // fallow-ignore-next-line unused-class-member
@@ -30006,10 +30008,8 @@ ${spelling}`);
       });
     }
     queueMissingParagraphParses(missing) {
-      let previousBatch = null;
       for (const batch of parseParagraphBatches(missing)) {
-        const batchRequest = previousBatch ? previousBatch.then(() => this.fetchParse(batch, batch.join("\n"))) : this.fetchParse(batch, batch.join("\n"));
-        previousBatch = batchRequest.catch(() => void 0);
+        const batchRequest = this.parseBatchGate.run(() => this.fetchParse(batch, batch.join("\n")));
         batch.forEach((paragraph, index) => {
           const paragraphPromise = batchRequest.then((parsed) => parsed[index] ?? []);
           this.paragraphParseInFlight.set(paragraph, paragraphPromise);
