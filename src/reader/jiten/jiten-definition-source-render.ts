@@ -22,12 +22,13 @@ interface JitenTextReference {
 export function renderJitenDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JitenVocabularyInfo | null = null, language: InterfaceLanguage = 'en'): string {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    if (!meanings && !extras) return '';
+    const body = meanings || extras
+        ? `${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`
+        : `<div class="jpdb-reader-help jpdb-reader-no-definitions">${language === 'ja' ? 'Jiten定義なし。' : 'No Jiten definitions.'}</div>`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">Jiten</summary>
-            ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
-            ${extras}
+            ${body}
         </details>
     `;
 }

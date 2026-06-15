@@ -54,6 +54,11 @@ const JPDB_REQUEST_HANDLERS = new Map([
     ['lookup-vocabulary', handleJpdbLookupVocabulary],
     ['review', handleJpdbReview],
 ]);
+const PUBLIC_SEARCH_FIXTURES = new Map([
+    ['よむ', { vid: 101000, expression: '読む', reading: 'よむ', meaning: 'to read', rank: 250 }],
+    ['読み取る', { vid: 101001, expression: '読み取る', reading: 'よみとる', meaning: 'to read; to understand', rank: 5200 }],
+    ['学習能力', { vid: 101002, expression: '学習能力', reading: 'がくしゅうのうりょく', meaning: 'learning ability', rank: 32900 }],
+]);
 
 function createNewTabFixtureServer() {
     return startLoopbackServer(serveNewTabFixtureRequest, 'Could not bind Jiten new-tab smoke server');
@@ -134,6 +139,11 @@ async function handleMockedApiRoute(route, requests) {
         await route.fulfill({ status: 204, headers: corsHeaders() });
         return;
     }
+    const publicJpdb = publicJpdbResponse(url, request.method());
+    if (publicJpdb) {
+        await route.fulfill(mockedRouteResponse(publicJpdb));
+        return;
+    }
     const mocked = mockedApiRequest(routeRequestSnapshot(request), requests);
     if (!mocked) {
         await route.continue();
@@ -176,6 +186,67 @@ function isMockedApiUrl(url) {
     return url.origin === JITEN_API_ORIGIN || url.origin === JPDB_API_ORIGIN;
 }
 
+function publicJpdbResponse(url, method) {
+    if (method !== 'GET' || url.origin !== JPDB_API_ORIGIN) return null;
+    if (url.pathname === '/search') return jpdbPublicSearchResponse(url.searchParams.get('q') ?? '');
+    if (url.pathname.startsWith('/vocabulary/')) return jpdbPublicVocabularyResponse(url);
+    return null;
+}
+
+function jpdbPublicSearchResponse(query) {
+    const fixture = PUBLIC_SEARCH_FIXTURES.get(query) ?? PUBLIC_SEARCH_FIXTURES.get(normalizedKanaQuery(query));
+    return {
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        responseText: publicJpdbSearchHtml(fixture ? [fixture] : []),
+    };
+}
+
+function jpdbPublicVocabularyResponse(url) {
+    const fixture = Array.from(PUBLIC_SEARCH_FIXTURES.values()).find(item => url.pathname.includes(`/${item.vid}/`));
+    return {
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        responseText: publicJpdbSearchHtml(fixture ? [fixture] : []),
+    };
+}
+
+function normalizedKanaQuery(value) {
+    return value.replace(/[ァ-ヶ]/g, char => String.fromCharCode(char.charCodeAt(0) - 0x60));
+}
+
+function publicJpdbSearchHtml(fixtures) {
+    return `<!doctype html>
+        <html lang="en">
+            <head><meta charset="utf-8"><title>JPDB fixture</title></head>
+            <body>
+                <main class="results search">
+                    ${fixtures.map(publicJpdbVocabularyResultHtml).join('')}
+                </main>
+            </body>
+        </html>`;
+}
+
+function publicJpdbVocabularyResultHtml(fixture) {
+    const href = `/vocabulary/${fixture.vid}/${encodeURIComponent(fixture.expression)}/${encodeURIComponent(fixture.reading)}`;
+    return `
+        <article class="result vocabulary">
+            <section class="subsection-headword">
+                <a href="${href}" class="primary-spelling">
+                    <span class="spelling">${fixture.expression}</span>
+                    <span class="reading">${fixture.reading}</span>
+                </a>
+                <a href="${href}">More details</a>
+            </section>
+            <section class="subsection-meanings">
+                <div class="part-of-speech"><div>noun</div></div>
+                <div class="meanings"><div>${fixture.meaning}</div></div>
+            </section>
+            <div class="tags"><span class="tag">#${fixture.rank}</span></div>
+        </article>
+    `;
+}
+
 function corsHeaders() {
     return {
         'access-control-allow-origin': '*',
@@ -195,6 +266,8 @@ function mockedApiRequest(request, requests) {
 
 function mockedApiRequestInner(request, requests) {
     const url = new URL(request.url);
+    const publicJpdb = publicJpdbResponse(url, request.method);
+    if (publicJpdb) return publicJpdb;
     if (url.origin === JITEN_API_ORIGIN) return mockedJitenRequest(url, request, requests);
     if (url.origin === JPDB_API_ORIGIN) return mockedJpdbRequest(url, request, requests);
     return null;
@@ -413,6 +486,53 @@ async function runDualCredentialSmoke(browser, fixture) {
     }
 }
 
+async function runSearchJitenSourcePanelSmoke(browser, fixture) {
+    const requests = [];
+    const settings = createSettings({
+        apiKey: '',
+        jitenApiKey: '',
+        newTabSource: 'jpdb',
+        jpdbDefinitionsEnabled: true,
+        jitenDefinitionsEnabled: true,
+        ankiEnabled: false,
+        ankiSectionEnabled: false,
+        localDictionariesEnabled: false,
+        studyTranslationEnabled: false,
+        studyGrammarEnabled: false,
+        immersionKitEnabled: false,
+    });
+    const { context, page } = await installNewTabPage(browser, fixture, settings, requests);
+    const terms = ['よむ', '読み取る', '学習能力'];
+    try {
+        const results = [];
+        for (const term of terms) {
+            const url = `${fixture.baseUrl}/newtab/index.html?q=${encodeURIComponent(term)}&smoke=jiten-source-${encodeURIComponent(term)}`;
+            await page.goto(url, { waitUntil: 'domcontentloaded' });
+            await page.locator('[data-newtab-action="mode"][data-mode="search"]').click({ timeout: 20_000 });
+            await page.locator('[data-newtab-search-input]').fill(term);
+            await page.locator('[data-newtab-search]').evaluate(form => form.requestSubmit());
+            await page.waitForSelector('[data-newtab-search-results]', { timeout: 20_000 });
+            const wordButton = page.locator('[data-newtab-action="search-result-word"]').first();
+            await wordButton.waitFor({ state: 'visible', timeout: 20_000 });
+            const expression = await wordButton.getAttribute('data-expression');
+            await wordButton.click();
+            const detail = page.locator('[data-newtab-search-detail]:not([hidden])').first();
+            await detail.locator('[data-source="jiten"]').waitFor({ state: 'attached', timeout: 12_000 });
+            const sourceTitles = await detail.locator('.jpdb-reader-source-card > summary, .jpdb-reader-local-title').evaluateAll(nodes =>
+                nodes.map(node => node.textContent?.replace(/\s+/g, ' ').trim() ?? '').filter(Boolean),
+            );
+            const jitenText = await detail.locator('[data-source="jiten"]').textContent();
+            assert(sourceTitles.includes('Jiten'), `Expanded search detail did not list Jiten for ${term}`, { term, expression, sourceTitles });
+            assert(jitenText && /Jiten/.test(jitenText), `Jiten panel was empty or missing label for ${term}`, { term, expression, jitenText });
+            results.push({ term, expression, sourceTitles });
+        }
+        assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Search Jiten source smoke unexpectedly called JPDB API');
+        return results;
+    } finally {
+        await context.close();
+    }
+}
+
 async function runLiveJitenHealthCheck() {
     const apiKey = process.env.YOMU_JITEN_API_KEY?.trim();
     if (!apiKey) return { skipped: true, reason: 'YOMU_JITEN_API_KEY is not set' };
@@ -496,13 +616,14 @@ async function main() {
     const browserName = process.env.YOMU_SMOKE_BROWSER === 'firefox' ? 'firefox' : 'chromium';
     const browser = await launchSmokeBrowser(browserName === 'firefox' ? firefox : chromium, browserName, { headless: true });
     try {
-        const [jitenOnly, jpdbOnly, dual, liveJiten] = [
+        const [jitenOnly, jpdbOnly, dual, searchJitenSources, liveJiten] = [
             await runJitenOnlySmoke(browser, fixture),
             await runJpdbOnlySmoke(browser, fixture),
             await runDualCredentialSmoke(browser, fixture),
+            await runSearchJitenSourcePanelSmoke(browser, fixture),
             await runLiveJitenHealthCheck(),
         ];
-        console.log(JSON.stringify({ ok: true, jitenOnly, jpdbOnly, dual, liveJiten }, null, 2));
+        console.log(JSON.stringify({ ok: true, jitenOnly, jpdbOnly, dual, searchJitenSources, liveJiten }, null, 2));
     } finally {
         await browser.close();
         await closeServer(fixture.server);

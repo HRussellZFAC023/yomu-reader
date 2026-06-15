@@ -35,7 +35,7 @@ import {
     uniqueImmersionQueries,
 } from '../immersion/query';
 import { runLimited } from '../core/async-utils';
-import type { JitenApiClient, JitenKanjiInfo } from '../dictionaries/jiten';
+import type { JitenApiClient, JitenKanjiInfo, JitenVocabularyInfo } from '../dictionaries/jiten';
 import {
     jitenKanjiFactRows,
     jitenKanjiReadingRows,
@@ -374,7 +374,7 @@ export interface NewTabControllerDependencies {
     showLookupCard?: (card: JPDBCard, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
-    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
+    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
     installSearchDetailSources?: (root: HTMLElement, card: JPDBCard, sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => void;
     preloadWordAudio?: (card: JPDBCard) => void;
@@ -8365,6 +8365,7 @@ function searchWordDetailFromRenderedData(data: CardRenderData): NewTabSearchWor
         metaEntries: data.metaEntries,
         ankiLookup: data.ankiLookup,
         jpdbVocabularyInfo: data.jpdbVocabularyInfo,
+        jitenVocabularyInfo: data.jitenVocabularyInfo ?? null,
     };
 }
 

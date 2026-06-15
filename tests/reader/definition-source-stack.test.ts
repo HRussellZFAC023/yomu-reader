@@ -23,7 +23,11 @@ function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
     };
 }
 
-function renderSources(sourceCard: JPDBCard, settings: ReaderSettings = DEFAULT_SETTINGS): string {
+function renderSources(
+    sourceCard: JPDBCard,
+    settings: ReaderSettings = DEFAULT_SETTINGS,
+    extraSectionsOrOptions?: Parameters<typeof renderDefinitionSourcesStack>[0]['extraSectionsOrOptions'],
+): string {
     return renderDefinitionSourcesStack({
         card: sourceCard,
         entries: [],
@@ -31,6 +35,7 @@ function renderSources(sourceCard: JPDBCard, settings: ReaderSettings = DEFAULT_
         sourceAttributes: key => `data-source-state-key="${key}"`,
         dictionaryLabel: name => name,
         noDefinitionsHtml: () => '<p>No definitions</p>',
+        extraSectionsOrOptions,
         renderTranslationSource: () => '',
         renderGrammarSource: () => '',
         renderImmersionSource: () => '',
@@ -45,11 +50,13 @@ describe('definition source stack', () => {
         ]));
     });
 
-    it('does not render Jiten from JPDB card meanings when both sources are enabled', () => {
+    it('renders a Jiten source panel without copying JPDB card meanings', () => {
         const html = renderSources(card({ source: 'jpdb' }));
 
         expect(html).toContain('data-source="jpdb"');
-        expect(html).not.toContain('data-source="jiten"');
+        expect(html).toContain('data-source="jiten"');
+        expect(html).toContain('jpdb-reader-no-definitions');
+        expect(html.match(/to read/g)).toHaveLength(1);
     });
 
     it('does not render JPDB from Jiten card meanings when both sources are enabled', () => {
@@ -58,6 +65,13 @@ describe('definition source stack', () => {
             jitenWordId: 10,
             jitenReadingIndex: 0,
         }));
+
+        expect(html).toContain('data-source="jiten"');
+        expect(html).not.toContain('data-source="jpdb"');
+    });
+
+    it('keeps Jiten available when the JPDB source panel is disabled', () => {
+        const html = renderSources(card({ source: 'jpdb' }), DEFAULT_SETTINGS, { includeJpdbSource: false });
 
         expect(html).toContain('data-source="jiten"');
         expect(html).not.toContain('data-source="jpdb"');
