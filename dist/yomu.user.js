@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.48
+// @version      0.7.49
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -35124,6 +35124,7 @@ ${glossaryKey}`;
   const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
+    ".jpdb-reader-status-line",
     "[data-settings-preview-lookup]",
     "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
