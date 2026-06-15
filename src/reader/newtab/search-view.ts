@@ -11,6 +11,7 @@ import { ANKI_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { normalizedJapaneseCardReading } from '../cards/highlight';
 import { renderAnkiExistingSection } from '../anki/render';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
+import { getPitchClass } from '../jpdb/jpdb-parser';
 import { renderPitch } from '../popup/render';
 import { speakerIcon } from '../ui/icons';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
@@ -76,7 +77,7 @@ function searchWordPooledStatusLabel(
 
 export function renderSearchWordResults(cards: JPDBCard[], context: NewTabSearchViewContext): HTMLElement {
     return el('section', { class: 'jpdb-reader-newtab-search-section' },
-        el('h2', {}, context.text('words')),
+        el('h2', { class: 'jpdb-reader-parseable', lang: 'ja' }, context.text('words')),
         el('div', { class: 'jpdb-reader-newtab-search-list' },
             cards.map(card => renderSearchWordResult(card, context)),
         ),
@@ -110,7 +111,7 @@ function renderSearchWordTerm(card: JPDBCard, context: NewTabSearchViewContext):
 
 export function renderSearchKanjiResults(results: NewTabSearchKanjiResult[], context: NewTabSearchViewContext): HTMLElement {
     return el('section', { class: 'jpdb-reader-newtab-search-section' },
-        el('h2', {}, context.text('kanji')),
+        el('h2', { class: 'jpdb-reader-parseable', lang: 'ja' }, context.text('kanji')),
         el('div', { class: 'jpdb-reader-newtab-search-kanji-grid' },
             results.map(result => renderSearchKanjiResult(result)),
         ),
@@ -127,7 +128,7 @@ function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): str
         end: spelling.length,
         length: spelling.length,
         rubies: [],
-        pitchClass: '',
+        pitchClass: getPitchClass(card.pitchAccent, reading),
         sentence: spelling,
     };
     return renderTokensToHtml(spelling, [token], settings);
@@ -147,9 +148,9 @@ function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
             dataset: { newtabAction: 'search-result-kanji', kanji: result.character },
             'aria-expanded': 'false',
         },
-        el('span', { class: 'jpdb-reader-newtab-search-kanji-char', lang: 'ja' }, result.character),
-        detail ? el('span', { class: 'jpdb-reader-newtab-search-meaning' }, detail) : null,
-        words ? el('span', { class: 'jpdb-reader-newtab-search-meta', lang: 'ja' }, words) : null),
+        el('span', { class: 'jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable', lang: 'ja' }, result.character),
+        detail ? el('span', { class: 'jpdb-reader-newtab-search-meaning jpdb-reader-parseable', lang: 'ja' }, detail) : null,
+        words ? el('span', { class: 'jpdb-reader-newtab-search-meta jpdb-reader-parseable', lang: 'ja' }, words) : null),
         el('div', { class: 'jpdb-reader-newtab-search-detail', dataset: { newtabSearchDetail: true }, hidden: true }),
     );
 }

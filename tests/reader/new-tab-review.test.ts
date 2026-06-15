@@ -8585,6 +8585,70 @@ describe('new tab review helpers', () => {
         expect(searchWordSummaryMeta(card, context)).toEqual(['がくしゅうのうりょく', '#32900']);
     });
 
+    it('hydrates pitch classes for 学習能力 search result cards after public pitch resolves', async () => {
+        const searchCard = newTabTestCard({
+            vid: 1932050,
+            sid: 0,
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            meanings: [{ glosses: ['learning ability'], partOfSpeech: [] }],
+            frequencyRank: 32900,
+            pitchAccent: [],
+            source: 'jpdb',
+        });
+        const publicSearch = vi.fn(async () => [searchCard]);
+        const publicPitch = vi.fn(async () => ['LHHHHHHHH']);
+        const parseContent = vi.fn(async () => undefined);
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+                immersionKitEnabled: false,
+                furiganaMode: 'all',
+                showPitchAccent: true,
+            }),
+            anki: {} as never,
+            jpdb: {} as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbVocabulary: { lookup: vi.fn(async () => null), search: publicSearch },
+            jpdbPublicPitch: { lookup: publicPitch },
+            jpdbReviewBridge: { onUpdate: () => () => {} } as never,
+            parser: {
+                parse: vi.fn(async () => [[]]),
+                fallbackCardFromText: vi.fn(newTabFallbackCardFromText),
+            } as never,
+            dictionaries: {} as never,
+            parseContent,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = renderPerformedNewTabSearch(controller, '学習能力');
+
+        try {
+            await waitForExpect(() => {
+                const word = root.querySelector<HTMLElement>('[data-newtab-action="search-result-word"] .jpdb-reader-word[data-expression="学習能力"]');
+                expect(word).not.toBeNull();
+                expect(word?.dataset.pitchClass).toBe('heiban');
+                expect(word?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+                expect(word?.querySelector('rt')?.textContent).toBe('がくしゅうのうりょく');
+            });
+
+            expect(publicPitch).toHaveBeenCalledWith('学習能力', 'がくしゅうのうりょく');
+            expect(parseContent).toHaveBeenCalled();
+            expect(root.querySelector('.jpdb-reader-newtab-search-suggestion-term.jpdb-reader-parseable')?.textContent).toBe('学習能力');
+            expect(root.querySelector('.jpdb-reader-newtab-search-kanji-card .jpdb-reader-newtab-search-meta.jpdb-reader-parseable')?.textContent)
+                .toContain('学習能力');
+        } finally {
+            root.remove();
+        }
+    });
+
     it('hydrates Kanji Immersion Kit inside expanded standalone search kanji details', async () => {
         const example: ImmersionKitExample = {
             id: 'ik-like',

@@ -303,6 +303,7 @@ const NEW_TAB_IMMERSION_LOAD_TIMEOUT_GRACE_MS = 1_000;
 const NEW_TAB_IMMERSION_PREFETCH_LOOKAHEAD = 1;
 const NEW_TAB_WORD_PITCH_LOCAL_GRACE_MS = 120;
 const NEW_TAB_WORD_PITCH_LOCAL_TIMEOUT_MS = 2_500;
+const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
 const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
 const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
@@ -394,7 +395,7 @@ export interface NewTabControllerDependencies {
 
 function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguage']): HTMLElement {
     return el('details', { id: 'jpdb-reader-newtab-handwriting', class: 'jpdb-reader-newtab-handwriting', dataset: { newtabHandwriting: true } },
-        el('summary', {}, newTabText(language, 'drawKanji')),
+        el('summary', { class: 'jpdb-reader-parseable', lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'drawKanji')),
         el('div', { class: 'jpdb-reader-newtab-handwriting-body' },
             el('div', { class: 'jpdb-reader-doodle-stage jpdb-reader-newtab-doodle jpdb-reader-newtab-search-doodle trace-hidden', dataset: { kanji: '' } },
                 el('div', { class: 'jpdb-reader-doodle-ghost', hidden: true }),
@@ -412,9 +413,10 @@ function renderSearchHandwritingPanel(language: ReaderSettings['interfaceLanguag
 
 function renderSearchHandwritingManualAction(language: ReaderSettings['interfaceLanguage']): HTMLButtonElement {
     return el('button', {
-        class: 'jpdb-reader-newtab-handwriting-manual-action',
+        class: 'jpdb-reader-newtab-handwriting-manual-action jpdb-reader-parseable',
         type: 'button',
         dataset: { newtabAction: 'search-focus' },
+        lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
     }, newTabText(language, 'typeOrPasteKanji'));
 }
 
@@ -932,10 +934,10 @@ export class NewTabController {
                         ),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-mode', role: 'group', 'aria-label': newTabText(language, 'newTabMode') },
-                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'word' } }, uiText(language, 'word')),
-                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' } }, uiText(language, 'kanji')),
-                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'search' } }, uiText(language, 'search')),
-                        el('button', { type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' } }, newTabText(language, 'stats')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'word' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'word')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'kanji' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'kanji')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'search' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'search')),
+                        el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'mode', mode: 'stats' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, newTabText(language, 'stats')),
                     ),
                     el('div', { class: 'jpdb-reader-newtab-theme-controls' },
                         el('div', { class: 'VPNavBarAppearance appearance jpdb-reader-theme-appearance' },
@@ -968,14 +970,14 @@ export class NewTabController {
                                 'aria-label': uiText(language, 'more'),
                             }, '...'),
                             el('div', { class: 'jpdb-reader-newtab-more-menu', role: 'menu' },
-                                el('button', { type: 'button', role: 'menuitem', dataset: { newtabAction: 'settings' } }, uiText(language, 'settings')),
+                                el('button', { class: 'jpdb-reader-parseable', type: 'button', role: 'menuitem', dataset: { newtabAction: 'settings' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'settings')),
                             ),
                         ),
                     ),
                 ),
                 el('section', { class: 'jpdb-reader-newtab-study', dataset: { newtabStudy: true }, 'aria-live': 'polite' },
                     el('div', { class: 'jpdb-reader-newtab-count', dataset: { newtabCount: true }, hidden: true }),
-                    el('h1', { class: 'jpdb-reader-newtab-prompt', dataset: { newtabPrompt: true }, lang: 'ja' }, APP_NAME),
+                    el('h1', { class: 'jpdb-reader-newtab-prompt jpdb-reader-parseable', dataset: { newtabPrompt: true }, lang: 'ja' }, APP_NAME),
                     el('div', { class: 'jpdb-reader-newtab-answer', dataset: { newtabAnswer: true } },
                         el('div', { class: 'jpdb-reader-newtab-reading', dataset: { newtabReading: true }, lang: 'ja' }),
                         el('div', { class: 'jpdb-reader-newtab-meaning', dataset: { newtabMeaning: true } }),
@@ -1011,14 +1013,16 @@ export class NewTabController {
                                 'aria-controls': 'jpdb-reader-newtab-autocomplete',
                                 'aria-expanded': 'false',
                             }),
-                            el('button', { type: 'submit', dataset: { newtabAction: 'search-submit' } }, uiText(language, 'search')),
+                            el('button', { class: 'jpdb-reader-parseable', type: 'submit', dataset: { newtabAction: 'search-submit' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en' }, uiText(language, 'search')),
                             el('button', {
+                                class: 'jpdb-reader-parseable',
                                 type: 'button',
                                 dataset: { newtabAction: 'search-handwriting-toggle' },
+                                lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en',
                                 'aria-controls': 'jpdb-reader-newtab-handwriting',
                                 'aria-expanded': 'false',
                             }, newTabText(language, 'draw')),
-                            el('button', { type: 'button', dataset: { newtabAction: 'search-clear' }, 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
+                            el('button', { class: 'jpdb-reader-parseable', type: 'button', dataset: { newtabAction: 'search-clear' }, lang: resolveUiLanguage(language) === 'ja' ? 'ja' : 'en', 'aria-label': newTabText(language, 'clearSearch') }, uiText(language, 'clear')),
                         ),
                         el('div', {
                             id: 'jpdb-reader-newtab-autocomplete',
@@ -6013,6 +6017,7 @@ export class NewTabController {
         } else if (results?.dataset.searchQuery !== query) {
             this.performSearch(root, query);
         }
+        void this.parseSearchSurfaces(root, this.searchGeneration, query);
         this.focusSearchInput(root);
         this.renderInstallCta(root);
     }
@@ -6285,11 +6290,12 @@ export class NewTabController {
         mount.hidden = !candidates.length && !message;
         replaceChildrenWith(mount,
             candidates.map(candidate => el('button', {
+                class: 'jpdb-reader-parseable',
                 type: 'button',
                 dataset: { newtabAction: 'handwriting-candidate', query: candidate },
                 lang: 'ja',
             }, candidate)),
-            message ? el('span', { class: 'jpdb-reader-newtab-handwriting-message' }, message) : null,
+            message ? el('span', { class: 'jpdb-reader-newtab-handwriting-message jpdb-reader-parseable', lang: resolveUiLanguage(this.language()) === 'ja' ? 'ja' : 'en' }, message) : null,
             message && !candidates.length ? renderSearchHandwritingManualAction(this.language()) : null,
         );
     }
@@ -6914,8 +6920,8 @@ export class NewTabController {
             'aria-label': detail ? `${suggestion.query}, ${detail}` : suggestion.query,
             'aria-selected': 'false',
         },
-        el('span', { class: 'jpdb-reader-newtab-search-suggestion-term' }, suggestion.query),
-        detail ? el('span', { class: 'jpdb-reader-newtab-search-suggestion-detail' }, detail) : null);
+        el('span', { class: 'jpdb-reader-newtab-search-suggestion-term jpdb-reader-parseable', lang: 'ja' }, suggestion.query),
+        detail ? el('span', { class: 'jpdb-reader-newtab-search-suggestion-detail jpdb-reader-parseable', lang: 'ja' }, detail) : null);
     }
 
     private renderSearchAutocomplete(root: HTMLElement, query: string, suggestions: NewTabSearchSuggestion[]): void {
@@ -6961,7 +6967,25 @@ export class NewTabController {
             results.words.length ? renderSearchWordResults(results.words, this.searchViewContext()) : null,
             resultCount ? null : this.renderSearchNoResults(results),
         );
+        void this.parseSearchSurfaces(root, this.searchGeneration, results.query);
+        void this.enrichSearchResultPitch(root, results, this.searchGeneration);
         void this.enrichSearchWordStatusRows(root, results, this.searchGeneration);
+    }
+
+    private async parseSearchSurfaces(root: HTMLElement, generation: number, query: string): Promise<void> {
+        if (!this.isCurrentSearch(root, generation, query)) return;
+        await this.dependencies.parseContent?.(root, newTabShortParseOptions())?.catch(() => undefined);
+    }
+
+    private async enrichSearchResultPitch(root: HTMLElement, results: NewTabSearchResults, generation: number): Promise<void> {
+        const cards = results.words.filter(card => this.shouldEnrichWordPitch(card));
+        if (!cards.length) return;
+        await runLimited(cards, NEW_TAB_SEARCH_PITCH_CONCURRENCY, async card => {
+            const pitchAccent = await this.loadWordPitch(card);
+            if (!pitchAccent.length || !this.isCurrentSearch(root, generation, results.query)) return;
+            if (!card.pitchAccent.length) card.pitchAccent = pitchAccent;
+            this.updateRenderedWordPitch(root, card);
+        });
     }
 
     private async enrichSearchWordStatusRows(root: HTMLElement, results: NewTabSearchResults, generation: number): Promise<void> {
