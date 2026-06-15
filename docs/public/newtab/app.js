@@ -47581,6 +47581,164 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function localizedImmersionSourceTitle(title, language) {
     return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
   }
+  function el(tagName, attrs, ...children) {
+    const element = document.createElement(tagName);
+    applyAttrs(element, attrs);
+    appendChildren(element, children);
+    return element;
+  }
+  function fragment(...children) {
+    const root = document.createDocumentFragment();
+    appendChildren(root, children);
+    return root;
+  }
+  function replaceChildrenWith(parent, ...children) {
+    const nextChildren = [];
+    collectChildren(nextChildren, children);
+    parent.replaceChildren(...nextChildren);
+  }
+  function applyAttrs(element, attrs) {
+    if (!attrs) return;
+    for (const [name, value] of Object.entries(attrs)) {
+      applyAttr(element, name, value);
+    }
+  }
+  function applyAttr(element, name, value) {
+    if (isSkippedAttrValue(value)) return;
+    if (applySpecialAttr(element, name, value)) return;
+    element.setAttribute(name, value === true ? "" : String(value));
+  }
+  function applySpecialAttr(element, name, value) {
+    return applyClassAttr(element, name, value) || applyDatasetAttr(element, name, value) || applyTextAttr(element, name, value) || applyElementProperty(element, name, value);
+  }
+  function isSkippedAttrValue(value) {
+    return value === false || value === null || value === void 0;
+  }
+  function applyClassAttr(element, name, value) {
+    if (name !== "class" && name !== "className") return false;
+    element.className = String(value);
+    return true;
+  }
+  function applyDatasetAttr(element, name, value) {
+    if (name !== "dataset") return false;
+    for (const [key, dataValue] of Object.entries(datasetAttrValues(value))) {
+      applyDatasetValue(element, key, dataValue);
+    }
+    return true;
+  }
+  function datasetAttrValues(value) {
+    return value ?? {};
+  }
+  function applyDatasetValue(element, key, value) {
+    if (isSkippedAttrValue(value)) return;
+    element.dataset[key] = String(value);
+  }
+  function applyTextAttr(element, name, value) {
+    if (name !== "text") return false;
+    element.textContent = String(value);
+    return true;
+  }
+  function applyElementProperty(element, name, value) {
+    if (!canApplyElementProperty(element, name)) return false;
+    return assignElementProperty(element, name, value);
+  }
+  function canApplyElementProperty(element, name) {
+    if (!(name in element)) return false;
+    if (name === "role") return false;
+    return !name.startsWith("aria");
+  }
+  function assignElementProperty(element, name, value) {
+    try {
+      element[name] = value;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function appendChildren(parent, children) {
+    const nodes = [];
+    collectChildren(nodes, children);
+    parent.append(...nodes);
+  }
+  function collectChildren(nodes, children) {
+    for (const child of children) {
+      appendDomChild(nodes, child);
+    }
+  }
+  function appendDomChild(nodes, child) {
+    if (Array.isArray(child)) {
+      collectChildren(nodes, child);
+      return;
+    }
+    if (child instanceof Node) {
+      nodes.push(child);
+      return;
+    }
+    if (!isSkippedChild(child)) nodes.push(document.createTextNode(String(child)));
+  }
+  function isSkippedChild(child) {
+    return child === false || child === null || child === void 0;
+  }
+  function nextImmersionExampleIndex(index, total, action) {
+    if (!Number.isFinite(index) || total <= 0) return 0;
+    const delta = action === "next" ? 1 : action === "previous" ? -1 : 0;
+    return (index + delta + total) % total;
+  }
+  function validImmersionExampleIndex(index, total) {
+    return Number.isFinite(index) && index >= 0 && index < total ? index : 0;
+  }
+  function renderImmersionExampleActionsHtml(hasAudio, language) {
+    const previous = uiText(language, "previousExample");
+    const next = uiText(language, "nextExample");
+    const audio = uiText(language, "playExampleAudio");
+    return `
+        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
+            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
+            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
+            ${renderImmersionActionButtonHtml("next", next, "›")}
+        </div>
+    `;
+  }
+  function renderImmersionExampleToolbar(options) {
+    const { example, index, total, hasAudio, language, showSource } = options;
+    const metaAttributes = { class: "jpdb-reader-example-meta" };
+    if (!showSource) metaAttributes.title = localizedImmersionProviderLabel(example, language);
+    return el(
+      "div",
+      { class: "jpdb-reader-example-toolbar" },
+      el(
+        "div",
+        metaAttributes,
+        showSource ? el("span", { class: "jpdb-reader-example-source" }, localizedImmersionProviderLabel(example, language)) : null,
+        el("span", { class: "jpdb-reader-example-title" }, localizedImmersionSourceTitle(example.sourceTitle, language)),
+        el("span", { class: "jpdb-reader-example-count" }, `${index + 1}/${total}`)
+      ),
+      renderImmersionExampleActions(hasAudio, language)
+    );
+  }
+  function renderImmersionExampleActions(hasAudio, language) {
+    return el(
+      "div",
+      { class: "jpdb-reader-example-actions", role: "group", "aria-label": uiText(language, "immersionExampleControls") },
+      renderImmersionActionButton("previous", uiText(language, "previousExample"), "‹"),
+      hasAudio ? renderImmersionActionButton("audio", uiText(language, "playExampleAudio"), speakerIcon()) : null,
+      renderImmersionActionButton("next", uiText(language, "nextExample"), "›")
+    );
+  }
+  function renderImmersionActionButton(action, label, content) {
+    const button = el("button", {
+      class: "jpdb-reader-icon-mini",
+      type: "button",
+      dataset: { immersionAction: action },
+      title: label,
+      "aria-label": label
+    });
+    button.innerHTML = content;
+    return button;
+  }
+  function renderImmersionActionButtonHtml(action, label, content) {
+    return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
+  }
   const IMMERSION_SEARCH_CACHE_TTL_MS = 5 * 60 * 1e3;
   const IMMERSION_SEARCH_CACHE_LIMIT = 120;
   const IMMERSION_POPUP_EXAMPLE_LIMIT = 6;
@@ -47775,7 +47933,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       let hoverAudioActive = false;
       const render = (nextIndex, playAudio, promoteMiningContext = false) => {
         const requestId = ++renderRequest;
-        index = (nextIndex + examples.length) % examples.length;
+        index = validImmersionExampleIndex(nextIndex, examples.length);
         this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
         bindHoverMedia();
       };
@@ -47797,8 +47955,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           return;
         }
         const action = button.dataset.immersionAction;
-        if (action === "previous") render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
-        if (action === "next") render(index + 1, this.shouldAutoPlayCarouselAudio(), true);
+        if (action === "previous" || action === "next") render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
         if (action === "audio") void this.playExampleAudio(examples[index]);
       });
       container.addEventListener("keydown", (event) => {
@@ -48102,7 +48259,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
                     <span class="jpdb-reader-example-title">${escapeHtml$1(sourceLabel)}</span>
                     <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
                 </div>
-                ${renderExampleActionsHtml(hasAudio, language)}
+                ${renderImmersionExampleActionsHtml(hasAudio, language)}
             </div>
             <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
                 <div class="jpdb-reader-example-body">
@@ -48442,9 +48599,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function compareFallbackTokenCandidates(a, b) {
     return Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling)) || b.length - a.length;
   }
-  function validImmersionExampleIndex(index, length) {
-    return Number.isFinite(index) && index >= 0 && index < length ? index : 0;
-  }
   function renderExampleImageHtml(container, imageUrl, overlay = "") {
     if (!imageUrl) return "";
     const heldImage = heldExampleImage(container);
@@ -48460,15 +48614,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return `<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
     }
     return `<div class="${classes}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-  }
-  function renderExampleActionsHtml(hasAudio, language) {
-    return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${escapeHtml$1(uiText(language, "previousExample"))}" aria-label="${escapeHtml$1(uiText(language, "previousExample"))}">‹</button>
-            ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${escapeHtml$1(uiText(language, "playExampleAudio"))}" aria-label="${escapeHtml$1(uiText(language, "playExampleAudio"))}">${speakerIcon()}</button>` : ""}
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml$1(uiText(language, "nextExample"))}" aria-label="${escapeHtml$1(uiText(language, "nextExample"))}">›</button>
-        </div>
-    `;
   }
   function uniqueExampleAudioCandidates(values) {
     const seen = /* @__PURE__ */ new Set();
@@ -52610,104 +52755,6 @@ ${normalizedReading}`;
   function nestedParseKey(targets) {
     return targets.map((target) => target.text).join("\n\n");
   }
-  function el(tagName, attrs, ...children) {
-    const element = document.createElement(tagName);
-    applyAttrs(element, attrs);
-    appendChildren(element, children);
-    return element;
-  }
-  function fragment(...children) {
-    const root = document.createDocumentFragment();
-    appendChildren(root, children);
-    return root;
-  }
-  function replaceChildrenWith(parent, ...children) {
-    const nextChildren = [];
-    collectChildren(nextChildren, children);
-    parent.replaceChildren(...nextChildren);
-  }
-  function applyAttrs(element, attrs) {
-    if (!attrs) return;
-    for (const [name, value] of Object.entries(attrs)) {
-      applyAttr(element, name, value);
-    }
-  }
-  function applyAttr(element, name, value) {
-    if (isSkippedAttrValue(value)) return;
-    if (applySpecialAttr(element, name, value)) return;
-    element.setAttribute(name, value === true ? "" : String(value));
-  }
-  function applySpecialAttr(element, name, value) {
-    return applyClassAttr(element, name, value) || applyDatasetAttr(element, name, value) || applyTextAttr(element, name, value) || applyElementProperty(element, name, value);
-  }
-  function isSkippedAttrValue(value) {
-    return value === false || value === null || value === void 0;
-  }
-  function applyClassAttr(element, name, value) {
-    if (name !== "class" && name !== "className") return false;
-    element.className = String(value);
-    return true;
-  }
-  function applyDatasetAttr(element, name, value) {
-    if (name !== "dataset") return false;
-    for (const [key, dataValue] of Object.entries(datasetAttrValues(value))) {
-      applyDatasetValue(element, key, dataValue);
-    }
-    return true;
-  }
-  function datasetAttrValues(value) {
-    return value ?? {};
-  }
-  function applyDatasetValue(element, key, value) {
-    if (isSkippedAttrValue(value)) return;
-    element.dataset[key] = String(value);
-  }
-  function applyTextAttr(element, name, value) {
-    if (name !== "text") return false;
-    element.textContent = String(value);
-    return true;
-  }
-  function applyElementProperty(element, name, value) {
-    if (!canApplyElementProperty(element, name)) return false;
-    return assignElementProperty(element, name, value);
-  }
-  function canApplyElementProperty(element, name) {
-    if (!(name in element)) return false;
-    if (name === "role") return false;
-    return !name.startsWith("aria");
-  }
-  function assignElementProperty(element, name, value) {
-    try {
-      element[name] = value;
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function appendChildren(parent, children) {
-    const nodes = [];
-    collectChildren(nodes, children);
-    parent.append(...nodes);
-  }
-  function collectChildren(nodes, children) {
-    for (const child of children) {
-      appendDomChild(nodes, child);
-    }
-  }
-  function appendDomChild(nodes, child) {
-    if (Array.isArray(child)) {
-      collectChildren(nodes, child);
-      return;
-    }
-    if (child instanceof Node) {
-      nodes.push(child);
-      return;
-    }
-    if (!isSkippedChild(child)) nodes.push(document.createTextNode(String(child)));
-  }
-  function isSkippedChild(child) {
-    return child === false || child === null || child === void 0;
-  }
   const FALLBACK_HEX_COLOR = "#000000";
   function normalizeHexColor(color) {
     return /^#[0-9a-f]{6}$/i.test(color) ? color.toLowerCase() : FALLBACK_HEX_COLOR;
@@ -54019,9 +54066,6 @@ ${newTabCardReading(card)}`;
   }
   function newTabImmersionAudioUrls(example, client) {
     return client.mediaUrls(example, "sound");
-  }
-  function newTabImmersionProviderLabel(example, language) {
-    return localizedImmersionProviderLabel(example, language);
   }
   function renderNewTabImmersionImage(imageUrl, overlay = null) {
     if (!imageUrl) return null;
@@ -60565,44 +60609,14 @@ ${entry.url}`),
       word.dataset.sentence ||= card.sentence || surface;
     }
     renderNewTabImmersionToolbar(example, index, total, hasAudio, options = {}) {
-      const language = this.language();
-      const metaAttributes = { class: "jpdb-reader-example-meta" };
-      if (!options.showSource) metaAttributes.title = newTabImmersionProviderLabel(example, language);
-      return el(
-        "div",
-        { class: "jpdb-reader-example-toolbar" },
-        el(
-          "div",
-          metaAttributes,
-          options.showSource ? el("span", { class: "jpdb-reader-example-source" }, newTabImmersionProviderLabel(example, language)) : null,
-          el("span", { class: "jpdb-reader-example-title" }, localizedImmersionSourceTitle(example.sourceTitle, language)),
-          el("span", { class: "jpdb-reader-example-count" }, `${index + 1}/${total}`)
-        ),
-        this.renderNewTabImmersionActions(hasAudio)
-      );
-    }
-    renderNewTabImmersionActions(hasAudio) {
-      return el(
-        "div",
-        { class: "jpdb-reader-example-actions", role: "group", "aria-label": this.text("immersionExampleControls") },
-        this.renderNewTabImmersionActionButton("previous", this.text("previousExample"), "‹"),
-        hasAudio ? this.renderNewTabImmersionAudioButton() : null,
-        this.renderNewTabImmersionActionButton("next", this.text("nextExample"), "›")
-      );
-    }
-    renderNewTabImmersionAudioButton() {
-      const button = this.renderNewTabImmersionActionButton("audio", this.text("playExampleAudio"));
-      setInnerHtml(button, speakerIcon());
-      return button;
-    }
-    renderNewTabImmersionActionButton(action, label, text2 = "") {
-      return el("button", {
-        class: "jpdb-reader-icon-mini",
-        type: "button",
-        dataset: { immersionAction: action },
-        title: label,
-        "aria-label": label
-      }, text2);
+      return renderImmersionExampleToolbar({
+        example,
+        index,
+        total,
+        hasAudio,
+        language: this.language(),
+        showSource: options.showSource
+      });
     }
     renderNewTabImmersionExampleBody(card, example, settings, index, total, audioUrls) {
       const imageUrl = newTabImmersionImageUrl(example, settings, this.dependencies.immersionKit);
@@ -60643,8 +60657,7 @@ ${entry.url}`),
       void cached?.then(async (examples) => {
         if (!examples.length || cardKey(this.visibleWords[this.index]) !== key) return;
         const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
-        const delta = action === "next" ? 1 : -1;
-        const nextIndex = (currentIndex + delta + examples.length) % examples.length;
+        const nextIndex = nextImmersionExampleIndex(currentIndex, examples.length, action);
         this.immersionExampleIndex.set(key, nextIndex);
         const replaced = await this.replaceNewTabImmersionExample(root, current, examples, nextIndex);
         if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentImmersionAudio(current);
@@ -60663,8 +60676,7 @@ ${entry.url}`),
       void this.loadImmersionExamples(card).then(async (examples) => {
         if (!examples.length || !this.isCurrentRevealedKanji(kanji)) return;
         const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
-        const delta = action === "next" ? 1 : -1;
-        const nextIndex = (currentIndex + delta + examples.length) % examples.length;
+        const nextIndex = nextImmersionExampleIndex(currentIndex, examples.length, action);
         this.immersionExampleIndex.set(key, nextIndex);
         const replaced = await this.replaceNewTabKanjiImmersionExample(root, kanji, card, examples, nextIndex);
         if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentKanjiImmersionAudio(kanji, card);

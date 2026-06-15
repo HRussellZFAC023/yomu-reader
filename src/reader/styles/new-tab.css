@@ -2645,6 +2645,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 14px;
 }
 
@@ -3417,7 +3418,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-newtab-immersion .jpdb-reader-example-toolbar {
     gap: 7px;
     justify-content: space-between;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .jpdb-reader-newtab-immersion .jpdb-reader-example-title {

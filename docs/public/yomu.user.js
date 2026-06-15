@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.62
+// @version      0.7.63
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -21710,6 +21710,29 @@ ${entry.reading || ""}`;
   function localizedImmersionSourceTitle(title, language) {
     return resolveUiLanguage(language) === "ja" ? IMMERSION_SOURCE_TITLES_JA[title] ?? title : title;
   }
+  function nextImmersionExampleIndex(index, total, action) {
+    if (!Number.isFinite(index) || total <= 0) return 0;
+    const delta = action === "next" ? 1 : action === "previous" ? -1 : 0;
+    return (index + delta + total) % total;
+  }
+  function validImmersionExampleIndex(index, total) {
+    return Number.isFinite(index) && index >= 0 && index < total ? index : 0;
+  }
+  function renderImmersionExampleActionsHtml(hasAudio, language) {
+    const previous = uiText(language, "previousExample");
+    const next = uiText(language, "nextExample");
+    const audio = uiText(language, "playExampleAudio");
+    return `
+        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
+            ${renderImmersionActionButtonHtml("previous", previous, "‹")}
+            ${hasAudio ? renderImmersionActionButtonHtml("audio", audio, speakerIcon()) : ""}
+            ${renderImmersionActionButtonHtml("next", next, "›")}
+        </div>
+    `;
+  }
+  function renderImmersionActionButtonHtml(action, label, content) {
+    return `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="${action}" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">${content}</button>`;
+  }
   const KANA_ONLY_RE = /^[぀-ヿー]+$/u;
   const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
   function splitReadingAcrossKanji(base, reading, readingsForKanji) {
@@ -22911,7 +22934,7 @@ ${spelling}`);
       let hoverAudioActive = false;
       const render = (nextIndex, playAudio, promoteMiningContext = false) => {
         const requestId = ++renderRequest;
-        index = (nextIndex + examples.length) % examples.length;
+        index = validImmersionExampleIndex(nextIndex, examples.length);
         this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
         bindHoverMedia();
       };
@@ -22933,8 +22956,7 @@ ${spelling}`);
           return;
         }
         const action = button2.dataset.immersionAction;
-        if (action === "previous") render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
-        if (action === "next") render(index + 1, this.shouldAutoPlayCarouselAudio(), true);
+        if (action === "previous" || action === "next") render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
         if (action === "audio") void this.playExampleAudio(examples[index]);
       });
       container.addEventListener("keydown", (event) => {
@@ -23238,7 +23260,7 @@ ${spelling}`);
                     <span class="jpdb-reader-example-title">${escapeHtml$1(sourceLabel)}</span>
                     <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
                 </div>
-                ${renderExampleActionsHtml(hasAudio, language)}
+                ${renderImmersionExampleActionsHtml(hasAudio, language)}
             </div>
             <div class="jpdb-reader-example-card ${image ? "has-image" : ""}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml$1(example.sentence)}" data-immersion-source-title="${escapeHtml$1(example.sourceTitle)}" data-immersion-image-url="${escapeHtml$1(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml$1(JSON.stringify(audioUrls))}">
                 <div class="jpdb-reader-example-body">
@@ -23578,9 +23600,6 @@ ${spelling}`);
   function compareFallbackTokenCandidates(a, b) {
     return Number(queryHasKanji(b.token.card.spelling)) - Number(queryHasKanji(a.token.card.spelling)) || b.length - a.length;
   }
-  function validImmersionExampleIndex(index, length) {
-    return Number.isFinite(index) && index >= 0 && index < length ? index : 0;
-  }
   function renderExampleImageHtml(container, imageUrl, overlay = "") {
     if (!imageUrl) return "";
     const heldImage = heldExampleImage(container);
@@ -23596,15 +23615,6 @@ ${spelling}`);
       return `<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
     }
     return `<div class="${classes}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-  }
-  function renderExampleActionsHtml(hasAudio, language) {
-    return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml$1(uiText(language, "immersionExampleControls"))}">
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${escapeHtml$1(uiText(language, "previousExample"))}" aria-label="${escapeHtml$1(uiText(language, "previousExample"))}">‹</button>
-            ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${escapeHtml$1(uiText(language, "playExampleAudio"))}" aria-label="${escapeHtml$1(uiText(language, "playExampleAudio"))}">${speakerIcon()}</button>` : ""}
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml$1(uiText(language, "nextExample"))}" aria-label="${escapeHtml$1(uiText(language, "nextExample"))}">›</button>
-        </div>
-    `;
   }
   function uniqueExampleAudioCandidates(values) {
     const seen = /* @__PURE__ */ new Set();

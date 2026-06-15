@@ -417,7 +417,10 @@ describe('performance cache bounds', () => {
             mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
                 kind === 'image' ? [] : [`https://media.test/${example.soundFile}`]
             )),
-        } as unknown as ImmersionKitClient);
+            fetchBlobUrl: vi.fn(async () => ''),
+        } as unknown as ImmersionKitClient, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitAutoPlayAudio: false }),
+        });
         const popover = document.createElement('div');
         popover.innerHTML = '<div class="jpdb-reader-popover-body"><details data-immersion-kit open></details></div>';
         document.body.append(popover);
@@ -449,6 +452,48 @@ describe('performance cache bounds', () => {
             expect(popover.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionSentence).toBe('また単語1を聞いた。');
             expect(popover.querySelector<HTMLElement>('.jpdb-reader-example-card')?.dataset.immersionAudioUrls).toBe(JSON.stringify(['https://media.test/second.mp3']));
             expect(popover.querySelector('.jpdb-reader-example-translation')?.textContent).toBe('I heard word one again.');
+        } finally {
+            popover.remove();
+        }
+    });
+
+    it('reuses popup Immersion controls for dictionary-page next, previous, and audio clicks', async () => {
+        localStorage.removeItem('yomu-mining-context:単語1');
+        const examples = [
+            { ...immersionExample('単語1'), id: 'example-1', sentence: '単語1を見た。', sourceTitle: 'First Source', soundFile: 'first.mp3' },
+            { ...immersionExample('単語1'), id: 'example-2', sentence: 'また単語1を聞いた。', sourceTitle: 'Second Source', soundFile: 'second.mp3' },
+        ];
+        const search = vi.fn(async () => examples);
+        const controller = createImmersionController({
+            search,
+            preload: vi.fn(),
+            mediaUrls: vi.fn((example: ImmersionKitExample, kind: 'image' | 'sound') => (
+                kind === 'image' ? [] : [`https://media.test/${example.soundFile}`]
+            )),
+        } as unknown as ImmersionKitClient, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitAutoPlayAudio: false }),
+        });
+        const popover = document.createElement('div');
+        popover.className = 'yomu-jpdb-page-addon';
+        popover.innerHTML = '<details class="jpdb-reader-immersion" data-immersion-kit open></details>';
+        document.body.append(popover);
+
+        try {
+            await controller.loadExamples(popover, cardFor(1));
+            const firstCard = () => popover.querySelector<HTMLElement>('.jpdb-reader-example-card');
+
+            expect(firstCard()?.dataset.immersionSentence).toBe('単語1を見た。');
+            expect(firstCard()?.dataset.immersionAudioUrls).toBe(JSON.stringify(['https://media.test/first.mp3']));
+            const audioButton = popover.querySelector<HTMLButtonElement>('[data-immersion-action="audio"]');
+            expect(audioButton).not.toBeNull();
+
+            popover.querySelector<HTMLButtonElement>('[data-immersion-action="next"]')?.click();
+            expect(firstCard()?.dataset.immersionSentence).toBe('また単語1を聞いた。');
+            expect(popover.querySelector('.jpdb-reader-example-count')?.textContent).toBe('2/2');
+
+            popover.querySelector<HTMLButtonElement>('[data-immersion-action="previous"]')?.click();
+            expect(firstCard()?.dataset.immersionSentence).toBe('単語1を見た。');
+            expect(popover.querySelector('.jpdb-reader-example-count')?.textContent).toBe('1/2');
         } finally {
             popover.remove();
         }

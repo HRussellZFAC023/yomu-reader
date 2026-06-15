@@ -22,7 +22,7 @@ import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { isKanjiCharacter } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
-import { localizedImmersionSourceTitle } from '../immersion/labels';
+import { nextImmersionExampleIndex, renderImmersionExampleToolbar } from '../immersion/player-view';
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import type { AnkiExistingNote, AnkiLookupResult } from '../anki';
 import { collectAnkiReviewTargetLabels, compactAnkiReviewTargetLabel } from '../anki/review-targets';
@@ -62,7 +62,6 @@ import { publishCardStateSignal } from '../app/card-state-signal';
 import { Logger } from '../app/logger';
 import { FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReaderActionPillLink, matchedReviewShortcutGrade } from '../app/main-helpers';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
-import { speakerIcon } from '../ui/icons';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { matchesShortcut } from '../settings';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
@@ -89,7 +88,6 @@ import { NEW_TAB_FILTERS, normalizeNewTabUiState } from './state';
 import {
     newTabImmersionAudioUrls,
     newTabImmersionImageUrl,
-    newTabImmersionProviderLabel,
     renderNewTabFrontSentence,
     renderNewTabImmersionImage,
     renderNewTabImmersionSentence,
@@ -4685,45 +4683,14 @@ export class NewTabController {
         hasAudio: boolean,
         options: { showSource?: boolean } = {},
     ): HTMLElement {
-        const language = this.language();
-        const metaAttributes: Record<string, string> = { class: 'jpdb-reader-example-meta' };
-        if (!options.showSource) metaAttributes.title = newTabImmersionProviderLabel(example, language);
-        // The clip title identifies the example well enough on the study card;
-        // the provider name lives in the tooltip instead of its own chip, and
-        // the controls stay inline with the title (user-reported: the old
-        // stacked layout wasted vertical space).
-        return el('div', { class: 'jpdb-reader-example-toolbar' },
-            el('div', metaAttributes,
-                options.showSource ? el('span', { class: 'jpdb-reader-example-source' }, newTabImmersionProviderLabel(example, language)) : null,
-                el('span', { class: 'jpdb-reader-example-title' }, localizedImmersionSourceTitle(example.sourceTitle, language)),
-                el('span', { class: 'jpdb-reader-example-count' }, `${index + 1}/${total}`),
-            ),
-            this.renderNewTabImmersionActions(hasAudio),
-        );
-    }
-
-    private renderNewTabImmersionActions(hasAudio: boolean): HTMLElement {
-        return el('div', { class: 'jpdb-reader-example-actions', role: 'group', 'aria-label': this.text('immersionExampleControls') },
-            this.renderNewTabImmersionActionButton('previous', this.text('previousExample'), '‹'),
-            hasAudio ? this.renderNewTabImmersionAudioButton() : null,
-            this.renderNewTabImmersionActionButton('next', this.text('nextExample'), '›'),
-        );
-    }
-
-    private renderNewTabImmersionAudioButton(): HTMLButtonElement {
-        const button = this.renderNewTabImmersionActionButton('audio', this.text('playExampleAudio'));
-        setInnerHtml(button, speakerIcon());
-        return button;
-    }
-
-    private renderNewTabImmersionActionButton(action: string, label: string, text = ''): HTMLButtonElement {
-        return el('button', {
-            class: 'jpdb-reader-icon-mini',
-            type: 'button',
-            dataset: { immersionAction: action },
-            title: label,
-            'aria-label': label,
-        }, text);
+        return renderImmersionExampleToolbar({
+            example,
+            index,
+            total,
+            hasAudio,
+            language: this.language(),
+            showSource: options.showSource,
+        });
     }
 
     private renderNewTabImmersionExampleBody(
@@ -4769,8 +4736,7 @@ export class NewTabController {
         void cached?.then(async examples => {
             if (!examples.length || cardKey(this.visibleWords[this.index]) !== key) return;
             const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
-            const delta = action === 'next' ? 1 : -1;
-            const nextIndex = (currentIndex + delta + examples.length) % examples.length;
+            const nextIndex = nextImmersionExampleIndex(currentIndex, examples.length, action);
             this.immersionExampleIndex.set(key, nextIndex);
             const replaced = await this.replaceNewTabImmersionExample(root, current, examples, nextIndex);
             if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentImmersionAudio(current);
@@ -4790,8 +4756,7 @@ export class NewTabController {
         void this.loadImmersionExamples(card).then(async examples => {
             if (!examples.length || !this.isCurrentRevealedKanji(kanji)) return;
             const currentIndex = this.normalizedImmersionExampleIndex(key, examples);
-            const delta = action === 'next' ? 1 : -1;
-            const nextIndex = (currentIndex + delta + examples.length) % examples.length;
+            const nextIndex = nextImmersionExampleIndex(currentIndex, examples.length, action);
             this.immersionExampleIndex.set(key, nextIndex);
             const replaced = await this.replaceNewTabKanjiImmersionExample(root, kanji, card, examples, nextIndex);
             if (replaced && this.shouldAutoPlayNewTabImmersionNavigationAudio()) void this.playCurrentKanjiImmersionAudio(kanji, card);

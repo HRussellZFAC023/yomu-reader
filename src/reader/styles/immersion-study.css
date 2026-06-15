@@ -91,6 +91,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
   width: 100%;
@@ -336,7 +337,9 @@ mark.jpdb-reader-example-target {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   justify-self: end;
+  max-width: 100%;
   gap: 3px;
   margin-top: 0;
   padding: 0;

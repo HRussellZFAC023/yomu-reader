@@ -2990,6 +2990,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 14px;
 }
 
@@ -3762,7 +3763,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   .jpdb-reader-newtab-immersion .jpdb-reader-example-toolbar {
     gap: 7px;
     justify-content: space-between;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
   }
 
   .jpdb-reader-newtab-immersion .jpdb-reader-example-title {
@@ -8805,6 +8806,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
   min-width: 0;
   width: 100%;
@@ -9050,7 +9052,9 @@ mark.jpdb-reader-example-target {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  justify-content: flex-end;
   justify-self: end;
+  max-width: 100%;
   gap: 3px;
   margin-top: 0;
   padding: 0;

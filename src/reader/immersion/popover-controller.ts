@@ -21,6 +21,7 @@ import {
 import { isAbortError } from './errors';
 import { ImmersionKitClient, isImmersionKitRateLimitError, type ImmersionKitExample, type ImmersionKitSearchOptions } from './kit';
 import { localizedImmersionProviderLabel, localizedImmersionSourceTitle } from './labels';
+import { nextImmersionExampleIndex, renderImmersionExampleActionsHtml, validImmersionExampleIndex } from './player-view';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
@@ -36,7 +37,6 @@ import {
     type MiningContextDraft,
     type StoredMiningContext,
 } from '../study/mining-context';
-import { speakerIcon } from '../ui/icons';
 import { capturePopoverScrollFrame, restorePopoverScrollFrameSoon } from '../popup/shell';
 import { jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import { hasJpdbApiCredential } from '../settings/api-credential';
@@ -318,7 +318,7 @@ export class ImmersionPopoverController {
         let hoverAudioActive = false;
         const render = (nextIndex: number, playAudio: boolean, promoteMiningContext = false) => {
             const requestId = ++renderRequest;
-            index = (nextIndex + examples.length) % examples.length;
+            index = validImmersionExampleIndex(nextIndex, examples.length);
             this.renderExample(container, card, examples, index, playAudio, result.query, () => requestId === renderRequest, promoteMiningContext);
             bindHoverMedia();
         };
@@ -340,8 +340,7 @@ export class ImmersionPopoverController {
                 return;
             }
             const action = button.dataset.immersionAction;
-            if (action === 'previous') render(index - 1, this.shouldAutoPlayCarouselAudio(), true);
-            if (action === 'next') render(index + 1, this.shouldAutoPlayCarouselAudio(), true);
+            if (action === 'previous' || action === 'next') render(nextImmersionExampleIndex(index, examples.length, action), this.shouldAutoPlayCarouselAudio(), true);
             if (action === 'audio') void this.playExampleAudio(examples[index]);
         });
         container.addEventListener('keydown', event => {
@@ -733,7 +732,7 @@ export class ImmersionPopoverController {
                     <span class="jpdb-reader-example-title">${escapeHtml(sourceLabel)}</span>
                     <span class="jpdb-reader-example-count">${index + 1}/${total}</span>
                 </div>
-                ${renderExampleActionsHtml(hasAudio, language)}
+                ${renderImmersionExampleActionsHtml(hasAudio, language)}
             </div>
             <div class="jpdb-reader-example-card ${image ? 'has-image' : ''}" data-immersion-index="${index}" data-immersion-total="${total}" data-immersion-sentence="${escapeHtml(example.sentence)}" data-immersion-source-title="${escapeHtml(example.sourceTitle)}" data-immersion-image-url="${escapeHtml(contextImageUrl)}" data-immersion-audio-urls="${escapeHtml(JSON.stringify(audioUrls))}">
                 <div class="jpdb-reader-example-body">
@@ -1159,10 +1158,6 @@ function compareFallbackTokenCandidates(
         || b.length - a.length;
 }
 
-function validImmersionExampleIndex(index: number, length: number): number {
-    return Number.isFinite(index) && index >= 0 && index < length ? index : 0;
-}
-
 function renderExampleImageHtml(container: HTMLElement, imageUrl: string, overlay = ''): string {
     if (!imageUrl) return '';
     const heldImage = heldExampleImage(container);
@@ -1179,16 +1174,6 @@ function renderExampleSentenceHtml(sentenceHtml: string, primarySubtitle = false
         return `<div class="${classes}"><span class="jpdb-subtitle-primary" data-immersion-sentence-render>${sentenceHtml}</span></div>`;
     }
     return `<div class="${classes}" data-immersion-sentence-render>${sentenceHtml}</div>`;
-}
-
-function renderExampleActionsHtml(hasAudio: boolean, language: ReaderSettings['interfaceLanguage']): string {
-    return `
-        <div class="jpdb-reader-example-actions" role="group" aria-label="${escapeHtml(uiText(language, 'immersionExampleControls'))}">
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="previous" title="${escapeHtml(uiText(language, 'previousExample'))}" aria-label="${escapeHtml(uiText(language, 'previousExample'))}">‹</button>
-            ${hasAudio ? `<button class="jpdb-reader-icon-mini" type="button" data-immersion-action="audio" title="${escapeHtml(uiText(language, 'playExampleAudio'))}" aria-label="${escapeHtml(uiText(language, 'playExampleAudio'))}">${speakerIcon()}</button>` : ''}
-            <button class="jpdb-reader-icon-mini" type="button" data-immersion-action="next" title="${escapeHtml(uiText(language, 'nextExample'))}" aria-label="${escapeHtml(uiText(language, 'nextExample'))}">›</button>
-        </div>
-    `;
 }
 
 function uniqueExampleAudioCandidates(values: string[]): string[] {

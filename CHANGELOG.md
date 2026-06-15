@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.63] - 2026-06-15
+
+### Fixed
+
+- Dictionary, kanji, study, popup, JPDB-page, new-tab, and docs Immersion Kit players now share the same example toolbar/action renderer, so audio, next, and previous controls update the active example in place without reparsing or reloading the page.
+- Immersion Kit controls now wrap within their toolbar in light and dark layouts, preventing the action backdrop from overflowing narrow dictionary/study cards.
+
 ## [0.7.62] - 2026-06-15
 
 ### Fixed
