@@ -1,6 +1,6 @@
 import { Logger } from '../app/logger';
 import { runningAsBrowserExtension } from '../app/runtime-env';
-import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
+import { COPY_LOOKUP_LINK, DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS, MAX_DICTIONARY_LOOKUP_LINKS, normalizeAudioSource, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor } from './index';
 import { normalizeAnkiFieldMappings } from './anki-field-mappings';
 import { combinedApiCredentialLabel, readApiCredentialsFromFormData } from './api-credential';
 import { createSettingsFormReader, type SettingsFormReader } from './form-data';
@@ -123,7 +123,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
     const reader = createSettingsFormReader(data, colorSource);
     const { get, has } = reader;
     const audioSources = readAudioSources(data);
-    const furiganaMode = readOption(get('furiganaMode'), ['auto', 'all', 'difficult-kanji', 'known-status', 'hover', 'off'] as const, current.furiganaMode);
+    const furiganaMode = readOption(get('furiganaMode'), ['all', 'difficult-kanji', 'known-status', 'hover', 'off'] as const, current.furiganaMode === 'auto' ? DEFAULT_SETTINGS.furiganaMode : current.furiganaMode);
     const apiDefinitionRowsPresent = {
         jpdb: hasSourceRow(has, 'jpdbDefinitions'),
         jiten: hasSourceRow(has, 'jitenDefinitions'),
@@ -190,7 +190,7 @@ function readApiDefinitionFormSettings(
     const { has, clamped } = reader;
     const jpdbPageEnhancementsEnabled = has('jpdbPageEnhancementsEnabled');
     return {
-        jpdbDefinitionsEnabled: rowsPresent.jpdb ? has('jpdbDefinitions.enabled') : has('jpdbDefinitionsEnabled'),
+        jpdbDefinitionsEnabled: true,
         jpdbDefinitionsPriority: clamped('jpdbDefinitions.priority', 0, 999, current.jpdbDefinitionsPriority),
         jitenDefinitionsEnabled: rowsPresent.jiten ? has('jitenDefinitions.enabled') : current.jitenDefinitionsEnabled,
         jitenDefinitionsPriority: clamped('jitenDefinitions.priority', 0, 999, current.jitenDefinitionsPriority),
@@ -332,11 +332,11 @@ function readReadingDisplayFormSettings(
 function readLocalDictionaryFormSettings(reader: SettingsFormReader, current: ReaderSettings, kanjiPreferences: DictionaryPreference[]): Partial<ReaderSettings> {
     const { has, clamped } = reader;
     return {
-        localDictionariesEnabled: has('localDictionariesEnabled'),
+        localDictionariesEnabled: true,
         localDictionaryShowKanji: has('kanjiDictionaries.enabled') || kanjiPreferences.some(preference => preference.enabled),
         kanjiDictionariesPriority: clamped('kanjiDictionaries.priority', 0, 999, current.kanjiDictionariesPriority),
-        dictionarySourcesInitiallyExpanded: has('dictionarySourcesInitiallyExpanded'),
-        localDictionaryMaxResults: clamped('localDictionaryMaxResults', 1, 64, current.localDictionaryMaxResults),
+        dictionarySourcesInitiallyExpanded: true,
+        localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
     };
 }
 

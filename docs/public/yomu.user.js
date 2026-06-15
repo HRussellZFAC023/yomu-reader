@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.22
+// @version      0.7.23
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-mmOTndYJD8MaRBQIi2WhqafNCEIaqwKoKCJlBuD5NZw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rjdLSjSXij20cIrURNeCL1/v3N8fW8D9A55M9Pk39HA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-fm5QgQ/lk/Xi3Btu1upe3qeBFjGTNRdL7PlyAPnNE8o=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-KLHQXIGm4+bItz/dIMLfFjhu4/WV6IO1CLrndZtm3Og=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-b3H+LeRNeChLe2DsPEVmwhQUB+POCDE+BaTgBy84lfs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-1637rxRNVo4HlxptArxrfYNEGxk24d9QCB2qeFcsECw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-qdM0T6G+EkU9UxFIvjwIFrBzddSSLA+g0zWbcTz3C2U=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-+TJzAsBb2GZ4ikKA9XHGjipwZ1rg2eG3sgvZ7z+a2Ds=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1151,6 +1151,20 @@
       }
     };
   }
+  function subscribeToStoredValueChanges(key, onChange) {
+    const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    if (typeof addValueChangeListener === "function") {
+      addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
+    }
+    const onStorage = (event) => {
+      if (event.key !== key) return;
+      onChange(JSON.parse(event.newValue || "null"));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+    };
+  }
   async function allStorageKeys() {
     const keys = /* @__PURE__ */ new Set();
     await addGmStorageKeys(keys);
@@ -2190,9 +2204,7 @@
     puckPositionX: void 0,
     puckPositionY: void 0,
     showFurigana: true,
-    // UT-47: auto resolves to known-status hiding once an SRS source exists
-    // (the user-requested default), difficult-kanji otherwise.
-    furiganaMode: "auto",
+    furiganaMode: "difficult-kanji",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
     wordColorStates: "all",
     showPitchAccent: true,
@@ -2357,6 +2369,7 @@
       ...normalizeAnkiAndStudySettings(settingsValue),
       ...normalizePresentationSettings(settingsValue),
       ...normalizeMiningSettings(settingsValue),
+      ...normalizeRemovedDictionarySettings(settingsValue),
       dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
@@ -2474,6 +2487,15 @@
       lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
       hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
       hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
+    };
+  }
+  function normalizeRemovedDictionarySettings(value) {
+    return {
+      jpdbDefinitionsEnabled: true,
+      localDictionariesEnabled: true,
+      dictionarySourcesInitiallyExpanded: true,
+      localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
+      localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };
   }
   function normalizeNewTabSettings(value) {
@@ -2807,10 +2829,14 @@
     return Boolean(settings.ankiEnabled || settings.jpdbMiningEnabled && settings.apiKey?.trim());
   }
   function normalizeFuriganaMode(value, settings) {
+    if (value === "auto") return effectiveLegacyAutoFuriganaMode(settings);
     if (isFuriganaMode(value)) return value;
     if (legacyBooleanSettingIs(settings, "showFurigana", false)) return "off";
     if (legacyBooleanSettingIs(settings, "hideKnownFurigana", false)) return "all";
     return DEFAULT_SETTINGS.furiganaMode;
+  }
+  function effectiveLegacyAutoFuriganaMode(settings) {
+    return settings && hasPersonalizedFuriganaSource(settings) ? "known-status" : "difficult-kanji";
   }
   function isFuriganaMode(value) {
     return value === "auto" || value === "all" || value === "difficult-kanji" || value === "known-status" || value === "hover" || value === "off";
@@ -2828,7 +2854,11 @@
     return typeof value === "string" && value.trim() ? value.trim() : fallback;
   }
   function hasPersonalizedFuriganaSource(settings) {
-    return Boolean(hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || settings.ankiEnabled);
+    const credentials = {
+      apiKey: settings.apiKey ?? "",
+      jitenApiKey: settings.jitenApiKey ?? ""
+    };
+    return Boolean(hasJpdbApiCredential(credentials) || hasJitenApiCredential(credentials) || settings.ankiEnabled);
   }
   function shouldLookupAnkiStatus(settings) {
     return settings.ankiEnabled === true;
@@ -2986,6 +3016,9 @@
       log$o.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
+  }
+  function subscribeToSettingsStorageChanges(onSettings) {
+    return subscribeToStoredValueChanges(SETTINGS_STORAGE_KEY, (value) => onSettings(mergeSettings(value)));
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
@@ -6475,7 +6508,6 @@
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.",
       dictionaryStatusUnavailable: "Dictionary status unavailable.",
       noLocalDictionariesImported: "No local dictionaries imported yet.",
-      dictionaryStorageEvicted: "Your {count} imported dictionaries are gone — the browser cleared site storage (Safari evicts inactive sites after ~7 days). Re-import them; regular use or a Home Screen shortcut prevents this.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Dictionary download did not return a ZIP file.",
@@ -7118,7 +7150,6 @@ dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
-dictionaryStorageEvicted	インポート済みの辞書{count}件が消えています。ブラウザがサイトのストレージを削除しました（Safariは約7日間使われないと削除します）。再インポートしてください。定期的な利用やホーム画面への追加で防げます。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
@@ -38529,6 +38560,7 @@ ${glossaryKey}`;
       toast: (message) => this.toast(message)
     });
     unsubscribeCardStateSignals;
+    unsubscribeSettingsStorageChanges;
     factoryReset = createFactoryResetCoordinator({
       dictionaries: this.dictionaries,
       isDestroyed: () => this.isDestroyed,
@@ -38695,6 +38727,7 @@ ${glossaryKey}`;
       this.installStyles();
       this.applyTheme();
       await this.refreshDictionaryStyles();
+      this.installSettingsStorageSubscription();
       if (this.embeddedFrame) return;
       this.registerMenuCommands();
       this.bindEvents();
@@ -38728,6 +38761,28 @@ ${glossaryKey}`;
         if (this.isDestroyed) return;
         this.applyPublicVocabularyToRenderedWords(card, card);
       });
+    }
+    installSettingsStorageSubscription() {
+      this.unsubscribeSettingsStorageChanges?.();
+      this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges((settings) => {
+        if (this.isDestroyed) return;
+        void this.applyRemoteSettings(settings);
+      });
+    }
+    async applyRemoteSettings(settings) {
+      this.settings = settings;
+      configureLogger({ forceEnabled: settings.enableLogging });
+      this.applyPreferredJapaneseSiteLanguage(settings);
+      this.applyTheme(settings);
+      this.applyWordColors(settings);
+      if (!this.embeddedFrame) this.installFab();
+      this.subtitles.refresh();
+      this.ocr.refresh();
+      this.youtube.refresh();
+      this.clearBridgeBackedCaches();
+      this.scheduleDictionaryRescan();
+      await this.refreshDictionaryStyles();
+      dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings, remote: true }));
     }
     scheduleAnkiStatusWarmup() {
       if (!this.shouldRunAnkiBackgroundWork()) return;
@@ -39159,6 +39214,8 @@ ${glossaryKey}`;
       this.isDestroyed = true;
       this.unsubscribeCardStateSignals?.();
       this.unsubscribeCardStateSignals = void 0;
+      this.unsubscribeSettingsStorageChanges?.();
+      this.unsubscribeSettingsStorageChanges = void 0;
       this.pageScanner.destroy?.();
       this.factoryReset.destroy();
       this.abortController.abort();

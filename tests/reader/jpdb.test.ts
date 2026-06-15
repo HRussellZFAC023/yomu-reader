@@ -50,7 +50,7 @@ import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupTermAtOffset, jpdbFirstParseOptions } from '../../src/reader/lookup/parser';
 import { parseRtkSearchIndex } from '../../src/reader/kanji/rtk';
-import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, sanitizeAccentColor, saveSettings } from '../../src/reader/settings/index';
+import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, applyUrlBootstrapSettings, defaultDictionaryLookupLinks, effectiveFuriganaMode, effectiveReaderColorSource, effectiveSubtitleColorSource, loadSettings, matchesShortcut, normalizeAudioSources, normalizeDictionaryLookupLinks, normalizeOcrProvider, normalizeReaderSettings, sanitizeAccentColor, saveSettings } from '../../src/reader/settings/index';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
@@ -5928,13 +5928,13 @@ describe('reader helpers', () => {
         expect(saved).toMatchObject(expected);
     });
 
-    it('defaults furigana to automatic, personalizing from JPDB, Jiten, or Anki data (UT-47)', () => {
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('auto');
+    it('defaults furigana to difficult kanji and migrates legacy automatic mode to concrete behavior (UT-47)', () => {
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('difficult-kanji');
         expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('difficult-kanji');
-        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: false, furiganaMode: 'auto' })).toBe('difficult-kanji');
-        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
-        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
-        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', ankiEnabled: true, furiganaMode: 'auto' })).toBe('known-status');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('difficult-kanji');
+        expect(normalizeReaderSettings({ apiKey: 'key', ankiEnabled: false, jpdbMiningEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
+        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
+        expect(normalizeReaderSettings({ apiKey: '', ankiEnabled: true, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
         expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, furiganaMode: 'off' })).toBe('off');
     });
 
@@ -10157,7 +10157,7 @@ describe('reader helpers', () => {
         expect(Array.from(form.querySelectorAll<HTMLInputElement>('input[name$=".id"]')).map(input => input.value)).toContain('copy');
     });
 
-    it('uses the JPDB source row checkbox when saving JPDB definitions', () => {
+    it('keeps JPDB definitions enabled when legacy source-row state is absent', () => {
         const settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false };
 
         expect(definitionSourceRows(settings).map(row => row.name)).toEqual(expect.arrayContaining(['JPDB', 'Jiten']));
@@ -10171,7 +10171,7 @@ describe('reader helpers', () => {
 
         data.set('jpdbDefinitions.name', 'JPDB');
         data.set('jpdbDefinitions.priority', '0');
-        expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(false);
+        expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);
 
         data.set('jpdbDefinitions.enabled', 'on');
         expect(readFormSettings(data, settings).jpdbDefinitionsEnabled).toBe(true);

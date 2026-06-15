@@ -89,6 +89,7 @@ import {
     loadSettings,
     saveSettings,
     shouldLookupAnkiStatus,
+    subscribeToSettingsStorageChanges,
 } from '../settings';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
@@ -203,6 +204,7 @@ export function bootNewTabRuntime(): void {
 
 export class NewTabRuntime {
     private unsubscribeCardStateSignals?: () => void;
+    private unsubscribeSettingsStorageChanges?: () => void;
     private settings: ReaderSettings = DEFAULT_SETTINGS;
     private isDestroyed = false;
     private activeDialog?: HTMLElement;
@@ -399,6 +401,7 @@ export class NewTabRuntime {
         }
         this.scheduleAnkiStatusWarmup();
         this.installCardStateSignalSubscription();
+        this.installSettingsStorageSubscription();
     }
 
     // Cross-tab card-state mutation bus: grading or mining a card on a page
@@ -410,6 +413,28 @@ export class NewTabRuntime {
             if (this.isDestroyed) return;
             this.applyPublicVocabularyToRenderedWords(card, card);
         });
+    }
+
+    private installSettingsStorageSubscription(): void {
+        this.unsubscribeSettingsStorageChanges?.();
+        this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges(settings => {
+            if (this.isDestroyed) return;
+            void this.applyRemoteSettings(settings);
+        });
+    }
+
+    private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
+        this.settings = settings;
+        configureLogger({ forceEnabled: settings.enableLogging });
+        this.cardRenderData.clear();
+        this.parseContentCache.clear();
+        this.jpdbVocabulary.clear();
+        this.parser.clearLocalCache();
+        this.applyTheme(settings);
+        this.applyWordColors(settings);
+        await this.refreshDictionaryStyles();
+        if (this.newTab?.isCurrentPage()) await this.newTab.renderPage();
+        this.scheduleAnkiStatusWarmup();
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -445,6 +470,8 @@ export class NewTabRuntime {
         this.isDestroyed = true;
         this.unsubscribeCardStateSignals?.();
         this.unsubscribeCardStateSignals = undefined;
+        this.unsubscribeSettingsStorageChanges?.();
+        this.unsubscribeSettingsStorageChanges = undefined;
         this.externalRefreshController?.abort();
         this.externalRefreshController = undefined;
         this.factoryReset.destroy();

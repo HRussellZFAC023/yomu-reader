@@ -281,6 +281,7 @@ import {
     saveSettings,
     shortcutIsPressed,
     shouldLookupAnkiStatus,
+    subscribeToSettingsStorageChanges,
 } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
@@ -554,6 +555,7 @@ export class ReaderApp {
         toast: message => this.toast(message),
     });
     private unsubscribeCardStateSignals?: () => void;
+    private unsubscribeSettingsStorageChanges?: () => void;
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
         dictionaries: this.dictionaries,
         isDestroyed: () => this.isDestroyed,
@@ -729,6 +731,7 @@ export class ReaderApp {
         this.installStyles();
         this.applyTheme();
         await this.refreshDictionaryStyles();
+        this.installSettingsStorageSubscription();
         if (this.embeddedFrame) return;
         this.registerMenuCommands();
         this.bindEvents();
@@ -765,6 +768,30 @@ export class ReaderApp {
             if (this.isDestroyed) return;
             this.applyPublicVocabularyToRenderedWords(card, card);
         });
+    }
+
+    private installSettingsStorageSubscription(): void {
+        this.unsubscribeSettingsStorageChanges?.();
+        this.unsubscribeSettingsStorageChanges = subscribeToSettingsStorageChanges(settings => {
+            if (this.isDestroyed) return;
+            void this.applyRemoteSettings(settings);
+        });
+    }
+
+    private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
+        this.settings = settings;
+        configureLogger({ forceEnabled: settings.enableLogging });
+        this.applyPreferredJapaneseSiteLanguage(settings);
+        this.applyTheme(settings);
+        this.applyWordColors(settings);
+        if (!this.embeddedFrame) this.installFab();
+        this.subtitles.refresh();
+        this.ocr.refresh();
+        this.youtube.refresh();
+        this.clearBridgeBackedCaches();
+        this.scheduleDictionaryRescan();
+        await this.refreshDictionaryStyles();
+        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings, remote: true }));
     }
 
     private scheduleAnkiStatusWarmup(): void {
@@ -1262,6 +1289,8 @@ export class ReaderApp {
         this.isDestroyed = true;
         this.unsubscribeCardStateSignals?.();
         this.unsubscribeCardStateSignals = undefined;
+        this.unsubscribeSettingsStorageChanges?.();
+        this.unsubscribeSettingsStorageChanges = undefined;
         this.pageScanner.destroy?.();
         this.factoryReset.destroy();
         this.abortController.abort();

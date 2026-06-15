@@ -373,13 +373,11 @@ describe('settings form localization', () => {
         expect(DEFAULT_SETTINGS.ankiMobileHandoff).toBe(false);
         expect(DEFAULT_SETTINGS.ankiMineWithJpdb).toBe(false);
         expect(DEFAULT_SETTINGS.popupMode).toBe('auto');
-        // UT-47: auto resolves to known-status hiding once an SRS source exists
-        // (user-requested default), difficult-kanji otherwise.
-        expect(DEFAULT_SETTINGS.furiganaMode).toBe('auto');
+        expect(DEFAULT_SETTINGS.furiganaMode).toBe('difficult-kanji');
         expect(DEFAULT_SETTINGS.furiganaHiddenStateGroups).toEqual(['known', 'due', 'failed']);
         expect(DEFAULT_SETTINGS.wordColorStates).toBe('all');
         expect(effectiveFuriganaMode(DEFAULT_SETTINGS)).toBe('difficult-kanji');
-        expect(effectiveFuriganaMode({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' })).toBe('known-status');
+        expect(normalizeReaderSettings({ apiKey: '', jitenApiKey: 'ak_jiten-key', ankiEnabled: false, furiganaMode: 'auto' }).furiganaMode).toBe('known-status');
         expect(normalizeReaderSettings({}).ankiEnabled).toBe(false);
         expect(normalizeReaderSettings({}).ankiSectionEnabled).toBe(false);
         expect(normalizeReaderSettings({ ankiEnabled: true }).ankiSectionEnabled).toBe(true);
@@ -743,7 +741,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word {');
         expect(normalizedCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview { min-height: 170px;');
-        expect(normalizedCss).toContain('display: block; min-width: 0; overflow-wrap: normal; word-break: normal; text-align: center;');
+        expect(normalizedCss).toContain('display: grid; place-items: center; min-width: 0; overflow-wrap: normal; word-break: normal; text-align: center;');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini { grid-column: 2; grid-row: 1; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta { grid-column: 1 / -1; }');
     });
@@ -992,7 +990,10 @@ describe('settings form localization', () => {
         expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Jiten status');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then Jiten kanji facts, then local');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (JPDB / Jiten)');
-        expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('Show JPDB definitions');
+        expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('');
+        expect(labelForControl(jitenForm, 'localDictionariesEnabled')).toBe('');
+        expect(labelForControl(jitenForm, 'dictionarySourcesInitiallyExpanded')).toBe('');
+        expect(labelForControl(jitenForm, 'localDictionaryMaxResults')).toBe('');
     });
 
     it('keeps subtitle preview color classes and status regions accessible', () => {
@@ -1414,7 +1415,7 @@ describe('settings form localization', () => {
         expect(topLevelLegendForControl(form, 'youtubeImmersionEnabled')).toBe('YouTube');
         expect(topLevelLegendForControl(form, 'preferJapaneseSiteLanguage')).toBe('YouTube');
         expect(topLevelLegendForControl(form, 'ankiEnabled')).toBe('Anki');
-        expect(topLevelLegendForControl(form, 'jpdbDefinitionsEnabled')).toBe('Sources');
+        expect(topLevelLegendForControl(form, 'jpdbDefinitionsEnabled')).toBe('');
         expect(topLevelLegendForControl(form, 'shortcuts.openSettings')).toBe('Shortcuts');
         expect(form.querySelector('.jpdb-reader-radio-group > legend')?.textContent).toBe('Examples per word limit');
     });

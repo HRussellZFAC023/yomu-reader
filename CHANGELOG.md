@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.23] - 2026-06-14
+
+### Fixed
+
+- Settings changes now propagate across userscript, hosted docs, and new-tab contexts so open reader pages stay in sync after a save.
+- Removed obsolete dictionary source toggles and result-limit controls from Settings; stale saved values no longer disable JPDB or local dictionary results.
+- Furigana settings now show concrete selected modes instead of the vague automatic option, and legacy automatic values migrate to the effective behavior.
+- Japanese settings labels, including parsed ruby labels, align cleanly with their controls, and the Appearance preview is centered.
+- Empty local dictionary status no longer warns about Safari evicting data from the GM-backed store.
+
 ## [0.7.22] - 2026-06-14
 
 ### Fixed

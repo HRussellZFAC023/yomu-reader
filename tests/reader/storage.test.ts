@@ -8,6 +8,7 @@ import {
     importStoredValues,
     publishFactoryResetSignal,
     subscribeToFactoryResetSignals,
+    subscribeToStoredValueChanges,
     type FactoryResetSignal,
 } from '../../src/reader/app/storage';
 
@@ -166,6 +167,37 @@ describe('storage reset', () => {
             transport: 'gm-storage',
         }]);
         expect(removeValueChangeListener).toHaveBeenCalledWith(17);
+    });
+
+    it('publishes stored value changes through GM storage listeners', async () => {
+        let listener: ((key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void) | undefined;
+        const values = new Map<string, unknown>([['jpdb-popup-reader-settings', { theme: 'light' }]]);
+        const addValueChangeListener = vi.fn((
+            _key: string,
+            callback: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
+        ) => {
+            listener = callback;
+            return 21;
+        });
+        vi.stubGlobal('BroadcastChannel', undefined);
+        vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
+        vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
+            const oldValue = values.get(key);
+            values.set(key, value);
+            listener?.(key, oldValue, value, true);
+        }));
+        vi.stubGlobal('GM_addValueChangeListener', addValueChangeListener);
+
+        const changes: unknown[] = [];
+        const unsubscribe = subscribeToStoredValueChanges('jpdb-popup-reader-settings', value => {
+            changes.push(value);
+        });
+
+        await gmStorageSet('jpdb-popup-reader-settings', { theme: 'dark' });
+        unsubscribe();
+
+        expect(addValueChangeListener).toHaveBeenCalledWith('jpdb-popup-reader-settings', expect.any(Function));
+        expect(changes).toEqual([{ theme: 'dark' }]);
     });
 
     it('factory reset deletes its coordination signal when GM_listValues is unavailable', async () => {

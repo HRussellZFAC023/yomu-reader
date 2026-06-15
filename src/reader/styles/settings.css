@@ -257,6 +257,7 @@
   line-height: 1.35;
 }
 .jpdb-reader-settings-label-text {
+  display: block;
   min-width: 0;
   overflow-wrap: break-word;
 }
@@ -630,6 +631,16 @@
   align-items: stretch;
   gap: 6px;
   margin: 0;
+}
+.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+  min-height: 2.75em;
+  display: flex;
+  align-items: flex-end;
+}
+.jpdb-reader-settings label.inline > .jpdb-reader-settings-label-text,
+.jpdb-reader-settings .jpdb-reader-radio-group .jpdb-reader-settings-label-text {
+  display: inline;
+  min-height: 0;
 }
 .jpdb-reader-settings .grid > label:not(.inline) > input,
 .jpdb-reader-settings .grid > label:not(.inline) > select,
@@ -2180,7 +2191,8 @@
     ) 0 0 / 30px 30px,
     color-mix(in srgb, var(--jpdb-reader-surface-2) 74%, var(--jpdb-reader-bg));
   color: var(--jpdb-reader-text) !important;
-  display: block;
+  display: grid;
+  place-items: center;
   min-width: 0;
   overflow-wrap: normal;
   word-break: normal;
