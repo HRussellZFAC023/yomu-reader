@@ -50,10 +50,31 @@ export function searchWordSummaryMeta(
     ankiLookup?: CardRenderData['ankiLookup'],
 ): string[] {
     return [
-        newTabCardOptionalReading(card),
+        searchWordSummaryReading(card, context),
         searchWordPooledStatusLabel(card, context, ankiLookup),
         card.frequencyRank ? `#${card.frequencyRank}` : '',
     ].filter(Boolean);
+}
+
+function searchWordSummaryReading(card: JPDBCard, context: NewTabSearchViewContext): string {
+    const reading = newTabCardOptionalReading(card);
+    if (!reading) return '';
+    const rubyReading = renderedSearchTermRubyReading(card, context.settings);
+    return rubyReading && compactReading(rubyReading) === compactReading(reading) ? '' : reading;
+}
+
+function renderedSearchTermRubyReading(card: JPDBCard, settings: ReaderSettings): string {
+    const html = renderSearchCardRubyHtml(card, settings);
+    if (!html.includes('<rt')) return '';
+    return Array.from(html.matchAll(/<rt\b[^>]*>(.*?)<\/rt>/g)).map(match => stripHtml(match[1] ?? '')).join('');
+}
+
+function stripHtml(value: string): string {
+    return value.replace(/<[^>]*>/g, '');
+}
+
+function compactReading(value: string): string {
+    return value.replace(/\s+/g, '').trim();
 }
 
 function searchWordPooledStatusLabel(

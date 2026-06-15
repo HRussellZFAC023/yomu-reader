@@ -6,7 +6,7 @@ import { cardKey } from '../../src/reader/cards/utils';
 import { APP_NAME } from '../../src/reader/app/constants';
 import type { ImmersionKitExample } from '../../src/reader/immersion/kit';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
-import { searchWordMetaItems } from '../../src/reader/newtab/search-view';
+import { searchWordMetaItems, searchWordSummaryMeta } from '../../src/reader/newtab/search-view';
 import { newTabSourceLoadPlan } from '../../src/reader/newtab/source';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { parseJpdbReviewDocument } from '../../src/reader/jpdb/jpdb-review-bridge';
@@ -8548,6 +8548,43 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('omits duplicate search result readings already visible as ruby', () => {
+        const context = {
+            language: 'en' as const,
+            settings: { ...DEFAULT_SETTINGS, showFurigana: true, furiganaMode: 'all' as const },
+            text: (key: 'words' | 'kanji' | 'dictionary') => key,
+        };
+        const card = newTabTestCard({
+            vid: 32900,
+            sid: 0,
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            frequencyRank: 32900,
+            meanings: [{ glosses: ['learning ability'], partOfSpeech: ['noun'] }],
+            cardState: ['not-in-deck'],
+            source: 'jpdb',
+        });
+
+        expect(searchWordSummaryMeta(card, context)).toEqual(['#32900']);
+    });
+
+    it('keeps search result readings when furigana settings suppress ruby', () => {
+        const context = {
+            language: 'en' as const,
+            settings: { ...DEFAULT_SETTINGS, showFurigana: false, furiganaMode: 'off' as const },
+            text: (key: 'words' | 'kanji' | 'dictionary') => key,
+        };
+        const card = newTabTestCard({
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            frequencyRank: 32900,
+            cardState: ['not-in-deck'],
+            source: 'jpdb',
+        });
+
+        expect(searchWordSummaryMeta(card, context)).toEqual(['がくしゅうのうりょく', '#32900']);
+    });
+
     it('hydrates Kanji Immersion Kit inside expanded standalone search kanji details', async () => {
         const example: ImmersionKitExample = {
             id: 'ik-like',
@@ -8970,7 +9007,7 @@ describe('new tab review helpers', () => {
             expect(wordButtons[0]?.textContent).toContain('自動販売機');
             expect(wordButtons[0]?.textContent).toContain('vending machine');
             const meta = root.querySelector<HTMLElement>('[data-search-word-meta="1318480:0:自動販売機:じどうはんばいき"]');
-            expect(meta?.textContent).toBe('じどうはんばいき · #18900');
+            expect(meta?.textContent).toBe('#18900');
             const kanjiMeta = root.querySelector<HTMLElement>('[data-newtab-action="search-result-kanji"][data-kanji="自"] .jpdb-reader-newtab-search-meta');
             expect(kanjiMeta?.textContent).toContain('自動販売機');
             expect(kanjiMeta?.textContent).toContain('じどうはんばいき');
