@@ -2940,6 +2940,26 @@ describe('new tab review helpers', () => {
         ]).map(item => item.spelling)).toEqual(['新規', 'アンキ新規']);
     });
 
+    it('does not copy parent word keywords onto derived kanji cards for 学習能力', () => {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false });
+        const internals = controller as unknown as {
+            kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard;
+        };
+        const sourceWord = newTabTestCard({
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            meanings: [{ glosses: ['learning ability'], partOfSpeech: [] }],
+            cardState: ['locked'],
+            kanjiKeyword: 'learning ability',
+        });
+        const cards = ['学', '習', '能', '力'].map(kanji => internals.kanjiStudyCardFromSourceCard(sourceWord, kanji));
+
+        expect(cards.map(card => card.spelling)).toEqual(['学', '習', '能', '力']);
+        expect(cards.map(card => card.kanjiKeyword ?? '')).toEqual(['', '', '', '']);
+        expect(cards.every(card => card.meanings.length === 0)).toBe(true);
+        expect(cards.every(card => card.fallbackLookupTerms?.includes('学習能力'))).toBe(true);
+    });
+
     it('keeps the visible new-tab queue in loaded SRS order', () => {
         const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }));
         const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
@@ -7553,7 +7573,7 @@ describe('new tab review helpers', () => {
 
     it('keeps the current card selected when switching between word and kanji mode', () => {
         const restoreCanvas = stubKanjiDoodleBrowserApis();
-        const current = newTabTestCard({ vid: 10, sid: 10, spelling: '月光', reading: 'げっこう', kanjiKeyword: 'moonlight' });
+        const current = newTabTestCard({ vid: 10, sid: 10, spelling: '月', reading: 'つき', kanjiKeyword: 'moon' });
         const other = newTabTestCard({ vid: 11, sid: 11, spelling: '胸', reading: 'むね', kanjiKeyword: 'chest' });
         const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, newTabKanjiAutogradeEnabled: false }, {
             dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
@@ -7578,9 +7598,9 @@ describe('new tab review helpers', () => {
 
             root.querySelector<HTMLButtonElement>('[data-mode="kanji"]')?.click();
 
-            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('10:10:月光:げっこう');
+            expect(root.querySelector<HTMLElement>('[data-newtab-study]')?.dataset.newtabCard).toBe('10:10:月:つき');
             expect(root.classList.contains('jpdb-reader-newtab-kanji-mode')).toBe(true);
-            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('moonlight');
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('moon');
         } finally {
             restoreCanvas();
         }
@@ -9435,7 +9455,12 @@ describe('new tab review helpers', () => {
                 };
             }): HTMLElement;
         };
-        const sourceWord = newTabTestCard({ spelling: '読み取る', reading: 'よみとる' });
+        const sourceWord = newTabTestCard({
+            spelling: '読み取る',
+            reading: 'よみとる',
+            meanings: [{ glosses: ['to read and take in'], partOfSpeech: [] }],
+            kanjiKeyword: 'to read and take in',
+        });
         const read = internals.renderSearchWordKanjiItem(sourceWord, {
             kanji: '読',
             details: {
@@ -9501,6 +9526,71 @@ describe('new tab review helpers', () => {
         expect(take.querySelector('.jpdb-reader-newtab-kanji-details')).not.toBeNull();
         expect(read.querySelector('.jpdb-reader-kanji-facts')?.textContent).toContain('Keywordread');
         expect(read.querySelector('.jpdb-reader-newtab-kanji-keywords .jpdb-reader-kanji-keyword')).toBeNull();
+        expect(mount.textContent).not.toContain('to read and take in');
+    });
+
+    it('uses per-kanji search keywords instead of the parent 検索 gloss', async () => {
+        const jpdbKanjiInfo = (kanji: string, keyword: string) => ({
+            kanji,
+            keyword,
+            frequency: '',
+            type: '',
+            kanken: '',
+            heisig: '',
+            oldForms: [],
+            readings: [],
+            components: [],
+            usedInKanji: [],
+            mnemonic: '',
+            vocabulary: [],
+            actions: [],
+            loggedIn: false,
+            kanjiReviewsEnabled: false,
+        });
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            jpdbKanjiEnabled: true,
+            localDictionariesEnabled: true,
+            localDictionaryShowKanji: true,
+            rtkEnabled: false,
+        }, {
+            parser: { fallbackCardFromText: vi.fn(newTabFallbackCardFromText) } as never,
+            jpdbKanji: {
+                lookup: vi.fn(async (kanji: string) => kanji === '検'
+                    ? jpdbKanjiInfo('検', 'inspect')
+                    : kanji === '索'
+                        ? jpdbKanjiInfo('索', 'cord')
+                        : null),
+            } as never,
+            dictionaries: {
+                lookupKanji: vi.fn(async (kanji: string) => [{
+                    character: kanji,
+                    onyomi: [],
+                    kunyomi: [],
+                    tags: [],
+                    meanings: ['search'],
+                    dictionary: 'Parent gloss dictionary',
+                }]),
+            } as never,
+        });
+        const internals = controller as unknown as {
+            searchKanjiCards(query: string, wordCards?: JPDBCard[]): Promise<Array<{ character: string; keyword: string; meanings: string[] }>>;
+        };
+        const parent = newTabTestCard({
+            spelling: '検索',
+            reading: 'けんさく',
+            meanings: [{ glosses: ['search'], partOfSpeech: [] }],
+            kanjiKeyword: 'search',
+        });
+
+        const results = await internals.searchKanjiCards('検索', [parent]);
+        const keywords = new Map(results.map(result => [result.character, result.keyword]));
+        const meanings = new Map(results.map(result => [result.character, result.meanings]));
+
+        expect(keywords.get('検')).toBe('inspect');
+        expect(keywords.get('索')).toBe('cord');
+        expect(meanings.get('検')).toEqual([]);
+        expect(meanings.get('索')).toEqual([]);
     });
 
     it('keeps the search detail speaker on lookup audio for the rendered card', () => {

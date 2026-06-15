@@ -38,6 +38,7 @@ export function renderJitenDefinitionSource(
     const meanings = jitenDefinitionMeanings(card, info);
     const localDefinitions = !info ? renderJitenLocalDefinitions(localJitenEntries, card) : '';
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
+    if (info && !meanings && !extras) return '';
     const hasDetails = Boolean(meanings || localDefinitions || extras);
     if (!hasDetails) return '';
     const headword = renderJitenDefinitionHeadword(card, info, localJitenEntries);

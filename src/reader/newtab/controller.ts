@@ -434,6 +434,14 @@ function normalizedKeywordText(value: string): string {
     return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
 
+function searchParentMeaningKeys(cards: JPDBCard[], kanji: string): Set<string> {
+    return new Set(cards
+        .filter(card => card.spelling !== kanji && kanjiCharacters(card.spelling).includes(kanji))
+        .flatMap(card => firstCardMeaning(card).split(/;\s*/u))
+        .map(normalizedKeywordText)
+        .filter(Boolean));
+}
+
 function isSearchLocalKanjiDictionaryCard(card: JPDBCard): boolean {
     const characters = Array.from(card.spelling.trim());
     return characters.length === 1 && isKanjiCharacter(characters[0] ?? '') && (card.reading === card.spelling || Boolean(card.kanjiKeyword));
@@ -3334,7 +3342,8 @@ export class NewTabController {
 
     private kanjiStudyCardFromSourceCard(card: JPDBCard, kanji: string): JPDBCard {
         if (isStandaloneKanjiCard(card, kanji)) return normalizeNewTabCard({ ...card, spelling: kanji, reading: card.reading || kanji });
-        const firstKanji = kanjiCharacters(card.spelling)[0] ?? '';
+        const sourceKanji = kanjiCharacters(card.spelling);
+        const sourceKeyword = sourceKanji.length === 1 && sourceKanji[0] === kanji ? card.kanjiKeyword : undefined;
         return normalizeNewTabCard({
             ...card,
             vid: stableNegativeNewTabId(`kanji-study:${this.cardReviewSource(card)}:${kanji}`),
@@ -3350,7 +3359,7 @@ export class NewTabController {
             reviewSource: undefined,
             ankiCardId: card.ankiCardId,
             jpdbReviewId: undefined,
-            kanjiKeyword: firstKanji === kanji ? card.kanjiKeyword : undefined,
+            kanjiKeyword: sourceKeyword,
             sourceCardKey: card.sourceCardKey ?? cardKey(card),
             fallbackLookupTerms: [card.spelling, card.reading, ...(card.fallbackLookupTerms ?? [])].filter(Boolean),
         });
@@ -6566,7 +6575,7 @@ export class NewTabController {
                 wordsByCharacter.set(character, [...(wordsByCharacter.get(character) ?? []), card]);
             });
         });
-        const results = await Promise.all(characters.map(character => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [])));
+        const results = await Promise.all(characters.map(character => this.searchKanjiResult(character, wordsByCharacter.get(character) ?? [], wordCards)));
         return results.filter((result): result is NewTabSearchKanjiResult => Boolean(result));
     }
 
@@ -6577,20 +6586,24 @@ export class NewTabController {
                 || normalizedSearchWordIdentity(newTabCardReading(card)) === normalizedQuery);
     }
 
-    private async searchKanjiResult(character: string, words: JPDBCard[] = []): Promise<NewTabSearchKanjiResult | null> {
-        const settings = this.dependencies.getSettings();
-        const local = settings.localDictionariesEnabled && settings.localDictionaryShowKanji
-            ? await this.localSearchWithTimeout(
-                this.dependencies.dictionaries.lookupKanji?.(character, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
-                [] as YomitanKanjiEntry[],
-            )
-            : [];
-        const meanings = uniqueStrings(local.flatMap(entry => entry.meanings)).slice(0, 6);
-        const readings = newTabKanjiReadings(null, uniqueStrings(local.flatMap(entry => [...entry.onyomi, ...entry.kunyomi]))).slice(0, 8);
+    private async searchKanjiResult(character: string, words: JPDBCard[] = [], parentCards: JPDBCard[] = []): Promise<NewTabSearchKanjiResult | null> {
+        const details = await this.loadKanjiDetails(character).catch(error => {
+            log.debug('Search kanji summary details unavailable', { kanji: character, error });
+            return { jpdb: null, jiten: null, rtk: null, vg: null, local: [] } satisfies KanjiDetailBundle;
+        });
+        const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
+        const parentMeanings = searchParentMeaningKeys(parentCards, character);
+        const meanings = uniqueStrings(details.local.flatMap(entry => entry.meanings))
+            .filter(meaning => !parentMeanings.has(normalizedKeywordText(meaning)))
+            .slice(0, 6);
+        const readings = details.jiten
+            ? jitenKanjiReadingRows(details.jiten).slice(0, 8)
+            : newTabKanjiReadings(fullInfo, uniqueStrings(details.local.flatMap(entry => [...entry.onyomi, ...entry.kunyomi]))).slice(0, 8);
         const card = this.dependencies.parser.fallbackCardFromText?.(character) ?? fallbackSearchKanjiCard(character);
+        const sourceKeyword = this.keywordFromDetails(card, fullInfo, details.jiten, details.rtk);
         return {
             character,
-            keyword: newTabKanjiKeyword(card, null, null, meanings),
+            keyword: sourceKeyword || meanings[0] || '',
             readings,
             meanings,
             words,
@@ -6813,12 +6826,8 @@ export class NewTabController {
     private renderSearchWordKanjiItem(card: JPDBCard, item: NewTabSearchWordKanjiDetail): HTMLElement {
         const fullInfo = item.details.jpdb ? normalizeJpdbKanjiInfo(item.details.jpdb) : null;
         const kanjiCard = this.dependencies.parser.fallbackCardFromText?.(item.kanji) ?? fallbackSearchKanjiCard(item.kanji);
-        kanjiCard.kanjiKeyword = item.details.jiten?.meanings[0] ?? newTabKanjiKeyword(
-            kanjiCard,
-            fullInfo,
-            item.details.rtk,
-            uniqueStrings(item.details.local.flatMap(entry => entry.meanings)).slice(0, 6),
-        );
+        const localMeanings = uniqueStrings(item.details.local.flatMap(entry => entry.meanings)).slice(0, 6);
+        kanjiCard.kanjiKeyword = this.keywordFromDetails(kanjiCard, fullInfo, item.details.jiten, item.details.rtk) || localMeanings[0] || '';
         const kanjiDetail = this.renderKanjiDetails(
             kanjiCard,
             item.kanji,
@@ -6850,7 +6859,8 @@ export class NewTabController {
             if (!existing.isConnected || button.getAttribute('aria-expanded') !== 'true') return;
             const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
             const card = this.dependencies.parser.fallbackCardFromText(kanji);
-            card.kanjiKeyword = details.jiten?.meanings[0] ?? newTabKanjiKeyword(card, fullInfo, details.rtk, uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6));
+            const localMeanings = uniqueStrings(details.local.flatMap(entry => entry.meanings)).slice(0, 6);
+            card.kanjiKeyword = this.keywordFromDetails(card, fullInfo, details.jiten, details.rtk) || localMeanings[0] || '';
             replaceChildrenWith(existing, this.renderKanjiDetails(card, kanji, details.jpdb, details.jiten, details.rtk, details.vg, details.local));
             this.renderNewTabUchisen(existing, kanji);
             this.renderNewTabKanjiImmersion(existing, kanji);
