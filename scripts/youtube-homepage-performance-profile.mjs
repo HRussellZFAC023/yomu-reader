@@ -31,6 +31,30 @@ const channel = process.env.YOMU_HOME_PROFILE_CHANNEL || 'chrome';
 const requestBridgeName = '__yomuYoutubeHomePerfRequest';
 const jpdbParseUrl = 'https://jpdb.io/api/v1/parse';
 const ankiConnectUrl = 'http://127.0.0.1:8765';
+const vocabularyRows = [
+    ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250, ['known'], ['LHHH']],
+    ['字幕', '字幕', 'じまく', 'subtitles', ['n'], 1500, ['known'], ['LHH']],
+    ['確認', '確認', 'かくにん', 'confirmation', ['n', 'vs'], 900, ['known'], ['LHHH']],
+    ['復習', '復習', 'ふくしゅう', 'review', ['n', 'vs'], 1200, ['known'], ['LHHH']],
+    ['説明', '説明', 'せつめい', 'explanation', ['n', 'vs'], 600, ['known'], ['LHHH']],
+    ['配信', '配信', 'はいしん', 'stream', ['n', 'vs'], 1700, ['known'], ['LHHH']],
+    ['今日', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
+    ['本', '本', 'ほん', 'book', ['n'], 350, ['known'], ['L']],
+    ['読む', '読む', 'よむ', 'read', ['v5m'], 400, ['known'], ['LH']],
+    ['読みます', '読む', 'よみます', 'read', ['v5m'], 401, ['known'], ['LH']],
+    ['質問', '質問', 'しつもん', 'question', ['n', 'vs'], 1300, ['known'], ['LHHH']],
+    ['関連動画', '関連動画', 'かんれんどうが', 'related video', ['n'], 2800, ['not-in-deck'], ['LHHHHH']],
+    ['発行', '発行', 'はっこう', 'publication', ['n', 'vs'], 2300, ['not-in-deck'], ['LHHH']],
+    ['話', '話', 'はなし', 'story', ['n'], 800, ['known'], ['LHH']],
+    ['東京', '東京', 'とうきょう', 'Tokyo', ['n'], 500, ['known'], ['LHHH']],
+    ['春', '春', 'はる', 'spring', ['n'], 1100, ['known'], ['LH']],
+    ['勉強', '勉強', 'べんきょう', 'study', ['n', 'vs'], 700, ['known'], ['LHHH']],
+    ['仕事', '仕事', 'しごと', 'work', ['n'], 650, ['known'], ['LHH']],
+    ['新卒', '新卒', 'しんそつ', 'new graduate', ['n'], 2100, ['not-in-deck'], ['LHHH']],
+    ['京都', '京都', 'きょうと', 'Kyoto', ['n'], 900, ['known'], ['LHHH']],
+    ['大阪', '大阪', 'おおさか', 'Osaka', ['n'], 1000, ['known'], ['LHHH']],
+    ['朝ごはん', '朝ごはん', 'あさごはん', 'breakfast', ['n'], 1800, ['known'], ['LHHHH']],
+];
 
 for (const filePath of [userscriptPath, cssPath]) {
     if (!existsSync(filePath)) throw new Error(`Missing built artifact: ${filePath}. Run npm run build first.`);
@@ -683,7 +707,7 @@ async function readPageState(page, client) {
                 perf: window.__yomuHomePerf,
                 settings: window.yomuSettingsSnapshot?.() ?? null,
                 youtube: {
-                    signedIn: Boolean(document.querySelector('#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn, yt-img-shadow#avatar img')),
+                    signedIn: Boolean(document.querySelector('button#avatar-btn, ytd-topbar-menu-button-renderer button#avatar-btn')),
                     feedItems: document.querySelectorAll('ytd-rich-item-renderer, ytd-video-renderer, ytm-video-with-context-renderer, ytm-rich-item-renderer').length,
                     text: (document.body?.innerText || '').slice(0, 160),
                 },
@@ -1062,28 +1086,3 @@ function escapeURIComponent(value) {
 function silentWavBytes() {
     return Buffer.from('UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==', 'base64');
 }
-
-const vocabularyRows = [
-    ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250, ['known'], ['LHHH']],
-    ['字幕', '字幕', 'じまく', 'subtitles', ['n'], 1500, ['known'], ['LHH']],
-    ['確認', '確認', 'かくにん', 'confirmation', ['n', 'vs'], 900, ['known'], ['LHHH']],
-    ['復習', '復習', 'ふくしゅう', 'review', ['n', 'vs'], 1200, ['known'], ['LHHH']],
-    ['説明', '説明', 'せつめい', 'explanation', ['n', 'vs'], 600, ['known'], ['LHHH']],
-    ['配信', '配信', 'はいしん', 'stream', ['n', 'vs'], 1700, ['known'], ['LHHH']],
-    ['今日', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
-    ['本', '本', 'ほん', 'book', ['n'], 350, ['known'], ['L']],
-    ['読む', '読む', 'よむ', 'read', ['v5m'], 400, ['known'], ['LH']],
-    ['読みます', '読む', 'よみます', 'read', ['v5m'], 401, ['known'], ['LH']],
-    ['質問', '質問', 'しつもん', 'question', ['n', 'vs'], 1300, ['known'], ['LHHH']],
-    ['関連動画', '関連動画', 'かんれんどうが', 'related video', ['n'], 2800, ['not-in-deck'], ['LHHHHH']],
-    ['発行', '発行', 'はっこう', 'publication', ['n', 'vs'], 2300, ['not-in-deck'], ['LHHH']],
-    ['話', '話', 'はなし', 'story', ['n'], 800, ['known'], ['LHH']],
-    ['東京', '東京', 'とうきょう', 'Tokyo', ['n'], 500, ['known'], ['LHHH']],
-    ['春', '春', 'はる', 'spring', ['n'], 1100, ['known'], ['LH']],
-    ['勉強', '勉強', 'べんきょう', 'study', ['n', 'vs'], 700, ['known'], ['LHHH']],
-    ['仕事', '仕事', 'しごと', 'work', ['n'], 650, ['known'], ['LHH']],
-    ['新卒', '新卒', 'しんそつ', 'new graduate', ['n'], 2100, ['not-in-deck'], ['LHHH']],
-    ['京都', '京都', 'きょうと', 'Kyoto', ['n'], 900, ['known'], ['LHHH']],
-    ['大阪', '大阪', 'おおさか', 'Osaka', ['n'], 1000, ['known'], ['LHHH']],
-    ['朝ごはん', '朝ごはん', 'あさごはん', 'breakfast', ['n'], 1800, ['known'], ['LHHHH']],
-];

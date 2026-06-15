@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.38] - 2026-06-15
+
+### Fixed
+
+- YouTube feed and watch page scanning now covers signed-in feed channel names, metadata, watch titles/descriptions, sidebar recommendations, and transcript rows with reader color, pitch underline, and ruby where lookup data is available. Native caption overlays remain untouched to avoid disrupting YouTube playback timing and caption styling, while Yomu transcript rows continue to be enhanced.
+
 ## [0.7.37] - 2026-06-15
 
 ### Fixed

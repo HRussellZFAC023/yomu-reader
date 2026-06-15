@@ -557,9 +557,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
         roots: [
-            // Watch metadata, descriptions, comments, live-chat, and feed
-            // cards. Homepage/topbar/navigation/chip chrome is deliberately
-            // excluded below so hover lookup stays focused on video text.
+            // Watch metadata, descriptions, comments, live-chat, feed cards,
+            // and transcript rows. Player/topbar/navigation/chip chrome is
+            // handled by the dedicated passive YouTube chrome parser above.
             'ytd-rich-grid-renderer',
             'ytd-rich-item-renderer',
             'ytd-video-renderer',
@@ -570,6 +570,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-item-section-renderer',
             'ytd-watch-next-secondary-results-renderer',
             'ytd-compact-video-renderer',
+            'ytd-transcript-segment-renderer',
             'ytd-watch-metadata h1',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata ytd-text-inline-expander',

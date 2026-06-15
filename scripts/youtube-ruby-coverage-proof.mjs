@@ -47,10 +47,12 @@ const vocabulary = [
     word('配信', 'はいしん', 'heiban'),
     word('質問', 'しつもん', 'heiban'),
     word('関連動画', 'かんれんどうが', 'heiban'),
+    word('観光', 'かんこう', 'heiban'),
     word('発行', 'はっこう', 'heiban'),
     word('文字起こし', 'もじおこし', 'heiban'),
     word('タイトル', 'たいとる', 'heiban'),
     word('前', 'まえ', 'heiban'),
+    word('日前', 'にちまえ', 'heiban'),
     word('新卒', 'しんそつ', 'heiban'),
     word('エンジニア', 'えんじにあ', 'heiban'),
     word('仕事', 'しごと', 'heiban'),
@@ -69,13 +71,27 @@ const pages = [
         url: 'https://www.youtube.com/',
         viewport: { width: 1280, height: 900 },
         html: youtubeShell(`
-            <ytd-app>
-              <ytd-masthead class="topbar"><strong>YouTube</strong><button data-proof-hidden>字幕を表示</button></ytd-masthead>
-              <ytd-rich-grid-renderer class="grid">
-                <ytd-rich-item-renderer class="card">
-                  <div class="thumb"></div>
-                  <a id="video-title-link" class="title clamped" href="/watch?v=home1" data-proof-target data-proof-text="完全独学で英語を話せる方法">完全独学で英語を話せる方法</a>
-                </ytd-rich-item-renderer>
+              <ytd-app>
+                <ytd-masthead class="topbar"><strong>YouTube</strong><button data-proof-hidden>字幕を表示</button></ytd-masthead>
+                <ytd-feed-filter-chip-bar-renderer class="chips">
+                  <div id="chips-content">
+                    <iron-selector id="chips" role="tablist" selected-attribute="selected">
+                      <yt-chip-cloud-chip-renderer selected="" chip-style="STYLE_HOME_FILTER">
+                        <button role="tab" aria-selected="true" data-proof-target data-proof-text="観光">観光</button>
+                      </yt-chip-cloud-chip-renderer>
+                      <yt-chip-cloud-chip-renderer chip-style="STYLE_HOME_FILTER">
+                        <button role="tab" aria-selected="false" data-proof-target data-proof-text="関連動画">関連動画</button>
+                      </yt-chip-cloud-chip-renderer>
+                    </iron-selector>
+                  </div>
+                </ytd-feed-filter-chip-bar-renderer>
+                <ytd-rich-grid-renderer class="grid">
+                  <ytd-rich-item-renderer class="card">
+                    <div class="thumb"></div>
+                    <a id="video-title-link" class="title clamped" href="/watch?v=home1" data-proof-target data-proof-text="完全独学で英語を話せる方法">完全独学で英語を話せる方法</a>
+                    <ytd-channel-name><a href="/@tokyo" data-proof-target data-proof-text="東京散歩チャンネル">東京散歩チャンネル</a></ytd-channel-name>
+                    <div id="metadata-line"><span data-proof-target data-proof-text="3日前">3日前</span></div>
+                  </ytd-rich-item-renderer>
                 <ytd-rich-item-renderer class="card">
                   <div class="thumb"></div>
                   <a id="video-title-link" class="title" href="/watch?v=home2">
@@ -129,6 +145,9 @@ const pages = [
               <main class="watch">
                 <section>
                   <div class="player">YouTube watch fixture</div>
+                  <div id="movie_player" class="html5-video-player">
+                    <div class="ytp-caption-window-container" data-proof-native-caption><span class="ytp-caption-segment">字幕だけの表示です。</span></div>
+                  </div>
                   <ytd-watch-metadata>
                     <h1 class="style-scope ytd-watch-metadata watch-title-clamped" data-proof-target data-proof-text="${longWatchTitle}" data-proof-expect-ruby-room="true">
                       <yt-formatted-string force-default-style="" class="style-scope ytd-watch-metadata" title="${longWatchTitle}">${longWatchTitle}</yt-formatted-string>
@@ -147,6 +166,15 @@ const pages = [
                   <yt-live-chat-text-message-renderer>
                     <span id="message" data-proof-target data-proof-text="今日は配信で質問します">今日は配信で質問します</span>
                   </yt-live-chat-text-message-renderer>
+                  <ytd-engagement-panel-section-list-renderer target-id="engagement-panel-searchable-transcript">
+                    <ytd-transcript-renderer>
+                      <ytd-transcript-body-renderer>
+                        <ytd-transcript-segment-renderer>
+                          <yt-formatted-string class="segment-text" data-proof-target data-proof-text="日本語の字幕">日本語の字幕を確認します。</yt-formatted-string>
+                        </ytd-transcript-segment-renderer>
+                      </ytd-transcript-body-renderer>
+                    </ytd-transcript-renderer>
+                  </ytd-engagement-panel-section-list-renderer>
                 </section>
                 <aside id="secondary">
                   <ytd-compact-video-renderer class="compact">
@@ -321,6 +349,8 @@ function youtubeShell(body) {
     ytd-watch-metadata, ytd-comments, ytd-comment-view-model, yt-live-chat-text-message-renderer { display: block; }
     .proof-status { position: sticky; top: 0; z-index: 10; padding: 12px 18px; background: #123d24; border-bottom: 2px solid #65d184; font-size: 14px; font-weight: 700; }
     .topbar { height: 64px; display: flex; align-items: center; gap: 18px; padding: 0 24px; background: #0f0f0f; }
+    .chips { display: block; padding: 12px 26px 0; }
+    #chips { display: flex; gap: 10px; }
     button { border: 1px solid #555; border-radius: 18px; background: #2a2a2a; color: #f1f1f1; padding: 8px 14px; font: inherit; }
     .grid { display: grid; grid-template-columns: repeat(3, minmax(260px, 1fr)); gap: 26px; padding: 26px; }
     .list { display: grid; gap: 20px; padding: 28px; }
@@ -330,6 +360,9 @@ function youtubeShell(body) {
     .thumb { aspect-ratio: 16 / 9; margin-bottom: 12px; }
     .mini-thumb { width: 150px; min-height: 84px; }
     .player { min-height: 410px; display: grid; place-items: center; color: #aaa; margin-bottom: 18px; }
+    #movie_player { position: relative; min-height: 96px; background: #050505; margin-bottom: 18px; }
+    .ytp-caption-window-container { position: absolute; left: 0; right: 0; bottom: 20px; text-align: center; }
+    .ytp-caption-segment { padding: 4px 10px; background: rgba(0,0,0,.76); color: white; font-size: 22px; text-shadow: 0 2px 4px black; }
     .mobile-player { min-height: 220px; }
     .title, #video-title, #video-title-link { color: #f1f1f1; text-decoration: none; font-size: 22px; line-height: 1.35; font-weight: 700; }
     .clamped { display: block; overflow: hidden; height: 44px; max-height: 44px; }
@@ -338,6 +371,8 @@ function youtubeShell(body) {
     .watch-title-clamped { display: block; overflow: hidden; height: 38px; max-height: 38px; max-width: 760px; }
     #description-inline-expander { background: #272727; border-radius: 8px; padding: 14px; margin: 14px 0; line-height: 1.6; }
     ytd-comment-view-model, yt-live-chat-text-message-renderer { padding: 14px 0; border-top: 1px solid #333; line-height: 1.6; }
+    ytd-transcript-renderer, ytd-transcript-body-renderer, ytd-transcript-segment-renderer { display: block; }
+    ytd-transcript-segment-renderer { padding: 10px 0; border-top: 1px solid #333; }
     .compact { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 12px; margin-bottom: 16px; }
     .mobile { padding: 14px; }
     .mobile h1 { font-size: 20px; line-height: 1.35; }
@@ -464,10 +499,12 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
     const rubyRoomAdjustments = makeRoomForRubyInCroppedRows(document);
     const proofTargets = visibleProofTargets().map(element => auditProofTarget(element, vocabulary));
     const hiddenFeedback = auditHiddenFeedback(targetSnapshots);
+    const nativeCaptions = auditNativeCaptionOverlays(targetSnapshots);
     const renderedWords = renderedWordDetails(document.body);
     const failures = [
         ...proofTargets.flatMap(target => target.failures.map(message => target.label + ': ' + message)),
         ...hiddenFeedback.failures,
+        ...nativeCaptions.failures,
     ];
     if (!proofTargets.length) failures.push('no visible proof targets found');
     if (targetSnapshots.some(target => HAS_JAPANESE.test(target.text) && !target.tokenSurfaces.length && !/押下中/.test(target.text))) {
@@ -496,6 +533,7 @@ window.__yomuRubyCoverageProof = function runRubyCoverageProof(options) {
         scanTargets: targetSnapshots,
         proofTargets,
         hiddenFeedback,
+        nativeCaptions,
         renderedWords,
     };
 };
@@ -645,6 +683,18 @@ function auditHiddenFeedback(scanTargets) {
     if (annotated) failures.push('aria-hidden touch feedback received reader words');
     if (scanned.length) failures.push('aria-hidden touch feedback appeared in scan targets');
     return { roots: hiddenRoots.length, annotated, scanned, failures };
+}
+
+function auditNativeCaptionOverlays(scanTargets) {
+    const roots = Array.from(document.querySelectorAll('[data-proof-native-caption]'));
+    const annotated = roots.reduce((count, root) => count + root.querySelectorAll('.jpdb-reader-word').length, 0);
+    const scanned = scanTargets
+        .filter(target => /字幕だけの表示です/.test(target.text))
+        .map(target => target.text);
+    const failures = [];
+    if (annotated) failures.push('native YouTube caption overlay received reader words');
+    if (scanned.length) failures.push('native YouTube caption overlay appeared in scan targets');
+    return { roots: roots.length, annotated, scanned, failures };
 }
 
 function isVisibleElement(element) {
