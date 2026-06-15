@@ -621,6 +621,23 @@
 .jpdb-reader-settings .grid > * {
   min-width: 0;
 }
+.jpdb-reader-settings .jpdb-reader-settings-toggle-grid,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid {
+  align-items: start;
+}
+.jpdb-reader-settings .jpdb-reader-settings-toggle-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
+  gap: 8px 14px;
+}
+.jpdb-reader-settings .jpdb-reader-settings-control-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr));
+  gap: 12px 14px;
+}
+.jpdb-reader-settings .jpdb-reader-settings-toggle-grid + .jpdb-reader-settings-control-grid,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid + .jpdb-reader-settings-toggle-grid,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid + .jpdb-reader-settings-control-grid {
+  margin-top: 12px;
+}
 /* Every label-above field (select, text, number, color) shares one structure:
    the label sits at the top and the control is pinned to the bottom of the
    cell, so every control on a row lines up regardless of how many lines the
@@ -637,6 +654,11 @@
   display: flex;
   align-items: flex-end;
 }
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > .jpdb-reader-settings-label-text,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > .jpdb-reader-settings-label-text {
+  min-height: 0;
+  display: block;
+}
 .jpdb-reader-settings label.inline > .jpdb-reader-settings-label-text,
 .jpdb-reader-settings .jpdb-reader-radio-group .jpdb-reader-settings-label-text {
   display: inline;
@@ -651,6 +673,14 @@
 .jpdb-reader-settings .grid > * > label > textarea,
 .jpdb-reader-settings .grid > * > label > .jpdb-reader-field-display {
   margin-top: auto;
+}
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > input,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > select,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > textarea,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > input,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > select,
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > textarea {
+  margin-top: 0;
 }
 
 /* Remove margins from wrapper elements when they are direct children of a grid row */
@@ -697,6 +727,11 @@
   align-self: end;
   margin: 0;
 }
+.jpdb-reader-settings .jpdb-reader-settings-toggle-grid > label.inline {
+  align-self: start;
+  align-items: center;
+  min-height: 38px;
+}
 .jpdb-reader-settings .jpdb-reader-radio-group {
   grid-column: 1 / -1;
   display: grid;
@@ -719,6 +754,10 @@
   gap: 8px;
   margin: 0;
   min-height: 38px;
+}
+.jpdb-reader-settings .jpdb-reader-settings-control-grid > .jpdb-reader-radio-group {
+  grid-column: auto;
+  margin: 0;
 }
 .jpdb-reader-settings-subsection {
   margin: 16px 0 0;
