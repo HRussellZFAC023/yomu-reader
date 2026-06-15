@@ -173,7 +173,6 @@ function renderJpdbDefinitionSourceSection(context: DefinitionSourceStackContext
 }
 
 function renderJitenDefinitionSourceSection(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
-    if (!context.includeJpdbSource) return '';
     return renderJitenDefinitionSource(
         context.card,
         params.sourceAttributes,

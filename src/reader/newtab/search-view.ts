@@ -7,11 +7,12 @@ import { cardKey } from '../cards/utils';
 import { primaryCardState } from '../cards/state';
 import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display';
 import { escapeHtml, htmlToFirstElement, renderTokensToHtml, setInnerHtml } from '../dom';
-import { ANKI_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
+import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { normalizedJapaneseCardReading } from '../cards/highlight';
 import { renderAnkiExistingSection } from '../anki/render';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
 import { getPitchClass } from '../jpdb/jpdb-parser';
+import { renderJitenDefinitionSource } from '../jiten/jiten-definition-source-render';
 import { renderPitch } from '../popup/render';
 import { speakerIcon } from '../ui/icons';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
@@ -23,6 +24,7 @@ import { ankiReviewSourceLabel, isJitenSrsCard } from './review-targets';
 import { newTabCardOptionalReading, newTabCardReading } from './study-queue';
 import { SEARCH_CARD_STATE_LABEL_KEYS } from './controller-config';
 import type { CardRenderData } from '../cards/render-data';
+import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 import type { CardState, JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
@@ -163,6 +165,7 @@ export interface NewTabSearchWordDetailData {
     metaEntries: YomitanMetaEntry[];
     ankiLookup?: CardRenderData['ankiLookup'];
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
+    jitenVocabularyInfo?: JitenVocabularyInfo | null;
     loading?: boolean;
 }
 
@@ -172,7 +175,7 @@ export interface NewTabSearchDetailViewContext {
     sourceAttributes: (sourceStateKey: string, initiallyExpanded?: boolean) => string;
     dictionaryLabel: (name: string) => string;
     kanjiSourceTitle: (sourceId: string) => string;
-    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => string;
+    renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
 }
 
@@ -187,7 +190,7 @@ export function searchWordDetailHtml(card: JPDBCard, detail: NewTabSearchWordDet
 
 function searchWordDefinitionsHtml(card: JPDBCard, detail: NewTabSearchWordDetailData, context: NewTabSearchDetailViewContext): string {
     if (detail.loading) return '';
-    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo)
+    return context.renderSearchDefinitionSources?.(card, detail.localEntries, card.sentence || card.spelling, detail.jpdbVocabularyInfo, detail.jitenVocabularyInfo ?? null)
         ?? searchFallbackDefinitionSourcesHtml(card, detail, context);
 }
 
@@ -271,6 +274,9 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
     const definitionSections = sourceIds.map(sourceId => {
         if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
             return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
+        }
+        if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
+            return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage);
         }
         if (sourceId === ANKI_SOURCE_ID) {
             return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : '';

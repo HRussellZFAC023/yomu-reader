@@ -9244,7 +9244,7 @@ describe('new tab review helpers', () => {
             expect(wordDetail()?.querySelector('.jpdb-reader-definition-stack > details.jpdb-reader-newtab-search-inline-kanji')).toBe(kanjiSource);
             expect(loadCardRenderData).toHaveBeenCalledWith(catCard);
             expect(jpdbKanjiLookup).toHaveBeenCalledWith('猫');
-            expect(renderSearchDefinitionSources).toHaveBeenCalledWith(catCard, expect.any(Array), '猫', expect.any(Object));
+            expect(renderSearchDefinitionSources).toHaveBeenCalledWith(catCard, expect.any(Array), '猫', expect.any(Object), null);
             expect(renderSearchWordPills).toHaveBeenCalledWith(catCard, expect.any(Array), searchAnkiLookup);
             expect(installSearchDetailSources).toHaveBeenCalledWith(wordDetail(), catCard, '猫', expect.any(Object));
 
@@ -9404,6 +9404,47 @@ describe('new tab review helpers', () => {
         expect(playWordAudio).toHaveBeenCalledWith(renderedCard);
         expect(playWordAudio).not.toHaveBeenCalledWith(staleJpdbCard);
         expect(playJpdbExampleAudio).not.toHaveBeenCalled();
+    });
+
+    it('renders the enabled Jiten source panel in expanded search word details', () => {
+        const card = newTabTestCard({
+            source: 'jpdb',
+            spelling: '学習能力',
+            reading: 'がくしゅうのうりょく',
+            meanings: [{ glosses: ['learning ability'], partOfSpeech: [] }],
+        });
+        const html = searchWordDetailHtml(card, {
+            localEntries: [],
+            kanjiEntries: [],
+            metaEntries: [],
+            ankiLookup: { state: 'not-in-deck', notes: [], primary: null },
+            jpdbVocabularyInfo: null,
+            jitenVocabularyInfo: null,
+        }, {
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                jpdbDefinitionsEnabled: false,
+                jitenDefinitionsEnabled: true,
+                ankiSectionEnabled: false,
+                studyTranslationEnabled: false,
+                studyGrammarEnabled: false,
+                immersionKitEnabled: false,
+            }),
+            text: key => key,
+            sourceAttributes: (key, initiallyExpanded) => [
+                `data-source-state="${key}"`,
+                initiallyExpanded === undefined ? '' : `data-source-initial-open="${String(initiallyExpanded)}"`,
+            ].filter(Boolean).join(' '),
+            dictionaryLabel: name => name,
+            kanjiSourceTitle: sourceId => sourceId,
+        });
+        const root = document.createElement('div');
+        root.innerHTML = html;
+
+        expect(root.querySelector('[data-source="jiten"]')).not.toBeNull();
+        expect(root.textContent).toContain('Jiten');
+        expect(root.textContent).toContain('No Jiten definitions.');
+        expect(root.querySelector('[data-source="jpdb"]')).toBeNull();
     });
 
     it('keeps handwriting candidates open and clears doodles in search mode', () => {

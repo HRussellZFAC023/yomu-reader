@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.36] - 2026-06-15
+
+### Fixed
+
+- Jiten now appears as its own source panel in popover dictionaries and expanded new-tab search results whenever the Jiten definition source is enabled. If no Jiten detail result is available, the panel shows a clear empty state instead of disappearing behind JPDB, Anki, or local-dictionary availability.
+
 ## [0.7.35] - 2026-06-15
 
 ### Fixed

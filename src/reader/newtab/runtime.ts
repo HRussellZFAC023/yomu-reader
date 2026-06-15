@@ -562,7 +562,7 @@ export class NewTabRuntime {
                 userGesture: options?.userGesture,
             }),
             loadCardRenderData: card => this.cardRenderData.load(card).all,
-            renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, null, { includeStudySources: false }),
+            renderSearchDefinitionSources: (card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo) => this.renderDefinitionSources(card, entries, sentence, jpdbVocabularyInfo, jitenVocabularyInfo, { includeStudySources: false }),
             renderSearchWordPills: (card, metaEntries, ankiLookup) => renderWordPills({
                 card,
                 jpdbUrl: jpdbVocabularyUrl(card),
