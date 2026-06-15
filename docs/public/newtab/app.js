@@ -46152,15 +46152,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!open(url)) location.href = url;
     return true;
   }
-  function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en", localEntries = []) {
-    const localJitenEntries = jitenLocalDefinitionEntries(localEntries);
+  function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
-    const localDefinitions = !info ? renderJitenLocalDefinitions(localJitenEntries, card) : "";
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    const hasDetails = Boolean(meanings || localDefinitions || extras);
+    const hasDetails = Boolean(meanings || extras);
     if (!hasDetails) return "";
-    const headword = renderJitenDefinitionHeadword(card, info, localJitenEntries);
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${localDefinitions}${extras}${renderJitenExternalLookup(card, language)}`;
+    const headword = renderJitenDefinitionHeadword(card, info);
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}`;
     if (!body.trim()) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
@@ -46169,65 +46167,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         </details>
     `;
   }
-  function renderJitenDefinitionHeadword(card, info, localEntries = []) {
-    const reference = jitenDefinitionHeadwordReference(card, info, localEntries);
+  function renderJitenDefinitionHeadword(card, info) {
+    const reference = jitenDefinitionHeadwordReference(card, info);
     if (!reference) return "";
     return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: "jpdb-reader-jiten-headword-target" })}</div>`;
   }
-  function renderJitenExternalLookup(card, language) {
-    const query = (card.spelling || card.reading).trim();
-    if (!query) return "";
-    const url = `https://jiten.moe/parse?text=${encodeURIComponent(query)}`;
-    const label = language === "ja" ? "Jitenで開く" : "Open in Jiten";
-    return `<div class="jpdb-reader-help jpdb-reader-jiten-external-lookup">
-        <a class="jpdb-reader-btn" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(label)}</a>
-    </div>`;
-  }
-  function jitenDefinitionHeadwordReference(card, info, localEntries = []) {
-    const localEntry = localEntries.find((entry) => (entry.expression || entry.reading).trim());
-    const text2 = (info?.mainReading?.text || localEntry?.expression || card.spelling || localEntry?.reading || card.reading).trim();
+  function jitenDefinitionHeadwordReference(card, info) {
+    const text2 = (info?.mainReading?.text || card.spelling || card.reading).trim();
     if (!text2 || !hasJapaneseText(text2)) return null;
     return {
       text: text2,
-      reading: card.reading || localEntry?.reading || text2,
+      reading: card.reading || text2,
       wordId: info?.wordId ?? card.jitenWordId,
       readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex
     };
-  }
-  function jitenLocalDefinitionEntries(entries) {
-    return entries.filter((entry) => /(?:^|[^a-z])(?:jitendex|jiten)(?:[^a-z]|$)/i.test(entry.dictionary));
-  }
-  function renderJitenLocalDefinitions(entries, card) {
-    const groups = groupTermEntriesByHeadword(entries).slice(0, 6);
-    if (!groups.length) return "";
-    return `<div class="jpdb-reader-jiten-local-definitions">${groups.map((group) => renderJitenLocalDefinitionGroup(group, card)).join("")}</div>`;
-  }
-  function renderJitenLocalDefinitionGroup(group, card) {
-    const head = renderJitenLocalDefinitionHead(group, card);
-    const body = group.entries.map((entry, index) => renderJitenLocalGlossaryEntry(entry, group.entries.length > 1 ? index + 1 : 0)).filter(Boolean).join("");
-    if (!body) return "";
-    return `<article class="jpdb-reader-local-entry jpdb-reader-jiten-local-entry">
-        ${head}
-        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml$1(group.entries[0]?.dictionary ?? "Jitendex")}">
-            ${body}
-        </div>
-    </article>`;
-  }
-  function renderJitenLocalDefinitionHead(group, card) {
-    const repeatsLookup = group.expression === card.spelling && (!card.reading || group.reading === card.reading || group.reading === group.expression);
-    if (repeatsLookup) return "";
-    return `<div class="jpdb-reader-local-head">
-        <span class="jpdb-reader-local-expression">${escapeHtml$1(group.expression)}</span>
-        ${group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml$1(group.reading)}</span>` : ""}
-    </div>`;
-  }
-  function renderJitenLocalGlossaryEntry(entry, index) {
-    const content = entry.glossary.map((item) => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true })).filter((html) => html.replace(/<[^>]+>/g, "").trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html)).map((html) => `<div>${html}</div>`).join("");
-    if (!content) return "";
-    return `<div class="jpdb-reader-local-glossary-entry ${index ? "" : "no-index"}">
-        ${index ? `<span class="jpdb-reader-local-sense-index">${index}</span>` : ""}
-        <div>${content}</div>
-    </div>`;
   }
   function jitenDefinitionMeanings(card, info) {
     const groups = jitenDefinitionMeaningGroups(card, info);
@@ -46594,8 +46547,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       context.card,
       params.sourceAttributes,
       context.jitenVocabularyInfo,
-      params.jpdbLanguage ?? params.settings.interfaceLanguage,
-      params.entries
+      params.jpdbLanguage ?? params.settings.interfaceLanguage
     );
   }
   function renderAnkiDefinitionSourceSection(context) {
@@ -54075,8 +54027,8 @@ ${newTabCardReading(card)}`;
         return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
       }
       if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
-        if (detail.jitenVocabularyInfo && !hasSearchJitenContent(detail.jitenVocabularyInfo) && !detail.localEntries.length) return "";
-        return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage, detail.localEntries);
+        if (detail.jitenVocabularyInfo && !hasSearchJitenContent(detail.jitenVocabularyInfo)) return "";
+        return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage);
       }
       if (sourceId === ANKI_SOURCE_ID) {
         return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : "";
@@ -62388,13 +62340,14 @@ ${entry.url}`),
       const renderedData = await this.loadRenderedSearchWordDetail(card);
       if (renderedData) return searchWordDetailFromRenderedData(renderedData);
       const settings = this.dependencies.getSettings();
-      const [localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo] = await Promise.all([
+      const [localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo, jitenVocabularyInfo] = await Promise.all([
         this.loadSearchLocalEntries(card, settings),
         this.loadSearchKanjiEntries(card, settings),
         this.loadSearchMetaEntries(card, settings),
-        this.loadSearchJpdbVocabularyInfo(card)
+        this.loadSearchJpdbVocabularyInfo(card),
+        this.loadSearchJitenVocabularyInfo(card, settings)
       ]);
-      return { localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo };
+      return { localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo, jitenVocabularyInfo };
     }
     async loadRenderedSearchWordDetail(card) {
       return await this.dependencies.loadCardRenderData?.(card).catch((error) => {
@@ -62431,6 +62384,14 @@ ${entry.url}`),
         this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading),
         NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
         "JPDB vocabulary lookup timed out."
+      ).catch(() => null);
+    }
+    loadSearchJitenVocabularyInfo(card, settings) {
+      if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== "function") return Promise.resolve(null);
+      return promiseWithTimeout(
+        this.dependencies.jiten.lookupVocabularyInfoForCard(card),
+        NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
+        "Jiten vocabulary lookup timed out."
       ).catch(() => null);
     }
     shouldLoadSearchWordKanjiDetails(card) {

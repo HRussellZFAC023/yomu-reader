@@ -1,13 +1,10 @@
 import { cardHighlightScopeAttributes, renderCardHighlightedTextHtml, type CardHighlightTarget } from '../cards/highlight';
 import { JITEN_DEFINITION_SOURCE_ID } from '../app/constants';
 import { escapeHtml } from '../dom';
-import { groupTermEntriesByHeadword, type LearnerTermGroup } from '../dictionaries/groups';
-import { glossaryToHtml } from '../dictionaries/yomitan';
 import { speakerIcon } from '../ui/icons';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, JPDBCard } from '../app/types';
 import type { JitenVocabularyDefinition, JitenVocabularyExample, JitenVocabularyInfo, JitenVocabularyReading, JitenVocabularyWordSummary } from '../dictionaries/jiten';
-import type { YomitanTermEntry } from '../dictionaries/yomitan';
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 interface JitenMeaningGroup {
@@ -32,16 +29,13 @@ export function renderJitenDefinitionSource(
     sourceAttributes: SourceAttributes,
     info: JitenVocabularyInfo | null = null,
     language: InterfaceLanguage = 'en',
-    localEntries: YomitanTermEntry[] = [],
 ): string {
-    const localJitenEntries = jitenLocalDefinitionEntries(localEntries);
     const meanings = jitenDefinitionMeanings(card, info);
-    const localDefinitions = !info ? renderJitenLocalDefinitions(localJitenEntries, card) : '';
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    const hasDetails = Boolean(meanings || localDefinitions || extras);
+    const hasDetails = Boolean(meanings || extras);
     if (!hasDetails) return '';
-    const headword = renderJitenDefinitionHeadword(card, info, localJitenEntries);
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${localDefinitions}${extras}${renderJitenExternalLookup(card, language)}`;
+    const headword = renderJitenDefinitionHeadword(card, info);
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`;
     if (!body.trim()) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
@@ -51,79 +45,21 @@ export function renderJitenDefinitionSource(
     `;
 }
 
-function renderJitenDefinitionHeadword(card: JPDBCard, info: JitenVocabularyInfo | null, localEntries: YomitanTermEntry[] = []): string {
-    const reference = jitenDefinitionHeadwordReference(card, info, localEntries);
+function renderJitenDefinitionHeadword(card: JPDBCard, info: JitenVocabularyInfo | null): string {
+    const reference = jitenDefinitionHeadwordReference(card, info);
     if (!reference) return '';
     return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: 'jpdb-reader-jiten-headword-target' })}</div>`;
 }
 
-function renderJitenExternalLookup(card: JPDBCard, language: InterfaceLanguage): string {
-    const query = (card.spelling || card.reading).trim();
-    if (!query) return '';
-    const url = `https://jiten.moe/parse?text=${encodeURIComponent(query)}`;
-    const label = language === 'ja' ? 'Jitenで開く' : 'Open in Jiten';
-    return `<div class="jpdb-reader-help jpdb-reader-jiten-external-lookup">
-        <a class="jpdb-reader-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>
-    </div>`;
-}
-
-function jitenDefinitionHeadwordReference(card: JPDBCard, info: JitenVocabularyInfo | null, localEntries: YomitanTermEntry[] = []): JitenTextReference | null {
-    const localEntry = localEntries.find(entry => (entry.expression || entry.reading).trim());
-    const text = (info?.mainReading?.text || localEntry?.expression || card.spelling || localEntry?.reading || card.reading).trim();
+function jitenDefinitionHeadwordReference(card: JPDBCard, info: JitenVocabularyInfo | null): JitenTextReference | null {
+    const text = (info?.mainReading?.text || card.spelling || card.reading).trim();
     if (!text || !hasJapaneseText(text)) return null;
     return {
         text,
-        reading: card.reading || localEntry?.reading || text,
+        reading: card.reading || text,
         wordId: info?.wordId ?? card.jitenWordId,
         readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex,
     };
-}
-
-function jitenLocalDefinitionEntries(entries: YomitanTermEntry[]): YomitanTermEntry[] {
-    return entries.filter(entry => /(?:^|[^a-z])(?:jitendex|jiten)(?:[^a-z]|$)/i.test(entry.dictionary));
-}
-
-function renderJitenLocalDefinitions(entries: YomitanTermEntry[], card: JPDBCard): string {
-    const groups = groupTermEntriesByHeadword(entries).slice(0, 6);
-    if (!groups.length) return '';
-    return `<div class="jpdb-reader-jiten-local-definitions">${groups.map(group => renderJitenLocalDefinitionGroup(group, card)).join('')}</div>`;
-}
-
-function renderJitenLocalDefinitionGroup(group: LearnerTermGroup, card: JPDBCard): string {
-    const head = renderJitenLocalDefinitionHead(group, card);
-    const body = group.entries
-        .map((entry, index) => renderJitenLocalGlossaryEntry(entry, group.entries.length > 1 ? index + 1 : 0))
-        .filter(Boolean)
-        .join('');
-    if (!body) return '';
-    return `<article class="jpdb-reader-local-entry jpdb-reader-jiten-local-entry">
-        ${head}
-        <div class="jpdb-reader-local-glossary jpdb-reader-parseable" data-dictionary="${escapeHtml(group.entries[0]?.dictionary ?? 'Jitendex')}">
-            ${body}
-        </div>
-    </article>`;
-}
-
-function renderJitenLocalDefinitionHead(group: LearnerTermGroup, card: JPDBCard): string {
-    const repeatsLookup = group.expression === card.spelling && (!card.reading || group.reading === card.reading || group.reading === group.expression);
-    if (repeatsLookup) return '';
-    return `<div class="jpdb-reader-local-head">
-        <span class="jpdb-reader-local-expression">${escapeHtml(group.expression)}</span>
-        ${group.reading && group.reading !== group.expression ? `<span class="jpdb-reader-local-reading">${escapeHtml(group.reading)}</span>` : ''}
-    </div>`;
-}
-
-function renderJitenLocalGlossaryEntry(entry: YomitanTermEntry, index: number): string {
-    const content = entry.glossary
-        .map(item => glossaryToHtml(item, entry.dictionary, { internalSearchLinks: true }))
-        .filter(html => html.replace(/<[^>]+>/g, '').trim() || /<(?:img|table|ruby|a|ul|ol|li)\b/i.test(html))
-        .map(html => `<div>${html}</div>`)
-        .join('');
-    if (!content) return '';
-    return `<div class="jpdb-reader-local-glossary-entry ${index ? '' : 'no-index'}">
-        ${index ? `<span class="jpdb-reader-local-sense-index">${index}</span>` : ''}
-        <div>${content}</div>
-    </div>`;
 }
 
 function jitenDefinitionMeanings(card: JPDBCard, info: JitenVocabularyInfo | null): string {

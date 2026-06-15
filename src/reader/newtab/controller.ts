@@ -356,7 +356,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys'>>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'lookupVocabularyInfoForCard' | 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys'>>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -6645,13 +6645,14 @@ export class NewTabController {
         if (renderedData) return searchWordDetailFromRenderedData(renderedData);
 
         const settings = this.dependencies.getSettings();
-        const [localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo] = await Promise.all([
+        const [localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo, jitenVocabularyInfo] = await Promise.all([
             this.loadSearchLocalEntries(card, settings),
             this.loadSearchKanjiEntries(card, settings),
             this.loadSearchMetaEntries(card, settings),
             this.loadSearchJpdbVocabularyInfo(card),
+            this.loadSearchJitenVocabularyInfo(card, settings),
         ]);
-        return { localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo };
+        return { localEntries, kanjiEntries, metaEntries, jpdbVocabularyInfo, jitenVocabularyInfo };
     }
 
     private async loadRenderedSearchWordDetail(card: JPDBCard): Promise<CardRenderData | null> {
@@ -6693,6 +6694,15 @@ export class NewTabController {
             this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading),
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
             'JPDB vocabulary lookup timed out.',
+        ).catch(() => null);
+    }
+
+    private loadSearchJitenVocabularyInfo(card: JPDBCard, settings: ReaderSettings): Promise<JitenVocabularyInfo | null> {
+        if (!settings.jitenDefinitionsEnabled || typeof this.dependencies.jiten?.lookupVocabularyInfoForCard !== 'function') return Promise.resolve(null);
+        return promiseWithTimeout(
+            this.dependencies.jiten.lookupVocabularyInfoForCard(card),
+            NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
+            'Jiten vocabulary lookup timed out.',
         ).catch(() => null);
     }
 

@@ -89,7 +89,7 @@ describe('definition source stack', () => {
         expect(html.match(/to read/g)).toHaveLength(1);
     });
 
-    it('renders keyless Jiten from imported Jitendex entries without copying JPDB meanings', () => {
+    it('keeps imported Jitendex entries out of the real Jiten source', () => {
         const html = renderSources(card({
             source: 'jpdb',
             spelling: '復習',
@@ -103,10 +103,82 @@ describe('definition source stack', () => {
             score: 10,
         }]);
 
-        expect(html).toContain('data-source="jiten"');
+        expect(html).not.toContain('data-source="jiten"');
         expect(html).toContain('review; revision');
         expect(html).toContain('復習する時間です。');
-        expect(html).toContain('https://jiten.moe/parse?text=%E5%BE%A9%E7%BF%92');
+        expect(html).not.toContain('https://jiten.moe/parse?text=%E5%BE%A9%E7%BF%92');
+        expect(html).not.toContain('jpdb-reader-jiten-local-definitions');
+        expect(html.match(/JPDB review meaning/g)).toHaveLength(1);
+    });
+
+    it('renders keyless-loaded Jiten info with related words, examples, and audio controls', () => {
+        const html = renderSources(card({
+            source: 'jpdb',
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            meanings: [{ glosses: ['JPDB review meaning'], partOfSpeech: [] }],
+        }), DEFAULT_SETTINGS, undefined, {
+            wordId: 1500800,
+            mainReading: { text: '復習', readingIndex: 0, frequencyRank: 12435, usedInMediaAmount: null },
+            alternativeReadings: [],
+            partsOfSpeech: ['noun', 'suru verb'],
+            definitions: [{
+                index: 0,
+                meanings: ['review; revision'],
+                partsOfSpeech: ['noun'],
+                field: [],
+                dial: [],
+                misc: [],
+                restrictedToReadingIndices: [],
+            }],
+            pitchAccents: [],
+            knownStates: ['not-in-deck'],
+            composedOf: [{
+                wordId: 101,
+                readingIndex: 0,
+                reading: '復',
+                readingFurigana: '復[ふく]',
+                mainDefinition: 'again; restore',
+                frequencyRank: null,
+                matchSurface: '復',
+                audioUrls: ['https://audio.example.test/fuku.mp3'],
+            }],
+            usedIn: [{
+                wordId: 102,
+                readingIndex: 0,
+                reading: '復習会',
+                readingFurigana: '復習会[ふくしゅうかい]',
+                mainDefinition: 'review session',
+                frequencyRank: 32000,
+                matchSurface: '復習会',
+            }],
+            usedInTotal: 1,
+            examples: [{
+                sentenceId: 99,
+                text: '毎日復習する。',
+                wordPosition: 2,
+                wordLength: 2,
+                difficulty: null,
+                sourceTitle: 'Jiten examples',
+                audioUrls: ['https://audio.example.test/review-sentence.mp3'],
+            }],
+        });
+
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        const jiten = root.querySelector<HTMLElement>('[data-source="jiten"]');
+        expect(jiten).not.toBeNull();
+        const jitenText = jiten?.textContent ?? '';
+        expect(jiten?.textContent).toContain('review; revision');
+        expect(jiten?.textContent).toContain('復習会');
+        expect(jitenText).toContain('毎日');
+        expect(jitenText).toContain('復習');
+        expect(jitenText).toContain('する。');
+        expect(jiten?.querySelector('.jpdb-reader-jiten-example-row.has-audio')).not.toBeNull();
+        expect(jiten?.querySelectorAll('.jpdb-reader-jiten-audio')).toHaveLength(3);
+        expect(jiten?.querySelector('.jpdb-reader-jiten-local-definitions')).toBeNull();
+        expect(jiten?.querySelector('.jpdb-reader-jiten-external-lookup')).toBeNull();
+        expect(jiten?.textContent).not.toContain('Jitenで開く');
         expect(html.match(/JPDB review meaning/g)).toHaveLength(1);
     });
 
