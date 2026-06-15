@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.42] - 2026-06-15
+
+### Fixed
+
+- Large visible furigana/pitch parse batches now fetch with bounded concurrency instead of waiting strictly one JPDB batch at a time, so big pages such as YouTube feeds, hosted settings/search chrome, and Immersion Kit reparses can progressively enhance without serial enrichment stalls.
+
 ## [0.7.41] - 2026-06-15
 
 ### Fixed

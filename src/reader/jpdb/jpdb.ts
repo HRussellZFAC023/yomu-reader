@@ -1,6 +1,6 @@
 import { JpdbApiClient } from './jpdb-api';
 import { jpdbParseResultToTokens, jpdbVocabularyToCards, splitJapaneseSentences } from './jpdb-parser';
-import { runLimited } from '../core/async-utils';
+import { ConcurrencyGate, runLimited } from '../core/async-utils';
 import { LruCache } from '../core/lru-cache';
 import { Logger } from '../app/logger';
 import type { JPDBCard, JPDBDeck, JPDBGrade, JPDBParseResult, JPDBRawVocabulary, JPDBToken } from '../app/types';
@@ -25,6 +25,7 @@ const PARSE_CACHE_SIZE = 250;
 const PARAGRAPH_PARSE_CACHE_SIZE = 800;
 const PARSE_BATCH_BYTE_LIMIT = 16_384;
 const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
+const PARSE_BATCH_CONCURRENCY = 3;
 const VOCABULARY_LOOKUP_CHUNK_SIZE = 5000;
 const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1000;
 const USER_DECK_POOL_CONCURRENCY = 4;
@@ -60,6 +61,7 @@ export class JpdbClient {
     private parseInFlight = new Map<string, Promise<JPDBToken[][]>>();
     private paragraphParseCache = new LruCache<string, JPDBToken[]>(PARAGRAPH_PARSE_CACHE_SIZE);
     private paragraphParseInFlight = new Map<string, Promise<JPDBToken[]>>();
+    private readonly parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
     private userDeckPoolCache?: { key: string; expiresAt: number; promise: Promise<Set<string>> };
 
     constructor(private getApiKey: () => string, getProxyUrl: () => string = () => '') {
@@ -382,12 +384,8 @@ export class JpdbClient {
     }
 
     private queueMissingParagraphParses(missing: string[]): void {
-        let previousBatch: Promise<unknown> | null = null;
         for (const batch of parseParagraphBatches(missing)) {
-            const batchRequest: Promise<JPDBToken[][]> = previousBatch
-                ? previousBatch.then(() => this.fetchParse(batch, batch.join('\n')))
-                : this.fetchParse(batch, batch.join('\n'));
-            previousBatch = batchRequest.catch(() => undefined);
+            const batchRequest = this.parseBatchGate.run(() => this.fetchParse(batch, batch.join('\n')));
             batch.forEach((paragraph, index) => {
                 const paragraphPromise = batchRequest.then(parsed => parsed[index] ?? []);
                 this.paragraphParseInFlight.set(paragraph, paragraphPromise);

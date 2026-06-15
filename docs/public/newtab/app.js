@@ -48449,6 +48449,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const PARAGRAPH_PARSE_CACHE_SIZE = 800;
   const PARSE_BATCH_BYTE_LIMIT = 16384;
   const PARSE_PARAGRAPH_JSON_OVERHEAD_BYTES = 7;
+  const PARSE_BATCH_CONCURRENCY = 3;
   const VOCABULARY_LOOKUP_CHUNK_SIZE = 5e3;
   const USER_DECK_POOL_CACHE_TTL_MS = 5 * 60 * 1e3;
   const USER_DECK_POOL_CONCURRENCY = 4;
@@ -48467,6 +48468,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     parseInFlight = /* @__PURE__ */ new Map();
     paragraphParseCache = new LruCache(PARAGRAPH_PARSE_CACHE_SIZE);
     paragraphParseInFlight = /* @__PURE__ */ new Map();
+    parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
     userDeckPoolCache;
     // Used by ReaderParser as the live JPDB parse backend.
     // fallow-ignore-next-line unused-class-member
@@ -48736,10 +48738,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       });
     }
     queueMissingParagraphParses(missing) {
-      let previousBatch = null;
       for (const batch of parseParagraphBatches(missing)) {
-        const batchRequest = previousBatch ? previousBatch.then(() => this.fetchParse(batch, batch.join("\n"))) : this.fetchParse(batch, batch.join("\n"));
-        previousBatch = batchRequest.catch(() => void 0);
+        const batchRequest = this.parseBatchGate.run(() => this.fetchParse(batch, batch.join("\n")));
         batch.forEach((paragraph, index) => {
           const paragraphPromise = batchRequest.then((parsed) => parsed[index] ?? []);
           this.paragraphParseInFlight.set(paragraph, paragraphPromise);
