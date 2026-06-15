@@ -2117,6 +2117,7 @@ export class NewTabRuntime {
         try {
             const parsed = await this.parser.parse(plan.targets.map(target => target.text), {
                 allowJpdbTimeoutFallback: true,
+                allowSegmentedFallback: true,
                 includeLocalPitch: false,
                 jpdbTimeoutMs: NEW_TAB_POPOVER_PARSE_TIMEOUT_MS,
                 skipJpdb: true,

@@ -10163,6 +10163,87 @@ describe('new tab review helpers', () => {
         });
     });
 
+    it('parses Japanese settings chrome in hosted new-tab settings with segmented fallback', async () => {
+        const runtime = new NewTabRuntime();
+        const form = document.createElement('form');
+        const parse = vi.fn(async (texts: string[], options?: { allowSegmentedFallback?: boolean }): Promise<JPDBToken[][]> => texts.map(text => {
+            void options;
+            const start = text.indexOf('設定');
+            if (start < 0) return [];
+            return [{
+                card: newTabTestCard({
+                    spelling: '設定',
+                    reading: 'せってい',
+                    source: 'fallback',
+                    pitchAccent: ['LHHH'],
+                    cardState: ['not-in-deck'],
+                }),
+                start,
+                end: start + '設定'.length,
+                length: '設定'.length,
+                rubies: [{ text: 'せってい', start, end: start + '設定'.length, length: '設定'.length }],
+                pitchClass: 'heiban',
+                sentence: text,
+            }];
+        }));
+        form.className = 'jpdb-reader-settings';
+        form.dataset.jpdbReaderRoot = 'true';
+        form.innerHTML = `
+            <div class="jpdb-reader-settings-head"><h2>よむ 設定</h2></div>
+            <div class="jpdb-reader-settings-tabs" role="tablist">
+                <button class="jpdb-reader-settings-tab" type="button" role="tab">外観</button>
+                <button class="jpdb-reader-settings-tab" type="button" role="tab">学習</button>
+            </div>
+            <fieldset data-settings-panel="appearance">
+                <legend>基本</legend>
+                <label><span class="jpdb-reader-settings-label-text">設定の表示言語</span><select><option>日本語</option></select></label>
+                <div class="jpdb-reader-help">設定を変更します。</div>
+            </fieldset>
+        `;
+        document.body.append(form);
+        const internals = runtime as unknown as {
+            activeDialog?: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { canParse(): boolean; parse: typeof parse };
+            parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+            enrichPublicVocabularyWords(tokens: JPDBToken[]): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+
+        try {
+            internals.activeDialog = form;
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                interfaceLanguage: 'ja',
+                showFurigana: true,
+                furiganaMode: 'all',
+                showPitchAccent: true,
+            };
+            internals.parser = { canParse: () => true, parse };
+            internals.enrichPublicVocabularyWords = vi.fn(async () => undefined);
+            internals.enrichPitchWords = vi.fn(async () => undefined);
+
+            await internals.parseSettingsJapanese(form);
+
+            expect(parse).toHaveBeenCalledWith(expect.arrayContaining(['よむ 設定']), expect.objectContaining({
+                allowJpdbTimeoutFallback: true,
+                allowSegmentedFallback: true,
+                includeLocalPitch: false,
+                skipJpdb: true,
+            }));
+            const titleWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
+            expect(titleWord).toBeTruthy();
+            expect(titleWord?.querySelector('rt')?.textContent).toBe('せってい');
+            expect(titleWord?.dataset.pitchClass).toBe('heiban');
+            expect(titleWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(form.querySelector('.jpdb-reader-settings-label-text .jpdb-reader-word[data-expression="設定"]')).toBeTruthy();
+            expect(form.querySelector('option .jpdb-reader-word')).toBeNull();
+        } finally {
+            runtime.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('releases the settings modal background when the new-tab backdrop dismisses settings', () => {
         const runtime = new NewTabRuntime();
         const form = document.createElement('form');
