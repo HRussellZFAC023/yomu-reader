@@ -1328,7 +1328,8 @@ export class SubtitlePlayerController {
     // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
     // from the tick and run the normal navigation path when it changes.
     private syncShortsReelNavigation(): void {
-        if (!location?.pathname?.startsWith('/shorts/')) {
+        const pathname = (typeof window !== 'undefined' ? window.location?.pathname : undefined) || '';
+        if (!pathname.startsWith('/shorts/')) {
             this.lastShortsNavVideoId = '';
             return;
         }
@@ -3020,7 +3021,8 @@ export class SubtitlePlayerController {
     }
 
     private async discoverYouTubeTracks(): Promise<void> {
-        if (!location.hostname.includes('youtube.com')) return;
+        const hostname = (typeof window !== 'undefined' ? window.location?.hostname : undefined) || '';
+        if (!hostname.includes('youtube.com')) return;
         const videoId = getYouTubeVideoId();
         if (!videoId) return;
 

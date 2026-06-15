@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.65] - 2026-06-15
+
+### Fixed
+
+- Tapping the video transcript side/bottom panel resize handle now closes the panel instead of resizing it, similar to the popover dictionary's sheet handle behavior.
+
 ## [0.7.64] - 2026-06-15
 
 ### Fixed

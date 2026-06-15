@@ -966,6 +966,7 @@ function stubLocalHostedReaderLocation(path = '/yomu-reader/'): void {
     vi.stubGlobal('location', {
         href: `http://127.0.0.1:5177${path}`,
         origin: 'http://127.0.0.1:5177',
+        pathname: path,
         hostname: '127.0.0.1',
     });
 }
