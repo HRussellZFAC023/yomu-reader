@@ -884,7 +884,7 @@ describe('JitenApiClient', () => {
         expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 
-    it('renders real Jiten vocabulary definitions and omits empty Jiten sections', () => {
+    it('renders real Jiten vocabulary definitions and keyless external fallback sections', () => {
         const card = jitenCard({ spelling: '大学', reading: 'だいがく' });
         const info = jitenVocabularyInfo({
             wordId: 321,
@@ -903,7 +903,11 @@ describe('JitenApiClient', () => {
         expect(rendered).toContain('data-source="jiten"');
         expect(rendered).toContain('university; college');
         expect(rendered).not.toContain('No Jiten definitions');
-        expect(empty).toBe('');
+        expect(empty).toContain('data-source="jiten"');
+        expect(empty).toContain('Open in Jiten');
+        expect(empty).toContain('https://jiten.moe/parse?text=%E5%A4%A7%E5%AD%A6');
+        expect(empty).not.toContain('university; college');
+        expect(empty).not.toContain('No Jiten definitions');
 
         const mount = document.createElement('div');
         mount.innerHTML = rendered;

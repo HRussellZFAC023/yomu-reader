@@ -77,11 +77,12 @@ describe('definition source stack', () => {
         ]));
     });
 
-    it('hides an empty Jiten source instead of rendering a no-definitions panel', () => {
+    it('renders a keyless Jiten source without copying JPDB meanings', () => {
         const html = renderSources(card({ source: 'jpdb' }));
 
         expect(html).toContain('data-source="jpdb"');
-        expect(html).not.toContain('data-source="jiten"');
+        expect(html).toContain('data-source="jiten"');
+        expect(html).toContain('https://jiten.moe/parse?text=%E8%AA%AD%E3%82%80');
         expect(html).not.toContain('jpdb-reader-no-definitions');
         expect(html.match(/to read/g)).toHaveLength(1);
     });

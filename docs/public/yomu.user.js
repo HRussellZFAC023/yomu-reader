@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.55
+// @version      0.7.56
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -15712,6 +15712,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -20338,10 +20339,12 @@ ${entry.reading || ""}`;
   }
   function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
-    const headword = renderJitenDefinitionHeadword(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    if (!meanings && !extras) return "";
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}`;
+    const hasDetails = Boolean(meanings || extras);
+    const headword = renderJitenDefinitionHeadword(card, hasDetails ? info : null);
+    const fallback = !meanings && !extras ? renderJitenExternalLookup(card, language) : "";
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}${extras}${fallback}`;
+    if (!body.trim()) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">Jiten</summary>
@@ -20353,6 +20356,15 @@ ${entry.reading || ""}`;
     const reference = jitenDefinitionHeadwordReference(card, info);
     if (!reference) return "";
     return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: "jpdb-reader-jiten-headword-target" })}</div>`;
+  }
+  function renderJitenExternalLookup(card, language) {
+    const query = (card.spelling || card.reading).trim();
+    if (!query) return "";
+    const url = `https://jiten.moe/parse?text=${encodeURIComponent(query)}`;
+    const label = language === "ja" ? "Jitenで開く" : "Open in Jiten";
+    return `<div class="jpdb-reader-help jpdb-reader-jiten-external-lookup">
+        <a class="jpdb-reader-btn" href="${escapeHtml$1(url)}" target="_blank" rel="noopener">${escapeHtml$1(label)}</a>
+    </div>`;
   }
   function jitenDefinitionHeadwordReference(card, info) {
     const text2 = (info?.mainReading?.text || card.spelling || card.reading).trim();

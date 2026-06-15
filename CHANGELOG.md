@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.56] - 2026-06-15
+
+### Fixed
+
+- Keyless Jiten dictionary sources stay visible in new-tab/search definition stacks when Jiten is enabled, rendering the passive headword and an external Jiten lookup link instead of disappearing while still avoiding duplicated JPDB meanings.
+
 ## [0.7.55] - 2026-06-15
 
 ### Fixed

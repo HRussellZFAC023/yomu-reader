@@ -26,10 +26,12 @@ interface RenderJitenReferenceOptions {
 
 export function renderJitenDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JitenVocabularyInfo | null = null, language: InterfaceLanguage = 'en'): string {
     const meanings = jitenDefinitionMeanings(card, info);
-    const headword = renderJitenDefinitionHeadword(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
-    if (!meanings && !extras) return '';
-    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}`;
+    const hasDetails = Boolean(meanings || extras);
+    const headword = renderJitenDefinitionHeadword(card, hasDetails ? info : null);
+    const fallback = !meanings && !extras ? renderJitenExternalLookup(card, language) : '';
+    const body = `${headword}${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}${extras}${fallback}`;
+    if (!body.trim()) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
             <summary class="jpdb-reader-local-title">Jiten</summary>
@@ -42,6 +44,16 @@ function renderJitenDefinitionHeadword(card: JPDBCard, info: JitenVocabularyInfo
     const reference = jitenDefinitionHeadwordReference(card, info);
     if (!reference) return '';
     return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: 'jpdb-reader-jiten-headword-target' })}</div>`;
+}
+
+function renderJitenExternalLookup(card: JPDBCard, language: InterfaceLanguage): string {
+    const query = (card.spelling || card.reading).trim();
+    if (!query) return '';
+    const url = `https://jiten.moe/parse?text=${encodeURIComponent(query)}`;
+    const label = language === 'ja' ? 'Jitenで開く' : 'Open in Jiten';
+    return `<div class="jpdb-reader-help jpdb-reader-jiten-external-lookup">
+        <a class="jpdb-reader-btn" href="${escapeHtml(url)}" target="_blank" rel="noopener">${escapeHtml(label)}</a>
+    </div>`;
 }
 
 function jitenDefinitionHeadwordReference(card: JPDBCard, info: JitenVocabularyInfo | null): JitenTextReference | null {
