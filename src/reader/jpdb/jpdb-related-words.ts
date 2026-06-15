@@ -15,6 +15,10 @@ export function renderedJpdbRelatedWords(root: ParentNode): RenderedJpdbRelatedW
         ? [root, ...Array.from(root.querySelectorAll<HTMLElement>(JPDB_RELATED_WORD_SELECTOR))]
         : Array.from(root.querySelectorAll<HTMLElement>(JPDB_RELATED_WORD_SELECTOR));
     return words
+        // Headword occurrences highlighted inside example sentences reuse the
+        // passive-word markup but are not used-in vocabulary, so they must not
+        // be enriched/counted as related words.
+        .filter(word => !word.closest('.jpdb-reader-jpdb-example, .jpdb-reader-jpdb-examples-group'))
         .map(word => renderedJpdbRelatedWord(word))
         .filter((entry): entry is RenderedJpdbRelatedWord => entry !== null);
 }

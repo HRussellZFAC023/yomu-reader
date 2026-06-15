@@ -58,6 +58,11 @@ describe('JPDB definition source rendering', () => {
 
         const example = mount.querySelector<HTMLElement>('.jpdb-reader-example-sentence');
         expect(example?.classList.contains('jpdb-reader-parseable')).toBe(true);
-        expect(example?.textContent).toBe('大学で日本語を勉強します。');
+        // The headword occurrence is rendered as a rich passive JPDB word (with
+        // ruby), but it is scoped out of renderedJpdbRelatedWords above.
+        const exampleWord = example?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="大学"]');
+        expect(exampleWord).not.toBeNull();
+        expect(example?.textContent?.startsWith('大学')).toBe(true);
+        expect(example?.textContent).toContain('で日本語を勉強します。');
     });
 });

@@ -136,11 +136,25 @@ function renderJpdbExampleAudioButton(audioIds: string[] | undefined, sentence: 
 }
 
 function renderJpdbExampleSentence(example: JpdbVocabularyInfo['examples'][number], card: CardHighlightTarget): string {
-    // The example sentence is `.jpdb-reader-parseable`, so the nested scanner
-    // parses and makes its words (incl. the headword) clickable. Highlight the
-    // card term inline only — do NOT wrap it as a passive related word, which
-    // would double-count as a "used-in" relation and pre-empt nested parsing.
-    return example.sentenceHtml || renderCardHighlightedTextHtml(example.sentence, card);
+    if (example.sentenceHtml) return example.sentenceHtml;
+    return renderJpdbPlainExampleSentence(example.sentence, card);
+}
+
+// Render the headword occurrence inside an example as a rich passive JPDB word
+// (ruby/pitch + JPDB identity) so it looks up accurately. It carries
+// `data-jpdb-reader-related-word` (shared passive-word markup), but it is NOT a
+// "related" relation — `renderedJpdbRelatedWords` scopes examples out so they
+// are not enriched as used-in vocabulary.
+function renderJpdbPlainExampleSentence(sentence: string, card: CardHighlightTarget): string {
+    const term = card.spelling.trim();
+    const start = term ? sentence.indexOf(term) : -1;
+    if (start < 0) return renderCardHighlightedTextHtml(sentence, card);
+    const before = sentence.slice(0, start);
+    const after = sentence.slice(start + term.length);
+    const url = Number.isFinite((card as JPDBCard).vid) && (card as JPDBCard).vid > 0
+        ? `/vocabulary/${(card as JPDBCard).vid}`
+        : '';
+    return `${escapeHtml(before)}${renderPassiveJpdbRelatedWord(term, card.reading ?? '', url, { sentence })}${escapeHtml(after)}`;
 }
 
 function renderJpdbUsedInTerm(term: string, reading: string, url: string, termHtml = ''): string {
