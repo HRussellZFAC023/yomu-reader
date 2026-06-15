@@ -654,6 +654,113 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('mounts the subtitle overlay in the YouTube CSS fullscreen player on iPad-sized viewports', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=fullscreen123') as unknown as Location,
+        });
+
+        try {
+            withViewport(1024, 768, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                const fullscreen = stubFullscreenElement(null);
+                try {
+                    document.body.insertAdjacentHTML('beforeend', `
+                        <ytd-watch-flexy fullscreen>
+                            <ytd-player>
+                                <div id="movie_player" class="html5-video-player ytp-fullscreen">
+                                    <video></video>
+                                    <button class="ytp-play-button" type="button">Play</button>
+                                </div>
+                            </ytd-player>
+                        </ytd-watch-flexy>
+                    `);
+                    const player = document.querySelector<HTMLElement>('#movie_player')!;
+                    const video = document.querySelector<HTMLVideoElement>('#movie_player video')!;
+                    mockElementRect(player, new DOMRect(0, 0, 1024, 768));
+                    mockElementRect(video, new DOMRect(0, 96, 1024, 576));
+                    attachVideo(controller, { video });
+                    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                    const internals = controllerInternals<{
+                        alignToVideo: () => void;
+                        syncFullscreenState: () => void;
+                    }>(controller);
+
+                    fullscreen.set(null);
+                    internals.syncFullscreenState();
+                    internals.alignToVideo();
+
+                    expect(root.parentElement).toBe(player);
+                    expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+                    expect(root.style.left).toBe('0px');
+                    expect(root.style.top).toBe('0px');
+                    expect(root.style.width).toBe('1024px');
+                    expect(root.style.height).toBe('768px');
+                } finally {
+                    fullscreen.restore();
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('mounts the subtitle overlay in the mobile YouTube fullscreen shell when the video is mounted separately', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=fullscreen123') as unknown as Location,
+        });
+
+        try {
+            withViewport(1024, 768, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                const fullscreen = stubFullscreenElement(null);
+                try {
+                    document.body.insertAdjacentHTML('beforeend', `
+                        <ytm-player fullscreen></ytm-player>
+                        <div class="mobile-video-slot"><video></video></div>
+                    `);
+                    const player = document.querySelector<HTMLElement>('ytm-player')!;
+                    const video = document.querySelector<HTMLVideoElement>('.mobile-video-slot video')!;
+                    mockElementRect(player, new DOMRect(0, 0, 1024, 768));
+                    mockElementRect(video, new DOMRect(0, 0, 1024, 768));
+                    attachVideo(controller, { video });
+                    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                    const internals = controllerInternals<{
+                        alignToVideo: () => void;
+                        syncFullscreenState: () => void;
+                    }>(controller);
+
+                    fullscreen.set(null);
+                    internals.syncFullscreenState();
+                    internals.alignToVideo();
+
+                    expect(root.parentElement).toBe(player);
+                    expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+                    expect(root.style.width).toBe('1024px');
+                    expect(root.style.height).toBe('768px');
+                } finally {
+                    fullscreen.restore();
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('does not move the subtitle overlay into unrelated fullscreen elements', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const fullscreen = stubFullscreenElement(null);

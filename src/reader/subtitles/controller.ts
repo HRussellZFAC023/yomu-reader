@@ -228,6 +228,11 @@ type FullscreenDocument = Document & {
     msFullscreenElement?: Element | null;
 };
 
+type FullscreenVideoElement = HTMLVideoElement & {
+    webkitDisplayingFullscreen?: boolean;
+    webkitPresentationMode?: string;
+};
+
 function currentFullscreenElement(): Element | null {
     const fullscreenDocument = document as FullscreenDocument;
     return document.fullscreenElement
@@ -235,6 +240,43 @@ function currentFullscreenElement(): Element | null {
         ?? fullscreenDocument.mozFullScreenElement
         ?? fullscreenDocument.msFullscreenElement
         ?? null;
+}
+
+function videoIsInNativeFullscreen(video: HTMLVideoElement | undefined): boolean {
+    if (!video) return false;
+    const fullscreenVideo = video as FullscreenVideoElement;
+    return Boolean(fullscreenVideo.webkitDisplayingFullscreen
+        || (fullscreenVideo.webkitPresentationMode && fullscreenVideo.webkitPresentationMode !== 'inline'));
+}
+
+function elementContainsVideo(element: HTMLElement | null | undefined, video: HTMLVideoElement | undefined): element is HTMLElement {
+    return Boolean(element && video && (element === video || element.contains(video)));
+}
+
+function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTMLElement | null {
+    if (!isYouTubePage()) return null;
+    const scopedHost = [
+        video?.closest<HTMLElement>('.html5-video-player.ytp-fullscreen'),
+        video?.closest<HTMLElement>('#movie_player.ytp-fullscreen'),
+        video?.closest<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
+        video?.closest<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
+        video?.closest<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
+    ].find((element): element is HTMLElement => Boolean(element));
+    if (scopedHost) return scopedHost;
+
+    return [
+        document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen'),
+        document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
+        document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] ytd-player'),
+        document.querySelector<HTMLElement>('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'),
+    ].find(element => elementContainsVideo(element, video) || isYouTubeMobileFullscreenHost(element)) ?? null;
+}
+
+function isYouTubeMobileFullscreenHost(element: HTMLElement | null | undefined): element is HTMLElement {
+    return Boolean(element
+        && /^m\.youtube\.com$/i.test(location.hostname)
+        && element.matches('ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen'));
 }
 
 function subtitleMinimumFontSize(root: HTMLElement): number {
@@ -572,11 +614,20 @@ export class SubtitlePlayerController {
         this.abortController = new AbortController();
         this.install();
         this.observer = new MutationObserver(mutations => {
+            if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
+                this.syncFullscreenState();
+                this.scheduleAlignToVideo();
+            }
             if (mutations.every(mutationInsideReaderRoot)) return;
             if (!mutations.some(mutationCouldAffectVideoDiscovery)) return;
             this.scheduleDiscoverVideo();
         });
-        this.observer.observe(document.body, { childList: true, subtree: true });
+        this.observer.observe(document.body, {
+            attributeFilter: ['class', 'fullscreen'],
+            attributes: true,
+            childList: true,
+            subtree: true,
+        });
         document.addEventListener('keydown', event => this.handleKeydown(event), this.eventOptions());
         document.addEventListener('pointerdown', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
@@ -595,11 +646,29 @@ export class SubtitlePlayerController {
         }
         window.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         window.addEventListener('resize', () => {
+            this.syncFullscreenState();
             this.scheduleAlignToVideo();
         }, this.eventOptions({ passive: true }));
+        window.addEventListener('orientationchange', () => {
+            this.syncFullscreenState();
+            this.scheduleAlignToVideo();
+        }, this.eventOptions({ passive: true }));
+        window.visualViewport?.addEventListener('resize', () => {
+            this.syncFullscreenState();
+            this.scheduleAlignToVideo();
+        }, this.eventOptions({ passive: true }));
+        window.visualViewport?.addEventListener('scroll', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
         this.discoverVideo();
         this.tick();
         log.info('Subtitle controller initialized');
+    }
+
+    private mutationCouldAffectFullscreenState(mutation: MutationRecord): boolean {
+        if (mutation.type !== 'attributes') return false;
+        const target = mutation.target;
+        if (!(target instanceof HTMLElement)) return false;
+        return target.matches('ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player')
+            || Boolean(target.closest('ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player'));
     }
 
     private handleYouTubeNavigation(): void {
@@ -4339,8 +4408,9 @@ export class SubtitlePlayerController {
 
     private syncFullscreenState(): void {
         const fullscreenElement = currentFullscreenElement();
-        this.fullscreen = Boolean(fullscreenElement);
-        this.syncSubtitleRootParent(fullscreenElement);
+        const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
+        this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));
+        this.syncSubtitleRootParent(fullscreenHost);
         document.documentElement.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
         this.root?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
         if (this.fullscreen) {
@@ -4356,23 +4426,29 @@ export class SubtitlePlayerController {
         }
     }
 
-    private syncSubtitleRootParent(fullscreenElement: Element | null = currentFullscreenElement()): void {
+    private syncSubtitleRootParent(fullscreenHost: HTMLElement | null = this.subtitleFullscreenHost()): void {
         if (!this.root) return;
-        const parent = this.subtitleRootParent(fullscreenElement);
+        const parent = fullscreenHost ?? document.body;
         if (this.root.parentElement === parent) return;
         parent.appendChild(this.root);
     }
 
-    private subtitleRootParent(fullscreenElement: Element | null): HTMLElement {
+    private subtitleFullscreenHost(fullscreenElement: Element | null = currentFullscreenElement()): HTMLElement | null {
         if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
-        return document.body;
+        const youtubeHost = youtubeFullscreenHostForVideo(this.video);
+        if (youtubeHost) return youtubeHost;
+        if (fullscreenElement instanceof HTMLVideoElement && fullscreenElement === this.video) {
+            const target = subtitleVideoLayoutTarget(this.video);
+            return target && target !== this.video ? target : null;
+        }
+        return null;
     }
 
     private shouldHostSubtitleRootInFullscreenElement(fullscreenElement: Element | null): fullscreenElement is HTMLElement {
         return Boolean(fullscreenElement instanceof HTMLElement
             && !(fullscreenElement instanceof HTMLVideoElement)
             && this.video
-            && (fullscreenElement === this.video || fullscreenElement.contains(this.video)));
+            && fullscreenElement.contains(this.video));
     }
 
     private scheduleAlignToVideo(): void {
@@ -4385,8 +4461,9 @@ export class SubtitlePlayerController {
     }
 
     private videoLayoutRect(): DOMRect {
-        const fullscreenElement = currentFullscreenElement();
-        if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement.getBoundingClientRect();
+        const fullscreenHost = this.subtitleFullscreenHost();
+        if (fullscreenHost) return fullscreenHost.getBoundingClientRect();
+        if (videoIsInNativeFullscreen(this.video)) return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
         return subtitleVideoLayoutRect(this.video);
     }
 
