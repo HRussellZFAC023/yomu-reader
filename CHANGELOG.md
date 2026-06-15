@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.41] - 2026-06-15
+
+### Fixed
+
+- Hosted new-tab Settings now enhances its own Japanese title, tabs, search label/results, panel labels/helper text, and Cancel/Save footer controls with reader parsing when the userscript is not active on the hosted page. Settings tabs, inputs, selects, checkboxes, links, and footer buttons remain native while passive reader words can still be hovered where appropriate.
+
 ## [0.7.40] - 2026-06-15
 
 ### Fixed

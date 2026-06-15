@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.40
+// @version      0.7.41
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -15,7 +15,7 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nu/owJapQGpcwPVua63DP2aDkRUxzxhjNdeMhD6Ya30=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ncFLG/xflkswxTmXJI4jq02pTJzo7+WK5h5g2LPju50=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-F0XvEf+n2YvZblSyiJR4gDRSIvd5ji/xZ3WVh3j5GXc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-XVIqFA1yu1PKDGZLmpqNg0RB2njgu86UFavyIxSbM2I=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -12061,6 +12061,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -35123,7 +35124,7 @@ ${glossaryKey}`;
     ".jpdb-reader-settings-actions",
     ".jpdb-reader-settings-drag-handle",
     "[data-settings-preview-lookup]",
-    "[hidden]",
+    "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
     "[data-anki-setup-help]",
     "a[href]",
@@ -35137,10 +35138,10 @@ ${glossaryKey}`;
     ".jpdb-reader-order-toggle",
     ".footer"
   ].join(",");
-  const SETTINGS_SELECT_OPTIONS_META_SELECTOR = "[data-settings-select-options-meta]";
   const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
     ".jpdb-reader-theme-title",
-    '.jpdb-reader-settings-tabs [role="tab"]'
+    '[role="tab"]',
+    ".footer button"
   ].join(",");
   const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     "[hidden]",
@@ -35153,17 +35154,12 @@ ${glossaryKey}`;
     "use",
     ".jpdb-reader-word"
   ].join(",");
-  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = [
-    SETTINGS_PARSE_EXCLUDE_SELECTOR,
-    SETTINGS_SELECT_OPTIONS_META_SELECTOR
-  ].join(",");
+  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
   const SETTINGS_PARSE_ROOT_SELECTOR = [
     "h2",
-    "[data-settings-panel]:not([hidden]) legend",
-    "[data-settings-panel]:not([hidden]) label",
-    "[data-settings-panel]:not([hidden]) .jpdb-reader-local-title",
-    "[data-settings-panel]:not([hidden]) .jpdb-reader-help:not(.jpdb-reader-status-line)",
-    `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`,
+    ".jpdb-reader-settings-search>label",
+    "[data-settings-search-empty]",
+    "[data-settings-panel]",
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
   function nestedTextParsePlan(root, limit) {
@@ -35183,7 +35179,7 @@ ${glossaryKey}`;
   }
   function nestedSettingsTextParsePlan(root, limit) {
     const parseRoots = root.matches(SETTINGS_PARSE_ROOT_SELECTOR) ? [root] : Array.from(root.querySelectorAll(SETTINGS_PARSE_ROOT_SELECTOR));
-    const targets = parseRoots.filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[hidden], [aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
+    const targets = parseRoots.filter((parseRoot) => !isExcludedSettingsParseRoot(parseRoot)).filter((parseRoot) => !parseRoot.closest('[aria-hidden="true"]')).flatMap((parseRoot) => collectFragmentTextTargetsIn(
       parseRoot,
       limit,
       false,
@@ -35204,7 +35200,7 @@ ${glossaryKey}`;
   }
   function settingsParseExcludeSelector(parseRoot) {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
-    return parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR) ? SETTINGS_PARSE_EXCLUDE_SELECTOR : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
+    return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
   }
   function isSettingsChromeParseRoot(parseRoot) {
     return parseRoot.matches(SETTINGS_CHROME_PARSE_ROOT_SELECTOR);

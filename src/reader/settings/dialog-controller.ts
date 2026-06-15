@@ -661,7 +661,6 @@ export class SettingsDialogController {
         const input = form.querySelector<HTMLInputElement>('[data-settings-search]');
         input?.addEventListener('input', () => {
             applySettingsSearch(form, input.value);
-            this.refreshSettingsJapaneseParse(form);
         });
     }
 
@@ -683,7 +682,6 @@ export class SettingsDialogController {
             event.preventDefault();
             tabs[nextIndex]?.focus();
             activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? 'api');
-            this.refreshSettingsJapaneseParse(form);
         });
     }
 
@@ -1408,7 +1406,6 @@ export class SettingsDialogController {
         if (action === 'settings-panel') {
             const panel = selectedSettingsPanel(control);
             activateSettingsPanel(form, panel);
-            this.refreshSettingsJapaneseParse(form);
             return true;
         }
         if (isDictionarySourceOrderAction(action)) {

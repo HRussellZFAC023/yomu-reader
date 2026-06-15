@@ -14,7 +14,7 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-settings-actions',
     '.jpdb-reader-settings-drag-handle',
     '[data-settings-preview-lookup]',
-    '[hidden]',
+    '[hidden]:not([data-settings-panel])',
     '[aria-hidden="true"]',
     '[data-anki-setup-help]',
     'a[href]',
@@ -28,10 +28,10 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-order-toggle',
     '.footer',
 ].join(',');
-const SETTINGS_SELECT_OPTIONS_META_SELECTOR = '[data-settings-select-options-meta]';
 const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
     '.jpdb-reader-theme-title',
-    '.jpdb-reader-settings-tabs [role="tab"]',
+    '[role="tab"]',
+    '.footer button',
 ].join(',');
 const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     '[hidden]',
@@ -44,17 +44,12 @@ const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     'use',
     '.jpdb-reader-word',
 ].join(',');
-const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = [
-    SETTINGS_PARSE_EXCLUDE_SELECTOR,
-    SETTINGS_SELECT_OPTIONS_META_SELECTOR,
-].join(',');
+const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
 const SETTINGS_PARSE_ROOT_SELECTOR = [
     'h2',
-    '[data-settings-panel]:not([hidden]) legend',
-    '[data-settings-panel]:not([hidden]) label',
-    '[data-settings-panel]:not([hidden]) .jpdb-reader-local-title',
-    '[data-settings-panel]:not([hidden]) .jpdb-reader-help:not(.jpdb-reader-status-line)',
-    `[data-settings-panel]:not([hidden]) ${SETTINGS_SELECT_OPTIONS_META_SELECTOR}`,
+    '.jpdb-reader-settings-search>label',
+    '[data-settings-search-empty]',
+    '[data-settings-panel]',
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR,
 ].join(',');
 
@@ -89,7 +84,7 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
         : Array.from(root.querySelectorAll<HTMLElement>(SETTINGS_PARSE_ROOT_SELECTOR));
     const targets = parseRoots
         .filter(parseRoot => !isExcludedSettingsParseRoot(parseRoot))
-        .filter(parseRoot => !parseRoot.closest('[hidden], [aria-hidden="true"]'))
+        .filter(parseRoot => !parseRoot.closest('[aria-hidden="true"]'))
         .flatMap(parseRoot => collectFragmentTextTargetsIn(
             parseRoot,
             limit,
@@ -114,9 +109,7 @@ function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
 
 function settingsParseExcludeSelector(parseRoot: HTMLElement): string {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
-    return parseRoot.matches(SETTINGS_SELECT_OPTIONS_META_SELECTOR)
-        ? SETTINGS_PARSE_EXCLUDE_SELECTOR
-        : SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
+    return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
 }
 
 function isSettingsChromeParseRoot(parseRoot: HTMLElement): boolean {
