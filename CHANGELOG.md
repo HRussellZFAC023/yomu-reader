@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.33] - 2026-06-15
+
+### Fixed
+
+- Dictionary popover action pills remain live in hover popovers, so Jiten, JPDB, Jisho, Yomu, and Copy actions open or provide feedback instead of rendering as disabled pill-shaped controls.
+- YouTube dictionary popovers now have smoke coverage that clicks configured action pills and verifies the userscript tab-opening path without leaking the click to the page.
+
 ## [0.7.32] - 2026-06-15
 
 ### Fixed

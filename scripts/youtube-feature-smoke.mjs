@@ -47,6 +47,13 @@ const baseSettings = {
     ocrMinImageArea: 1,
     ocrMaxImagesPerPage: 5,
     ocrPrefetchMargin: 0,
+    dictionaryLookupLinks: [
+        { id: 'yomu-search', label: 'Yomu', urlTemplate: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}', enabled: true },
+        { id: 'jiten', label: 'Jiten', urlTemplate: 'https://jiten.moe/parse?text={query}', enabled: true },
+        { id: 'jpdb', label: 'JPDB', urlTemplate: 'https://jpdb.io/search?q={query}', enabled: true },
+        { id: 'jisho', label: 'Jisho', urlTemplate: 'https://jisho.org/search/{query}', enabled: true },
+        { id: 'copy', label: 'Copy', urlTemplate: '', enabled: true, action: 'copy' },
+    ],
 };
 
 const youtubeTimedText = `<timedtext><body>
@@ -544,6 +551,15 @@ async function installUserscriptContext(context) {
         window.GM_addValueChangeListener = () => 0;
         window.GM_removeValueChangeListener = () => undefined;
         window.GM_registerMenuCommand = () => undefined;
+        window.__yomuFeatureOpenedTabs = [];
+        window.GM_openInTab = (url, options) => {
+            window.__yomuFeatureOpenedTabs.push({ url: String(url), options });
+            return { close: () => undefined };
+        };
+        window.open = (url, target, features) => {
+            window.__yomuFeatureOpenedTabs.push({ url: String(url), options: { target, features, via: 'window.open' } });
+            return { opener: null, close: () => undefined };
+        };
         window.GM_xmlhttpRequest = options => {
             fetch(options.url, { method: options.method || 'GET', headers: options.headers || {}, body: options.data })
                 .then(async response => {
@@ -565,6 +581,7 @@ async function installUserscriptContext(context) {
             addValueChangeListener: window.GM_addValueChangeListener,
             removeValueChangeListener: window.GM_removeValueChangeListener,
             registerMenuCommand: window.GM_registerMenuCommand,
+            openInTab: window.GM_openInTab,
             xmlHttpRequest: window.GM_xmlhttpRequest,
         };
         window.__yomuFeatureReadHomepageState = function yomuFeatureReadHomepageState() {
@@ -1162,6 +1179,7 @@ async function verifyTeacherCommentLookup(page) {
     const dictionary = await readDictionaryState(page);
     assert(dictionary.spelling === '先生', 'Clicking a single YouTube comment word opened the wrong dictionary entry', dictionary);
     assert(dictionary.copyPill, 'Dictionary copy pill is missing for YouTube comment lookup', dictionary);
+    dictionary.actions = await verifyDictionaryActionPills(page, '先生');
     return dictionary;
 }
 
@@ -1179,6 +1197,53 @@ function trimText(value) {
 
 function includesText(value, fragment) {
     return String(value).includes(fragment);
+}
+
+async function verifyDictionaryActionPills(page, query) {
+    const expected = [
+        ['Jiten', `https://jiten.moe/parse?text=${encodeURIComponent(query)}`],
+        ['JPDB', 'https://jpdb.io/search'],
+        ['Jisho', `https://jisho.org/search/${encodeURIComponent(query)}`],
+        ['Yomu', `https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=${encodeURIComponent(query)}`],
+    ];
+    for (const [label, urlPrefix] of expected) {
+        await clickDictionaryActionPillAndAssertOpen(page, query, label, urlPrefix);
+    }
+    await page.locator('.jpdb-reader-popover .jpdb-reader-copy-pill').first().click();
+    await page.waitForSelector('.jpdb-reader-toast', { state: 'visible', timeout: 5_000 });
+    const toastText = (await page.locator('.jpdb-reader-toast').last().innerText()).trim();
+    assert(/Copied word/i.test(toastText), 'YouTube popover copy pill did not show visible feedback', { toastText });
+    return page.evaluate(() => window.__yomuFeatureOpenedTabs ?? []);
+}
+
+async function openedFeatureTabCount(page) {
+    return page.evaluate(() => (window.__yomuFeatureOpenedTabs ?? []).length);
+}
+
+async function clickDictionaryActionPillAndAssertOpen(page, query, label, urlPrefix) {
+    const before = await openedFeatureTabCount(page);
+    const popover = page.locator('.jpdb-reader-popover')
+        .filter({ has: page.locator('.jpdb-reader-spelling', { hasText: query }) })
+        .last();
+    const link = popover.locator('a.jpdb-reader-action-pill', { hasText: label }).first();
+    const href = await link.getAttribute('href');
+    assert(String(href ?? '').startsWith(urlPrefix), `${label} pill href does not target the expected URL`, { href, urlPrefix });
+    const popupPromise = page.waitForEvent('popup', { timeout: 2_000 }).catch(() => null);
+    await link.click();
+    const recorded = await page.waitForFunction(
+        ({ count, prefix }) => (window.__yomuFeatureOpenedTabs ?? []).length > count
+            && (window.__yomuFeatureOpenedTabs ?? []).some(item => String(item.url).startsWith(prefix)),
+        { count: before, prefix: urlPrefix },
+        { timeout: 1_500 },
+    ).then(() => true).catch(() => false);
+    if (recorded) return;
+    const popup = await popupPromise;
+    assert(Boolean(popup), `${label} pill did not dispatch a userscript/tab/window open`, {
+        openedTabs: await page.evaluate(() => window.__yomuFeatureOpenedTabs ?? []),
+        href,
+        urlPrefix,
+    });
+    await popup?.close().catch(() => undefined);
 }
 
 async function clickTeacherCommentWord(page) {
