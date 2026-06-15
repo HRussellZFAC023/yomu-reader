@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -11,34 +11,32 @@ import {
     startLoopbackServer,
 } from './lib/smoke-harness.mjs';
 import { createSmokePaths } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const paths = createSmokePaths(import.meta.dirname);
 const ARTIFACT_DIR = path.join(paths.artifacts, 'settings-layout');
-const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
-const SETTINGS_FIXTURE_HTML = `<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8">
-  <title>Yomu settings layout smoke</title>
-  <style>
-    body { margin: 0; min-height: 100vh; background: #f5f7f8; color: #1d2730; font: 16px/1.6 system-ui, sans-serif; }
-    main { width: min(760px, calc(100vw - 32px)); margin: 10vh auto; }
-  </style>
-</head>
-<body>
-  <main>
-    <h1>設定レイアウト確認</h1>
-    <p>日本語の設定画面でルビ付きラベルが詰まりすぎたり散らばったりしないことを確認します。</p>
-  </main>
-</body>
-</html>`;
+const NEWTAB_DIR = paths.newTabDir;
+const PUBLIC_DIR = path.join(paths.root, 'docs', 'public');
+const NEWTAB_BASE_PATH = '/yomu-reader/newtab/';
+const JPDB_ORIGIN = 'https://jpdb.io';
+const STATIC_CONTENT_TYPES = new Map([
+    ['.js', 'text/javascript; charset=utf-8'],
+    ['.css', 'text/css; charset=utf-8'],
+    ['.json', 'application/json; charset=utf-8'],
+    ['.svg', 'image/svg+xml; charset=utf-8'],
+    ['.png', 'image/png'],
+]);
 
 const BASE_SETTINGS = {
     onboardingSeen: true,
     interfaceLanguage: 'ja',
     apiKey: '',
     jitenApiKey: '',
+    jpdbDefinitionsEnabled: false,
+    localDictionariesEnabled: false,
+    ankiEnabled: false,
+    ankiSectionEnabled: false,
+    newTabEnabled: true,
+    newTabAnkiEnabled: false,
     audioEnabled: true,
     autoPlayAudio: true,
     audioAutoPlayMode: 'all',
@@ -52,26 +50,34 @@ const BASE_SETTINGS = {
     immersionKitPlayOnHover: true,
     immersionKitPlayOnImageClick: true,
     furiganaMode: 'all',
+    showFurigana: true,
     showPitchAccent: true,
-    lookupOnHover: true,
-    lookupOnClick: true,
+    wordUnderlineColorSource: 'pitch',
+    wordTextColorSource: 'pitch',
+    lookupOnHover: false,
+    lookupOnClick: false,
     showFloatingButton: false,
     enableLogging: false,
 };
 
 const VIEWPORTS = [
-    { name: 'desktop', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false },
-    { name: 'tablet', viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: false },
-    { name: 'mobile', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
+    { name: 'desktop', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false, panel: 'media' },
+    { name: 'tablet', viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: false, panel: 'media' },
+    { name: 'mobile', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, panel: 'media' },
+    { name: 'desktop-appearance', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false, panel: 'appearance' },
 ];
 
 mkdirSync(ARTIFACT_DIR, { recursive: true });
-assertBuiltArtifacts([paths.scriptPath, paths.cssPath], paths.root);
+assertBuiltArtifacts([
+    path.join(NEWTAB_DIR, 'index.html'),
+    path.join(NEWTAB_DIR, 'app.js'),
+    path.join(NEWTAB_DIR, 'styles.css'),
+], paths.root);
 
 let browser;
 let server;
 try {
-    server = await startLoopbackServer(serveSettingsFixtureRequest, 'Could not bind settings layout smoke server');
+    server = await startLoopbackServer(serveHostedNewTabRequest, 'Could not bind settings layout smoke server');
     browser = await chromium.launch();
     const results = [];
     for (const scenario of VIEWPORTS) {
@@ -87,109 +93,179 @@ try {
 
 async function verifyViewport(browserInstance, baseUrl, scenario) {
     const context = await browserInstance.newContext({
+        bypassCSP: true,
         viewport: scenario.viewport,
         hasTouch: scenario.hasTouch,
         isMobile: scenario.isMobile,
     });
     const page = await context.newPage();
+    const requests = [];
+    const browserMessages = [];
+    page.on('console', message => {
+        if (['error', 'warning'].includes(message.type())) browserMessages.push({ type: message.type(), text: message.text() });
+    });
+    page.on('pageerror', error => {
+        browserMessages.push({ type: 'pageerror', text: error.stack || error.message });
+    });
     await page.addInitScript(({ key, value }) => {
         localStorage.setItem(key, JSON.stringify(value));
     }, { key: YOMU_SETTINGS_KEY, value: BASE_SETTINGS });
-    await page.goto(`${baseUrl}/settings-layout-fixture.html`, { waitUntil: 'domcontentloaded' });
-    await installUserscriptCssResource(page, paths.cssPath);
-    await addScriptTagWithCspFallback(page, paths.scriptPath);
-    await page.waitForTimeout(350);
-    await openSettings(page);
-    await stressJapaneseRuby(page);
-    const snapshot = await settingsLayoutSnapshot(page);
-    const screenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}.png`);
-    await page.screenshot({ path: screenshotPath, fullPage: false });
-    await context.close();
+    await page.route('https://jpdb.io/**', route => route.fulfill(mockedJpdbRoute(route.request(), requests)));
+    try {
+        await page.goto(`${baseUrl}${NEWTAB_BASE_PATH}index.html?q=${encodeURIComponent('読み取る')}&settings-layout=${scenario.name}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { timeout: 12_000 });
+        await openSettingsFromNewTabMenu(page);
+        await selectSettingsPanel(page, scenario.panel);
+        await waitForRealSettingsRubyAndPitch(page, scenario.panel, requests, browserMessages);
+        await exerciseNativeSettingsControls(page, scenario.panel);
 
-    assert(snapshot.dialog.visible, `${scenario.name} settings dialog did not open`, snapshot);
-    assert(snapshot.mediaPanelCount >= 5, `${scenario.name} did not expose all media settings panels`, snapshot);
-    assert(snapshot.rubyCount >= 8, `${scenario.name} Japanese ruby stress did not apply`, snapshot);
-    assert(snapshot.controlGridCount >= 5, `${scenario.name} compact media grids were not rendered`, snapshot);
-    assert(snapshot.issues.length === 0, `${scenario.name} settings layout issues`, snapshot);
-    return {
-        name: scenario.name,
-        viewport: scenario.viewport,
-        rubyCount: snapshot.rubyCount,
-        gridCount: snapshot.controlGridCount,
-        screenshotPath,
-    };
+        const snapshot = await settingsLayoutSnapshot(page, scenario.panel);
+        const screenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: false });
+
+        assert(snapshot.dialog.visible, `${scenario.name} settings dialog did not open`, snapshot);
+        assert(snapshot.panel.visible, `${scenario.name} ${scenario.panel} settings panel is not visible`, snapshot);
+        assert(snapshot.rubyCount >= 4, `${scenario.name} settings did not render real ruby/furigana`, snapshot);
+        assert(snapshot.pitchWordCount >= 2, `${scenario.name} settings did not hydrate pitch classes`, snapshot);
+        if (scenario.panel === 'media') {
+            assert(snapshot.controlGridCount >= 5, `${scenario.name} compact media grids were not rendered`, snapshot);
+            assert(snapshot.mediaFieldsetCount >= 5, `${scenario.name} did not expose all media settings groups`, snapshot);
+        }
+        assert(snapshot.nativeControls.selectChanged, `${scenario.name} native select interaction did not work`, snapshot);
+        assert(snapshot.nativeControls.checkboxChanged, `${scenario.name} native checkbox interaction did not work`, snapshot);
+        assert(snapshot.popoverCount === 0, `${scenario.name} settings layout smoke opened an unrelated lookup popover`, snapshot);
+        assert(snapshot.issues.length === 0, `${scenario.name} settings layout issues`, snapshot);
+        return {
+            name: scenario.name,
+            panel: scenario.panel,
+            viewport: scenario.viewport,
+            rubyCount: snapshot.rubyCount,
+            pitchWordCount: snapshot.pitchWordCount,
+            gridCount: snapshot.controlGridCount,
+            requestCount: requests.length,
+            screenshotPath,
+        };
+    } finally {
+        await context.close();
+    }
 }
 
-function serveSettingsFixtureRequest(request, response) {
+function serveHostedNewTabRequest(request, response) {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
-    if (url.pathname === '/' || url.pathname === '/settings-layout-fixture.html') {
-        response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        response.end(SETTINGS_FIXTURE_HTML);
+    if (url.pathname === NEWTAB_BASE_PATH || url.pathname === `${NEWTAB_BASE_PATH}index.html`) {
+        serveFile(response, path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8', request.method);
         return;
     }
-    if (url.pathname === '/yomu.user.js') {
-        serveFile(response, paths.scriptPath, 'application/javascript; charset=utf-8', request.method);
-        return;
+    if (url.pathname.startsWith(NEWTAB_BASE_PATH)) {
+        const filePath = path.join(NEWTAB_DIR, url.pathname.slice(NEWTAB_BASE_PATH.length));
+        if (serveOptionalFile(response, filePath, contentTypeForFile(filePath), request.method)) return;
     }
-    if (url.pathname === '/yomu.css') {
-        serveFile(response, paths.cssPath, 'text/css; charset=utf-8', request.method);
-        return;
-    }
+    const publicPath = path.join(PUBLIC_DIR, url.pathname.replace(/^\/yomu-reader\//, ''));
+    if (serveOptionalFile(response, publicPath, contentTypeForFile(publicPath), request.method)) return;
     response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
     response.end('Not found');
 }
 
-async function openSettings(page) {
-    await page.evaluate(eventName => {
-        window.dispatchEvent(new CustomEvent(eventName, { detail: { panel: 'media' } }));
-    }, OPEN_SETTINGS_EVENT);
-    await page.waitForSelector('.jpdb-reader-settings [data-settings-panel="media"]:not([hidden])', { timeout: 8000 });
+function serveOptionalFile(response, filePath, contentType, method = 'GET') {
+    if (!existsSync(filePath)) return false;
+    serveFile(response, filePath, contentType, method);
+    return true;
 }
 
-async function stressJapaneseRuby(page) {
-    await page.evaluate(() => {
-        const targets = [
-            ...document.querySelectorAll('.jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) legend'),
-            ...document.querySelectorAll('.jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) .jpdb-reader-local-title'),
-            ...document.querySelectorAll('.jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) .jpdb-reader-settings-label-text'),
-        ];
-        for (const target of targets) addRubyStress(target);
+function contentTypeForFile(filePath) {
+    return [...STATIC_CONTENT_TYPES].find(([extension]) => filePath.endsWith(extension))?.[1]
+        ?? 'application/octet-stream';
+}
 
-        function addRubyStress(target) {
-            if (!(target instanceof HTMLElement) || target.querySelector('ruby')) return;
-            const text = target.textContent ?? '';
-            const match = text.match(/[一-龯ぁ-んァ-ンー]{2,}/u);
-            if (!match || match.index === undefined) return;
-            const before = text.slice(0, match.index);
-            const after = text.slice(match.index + match[0].length);
-            const word = document.createElement('span');
-            word.className = 'jpdb-reader-word jpdb-reader-has-furi jpdb-new jpdb-pitch-heiban';
-            const ruby = document.createElement('ruby');
-            const base = document.createElement('span');
-            base.className = 'jpdb-reader-ruby-base';
-            base.textContent = match[0];
-            const rt = document.createElement('rt');
-            rt.className = 'jpdb-reader-furi';
-            rt.textContent = 'よみ';
-            ruby.append(base, rt);
-            word.append(ruby);
-            target.replaceChildren(document.createTextNode(before), word, document.createTextNode(after));
+async function openSettingsFromNewTabMenu(page) {
+    await page.locator('.jpdb-reader-newtab-more summary').click();
+    await page.locator('[data-newtab-action="settings"]').click();
+    await page.waitForSelector('.jpdb-reader-settings', { timeout: 8_000 });
+}
+
+async function selectSettingsPanel(page, panel) {
+    const selector = `.jpdb-reader-settings [data-action="settings-panel"][data-panel="${panel}"]`;
+    await page.waitForSelector(selector, { timeout: 8_000 });
+    await page.evaluate(({ tabSelector }) => {
+        document.querySelector(tabSelector)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    }, { tabSelector: selector });
+    await page.waitForSelector(`.jpdb-reader-settings [data-settings-panel="${panel}"]:not([hidden])`, { timeout: 8_000 });
+}
+
+async function waitForRealSettingsRubyAndPitch(page, panel, requests, browserMessages) {
+    try {
+        await page.waitForFunction(({ panelName }) => {
+        const root = document.querySelector(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden])`);
+        if (!root) return false;
+        const rubyCount = root.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length;
+        const pitchCount = [...root.querySelectorAll('.jpdb-reader-word')]
+            .filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length;
+        return rubyCount >= 4 && pitchCount >= 2;
+        }, { panelName: panel }, { timeout: 15_000 });
+    } catch (error) {
+        const snapshot = await settingsHydrationSnapshot(page, panel);
+        throw new Error(`Settings ruby/pitch did not hydrate for ${panel}: ${error.message}\n${JSON.stringify({ snapshot, requests, browserMessages }, null, 2)}`);
+    }
+}
+
+async function settingsHydrationSnapshot(page, panel) {
+    return await page.evaluate(panelName => {
+        const root = document.querySelector(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden])`);
+        const words = [...(root?.querySelectorAll('.jpdb-reader-word') ?? [])];
+        return {
+            hasRoot: Boolean(root),
+            text: root?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 600) ?? '',
+            wordCount: words.length,
+            fallbackCount: words.filter(word => word.getAttribute('data-card-source') === 'fallback').length,
+            rubyCount: root?.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length ?? 0,
+            pitchCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length,
+            loadingKey: document.querySelector('.jpdb-reader-settings')?.getAttribute('data-jpdb-reader-parse-loading-key') ?? '',
+            parseKey: document.querySelector('.jpdb-reader-settings')?.getAttribute('data-jpdb-reader-parse-key') ?? '',
+            sampleWords: words.slice(0, 12).map(word => ({
+                text: word.textContent?.replace(/\s+/g, '').trim() ?? '',
+                expression: word.getAttribute('data-expression') ?? '',
+                reading: word.getAttribute('data-reading') ?? '',
+                source: word.getAttribute('data-card-source') ?? '',
+                pitchClass: word.getAttribute('data-pitch-class') ?? '',
+                classes: [...word.classList],
+            })),
+        };
+    }, panel);
+}
+
+async function exerciseNativeSettingsControls(page, panel) {
+    await page.evaluate(panelName => {
+        const root = document.querySelector(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden])`);
+        if (!root) return;
+        const select = root.querySelector('select');
+        const checkbox = root.querySelector('input[type="checkbox"]');
+        if (select instanceof HTMLSelectElement && select.options.length > 1) {
+            const before = select.value;
+            const next = [...select.options].find(option => option.value !== before)?.value ?? before;
+            select.value = next;
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            select.dataset.settingsLayoutSmokeChanged = String(select.value !== before);
         }
-    });
+        if (checkbox instanceof HTMLInputElement) {
+            const before = checkbox.checked;
+            checkbox.click();
+            checkbox.dataset.settingsLayoutSmokeChanged = String(checkbox.checked !== before);
+        }
+    }, panel);
+    await page.waitForTimeout(100);
 }
 
-async function settingsLayoutSnapshot(page) {
-    return await page.evaluate(() => {
+async function settingsLayoutSnapshot(page, panel) {
+    return await page.evaluate(panelName => {
         const dialog = document.querySelector('.jpdb-reader-settings');
+        const panelRoot = document.querySelector(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden])`);
         const dialogRect = rectSnapshot(dialog?.getBoundingClientRect());
-        const mediaPanels = visibleElements('[data-settings-panel="media"]:not([hidden])');
-        const grids = visibleElements('.jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) .jpdb-reader-settings-toggle-grid, .jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) .jpdb-reader-settings-control-grid');
+        const grids = visibleElements(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-settings-tgrid, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-settings-cgrid`);
         const issues = [];
         const scroll = document.querySelector('.jpdb-reader-settings-scroll');
-        const scrollRect = scroll?.getBoundingClientRect();
-        const horizontalBounds = scrollRect ?? dialog?.getBoundingClientRect();
+        const horizontalBounds = scroll?.getBoundingClientRect() ?? dialog?.getBoundingClientRect();
 
-        for (const element of visibleElements('.jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) legend, .jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) .jpdb-reader-local-title, .jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) .jpdb-reader-settings-label-text, .jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) .jpdb-reader-select-options-meta, .jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) button')) {
+        for (const element of visibleElements(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) legend, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-local-title, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-settings-label-text, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-select-options-meta, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) button`)) {
             const rect = element.getBoundingClientRect();
             if (horizontalBounds && (rect.left < horizontalBounds.left - 2 || rect.right > horizontalBounds.right + 2)) {
                 issues.push({ type: 'horizontal-overflow', text: textOf(element), rect: rectSnapshot(rect), bounds: rectSnapshot(horizontalBounds) });
@@ -202,11 +278,19 @@ async function settingsLayoutSnapshot(page) {
             issues.push(...gridGapIssues(grid, children));
         }
 
+        const words = [...(panelRoot?.querySelectorAll('.jpdb-reader-word') ?? [])];
         return {
             dialog: { visible: isVisible(dialog), rect: dialogRect },
-            mediaPanelCount: mediaPanels.length,
+            panel: { visible: isVisible(panelRoot), name: panelName },
+            mediaFieldsetCount: visibleElements('.jpdb-reader-settings fieldset[data-settings-panel="media"]:not([hidden])').length,
             controlGridCount: grids.length,
-            rubyCount: document.querySelectorAll('.jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) ruby, .jpdb-reader-settings [data-settings-panel="media"]:not([hidden]) rt').length,
+            rubyCount: panelRoot?.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length ?? 0,
+            pitchWordCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length,
+            popoverCount: visibleElements('.jpdb-reader-popover').length,
+            nativeControls: {
+                selectChanged: Boolean(panelRoot?.querySelector('select[data-settings-layout-smoke-changed="true"]')),
+                checkboxChanged: Boolean(panelRoot?.querySelector('input[type="checkbox"][data-settings-layout-smoke-changed="true"]')),
+            },
             issues,
         };
 
@@ -287,5 +371,132 @@ async function settingsLayoutSnapshot(page) {
         function round(value) {
             return Math.round(value * 100) / 100;
         }
-    });
+    }, panel);
 }
+
+function mockedJpdbRoute(request, requests) {
+    requests.push({ method: request.method(), url: request.url() });
+    const response = mockedJpdbResponse(request.url());
+    return {
+        status: response.status,
+        contentType: response.contentType,
+        body: response.body,
+        headers: { 'access-control-allow-origin': '*' },
+    };
+}
+
+function mockedJpdbResponse(rawUrl) {
+    const url = new URL(rawUrl, JPDB_ORIGIN);
+    const query = url.searchParams.get('q') || vocabularyFromPath(url.pathname).spelling || '設定';
+    const { spelling, reading } = vocabularyForQuery(query);
+    return {
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: jpdbVocabularyHtml(spelling, reading),
+    };
+}
+
+function vocabularyForQuery(query) {
+    const normalized = query.replace(/\s+/g, '').trim();
+    const direct = VOCABULARY_READINGS.get(normalized);
+    if (direct) return { spelling: normalized, reading: direct };
+    const kanji = normalized.match(/[一-龯々〆ヶ]{1,6}/u)?.[0] ?? normalized.match(/[ぁ-んァ-ンー]{2,}/u)?.[0] ?? '設定';
+    return { spelling: kanji, reading: VOCABULARY_READINGS.get(kanji) ?? 'よみ' };
+}
+
+function vocabularyFromPath(pathname) {
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts[0] !== 'vocabulary') return { spelling: '', reading: '' };
+    return {
+        spelling: decodeURIComponent(parts[2] ?? ''),
+        reading: decodeURIComponent(parts[3] ?? ''),
+    };
+}
+
+function jpdbVocabularyHtml(spelling, reading) {
+    const href = `/vocabulary/${stableVocabularyId(spelling)}/${encodeURIComponent(spelling)}/${encodeURIComponent(reading)}#a`;
+    return `<!doctype html>
+<html lang="ja">
+<head><link rel="canonical" href="https://jpdb.io${href}"></head>
+<body>
+  <div class="results search">
+    <div class="result vocabulary">
+      <a href="${href}">${escapeHtml(spelling)}</a>
+      <div class="subsection-headword">
+        <div class="primary-spelling"><div class="spelling">${rubyHtml(spelling, reading)}</div></div>
+      </div>
+      <div class="subsection-meanings">
+        <div class="part-of-speech"><div>Noun</div></div>
+        <div class="description">1. settings layout smoke vocabulary</div>
+      </div>
+      <div class="subsection-pitch-accent">
+        <div class="subsection">
+          <div>
+            <div>
+              <div style="background-image: linear-gradient(to top,var(--pitch-low-s),var(--pitch-low-e));"><div>${escapeHtml(firstMora(reading))}</div></div>
+              <div style="background-image: linear-gradient(to bottom,var(--pitch-high-s),var(--pitch-high-e));"><div>${escapeHtml(restMorae(reading))}</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+function rubyHtml(spelling, reading) {
+    if (!/[一-龯々〆ヶ]/u.test(spelling)) return escapeHtml(spelling);
+    return `<ruby>${escapeHtml(spelling)}<rt>${escapeHtml(reading)}</rt></ruby>`;
+}
+
+function firstMora(reading) {
+    return Array.from(reading || 'よ')[0] ?? 'よ';
+}
+
+function restMorae(reading) {
+    const rest = Array.from(reading || 'み').slice(1).join('');
+    return rest || 'み';
+}
+
+function stableVocabularyId(value) {
+    let hash = 0;
+    for (const char of value) hash = (hash * 31 + char.codePointAt(0)) % 900_000;
+    return 100_000 + hash;
+}
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => HTML_ESCAPES[char]);
+}
+
+const HTML_ESCAPES = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+};
+
+const VOCABULARY_READINGS = new Map([
+    ['設定', 'せってい'],
+    ['音声', 'おんせい'],
+    ['表示', 'ひょうじ'],
+    ['再生', 'さいせい'],
+    ['翻訳', 'ほんやく'],
+    ['画像', 'がぞう'],
+    ['例文', 'れいぶん'],
+    ['検索', 'けんさく'],
+    ['外観', 'がいかん'],
+    ['色', 'いろ'],
+    ['単語', 'たんご'],
+    ['漢字', 'かんじ'],
+    ['統計', 'とうけい'],
+    ['読む', 'よむ'],
+    ['新しい', 'あたらしい'],
+    ['言葉', 'ことば'],
+    ['日本語', 'にほんご'],
+    ['毎日', 'まいにち'],
+    ['勉強', 'べんきょう'],
+    ['上手', 'じょうず'],
+    ['読み取る', 'よみとる'],
+]);

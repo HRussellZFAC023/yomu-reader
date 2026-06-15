@@ -621,21 +621,21 @@
 .jpdb-reader-settings .grid > * {
   min-width: 0;
 }
-.jpdb-reader-settings .jpdb-reader-settings-toggle-grid,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid {
+.jpdb-reader-settings .jpdb-reader-settings-tgrid,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid {
   align-items: start;
 }
-.jpdb-reader-settings .jpdb-reader-settings-toggle-grid {
+.jpdb-reader-settings .jpdb-reader-settings-tgrid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 245px), 1fr));
   gap: 8px 14px;
 }
-.jpdb-reader-settings .jpdb-reader-settings-control-grid {
+.jpdb-reader-settings .jpdb-reader-settings-cgrid {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 225px), 1fr));
   gap: 12px 14px;
 }
-.jpdb-reader-settings .jpdb-reader-settings-toggle-grid + .jpdb-reader-settings-control-grid,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid + .jpdb-reader-settings-toggle-grid,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid + .jpdb-reader-settings-control-grid {
+.jpdb-reader-settings .jpdb-reader-settings-tgrid + .jpdb-reader-settings-cgrid,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid + .jpdb-reader-settings-tgrid,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid + .jpdb-reader-settings-cgrid {
   margin-top: 12px;
 }
 /* Every label-above field (select, text, number, color) shares one structure:
@@ -654,8 +654,8 @@
   display: flex;
   align-items: flex-end;
 }
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > .jpdb-reader-settings-label-text,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > .jpdb-reader-settings-label-text {
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > .jpdb-reader-settings-label-text,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > .jpdb-reader-settings-label-text {
   min-height: 0;
   display: block;
 }
@@ -674,12 +674,12 @@
 .jpdb-reader-settings .grid > * > label > .jpdb-reader-field-display {
   margin-top: auto;
 }
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > input,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > select,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > label:not(.inline) > textarea,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > input,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > select,
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > * > label:not(.inline) > textarea {
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > input,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > select,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > textarea,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > input,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > select,
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > textarea {
   margin-top: 0;
 }
 
@@ -727,7 +727,7 @@
   align-self: end;
   margin: 0;
 }
-.jpdb-reader-settings .jpdb-reader-settings-toggle-grid > label.inline {
+.jpdb-reader-settings .jpdb-reader-settings-tgrid > label.inline {
   align-self: start;
   align-items: center;
   min-height: 38px;
@@ -755,7 +755,7 @@
   margin: 0;
   min-height: 38px;
 }
-.jpdb-reader-settings .jpdb-reader-settings-control-grid > .jpdb-reader-radio-group {
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > .jpdb-reader-radio-group {
   grid-column: auto;
   margin: 0;
 }

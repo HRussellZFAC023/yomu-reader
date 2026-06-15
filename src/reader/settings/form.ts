@@ -481,13 +481,13 @@ function renderAudioSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-audio" role="tabpanel" data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
                 <legend>${escapedUiText(language, 'audio')}</legend>
-                <div class="grid jpdb-reader-settings-toggle-grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox('audioEnabled', uiText(language, 'audioEnabled'), settings.audioEnabled)}
                     ${checkbox('suppressAutoAudioOnVideo', uiText(language, 'suppressAutoAudioOnVideo'), settings.suppressAutoAudioOnVideo)}
                     ${checkbox('audioEnableDefaultSources', uiText(language, 'audioEnableDefaultSources'), settings.audioEnableDefaultSources)}
                     ${checkbox('audioFallbackChimeEnabled', uiText(language, 'audioFallbackChimeEnabled'), settings.audioFallbackChimeEnabled)}
                 </div>
-                <div class="grid jpdb-reader-settings-control-grid">
+                <div class="grid jpdb-reader-settings-cgrid">
                     ${checkbox('autoPlayAudio', uiText(language, 'autoPlayAudio'), settings.autoPlayAudio)}
                     ${audioAutoPlayModeSelect(language, autoPlayMode, !settings.autoPlayAudio)}
                     ${select('audioSelectionMode', uiText(language, 'audioSelectionMode'), settings.audioSelectionMode, [['first', uiText(language, 'firstAudio')], ['random', uiText(language, 'randomAudio')]])}
@@ -552,14 +552,14 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-immersion-kit" role="tabpanel" data-settings-panel="media" data-legend-key="immersionKit" aria-describedby="settings-help-immersion-kit" hidden>
                 <legend>${escapedUiText(language, 'immersionKit')}</legend>
-                <div class="grid jpdb-reader-settings-toggle-grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox('immersionKitEnabled', uiText(language, 'immersionKitEnabled'), settings.immersionKitEnabled)}
                     ${checkbox('immersionKitShowTranslation', uiText(language, 'immersionKitShowTranslation'), settings.immersionKitShowTranslation)}
                     ${checkbox('immersionKitRevealTranslationOnClick', uiText(language, 'immersionKitRevealTranslationOnClick'), settings.immersionKitRevealTranslationOnClick, { disabled: !settings.immersionKitShowTranslation })}
                     ${checkbox('immersionKitShowImages', uiText(language, 'immersionKitShowImages'), settings.immersionKitShowImages)}
                     ${checkbox('immersionKitExactMatch', uiText(language, 'immersionKitExactMatch'), settings.immersionKitExactMatch)}
                 </div>
-                <div class="grid jpdb-reader-settings-control-grid">
+                <div class="grid jpdb-reader-settings-cgrid">
                     ${select('immersionKitExampleSource', uiText(language, 'immersionKitExampleSource'), settings.immersionKitExampleSource, [['immersion-kit', uiText(language, 'immersionKit')], ['nadeshiko', 'Nadeshiko'], ['combined', uiText(language, 'immersionKitAndNadeshiko')]])}
                     ${renderNadeshikoApiKeyField(settings)}
                     ${select('immersionKitCategory', uiText(language, 'immersionKitCategory'), settings.immersionKitCategory, [['all', uiText(language, 'allCategories')], ['anime', uiText(language, 'anime')], ['drama', uiText(language, 'drama')], ['games', uiText(language, 'games')]])}
@@ -572,7 +572,7 @@ function renderImmersionKitSettingsPanel(settings: ReaderSettings): string {
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapedUiText(language, 'audioPlayback')}</div>
-                    <div class="grid jpdb-reader-settings-toggle-grid">
+                    <div class="grid jpdb-reader-settings-tgrid">
                         ${checkbox('immersionKitAutoPlayAudio', uiText(language, 'immersionKitAutoPlayAudio'), settings.immersionKitAutoPlayAudio)}
                         ${checkbox('immersionKitPlayOnHover', uiText(language, 'immersionKitPlayOnHover'), settings.immersionKitPlayOnHover)}
                         ${checkbox('immersionKitPlayOnImageClick', uiText(language, 'immersionKitPlayOnImageClick'), settings.immersionKitPlayOnImageClick)}
@@ -664,13 +664,13 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-ocr" role="tabpanel" data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
                 <legend>Image text (OCR)</legend>
-                <div class="grid jpdb-reader-settings-toggle-grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
                     ${checkbox('ocrVideoPauseFrames', 'Read paused video frames', settings.ocrVideoPauseFrames)}
                     ${checkbox('ocrVideoFrameStatusCard', 'Show paused-frame status card', settings.ocrVideoFrameStatusCard)}
                 </div>
-                <div class="grid jpdb-reader-settings-control-grid">
+                <div class="grid jpdb-reader-settings-cgrid">
                     ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens (recommended)'], ['cloud-vision', 'Google Cloud Vision'], ['local-service', 'Local OCR engine'], ['off', 'Off']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
@@ -696,7 +696,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-video" role="tabpanel" data-settings-panel="media" data-legend-key="video" hidden>
                 <legend>Video</legend>
-                <div class="grid jpdb-reader-settings-toggle-grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox('subtitlePlayerEnabled', 'Enable video subtitle player', settings.subtitlePlayerEnabled)}
                     ${checkbox('subtitleAutoDetect', 'Auto-detect page subtitles', settings.subtitleAutoDetect)}
                     ${checkbox('subtitleOverlayVisible', 'Show subtitle overlay', settings.subtitleOverlayVisible)}
@@ -710,7 +710,7 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitleCopyIncludeTranslation', 'Include the translation when copying a line', settings.subtitleCopyIncludeTranslation)}
                     ${checkbox('subtitleMiningPause', 'Pause video when mining subtitle', settings.subtitleMiningPause)}
                 </div>
-                <div class="grid jpdb-reader-settings-control-grid">
+                <div class="grid jpdb-reader-settings-cgrid">
                     ${input('subtitleTranscriptAutoScrollResumeSeconds', 'Resume transcript auto-scroll after manual scroll (s)', String(settings.subtitleTranscriptAutoScrollResumeSeconds), 'number')}
                     ${select('subtitleControlsMode', 'Subtitle controls', settings.subtitleControlsMode, [['auto', 'Compact controls'], ['hidden', 'Hide controls'], ['always', 'Always visible']])}
                     ${input('subtitleFontSize', 'Subtitle font size (px)', String(settings.subtitleFontSize), 'number')}
@@ -744,7 +744,7 @@ function renderYoutubeSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>YouTube</legend>
-                <div class="grid jpdb-reader-settings-toggle-grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox('youtubeImmersionEnabled', 'Japanese YouTube only', settings.youtubeImmersionEnabled)}
                     ${checkbox('preferJapaneseSiteLanguage', 'Prefer Japanese site language and location', settings.preferJapaneseSiteLanguage)}
                     ${checkbox('youtubeShowChannelRecommendations', 'Show Japanese channel suggestions', settings.youtubeShowChannelRecommendations)}

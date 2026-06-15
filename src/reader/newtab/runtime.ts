@@ -19,7 +19,7 @@ import {
 } from '../sources/definition-render';
 import { renderDefinitionSourcesStack, type DefinitionSourceStackOptions } from '../sources/definition-stack';
 import { DictionarySourceStateController } from '../sources/state';
-import { escapeHtml, HAS_JAPANESE, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from '../dom';
+import { escapeHtml, HAS_JAPANESE, inferredInflectedSurfaceRubies, readerWordSurfaceText, setInnerHtml, unwrapReaderWords } from '../dom';
 import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from '../app/factory-reset-coordinator';
 import { ImmersionKitClient } from '../immersion/kit';
@@ -83,7 +83,7 @@ import {
     renderKanjiOrigins,
     renderRtkInfo,
 } from '../popup/render';
-import { updateRenderedPitch } from '../app/dom-helpers';
+import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
 import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
 import {
     DEFAULT_SETTINGS,
@@ -132,6 +132,7 @@ const NEW_TAB_STUDY_PARSE_TIMEOUT_MS = 15_000;
 const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
 const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
 const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
+const NEW_TAB_SETTINGS_ENRICHMENT_LIMIT = 192;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -1676,8 +1677,13 @@ export class NewTabRuntime {
     }
 
     private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
+        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return undefined;
         for (const term of fallbackLookupTermsForCard(card)) {
-            const publicCard = await this.publicLookupCard(term, true);
+            const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
+                log.warn('Public JPDB fallback search failed', { term }, error);
+                return [];
+            });
+            const publicCard = cards.find(candidate => candidate.spelling === term);
             if (publicCard) return publicCard;
         }
         return undefined;
@@ -1890,12 +1896,12 @@ export class NewTabRuntime {
         });
     }
 
-    private async enrichPitchWords(tokens: JPDBToken[]): Promise<void> {
+    private async enrichPitchWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
         if (!this.settings.showPitchAccent) return;
         const uniqueTokens = this.uniqueTokens(
             tokens,
             token => !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),
-            NEW_TAB_PITCH_ENRICHMENT_LIMIT,
+            limit,
         );
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
@@ -1906,11 +1912,12 @@ export class NewTabRuntime {
         });
     }
 
-    private async enrichPublicVocabularyWords(tokens: JPDBToken[]): Promise<void> {
+    private async enrichPublicVocabularyWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
+        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
         const uniqueTokens = this.uniqueTokens(
             tokens,
             token => token.card.source === 'fallback',
-            NEW_TAB_PITCH_ENRICHMENT_LIMIT,
+            limit,
         );
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
@@ -1920,7 +1927,7 @@ export class NewTabRuntime {
                 return;
             }
             if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-            this.parser.cacheCards([card]);
+            this.parser.cacheCards?.([card]);
             this.applyPublicVocabularyToRenderedWords(token.card, card);
         });
     }
@@ -1966,6 +1973,7 @@ export class NewTabRuntime {
         document.querySelectorAll<HTMLElement>(this.renderedWordSelector(fallback)).forEach(word => {
             setRenderedWordPitchClass(word, pitchClass);
             setRenderedWordCardIdentity(word, card);
+            applyPublicVocabularyFurigana(word, card, this.settings);
         });
     }
 
@@ -2134,6 +2142,7 @@ export class NewTabRuntime {
                 includeLocalPitch: false,
                 jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS,
             });
+            await this.hydrateSettingsFallbackTokens(parsed);
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
@@ -2144,8 +2153,9 @@ export class NewTabRuntime {
             refreshReaderWordContrast(form);
             form.dataset.jpdbReaderParseKey = plan.parseKey;
             form.dataset.yomuSettingsSelfEnhanced = 'true';
-            void this.enrichPublicVocabularyWords(parsed.flat());
-            void this.enrichPitchWords(parsed.flat());
+            const tokens = parsed.flat();
+            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
+            void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
         } catch {
         } finally {
             clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
@@ -2158,6 +2168,24 @@ export class NewTabRuntime {
                 }
             }
         }
+    }
+
+    private async hydrateSettingsFallbackTokens(parsed: JPDBToken[][]): Promise<void> {
+        const tokens = this.uniqueTokens(
+            parsed.flat(),
+            token => token.card.source === 'fallback',
+            NEW_TAB_SETTINGS_ENRICHMENT_LIMIT,
+        );
+        await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
+            const card = await this.publicLookupFallbackCard(token.card);
+            if (!card) return;
+            if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+            const surface = token.sentence?.slice(token.start, token.end) || card.spelling;
+            token.card = card;
+            token.rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
+            token.pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass;
+            this.parser.cacheCards?.([card]);
+        });
     }
 
     private isCurrentSettingsRoot(root: HTMLElement): boolean {

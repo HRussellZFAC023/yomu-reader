@@ -4257,6 +4257,42 @@
     html += renderKanjiNavigationText(surface.slice(localOffset), kanjiNavigation);
     return html;
   }
+  function inferredInflectedSurfaceRubies(surface, spelling, reading) {
+    const visibleSurface = surface.trim();
+    const baseSpelling = spelling.trim();
+    const baseReading = reading.trim();
+    if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
+    if (!KANJI_RE$2.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
+    for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
+      if (!baseReading.endsWith(spellingSuffix)) continue;
+      const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
+      if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
+      const surfaceSuffix = visibleSurface.slice(spellingStem.length);
+      if (!surfaceSuffix || !KANA_RE$1.test(surfaceSuffix)) continue;
+      const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
+      if (rubies.length) return rubies;
+    }
+    return [];
+  }
+  function trailingKanaSuffixes(value) {
+    const suffixes = [];
+    for (let index = 0; index < value.length; index += 1) {
+      const suffix = value.slice(index);
+      if (suffix && KANA_RE$1.test(suffix)) suffixes.push(suffix);
+    }
+    return suffixes.sort((first2, second) => second.length - first2.length);
+  }
+  function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
+    const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
+    if (!trimmed.surface || !trimmed.reading) return [];
+    if (!KANJI_RE$2.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
+    return [{
+      text: trimmed.reading,
+      start: trimmed.offset,
+      end: trimmed.offset + trimmed.surface.length,
+      length: trimmed.surface.length
+    }];
+  }
   function trimSharedKanaAffixes(surface, reading) {
     let trimmedSurface = surface;
     let trimmedReading = reading;
@@ -22926,13 +22962,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
             <fieldset id="jpdb-reader-settings-panel-audio" role="tabpanel" data-settings-panel="media" data-legend-key="audio" aria-describedby="settings-help-audio" hidden>
                 <legend>${escapedUiText(language, "audio")}</legend>
-                <div class="grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox("audioEnabled", uiText(language, "audioEnabled"), settings.audioEnabled)}
-                    ${checkbox("autoPlayAudio", uiText(language, "autoPlayAudio"), settings.autoPlayAudio)}
-                    ${audioAutoPlayModeSelect(language, autoPlayMode, !settings.autoPlayAudio)}
                     ${checkbox("suppressAutoAudioOnVideo", uiText(language, "suppressAutoAudioOnVideo"), settings.suppressAutoAudioOnVideo)}
                     ${checkbox("audioEnableDefaultSources", uiText(language, "audioEnableDefaultSources"), settings.audioEnableDefaultSources)}
                     ${checkbox("audioFallbackChimeEnabled", uiText(language, "audioFallbackChimeEnabled"), settings.audioFallbackChimeEnabled)}
+                </div>
+                <div class="grid jpdb-reader-settings-cgrid">
+                    ${checkbox("autoPlayAudio", uiText(language, "autoPlayAudio"), settings.autoPlayAudio)}
+                    ${audioAutoPlayModeSelect(language, autoPlayMode, !settings.autoPlayAudio)}
                     ${select("audioSelectionMode", uiText(language, "audioSelectionMode"), settings.audioSelectionMode, [["first", uiText(language, "firstAudio")], ["random", uiText(language, "randomAudio")]])}
                     ${select("audioTtsMode", uiText(language, "audioTtsMode"), settings.audioTtsMode, [["fallback", uiText(language, "audioTtsFallback")], ["source-order", uiText(language, "audioTtsSourceOrder")]])}
                     ${input("audioTimeoutMs", uiText(language, "audioTimeoutMs"), String(settings.audioTimeoutMs), "number", { min: 1e3, max: 3e4, step: 500 })}
@@ -22992,13 +23030,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
             <fieldset id="jpdb-reader-settings-panel-immersion-kit" role="tabpanel" data-settings-panel="media" data-legend-key="immersionKit" aria-describedby="settings-help-immersion-kit" hidden>
                 <legend>${escapedUiText(language, "immersionKit")}</legend>
-                <div class="grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox("immersionKitEnabled", uiText(language, "immersionKitEnabled"), settings.immersionKitEnabled)}
-                    ${select("immersionKitExampleSource", uiText(language, "immersionKitExampleSource"), settings.immersionKitExampleSource, [["immersion-kit", uiText(language, "immersionKit")], ["nadeshiko", "Nadeshiko"], ["combined", uiText(language, "immersionKitAndNadeshiko")]])}
-                    ${renderNadeshikoApiKeyField(settings)}
                     ${checkbox("immersionKitShowTranslation", uiText(language, "immersionKitShowTranslation"), settings.immersionKitShowTranslation)}
                     ${checkbox("immersionKitRevealTranslationOnClick", uiText(language, "immersionKitRevealTranslationOnClick"), settings.immersionKitRevealTranslationOnClick, { disabled: !settings.immersionKitShowTranslation })}
                     ${checkbox("immersionKitShowImages", uiText(language, "immersionKitShowImages"), settings.immersionKitShowImages)}
+                    ${checkbox("immersionKitExactMatch", uiText(language, "immersionKitExactMatch"), settings.immersionKitExactMatch)}
+                </div>
+                <div class="grid jpdb-reader-settings-cgrid">
+                    ${select("immersionKitExampleSource", uiText(language, "immersionKitExampleSource"), settings.immersionKitExampleSource, [["immersion-kit", uiText(language, "immersionKit")], ["nadeshiko", "Nadeshiko"], ["combined", uiText(language, "immersionKitAndNadeshiko")]])}
+                    ${renderNadeshikoApiKeyField(settings)}
                     ${select("immersionKitCategory", uiText(language, "immersionKitCategory"), settings.immersionKitCategory, [["all", uiText(language, "allCategories")], ["anime", uiText(language, "anime")], ["drama", uiText(language, "drama")], ["games", uiText(language, "games")]])}
                     ${select("immersionKitSort", uiText(language, "immersionKitSort"), settings.immersionKitSort, [["sentence_length:asc", uiText(language, "shortestFirst")], ["sentence_length:desc", uiText(language, "longestFirst")]])}
                     ${radioGroup("immersionKitLimitEnabled", uiText(language, "immersionKitLimitEnabled"), settings.immersionKitLimitEnabled ? "on" : "off", [["off", uiText(language, "allExamples")], ["on", uiText(language, "limitExamples")]])}
@@ -23006,11 +23047,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${input("immersionKitMinLength", uiText(language, "immersionKitMinLength"), String(settings.immersionKitMinLength), "number", { min: 0, max: 120, step: 1 })}
                     ${input("immersionKitMaxLength", uiText(language, "immersionKitMaxLength"), String(settings.immersionKitMaxLength), "number", { min: 0, max: 240, step: 1 })}
                     ${input("immersionKitPlaybackRate", uiText(language, "immersionKitPlaybackRate"), String(settings.immersionKitPlaybackRate), "number", { min: 0.5, max: 2, step: 0.05 })}
-                    ${checkbox("immersionKitExactMatch", uiText(language, "immersionKitExactMatch"), settings.immersionKitExactMatch)}
                 </div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">${escapedUiText(language, "audioPlayback")}</div>
-                    <div class="grid">
+                    <div class="grid jpdb-reader-settings-tgrid">
                         ${checkbox("immersionKitAutoPlayAudio", uiText(language, "immersionKitAutoPlayAudio"), settings.immersionKitAutoPlayAudio)}
                         ${checkbox("immersionKitPlayOnHover", uiText(language, "immersionKitPlayOnHover"), settings.immersionKitPlayOnHover)}
                         ${checkbox("immersionKitPlayOnImageClick", uiText(language, "immersionKitPlayOnImageClick"), settings.immersionKitPlayOnImageClick)}
@@ -23094,11 +23134,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
             <fieldset id="jpdb-reader-settings-panel-ocr" role="tabpanel" data-settings-panel="media" data-legend-key="images" aria-describedby="settings-help-ocr" hidden>
                 <legend>Image text (OCR)</legend>
-                <div class="grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
                     ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
                     ${checkbox("ocrVideoFrameStatusCard", "Show paused-frame status card", settings.ocrVideoFrameStatusCard)}
+                </div>
+                <div class="grid jpdb-reader-settings-cgrid">
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens (recommended)"], ["cloud-vision", "Google Cloud Vision"], ["local-service", "Local OCR engine"], ["off", "Off"]])}
                     ${select("ocrMaxImagesPerPage", "Images to read per page", String(settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
                     ${select("ocrMinImageArea", "Smallest image to read", String(settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
@@ -23123,7 +23165,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
             <fieldset id="jpdb-reader-settings-panel-video" role="tabpanel" data-settings-panel="media" data-legend-key="video" hidden>
                 <legend>Video</legend>
-                <div class="grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox("subtitlePlayerEnabled", "Enable video subtitle player", settings.subtitlePlayerEnabled)}
                     ${checkbox("subtitleAutoDetect", "Auto-detect page subtitles", settings.subtitleAutoDetect)}
                     ${checkbox("subtitleOverlayVisible", "Show subtitle overlay", settings.subtitleOverlayVisible)}
@@ -23133,10 +23175,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("subtitleTranscriptVisible", "Open transcript panel by default", settings.subtitleTranscriptVisible)}
                     ${checkbox("subtitlePausePanel", "Open side panel when paused", settings.subtitlePausePanel)}
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
-                    ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
                     ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
+                </div>
+                <div class="grid jpdb-reader-settings-cgrid">
+                    ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
                     ${select("subtitleControlsMode", "Subtitle controls", settings.subtitleControlsMode, [["auto", "Compact controls"], ["hidden", "Hide controls"], ["always", "Always visible"]])}
                     ${input("subtitleFontSize", "Subtitle font size (px)", String(settings.subtitleFontSize), "number")}
                     ${input("subtitleBottomOffset", "Subtitle bottom offset (%)", String(settings.subtitleBottomOffset), "number")}
@@ -23167,7 +23211,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
             <fieldset id="jpdb-reader-settings-panel-youtube" role="tabpanel" data-settings-panel="media" data-legend-key="youTube" aria-describedby="settings-help-youtube" hidden>
                 <legend>YouTube</legend>
-                <div class="grid">
+                <div class="grid jpdb-reader-settings-tgrid">
                     ${checkbox("youtubeImmersionEnabled", "Japanese YouTube only", settings.youtubeImmersionEnabled)}
                     ${checkbox("preferJapaneseSiteLanguage", "Prefer Japanese site language and location", settings.preferJapaneseSiteLanguage)}
                     ${checkbox("youtubeShowChannelRecommendations", "Show Japanese channel suggestions", settings.youtubeShowChannelRecommendations)}
@@ -57079,6 +57123,7 @@ ${entry.url}`),
       if (this.handleNestedLookupClick(root, request.target, event)) return;
       if (!request.action) {
         this.dependencies.dismissLookup?.();
+        if (this.handleStatsClick(root, request.target, event, request.action)) return;
         if (this.handleRootImmersionClick(root, request.target, event)) return;
         if (this.handleRootClickActions(root, request.target, event, request.action)) return;
       }
@@ -63701,6 +63746,37 @@ ${entry.url}`),
     if (!tools || !showPitchAccent) return;
     replaceOptionalElement(tools, ".jpdb-reader-pitch", renderPitch(card, metaEntries), tools.firstElementChild);
   }
+  function applyPublicVocabularyFurigana(word, card, settings) {
+    if (word.closest("ruby")) return;
+    const surface = readerWordSurfaceText$1(word).trim() || word.dataset.expression || card.spelling;
+    const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
+    const token = {
+      card,
+      start: 0,
+      end: surface.length,
+      length: surface.length,
+      rubies,
+      pitchClass: word.dataset.pitchClass ?? "",
+      sentence: word.dataset.sentence
+    };
+    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies)) return;
+    const html = renderRuby(surface, token);
+    if (!html.includes("<rt")) return;
+    setInnerHtml(word, html);
+    if (word.closest(".jpdb-ocr-line")) {
+      normalizeOcrRenderedText(word);
+      const line = word.closest(".jpdb-ocr-line");
+      if (line) line.dataset.hasFuri = "true";
+    }
+    word.classList.add("jpdb-reader-has-furi");
+  }
+  function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies = []) {
+    const surfaceMatchesSpelling = surface.trim() === card.spelling.trim();
+    if (!surfaceMatchesSpelling && !rubies.length) return false;
+    if (!card.reading.trim() || card.reading.trim() === card.spelling.trim()) return false;
+    if (!shouldRenderRuby(surface, token, settings)) return false;
+    return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter$1);
+  }
   const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
   const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
   const TEXT_CONTRAST = 4.5;
@@ -64735,6 +64811,7 @@ ${entry.url}`),
   const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
   const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8e3;
   const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
+  const NEW_TAB_SETTINGS_ENRICHMENT_LIMIT = 192;
   const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
   const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
   const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -66051,8 +66128,13 @@ ${entry.url}`),
       return cards.find((card) => card.spelling === term) ?? (exact ? void 0 : cards[0]);
     }
     async publicLookupFallbackCard(card) {
+      if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return void 0;
       for (const term of fallbackLookupTermsForCard(card)) {
-        const publicCard = await this.publicLookupCard(term, true);
+        const cards = await this.jpdbVocabulary.search(term, 1).catch((error) => {
+          log.warn("Public JPDB fallback search failed", { term }, error);
+          return [];
+        });
+        const publicCard = cards.find((candidate) => candidate.spelling === term);
         if (publicCard) return publicCard;
       }
       return void 0;
@@ -66223,12 +66305,12 @@ ${entry.url}`),
         this.applyAnkiLookupToRenderedWords(token.card, lookups[index] ?? untrustedAnkiLookupResult(), roots);
       });
     }
-    async enrichPitchWords(tokens) {
+    async enrichPitchWords(tokens, limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT) {
       if (!this.settings.showPitchAccent) return;
       const uniqueTokens = this.uniqueTokens(
         tokens,
         (token) => !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),
-        NEW_TAB_PITCH_ENRICHMENT_LIMIT
+        limit
       );
       await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
         const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
@@ -66237,11 +66319,12 @@ ${entry.url}`),
         this.applyPitchAccentToRenderedWords(token.card);
       });
     }
-    async enrichPublicVocabularyWords(tokens) {
+    async enrichPublicVocabularyWords(tokens, limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT) {
+      if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
       const uniqueTokens = this.uniqueTokens(
         tokens,
         (token) => token.card.source === "fallback",
-        NEW_TAB_PITCH_ENRICHMENT_LIMIT
+        limit
       );
       await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
         const card = await this.publicLookupFallbackCard(token.card);
@@ -66250,7 +66333,7 @@ ${entry.url}`),
           return;
         }
         if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
-        this.parser.cacheCards([card]);
+        this.parser.cacheCards?.([card]);
         this.applyPublicVocabularyToRenderedWords(token.card, card);
       });
     }
@@ -66292,6 +66375,7 @@ ${entry.url}`),
       document.querySelectorAll(this.renderedWordSelector(fallback)).forEach((word) => {
         setRenderedWordPitchClass(word, pitchClass);
         setRenderedWordCardIdentity(word, card);
+        applyPublicVocabularyFurigana(word, card, this.settings);
       });
     }
     unwrapRenderedFallbackWords(card) {
@@ -66444,6 +66528,7 @@ ${entry.url}`),
           includeLocalPitch: false,
           jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS
         });
+        await this.hydrateSettingsFallbackTokens(parsed);
         if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
         const renderSettings = settingsForSettingsFormParse(form, this.settings);
         applyNestedParsePlan(plan, parsed, renderSettings);
@@ -66452,8 +66537,9 @@ ${entry.url}`),
         refreshReaderWordContrast(form);
         form.dataset.jpdbReaderParseKey = plan.parseKey;
         form.dataset.yomuSettingsSelfEnhanced = "true";
-        void this.enrichPublicVocabularyWords(parsed.flat());
-        void this.enrichPitchWords(parsed.flat());
+        const tokens = parsed.flat();
+        void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
+        void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
       } catch {
       } finally {
         clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
@@ -66466,6 +66552,23 @@ ${entry.url}`),
           }
         }
       }
+    }
+    async hydrateSettingsFallbackTokens(parsed) {
+      const tokens = this.uniqueTokens(
+        parsed.flat(),
+        (token) => token.card.source === "fallback",
+        NEW_TAB_SETTINGS_ENRICHMENT_LIMIT
+      );
+      await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
+        const card = await this.publicLookupFallbackCard(token.card);
+        if (!card) return;
+        if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+        const surface = token.sentence?.slice(token.start, token.end) || card.spelling;
+        token.card = card;
+        token.rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
+        token.pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass;
+        this.parser.cacheCards?.([card]);
+      });
     }
     isCurrentSettingsRoot(root) {
       return Boolean(root.isConnected && this.activeDialog === root && root.classList.contains("jpdb-reader-settings"));

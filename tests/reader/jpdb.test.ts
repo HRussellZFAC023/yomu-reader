@@ -883,6 +883,47 @@ function settingsJapaneseParserFixture(options: {
     return { app, form, parseJapanese, internals };
 }
 
+function newTabSettingsJapaneseParserFixture(options: {
+    spelling: string;
+    reading: string;
+    vid: number;
+    settings?: Partial<ReaderSettings>;
+}) {
+    const runtime = new NewTabRuntime();
+    const settings = {
+        ...DEFAULT_SETTINGS,
+        interfaceLanguage: 'ja' as const,
+        showFurigana: true,
+        showPitchAccent: true,
+        furiganaMode: 'all' as const,
+        ...options.settings,
+    };
+    const form = document.createElement('form');
+    form.className = 'jpdb-reader-settings';
+    form.dataset.jpdbReaderRoot = 'true';
+    form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
+    localizeSettingsForm(form, 'ja');
+    document.body.append(form);
+    const parse = vi.fn(async (texts: string[], parseOptions?: unknown): Promise<JPDBToken[][]> => {
+        void parseOptions;
+        return texts.map(text => settingsJapaneseTokenForText(text, options));
+    });
+    const internals = runtime as unknown as {
+        settings: typeof settings;
+        activeDialog?: HTMLElement;
+        parser: { canParse(): boolean; parse: typeof parse };
+        parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+        hydrateSettingsFallbackTokens(parsed: JPDBToken[][]): Promise<void>;
+        enrichPitchWords(tokens: JPDBToken[], limit?: number): Promise<void>;
+    };
+    internals.settings = settings;
+    internals.activeDialog = form;
+    internals.parser = { canParse: () => true, parse };
+    internals.hydrateSettingsFallbackTokens = vi.fn(async () => undefined);
+    internals.enrichPitchWords = vi.fn(async () => undefined);
+    return { form, parse, internals };
+}
+
 function settingsJapaneseTokenForText(
     text: string,
     options: { spelling: string; reading: string; vid: number },
@@ -4229,8 +4270,7 @@ describe('reader helpers', () => {
                     allowJpdbTimeoutFallback: true,
                     allowSegmentedFallback: true,
                     includeLocalPitch: false,
-                    requireJpdb: false,
-                    skipJpdb: true,
+                    jpdbTimeoutMs: 10_000,
                 }),
             );
             const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
@@ -4240,6 +4280,37 @@ describe('reader helpers', () => {
             expect(parsedWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
         } finally {
             app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('parses Japanese settings labels in the hosted newtab runtime with segmented fallback enabled', async () => {
+        const { form, parse, internals } = newTabSettingsJapaneseParserFixture({
+            spelling: '設定',
+            reading: 'せってい',
+            vid: 3579,
+        });
+
+        try {
+            await internals.parseSettingsJapanese(form);
+
+            expect(parse).toHaveBeenCalledWith(
+                expect.arrayContaining(['よむ 設定']),
+                expect.objectContaining({
+                    allowJpdbTimeoutFallback: true,
+                    allowSegmentedFallback: true,
+                    includeLocalPitch: false,
+                    jpdbTimeoutMs: 10_000,
+                }),
+            );
+            const parsedWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
+            expect(parsedWord).toBeTruthy();
+            expect(parsedWord?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(parsedWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(parsedWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
+            expect(internals.hydrateSettingsFallbackTokens).toHaveBeenCalled();
+            expect(internals.enrichPitchWords).toHaveBeenCalledWith(expect.any(Array), 192);
+        } finally {
             document.body.replaceChildren();
         }
     });
