@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.45
+// @version      0.7.46
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -12061,6 +12061,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -35128,6 +35129,7 @@ ${glossaryKey}`;
     "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
     "[data-anki-setup-help]",
+    ".jpdb-reader-status-line",
     "a[href]",
     "button",
     "input",

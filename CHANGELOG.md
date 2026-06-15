@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.46] - 2026-06-15
+
+### Fixed
+
+- Hosted new-tab Settings now finishes self-enhancing Japanese settings panels without the userscript bridge by parsing hidden panels up front, using the runtime JPDB parser with timeout fallback, and avoiding redundant tab-switch reparses while keeping status notices and native controls untouched.
+
 ## [0.7.45] - 2026-06-15
 
 ### Fixed
