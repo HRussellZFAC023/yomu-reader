@@ -3665,6 +3665,7 @@ export class SubtitlePlayerController {
         const startY = event.clientY;
         const startWidth = panelRect.width;
         const startHeight = panelRect.height;
+        const originalSize = { ...this.transcriptPanelSize };
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 
         // pointermove fires far faster than the display refreshes; coalesce the
@@ -3691,12 +3692,18 @@ export class SubtitlePlayerController {
             });
         };
 
-        const onUp = () => {
+        const onUp = (upEvent: PointerEvent) => {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
             if (resizeFrame !== undefined) {
                 cancelAnimationFrame(resizeFrame);
                 resizeFrame = undefined;
+            }
+            const distance = Math.hypot(upEvent.clientX - startX, upEvent.clientY - startY);
+            if (distance <= 8) {
+                Object.assign(this.transcriptPanelSize, originalSize);
+                this.closeTranscriptPanel();
+                return;
             }
             saveTranscriptPanelSize(this.transcriptPanelSize);
             this.positionTranscriptPanel({ realignAfterInset: true });
