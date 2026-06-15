@@ -41484,7 +41484,7 @@ ${spelling}`);
     try {
       const done = log$h.time("listNewTabCards", { deck: settings.ankiDeck, model: settings.ankiModel, limit });
       const allDeckNames = await newTabAnkiDeckNames(client, settings);
-      const scope = deckScope.trim();
+      const scope = normalizeNewTabAnkiDeckScope(deckScope);
       const deckNames = scope ? allDeckNames.filter((deck) => deck === scope || deck.startsWith(`${scope}::`)) : allDeckNames;
       if (!deckNames.length) {
         done();
@@ -41573,6 +41573,10 @@ ${spelling}`);
   }
   function isAnkiDeckDisabled(deck, disabledDecks) {
     return disabledDecks.some((disabled) => deck === disabled || Boolean(disabled && deck.startsWith(`${disabled}::`)));
+  }
+  function normalizeNewTabAnkiDeckScope(deckScope) {
+    const scope = deckScope.trim();
+    return scope === "all" ? "" : scope;
   }
   async function loadReviewableNewTabAnkiCards(client, candidateCardIds, kind, deckNames, limit = candidateCardIds.length) {
     const dueByCardId = kind === "due" ? await ankiDueFlags(client, candidateCardIds) : /* @__PURE__ */ new Map();
@@ -57966,7 +57970,7 @@ ${entry.url}`),
       if (!accumulator.cards.length && this.hasConfiguredReviewSources()) accumulator.fallbackNotice = true;
       const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
       const fallback = jitenOnlyApiFallback ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress) : await this.loadFreshStudyWords(onProgress);
-      if (fallback.cards.length && !accumulator.cards.length) {
+      if (fallback.cards.length && !this.currentModeStudyCardCount(accumulator.cards)) {
         accumulator.labels = jitenOnlyApiFallback ? ["Jiten"] : [];
         accumulator.reviewCountMode = false;
         delete accumulator.emptyMessageKey;
@@ -57982,7 +57986,7 @@ ${entry.url}`),
       return hasJpdbApiCredential(settings) || hasJitenApiCredential(settings) || Boolean(settings.ankiEnabled && settings.newTabAnkiEnabled);
     }
     shouldUseJitenOnlyApiStudyFallback(plan, accumulator) {
-      if (accumulator.cards.length || this.shouldKeepEmptyReviewLoad(accumulator)) return false;
+      if (this.currentModeStudyCardCount(accumulator.cards) || this.shouldKeepEmptyReviewLoad(accumulator)) return false;
       if (plan.kind !== "auto-review" && !plan.primarySources.includes("jpdb")) return false;
       return this.hasJitenOnlyApiCredentials();
     }
@@ -57997,19 +58001,22 @@ ${entry.url}`),
       return studyCount < plan.studyFallback.minCards && !accumulator.cards.some((card) => this.isDictionaryCard(card));
     }
     shouldLoadEmptyApiStudyFallback(accumulator) {
-      return !accumulator.cards.length && accumulator.reviewCountMode && !this.shouldKeepEmptyReviewLoad(accumulator);
+      return !this.currentModeStudyCardCount(accumulator.cards) && accumulator.reviewCountMode && !this.shouldKeepEmptyReviewLoad(accumulator);
     }
     shouldKeepEmptyReviewLoad(accumulator) {
       return accumulator.labels.some((label) => label.includes(this.text("liveReview")));
     }
     shouldLoadUnavailableExplicitAnkiFallback(plan, accumulator) {
-      return plan.kind === "explicit-source" && plan.primarySources[0] === "anki" && !accumulator.cards.length;
+      return plan.kind === "explicit-source" && plan.primarySources[0] === "anki" && !this.currentModeStudyCardCount(accumulator.cards);
     }
     shouldLoadUnconfiguredAutoStudyFallback(plan, accumulator) {
-      return plan.studyFallback.kind === "unconfigured-auto-study" && !accumulator.cards.length && !accumulator.reviewCountMode;
+      return plan.studyFallback.kind === "unconfigured-auto-study" && !this.currentModeStudyCardCount(accumulator.cards) && !accumulator.reviewCountMode;
     }
     shouldLoadAutoSettingStudyFallback(accumulator) {
-      return this.dependencies.getSettings().newTabSource === "auto" && !accumulator.cards.length && !this.shouldKeepEmptyReviewLoad(accumulator);
+      return this.dependencies.getSettings().newTabSource === "auto" && !this.currentModeStudyCardCount(accumulator.cards) && !this.shouldKeepEmptyReviewLoad(accumulator);
+    }
+    currentModeStudyCardCount(cards) {
+      return this.state.mode === "kanji" ? this.kanjiStudyCardsFromSourceCards(cards).length : cards.length;
     }
     async loadLocalOrBuiltInFreshStudyWords(onProgress) {
       const dictionaryResult = await this.loadDictionaryWords(onProgress);
@@ -58089,9 +58096,11 @@ ${entry.url}`),
         jpdbMiningEnabled: settings.jpdbMiningEnabled,
         jpdbReviewMode: settings.newTabJpdbReviewMode,
         jpdbDeck: settings.newTabJpdbDeck,
+        activeJpdbDeck: this.state.jpdbDeck,
         ankiEnabled: settings.ankiEnabled,
         ankiNewTabEnabled: settings.newTabAnkiEnabled,
         ankiDeck: settings.ankiDeck,
+        activeAnkiDeck: this.normalizedAnkiDeckScope(),
         ankiModel: settings.ankiModel,
         ankiDisabledDecks: settings.newTabAnkiDisabledDecks,
         dictionaries: settings.localDictionariesEnabled,
@@ -58111,7 +58120,7 @@ ${entry.url}`),
       }
       const cardLimit = Math.max(1, Math.floor(limit));
       let unavailable = false;
-      const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.state.ankiDeck || void 0);
+      const loadCards = this.dependencies.anki.listNewTabCards(cardLimit, this.normalizedAnkiDeckScope() || void 0);
       const cards = await (this.state.source === "anki" ? loadCards : promiseWithTimeout(loadCards, timeoutMs, "Anki timed out.")).catch((error) => {
         unavailable = true;
         log$3.warn("New tab Anki source failed", { error });
@@ -58123,6 +58132,10 @@ ${entry.url}`),
         reviewCountMode: true,
         emptyMessageKey: unavailable ? "ankiUnreachable" : void 0
       };
+    }
+    normalizedAnkiDeckScope() {
+      const scope = (this.state.ankiDeck ?? "").trim();
+      return scope === "all" ? "" : scope;
     }
     async loadDictionaryWords(_onProgress, limit = NEW_TAB_WORD_LIMIT) {
       const settings = this.dependencies.getSettings();
