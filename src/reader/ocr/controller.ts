@@ -1767,7 +1767,20 @@ function captureVideoFrameDataUrl(video: HTMLVideoElement): string | undefined {
     }
 }
 
+function isTwitterHost(hostname = location.hostname): boolean {
+    return hostname === 'twitter.com'
+        || hostname === 'x.com'
+        || hostname.endsWith('.twitter.com')
+        || hostname.endsWith('.x.com');
+}
+
 function isLikelyPausedVideoThumbnail(video: HTMLVideoElement): boolean {
+    // Twitter/X plays every video inline in the timeline/tweet — there is no
+    // distinct "watch" player as on YouTube (clicking a clip just routes to the
+    // tweet detail page, keeping the same <article> markup), so a paused-frame
+    // OCR card would pop over autoplay timeline clips. Treat all of them as
+    // thumbnails; posted photos still flow through the normal image OCR path.
+    if (isTwitterHost()) return true;
     // A real feed/preview tile container (incl. the inline hover preview) is
     // unambiguous — checked before the player selector so YouTube's preview,
     // which reuses player markup, is still treated as a thumbnail.

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.29] - 2026-06-15
+
+### Fixed
+
+- Twitter/X no longer shows a paused-frame OCR card on videos. Twitter plays every clip inline in the timeline and keeps the same markup on the tweet detail page, so there is no separate "watch" player to distinguish from a feed preview; all Twitter/X videos now opt out of paused-frame OCR. Posted photos still flow through the normal image OCR path.
+
 ## [0.7.28] - 2026-06-15
 
 ### Fixed
