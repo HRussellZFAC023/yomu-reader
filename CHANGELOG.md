@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.64] - 2026-06-15
+
+### Fixed
+
+- Enabled Jiten dictionary definitions to work fully without a configured Jiten API key, including meanings, readings, example sentences, related words (composite / used in), and speech bubble TTS buttons. The card spelling is resolved using a public search fallback when a key is absent, and public Jiten endpoints are successfully queried without the Authorization header.
+- Coexisted the external open button as a pill link rather than replacement content when keyless definitions are rendered.
+- Fixed a potential JSDOM TypeError where `location.pathname` is missing or undefined under test environments.
+
 ## [0.7.63] - 2026-06-15
 
 ### Fixed
