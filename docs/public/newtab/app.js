@@ -66440,7 +66440,9 @@ ${entry.url}`),
           allowJpdbTimeoutFallback: true,
           allowSegmentedFallback: true,
           includeLocalPitch: false,
-          jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS
+          jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS,
+          requireJpdb: false,
+          skipJpdb: true
         });
         if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
         const renderSettings = settingsForSettingsFormParse(form, this.settings);
