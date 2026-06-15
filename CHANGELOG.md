@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.45] - 2026-06-15
+
+### Fixed
+
+- Hosted settings chrome enhancement now uses the local/segmented parser fallback instead of hitting JPDB, keeping parsed settings labels responsive while preserving the concurrent visible-page enrichment release.
+
 ## [0.7.44] - 2026-06-15
 
 ### Fixed
