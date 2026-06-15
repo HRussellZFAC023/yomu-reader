@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.30] - 2026-06-15
+
+### Fixed
+
+- New-tab search results no longer repeat the same kana reading in the metadata when that reading is already visible as furigana on the result term, while still showing the plain reading when furigana is disabled or suppressed by settings.
+
 ## [0.7.29] - 2026-06-15
 
 ### Fixed

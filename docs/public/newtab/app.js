@@ -9259,6 +9259,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -12313,7 +12314,7 @@ ${entry.reading || ""}`;
   function flattenNoteFields(fields) {
     const out = {};
     Object.entries(fields ?? {}).forEach(([name, value]) => {
-      out[name] = stripHtml$2(String(value?.value ?? ""));
+      out[name] = stripHtml$3(String(value?.value ?? ""));
     });
     return out;
   }
@@ -12356,7 +12357,7 @@ ${entry.reading || ""}`;
   function normalizeAnkiFieldName(value) {
     return value.replace(/[_\s-]+/g, "").toLowerCase();
   }
-  function stripHtml$2(value) {
+  function stripHtml$3(value) {
     return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
   }
   function suggestAnkiFieldFromContent(role, fields, samples) {
@@ -12440,7 +12441,7 @@ ${entry.reading || ""}`;
       for (const fieldName of fields) {
         const raw = String(note.fields?.[fieldName]?.value ?? "");
         if (!raw.trim()) continue;
-        out[fieldName]?.push({ raw, text: stripHtml$2(raw) });
+        out[fieldName]?.push({ raw, text: stripHtml$3(raw) });
       }
     }
     return out;
@@ -15090,7 +15091,7 @@ ${entry.reading || ""}`;
     ].join(";");
   }
   function stripForMobileHandoff(value) {
-    return stripHtml$2(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    return stripHtml$3(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   }
   function unique$2(items) {
     return [...new Set(items)];
@@ -16177,7 +16178,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ...metrics,
       ...readings2,
       parts: readKanjiMapParts(jisho, kanji),
-      hint: stripHtml$1(stringValue$1(kanjiAlive?.mn_hint)),
+      hint: stripHtml$2(stringValue$1(kanjiAlive?.mn_hint)),
       radical,
       examples,
       references,
@@ -16213,7 +16214,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function readKanjiMapParts(jisho, kanji) {
     return stringArray(jisho?.parts).filter((part) => part !== kanji && JAPANESE_RE$1.test(part)).slice(0, 10);
   }
-  function stripHtml$1(value) {
+  function stripHtml$2(value) {
     return value.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
   }
   function buildKanjiFacts(kanji, jpdbInfo, rtkInfo, kanjiVGInfo, entries, sourceInfo = null) {
@@ -40293,7 +40294,7 @@ ${spelling}`);
   }
   function languagePod101RowKana(row) {
     const kanaHtml = findHtmlElementByClass(row, "span", "dc-vocab_kana");
-    return stripHtml(kanaHtml ?? "").trim();
+    return stripHtml$1(kanaHtml ?? "").trim();
   }
   async function getCommonsAudioUrls(term, source, timeoutMs, proxyUrl = "") {
     const apiUrl = commonsSearchApiUrl(term, source);
@@ -40399,7 +40400,7 @@ ${spelling}`);
   function decodeHtmlAttribute(value) {
     return value.replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code))).replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
   }
-  function stripHtml(value) {
+  function stripHtml$1(value) {
     return decodeHtmlAttribute(value.replace(/<[^>]+>/g, ""));
   }
   function isValidCommonsAudioFilename(filename, fileUser, term, source) {
@@ -52994,10 +52995,27 @@ ${newTabCardReading(card)}`;
   }
   function searchWordSummaryMeta(card, context, ankiLookup) {
     return [
-      newTabCardOptionalReading(card),
+      searchWordSummaryReading(card, context),
       searchWordPooledStatusLabel(card, context, ankiLookup),
       card.frequencyRank ? `#${card.frequencyRank}` : ""
     ].filter(Boolean);
+  }
+  function searchWordSummaryReading(card, context) {
+    const reading = newTabCardOptionalReading(card);
+    if (!reading) return "";
+    const rubyReading = renderedSearchTermRubyReading(card, context.settings);
+    return rubyReading && compactReading(rubyReading) === compactReading(reading) ? "" : reading;
+  }
+  function renderedSearchTermRubyReading(card, settings) {
+    const html = renderSearchCardRubyHtml(card, settings);
+    if (!html.includes("<rt")) return "";
+    return Array.from(html.matchAll(/<rt\b[^>]*>(.*?)<\/rt>/g)).map((match) => stripHtml(match[1] ?? "")).join("");
+  }
+  function stripHtml(value) {
+    return value.replace(/<[^>]*>/g, "");
+  }
+  function compactReading(value) {
+    return value.replace(/\s+/g, "").trim();
   }
   function searchWordPooledStatusLabel(card, context, ankiLookup) {
     const language = context.language;
