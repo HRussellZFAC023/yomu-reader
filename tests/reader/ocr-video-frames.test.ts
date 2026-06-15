@@ -351,6 +351,26 @@ describe('paused-video OCR frames', () => {
 
         expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
     });
+
+    it('skips Twitter/X videos entirely (they play inline, with no separate watch player)', () => {
+        // Twitter plays clips inline in the timeline and routes to the same
+        // <article> markup on the tweet detail page, so there is no thumbnail-vs-
+        // player distinction to lean on — every paused video would otherwise get
+        // an OCR card. The whole host opts out of paused-frame OCR.
+        vi.stubGlobal('location', { hostname: 'x.com', href: 'https://x.com/theo', origin: 'https://x.com' });
+        try {
+            createController();
+            const video = pausedVideo();
+
+            video.dispatchEvent(new Event('pause'));
+
+            expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
 });
 
 describe('paused-video frame letterbox fit (UT-77a)', () => {

@@ -7035,7 +7035,11 @@ ${spelling}`);
       return void 0;
     }
   }
+  function isTwitterHost(hostname = location.hostname) {
+    return hostname === "twitter.com" || hostname === "x.com" || hostname.endsWith(".twitter.com") || hostname.endsWith(".x.com");
+  }
   function isLikelyPausedVideoThumbnail(video) {
+    if (isTwitterHost()) return true;
     if (video.closest(VIDEO_FRAME_THUMBNAIL_CONTAINER_SELECTOR)) return true;
     if (video.closest(VIDEO_FRAME_PLAYER_SELECTOR)) return false;
     if (!video.closest(VIDEO_FRAME_THUMBNAIL_LINK_SELECTOR)) return false;
