@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nu/owJapQGpcwPVua63DP2aDkRUxzxhjNdeMhD6Ya30=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ZXL88bXCkmMxdLTpTgK7sSvUy0sdeZkh+XKA8Zsbvis=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-XVIqFA1yu1PKDGZLmpqNg0RB2njgu86UFavyIxSbM2I=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -51,6 +51,8 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
+
+/* Bundled dependency source information: fflate*/
 
 (function () {
   'use strict';
@@ -12059,7 +12061,6 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
-    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
