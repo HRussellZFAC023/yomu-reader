@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.54] - 2026-06-15
+
+### Fixed
+
+- Supersedes 0.7.53 with the deferred YouTube public-vocabulary hydration release validation fixed, so live YouTube titles and chrome regain ruby/pitch without blocking first paint.
+
 ## [0.7.53] - 2026-06-15
 
 ### Fixed

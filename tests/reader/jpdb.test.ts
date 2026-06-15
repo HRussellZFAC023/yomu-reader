@@ -26499,7 +26499,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps YouTube background pitch enrichment local-only to avoid feed scan fanout', async () => {
+    it('defers YouTube background public pitch enrichment to avoid feed scan fanout', async () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC',
             origin: 'https://www.youtube.com',
@@ -26534,7 +26534,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(youtubeCard)], internals.backgroundPitchEnrichmentOptions());
 
-            expect(internals.backgroundPitchEnrichmentOptions()).toEqual({ publicLookup: false });
+            expect(internals.backgroundPitchEnrichmentOptions()).toEqual({ publicLookupLimit: 0 });
             expect(publicPitch).not.toHaveBeenCalled();
         } finally {
             app.destroy();
