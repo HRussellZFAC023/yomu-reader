@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.32
+// @version      0.7.33
 // @author       Henry
 // @description  Japanese popup reader with JPDB, Jiten, Yomitan, OCR, subtitles, and Anki.
 // @license      MIT
@@ -38424,13 +38424,12 @@ ${glossaryKey}`;
       getSettings: () => this.settings,
       isJpdbBackedCard: (card) => this.isJpdbBackedCard(card),
       renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger, ankiLookup) => renderWordPills({
+      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup) => renderWordPills({
         card,
         jpdbUrl,
         settings: this.settings,
         metaEntries,
         overrideQuery,
-        inert: trigger === "hover",
         ankiLookup,
         isJpdbBackedCard: (value) => this.isJpdbBackedCard(value),
         dictionaryLabel: (name) => this.dictionaryLabel(name)

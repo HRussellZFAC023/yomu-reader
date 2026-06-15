@@ -4918,7 +4918,7 @@ describe('reader helpers', () => {
         expect(html).not.toContain('>Uchisen ');
     });
 
-    it('keeps hover lookup pills visible but inert', () => {
+    it('keeps hover lookup pills visible and actionable', () => {
         const html = renderWordPills({
             card,
             jpdbUrl: 'https://jpdb.io/vocabulary/1',
@@ -4927,7 +4927,6 @@ describe('reader helpers', () => {
                 interfaceLanguage: 'en',
                 dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
             },
-            inert: true,
             isJpdbBackedCard: () => true,
             dictionaryLabel: name => name,
         });
@@ -4937,11 +4936,11 @@ describe('reader helpers', () => {
         expect(html).toContain('>Yomu ');
         expect(html).not.toContain('>Jisho ');
         expect(html).toContain('>Copy ');
-        expect(html).toContain('role="link" aria-disabled="true" tabindex="-1"');
-        expect(html).toContain('role="button" aria-disabled="true" tabindex="-1"');
-        expect(html).not.toContain('<a ');
-        expect(html).not.toContain('href=');
-        expect(html).not.toContain('data-action="copy-word"');
+        expect(html).toContain('<a ');
+        expect(html).toContain('href="https://jiten.moe/parse?text=');
+        expect(html).toContain('href="https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=');
+        expect(html).toContain('data-action="copy-word"');
+        expect(html).not.toContain('aria-disabled="true"');
     });
 
     it('renders an Add to Anki pill for trusted Anki misses', () => {

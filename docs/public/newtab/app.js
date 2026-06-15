@@ -64436,13 +64436,12 @@ ${entry.url}`),
       getSettings: () => this.settings,
       isJpdbBackedCard: (card) => this.parser.isJpdbBackedCard(card),
       renderWordHistory: (language, trigger) => this.navigation.renderWordHistory(language, trigger),
-      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, trigger, ankiLookup) => renderWordPills({
+      renderWordPills: (card, jpdbUrl, metaEntries, overrideQuery, _trigger, ankiLookup) => renderWordPills({
         card,
         jpdbUrl,
         settings: this.settings,
         metaEntries,
         overrideQuery,
-        inert: trigger === "hover",
         ankiLookup,
         isJpdbBackedCard: (value) => this.parser.isJpdbBackedCard(value),
         dictionaryLabel: (name) => this.dictionaryLabel(name)
