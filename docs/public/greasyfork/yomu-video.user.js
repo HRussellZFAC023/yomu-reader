@@ -11984,7 +11984,8 @@ ${spelling}`);
     // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
     // from the tick and run the normal navigation path when it changes.
     syncShortsReelNavigation() {
-      if (!location?.pathname?.startsWith("/shorts/")) {
+      const pathname = (typeof window !== "undefined" ? window.location?.pathname : void 0) || "";
+      if (!pathname.startsWith("/shorts/")) {
         this.lastShortsNavVideoId = "";
         return;
       }
@@ -13388,7 +13389,8 @@ ${spelling}`);
       }
     }
     async discoverYouTubeTracks() {
-      if (!location.hostname.includes("youtube.com")) return;
+      const hostname = (typeof window !== "undefined" ? window.location?.hostname : void 0) || "";
+      if (!hostname.includes("youtube.com")) return;
       const videoId = getYouTubeVideoId();
       if (!videoId) return;
       this.updateYouTubeDiscoveryVideo(videoId);
