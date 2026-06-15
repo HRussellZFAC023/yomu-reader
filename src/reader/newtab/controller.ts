@@ -1214,6 +1214,8 @@ export class NewTabController {
             if (this.handleRootImmersionClick(root, request.target, event)) return;
             request.target.closest<HTMLDetailsElement>('.jpdb-reader-newtab-more')?.removeAttribute('open');
             if (this.handleRootClickActions(root, request.target, event, request.action)) return;
+        } else if (this.handleRootClickActions(root, request.target, event, request.action)) {
+            return;
         }
         if (this.handleNestedLookupClick(root, request.target, event)) return;
         if (!request.action) {
