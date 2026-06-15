@@ -39136,6 +39136,7 @@ ${spelling}`);
       const startY = event.clientY;
       const startWidth = panelRect.width;
       const startHeight = panelRect.height;
+      const originalSize = { ...this.transcriptPanelSize };
       event.currentTarget.setPointerCapture?.(event.pointerId);
       let resizeFrame;
       const onMove = (moveEvent) => {
@@ -39156,12 +39157,18 @@ ${spelling}`);
           this.positionTranscriptPanel({ skipInset: true });
         });
       };
-      const onUp = () => {
+      const onUp = (upEvent) => {
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         if (resizeFrame !== void 0) {
           cancelAnimationFrame(resizeFrame);
           resizeFrame = void 0;
+        }
+        const distance = Math.hypot(upEvent.clientX - startX, upEvent.clientY - startY);
+        if (distance <= 8) {
+          Object.assign(this.transcriptPanelSize, originalSize);
+          this.closeTranscriptPanel();
+          return;
         }
         saveTranscriptPanelSize(this.transcriptPanelSize);
         this.positionTranscriptPanel({ realignAfterInset: true });
