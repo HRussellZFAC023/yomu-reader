@@ -1,4 +1,4 @@
-import { escapeHtml, renderTokensToHtml, setInnerHtml } from '../dom/index';
+import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
 import { normalizeOcrRenderedText } from './rendered-text';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
@@ -59,6 +59,11 @@ interface OcrControllerOptions {
     fallbackCardFromText?: (text: string) => JPDBCard;
     /** Test seam: overrides the canvas capture of a paused video frame. */
     captureVideoFrame?: (video: HTMLVideoElement) => string | undefined;
+}
+
+interface OcrWordRenderState {
+    surface: string;
+    token: JPDBToken;
 }
 
 const MAX_CACHE_ITEMS = 36;
@@ -217,6 +222,7 @@ export class ImageOcrController {
     private videoFrameVideos = new Map<HTMLImageElement, HTMLVideoElement>();
     private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
     private videoFrameStatuses = new Map<HTMLVideoElement, HTMLElement>();
+    private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -399,6 +405,10 @@ export class ImageOcrController {
         if (!line) return;
         const state = [...this.states.values()].find(candidate => candidate.overlay.contains(line));
         if (state) this.pinLine(state, line);
+    }
+
+    clearActiveLines(): void {
+        this.unpinAllLines();
     }
 
     private ensureObserver(settings: ReaderSettings): void {
@@ -640,7 +650,10 @@ export class ImageOcrController {
         }
         this.positionState(state.image);
         this.updateVideoFrameStatusForImage(state.image, 'ready');
-        void this.options.enrichRenderedTokens?.(flatTokens, state.overlay);
+        void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => {
+            this.clearInactiveOcrMarkup(state.overlay);
+            this.schedulePosition();
+        });
     }
 
     private async parseOcrLines(lines: OcrLine[]): Promise<JPDBToken[][]> {
@@ -666,6 +679,7 @@ export class ImageOcrController {
         settings: ReaderSettings,
     ): HTMLElement {
         const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
+        this.rememberOcrWordRenderStates(element, tokens);
         element.addEventListener('click', event => this.toggleOcrLinePinned(state, element, event));
         return element;
     }
@@ -689,13 +703,17 @@ export class ImageOcrController {
         state.overlay.querySelectorAll<HTMLElement>('.jpdb-ocr-line-active').forEach(line => {
             if (line !== element) this.unpinLine(line);
         });
+        this.activateOcrMarkup(element);
         element.classList.add('jpdb-ocr-line-active');
         element.dataset.pinned = 'true';
+        this.schedulePosition();
     }
 
     private unpinLine(element: HTMLElement): void {
         element.classList.remove('jpdb-ocr-line-active');
         element.dataset.pinned = 'false';
+        this.clearOcrMarkup(element);
+        this.schedulePosition();
     }
 
     private unpinOcrLinesFromDocumentEvent(event: Event): void {
@@ -1016,6 +1034,71 @@ export class ImageOcrController {
         this.states.clear();
     }
 
+    private rememberOcrWordRenderStates(line: HTMLElement, tokens: JPDBToken[]): void {
+        const tokensByKey = new Map(tokens.map(token => [ocrTokenRenderKey(token), token]));
+        line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
+            const token = tokensByKey.get(ocrRenderedWordKey(word));
+            if (!token) return;
+            this.ocrWordRenderStates.set(word, {
+                surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || '',
+                token,
+            });
+        });
+    }
+
+    private activateOcrMarkup(line: HTMLElement): void {
+        let hasFurigana = false;
+        const settings = this.options.getSettings();
+        line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
+            const state = this.ocrWordRenderStates.get(word);
+            if (!state) return;
+            this.applyOcrPitchClass(word, state.token);
+            if (!shouldRenderRuby(state.surface, state.token, settings)) {
+                this.setOcrWordPlainText(word, state.surface);
+                return;
+            }
+            setInnerHtml(word, renderRuby(state.surface, state.token));
+            normalizeOcrRenderedText(word);
+            word.classList.add('jpdb-reader-has-furi');
+            hasFurigana = true;
+        });
+        line.dataset.hasFuri = String(hasFurigana);
+    }
+
+    private clearOcrMarkup(line: HTMLElement): void {
+        line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
+            const state = this.ocrWordRenderStates.get(word);
+            if (!state) return;
+            this.clearOcrPitchClass(word);
+            this.setOcrWordPlainText(word, state.surface);
+        });
+        line.dataset.hasFuri = 'false';
+    }
+
+    private clearInactiveOcrMarkup(root: ParentNode): void {
+        root.querySelectorAll<HTMLElement>('.jpdb-ocr-line:not(.jpdb-ocr-line-active)').forEach(line => this.clearOcrMarkup(line));
+    }
+
+    private applyOcrPitchClass(word: HTMLElement, token: JPDBToken): void {
+        this.clearOcrPitchClass(word);
+        const pitchClass = ocrSafePitchClass(token.pitchClass);
+        word.dataset.pitchClass = pitchClass;
+        if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
+    }
+
+    private clearOcrPitchClass(word: HTMLElement): void {
+        word.classList.forEach(className => {
+            if (/^jpdb-pitch-/u.test(className)) word.classList.remove(className);
+        });
+        word.dataset.pitchClass = '';
+    }
+
+    private setOcrWordPlainText(word: HTMLElement, surface: string): void {
+        word.classList.remove('jpdb-reader-has-furi');
+        setInnerHtml(word, escapeHtml(surface));
+        normalizeOcrRenderedText(word);
+    }
+
     // Drop every paused-frame and image overlay when YouTube navigates so no
     // stale OCR artifact (rail resume button, overlay over the player) carries
     // across the SPA route change, then re-scan the destination page.
@@ -1150,9 +1233,30 @@ function setOcrLineDataset(element: HTMLElement, result: OcrResult, line: OcrLin
 function createOcrLineText(line: OcrLine, tokens: JPDBToken[], settings: ReaderSettings): HTMLElement {
     const textElement = document.createElement('span');
     textElement.className = 'jpdb-ocr-line-text';
-    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
+    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, inactiveOcrTokens(tokens), inactiveOcrSettings(settings)) : escapeHtml(line.text));
     normalizeOcrRenderedText(textElement);
     return textElement;
+}
+
+function inactiveOcrTokens(tokens: JPDBToken[]): JPDBToken[] {
+    return tokens.map(token => ({ ...token, pitchClass: '' }));
+}
+
+function inactiveOcrSettings(settings: ReaderSettings): ReaderSettings {
+    return { ...settings, furiganaMode: 'off' };
+}
+
+function ocrTokenRenderKey(token: JPDBToken): string {
+    return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
+}
+
+function ocrRenderedWordKey(word: HTMLElement): string {
+    return `${word.dataset.tokenStart ?? ''}:${word.dataset.tokenEnd ?? ''}:${word.dataset.vid ?? ''}:${word.dataset.sid ?? ''}`;
+}
+
+function ocrSafePitchClass(pitchClass: string | undefined): string {
+    const normalized = pitchClass?.trim() ?? '';
+    return /^(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/u.test(normalized) ? normalized : '';
 }
 
 function setOcrLinePosition(element: HTMLElement, result: OcrResult, line: OcrLine): void {

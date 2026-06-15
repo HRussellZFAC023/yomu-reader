@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.58
+// @version      0.7.59
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-zFyC3z6KcNIrqtkGWsmteEp9hiuWQTiWDHUjyRSWgEE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tBQq6OB+YEjJPJ1iCxde9i2SvRrGSCxVlgTJgE/nWMg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-XVIqFA1yu1PKDGZLmpqNg0RB2njgu86UFavyIxSbM2I=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-2w+6kOcn77CCgiNOkhDgBBejEhr6EW1Iu8aekFydiGA=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -31165,6 +31165,8 @@ ${glossaryKey}`;
   }
   function applyPublicVocabularyFurigana(word, card, settings) {
     if (word.closest("ruby")) return;
+    const ocrLine = word.closest(".jpdb-ocr-line");
+    if (ocrLine && !ocrLine.classList.contains("jpdb-ocr-line-active")) return;
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
@@ -31180,10 +31182,9 @@ ${glossaryKey}`;
     const html = renderRuby(surface, token);
     if (!html.includes("<rt")) return;
     setInnerHtml(word, html);
-    if (word.closest(".jpdb-ocr-line")) {
+    if (ocrLine) {
       normalizeOcrRenderedText(word);
-      const line = word.closest(".jpdb-ocr-line");
-      if (line) line.dataset.hasFuri = "true";
+      ocrLine.dataset.hasFuri = "true";
     }
     word.classList.add("jpdb-reader-has-furi");
   }
@@ -35268,6 +35269,7 @@ ${glossaryKey}`;
       destroy: noop2,
       scanVisible: noop2,
       pinLineForElement: noop2,
+      clearActiveLines: noop2,
       captureSourceImageForElement: () => void 0
     };
   }
@@ -40347,6 +40349,7 @@ ${glossaryKey}`;
       }
       const hadSettingsDialog = Boolean(this.activePopover?.classList.contains("jpdb-reader-settings"));
       this.prepareActivePopoverDismiss(options);
+      this.ocr.clearActiveLines();
       this.restoreSettingsPreviewState();
       this.removeReaderDialogNodes();
       this.stackedSettingsDialog = void 0;
@@ -40365,6 +40368,7 @@ ${glossaryKey}`;
     }
     dismissStackedLookupOverSettings(options) {
       this.prepareActivePopoverDismiss(options);
+      this.ocr.clearActiveLines();
       this.nativeTitleGuard.restore();
       this.activePopover?.remove();
       this.activeBackdrop?.remove();

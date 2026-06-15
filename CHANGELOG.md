@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.59] - 2026-06-15
+
+### Fixed
+
+- OCR image text now keeps furigana and pitch markup inactive until the user activates an OCR line or word, and clears that rich markup when selection moves or the lookup closes so docs/image OCR surfaces do not leave stale ruby or underline overlays.
+- Expanded search word details now omit fetched-empty Jiten panels while preserving the generic keyless Jiten fallback link elsewhere.
+
 ## [0.7.58] - 2026-06-15
 
 ### Fixed

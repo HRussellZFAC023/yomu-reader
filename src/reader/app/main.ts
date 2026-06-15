@@ -354,6 +354,7 @@ function createNoopImageOcrController(): ImageOcrController {
         destroy: noop,
         scanVisible: noop,
         pinLineForElement: noop,
+        clearActiveLines: noop,
         captureSourceImageForElement: () => undefined,
     } as unknown as ImageOcrController;
 }
@@ -6579,6 +6580,7 @@ export class ReaderApp {
         }
         const hadSettingsDialog = Boolean(this.activePopover?.classList.contains('jpdb-reader-settings'));
         this.prepareActivePopoverDismiss(options);
+        this.ocr.clearActiveLines();
         this.restoreSettingsPreviewState();
         this.removeReaderDialogNodes();
         this.stackedSettingsDialog = undefined;
@@ -6603,6 +6605,7 @@ export class ReaderApp {
 
     private dismissStackedLookupOverSettings(options: DismissOptions): void {
         this.prepareActivePopoverDismiss(options);
+        this.ocr.clearActiveLines();
         this.nativeTitleGuard.restore();
         this.activePopover?.remove();
         this.activeBackdrop?.remove();

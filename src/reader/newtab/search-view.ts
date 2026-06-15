@@ -276,6 +276,7 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
             return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
         }
         if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
+            if (detail.jitenVocabularyInfo && !hasSearchJitenContent(detail.jitenVocabularyInfo) && !detail.localEntries.length) return '';
             return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage, detail.localEntries);
         }
         if (sourceId === ANKI_SOURCE_ID) {
@@ -296,6 +297,10 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
         return '';
     });
     return definitionSections.filter(Boolean).join('');
+}
+
+function hasSearchJitenContent(info: JitenVocabularyInfo): boolean {
+    return Boolean(info.definitions.length || info.composedOf.length || info.usedIn.length || info.examples.length);
 }
 
 export function searchWordKanjiSourceShell(card: JPDBCard, context: NewTabSearchDetailViewContext): HTMLElement | null {

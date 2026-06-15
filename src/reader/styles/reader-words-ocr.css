@@ -980,7 +980,7 @@
 }
 
 :is(.jpdb-reader-theme-light, .yomu-page-theme-light)
-  .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active)
+  .jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active)
   .jpdb-reader-word {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
   color: var(
@@ -1023,7 +1023,7 @@
   line-height: 1;
   white-space: pre;
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word {
+.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word {
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
   background-color: transparent !important;
   background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important;
@@ -1034,7 +1034,7 @@
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text))));
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word:is(
+.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word:is(
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,
   .jpdb-pitch-nakadaka,
@@ -1043,11 +1043,11 @@
 ) {
   --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi {
+.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi {
   background: transparent !important;
   box-shadow: none !important;
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base {
+.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base {
   background-color: transparent !important;
   background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important;
   background-position: center !important;
@@ -1084,7 +1084,7 @@
   transform: translateX(-50%);
   white-space: nowrap;
 }
-.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active, .jpdb-ocr-line-visible) .jpdb-ocr-furi {
+.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-ocr-furi {
   opacity: 0.9;
   text-shadow:
     0 1px 1px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),

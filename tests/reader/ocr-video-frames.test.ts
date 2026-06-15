@@ -109,7 +109,7 @@ describe('paused-video OCR frames', () => {
         });
     });
 
-    it('renders paused-frame OCR words with ruby and pitch color classes', async () => {
+    it('renders paused-frame OCR words with ruby and pitch color classes only when active', async () => {
         const token: JPDBToken = {
             card: {
                 vid: 101,
@@ -158,11 +158,20 @@ describe('paused-video OCR frames', () => {
 
         await waitForExpect(() => {
             const word = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')!;
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
-            expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
-            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
-            expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
+            expect(word).not.toBeNull();
         });
+        const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
+        const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(false);
+        expect(word.querySelector('.jpdb-ocr-furi')).toBeNull();
+
+        line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
+
+        expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+        expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
     });
 
     it('dismisses the paused-frame status card into compact indicator mode', () => {

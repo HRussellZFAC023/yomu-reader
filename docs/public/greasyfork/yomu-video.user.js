@@ -5773,6 +5773,7 @@ ${candidate.depth}`;
     videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
     videoFrameStatuses = /* @__PURE__ */ new Map();
+    ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -5921,6 +5922,9 @@ ${candidate.depth}`;
       if (!line) return;
       const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
       if (state) this.pinLine(state, line);
+    }
+    clearActiveLines() {
+      this.unpinAllLines();
     }
     ensureObserver(settings) {
       const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
@@ -6113,7 +6117,10 @@ ${candidate.depth}`;
       }
       this.positionState(state.image);
       this.updateVideoFrameStatusForImage(state.image, "ready");
-      void this.options.enrichRenderedTokens?.(flatTokens, state.overlay);
+      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => {
+        this.clearInactiveOcrMarkup(state.overlay);
+        this.schedulePosition();
+      });
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();
@@ -6127,6 +6134,7 @@ ${candidate.depth}`;
     }
     renderOcrLineElement(state, result, line, tokens, sentence, showText, settings) {
       const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
+      this.rememberOcrWordRenderStates(element, tokens);
       element.addEventListener("click", (event) => this.toggleOcrLinePinned(state, element, event));
       return element;
     }
@@ -6144,12 +6152,16 @@ ${candidate.depth}`;
       state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
         if (line !== element) this.unpinLine(line);
       });
+      this.activateOcrMarkup(element);
       element.classList.add("jpdb-ocr-line-active");
       element.dataset.pinned = "true";
+      this.schedulePosition();
     }
     unpinLine(element) {
       element.classList.remove("jpdb-ocr-line-active");
       element.dataset.pinned = "false";
+      this.clearOcrMarkup(element);
+      this.schedulePosition();
     }
     unpinOcrLinesFromDocumentEvent(event) {
       const target = event.target instanceof Element ? event.target : null;
@@ -6428,6 +6440,64 @@ ${candidate.depth}`;
       }
       this.states.clear();
     }
+    rememberOcrWordRenderStates(line, tokens) {
+      const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));
+      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
+        const token = tokensByKey.get(ocrRenderedWordKey(word));
+        if (!token) return;
+        this.ocrWordRenderStates.set(word, {
+          surface: word.dataset.surface || line.dataset.ocrText?.slice(token.start, token.end) || word.textContent || "",
+          token
+        });
+      });
+    }
+    activateOcrMarkup(line) {
+      let hasFurigana = false;
+      const settings = this.options.getSettings();
+      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
+        const state = this.ocrWordRenderStates.get(word);
+        if (!state) return;
+        this.applyOcrPitchClass(word, state.token);
+        if (!shouldRenderRuby(state.surface, state.token, settings)) {
+          this.setOcrWordPlainText(word, state.surface);
+          return;
+        }
+        setInnerHtml(word, renderRuby(state.surface, state.token));
+        normalizeOcrRenderedText(word);
+        word.classList.add("jpdb-reader-has-furi");
+        hasFurigana = true;
+      });
+      line.dataset.hasFuri = String(hasFurigana);
+    }
+    clearOcrMarkup(line) {
+      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
+        const state = this.ocrWordRenderStates.get(word);
+        if (!state) return;
+        this.clearOcrPitchClass(word);
+        this.setOcrWordPlainText(word, state.surface);
+      });
+      line.dataset.hasFuri = "false";
+    }
+    clearInactiveOcrMarkup(root) {
+      root.querySelectorAll(".jpdb-ocr-line:not(.jpdb-ocr-line-active)").forEach((line) => this.clearOcrMarkup(line));
+    }
+    applyOcrPitchClass(word, token) {
+      this.clearOcrPitchClass(word);
+      const pitchClass = ocrSafePitchClass(token.pitchClass);
+      word.dataset.pitchClass = pitchClass;
+      if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
+    }
+    clearOcrPitchClass(word) {
+      word.classList.forEach((className) => {
+        if (/^jpdb-pitch-/u.test(className)) word.classList.remove(className);
+      });
+      word.dataset.pitchClass = "";
+    }
+    setOcrWordPlainText(word, surface) {
+      word.classList.remove("jpdb-reader-has-furi");
+      setInnerHtml(word, escapeHtml(surface));
+      normalizeOcrRenderedText(word);
+    }
     // Drop every paused-frame and image overlay when YouTube navigates so no
     // stale OCR artifact (rail resume button, overlay over the player) carries
     // across the SPA route change, then re-scan the destination page.
@@ -6528,9 +6598,25 @@ ${spelling}`);
   function createOcrLineText(line, tokens, settings) {
     const textElement = document.createElement("span");
     textElement.className = "jpdb-ocr-line-text";
-    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
+    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, inactiveOcrTokens(tokens), inactiveOcrSettings(settings)) : escapeHtml(line.text));
     normalizeOcrRenderedText(textElement);
     return textElement;
+  }
+  function inactiveOcrTokens(tokens) {
+    return tokens.map((token) => ({ ...token, pitchClass: "" }));
+  }
+  function inactiveOcrSettings(settings) {
+    return { ...settings, furiganaMode: "off" };
+  }
+  function ocrTokenRenderKey(token) {
+    return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
+  }
+  function ocrRenderedWordKey(word) {
+    return `${word.dataset.tokenStart ?? ""}:${word.dataset.tokenEnd ?? ""}:${word.dataset.vid ?? ""}:${word.dataset.sid ?? ""}`;
+  }
+  function ocrSafePitchClass(pitchClass) {
+    const normalized = pitchClass?.trim() ?? "";
+    return /^(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/u.test(normalized) ? normalized : "";
   }
   function setOcrLinePosition(element, result, line) {
     element.style.left = `${100 * line.box.left / result.width}%`;
