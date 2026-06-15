@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.61] - 2026-06-15
+
+### Fixed
+
+- YouTube watch-page transcript sidebars now keep iPad/tablet left placement from covering the video, title, or action area by shifting the watch content column alongside the player inset. Right placement keeps the existing side-dock behavior, while bottom placement is flush with the visible viewport and only resizes YouTube player nodes so metadata, descriptions, actions, chips, and recommendations do not stretch or clip.
+- YouTube transcript layout changes now debounce the private player resize nudge during drag/keyboard resize interactions, avoiding repeated synchronous resize work while still settling the player dimensions after the panel changes. Added a Playwright iPad/mobile/desktop sidebar-layout matrix with screenshots and timing/DOM evidence.
+
 ## [0.7.60] - 2026-06-15
 
 ### Fixed

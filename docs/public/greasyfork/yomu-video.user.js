@@ -8381,9 +8381,9 @@ ${spelling}`);
   const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
   function computeSubtitleDrawerLayout(options) {
-    const margin = options.compactPanel ? 0 : TRANSCRIPT_PANEL_MARGIN;
     const size = options.size ?? {};
     const preferredPlacement = options.preferredPlacement ?? "right";
+    const margin = options.compactPanel || preferredPlacement === "bottom" ? 0 : TRANSCRIPT_PANEL_MARGIN;
     return options.compactPanel || preferredPlacement === "bottom" ? compactSubtitleDrawerLayout(options, size, margin) : sideSubtitleDrawerLayout(options, size, margin, preferredPlacement);
   }
   function compactSubtitleDrawerLayout(options, size, margin) {
@@ -8653,7 +8653,7 @@ ${spelling}`);
       document.documentElement.style.setProperty("--jpdb-subtitle-video-inset", metrics.inset);
       applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height);
       applyGenericVideoInsetIfNeeded(options, metrics);
-      resizeYouTubePlayer(metrics.width, metrics.height);
+      scheduleYouTubePlayerResize(metrics.width, metrics.height, options.resizeEventMode ?? "immediate");
       dispatchVideoLayoutResize(options.resizeEventMode ?? "immediate");
       return true;
     }
@@ -8666,7 +8666,7 @@ ${spelling}`);
       watchFlexy?.style.removeProperty("--ytd-watch-flexy-player-width");
       watchFlexy?.style.removeProperty("--ytd-watch-flexy-player-height");
       watchFlexy?.style.removeProperty("--ytd-watch-flexy-min-player-height");
-      for (const element of youtubePlayerContainers()) clearYouTubePlayerContainerInset(element);
+      clearYouTubeInsetTargets();
       if (video) clearGenericVideoInset(video);
       resetYouTubePlayerResizeTracking();
       dispatchVideoLayoutResize();
@@ -8710,7 +8710,7 @@ ${spelling}`);
     const snapshots = [documentInsetSnapshot()];
     const watchFlexy = document.querySelector("ytd-watch-flexy");
     if (watchFlexy) snapshots.push(elementStyleSnapshot(watchFlexy, WATCH_FLEXY_INSET_VARS));
-    for (const element of youtubePlayerContainers()) {
+    for (const element of youtubeInsetTargets()) {
       snapshots.push(elementStyleSnapshot(element, CONTAINER_INSET_PROPS, () => clearYouTubePlayerContainerInset(element)));
     }
     if (target) snapshots.push(elementStyleSnapshot(target, GENERIC_TARGET_INSET_PROPS));
@@ -8794,7 +8794,8 @@ ${spelling}`);
   function applyYouTubePlayerInset(side, width, inset, height) {
     const watchFlexy = document.querySelector("ytd-watch-flexy");
     applyYouTubeWatchFlexyInset(watchFlexy, side, width, height);
-    for (const element of youtubePlayerContainers()) {
+    applyYouTubeWatchContentInset(side, inset);
+    for (const element of youtubePlayerContainers(side)) {
       applyYouTubePlayerContainerInset(element, side, width, inset, bottomInsetHeight(side, height));
     }
   }
@@ -8803,16 +8804,39 @@ ${spelling}`);
     if (height) watchFlexy?.style.setProperty("--ytd-watch-flexy-player-height", `${height}px`);
     if (side === "bottom" && height) watchFlexy?.style.setProperty("--ytd-watch-flexy-min-player-height", `${height}px`);
   }
+  function applyYouTubeWatchContentInset(side, inset) {
+    const columns = document.querySelector("ytd-watch-flexy #columns");
+    if (!columns) return;
+    setStylePropertyIfChanged(columns, "margin-left", side === "left" ? `${Math.max(0, Math.round(inset))}px` : "0px");
+  }
   function bottomInsetHeight(side, height) {
     return side === "bottom" ? height : 0;
   }
   const youtubePlayerContainerBaseRects = /* @__PURE__ */ new WeakMap();
-  function youtubePlayerContainers() {
+  function youtubePlayerContainers(side) {
     if (!isYouTubePage$1()) return [];
-    return [
-      document.querySelector("ytd-watch-flexy #primary"),
-      document.querySelector("ytd-watch-flexy #primary-inner")
-    ].filter((element) => Boolean(element));
+    const selectors = side === "bottom" ? [
+      "ytd-watch-flexy #player",
+      "ytd-watch-flexy #player-container-outer",
+      "ytd-watch-flexy #player-container-inner",
+      "ytd-watch-flexy ytd-player",
+      "ytd-watch-flexy #movie_player"
+    ] : [
+      "ytd-watch-flexy #primary",
+      "ytd-watch-flexy #primary-inner"
+    ];
+    return uniqueElements(selectors.flatMap((selector) => Array.from(document.querySelectorAll(selector))));
+  }
+  function youtubeInsetTargets() {
+    if (!isYouTubePage$1()) return [];
+    return uniqueElements([
+      document.querySelector("ytd-watch-flexy #columns"),
+      ...youtubePlayerContainers("left"),
+      ...youtubePlayerContainers("bottom")
+    ].filter((element) => Boolean(element)));
+  }
+  function uniqueElements(elements) {
+    return Array.from(new Set(elements));
   }
   function applyYouTubePlayerContainerInset(element, side, width, inset, height = 0) {
     if (side === "bottom") {
@@ -8823,6 +8847,10 @@ ${spelling}`);
   }
   function applyBottomYouTubePlayerContainerInset(element, height) {
     if (!height) return;
+    setStylePropertyIfChanged(element, "width", "");
+    setStylePropertyIfChanged(element, "max-width", "");
+    setStylePropertyIfChanged(element, "margin-left", "0px");
+    setStylePropertyIfChanged(element, "margin-right", "0px");
     setStylePropertyIfChanged(element, "height", `${height}px`);
     setStylePropertyIfChanged(element, "max-height", `${height}px`);
     setStylePropertyIfChanged(element, "min-height", "0px");
@@ -8838,9 +8866,12 @@ ${spelling}`);
     setStylePropertyIfChanged(element, "width", widthValue);
     setStylePropertyIfChanged(element, "max-width", widthValue);
     setStylePropertyIfChanged(element, "min-width", "0px");
-    const margin = side === "left" ? `${Math.max(0, Math.round(inset - baseRect.left))}px` : `${Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)))}px`;
+    const margin = side === "left" ? leftYouTubePlayerMargin(inset, baseRect) : `${Math.max(0, Math.round(baseRect.right - (window.innerWidth - inset)))}px`;
     setStylePropertyIfChanged(element, side === "left" ? "margin-left" : "margin-right", margin);
     setStylePropertyIfChanged(element, side === "left" ? "margin-right" : "margin-left", "0px");
+  }
+  function leftYouTubePlayerMargin(inset, baseRect) {
+    return document.querySelector("ytd-watch-flexy #columns") ? "0px" : `${Math.max(0, Math.round(inset - baseRect.left))}px`;
   }
   function youtubeVisiblePlayerRect() {
     const rects = [
@@ -8880,6 +8911,23 @@ ${spelling}`);
   function rectArea(rect) {
     return Math.max(0, rect.width) * Math.max(0, rect.height);
   }
+  function scheduleYouTubePlayerResize(width, height, mode) {
+    if (!isYouTubePage$1()) return;
+    if (pendingYouTubePlayerResize !== void 0) window.clearTimeout(pendingYouTubePlayerResize);
+    pendingYouTubePlayerResize = void 0;
+    pendingYouTubePlayerResizeSize = void 0;
+    if (mode === "immediate") {
+      resizeYouTubePlayer(width, height);
+      return;
+    }
+    pendingYouTubePlayerResizeSize = { width, height };
+    pendingYouTubePlayerResize = window.setTimeout(() => {
+      pendingYouTubePlayerResize = void 0;
+      const size = pendingYouTubePlayerResizeSize;
+      pendingYouTubePlayerResizeSize = void 0;
+      if (size) resizeYouTubePlayer(size.width, size.height);
+    }, 80);
+  }
   function resizeYouTubePlayer(width, height) {
     if (!isYouTubePage$1()) return;
     const signature = youtubeResizeSignature(width, height);
@@ -8893,6 +8941,8 @@ ${spelling}`);
   }
   let lastYouTubePlayerResizeSignature = "";
   let pendingVideoLayoutResize;
+  let pendingYouTubePlayerResize;
+  let pendingYouTubePlayerResizeSize;
   function youtubeResizeSignature(width, height) {
     return `${Math.round(width)}:${Math.round(height)}`;
   }
@@ -8907,6 +8957,9 @@ ${spelling}`);
   }
   function resetYouTubePlayerResizeTracking() {
     lastYouTubePlayerResizeSignature = "";
+    if (pendingYouTubePlayerResize !== void 0) window.clearTimeout(pendingYouTubePlayerResize);
+    pendingYouTubePlayerResize = void 0;
+    pendingYouTubePlayerResizeSize = void 0;
   }
   function youtubeMoviePlayer() {
     return document.querySelector("#movie_player");
@@ -8936,6 +8989,9 @@ ${spelling}`);
       if (element.style.getPropertyValue(property)) element.style.removeProperty(property);
     }
     youtubePlayerContainerBaseRects.delete(element);
+  }
+  function clearYouTubeInsetTargets() {
+    for (const element of youtubeInsetTargets()) clearYouTubePlayerContainerInset(element);
   }
   const genericVideoInsetStyles = /* @__PURE__ */ new WeakMap();
   const genericVideoInsetBaseRects = /* @__PURE__ */ new WeakMap();
