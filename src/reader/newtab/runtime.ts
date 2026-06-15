@@ -2133,8 +2133,6 @@ export class NewTabRuntime {
                 allowSegmentedFallback: true,
                 includeLocalPitch: false,
                 jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS,
-                requireJpdb: false,
-                skipJpdb: true,
             });
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey

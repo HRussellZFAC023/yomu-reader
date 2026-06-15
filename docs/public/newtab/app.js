@@ -9262,6 +9262,7 @@ ${scopedInner}
     "stream finished",
     "no stream handler",
     ,
+    // determined by compression function
     "no callback",
     "invalid UTF-8 data",
     "extra field too long",
@@ -51848,6 +51849,7 @@ ${normalizedReading}`;
     "[hidden]:not([data-settings-panel])",
     '[aria-hidden="true"]',
     "[data-anki-setup-help]",
+    ".jpdb-reader-status-line",
     "a[href]",
     "button",
     "input",
@@ -66440,9 +66442,7 @@ ${entry.url}`),
           allowJpdbTimeoutFallback: true,
           allowSegmentedFallback: true,
           includeLocalPitch: false,
-          jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS,
-          requireJpdb: false,
-          skipJpdb: true
+          jpdbTimeoutMs: NEW_TAB_SETTINGS_PARSE_TIMEOUT_MS
         });
         if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
         const renderSettings = settingsForSettingsFormParse(form, this.settings);

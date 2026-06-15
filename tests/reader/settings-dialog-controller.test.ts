@@ -405,7 +405,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dismiss).not.toHaveBeenCalled();
     });
 
-    it('requests Japanese settings parsing after opening, language changes, and tab changes', async () => {
+    it('requests Japanese settings parsing after opening and language changes without reparsing tab changes', async () => {
         const parseSettingsJapanese = vi.fn();
         const { form } = createSettingsDialog({
             parseSettingsJapanese,
@@ -425,7 +425,7 @@ describe('settings dialog keyboard dismissal', () => {
         form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="dictionaries"]')?.click();
         await flushPromises();
 
-        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        expect(parseSettingsJapanese).not.toHaveBeenCalled();
     });
 
     it('publishes and consumes shared theme changes', () => {

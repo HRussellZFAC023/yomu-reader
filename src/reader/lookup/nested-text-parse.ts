@@ -17,6 +17,7 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '[hidden]:not([data-settings-panel])',
     '[aria-hidden="true"]',
     '[data-anki-setup-help]',
+    '.jpdb-reader-status-line',
     'a[href]',
     'button',
     'input',
