@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.49] - 2026-06-15
+
+### Fixed
+
+- Settings self-enhancement now skips transient status lines while preserving settings panel text, keeping hosted/new-tab parsing aligned with the concurrent enrichment release gates.
+
 ## [0.7.48] - 2026-06-15
 
 ### Fixed

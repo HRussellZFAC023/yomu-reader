@@ -13,6 +13,7 @@ const NESTED_PARSE_EXCLUDE_SELECTOR = '.gloss-image-link';
 const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '.jpdb-reader-settings-actions',
     '.jpdb-reader-settings-drag-handle',
+    '.jpdb-reader-status-line',
     '[data-settings-preview-lookup]',
     '[hidden]:not([data-settings-panel])',
     '[aria-hidden="true"]',
