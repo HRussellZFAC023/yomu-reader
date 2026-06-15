@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.35] - 2026-06-15
+
+### Fixed
+
+- New-tab Immersion Kit example navigation now swaps the visible sentence, count, translation, media URL, and controls before sentence parsing finishes, so next/previous clicks no longer feel frozen while ruby/pitch work catches up.
+- New-tab Immersion Kit audio now tries the streamable media URL before waiting on slower blob/proxy hydration, so pressing play gives immediate playback feedback on hosted search pages while retaining the fallback path.
+
 ## [0.7.34] - 2026-06-15
 
 ### Fixed
