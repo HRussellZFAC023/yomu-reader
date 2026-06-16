@@ -7,6 +7,7 @@ import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/rea
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
 import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
+import { reconcileApiCredentialInputs } from '../../src/reader/settings/dialog-controller';
 import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
 import type { AnkiFieldMappingRole, AnkiFieldMappings, JPDBCard, JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 
@@ -362,6 +363,26 @@ describe('settings form localization', () => {
             apiKey: 'jpdb-key',
             jitenApiKey: 'ak_jiten-key',
         });
+    });
+
+    it('moves a Jiten key (ak_) pasted into the JPDB box over to the Jiten box', () => {
+        const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: '' });
+        const jpdbInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
+        const jitenInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJiten"]')!;
+
+        // User pastes a Jiten key into the JPDB box.
+        jpdbInput.value = 'ak_pasted-into-wrong-box';
+        jitenInput.value = '';
+        reconcileApiCredentialInputs(form);
+        expect(jpdbInput.value).toBe('');
+        expect(jitenInput.value).toBe('ak_pasted-into-wrong-box');
+
+        // A genuine JPDB key stays in the JPDB box; reconcile is idempotent.
+        jpdbInput.value = 'plain-jpdb-key';
+        jitenInput.value = 'ak_pasted-into-wrong-box';
+        reconcileApiCredentialInputs(form);
+        expect(jpdbInput.value).toBe('plain-jpdb-key');
+        expect(jitenInput.value).toBe('ak_pasted-into-wrong-box');
     });
 
     it('renders first-run Anki as opt-in with popover controls and no legacy scan affordances', () => {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.81] - 2026-06-16
+
+### Fixed
+
+- A Jiten API key (starts with `ak_`) pasted into the JPDB API key box now moves to the Jiten API key box once the field is committed, instead of staying displayed in the JPDB box. The key was already routed to the Jiten credential internally; now the visible inputs match where each key belongs (a genuine JPDB key stays put).
+
 ## [0.7.80] - 2026-06-16
 
 ### Fixed

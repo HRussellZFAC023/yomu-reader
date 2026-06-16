@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.80
+// @version      0.7.81
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -15,7 +15,7 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-WLYRElqWc/8I9gHNgbK1a/tFtPf8y2396XLFmOzlrAE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-5ghlIfkZZqLUmwFh/PSMnKqmsWb7C2CcfMYZPpWVBY0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-yyU6tq5j1vitIBWDM/Yj0+8s1LtvlRwU8gRlXMlo2Gk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-GF9Nq3hZYC5+2dQAlMpX60CsaOVYGeXbTAd5+B+uxMI=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-dLDYhPJIYesa0RtrdKDgJVKfx1ss+ut/JD5JvMmNna4=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
