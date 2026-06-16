@@ -1,13 +1,9 @@
+import { MANAGED_STORAGE_KEY_PREFIXES, isManagedStorageKey } from './managed-storage-keys';
+import { getUserscriptGmStorage } from '../userscript/storage-bridge';
+
 const MISSING = { missing: true };
 const FACTORY_RESET_SIGNAL_KEY = 'yomu:factory-reset-signal';
 const FACTORY_RESET_CHANNEL_NAME = 'yomu:factory-reset';
-const MANAGED_STORAGE_KEY_PREFIXES = [
-    'yomu-',
-    'yomu:',
-    'yomu.',
-    'jpdb-reader-',
-    'jpdb-popup-reader-',
-];
 const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-popup-reader-settings',
     'jpdb-reader-settings',
@@ -483,26 +479,34 @@ function isPromiseLike(value: unknown): value is Promise<unknown> {
 function asyncGmGetValue(): GmGetValue | null {
     if (typeof GM_getValue === 'function') return GM_getValue as GmGetValue;
     const modern = (globalThis as { GM?: { getValue?: GmGetValue } }).GM?.getValue;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
 }
 
 function asyncGmSetValue(): GmSetValue | null {
     if (typeof GM_setValue === 'function') return GM_setValue as GmSetValue;
     const modern = (globalThis as { GM?: { setValue?: GmSetValue } }).GM?.setValue;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, value) => bridge.setValue(key, value) : null;
 }
 
 function asyncGmDeleteValue(): GmDeleteValue | null {
     if (typeof GM_deleteValue === 'function') return GM_deleteValue as GmDeleteValue;
     const modern = (globalThis as { GM?: { deleteValue?: GmDeleteValue } }).GM?.deleteValue;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? key => bridge.deleteValue(key) : null;
 }
 
 function asyncGmListValues(): GmListValues | null {
     const directListValues = (globalThis as { GM_listValues?: GmListValues }).GM_listValues;
     if (typeof directListValues === 'function') return directListValues;
     const modern = (globalThis as { GM?: { listValues?: GmListValues } }).GM?.listValues;
-    return typeof modern === 'function' ? modern.bind((globalThis as { GM?: unknown }).GM) : null;
+    if (typeof modern === 'function') return modern.bind((globalThis as { GM?: unknown }).GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? () => bridge.listValues() : null;
 }
 
 function normalizeFactoryResetSignal(signal: FactoryResetSignal): FactoryResetSignal {
@@ -586,10 +590,6 @@ function createFactoryResetId(): string {
     return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-}
-
-function isManagedStorageKey(key: string): boolean {
-    return MANAGED_STORAGE_KEY_PREFIXES.some(prefix => key.startsWith(prefix));
 }
 
 function isBackupStorageKey(key: string): boolean {

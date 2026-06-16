@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.88
+// @version      0.7.89
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ubwjx5hJINKqQa6aTiuPMrcTIRsERGyTMPXoycgwAbo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-X0AAUSZtk99Osfd5ovdnj/cFOR1saS5lHdnpp3mvRSk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-xY5RjRbeBAs702aOiyHq5ng3PMMVPy+G4AciFiAckUI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-osoFLphzS7pfOE9+2hvzpCu6twsaBSGtfvyX9PgrUw8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nbh/omNrtXpDI7Mv5I9ZM34ZpWELehFtaPIj/8F2Baw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-HwJVGxpDYmn0+75znYhD79n9Z/Of/NCHD7rOQKqPq98=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-rhvVYqBuOpds0FQG1LhWwg9c2KRrU1LWCuW2FKxxDwA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-tRxjhs5WMpzzNFgiqHMFQXwj+0NVNgqXiLHcDTG/72k=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -307,9 +307,9 @@
   function addWindowEventListener(type, listener, options) {
     const target = window;
     const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
+    const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
     if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
     if (initialResult.called) return true;
     const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
     if (prototypeResult.called) return true;
@@ -320,9 +320,9 @@
   function removeWindowEventListener(type, listener, options) {
     const target = window;
     const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
+    const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
     if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
     if (initialResult.called) return true;
     const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
     if (prototypeResult.called) return true;
@@ -345,7 +345,7 @@
   function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
     for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
       if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
+      const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
       if (result.called) return result;
     }
     return { called: false };
@@ -353,7 +353,7 @@
   function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
     for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
       if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
+      const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
       if (result.called) return result;
     }
     return { called: false };
@@ -412,7 +412,7 @@
       return { called: false, error };
     }
   }
-  function callAddEventListener$1(method, target, type, listener, options) {
+  function callAddEventListener$2(method, target, type, listener, options) {
     if (!method) return { called: false };
     try {
       method.call(target, type, listener, options);
@@ -421,7 +421,7 @@
       return { called: false, error };
     }
   }
-  function callRemoveEventListener$1(method, target, type, listener, options) {
+  function callRemoveEventListener$2(method, target, type, listener, options) {
     if (!method) return { called: false };
     try {
       method.call(target, type, listener, options);
@@ -449,7 +449,7 @@
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
       if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
+      return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
     } finally {
@@ -462,7 +462,7 @@
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
       if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
+      return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
     } finally {
@@ -934,9 +934,6 @@
   function nodeTextContent$1(node) {
     return node.textContent ?? "";
   }
-  const MISSING = { missing: true };
-  const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
-  const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
   const MANAGED_STORAGE_KEY_PREFIXES = [
     "yomu-",
     "yomu:",
@@ -944,6 +941,486 @@
     "jpdb-reader-",
     "jpdb-popup-reader-"
   ];
+  function isManagedStorageKey(key) {
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+  }
+  const APP_NAME = "よむ";
+  const APP_PUCK = "よむ";
+  const APP_SLUG = "yomu";
+  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+  const GITHUB_OWNER = "HRussellZFAC023";
+  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+  const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
+  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
+  const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+  const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
+  const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = "yomu-userscript-storage-bridge-ready";
+  const INTERFACE_LANGUAGE_CHANGE_EVENT = "yomu-interface-language-change";
+  const OPEN_SETTINGS_EVENT = "yomu-open-settings";
+  const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
+  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+  const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
+  const ANKI_SOURCE_ID = "__anki__";
+  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
+  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
+  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
+  function isYomuNewTabUrl(value) {
+    const url = parseNewTabUrl(value);
+    return url ? isYomuNewTabUrlObject(url) : false;
+  }
+  function parseNewTabUrl(value) {
+    try {
+      return new URL(value);
+    } catch {
+      return null;
+    }
+  }
+  function isYomuNewTabUrlObject(url) {
+    const path = normalizedNewTabPath(url);
+    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
+  }
+  function normalizedNewTabPath(url) {
+    return url.pathname.replace(/\/index\.html$/, "/");
+  }
+  function isHostedNewTabPath(url, path) {
+    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
+  }
+  function isLocalNewTabPath(url, path) {
+    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
+  }
+  function isRepositoryNewTabPath(path) {
+    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
+  }
+  const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
+  function isYomuHostedAppUrl(value) {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
+  }
+  function isYomuHostedPassivePage(value) {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
+  }
+  function isYomuHostedVideoPlayerPage(value) {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuVideoPlayerPath(appUrl.path) : false;
+  }
+  function readYomuAppUrl(value) {
+    try {
+      const url = new URL(value);
+      return { url, path: normalizedPath(url.pathname) };
+    } catch {
+      return null;
+    }
+  }
+  function isYomuHostedAppRoute(value, appUrl) {
+    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
+  }
+  function isPassiveYomuRepositoryPage(value, appUrl) {
+    return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
+  }
+  function isYomuActiveAppRoute(value, appUrl) {
+    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
+  }
+  function isYomuRepositoryAppUrl(appUrl) {
+    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
+  }
+  function isHostedRepositoryAppUrl(appUrl) {
+    return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+  }
+  function isLocalRepositoryAppUrl(appUrl) {
+    return isYomuLocalAppPath(appUrl.path) && (appUrl.url.protocol === "file:" || LOCAL_HOSTS.test(appUrl.url.hostname));
+  }
+  function normalizedPath(pathname) {
+    return pathname.replace(/\/index\.html$/, "/");
+  }
+  function isYomuVideoPlayerPath(path) {
+    return path.endsWith("/video-player/");
+  }
+  function isYomuLocalAppPath(path) {
+    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path);
+  }
+  function bridgeRequestDetail(event) {
+    const detail = normalizedBridgeEventDetail$1(event);
+    const id = safeReadString(detail, "id");
+    const options = safeReadProperty(detail, "options");
+    return id && options ? { id, options } : void 0;
+  }
+  function bridgeResponseEventDetail(event) {
+    const detail = normalizedBridgeEventDetail$1(event);
+    const id = safeReadString(detail, "id");
+    const kind = safeReadString(detail, "kind");
+    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+    return {
+      id,
+      kind,
+      response: safeReadProperty(detail, "response"),
+      message: safeReadString(detail, "message")
+    };
+  }
+  function bridgeResponseDetail(id, kind, response, message) {
+    return {
+      id,
+      kind,
+      response: response ? bridgeResponse(response) : void 0,
+      message
+    };
+  }
+  function bridgeRequestOptions(options) {
+    return {
+      ...options,
+      headers: options.headers ? { ...options.headers } : void 0,
+      data: bridgeRequestBody(options.data)
+    };
+  }
+  function bridgeEventDetail(detail) {
+    if (detail === void 0) return void 0;
+    const json = bridgeEventJsonDetail(detail);
+    return json ?? detail;
+  }
+  function bridgeResponse(response) {
+    return {
+      status: safeReadNumber(response, "status") ?? 0,
+      response: bridgeBody(safeReadProperty(response, "response")),
+      responseText: safeReadString(response, "responseText"),
+      finalUrl: safeReadString(response, "finalUrl")
+    };
+  }
+  function bridgeBody(value) {
+    if (value instanceof ArrayBuffer) return value.slice(0);
+    if (ArrayBuffer.isView(value)) {
+      const bytes = value;
+      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    }
+    if (value instanceof Blob) return value.slice(0, value.size, value.type);
+    return value;
+  }
+  function bridgeRequestBody(value) {
+    return bridgeBody(value);
+  }
+  function bridgeEventJsonDetail(detail) {
+    let unsupported = false;
+    try {
+      const json = JSON.stringify(detail, (_key, value) => {
+        if (isUnsupportedBridgeJsonValue(value)) {
+          unsupported = true;
+          return void 0;
+        }
+        return value;
+      });
+      return unsupported || typeof json !== "string" ? void 0 : json;
+    } catch {
+      return void 0;
+    }
+  }
+  function normalizedBridgeEventDetail$1(event) {
+    const detail = safeEventDetail(event);
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function isUnsupportedBridgeJsonValue(value) {
+    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+  }
+  function isUnsupportedPrimitiveBridgeJsonValue(value) {
+    return typeof value === "function" || typeof value === "symbol";
+  }
+  function isArrayBufferBridgeJsonValue(value) {
+    if (typeof ArrayBuffer === "undefined") return false;
+    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+  }
+  function isBlobBridgeJsonValue(value) {
+    return typeof Blob !== "undefined" && value instanceof Blob;
+  }
+  function isFormDataBridgeJsonValue(value) {
+    return typeof FormData !== "undefined" && value instanceof FormData;
+  }
+  function safeEventDetail(event) {
+    try {
+      return event.detail;
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadString(source, key) {
+    const value = safeReadProperty(source, key);
+    return typeof value === "string" ? value : void 0;
+  }
+  function safeReadNumber(source, key) {
+    const value = safeReadProperty(source, key);
+    return typeof value === "number" ? value : void 0;
+  }
+  const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
+  const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
+  const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
+  const BRIDGE_TIMEOUT_MS$1 = 1e4;
+  let bridgeRequestListenerCleanup$1;
+  function getUserscriptGmStorage() {
+    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+    if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
+    return {
+      getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+      setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
+      deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
+      listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
+    };
+  }
+  function installUserscriptGmStorageBridge() {
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!shouldInstallUserscriptStorageBridge()) return;
+    const accessors = gmStorageAccessors();
+    if (!accessors) return;
+    const markerDataset = bridgeMarkerDataset$1();
+    if (!markerDataset) return;
+    if (hasInstalledUserscriptStorageBridge(markerDataset)) {
+      dispatchStorageBridgeReady();
+      return;
+    }
+    bridgeRequestListenerCleanup$1?.();
+    markerDataset[BRIDGE_MARKER$1] = "true";
+    const handledRequestIds = /* @__PURE__ */ new Set();
+    bridgeRequestListenerCleanup$1 = addBridgeEventListener$1(BRIDGE_REQUEST_EVENT$1, (event) => {
+      const detail = storageBridgeRequestDetail(event);
+      if (!detail || handledRequestIds.has(detail.id)) return;
+      rememberBridgeRequestId$1(handledRequestIds, detail.id);
+      void handleStorageBridgeRequest(detail, accessors);
+    });
+    dispatchStorageBridgeReady();
+  }
+  function installUserscriptGmStorageBridgeWhenReady() {
+    installUserscriptGmStorageBridge();
+    if (typeof window === "undefined" || typeof document === "undefined") return;
+    if (!shouldInstallUserscriptStorageBridge()) return;
+    if (hasInstalledUserscriptStorageBridge()) return;
+    scheduleUserscriptStorageBridgeRetry();
+  }
+  async function handleStorageBridgeRequest(detail, accessors) {
+    const send = (response) => dispatchBridgeEvent$1(BRIDGE_RESPONSE_EVENT$1, { id: detail.id, ...response });
+    try {
+      if (detail.op === "list") {
+        send({ ok: true, keys: await accessors.listValues() });
+        return;
+      }
+      if (!detail.key || !isManagedStorageKey(detail.key)) {
+        send({ ok: false, found: false, message: "Unmanaged storage key." });
+        return;
+      }
+      if (detail.op === "get") {
+        const value = await accessors.getValue(detail.key, MISSING$1);
+        send(value === MISSING$1 ? { ok: true, found: false } : { ok: true, found: true, value });
+        return;
+      }
+      if (detail.op === "set") {
+        await accessors.setValue(detail.key, detail.value);
+        send({ ok: true });
+        return;
+      }
+      await accessors.deleteValue(detail.key);
+      send({ ok: true });
+    } catch (error) {
+      send({ ok: false, found: false, message: error instanceof Error ? error.message : String(error) });
+    }
+  }
+  function storageBridgeRequest(request) {
+    return new Promise((resolve, reject) => {
+      const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("Storage bridge request timed out."));
+      }, BRIDGE_TIMEOUT_MS$1);
+      let cleanupResponseListener = noop$1;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        cleanupResponseListener();
+      };
+      const onResponse = (event) => {
+        const detail = storageBridgeResponseDetail(event);
+        if (!detail || detail.id !== id) return;
+        cleanup();
+        if (detail.ok) resolve(detail);
+        else reject(new Error(detail.message || "Storage bridge request failed."));
+      };
+      cleanupResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
+      dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ...request });
+    });
+  }
+  const MISSING$1 = { __yomuStorageBridgeMissing: true };
+  function gmStorageAccessors() {
+    const getValue = directGmGetValue();
+    const setValue = directGmSetValue();
+    const deleteValue = directGmDeleteValue();
+    const listValues = directGmListValues();
+    if (!getValue || !setValue) return null;
+    return {
+      getValue,
+      setValue,
+      deleteValue: deleteValue ?? (() => void 0),
+      listValues: listValues ?? (() => [])
+    };
+  }
+  function directGmGetValue() {
+    if (typeof GM_getValue === "function") return GM_getValue;
+    const modern = globalThis.GM?.getValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function directGmSetValue() {
+    if (typeof GM_setValue === "function") return GM_setValue;
+    const modern = globalThis.GM?.setValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function directGmDeleteValue() {
+    if (typeof GM_deleteValue === "function") return GM_deleteValue;
+    const modern = globalThis.GM?.deleteValue;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function directGmListValues() {
+    const direct = globalThis.GM_listValues;
+    if (typeof direct === "function") return direct;
+    const modern = globalThis.GM?.listValues;
+    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+  }
+  function shouldInstallUserscriptStorageBridge() {
+    try {
+      return typeof location !== "undefined" && isYomuHostedAppUrl(location.href);
+    } catch {
+      return false;
+    }
+  }
+  function scheduleUserscriptStorageBridgeRetry() {
+    const retry = () => {
+      if (hasInstalledUserscriptStorageBridge()) return;
+      installUserscriptGmStorageBridge();
+    };
+    if (typeof queueMicrotask === "function") {
+      queueMicrotask(retry);
+    } else {
+      void Promise.resolve().then(retry);
+    }
+    window.setTimeout(retry, 0);
+    window.setTimeout(retry, 250);
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", retry, { once: true });
+    }
+  }
+  function hasInstalledUserscriptStorageBridge(markerDataset = bridgeMarkerDataset$1()) {
+    return Boolean(markerDataset?.[BRIDGE_MARKER$1] === "true" && bridgeRequestListenerCleanup$1);
+  }
+  function dispatchStorageBridgeReady() {
+    dispatchBridgeEvent$1(USERSCRIPT_STORAGE_BRIDGE_READY_EVENT);
+  }
+  function storageBridgeRequestDetail(event) {
+    const detail = normalizedBridgeEventDetail(event);
+    if (!detail || typeof detail !== "object") return void 0;
+    const record = detail;
+    if (typeof record.id !== "string" || !isGmStorageOp(record.op)) return void 0;
+    return { id: record.id, op: record.op, key: typeof record.key === "string" ? record.key : void 0, value: record.value };
+  }
+  function storageBridgeResponseDetail(event) {
+    const detail = normalizedBridgeEventDetail(event);
+    if (!detail || typeof detail !== "object") return void 0;
+    const record = detail;
+    if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+    return {
+      id: record.id,
+      ok: record.ok,
+      found: typeof record.found === "boolean" ? record.found : void 0,
+      value: record.value,
+      keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
+      message: typeof record.message === "string" ? record.message : void 0
+    };
+  }
+  function isGmStorageOp(value) {
+    return value === "get" || value === "set" || value === "delete" || value === "list";
+  }
+  function normalizedBridgeEventDetail(event) {
+    let detail;
+    try {
+      detail = event.detail;
+    } catch {
+      return void 0;
+    }
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function addBridgeEventListener$1(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent$1(type, detail) {
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget) {
+      dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget$1() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset$1() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
+  }
+  function callAddEventListener$1(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener$1(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent$1(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function rememberBridgeRequestId$1(ids, id) {
+    ids.add(id);
+    if (ids.size <= 200) return;
+    const oldest = ids.values().next().value;
+    if (oldest) ids.delete(oldest);
+  }
+  function noop$1() {
+  }
+  const MISSING = { missing: true };
+  const FACTORY_RESET_SIGNAL_KEY = "yomu:factory-reset-signal";
+  const FACTORY_RESET_CHANNEL_NAME = "yomu:factory-reset";
   const KNOWN_MANAGED_STORAGE_KEYS = [
     "jpdb-popup-reader-settings",
     "jpdb-reader-settings",
@@ -1267,23 +1744,31 @@
   function asyncGmGetValue() {
     if (typeof GM_getValue === "function") return GM_getValue;
     const modern = globalThis.GM?.getValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
   }
   function asyncGmSetValue() {
     if (typeof GM_setValue === "function") return GM_setValue;
     const modern = globalThis.GM?.setValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, value) => bridge.setValue(key, value) : null;
   }
   function asyncGmDeleteValue() {
     if (typeof GM_deleteValue === "function") return GM_deleteValue;
     const modern = globalThis.GM?.deleteValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key) => bridge.deleteValue(key) : null;
   }
   function asyncGmListValues() {
     const directListValues = globalThis.GM_listValues;
     if (typeof directListValues === "function") return directListValues;
     const modern = globalThis.GM?.listValues;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? () => bridge.listValues() : null;
   }
   function normalizeFactoryResetSignal(signal) {
     return {
@@ -1348,9 +1833,6 @@
   }
   function createFactoryResetId() {
     return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-  }
-  function isManagedStorageKey(key) {
-    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
   }
   function debugStorageError(message, key, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
@@ -1548,27 +2030,6 @@
     window.__YOMU_LOGGER__ = Logger;
     window.YomuLogger = Logger;
   }
-  const APP_NAME = "よむ";
-  const APP_PUCK = "よむ";
-  const APP_SLUG = "yomu";
-  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
-  const GITHUB_OWNER = "HRussellZFAC023";
-  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
-  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
-  const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
-  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
-  const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
-  const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
-  const INTERFACE_LANGUAGE_CHANGE_EVENT = "yomu-interface-language-change";
-  const OPEN_SETTINGS_EVENT = "yomu-open-settings";
-  const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
-  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
-  const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
-  const ANKI_SOURCE_ID = "__anki__";
-  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
-  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
-  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
   const ANKI_FIELD_MAPPING_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
   function normalizeAnkiFieldMappings(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return {};
@@ -5574,202 +6035,6 @@
       signal?.removeEventListener("abort", abort);
     });
   }
-  function isYomuNewTabUrl(value) {
-    const url = parseNewTabUrl(value);
-    return url ? isYomuNewTabUrlObject(url) : false;
-  }
-  function parseNewTabUrl(value) {
-    try {
-      return new URL(value);
-    } catch {
-      return null;
-    }
-  }
-  function isYomuNewTabUrlObject(url) {
-    const path = normalizedNewTabPath(url);
-    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
-  }
-  function normalizedNewTabPath(url) {
-    return url.pathname.replace(/\/index\.html$/, "/");
-  }
-  function isHostedNewTabPath(url, path) {
-    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
-  }
-  function isLocalNewTabPath(url, path) {
-    return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
-  }
-  function isRepositoryNewTabPath(path) {
-    return path.endsWith(`/${APP_REPOSITORY_NAME}/newtab/`) || path.endsWith("/newtab/");
-  }
-  const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
-  function isYomuHostedAppUrl(value) {
-    const appUrl = readYomuAppUrl(value);
-    return appUrl ? isYomuHostedAppRoute(value, appUrl) : false;
-  }
-  function isYomuHostedPassivePage(value) {
-    const appUrl = readYomuAppUrl(value);
-    return appUrl ? isPassiveYomuRepositoryPage(value, appUrl) : false;
-  }
-  function isYomuHostedVideoPlayerPage(value) {
-    const appUrl = readYomuAppUrl(value);
-    return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuVideoPlayerPath(appUrl.path) : false;
-  }
-  function readYomuAppUrl(value) {
-    try {
-      const url = new URL(value);
-      return { url, path: normalizedPath(url.pathname) };
-    } catch {
-      return null;
-    }
-  }
-  function isYomuHostedAppRoute(value, appUrl) {
-    return isYomuActiveAppRoute(value, appUrl) || isYomuRepositoryAppUrl(appUrl);
-  }
-  function isPassiveYomuRepositoryPage(value, appUrl) {
-    return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
-  }
-  function isYomuActiveAppRoute(value, appUrl) {
-    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
-  }
-  function isYomuRepositoryAppUrl(appUrl) {
-    return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
-  }
-  function isHostedRepositoryAppUrl(appUrl) {
-    return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
-  }
-  function isLocalRepositoryAppUrl(appUrl) {
-    return isYomuLocalAppPath(appUrl.path) && (appUrl.url.protocol === "file:" || LOCAL_HOSTS.test(appUrl.url.hostname));
-  }
-  function normalizedPath(pathname) {
-    return pathname.replace(/\/index\.html$/, "/");
-  }
-  function isYomuVideoPlayerPath(path) {
-    return path.endsWith("/video-player/");
-  }
-  function isYomuLocalAppPath(path) {
-    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path);
-  }
-  function bridgeRequestDetail(event) {
-    const detail = normalizedBridgeEventDetail(event);
-    const id = safeReadString(detail, "id");
-    const options = safeReadProperty(detail, "options");
-    return id && options ? { id, options } : void 0;
-  }
-  function bridgeResponseEventDetail(event) {
-    const detail = normalizedBridgeEventDetail(event);
-    const id = safeReadString(detail, "id");
-    const kind = safeReadString(detail, "kind");
-    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-    return {
-      id,
-      kind,
-      response: safeReadProperty(detail, "response"),
-      message: safeReadString(detail, "message")
-    };
-  }
-  function bridgeResponseDetail(id, kind, response, message) {
-    return {
-      id,
-      kind,
-      response: response ? bridgeResponse(response) : void 0,
-      message
-    };
-  }
-  function bridgeRequestOptions(options) {
-    return {
-      ...options,
-      headers: options.headers ? { ...options.headers } : void 0,
-      data: bridgeRequestBody(options.data)
-    };
-  }
-  function bridgeEventDetail(detail) {
-    if (detail === void 0) return void 0;
-    const json = bridgeEventJsonDetail(detail);
-    return json ?? detail;
-  }
-  function bridgeResponse(response) {
-    return {
-      status: safeReadNumber(response, "status") ?? 0,
-      response: bridgeBody(safeReadProperty(response, "response")),
-      responseText: safeReadString(response, "responseText"),
-      finalUrl: safeReadString(response, "finalUrl")
-    };
-  }
-  function bridgeBody(value) {
-    if (value instanceof ArrayBuffer) return value.slice(0);
-    if (ArrayBuffer.isView(value)) {
-      const bytes = value;
-      return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-    }
-    if (value instanceof Blob) return value.slice(0, value.size, value.type);
-    return value;
-  }
-  function bridgeRequestBody(value) {
-    return bridgeBody(value);
-  }
-  function bridgeEventJsonDetail(detail) {
-    let unsupported = false;
-    try {
-      const json = JSON.stringify(detail, (_key, value) => {
-        if (isUnsupportedBridgeJsonValue(value)) {
-          unsupported = true;
-          return void 0;
-        }
-        return value;
-      });
-      return unsupported || typeof json !== "string" ? void 0 : json;
-    } catch {
-      return void 0;
-    }
-  }
-  function normalizedBridgeEventDetail(event) {
-    const detail = safeEventDetail(event);
-    if (typeof detail !== "string") return detail;
-    try {
-      return JSON.parse(detail);
-    } catch {
-      return detail;
-    }
-  }
-  function isUnsupportedBridgeJsonValue(value) {
-    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-  }
-  function isUnsupportedPrimitiveBridgeJsonValue(value) {
-    return typeof value === "function" || typeof value === "symbol";
-  }
-  function isArrayBufferBridgeJsonValue(value) {
-    if (typeof ArrayBuffer === "undefined") return false;
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-  }
-  function isBlobBridgeJsonValue(value) {
-    return typeof Blob !== "undefined" && value instanceof Blob;
-  }
-  function isFormDataBridgeJsonValue(value) {
-    return typeof FormData !== "undefined" && value instanceof FormData;
-  }
-  function safeEventDetail(event) {
-    try {
-      return event.detail;
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadString(source, key) {
-    const value = safeReadProperty(source, key);
-    return typeof value === "string" ? value : void 0;
-  }
-  function safeReadNumber(source, key) {
-    const value = safeReadProperty(source, key);
-    return typeof value === "number" ? value : void 0;
-  }
   function userscriptRequestCandidates() {
     const candidates = [];
     const add = (request, thisArg) => {
@@ -6020,7 +6285,7 @@
   }
   async function requestHttp(url, options = {}) {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
       try {
         return await requestViaFetch(url, options);
       } catch (error) {
@@ -6144,6 +6409,9 @@
   }
   function formatStatusFailure(options, status) {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+  }
+  function prefersProxyFetchOverUserscriptBridge() {
+    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
   }
   function isSameOriginUrl(url) {
     if (typeof location === "undefined") return false;
@@ -9929,14 +10197,14 @@ recommendedJiten	jiten.moe頻度データです。
     }
     prepareSourceWithErrors(sourceEntry, context) {
       let promise;
-      promise = this.prepareSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent).catch((error) => {
+      promise = this.prepareSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent, context.errors).catch((error) => {
         context.errors.push(error instanceof Error ? error.message : String(error));
         this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
         return { state: "miss" };
       }).then((result) => ({ promise, result }));
       return promise;
     }
-    async prepareSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent) {
+    async prepareSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, errors) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
       const { source } = sourceEntry;
       const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
@@ -9947,7 +10215,10 @@ recommendedJiten	jiten.moe頻度データです。
           this.shuffledAudio.markSkipped(bagKey, id);
           continue;
         }
-        const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch(() => null);
+        const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch((error) => {
+          errors.push(audioErrorMessage(error));
+          return null;
+        });
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
         if (audio) return { state: "ready", prepared: { audio, candidate, id, bagKey, sourceType: source.type, sourceId: sourceEntry.id, sourceBagKey: sourceEntry.bagKey } };
         this.shuffledAudio.markSkipped(bagKey, id);
@@ -10164,16 +10435,17 @@ recommendedJiten	jiten.moe頻度データです。
           this.shuffledAudio.markSkipped(bagKey, id);
           continue;
         }
-        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, reservedAudio)) return true;
+        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, reservedAudio)) return true;
         this.shuffledAudio.markSkipped(bagKey, id);
       }
       return false;
     }
-    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, reservedAudio) {
+    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, errors, reservedAudio) {
       let audio;
       try {
         audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
-      } catch {
+      } catch (error) {
+        errors.push(audioErrorMessage(error));
         if (sourceType === "jpdb-tts" && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
         return false;
       }
@@ -10564,8 +10836,11 @@ recommendedJiten	jiten.moe頻度データです。
     return { promise, cancel: () => window.clearTimeout(timer) };
   }
   function audioPlaybackAttemptResult(error, errors) {
-    errors.push(error instanceof Error ? error.message : String(error));
+    errors.push(audioErrorMessage(error));
     return "miss";
+  }
+  function audioErrorMessage(error) {
+    return error instanceof Error ? error.message : String(error);
   }
   let sandboxCompanions = {};
   function yomuSettingsDialogController() {
@@ -42054,6 +42329,7 @@ ${span.end}`;
   installPreferredJapaneseSiteLanguageFromStoredSettings();
   applyMokuroReaderOcrDefault();
   installUserscriptHttpBridgeWhenReady();
+  installUserscriptGmStorageBridgeWhenReady();
   if (!isYomuNewTabUrl(location.href)) bootWhenDocumentIsReady();
   function bootWhenDocumentIsReady() {
     if (document.readyState === "loading") {

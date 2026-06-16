@@ -1463,9 +1463,15 @@ export class SettingsDialogController {
         button?.setAttribute('disabled', 'true');
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
         try {
-            this.dependencies.toast(uiText(language, 'playingAudioPreview'));
-            await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
-            log.info('Audio settings preview started');
+            const played = await this.dependencies.audio.play(createAudioPreviewCard(), { userGesture: true });
+            if (played) {
+                this.dependencies.toast(uiText(language, 'playingAudioPreview'));
+                log.info('Audio settings preview started');
+            } else {
+                // play() resolves false (without throwing) when no source produced
+                // audible audio and the chime fallback is off — don't claim playback.
+                this.dependencies.toast(uiText(language, 'audioPreviewFailed'));
+            }
         } catch (error) {
             log.warn('Audio settings preview failed', error);
             this.dependencies.toast(errorMessage(error, uiText(language, 'audioPreviewFailed')));

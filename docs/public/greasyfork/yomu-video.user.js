@@ -204,9 +204,9 @@
   function addWindowEventListener(type, listener, options) {
     const target = window;
     const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$1(directAdd, target, type, listener, options);
+    const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
     if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$1(initialWindowAddEventListener, target, type, listener, options);
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
     if (initialResult.called) return true;
     const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
     if (prototypeResult.called) return true;
@@ -217,9 +217,9 @@
   function removeWindowEventListener(type, listener, options) {
     const target = window;
     const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$1(directRemove, target, type, listener, options);
+    const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
     if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$1(initialWindowRemoveEventListener, target, type, listener, options);
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
     if (initialResult.called) return true;
     const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
     if (prototypeResult.called) return true;
@@ -242,7 +242,7 @@
   function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
     for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
       if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$1(prototypeAdd, target, type, listener, options);
+      const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
       if (result.called) return result;
     }
     return { called: false };
@@ -250,7 +250,7 @@
   function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
     for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
       if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$1(prototypeRemove, target, type, listener, options);
+      const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
       if (result.called) return result;
     }
     return { called: false };
@@ -319,7 +319,7 @@
       return { called: false, error };
     }
   }
-  function callAddEventListener$1(method, target, type, listener, options) {
+  function callAddEventListener$2(method, target, type, listener, options) {
     if (!method) return { called: false };
     try {
       method.call(target, type, listener, options);
@@ -328,7 +328,7 @@
       return { called: false, error };
     }
   }
-  function callRemoveEventListener$1(method, target, type, listener, options) {
+  function callRemoveEventListener$2(method, target, type, listener, options) {
     if (!method) return { called: false };
     try {
       method.call(target, type, listener, options);
@@ -356,7 +356,7 @@
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
       if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-      return callAddEventListener$1(readMethod(window, "addEventListener"), window, type, listener, options);
+      return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
     } finally {
@@ -369,7 +369,7 @@
     if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
     try {
       if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$1(readMethod(window, "removeEventListener"), window, type, listener, options);
+      return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
     } catch (error) {
       return { called: false, error };
     } finally {
@@ -526,7 +526,6 @@
   function isSurfaceIgnoredElement(element) {
     return READABLE_IGNORED_TAGS.has(element.tagName) || element.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi');
   }
-  const MISSING = { missing: true };
   const MANAGED_STORAGE_KEY_PREFIXES = [
     "yomu-",
     "yomu:",
@@ -534,6 +533,215 @@
     "jpdb-reader-",
     "jpdb-popup-reader-"
   ];
+  function isManagedStorageKey(key) {
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+  }
+  const APP_NAME = "よむ";
+  const APP_SLUG = "yomu";
+  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
+  const GITHUB_OWNER = "HRussellZFAC023";
+  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
+  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
+  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
+  const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+  const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
+  function bridgeResponseEventDetail(event) {
+    const detail = normalizedBridgeEventDetail$1(event);
+    const id = safeReadString(detail, "id");
+    const kind = safeReadString(detail, "kind");
+    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+    return {
+      id,
+      kind,
+      response: safeReadProperty(detail, "response"),
+      message: safeReadString(detail, "message")
+    };
+  }
+  function bridgeEventDetail(detail) {
+    if (detail === void 0) return void 0;
+    const json = bridgeEventJsonDetail(detail);
+    return json ?? detail;
+  }
+  function bridgeEventJsonDetail(detail) {
+    let unsupported = false;
+    try {
+      const json = JSON.stringify(detail, (_key, value) => {
+        if (isUnsupportedBridgeJsonValue(value)) {
+          unsupported = true;
+          return void 0;
+        }
+        return value;
+      });
+      return unsupported || typeof json !== "string" ? void 0 : json;
+    } catch {
+      return void 0;
+    }
+  }
+  function normalizedBridgeEventDetail$1(event) {
+    const detail = safeEventDetail(event);
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function isUnsupportedBridgeJsonValue(value) {
+    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+  }
+  function isUnsupportedPrimitiveBridgeJsonValue(value) {
+    return typeof value === "function" || typeof value === "symbol";
+  }
+  function isArrayBufferBridgeJsonValue(value) {
+    if (typeof ArrayBuffer === "undefined") return false;
+    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+  }
+  function isBlobBridgeJsonValue(value) {
+    return typeof Blob !== "undefined" && value instanceof Blob;
+  }
+  function isFormDataBridgeJsonValue(value) {
+    return typeof FormData !== "undefined" && value instanceof FormData;
+  }
+  function safeEventDetail(event) {
+    try {
+      return event.detail;
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadString(source, key) {
+    const value = safeReadProperty(source, key);
+    return typeof value === "string" ? value : void 0;
+  }
+  const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
+  const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
+  const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
+  const BRIDGE_TIMEOUT_MS$1 = 1e4;
+  function getUserscriptGmStorage() {
+    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+    if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
+    return {
+      getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+      setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
+      deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
+      listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
+    };
+  }
+  function storageBridgeRequest(request) {
+    return new Promise((resolve, reject) => {
+      const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("Storage bridge request timed out."));
+      }, BRIDGE_TIMEOUT_MS$1);
+      let cleanupResponseListener = noop$1;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        cleanupResponseListener();
+      };
+      const onResponse = (event) => {
+        const detail = storageBridgeResponseDetail(event);
+        if (!detail || detail.id !== id) return;
+        cleanup();
+        if (detail.ok) resolve(detail);
+        else reject(new Error(detail.message || "Storage bridge request failed."));
+      };
+      cleanupResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
+      dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ...request });
+    });
+  }
+  function storageBridgeResponseDetail(event) {
+    const detail = normalizedBridgeEventDetail(event);
+    if (!detail || typeof detail !== "object") return void 0;
+    const record = detail;
+    if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+    return {
+      id: record.id,
+      ok: record.ok,
+      found: typeof record.found === "boolean" ? record.found : void 0,
+      value: record.value,
+      keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
+      message: typeof record.message === "string" ? record.message : void 0
+    };
+  }
+  function normalizedBridgeEventDetail(event) {
+    let detail;
+    try {
+      detail = event.detail;
+    } catch {
+      return void 0;
+    }
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function addBridgeEventListener$1(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent$1(type, detail) {
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget) {
+      dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget$1() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset$1() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
+  }
+  function callAddEventListener$1(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener$1(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent$1(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function noop$1() {
+  }
+  const MISSING = { missing: true };
   function gmStorageGetSync(key, fallback) {
     const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
     if (getValue) {
@@ -643,10 +851,9 @@
   function asyncGmSetValue() {
     if (typeof GM_setValue === "function") return GM_setValue;
     const modern = globalThis.GM?.setValue;
-    return typeof modern === "function" ? modern.bind(globalThis.GM) : null;
-  }
-  function isManagedStorageKey(key) {
-    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, value) => bridge.setValue(key, value) : null;
   }
   function debugStorageError(message, key, error) {
     if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
@@ -826,16 +1033,6 @@
     window.__YOMU_LOGGER__ = Logger;
     window.YomuLogger = Logger;
   }
-  const APP_NAME = "よむ";
-  const APP_SLUG = "yomu";
-  const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
-  const GITHUB_OWNER = "HRussellZFAC023";
-  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
-  const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
-  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
-  const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
-  const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
   const JPDB_LOOKUP_LINK = {
     id: "jpdb",
     label: "JPDB",
@@ -1874,82 +2071,6 @@
       signal?.removeEventListener("abort", abort);
     });
   }
-  function bridgeResponseEventDetail(event) {
-    const detail = normalizedBridgeEventDetail(event);
-    const id = safeReadString(detail, "id");
-    const kind = safeReadString(detail, "kind");
-    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-    return {
-      id,
-      kind,
-      response: safeReadProperty(detail, "response"),
-      message: safeReadString(detail, "message")
-    };
-  }
-  function bridgeEventDetail(detail) {
-    if (detail === void 0) return void 0;
-    const json = bridgeEventJsonDetail(detail);
-    return json ?? detail;
-  }
-  function bridgeEventJsonDetail(detail) {
-    let unsupported = false;
-    try {
-      const json = JSON.stringify(detail, (_key, value) => {
-        if (isUnsupportedBridgeJsonValue(value)) {
-          unsupported = true;
-          return void 0;
-        }
-        return value;
-      });
-      return unsupported || typeof json !== "string" ? void 0 : json;
-    } catch {
-      return void 0;
-    }
-  }
-  function normalizedBridgeEventDetail(event) {
-    const detail = safeEventDetail(event);
-    if (typeof detail !== "string") return detail;
-    try {
-      return JSON.parse(detail);
-    } catch {
-      return detail;
-    }
-  }
-  function isUnsupportedBridgeJsonValue(value) {
-    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-  }
-  function isUnsupportedPrimitiveBridgeJsonValue(value) {
-    return typeof value === "function" || typeof value === "symbol";
-  }
-  function isArrayBufferBridgeJsonValue(value) {
-    if (typeof ArrayBuffer === "undefined") return false;
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-  }
-  function isBlobBridgeJsonValue(value) {
-    return typeof Blob !== "undefined" && value instanceof Blob;
-  }
-  function isFormDataBridgeJsonValue(value) {
-    return typeof FormData !== "undefined" && value instanceof FormData;
-  }
-  function safeEventDetail(event) {
-    try {
-      return event.detail;
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadString(source, key) {
-    const value = safeReadProperty(source, key);
-    return typeof value === "string" ? value : void 0;
-  }
   function userscriptRequestCandidates() {
     const candidates = [];
     const add = (request, thisArg) => {
@@ -2113,7 +2234,7 @@
   }
   async function requestHttp(url, options = {}) {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
       try {
         return await requestViaFetch(url, options);
       } catch (error) {
@@ -2237,6 +2358,9 @@
   }
   function formatStatusFailure(options, status) {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+  }
+  function prefersProxyFetchOverUserscriptBridge() {
+    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
   }
   function isSameOriginUrl(url) {
     if (typeof location === "undefined") return false;

@@ -17,6 +17,7 @@ export const SUPPORT_COPY_EXTRA = 'Donations are optional and help cover develop
 const NADESHIKO_URL = 'https://nadeshiko.co/';
 export const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
 export const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = 'yomu-userscript-http-bridge-ready';
+export const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = 'yomu-userscript-storage-bridge-ready';
 export const INTERFACE_LANGUAGE_CHANGE_EVENT = 'yomu-interface-language-change';
 export const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 export const OPEN_SUBTITLE_TRACKS_EVENT = 'yomu-open-subtitle-tracks';

@@ -374,7 +374,7 @@ export class AudioPlayer {
         context: AudioSourcePlaybackContext,
     ): PendingAudioSourcePreparation {
         let promise!: PendingAudioSourcePreparation;
-        promise = this.prepareSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent)
+        promise = this.prepareSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent, context.errors)
             .catch(error => {
                 context.errors.push(error instanceof Error ? error.message : String(error));
                 this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
@@ -391,6 +391,7 @@ export class AudioPlayer {
         requestId: number,
         triedUrls: Set<string>,
         isCurrent: () => boolean,
+        errors: string[],
     ): Promise<AudioSourcePrepareResult> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
         const { source } = sourceEntry;
@@ -402,7 +403,8 @@ export class AudioPlayer {
                 this.shuffledAudio.markSkipped(bagKey, id);
                 continue;
             }
-            const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch(() => null);
+            const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings))
+                .catch(error => { errors.push(audioErrorMessage(error)); return null; });
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
             if (audio) return { state: 'ready', prepared: { audio, candidate, id, bagKey, sourceType: source.type, sourceId: sourceEntry.id, sourceBagKey: sourceEntry.bagKey } };
             this.shuffledAudio.markSkipped(bagKey, id);
@@ -690,7 +692,7 @@ export class AudioPlayer {
                 this.shuffledAudio.markSkipped(bagKey, id);
                 continue;
             }
-            if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, reservedAudio)) return true;
+            if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, reservedAudio)) return true;
             this.shuffledAudio.markSkipped(bagKey, id);
         }
         return false;
@@ -705,12 +707,14 @@ export class AudioPlayer {
         requestId: number,
         isCurrent: () => boolean,
         card: JPDBCard,
+        errors: string[],
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         let audio: HTMLAudioElement;
         try {
             audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
-        } catch {
+        } catch (error) {
+            errors.push(audioErrorMessage(error));
             if (sourceType === 'jpdb-tts' && candidate.jpdbAudioId) this.markJpdbAudioUnavailable(candidate.jpdbAudioId);
             return false;
         }
@@ -1186,6 +1190,10 @@ function delayAudioSourceRace(ms: number): { promise: Promise<null>; cancel: () 
 }
 
 function audioPlaybackAttemptResult(error: unknown, errors: string[]): AudioSourcePlayResult['state'] {
-    errors.push(error instanceof Error ? error.message : String(error));
+    errors.push(audioErrorMessage(error));
     return 'miss';
+}
+
+function audioErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }

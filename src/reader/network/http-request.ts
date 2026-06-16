@@ -7,7 +7,15 @@ export async function requestHttp(url: string, options: ReaderHttpOptions = {}):
     // preferFetch only makes sense same-origin; cross-origin fetch is blocked by
     // strict page CSPs (e.g. jpdb.io), so route it through the userscript request
     // which is exempt from the page's connect-src.
-    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url))) {
+    //
+    // The hosted reader (newtab runtime) is the exception: the userscript request
+    // there is the DOM-event bridge, which serialises responses as JSON and so
+    // cannot carry binary audio Blobs across the content/page world boundary
+    // (they arrive empty, and the error is swallowed → "No playable audio found"
+    // with no detail). The public worker proxy serves that same cross-origin media
+    // with CORS headers, so a direct proxied fetch succeeds AND returns a real
+    // Blob. Prefer fetch there, keeping the bridge as a fallback.
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
         try {
             return await requestViaFetch(url, options);
         } catch (error) {
@@ -143,6 +151,11 @@ function formatFailure(options: ReaderHttpOptions): string {
 
 function formatStatusFailure(options: ReaderHttpOptions, status: number): string {
     return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? 'Request'} failed (${status}).`;
+}
+
+function prefersProxyFetchOverUserscriptBridge(): boolean {
+    return typeof window !== 'undefined'
+        && (window as typeof window & { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ === 'newtab';
 }
 
 function isSameOriginUrl(url: string): boolean {

@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.89] - 2026-06-16
+
+### Added
+
+- Settings now sync between the hosted reader (`hrussellzfac023.github.io/yomu-reader/newtab/`) and the userscript. The hosted page runs in the page's main world, which has no `GM_*` APIs — those live only in the userscript's content world — so settings saved on the hosted page previously stayed in that origin's `localStorage` and never reached the shared GM storage the userscript reads on jpdb.io and everywhere else. A new GM storage event-bridge (mirroring the existing HTTP bridge) lets the hosted page route `gmStorageGet`/`set`/`delete`/`listValues` to the userscript's GM storage, scoped to Yomu-owned keys. Edits on the hosted page now reach the userscript, and if the userscript is installed *after* settings were already saved on the hosted page, the existing localStorage→GM migration seeds them into GM on the next hosted load.
+
+### Fixed
+
+- Audio sources (Jisho, JapanesePod101, jiten, etc.) now play on the hosted reader with the userscript installed. The reader was routing cross-origin audio fetches through the userscript HTTP bridge even on the hosted page, but that bridge serialises responses as JSON and cannot carry binary audio Blobs across the content/page world boundary — the Blob arrived empty, playback failed, and the error was swallowed (`No playable audio found` with an empty `errors` list). On the hosted (newtab) runtime the reader now prefers a direct fetch through the public worker proxy, which serves that same media with CORS headers and returns a real Blob; the bridge remains a fallback. Off the hosted runtime (a real userscript on jpdb.io etc.) the bridge is still preferred, since its `GM_xmlhttpRequest` is exempt from the page's CSP.
+- The audio settings preview no longer shows a "Playing よむ…" toast when nothing audible actually plays. The toast was shown optimistically before playback resolved, and `play()`'s boolean result was ignored — so a silent miss (no source resolved and the chime fallback disabled) still claimed playback. The toast now appears only when playback succeeds; otherwise an "Audio preview failed" toast is shown.
+- `No playable audio found` now reports the underlying error(s) instead of an empty list. Candidate-preparation failures (CORS, non-audio responses, blob fetch failures) were being swallowed in two code paths, so genuine audio failures looked like "nothing found" with no diagnosis. Those errors are now collected and logged.
+
 ## [0.7.88] - 2026-06-16
 
 ### Fixed
