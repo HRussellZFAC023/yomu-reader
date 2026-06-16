@@ -41,16 +41,22 @@ export class SubtitleVideoInsetAdapter {
         const metrics = videoInsetMetrics(options);
         if (metrics.signature === this.lastSignature) return false;
 
-        captureYouTubePlayerContainerBaseRects(youtubePlayerContainers(options.side));
+        const previousSignature = this.lastSignature;
+        const preservesYouTubeBottomPlayer = shouldPreserveYouTubeBottomPlayerSize(options.side);
+        if (!preservesYouTubeBottomPlayer) captureYouTubePlayerContainerBaseRects(youtubePlayerContainers(options.side));
         this.lastSignature = metrics.signature;
         document.documentElement.classList.toggle('jpdb-subtitle-video-inset-left', options.side === 'left');
         document.documentElement.classList.toggle('jpdb-subtitle-video-inset-right', options.side === 'right');
         document.documentElement.classList.toggle('jpdb-subtitle-video-inset-bottom', options.side === 'bottom');
         document.documentElement.style.setProperty('--jpdb-subtitle-video-inset', metrics.inset);
-        applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height);
+        applyYouTubePlayerInset(options.side, metrics.width, metrics.insetPixels, metrics.height, {
+            clearStableBottom: !previousSignature.startsWith('bottom:'),
+        });
         applyGenericVideoInsetIfNeeded(options, metrics);
-        scheduleYouTubePlayerResize(metrics.width, metrics.height, options.resizeEventMode ?? 'immediate');
-        dispatchVideoLayoutResize(options.resizeEventMode ?? 'immediate');
+        if (!preservesYouTubeBottomPlayer) {
+            scheduleYouTubePlayerResize(metrics.width, metrics.height, options.resizeEventMode ?? 'immediate');
+            dispatchVideoLayoutResize(options.resizeEventMode ?? 'immediate');
+        }
         return true;
     }
 
@@ -248,8 +254,20 @@ function videoAspectRatio(video?: HTMLVideoElement): number {
     return rect.height / Math.max(1, rect.width);
 }
 
-function applyYouTubePlayerInset(side: SubtitleVideoInsetSide, width: number, inset: number, height: number): void {
+function applyYouTubePlayerInset(
+    side: SubtitleVideoInsetSide,
+    width: number,
+    inset: number,
+    height: number,
+    options: { clearStableBottom?: boolean } = {},
+): void {
     const watchFlexy = document.querySelector<HTMLElement>('ytd-watch-flexy');
+    if (side === 'bottom') {
+        clearYouTubeWatchFlexyInset(watchFlexy);
+        if (options.clearStableBottom ?? true) clearYouTubeInsetTargets();
+        applyYouTubeWatchContentInset(side, inset);
+        return;
+    }
     const containers = youtubePlayerContainers(side);
     captureYouTubePlayerContainerBaseRects(containers);
     applyYouTubeWatchFlexyInset(watchFlexy, side, width, height);
@@ -263,6 +281,12 @@ function applyYouTubeWatchFlexyInset(watchFlexy: HTMLElement | null, side: Subti
     if (side !== 'bottom') watchFlexy?.style.setProperty('--ytd-watch-flexy-player-width', `${width}px`);
     if (height) watchFlexy?.style.setProperty('--ytd-watch-flexy-player-height', `${height}px`);
     if (side === 'bottom' && height) watchFlexy?.style.setProperty('--ytd-watch-flexy-min-player-height', `${height}px`);
+}
+
+function clearYouTubeWatchFlexyInset(watchFlexy: HTMLElement | null): void {
+    watchFlexy?.style.removeProperty('--ytd-watch-flexy-player-width');
+    watchFlexy?.style.removeProperty('--ytd-watch-flexy-player-height');
+    watchFlexy?.style.removeProperty('--ytd-watch-flexy-min-player-height');
 }
 
 function applyYouTubeWatchContentInset(_side: SubtitleVideoInsetSide, _inset: number): void {
@@ -289,19 +313,46 @@ function captureYouTubePlayerContainerBaseRects(elements: HTMLElement[]): void {
 
 function youtubePlayerContainers(side: SubtitleVideoInsetSide): HTMLElement[] {
     if (!isYouTubePage()) return [];
-    const selectors = side === 'bottom'
-        ? [
+    if (side === 'bottom') {
+        return uniqueElements([
             'ytd-watch-flexy #player',
             'ytd-watch-flexy #player-container-outer',
             'ytd-watch-flexy #player-container-inner',
             'ytd-watch-flexy ytd-player',
             'ytd-watch-flexy #movie_player',
-        ]
-        : [
-            'ytd-watch-flexy #primary',
-            'ytd-watch-flexy #primary-inner',
-        ];
-    return uniqueElements(selectors.flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))));
+            '#player-container-id',
+            '#player',
+            '#movie_player',
+            '.html5-video-player',
+        ].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))));
+    }
+    const desktopContainers = uniqueElements([
+        'ytd-watch-flexy #primary',
+        'ytd-watch-flexy #primary-inner',
+    ].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))));
+    return desktopContainers.length ? desktopContainers : youtubeMobileSidePlayerContainers();
+}
+
+function youtubeMobileSidePlayerContainers(): HTMLElement[] {
+    const player = firstElement([
+        '#player-container-id',
+        '#player',
+        '#movie_player',
+        '.html5-video-player',
+    ]);
+    const belowPlayer = firstElement([
+        'ytm-single-column-watch-next-results-renderer.watch-content',
+        '.watch-below-the-player',
+    ]);
+    return uniqueElements([player, belowPlayer].filter((element): element is HTMLElement => Boolean(element)));
+}
+
+function firstElement(selectors: string[]): HTMLElement | undefined {
+    for (const selector of selectors) {
+        const element = document.querySelector<HTMLElement>(selector);
+        if (element) return element;
+    }
+    return undefined;
 }
 
 function youtubeInsetTargets(): HTMLElement[] {
@@ -491,6 +542,10 @@ function shouldPreserveYouTubeNativePlayerSize(options: ApplySubtitleVideoInsetO
     return options.side !== 'bottom'
         && isYouTubePage()
         && isYouTubeShortsLikePlayer(options.video, options.videoRect);
+}
+
+function shouldPreserveYouTubeBottomPlayerSize(side: SubtitleVideoInsetSide): boolean {
+    return side === 'bottom' && isYouTubePage();
 }
 
 function isYouTubeShortsLikePlayer(video: HTMLVideoElement | undefined, videoRect: DOMRect): boolean {

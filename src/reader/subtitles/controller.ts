@@ -17,6 +17,7 @@ import {
 } from './subtitle-cues';
 import {
     TRANSCRIPT_PANEL_MARGIN,
+    TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT,
     applyTranscriptPanelLayout,
     computeSubtitleDrawerLayout,
     loadTranscriptPanelSize,
@@ -4283,11 +4284,32 @@ export class SubtitlePlayerController {
     private transcriptDrawerLayout(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): TranscriptPanelLayout {
         const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
         const layout = computeSubtitleDrawerLayout(layoutOptions);
-        if (!this.shouldUseBottomTranscriptLayout(layout, referenceVideoRect)) return layout;
+        const resolvedLayout = this.shouldUseBottomTranscriptLayout(layout, referenceVideoRect)
+            ? computeSubtitleDrawerLayout({
+                ...layoutOptions,
+                compactPanel: true,
+                preferredPlacement: 'bottom',
+            })
+            : layout;
+        return this.constrainDefaultYouTubeBottomTranscriptLayout(resolvedLayout, layoutOptions, referenceVideoRect);
+    }
+
+    private constrainDefaultYouTubeBottomTranscriptLayout(
+        layout: TranscriptPanelLayout,
+        options: SubtitleDrawerLayoutOptions,
+        referenceVideoRect: DOMRect,
+    ): TranscriptPanelLayout {
+        if (!isYouTubePage() || layout.placement !== 'bottom' || options.size?.bottomHeight !== undefined) return layout;
+        const availableBelowVideo = Math.floor(layout.viewportHeight - referenceVideoRect.bottom - TRANSCRIPT_PANEL_MARGIN);
+        if (availableBelowVideo < TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT || layout.height <= availableBelowVideo) return layout;
         return computeSubtitleDrawerLayout({
-            ...layoutOptions,
+            ...options,
             compactPanel: true,
             preferredPlacement: 'bottom',
+            size: {
+                ...(options.size ?? {}),
+                bottomHeight: availableBelowVideo,
+            },
         });
     }
 
@@ -4355,6 +4377,7 @@ export class SubtitlePlayerController {
     private shouldUseBottomTranscriptLayout(layout: TranscriptPanelLayout, videoRect = this.videoLayoutRect()): boolean {
         if (!isYouTubePage()) return false;
         if (layout.placement === 'bottom' || !this.video) return false;
+        if (shouldHonorExplicitYouTubeSideLayout(layout)) return false;
         if (isYouTubeTheaterMode()) return true;
         if (videoRect.width <= 0) return false;
         const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
@@ -4518,4 +4541,8 @@ export class SubtitlePlayerController {
             resizeEventMode: options.resizeEventMode,
         });
     }
+}
+
+function shouldHonorExplicitYouTubeSideLayout(layout: TranscriptPanelLayout): boolean {
+    return layout.margin > 0 && layout.viewportWidth >= 900;
 }

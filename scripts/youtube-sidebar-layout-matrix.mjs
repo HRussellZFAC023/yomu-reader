@@ -95,6 +95,7 @@ async function runScenario(browser, viewport, placement) {
         });
         const afterResize = await snapshot(page);
         assertLayout(afterResize, viewport.name, placement, 'resize');
+        if (placement === 'bottom') assertBottomResizePreservedPageContent(afterFullRender, afterResize, label);
         await page.screenshot({ path: join(outputDir, `${label}-resized.png`), fullPage: false });
 
         const switchTiming = viewport.name === 'ipad-pro-portrait' && placement === 'right'
@@ -181,6 +182,7 @@ async function runAutoSequence(page) {
 async function runSwitchSequence(page) {
     const timings = [];
     for (const placement of ['left', 'bottom', 'right']) {
+        await resetFixtureInstrumentation(page);
         const timing = await timePageAction(page, async () => {
             await page.locator(`.jpdb-subtitle-panel-placement [data-placement="${placement}"]`).evaluate(button => button.click());
             await page.waitForFunction(expected => {
@@ -195,6 +197,13 @@ async function runSwitchSequence(page) {
         timings.push({ placement, durationMs: timing.durationMs, effectivePlacement: state.placement });
     }
     return timings;
+}
+
+async function resetFixtureInstrumentation(page) {
+    await page.evaluate(() => {
+        globalThis.__yomuSetSizeCalls = [];
+        globalThis.__yomuResizeEvents = 0;
+    });
 }
 
 async function installFixtureRoutes(page) {
@@ -266,9 +275,9 @@ async function resizeTranscriptPanelByKeyboard(page, placement) {
     const handle = page.locator('[data-resize-transcript]').first();
     const before = await panelSize(page);
     await handle.focus();
-    const key = placement === 'bottom' ? 'ArrowUp' : placement === 'left' ? 'ArrowRight' : 'ArrowLeft';
-    await page.keyboard.press(key);
-    await page.keyboard.press(key);
+    const key = placement === 'bottom' ? 'ArrowDown' : placement === 'left' ? 'ArrowRight' : 'ArrowLeft';
+    const repeat = placement === 'bottom' ? 4 : 2;
+    for (let index = 0; index < repeat; index += 1) await page.keyboard.press(key);
     await page.waitForFunction(({ width, height }) => {
         const panel = document.querySelector('.jpdb-subtitle-list');
         if (!(panel instanceof HTMLElement)) return false;
@@ -293,8 +302,11 @@ async function snapshot(page) {
             if (!(element instanceof HTMLElement)) return null;
             return {
                 width: element.style.width,
+                maxWidth: element.style.maxWidth,
+                minWidth: element.style.minWidth,
                 height: element.style.height,
                 maxHeight: element.style.maxHeight,
+                minHeight: element.style.minHeight,
                 marginLeft: element.style.marginLeft,
                 marginRight: element.style.marginRight,
             };
@@ -321,6 +333,7 @@ async function snapshot(page) {
             columns: rect('#columns'),
             title: rect('ytd-watch-metadata h1'),
             actions: rect('#actions'),
+            description: rect('#description'),
             secondary: rect('#secondary'),
             rowCount: document.querySelectorAll('.jpdb-subtitle-list-row').length,
             panelStyle: style('.jpdb-subtitle-list'),
@@ -346,10 +359,13 @@ function assertLayout(state, viewportName, requestedPlacement, phase) {
     if (expectedBottom) {
         assert(state.placement === 'bottom', `expected bottom placement in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
         assert(Math.abs(state.panel.bottom - state.viewport.height) <= 1, `bottom panel has a viewport gap in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
+        assertNoBottomPlayerSizing(state, `${viewportName}/${requestedPlacement}/${phase}`);
+        assert(state.setSizeCalls.length === 0, `bottom mode called YouTube setSize in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
         assert(state.primaryStyle?.height === '', `bottom mode resized YouTube primary column in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
         assert(state.primaryInnerStyle?.height === '', `bottom mode resized YouTube primary-inner column in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
         assert((state.title?.width ?? 0) <= state.viewport.width + 1, `title became abnormally wide in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
         assert((state.actions?.width ?? 0) <= state.viewport.width + 1, `actions became abnormally wide in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
+        assert((state.description?.width ?? 0) <= state.viewport.width + 1, `description became abnormally wide in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
         return;
     }
     assert(state.placement === requestedPlacement, `unexpected side placement in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
@@ -376,6 +392,7 @@ function compactSnapshot(state) {
         video: roundRect(state.video),
         title: roundRect(state.title),
         actions: roundRect(state.actions),
+        description: roundRect(state.description),
         rowCount: state.rowCount,
         columnsStyle: state.columnsStyle,
         columnsComputed: state.columnsComputed,
@@ -385,7 +402,50 @@ function compactSnapshot(state) {
         moviePlayerStyle: state.moviePlayerStyle,
         insetClasses: state.insetClasses,
         insetValue: state.insetValue,
+        setSizeCallCount: state.setSizeCalls.length,
     };
+}
+
+function assertBottomResizePreservedPageContent(before, after, label) {
+    assert(rectDelta(before.video, after.video) <= 2, `bottom drawer resize moved the video frame in ${label}`, {
+        before: compactSnapshot(before),
+        after: compactSnapshot(after),
+    });
+    const requiresFullMetadataReveal = label.includes('ipad');
+    if (requiresFullMetadataReveal) {
+        assert(after.title?.bottom <= after.panel.top + 1, `bottom drawer resize still covers the video title in ${label}`, compactSnapshot(after));
+        assert(after.description?.bottom <= after.panel.top + 1, `bottom drawer resize still covers the video description in ${label}`, compactSnapshot(after));
+    } else {
+        assert(after.title?.top < after.panel.top, `bottom drawer resize did not reveal the video title in ${label}`, compactSnapshot(after));
+        if (!label.includes('desktop')) {
+            assert(after.description?.top < after.panel.top, `bottom drawer resize did not reveal the video description in ${label}`, compactSnapshot(after));
+        }
+    }
+}
+
+function rectDelta(a, b) {
+    if (!a || !b) return Number.POSITIVE_INFINITY;
+    return Math.max(
+        Math.abs(a.left - b.left),
+        Math.abs(a.top - b.top),
+        Math.abs(a.width - b.width),
+        Math.abs(a.height - b.height),
+    );
+}
+
+function assertNoBottomPlayerSizing(state, label) {
+    for (const [name, style] of [
+        ['player', state.playerStyle],
+        ['movie_player', state.moviePlayerStyle],
+    ]) {
+        assert(!style?.width, `bottom mode set ${name} width in ${label}`, compactSnapshot(state));
+        assert(!style?.maxWidth, `bottom mode set ${name} max-width in ${label}`, compactSnapshot(state));
+        assert(!style?.height, `bottom mode set ${name} height in ${label}`, compactSnapshot(state));
+        assert(!style?.maxHeight, `bottom mode set ${name} max-height in ${label}`, compactSnapshot(state));
+        assert(!style?.minHeight, `bottom mode set ${name} min-height in ${label}`, compactSnapshot(state));
+        assert(!style?.marginLeft, `bottom mode shifted ${name} left margin in ${label}`, compactSnapshot(state));
+        assert(!style?.marginRight, `bottom mode shifted ${name} right margin in ${label}`, compactSnapshot(state));
+    }
 }
 
 function assertBox(box, label) {

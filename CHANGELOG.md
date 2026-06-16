@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.72] - 2026-06-16
+
+### Fixed
+
+- YouTube bottom transcript mode no longer mutates YouTube player dimensions or dispatches resize nudges while opening or resizing the drawer, removing the expensive reflow path that made panel open/resize feel slow and keeping the video frame stable as the drawer moves.
+- iPad/tablet YouTube left/right transcript placements now stay side-docked when explicitly selected, including the `m.youtube.com` tablet DOM, shifting the player and watch metadata beside the panel instead of falling back to bottom or covering the video.
+- YouTube bottom mode now caps its default drawer height to the space below the video when possible, stays flush with the visual viewport, and keeps title/metadata/action/description widths normal; the Playwright matrix now proves iPad/mobile/desktop bottom resizing does not call YouTube `setSize` or touch player sizing.
+
 ## [0.7.71] - 2026-06-16
 
 ### Fixed
