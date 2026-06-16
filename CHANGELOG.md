@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.77] - 2026-06-16
+
+### Added
+
+- Automatic OCR for canvas-based manga readers (notably the BookWalker browser viewer at `viewer.bookwalker.jp` / `viewer-trial.bookwalker.jp`): each page `<canvas>` is snapshotted to a pointer-transparent, invisible overlay and read by the existing OCR pipeline, re-snapshotting automatically on page turns. The snapshot lets the host's own page-turn taps/swipes pass straight through.
+
+### Fixed
+
+- Mokuro readers (`reader.mokuro.app`, opened from `mokuro.moe`) now read mokuro's accurate native text boxes instead of *also* re-running image OCR (Google Lens) on the same artwork. The redundant pass dropped characters the native layer already had (e.g. 事) and painted a competing overlay over the page. Manual scanning is still available for panels mokuro itself missed.
+
+### Changed
+
+- Clearer OCR provider settings so setup is obvious: "Google Lens — free, no setup (recommended)", "Google Cloud Vision — needs API key", and "Local OCR server — advanced", each with provider-specific help; the local engine list labels MangaOCR (best for manga) and Apple Vision (macOS).
+- Larger tap targets for manga words on touch devices, making lookups easier to hit without a stylus.
+
 ## [0.7.76] - 2026-06-16
 
 ### Fixed
