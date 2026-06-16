@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-rYJChaQG6EwMTGS6LJRa7gXzUWF0X3nTVo6SVTmaLhc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IJ3WmY2mah0oENQYmUaFYrxh2nlbUPIr2oXqkHhrPXg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-oPZEKNv/T6U/beDRD1/k7L6dYorzylOurlrJoqn2YiQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-6oLoTbEwe73h2c9STGjc6RwdjiBwrDLtF/QNVkjzra8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-cAaLgIzGKX5jwTv9PcAxOcqv23vp7Onu6HvEYJ1+9ZM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-5ghlIfkZZqLUmwFh/PSMnKqmsWb7C2CcfMYZPpWVBY0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-yyU6tq5j1vitIBWDM/Yj0+8s1LtvlRwU8gRlXMlo2Gk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-dLDYhPJIYesa0RtrdKDgJVKfx1ss+ut/JD5JvMmNna4=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6470,9 +6470,9 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
-      googleLens: "Google Lens (recommended)",
-      cloudVision: "Google Cloud Vision",
-      localOcr: "Local OCR engine",
+      googleLens: "Google Lens — free, no setup (recommended)",
+      cloudVision: "Google Cloud Vision — needs API key",
+      localOcr: "Local OCR server — advanced",
       off: "Off",
       ocrMaxImagesPerPage: "Images to read per page",
       ocrMinImageArea: "Smallest image to read",
@@ -6490,11 +6490,15 @@
       ocrBackgroundColor: "Image highlight background",
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Custom local OCR URL",
-      ocrCustomLocalServer: "Custom local OCR server",
+      ocrEndpointUrl: "Local OCR server URL",
+      ocrCustomLocalServer: "Local OCR server URL",
       ocrEngine: "Local OCR engine",
-      cloudVisionApiKey: "Cloud Vision API key",
-      ocrHelp: "Reads nearby images; Cloud Vision needs a key.",
+      ocrEngineMangaOcr: "MangaOCR (best for manga)",
+      ocrEngineAppleVision: "Apple Vision (macOS)",
+      cloudVisionApiKey: "Google Cloud Vision API key",
+      ocrHelp: "Reads images near the viewport. Google Lens works out of the box — no setup or key.",
+      ocrCloudHelp: "Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled). Paste the key here.",
+      ocrLocalHelp: "Advanced: runs OCR on your own computer — nothing leaves your device. Start a local OCR server that exposes an HTTP endpoint (e.g. MangaOCR, best for manga), then enter its URL. Most users should keep Google Lens.",
       subtitlePlayerEnabled: "Enable video subtitle player",
       subtitleAutoDetect: "Auto-detect page subtitles",
       subtitleOverlayVisible: "Show subtitle overlay",
@@ -7983,9 +7987,9 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
-googleLens	Google Lens (おすすめ)
-cloudVision	Google Cloud Vision
-localOcr	ローカルOCRエンジン
+googleLens	Google Lens — 無料・設定不要（おすすめ）
+cloudVision	Google Cloud Vision — APIキーが必要
+localOcr	ローカルOCRサーバー — 上級者向け
 off	オフ
 ocrMaxImagesPerPage	ページごとに読む画像数
 ocrMinImageArea	読む画像の最小サイズ
@@ -8003,11 +8007,15 @@ ocrOutlineColor	画像テキストの縁取り
 ocrBackgroundColor	画像ハイライト背景
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
-ocrEndpointUrl	カスタムローカルOCR URL
-ocrCustomLocalServer	カスタムローカルOCRサーバー
+ocrEndpointUrl	ローカルOCRサーバーURL
+ocrCustomLocalServer	ローカルOCRサーバーURL
 ocrEngine	ローカルOCRエンジン
-cloudVisionApiKey	Cloud Vision APIキー
-ocrHelp	近くの画像を読み取ります。Cloud Visionはキーが必要です。
+ocrEngineMangaOcr	MangaOCR（マンガに最適）
+ocrEngineAppleVision	Apple Vision（macOS）
+cloudVisionApiKey	Google Cloud Vision APIキー
+ocrHelp	ビューポート付近の画像を読み取ります。Google Lensは設定もキーも不要ですぐ使えます。
+ocrCloudHelp	Google Cloud VisionのAPIキー（課金を有効にしたGoogle Cloudプロジェクト）が必要です。ここにキーを貼り付けてください。
+ocrLocalHelp	上級者向け：OCRをあなたのPC上で実行します（データは外部に送信されません）。HTTPエンドポイントを公開するローカルOCRサーバー（マンガにはMangaOCRが最適）を起動し、そのURLを入力してください。多くの方はGoogle Lensのままで問題ありません。
 subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
 subtitleAutoDetect	ページの字幕を自動検出
 subtitleOverlayVisible	字幕オーバーレイを表示
@@ -30555,7 +30563,8 @@ ${glossaryKey}`;
       minLength: 1,
       mergeBlockFragments: true,
       visibleOnly: false,
-      matches: (url) => url.hostname === "reader.mokuro.app" || url.protocol === "file:" && /mokuro/i.test(decodeURIComponent(url.pathname))
+      providesTextLayer: true,
+      matches: (url) => url.hostname === "reader.mokuro.app" || url.hostname === "mokuro.moe" || url.hostname.endsWith(".mokuro.moe") || url.protocol === "file:" && /mokuro/i.test(decodeURIComponent(url.pathname))
     },
     {
       id: "wikipedia-parser",
@@ -30630,6 +30639,9 @@ ${glossaryKey}`;
   function getMatchingSiteParsers(href = window.location.href) {
     const url = new URL(href, window.location.href);
     return SITE_PARSER_PROFILES.filter((profile) => profile.matches(url));
+  }
+  function siteProvidesNativeTextLayer(href = window.location.href) {
+    return getMatchingSiteParsers(href).some((profile) => profile.providesTextLayer === true);
   }
   function collectSiteScanTargets(limit = 40, href = window.location.href) {
     const profiles = getMatchingSiteParsers(href);
@@ -36277,7 +36289,12 @@ ${glossaryKey}`;
         parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
         parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
         onToast: (message) => this.toast(message),
-        shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeImageReadingPage(),
+        // Skip image OCR auto-scan when the site already exposes an accurate
+        // native text layer (e.g. mokuro's `.textBox` overlays). Re-OCRing the
+        // same artwork with Google Lens misses characters the native layer has
+        // (Canna: 事 dropped) and double-paints a competing overlay. Manual FAB
+        // scan still works for panels the native layer missed.
+        shouldAutoScan: () => !siteProvidesNativeTextLayer() && (this.pageHasJapaneseText || documentLooksLikeImageReadingPage()),
         enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
         enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
         fallbackCardFromText: (text2) => this.parser.fallbackCardFromText(text2)
@@ -40156,18 +40173,19 @@ ${glossaryKey}`;
       const background = this.backgroundPitchEnrichmentOptions();
       const noApiCredential = !hasJpdbApiCredential(this.settings) && !hasJitenApiCredential(this.settings);
       const isolateKeylessYouTubeSubtitleBudget = noApiCredential && isYouTubeRuntimeHost();
-      const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT * 2 : 2;
+      const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT * 4 : 2;
       const backgroundPublicLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupLimit;
       const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
       const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
       const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
+      const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget ? Math.max(2, Math.floor(background.publicLookupTermLimit ?? 2)) : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
       return {
         ...background,
         urgent: true,
         publicLookupLimit,
         publicLookupTotalLimit,
         publicLookupPageBudget: isolateKeylessYouTubeSubtitleBudget ? void 0 : background.publicLookupPageBudget,
-        publicLookupTermLimit: Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1))),
+        publicLookupTermLimit,
         deferPublicLookup: false
       };
     }

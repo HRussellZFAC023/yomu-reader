@@ -5,14 +5,28 @@
 ### Fixed
 
 - Showed the subtitle control rail on tall portrait video players (e.g. iPad reels/shorts-style pages) that fill most of the viewport height. The player-frame resolver previously treated any viewport-sized wrapper as a page container, so on portrait players the frame collapsed to the bare `<video>`, player affordances were not detected, and the rail was hidden (`display:none`); landscape players were unaffected. Tight wrappers that hug the video now resolve as the player frame, while oversized page containers that leave room for other content are still ignored.
+- Isolated keyless YouTube subtitle pitch enrichment from the shared visible-page lookup budget, bounding public fallback pitch lookups through Jiten's batched `lookupMany` so long transcripts do not starve visible page text.
+- Rebuilt visible keyless YouTube transcript rows after cheap provisional parsing, and kept provisional subtitle cache entries out of session storage until they have been enriched with furigana/pitch.
+- Tightened Jiten public batch parsing so ambiguous short terms are separated during unauthenticated lookup, preventing missing characters in Jiten-derived words.
+- Split leading particles from Segmenter particle+noun compounds such as `日本語の森`, preserving the expected word boundaries for hover and pitch/furigana enrichment.
 
 ## [0.7.77] - 2026-06-16
+
+### Added
+
+- Automatic OCR for canvas-based manga readers (notably the BookWalker browser viewer at `viewer.bookwalker.jp` / `viewer-trial.bookwalker.jp`): each page `<canvas>` is snapshotted to a pointer-transparent, invisible overlay and read by the existing OCR pipeline, re-snapshotting automatically on page turns. The snapshot lets the host's own page-turn taps/swipes pass straight through.
 
 ### Fixed
 
 - Remove duplicate clearTranscriptVirtualRender method implementation to resolve typescript compilation errors.
 - Adapted Playwright QA integration test assertions and locators to support ruby/furigana text nodes in the DOM.
 - Prevented userscript network globals leakage by resetting GM_xmlhttpRequest and GM in Vitest beforeEach setup.
+- Mokuro readers (`reader.mokuro.app`, opened from `mokuro.moe`) now read mokuro's accurate native text boxes instead of *also* re-running image OCR (Google Lens) on the same artwork. The redundant pass dropped characters the native layer already had (e.g. 事) and painted a competing overlay over the page. Manual scanning is still available for panels mokuro itself missed.
+
+### Changed
+
+- Clearer OCR provider settings so setup is obvious: "Google Lens — free, no setup (recommended)", "Google Cloud Vision — needs API key", and "Local OCR server — advanced", each with provider-specific help; the local engine list labels MangaOCR (best for manga) and Apple Vision (macOS).
+- Larger tap targets for manga words on touch devices, making lookups easier to hit without a stylus.
 
 ## [0.7.76] - 2026-06-16
 

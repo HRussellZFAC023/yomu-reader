@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BookWalker viewer (synthetic fixture)</title>
+<style>
+  html,body { margin:0; background:#111; height:100%; }
+  #bookContainer { display:flex; justify-content:center; padding:8px; }
+  #wideScreen0 { position:relative; }
+  canvas.default { display:block; width:min(94vw, 760px); height:auto; background:#fff; }
+  #toolbar { position:fixed; left:0; right:0; bottom:0; display:flex; gap:12px; justify-content:center;
+    padding:8px; color:#fff; background:rgba(0,0,0,.5); font-family:sans-serif; }
+</style></head>
+<body>
+<!-- Mirrors the real BookWalker browser viewer contract: a #pageSliderCounter and
+     <canvas class="default"> page surfaces inside #wideScreenN containers. -->
+<div id="bookContainer">
+  <div id="wideScreen0"><canvas class="default" width="800" height="1130"></canvas></div>
+</div>
+<div id="toolbar">
+  <button id="prev">◀ prev</button>
+  <span>Page <span id="pageSliderCounter">1 / 3</span></span>
+  <button id="next">next ▶</button>
+</div>
+<script>
+  // Each "page" is Japanese text painted onto the canvas — no DOM text at all,
+  // exactly like BookWalker. Page 1 deliberately contains 事 (Canna's example).
+  const PAGES = [
+    ['第一話　執事の仕事', '今日の出来事を report します。', '「かしこまりました、お嬢様」'],
+    ['第二話　黒い紅茶', 'これは大変な事になりました。', 'シエルは静かに頷いた。'],
+    ['第三話　約束', 'すべては契約のため。', '物語はまだ続く。'],
+  ];
+  const counter = document.getElementById('pageSliderCounter');
+  const canvas = document.querySelector('canvas.default');
+  let page = 0;
+  function draw() {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#111';
+    ctx.font = '44px "Hiragino Sans", "Noto Sans JP", sans-serif';
+    ctx.textBaseline = 'top';
+    PAGES[page].forEach((line, i) => ctx.fillText(line, 60, 120 + i * 90));
+    counter.textContent = `${page + 1} / ${PAGES.length}`;
+  }
+  document.getElementById('next').addEventListener('click', () => { page = Math.min(PAGES.length - 1, page + 1); draw(); });
+  document.getElementById('prev').addEventListener('click', () => { page = Math.max(0, page - 1); draw(); });
+  draw();
+</script>
+</body></html>

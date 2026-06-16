@@ -26,6 +26,14 @@ export interface SiteParserProfile {
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     includePassiveInteractionRoots?: boolean;
+    /**
+     * The site renders its own accurate, selectable Japanese text layer over the
+     * page imagery (e.g. mokuro's pre-OCR'd `.textBox` overlays). When set, the
+     * reader scans that native text instead of re-running image OCR on the same
+     * artwork — re-OCR (Google Lens) both misses characters the native layer
+     * already has and double-paints a competing overlay over the image.
+     */
+    providesTextLayer?: boolean;
     matches(url: URL): boolean;
 }
 
@@ -689,7 +697,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         minLength: 1,
         mergeBlockFragments: true,
         visibleOnly: false,
+        providesTextLayer: true,
         matches: url => url.hostname === 'reader.mokuro.app'
+            || url.hostname === 'mokuro.moe' || url.hostname.endsWith('.mokuro.moe')
             || (url.protocol === 'file:' && /mokuro/i.test(decodeURIComponent(url.pathname))),
     },
     {
@@ -773,6 +783,15 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
 export function getMatchingSiteParsers(href = window.location.href): SiteParserProfile[] {
     const url = new URL(href, window.location.href);
     return SITE_PARSER_PROFILES.filter(profile => profile.matches(url));
+}
+
+/**
+ * True when a matching site parser already supplies an accurate native Japanese
+ * text layer (e.g. mokuro). Image OCR auto-scan is redundant and harmful there:
+ * it both misses characters the native layer has and paints a competing overlay.
+ */
+export function siteProvidesNativeTextLayer(href = window.location.href): boolean {
+    return getMatchingSiteParsers(href).some(profile => profile.providesTextLayer === true);
 }
 
 export function collectSiteScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] | null {

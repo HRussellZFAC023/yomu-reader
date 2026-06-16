@@ -439,6 +439,23 @@
   cursor: inherit;
 }
 
+/* Touch reading without a stylus (Canna feedback): manga text boxes pack small,
+   dense words that are hard to tap with a fingertip. On coarse pointers, grow
+   each word's tap target with a transparent, layout-neutral hit expander so a
+   tap near the word still resolves to it. Scoped to mokuro-style reader boxes
+   to avoid disturbing normal prose. */
+@media (pointer: coarse) {
+  .textBox .jpdb-reader-word::before,
+  #pagesContainer .jpdb-reader-word::before,
+  #manga-panel .jpdb-reader-word::before {
+    content: "";
+    position: absolute;
+    inset: -0.4em -0.18em;
+    z-index: 0;
+    pointer-events: auto;
+  }
+}
+
 .jpdb-reader-word.jpdb-reader-i-plus-one {
   --jpdb-reader-mining-insight-color: color-mix(in srgb, var(--jpdb-reader-state-hard) 42%, transparent);
   background-color: transparent !important;
@@ -1019,6 +1036,21 @@
   margin: 0;
   padding: 0;
   border: 0;
+  pointer-events: none;
+  object-fit: fill;
+}
+
+/* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the
+   page, so this capture anchor stays invisible — it only provides pixels for OCR
+   and a rect for overlay alignment. pointer-events:none lets the host viewer's
+   own page-turn taps/swipes pass straight through. */
+.jpdb-ocr-canvas-frame {
+  position: fixed;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
   pointer-events: none;
   object-fit: fill;
 }
