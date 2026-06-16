@@ -434,20 +434,18 @@ function performanceEntriesBetween(entries, start, end, valueKey) {
 }
 
 async function dragResizeTranscriptPanel(page, placement) {
+    await waitForPanelInteractive(page);
     const before = await panelSize(page);
     const drag = await dragPlan(page, placement);
     await page.mouse.move(drag.start.x, drag.start.y);
     await page.mouse.down();
     for (const point of drag.moves) await page.mouse.move(point.x, point.y, { steps: 2 });
     await page.mouse.up();
-    await page.waitForFunction(({ width, height }) => {
-        const panel = document.querySelector('.jpdb-subtitle-list');
-        if (!(panel instanceof HTMLElement)) return false;
-        const rect = panel.getBoundingClientRect();
-        return Math.abs(rect.width - width) > 24 || Math.abs(rect.height - height) > 24;
-    }, before, { timeout: 2500 }).catch(async () => {
+    const resized = await waitForPanelSizeChanged(page, before, 800);
+    if (!resized) {
         await resizeTranscriptPanelFromKeyboard(page, placement);
-    });
+        await waitForPanelSizeChanged(page, before, 800);
+    }
 }
 
 async function scrollPageWithPanelOpen(page) {
@@ -570,10 +568,31 @@ async function waitForPanelOpen(page) {
     }, null, { timeout: liveMode ? 12_000 : 8_000 });
 }
 
+async function waitForPanelInteractive(page) {
+    await page.waitForFunction(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        const handle = document.querySelector('[data-resize-transcript]');
+        if (!(panel instanceof HTMLElement) || !(handle instanceof HTMLElement) || panel.hidden) return false;
+        if (panel.classList.contains('jpdb-subtitle-panel-entering') || panel.classList.contains('jpdb-subtitle-panel-closing')) return false;
+        const rect = handle.getBoundingClientRect();
+        const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+        return hit instanceof Element && (hit === handle || hit.closest('[data-resize-transcript]') === handle);
+    }, null, { timeout: 2000 });
+}
+
 async function waitForFullTranscriptRender(page) {
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 20, null, {
         timeout: liveMode ? 45_000 : 5_000,
     });
+}
+
+async function waitForPanelSizeChanged(page, before, timeout) {
+    return await page.waitForFunction(({ width, height }) => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        if (!(panel instanceof HTMLElement)) return false;
+        const rect = panel.getBoundingClientRect();
+        return Math.abs(rect.width - width) > 24 || Math.abs(rect.height - height) > 24;
+    }, before, { timeout }).then(() => true, () => false);
 }
 
 async function waitForViewport(page, viewport) {

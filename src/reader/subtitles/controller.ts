@@ -3882,7 +3882,13 @@ export class SubtitlePlayerController {
         this.transcriptPanel.classList.add('jpdb-subtitle-resizing');
         this.root?.classList.add('jpdb-subtitle-resizing');
         document.documentElement.classList.add('jpdb-subtitle-transcript-resizing');
-        (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+        try {
+            (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+        } catch {
+            // Pointer capture is a convenience, not a requirement. Some
+            // embedded/live players reject synthetic or retargeted pointers;
+            // keep the window-level drag listeners alive either way.
+        }
 
         // pointermove fires far faster than the display refreshes; coalesce the
         // layout-heavy positionTranscriptPanel into one call per animation frame
