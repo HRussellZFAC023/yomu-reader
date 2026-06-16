@@ -1,4 +1,16 @@
-import { filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, sortBrowseCards, type BrowseFilter, type BrowseSortKey } from './browse-view';
+import {
+    browseSourceForCard,
+    filterBrowseCards,
+    renderBrowseChips,
+    renderBrowseControls,
+    renderBrowseList,
+    renderBrowseSourceChips,
+    sortBrowseCards,
+    type BrowseFilter,
+    type BrowseSortKey,
+    type BrowseSourceFilter,
+    type BrowseSourceChip,
+} from './browse-view';
 import {
     renderSearchKanjiResults,
     renderSearchWordResults,
@@ -13,8 +25,8 @@ import {
     type NewTabSearchWordDetailData,
 } from './search-view';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
-import { renderApiMiningPanel } from '../cards/popover-renderer';
-import { apiSrsProviderViewForCard } from '../cards/srs-providers';
+import { renderApiMiningPanel, togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { apiSrsProviderViewForCard, isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord, normalizedJapaneseCardReading } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
@@ -744,6 +756,7 @@ export class NewTabController {
     private browsePool?: JPDBCard[];
     private browsePoolKey = '';
     private browseFilters = new Set<CardState>();
+    private browseSourceFilters = new Set<BrowseSourceFilter>();
     private browseSort: BrowseSortKey = 'queue';
     private browseSortDescending = false;
     private browseSelectMode = false;
@@ -1162,8 +1175,7 @@ export class NewTabController {
             if (deckSelect && root.contains(deckSelect) && this.state.mode === 'search') {
                 this.state = { ...this.state, jpdbDeck: deckSelect.value };
                 this.persistState();
-                this.browsePool = undefined;
-                this.browsePoolKey = '';
+                this.invalidateBrowsePool();
                 this.browsePage = 0;
                 void this.renderBrowseInto(root);
                 return;
@@ -1406,7 +1418,8 @@ export class NewTabController {
             if (kanjiImmersion && root.contains(kanjiImmersion)) {
                 this.performNewTabKanjiImmersionAction(root, kanjiImmersion, immersionAction);
             } else {
-                this.performNewTabImmersionAction(root, immersionAction);
+                const immersion = target.closest<HTMLElement>('.jpdb-reader-newtab-immersion') ?? root;
+                this.performNewTabImmersionAction(root, immersion, immersionAction);
             }
             return true;
         }
@@ -1726,7 +1739,19 @@ export class NewTabController {
         if (action === 'deck-picker' || action === 'add') {
             return this.handleNestedDeckPickerAction(actionTarget, event);
         }
-        if (action === 'copy-word' || action === 'anki' || action === 'anki-edit' || action === 'neverforget' || action === 'blacklist') {
+        if (action === 'review-target-toggle' && actionTarget instanceof HTMLButtonElement) {
+            consumeNestedLookupEvent(event);
+            togglePopoverReviewTargetSelection(actionTarget);
+            return true;
+        }
+        if (action === 'copy-word'
+            || action === 'anki'
+            || action === 'anki-edit'
+            || action === 'neverforget'
+            || action === 'blacklist'
+            || action === 'jiten-mining'
+            || action === 'jiten-suspend'
+            || action === 'jiten-forget') {
             return this.handleNestedCardAction(actionTarget, event);
         }
         return false;
@@ -4813,11 +4838,11 @@ export class NewTabController {
         );
     }
 
-    private performNewTabImmersionAction(root: HTMLElement, action: string): void {
+    private performNewTabImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void {
         const current = this.visibleWords[this.index];
         if (!current) return;
         if (action === 'audio') {
-            void this.playCurrentImmersionAudio(current);
+            void this.playRenderedOrCurrentImmersionAudio(surface, current);
             return;
         }
         if (action !== 'previous' && action !== 'next') return;
@@ -4838,7 +4863,7 @@ export class NewTabController {
         if (!kanji) return;
         const card = this.newTabKanjiImmersionCard(kanji);
         if (action === 'audio') {
-            void this.playCurrentKanjiImmersionAudio(kanji, card);
+            void this.playRenderedOrCurrentKanjiImmersionAudio(surface, kanji, card);
             return;
         }
         if (action !== 'previous' && action !== 'next') return;
@@ -4959,6 +4984,25 @@ export class NewTabController {
         await this.playNewTabImmersionAudio(card, this.newTabKanjiImmersionKey(kanji), () => this.isCurrentRevealedKanji(kanji));
     }
 
+    private async playRenderedOrCurrentImmersionAudio(surface: HTMLElement, card: JPDBCard): Promise<void> {
+        const key = cardKey(card);
+        await this.playRenderedOrNewTabImmersionAudio(surface, card, key, () => this.isCurrentRevealedWordCard(key));
+    }
+
+    private async playRenderedOrCurrentKanjiImmersionAudio(surface: HTMLElement, kanji: string, card: JPDBCard): Promise<void> {
+        await this.playRenderedOrNewTabImmersionAudio(surface, card, this.newTabKanjiImmersionKey(kanji), () => this.isCurrentRevealedKanji(kanji));
+    }
+
+    private async playRenderedOrNewTabImmersionAudio(surface: HTMLElement, card: JPDBCard, key: string, isCurrent: () => boolean): Promise<void> {
+        if (!this.dependencies.getSettings().audioEnabled) return;
+        const source = this.renderedNewTabImmersionAudioSource(surface);
+        if (source) {
+            await this.playNewTabImmersionAudioSource(source, isCurrent);
+            return;
+        }
+        await this.playNewTabImmersionAudio(card, key, isCurrent);
+    }
+
     private async playNewTabImmersionAudio(card: JPDBCard, key: string, isCurrent: () => boolean): Promise<void> {
         if (!this.dependencies.getSettings().audioEnabled) return;
         const examples = await this.loadImmersionExamples(card);
@@ -4967,6 +5011,11 @@ export class NewTabController {
         if (!example) return;
         const source = this.newTabImmersionAudioSource(example);
         if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
+        await this.playNewTabImmersionAudioSource(source, isCurrent);
+    }
+
+    private async playNewTabImmersionAudioSource(source: { urls: string[]; key: string }, isCurrent: () => boolean): Promise<void> {
+        if (this.isCurrentImmersionAudioPlaying(source.key)) return;
         const requestId = this.beginNewTabImmersionAudio(source.key);
         if (await this.playNewTabImmersionAudioCandidates(source.urls, requestId, source.key, isCurrent)) return;
         const blobSrc = await this.fetchNewTabImmersionAudio(source.urls);
@@ -5004,8 +5053,28 @@ export class NewTabController {
 
     private newTabImmersionAudioSource(example: ImmersionKitExample): { urls: string[]; key: string } | null {
         const urls = newTabImmersionAudioUrls(example, this.dependencies.immersionKit);
-        const key = urls[0] ?? '';
-        return key ? { urls, key } : null;
+        return this.newTabImmersionAudioSourceFromUrls(urls);
+    }
+
+    private newTabImmersionAudioSourceFromUrls(urls: string[]): { urls: string[]; key: string } | null {
+        const candidates = uniqueNewTabImmersionAudioCandidates(urls);
+        const key = candidates[0] ?? '';
+        return key ? { urls: candidates, key } : null;
+    }
+
+    private renderedNewTabImmersionAudioSource(surface: HTMLElement): { urls: string[]; key: string } | null {
+        const card = surface.classList.contains('jpdb-reader-example-card')
+            ? surface
+            : surface.querySelector<HTMLElement>('.jpdb-reader-example-card');
+        const raw = card?.dataset.immersionAudioUrls;
+        if (!raw) return null;
+        try {
+            const parsed: unknown = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return null;
+            return this.newTabImmersionAudioSourceFromUrls(parsed.filter((value): value is string => typeof value === 'string'));
+        } catch {
+            return null;
+        }
     }
 
     private isCurrentImmersionAudioPlaying(key: string): boolean {
@@ -6077,6 +6146,22 @@ export class NewTabController {
                 if (mount) this.renderBrowseResults(mount);
                 return true;
             }
+            case 'browse-source-filter': {
+                event.preventDefault();
+                const filter = (target.closest<HTMLElement>('[data-browse-source-filter]')?.dataset.browseSourceFilter ?? 'all') as BrowseSourceChip;
+                if (filter === 'all') this.browseSourceFilters.clear();
+                else if (this.browseSourceFilters.has(filter)) this.browseSourceFilters.delete(filter);
+                else this.browseSourceFilters.add(filter);
+                this.browsePage = 0;
+                const query = normalizeSearchQuery(this.searchQuery);
+                if (!this.browseScopeActive() && query) {
+                    this.performSearch(root, query);
+                    return true;
+                }
+                const mount = this.searchResultsMount(root);
+                if (mount) this.renderBrowseResults(mount);
+                return true;
+            }
             case 'browse-sort-direction': {
                 event.preventDefault();
                 this.browseSortDescending = !this.browseSortDescending;
@@ -6109,6 +6194,11 @@ export class NewTabController {
             case 'browse-card': {
                 event.preventDefault();
                 const row = target.closest<HTMLElement>('[data-expression]');
+                const card = this.browseCardForRow(row);
+                if (card && row && this.dependencies.showLookupCard) {
+                    void this.dependencies.showLookupCard(card, sentenceForCard(card), row, this.nestedLookupOptions());
+                    return true;
+                }
                 const expression = cleanNestedLookupValue(row?.dataset.expression);
                 if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(row?.dataset.reading) || expression, row ?? target);
                 return true;
@@ -6120,6 +6210,15 @@ export class NewTabController {
             default:
                 return false;
         }
+    }
+
+    private browseCardForRow(row: HTMLElement | null): JPDBCard | undefined {
+        const key = cleanNestedLookupValue(row?.dataset.browseCardKey);
+        if (!key) return undefined;
+        return (this.browsePool ?? []).find(card => this.cardMatchesSelectionKey(card, key))
+            ?? this.allWords.find(card => this.cardMatchesSelectionKey(card, key))
+            ?? this.visibleWords.find(card => this.cardMatchesSelectionKey(card, key))
+            ?? this.searchWordCardCache.get(key);
     }
 
     private searchActionQuery(target: HTMLElement): string {
@@ -7008,10 +7107,29 @@ export class NewTabController {
         const results = this.searchResultsMount(root);
         if (!results) return;
         if (!this.browsePool) replaceChildrenWith(results, el('div', { class: 'jpdb-reader-newtab-search-empty' }, this.text('loading')));
-        await this.loadBrowsePool();
+        await this.loadBrowsePool(() => {
+            const mount = this.searchResultsMount(root);
+            const query = normalizeSearchQuery(this.searchQuery);
+            if (mount?.isConnected && this.state.mode === 'search' && (!query || this.browseScopeActive())) this.renderBrowseResults(mount);
+        });
         const mount = this.searchResultsMount(root);
-        if (!mount || !mount.isConnected || this.state.mode !== 'search' || normalizeSearchQuery(this.searchQuery)) return;
+        const query = normalizeSearchQuery(this.searchQuery);
+        if (!mount || !mount.isConnected || this.state.mode !== 'search' || (query && !this.browseScopeActive())) return;
         this.renderBrowseResults(mount);
+    }
+
+    refreshBrowseAfterCardMutation(_card?: JPDBCard): void {
+        const root = document.querySelector<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-newtab');
+        if (!root || this.state.mode !== 'search') return;
+        this.invalidateBrowsePool();
+        void this.renderBrowseInto(root);
+    }
+
+    private invalidateBrowsePool(): void {
+        this.browsePool = undefined;
+        this.browsePoolKey = '';
+        this.browseAnkiDueBuckets = undefined;
+        this.browseDueBucketsKey = '';
     }
 
     // SH-3 due-in column: bucket the pool's Anki cards through Anki's own
@@ -7041,7 +7159,9 @@ export class NewTabController {
     // Dictionary lookup stays the Search default; deck/state scope flips the
     // tab into the My Cards browser (2D reviews).
     private browseScopeActive(): boolean {
-        return this.browseFilters.size > 0 || Boolean(this.state.jpdbDeck && this.state.jpdbDeck !== 'all');
+        return this.browseFilters.size > 0
+            || this.browseSourceFilters.size > 0
+            || Boolean(this.state.jpdbDeck && this.state.jpdbDeck !== 'all');
     }
 
     private renderBrowseResults(mount: HTMLElement): void {
@@ -7049,11 +7169,18 @@ export class NewTabController {
         const language = this.language();
         const query = this.browseScopeActive() ? normalizeSearchQuery(this.searchQuery) : '';
         const filtered = sortBrowseCards(
-            filterBrowseCards(cards, this.browseFilters, query),
+            filterBrowseCards(cards, this.browseFilters, query, this.browseSourceFilters),
             this.browseSort,
             this.browseSortDescending,
         );
+        const hasJitenCards = filtered.some(card => isJitenBackedCard(card) || browseSourceForCard(card) === 'jiten');
         replaceChildrenWith(mount,
+            renderBrowseSourceChips(cards, this.browseSourceFilters, {
+                all: this.text('browseAllSources'),
+                jpdb: 'JPDB',
+                jiten: 'Jiten',
+                anki: 'Anki',
+            }),
             renderBrowseChips(cards, this.browseFilters, language, this.text('browseAllChip')),
             renderBrowseControls(this.browseSort, this.browseSortDescending, this.browseSelectMode, {
                 sortLabel: this.text('browseSortLabel'),
@@ -7074,8 +7201,11 @@ export class NewTabController {
                 ...(this.dependencies.performCardAction && this.browseSelectMode ? {
                     bulk: {
                         selectPage: this.text('browseSelectPage'),
+                        mining: hasJitenCards ? this.text('mining') : undefined,
                         blacklist: this.text('blacklist'),
                         neverForget: this.text('stateNeverForget'),
+                        suspend: hasJitenCards ? this.text('stateSuspended') : undefined,
+                        forget: hasJitenCards ? this.text('forget') : undefined,
                     },
                 } : {}),
                 ...(this.browseAnkiDueBuckets ? {
@@ -7121,6 +7251,7 @@ export class NewTabController {
         if (!selected.length) return;
         root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="browse-bulk"]').forEach(button => { button.disabled = true; });
         for (const card of selected) {
+            if (isJitenBulkAction(action) && !(isJitenBackedCard(card) || browseSourceForCard(card) === 'jiten')) continue;
             const button = el('button', { type: 'button', dataset: { action } }) as HTMLButtonElement;
             try {
                 await performCardAction(button, card, sentenceForCard(card), button);
@@ -7128,12 +7259,11 @@ export class NewTabController {
                 // Provider errors surface through the action path's own toasts.
             }
         }
-        this.browsePool = undefined;
-        this.browsePoolKey = '';
+        this.invalidateBrowsePool();
         await this.renderBrowseInto(root);
     }
 
-    private async loadBrowsePool(): Promise<JPDBCard[]> {
+    private async loadBrowsePool(onPartial?: (cards: JPDBCard[]) => void): Promise<JPDBCard[]> {
         const settings = this.dependencies.getSettings();
         // 2D reviews: a selected JPDB deck scopes the browser to that deck's
         // full word list (queue order via due_at; sort/filter on top).
@@ -7149,10 +7279,25 @@ export class NewTabController {
         const providers = this.browsePoolProviders(settings);
         const key = providers.map(provider => provider.label).join('+');
         if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
-        const results = await Promise.all(providers.map(provider => this.loadJpdbStatsApiProvider(provider)));
+        this.browsePool = [];
+        this.browsePoolKey = key;
+        this.browseAnkiDueBuckets = undefined;
+        this.browseDueBucketsKey = '';
+        const collected: JPDBCard[] = [];
+        const results = await Promise.all(providers.map(async provider => {
+            const result = await this.loadJpdbStatsApiProvider(provider);
+            if (this.browsePoolKey === key && result.error === null) {
+                collected.push(...result.cards);
+                this.browsePool = dedupeWords(collected);
+                onPartial?.(this.browsePool);
+            }
+            return result;
+        }));
         const cards = dedupeWords(results.filter(result => result.error === null).flatMap(result => result.cards));
+        if (this.browsePoolKey !== key) return this.browsePool ?? cards;
         this.browsePool = cards;
         this.browsePoolKey = key;
+        onPartial?.(cards);
         return cards;
     }
 
@@ -8920,6 +9065,10 @@ function capitalizedSessionSource(source: string): string {
 
 function uniqueNumbers(values: number[]): number[] {
     return [...new Set(values)];
+}
+
+function isJitenBulkAction(action: string): boolean {
+    return action === 'jiten-mining' || action === 'jiten-suspend' || action === 'jiten-forget';
 }
 
 function uniqueNewTabImmersionAudioCandidates(values: string[]): string[] {

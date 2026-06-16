@@ -5,7 +5,7 @@ import { renderReviewButtons } from '../anki/render';
 import { runLimited } from '../core/async-utils';
 import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
-import { CardPopoverRenderer, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { cardKey } from '../cards/utils';
@@ -1679,7 +1679,6 @@ export class ReaderApp {
         event.stopPropagation();
         this.prepareModalLookupFromPointer(event);
         this.suppressSelectionLookupUntil = Date.now() + 350;
-        if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
         this.ocr.pinLineForElement(word);
         void this.showWord(word, surfaces.insideReaderPopup
             ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
@@ -4771,6 +4770,10 @@ export class ReaderApp {
     }
 
     private handleCardPopoverMiningAction(button: HTMLButtonElement): boolean {
+        if (button.dataset.action === 'review-target-toggle') {
+            togglePopoverReviewTargetSelection(button);
+            return true;
+        }
         if (button.dataset.action !== 'mining-collapse') return false;
         this.toggleMiningControls(button);
         return true;
@@ -6751,6 +6754,13 @@ export class ReaderApp {
         this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
         popover.classList.toggle('jpdb-reader-sheet-sticky', this.isStickyMountedSheet(popover, state));
         this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
+        // Entering the pinned (clicked) lookup state for a subtitle word pauses the
+        // video so the entry can be read; closing the popover resumes it. Hover
+        // previews keep playing. Anchored here so every path that opens a modal
+        // lookup over a subtitle word pauses, not just the direct word-click.
+        if (state.mode === 'modal' && state.resolvedAnchor?.closest(SUBTITLE_SURFACE_SELECTOR)) {
+            this.pauseVideoForSubtitleMining();
+        }
     }
 
     private installMountedPopoverSurface(popover: HTMLElement, state: PopoverMountState): void {

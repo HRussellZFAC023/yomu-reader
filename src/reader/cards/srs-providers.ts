@@ -1,14 +1,15 @@
 import { normalizeCardStates } from './state';
 import { jpdbDeckLabel } from './deck-choice';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
-import type { JitenApiClient } from '../dictionaries/jiten';
+import type { JitenApiClient, JitenVocabularyDeckState } from '../dictionaries/jiten';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { UiCopyKey } from '../app/i18n';
-import type { ApiDeck, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
+import type { ApiDeck, CardState, JPDBCard, JPDBDeck, JPDBGrade, ReaderSettings } from '../app/types';
 
 export type ApiSrsProviderId = 'jpdb' | 'jiten';
 export type ApiSrsDeckSource = ApiSrsProviderId;
-export type ApiSrsDeckState = 'never-forget' | 'blacklisted';
+export type ApiSrsToggleDeckState = 'never-forget' | 'blacklisted';
+export type ApiSrsDeckState = ApiSrsToggleDeckState | 'mining' | 'suspended' | 'forgotten';
 
 export interface ApiSrsProviderView {
     id: ApiSrsProviderId;
@@ -27,6 +28,7 @@ export interface ApiSrsProviderAdapter extends ApiSrsProviderView {
     deckStateApiKeyRequiredKey: UiCopyKey;
     addedToastKey: UiCopyKey;
     supportsCard(card: JPDBCard): boolean;
+    supportsDeckState(state: ApiSrsDeckState): boolean;
     selectedDeckId(deckId: string, settings: ReaderSettings): string;
     selectedDeckLabel(settings: ReaderSettings, data: ApiSrsProviderDeckData): string;
     addToDeck(deckId: string, card: JPDBCard, sentence?: string, context?: ApiSrsProviderActionContext): Promise<void>;
@@ -105,6 +107,7 @@ function createJpdbSrsProviderAdapter(
         deckStateApiKeyRequiredKey: 'jpdbDeckStateApiKeyRequired',
         addedToastKey: 'addedToJpdb',
         supportsCard: isJpdbBackedCard,
+        supportsDeckState: state => state === 'never-forget' || state === 'blacklisted',
         selectedDeckId: selectedJpdbDeckId,
         selectedDeckLabel: (current, data) => jpdbDeckLabel(current, current.miningDeck.trim() || 'forq', data.jpdbDecks),
         addToDeck: async (deckId, card, sentence) => {
@@ -120,6 +123,7 @@ function createJpdbSrsProviderAdapter(
             return { addedBeforeReview: wasNotInDeck };
         },
         setDeckState: async (card, state, deckId) => {
+            if (state !== 'blacklisted' && state !== 'never-forget') return;
             if (normalizeCardStates(card.cardState).includes(state)) {
                 await jpdb.removeFromDeck(deckId, card);
             } else {
@@ -140,6 +144,7 @@ function createJitenSrsProviderAdapter(jiten: JitenApiClient, settings: ReaderSe
         deckStateApiKeyRequiredKey: 'jitenDeckStateApiKeyRequired',
         addedToastKey: 'addedToJiten',
         supportsCard: isJitenBackedCard,
+        supportsDeckState: () => true,
         selectedDeckId: selectedJitenDeckId,
         selectedDeckLabel: (_current, data) => jitenDeckLabel((data.jitenDecks ?? [])[0]),
         addToDeck: async (deckId, card, sentence, context) => {
@@ -154,8 +159,9 @@ function createJitenSrsProviderAdapter(jiten: JitenApiClient, settings: ReaderSe
             return {};
         },
         setDeckState: async (card, state) => {
-            const jitenState = state === 'blacklisted' ? 'blacklist' : 'neverForget';
-            const action = normalizeCardStates(card.cardState).includes(state) ? 'remove' : 'add';
+            const jitenState = jitenVocabularyStateForApiState(state);
+            const currentState = cardStateForApiState(state);
+            const action = currentState && normalizeCardStates(card.cardState).includes(currentState) ? 'remove' : 'add';
             await jiten.setVocabularyState(card, jitenState, action);
             await refreshJitenCardState(jiten, card);
         },
@@ -171,6 +177,22 @@ export function isJitenBackedCard(card: JPDBCard): boolean {
     return card.source === 'jiten'
         || (finitePositiveInteger(card.jitenWordId) !== undefined
             && finiteNonNegativeInteger(card.jitenReadingIndex) !== undefined);
+}
+
+function jitenVocabularyStateForApiState(state: ApiSrsDeckState): JitenVocabularyDeckState {
+    if (state === 'blacklisted') return 'blacklist';
+    if (state === 'never-forget') return 'neverForget';
+    if (state === 'suspended') return 'suspend';
+    if (state === 'forgotten') return 'forget';
+    return 'mining';
+}
+
+export function cardStateForApiState(state: ApiSrsDeckState): CardState {
+    if (state === 'blacklisted') return 'blacklisted';
+    if (state === 'never-forget') return 'never-forget';
+    if (state === 'suspended') return 'suspended';
+    if (state === 'forgotten') return 'not-in-deck';
+    return 'in-deck';
 }
 
 function finitePositiveInteger(value: unknown): number | undefined {

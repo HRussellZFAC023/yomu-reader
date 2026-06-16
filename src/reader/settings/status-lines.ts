@@ -52,6 +52,12 @@ function jpdbStatusLineFromValues(hasJpdbApiKey: boolean, hasJitenApiKey: boolea
             tone: 'pending',
         };
     }
+    if (hasJpdbApiKey && hasJitenApiKey) {
+        return {
+            message: uiText(language, 'jpdbAndJitenApiKeysConfigured'),
+            tone: 'success',
+        };
+    }
     if (!hasJpdbApiKey) {
         return {
             message: jitenApiKeyConfiguredMessage(language),

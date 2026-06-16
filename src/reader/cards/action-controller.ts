@@ -11,10 +11,13 @@ import type { MiningContext } from '../study/mining-context';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import {
     createApiSrsProviderAdapters,
+    cardStateForApiState,
     isApiMiningEnabled,
     shouldMineAnkiAlongsideApi,
     type ApiSrsDeckSource,
     type ApiSrsDeckState,
+    type ApiSrsProviderId,
+    type ApiSrsToggleDeckState,
     type ApiSrsProviderAdapter,
 } from './srs-providers';
 import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
@@ -61,7 +64,7 @@ type StudyActionHandler = () => boolean | Promise<boolean>;
 type MiningActionHandler = () => Promise<void>;
 type SrsDeckSource = ApiSrsDeckSource | 'anki';
 type AnkiAddResult = number | null | 'duplicate';
-type PopoverReviewTargetKind = 'api' | 'anki' | 'both';
+type PopoverReviewTargetKind = 'api' | ApiSrsProviderId | 'anki' | 'both';
 interface PopoverReviewTargetSelection {
     kind?: PopoverReviewTargetKind;
     ankiCardId?: number;
@@ -239,6 +242,9 @@ export class CardActionController {
             const settings = this.options.getSettings();
             return this.finishMiningAction(this.changeProviderDeckState(card, 'blacklisted', settings.blacklistDeck));
         }
+        if (action === 'jiten-mining') return this.finishMiningAction(this.changeProviderDeckState(card, 'mining', ''));
+        if (action === 'jiten-suspend') return this.finishMiningAction(this.changeProviderDeckState(card, 'suspended', ''));
+        if (action === 'jiten-forget') return this.finishMiningAction(this.changeProviderDeckState(card, 'forgotten', ''));
         return undefined;
     }
 
@@ -358,19 +364,24 @@ export class CardActionController {
 
     private async changeProviderDeckState(card: JPDBCard, state: ApiSrsDeckState, deck: string): Promise<void> {
         const settings = this.options.getSettings();
-        const provider = this.apiProviderForCard(card, settings);
-        if (!provider && settings.ankiEnabled && await this.changeAnkiDeckState(card, state, settings)) return;
+        const provider = this.apiProviders(settings).find(candidate => candidate.supportsCard(card) && candidate.supportsDeckState(state))
+            ?? this.apiProviderForCard(card, settings);
+        if (!provider && settings.ankiEnabled && isAnkiDeckState(state) && await this.changeAnkiDeckState(card, state, settings)) return;
         this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? 'jpdbDeckStateApiKeyRequired'));
-        const wasSet = normalizeCardStates(card.cardState).includes(state);
+        if (!provider.supportsDeckState(state)) throw new Error(uiText(settings.interfaceLanguage, 'actionFailed'));
+        const wasSet = normalizeCardStates(card.cardState).includes(cardStateForApiState(state));
         await provider.setDeckState(card, state, deck);
-        this.options.toast(uiText(settings.interfaceLanguage, wasSet ? 'removedFromDeck' : 'addedToDeckToast'));
+        const toastKey = state === 'blacklisted' || state === 'never-forget'
+            ? (wasSet ? 'removedFromDeck' : 'addedToDeckToast')
+            : 'vocabularyStatusUpdated';
+        this.options.toast(uiText(settings.interfaceLanguage, toastKey));
         this.notifyApiCardStateChanged(card);
     }
 
     // Anki has no blacklist/never-forget decks; map blacklist to native card
     // suspension (same effect: never reviewed, dedicated state color) and
     // never-forget to a tag that can also be filtered inside Anki.
-    private async changeAnkiDeckState(card: JPDBCard, state: ApiSrsDeckState, settings: ReaderSettings): Promise<boolean> {
+    private async changeAnkiDeckState(card: JPDBCard, state: ApiSrsToggleDeckState, settings: ReaderSettings): Promise<boolean> {
         const lookup = await this.options.anki.findExistingCards(card).catch(() => null);
         if (!lookup?.notes.length) return false;
         if (state === 'blacklisted') {
@@ -405,6 +416,10 @@ export class CardActionController {
             await this.answerAnkiCard(grade, card, options.ankiCardId);
             return;
         }
+        if (options.target === 'jpdb' || options.target === 'jiten') {
+            await this.reviewApiCard(grade, card, sentence, { ...options, providerId: options.target });
+            return;
+        }
         if (options.target === 'anki' || options.ankiCardId) {
             await this.answerAnkiCard(grade, card, options.ankiCardId);
             return;
@@ -421,9 +436,11 @@ export class CardActionController {
         throw new Error(newTabText(this.options.getSettings().interfaceLanguage, 'missingAnkiCardId'));
     }
 
-    private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string }): Promise<void> {
+    private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string; providerId?: ApiSrsProviderId }): Promise<void> {
         const settings = this.options.getSettings();
-        const provider = this.apiProviderForCard(card, settings);
+        const provider = options.providerId
+            ? this.apiProviders(settings).find(candidate => candidate.id === options.providerId && candidate.supportsCard(card)) ?? null
+            : this.apiProviderForCard(card, settings);
         this.assertApiProviderReviewAllowed(provider, uiText(settings.interfaceLanguage, provider?.reviewApiKeyRequiredKey ?? 'addJpdbApiKeyReview'));
         const states = normalizeCardStates(card.cardState);
         assertReviewableApiCardState(states, settings);
@@ -696,8 +713,12 @@ function selectedPopoverReviewTarget(button: HTMLButtonElement): PopoverReviewTa
 
 function reviewTargetKind(value: string | undefined): PopoverReviewTargetKind | undefined {
     if (value === 'both' || value === 'anki') return value;
-    if (value === 'jpdb' || value === 'jiten') return 'api';
+    if (value === 'jpdb' || value === 'jiten') return value;
     return undefined;
+}
+
+function isAnkiDeckState(state: ApiSrsDeckState): state is ApiSrsToggleDeckState {
+    return state === 'never-forget' || state === 'blacklisted';
 }
 
 function positiveNumber(value: string | undefined): number | undefined {

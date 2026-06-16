@@ -3838,6 +3838,16 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   cursor: default;
 }
 
+.jpdb-reader-newtab-browse-bulk-select {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.jpdb-reader-newtab-browse-bulk-select input {
+  margin: 0;
+}
+
 .jpdb-reader-newtab-browse-item {
   display: flex;
   align-items: center;

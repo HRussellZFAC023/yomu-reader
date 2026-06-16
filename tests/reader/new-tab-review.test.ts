@@ -1857,6 +1857,50 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('opens Jiten My Cards rows as source-card popovers so mining controls stay available', async () => {
+        const jitenCard = newTabTestCard({
+            spelling: '電車',
+            reading: 'でんしゃ',
+            cardState: ['learning'],
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 2700,
+            jitenReadingIndex: 0,
+            sourceDeckName: 'Core Anime',
+        });
+        const listStudyBatchCards = vi.fn(async () => [jitenCard]);
+        const showLookupCard = vi.fn();
+        const lookupText = vi.fn();
+        const controller = newTabApiSourceController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+        }, {
+            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+            showLookupCard,
+            lookupText,
+        });
+        try {
+            const root = renderBoundNewTabSearchRoot(controller);
+            await waitForExpect(() => {
+                expect(root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-browse-row')?.textContent).toContain('電車');
+            });
+
+            const row = root.querySelector<HTMLButtonElement>('.jpdb-reader-newtab-browse-row')!;
+            row.click();
+
+            expect(showLookupCard).toHaveBeenCalledWith(jitenCard, '電車', row, expect.objectContaining({
+                navigation: 'push-current',
+                reuseActivePopover: true,
+                userGesture: true,
+            }));
+            expect(lookupText).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('bulk-blacklists the selected page of My Cards through the shared card-action path (SH-3 v2)', async () => {
         const listDeckCards = vi.fn(async () => [
             newTabTestCard({ spelling: '読む', reading: 'よむ', cardState: ['known'], vid: 21, source: 'jpdb' }),
@@ -12859,7 +12903,7 @@ describe('new tab review helpers', () => {
         document.body.append(root);
         const privateController = controller as unknown as {
             renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
-            performNewTabImmersionAction(root: HTMLElement, action: string): void;
+            performNewTabImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void;
             playCurrentImmersionAudio(card: JPDBCard): Promise<void>;
             immersionCacheKey(card: JPDBCard): string;
             immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
@@ -12880,7 +12924,7 @@ describe('new tab review helpers', () => {
         meaning.append(privateController.renderNewTabImmersionCard(card, examples, 0));
 
         try {
-            privateController.performNewTabImmersionAction(root, 'next');
+            privateController.performNewTabImmersionAction(root, root, 'next');
             await Promise.resolve();
             await Promise.resolve();
 
@@ -13075,7 +13119,7 @@ describe('new tab review helpers', () => {
         document.body.append(root);
         const privateController = controller as unknown as {
             renderNewTabImmersionCard(card: JPDBCard, examples: ImmersionKitExample[], index: number): HTMLElement;
-            performNewTabImmersionAction(root: HTMLElement, action: string): void;
+            performNewTabImmersionAction(root: HTMLElement, surface: HTMLElement, action: string): void;
             playCurrentImmersionAudio(card: JPDBCard): Promise<void>;
             immersionCacheKey(card: JPDBCard): string;
             immersionCache: Map<string, Promise<ImmersionKitExample[]>>;
@@ -13096,7 +13140,7 @@ describe('new tab review helpers', () => {
         meaning.append(privateController.renderNewTabImmersionCard(card, examples, 0));
 
         try {
-            privateController.performNewTabImmersionAction(root, 'next');
+            privateController.performNewTabImmersionAction(root, root, 'next');
             await Promise.resolve();
             await Promise.resolve();
 

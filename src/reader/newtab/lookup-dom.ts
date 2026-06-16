@@ -183,6 +183,7 @@ function renderLookupReviewTargetControls(targets: NewTabLookupReviewTarget[], g
 function renderLookupReviewTargetGutter(target: NewTabLookupReviewTarget): string {
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}">${escapeHtml(target.shortLabel)}</span>
+        <button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="Switch review target" aria-label="Switch review target">⇄</button>
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}"></button>
     </div>`;
 }

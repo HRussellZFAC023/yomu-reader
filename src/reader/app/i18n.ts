@@ -68,10 +68,11 @@ const COPY = {
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
-        apiAccessHelp: 'Paste one JPDB or Jiten API key. Jiten keys start with ak_.',
+        apiAccessHelp: 'Paste a JPDB or Jiten API key. Jiten keys start with ak_.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
         jpdbApiKeyConfigured: 'JPDB key set.',
+        jpdbAndJitenApiKeysConfigured: 'JPDB and Jiten keys are set.',
         jpdbApiKeyMissing: 'No JPDB key.',
         jpdbConnected: 'Connected to JPDB.',
         jpdbConnectionFailed: 'JPDB did not accept the key (network or invalid key).',
@@ -740,6 +741,7 @@ const COPY = {
         resizeLookupSheet: 'Drag to resize lookup sheet, or tap to close',
         showMiningActions: 'Show mining actions',
         hideMiningActions: 'Hide mining actions',
+        switchReviewTarget: 'Switch review target',
         jpdbKanjiUpdated: 'JPDB kanji updated.',
         jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check JPDB kanji reviews are enabled.',
         apiSrsActionsDisabled: 'API mining actions are disabled in settings.',
@@ -859,6 +861,10 @@ const COPY = {
         unlistHint: 'Remove this from your blacklist to mine or review again.',
         blacklist: 'Blacklist',
         blacklistHint: 'Ignore this exact word.',
+        jitenMiningHint: 'Move this Jiten word to mining.',
+        jitenSuspendHint: 'Suspend this Jiten word.',
+        jitenForgetHint: 'Forget this Jiten word.',
+        vocabularyStatusUpdated: 'Vocabulary status updated.',
         addToAnki: 'Add to Anki',
         checkingAnki: 'Checking Anki...',
         sendToMobileAnki: 'Send to {app}',
@@ -1154,6 +1160,7 @@ lookupDialog	{APP_NAME}検索
 resizeLookupSheet	検索シートのサイズ変更。タップで閉じます
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
+switchReviewTarget	採点先を切り替える
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -1257,6 +1264,7 @@ stateFailed	失敗
 stateKnown	既知
 stateMastered	習得済み
 stateNeverForget	忘れない
+jpdbAndJitenApiKeysConfigured	JPDBとJitenキーあり。
 stateSuspended	停止中
 stateLocked	ロック中
 stateBlacklisted	ブラックリスト
@@ -1468,6 +1476,10 @@ unlist	解除
 unlistHint	ブラックリストから外します。
 blacklist	ブラックリスト
 blacklistHint	この単語を無視します。
+jitenMiningHint	Jiten語彙を採掘状態にします。
+jitenSuspendHint	Jiten語彙を停止します。
+jitenForgetHint	Jiten語彙を忘却します。
+vocabularyStatusUpdated	語彙状態を更新しました。
 addToAnki	Ankiに追加
 checkingAnki	Ankiを確認中...
 sendToMobileAnki	{app}へ送る
@@ -1622,7 +1634,7 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JPDBまたはJiten APIキーを1つ貼り付けます。Jitenキーはak_で始まります。
+apiAccessHelp	JPDBまたはJiten APIキーを貼り付けます。Jitenキーはak_で始まります。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。

@@ -13,7 +13,8 @@ import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
+import { apiSrsProviderViewForCard, isApiMiningEnabled, isJitenBackedCard, type ApiSrsProviderView } from './srs-providers';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
@@ -24,6 +25,7 @@ import { newTabText } from '../newtab/i18n';
 interface MiningActionState {
     isNeverForget: boolean;
     isBlacklisted: boolean;
+    isSuspended: boolean;
     neverForgetTitle: string;
     blacklistTitle: string;
     neverForgetLabel: string;
@@ -246,7 +248,7 @@ export class CardPopoverRenderer {
         const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
         const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
         if (earlyResult !== undefined) return earlyResult;
-        const targets = this.popoverReviewTargets(data, provider, language);
+        const targets = this.popoverReviewTargets(card, data, provider, language);
         if (targets.length) return this.renderTargetedReviewButtons(targets, language);
         if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
@@ -291,24 +293,54 @@ export class CardPopoverRenderer {
     }
 
     private popoverReviewTargets(
+        card: JPDBCard,
         data: CardRenderData & { loading: boolean },
         provider: ApiSrsProviderView | null,
         language: InterfaceLanguage,
     ): PopoverReviewTarget[] {
-        const apiTarget = provider && this.canReviewWithApiProvider(provider) ? this.apiReviewTarget(provider, language) : null;
+        const apiTargets = this.apiReviewTargets(card, provider, language);
         const ankiTargets = this.ankiReviewTargets(data, language);
-        if (apiTarget && ankiTargets.length) {
-            const apiProvider = provider;
-            if (!apiProvider) return ankiTargets;
+        if (apiTargets.length && ankiTargets.length) {
+            const apiProvider = this.providerForReviewTarget(apiTargets[0], provider);
+            if (!apiProvider) return [...apiTargets, ...ankiTargets];
             const primaryAnki = ankiTargets[0];
             return [
                 this.bothReviewTarget(apiProvider, primaryAnki, language),
-                apiTarget,
+                ...apiTargets,
                 ...ankiTargets,
             ];
         }
         if (ankiTargets.length) return ankiTargets;
-        return apiTarget ? [apiTarget] : [];
+        return apiTargets;
+    }
+
+    private apiReviewTargets(card: JPDBCard, provider: ApiSrsProviderView | null, language: InterfaceLanguage): PopoverReviewTarget[] {
+        const settings = this.settings();
+        const targets: PopoverReviewTarget[] = [];
+        if (hasJpdbApiCredential(settings) && this.dependencies.isJpdbBackedCard(card) && isApiMiningEnabled(settings)) {
+            targets.push(this.apiReviewTarget({
+                id: 'jpdb',
+                label: 'JPDB',
+                deckSource: 'jpdb',
+                hasApiKey: true,
+            }, language));
+        }
+        if (hasJitenApiCredential(settings) && isJitenBackedCard(card) && isApiMiningEnabled(settings)) {
+            targets.push(this.apiReviewTarget({
+                id: 'jiten',
+                label: 'Jiten',
+                deckSource: 'jiten',
+                hasApiKey: true,
+            }, language));
+        }
+        if (!targets.length && provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, language)];
+        return targets;
+    }
+
+    private providerForReviewTarget(target: PopoverReviewTarget, fallback: ApiSrsProviderView | null): ApiSrsProviderView | null {
+        if (target.kind === 'jpdb') return { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: true };
+        if (target.kind === 'jiten') return { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: true };
+        return fallback;
     }
 
     private apiReviewTarget(provider: ApiSrsProviderView, language: InterfaceLanguage): PopoverReviewTarget {
@@ -361,7 +393,7 @@ export class CardPopoverRenderer {
         const selected = targets[0];
         if (!selected || !grades.length) return '';
         const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : '';
-        const targetGutter = renderReviewTargetGutter(selected, language);
+        const targetGutter = renderReviewTargetGutter(selected, language, targets.length > 1);
         const targetLabel = renderReviewTargetLabel(selected);
         const targetAttrs = reviewTargetButtonAttrs(selected);
         return `
@@ -455,14 +487,24 @@ export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): v
     });
 }
 
+export function togglePopoverReviewTargetSelection(button: HTMLButtonElement): void {
+    const select = button.closest<HTMLElement>('.jpdb-reader-actions')
+        ?.querySelector<HTMLSelectElement>('[data-review-target-select]');
+    if (!select || select.options.length < 2) return;
+    select.selectedIndex = (select.selectedIndex + 1) % select.options.length;
+    updatePopoverReviewTargetSelection(select);
+}
+
 function reviewButtonsIncludeTargetGutter(reviewButtons: string): boolean {
     return reviewButtons.includes('data-review-target-gutter');
 }
 
-function renderReviewTargetGutter(target: PopoverReviewTarget, language: InterfaceLanguage): string {
+function renderReviewTargetGutter(target: PopoverReviewTarget, language: InterfaceLanguage, canSwitch: boolean): string {
     const label = uiText(language, 'showMiningActions');
+    const switchLabel = uiText(language, 'switchReviewTarget');
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}">${escapeHtml(target.shortLabel)}</span>
+        ${canSwitch ? `<button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="${escapeHtml(switchLabel)}" aria-label="${escapeHtml(switchLabel)}">⇄</button>` : ''}
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button>
     </div>`;
 }
@@ -500,9 +542,11 @@ function reviewButtonTitle(
 function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): MiningActionState {
     const isNeverForget = cardStates.includes('never-forget');
     const isBlacklisted = cardStates.includes('blacklisted');
+    const isSuspended = cardStates.includes('suspended');
     return {
         isNeverForget,
         isBlacklisted,
+        isSuspended,
         neverForgetTitle: isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint'),
         blacklistTitle: isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint'),
         neverForgetLabel: isNeverForget ? uiText(language, 'forget') : uiText(language, 'never'),
@@ -520,7 +564,7 @@ function renderApiMiningActions(
     if (!canRenderApiMiningActions(settings, provider)) return '';
     const state = miningActionState(cardStates, language);
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
-    return renderApiMiningActionDetails(language, state, addDeckSelect);
+    return renderApiMiningActionDetails(language, state, addDeckSelect, provider);
 }
 
 function canRenderApiMiningActions(settings: ReaderSettings, provider: ApiSrsProviderView | null): boolean {
@@ -542,8 +586,15 @@ function renderAddDeckSelect(
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
 }
 
-function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string): string {
+function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null): string {
     const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
+    const jitenActions = provider?.id === 'jiten'
+        ? `<div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
+                        <button class="jpdb-reader-btn add" data-action="jiten-mining" title="${escapeHtml(uiText(language, 'jitenMiningHint'))}">${escapeHtml(uiText(language, 'mining'))}</button>
+                        <button class="jpdb-reader-btn nf${state.isSuspended ? ' danger' : ''}" data-action="jiten-suspend" title="${escapeHtml(uiText(language, 'jitenSuspendHint'))}" aria-pressed="${state.isSuspended}">${escapeHtml(uiText(language, 'stateSuspended'))}</button>
+                        <button class="jpdb-reader-btn blacklist danger" data-action="jiten-forget" title="${escapeHtml(uiText(language, 'jitenForgetHint'))}">${escapeHtml(uiText(language, 'forget'))}</button>
+                    </div>`
+        : '';
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
@@ -551,6 +602,7 @@ function renderApiMiningActionDetails(language: InterfaceLanguage, state: Mining
                         <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
                         <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
                     </div>
+                    ${jitenActions}
                     ${addDeckSelect}
                 </div>
             `;

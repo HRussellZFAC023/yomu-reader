@@ -11,6 +11,8 @@ import { cardKey } from '../cards/utils';
 import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 
 export type BrowseFilter = 'all' | CardState;
+export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'anki';
+export type BrowseSourceChip = 'all' | BrowseSourceFilter;
 export type BrowseSortKey = 'queue' | 'alpha' | 'frequency';
 
 const BROWSE_PAGE_SIZE = 50;
@@ -38,11 +40,32 @@ export function browseStateCounts(cards: JPDBCard[]): Map<CardState, number> {
     return counts;
 }
 
+export function browseSourceForCard(card: JPDBCard): BrowseSourceFilter {
+    if (card.source === 'anki' || card.reviewSource === 'anki') return 'anki';
+    if (card.source === 'jiten' || card.reviewSource === 'jiten-api' || typeof card.jitenWordId === 'number') return 'jiten';
+    return 'jpdb';
+}
+
+export function browseSourceCounts(cards: JPDBCard[]): Map<BrowseSourceFilter, number> {
+    const counts = new Map<BrowseSourceFilter, number>();
+    for (const card of cards) {
+        const source = browseSourceForCard(card);
+        counts.set(source, (counts.get(source) ?? 0) + 1);
+    }
+    return counts;
+}
+
 // Multi-state OR filter. With a query, prefix matches rank ahead of
 // substring matches (typing よ surfaces words STARTING with よ first).
-export function filterBrowseCards(cards: JPDBCard[], filters: ReadonlySet<CardState>, query: string): JPDBCard[] {
+export function filterBrowseCards(
+    cards: JPDBCard[],
+    filters: ReadonlySet<CardState>,
+    query: string,
+    sourceFilters: ReadonlySet<BrowseSourceFilter> = new Set(),
+): JPDBCard[] {
     const trimmed = query.trim();
-    const stateMatched = cards.filter(card => !filters.size || filters.has(primaryCardState(card.cardState)));
+    const sourceMatched = cards.filter(card => !sourceFilters.size || sourceFilters.has(browseSourceForCard(card)));
+    const stateMatched = sourceMatched.filter(card => !filters.size || filters.has(primaryCardState(card.cardState)));
     if (!trimmed) return stateMatched;
     const prefix: JPDBCard[] = [];
     const partial: JPDBCard[] = [];
@@ -51,6 +74,38 @@ export function filterBrowseCards(cards: JPDBCard[], filters: ReadonlySet<CardSt
         else if (card.spelling.includes(trimmed) || card.reading.includes(trimmed)) partial.push(card);
     }
     return [...prefix, ...partial];
+}
+
+export interface BrowseSourceFilterCopy {
+    all: string;
+    jpdb: string;
+    jiten: string;
+    anki: string;
+}
+
+export function renderBrowseSourceChips(
+    cards: JPDBCard[],
+    active: ReadonlySet<BrowseSourceFilter>,
+    copy: BrowseSourceFilterCopy,
+): HTMLElement {
+    const counts = browseSourceCounts(cards);
+    const labels: Record<BrowseSourceFilter, string> = {
+        jpdb: copy.jpdb,
+        jiten: copy.jiten,
+        anki: copy.anki,
+    };
+    const chip = (filter: BrowseSourceChip, label: string, count: number, pressed: boolean): HTMLElement => el('button', {
+        type: 'button',
+        class: 'jpdb-reader-newtab-browse-chip jpdb-reader-newtab-browse-source-chip',
+        dataset: { newtabAction: 'browse-source-filter', browseSourceFilter: filter },
+        'aria-pressed': String(pressed),
+    }, `${label} ${count}`);
+    return el('div', { class: 'jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips', role: 'group' },
+        chip('all', copy.all, cards.length, active.size === 0),
+        ...(['jpdb', 'jiten', 'anki'] as const)
+            .filter(source => (counts.get(source) ?? 0) > 0)
+            .map(source => chip(source, labels[source], counts.get(source) ?? 0, active.has(source))),
+    );
 }
 
 // 2D reviews: 'queue' keeps the pool's SRS order (due_at ascending for jpdb
@@ -141,8 +196,11 @@ export function renderBrowseControls(
 
 export interface BrowseBulkCopy {
     selectPage: string;
+    mining?: string;
     blacklist: string;
     neverForget: string;
+    suspend?: string;
+    forget?: string;
 }
 
 export function renderBrowseList(
@@ -197,8 +255,11 @@ function renderBrowseBulkBar(copy: BrowseBulkCopy): HTMLElement {
             copy.selectPage,
         ),
         el('span', { class: 'jpdb-reader-newtab-browse-bulk-count', dataset: { browseBulkCount: true } }, ''),
+        copy.mining ? action('jiten-mining', copy.mining) : null,
+        action('neverforget', copy.neverForget),
         action('blacklist', copy.blacklist),
-        action('never-forget', copy.neverForget),
+        copy.suspend ? action('jiten-suspend', copy.suspend) : null,
+        copy.forget ? action('jiten-forget', copy.forget) : null,
     );
 }
 

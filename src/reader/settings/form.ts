@@ -210,7 +210,7 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                         ${input('apiCredentialJpdb', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                         ${input('apiCredentialJiten', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Both keys can be set at once — reviews then mix both queues. Jiten keys start with ak_.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste a JPDB or Jiten API key. Jiten keys start with ak_.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>

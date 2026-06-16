@@ -5,7 +5,7 @@ import { listNewTabAnkiCards } from '../anki/new-tab';
 import { runLimited } from '../core/async-utils';
 import { copyText, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
-import { CardPopoverRenderer, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
+import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
 import { highlightCardTargetScopes } from '../cards/highlight';
 import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display';
@@ -336,6 +336,7 @@ export class NewTabRuntime {
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
+        onApiCardStateChanged: card => this.handleApiCardStateChanged(card),
     });
     private parser = new ReaderParser({
         getSettings: () => this.settings,
@@ -472,6 +473,12 @@ export class NewTabRuntime {
         this.scheduleRenderedAnkiStatusRefresh(card);
     }
 
+    private handleApiCardStateChanged(card: JPDBCard): void {
+        this.cardRenderData.clear();
+        this.applyPublicVocabularyToRenderedWords(card, card);
+        this.newTab?.refreshBrowseAfterCardMutation(card);
+    }
+
     destroy(): void {
         if (this.isDestroyed) return;
         this.isDestroyed = true;
@@ -580,7 +587,10 @@ export class NewTabRuntime {
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),
             installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
-            renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, { includeStudySources: false }),
+            renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, {
+                includeStudySources: false,
+                includeImmersionSource: false,
+            }),
             preloadWordAudio: card => this.maybePreloadLookupCardAudio(card),
             playWordAudio: card => this.audioActions.playTermAudio(card, { userGesture: true }),
             playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),
@@ -1462,6 +1472,9 @@ export class NewTabRuntime {
             case 'mining-collapse':
                 this.toggleMiningControls(button);
                 return;
+            case 'review-target-toggle':
+                togglePopoverReviewTargetSelection(button);
+                return;
             case 'grade':
                 this.gradeLookupFromButton(button, card, sentence, anchor);
                 return;
@@ -1881,7 +1894,7 @@ export class NewTabRuntime {
         sentence?: string,
         jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
         jitenVocabularyInfo: JitenVocabularyInfo | null = null,
-        extraSectionsOrOptions: Record<string, string> | Pick<DefinitionSourceStackOptions, 'includeStudySources'> = {},
+        extraSectionsOrOptions: Record<string, string> | Pick<DefinitionSourceStackOptions, 'includeStudySources' | 'includeImmersionSource'> = {},
     ): string {
         return renderDefinitionSourcesStack({
             card,
@@ -1894,7 +1907,7 @@ export class NewTabRuntime {
             jpdbVocabularyInfo,
             jitenVocabularyInfo,
             extraSectionsOrOptions,
-            optionKeys: ['includeStudySources'],
+            optionKeys: ['includeStudySources', 'includeImmersionSource'],
             renderTranslationSource: renderSentence => this.studySources.renderTranslationSource(renderSentence),
             renderGrammarSource: renderSentence => this.studySources.renderGrammarSource(renderSentence),
         });
