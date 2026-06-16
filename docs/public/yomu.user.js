@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.82
+// @version      0.7.83
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -20720,7 +20720,7 @@ ${entry.reading || ""}`;
       reading,
       wordId: entry.wordId,
       readingIndex: entry.readingIndex
-    });
+    }, { annotatedReading: entry.readingFurigana });
     return `
         <li class="jpdb-reader-jpdb-used-in-row jpdb-reader-jiten-related-row has-audio">
             ${renderJitenAudioButton(lookup, language, jitenWordAudioAttributes(entry))}
@@ -20937,7 +20937,8 @@ ${entry.reading || ""}`;
     const identityAttributes = identity ? ` ${identity}` : "";
     const extraClass = options.className?.trim();
     const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? " jpdb-reader-has-furi" : ""}${extraClass ? ` ${escapeHtml$1(extraClass)}` : ""}`;
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(options.sentence ?? reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${renderJitenReferenceContent(reference.text, reading)}</span>`;
+    const content = reading && options.annotatedReading && /\[[^\]]+\]/.test(options.annotatedReading) ? renderJitenAnnotatedReading$1(options.annotatedReading) : renderJitenReferenceContent(reference.text, reading);
+    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml$1(options.sentence ?? reference.text)}" data-expression="${escapeHtml$1(reference.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
   }
   function renderJitenReferenceContent(text2, reading) {
     return reading ? `<ruby><span class="jpdb-reader-ruby-base">${escapeHtml$1(text2)}</span><rp>(</rp><rt class="jpdb-reader-furi">${escapeHtml$1(reading)}</rt><rp>)</rp></ruby>` : escapeHtml$1(text2);

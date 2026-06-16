@@ -768,7 +768,13 @@ describe('JitenApiClient', () => {
         expect(usedInLink?.dataset.dictionaryReading).toBe('くんよみ');
         expect(usedInWord?.dataset.expression).toBe('訓読み');
         expect(usedInWord?.dataset.reading).toBe('くんよみ');
-        expect(usedInWord?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓読み');
+        // Ruby is distributed from the annotated reading (訓読[くんよ]み): the
+        // kanji run carries the ruby and the okurigana み stays as base text,
+        // instead of one rt sitting over the whole word.
+        expect(usedInWord?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓読');
+        expect(usedInWord?.querySelector('rt')?.textContent).toBe('くんよ');
+        expect(usedInWord?.querySelectorAll('rt').length).toBe(1);
+        expect(usedInWord?.textContent?.replace(/\s+/g, '')).toContain('み');
 
         const exampleRow = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-example-row.has-audio');
         expect(exampleRow).not.toBeNull();

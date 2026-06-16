@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.83] - 2026-06-16
+
+### Fixed
+
+- Jiten related-words / used-in lists now distribute furigana per kanji using the annotated reading (e.g. 読み取る renders 読(よ)み取(と)る) instead of placing the whole reading (よみとる) over the whole word. Okurigana stays as plain base text and is no longer shown as if it were a kanji reading.
+
 ## [0.7.82] - 2026-06-16
 
 ### Added
