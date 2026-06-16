@@ -507,7 +507,7 @@ export class SettingsDialogController {
         this.currentForm = form;
         this.dependencies.mountDialog(backdrop, form);
         this.hideBackgroundForModal(backdrop);
-        installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'));
+        installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, 'resizeSettings'), () => this.dismissSettings());
         this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
         this.syncRecommendedDictionaryInstallControls(form);
         this.syncDictionaryOperationState(form);
