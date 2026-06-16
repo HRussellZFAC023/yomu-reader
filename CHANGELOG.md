@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.78] - 2026-06-16
+
+### Fixed
+
+- Showed the subtitle control rail on tall portrait video players (e.g. iPad reels/shorts-style pages) that fill most of the viewport height. The player-frame resolver previously treated any viewport-sized wrapper as a page container, so on portrait players the frame collapsed to the bare `<video>`, player affordances were not detected, and the rail was hidden (`display:none`); landscape players were unaffected. Tight wrappers that hug the video now resolve as the player frame, while oversized page containers that leave room for other content are still ignored.
+
 ## [0.7.77] - 2026-06-16
 
 ### Added

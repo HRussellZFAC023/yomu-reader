@@ -792,9 +792,15 @@ function isGenericVideoLayoutParent(parent: HTMLElement | null): parent is HTMLE
 function shouldUseGenericVideoParent(parent: HTMLElement, parentRect: DOMRect, video: HTMLVideoElement, videoRect: DOMRect): boolean {
     if (parent.matches('[data-yomu-video-frame]')) return true;
     if (!usableVideoRect(parentRect)) return false;
-    if (isViewportSizedVideoRect(parentRect)) return false;
     if (!rectContainsRect(parentRect, videoRect, 4)) return false;
     const hasInsetSpace = hasMeaningfulVideoInsetSpace(parentRect, videoRect);
+    // A viewport-sized parent is usually a page-level container rather than the
+    // player — but a portrait player that hugs the <video> legitimately fills
+    // the viewport height (e.g. an iPad reels-style page or a tall mobile
+    // player). Reject only oversized wrappers that leave room for other content;
+    // tight wrappers still resolve as the player frame so portrait videos get
+    // the subtitle rail instead of being treated as out-of-view.
+    if (isViewportSizedVideoRect(parentRect) && hasInsetSpace) return false;
     const likelyPlayerFrame = isLikelyGenericPlayerFrame(parent);
     const likelyPlayerWithChrome = likelyPlayerFrame && (video.controls || hasLikelyPlayerChrome(parent));
     if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return likelyPlayerWithChrome;

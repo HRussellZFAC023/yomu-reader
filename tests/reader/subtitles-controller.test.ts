@@ -8,7 +8,7 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
-import { createSubtitleVideoInsetAdapter } from '../../src/reader/subtitles/subtitle-video-inset';
+import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../src/reader/subtitles/subtitle-video-inset';
 
 // UT-48 session parse cache: clear between tests so persisted cue html from
 // one test cannot satisfy another test's parse expectations.
@@ -940,6 +940,52 @@ describe('SubtitlePlayerController', () => {
             } finally {
                 controller.destroy();
             }
+        });
+    });
+
+    // Regression: on an iPad in portrait, a tall portrait player legitimately
+    // fills most of the viewport height. The frame resolver used to reject any
+    // viewport-sized parent as a page container, so the player frame collapsed
+    // to the bare <video>, videoHasPlayerAffordances() failed, and the control
+    // rail was hidden (display:none) — landscape players were unaffected.
+    it('resolves a tall portrait player that fills the viewport height to its player frame', () => {
+        withViewport(834, 1194, () => {
+            document.body.innerHTML = `
+                <div class="media-reel">
+                    <video></video>
+                    <button class="play-control" type="button" aria-label="Play">Play</button>
+                </div>
+            `;
+            const frame = document.querySelector<HTMLElement>('.media-reel')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            video.controls = false;
+            // The wrapper hugs the video (no inset space) and is 1140px tall —
+            // above 90% of the 1194px viewport, so it trips isViewportSizedVideoRect.
+            mockElementRect(frame, new DOMRect(81, 27, 672, 1140));
+            mockElementRect(video, new DOMRect(81, 27, 672, 1140));
+
+            expect(subtitleVideoLayoutTarget(video)).toBe(frame);
+        });
+    });
+
+    it('still ignores an oversized page container that merely wraps a small video', () => {
+        withViewport(834, 1194, () => {
+            document.body.innerHTML = `
+                <div class="media-page">
+                    <video></video>
+                    <button class="play-control" type="button" aria-label="Play">Play</button>
+                    <p>Lots of other page content sits beside the small player.</p>
+                </div>
+            `;
+            const page = document.querySelector<HTMLElement>('.media-page')!;
+            const video = document.querySelector<HTMLVideoElement>('video')!;
+            video.controls = false;
+            // Viewport-sized container that leaves room for other content — a
+            // page wrapper, not the player frame; the guard must keep rejecting it.
+            mockElementRect(page, new DOMRect(0, 0, 834, 1194));
+            mockElementRect(video, new DOMRect(40, 40, 420, 240));
+
+            expect(subtitleVideoLayoutTarget(video)).toBe(video);
         });
     });
 

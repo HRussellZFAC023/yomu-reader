@@ -9389,9 +9389,9 @@ ${spelling}`);
   function shouldUseGenericVideoParent(parent, parentRect, video, videoRect) {
     if (parent.matches("[data-yomu-video-frame]")) return true;
     if (!usableVideoRect(parentRect)) return false;
-    if (isViewportSizedVideoRect(parentRect)) return false;
     if (!rectContainsRect(parentRect, videoRect, 4)) return false;
     const hasInsetSpace = hasMeaningfulVideoInsetSpace(parentRect, videoRect);
+    if (isViewportSizedVideoRect(parentRect) && hasInsetSpace) return false;
     const likelyPlayerFrame = isLikelyGenericPlayerFrame(parent);
     const likelyPlayerWithChrome = likelyPlayerFrame && (video.controls || hasLikelyPlayerChrome(parent));
     if (rectsHaveMatchingSize(parentRect, videoRect, 3)) return likelyPlayerWithChrome;
