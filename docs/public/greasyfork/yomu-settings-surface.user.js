@@ -5091,13 +5091,14 @@ recommendedJiten	jiten.moe頻度データです。
     window.visualViewport?.addEventListener?.("resize", listener, options);
     window.visualViewport?.addEventListener?.("scroll", listener, options);
   }
-  function installSettingsDrawerHandle(drawer, label = "Resize settings") {
+  function installSettingsDrawerHandle(drawer, label = "Resize settings", onTap) {
     if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === "true") return;
     drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = "true";
     let viewportHeight = 0;
     let drawerHeight = 0;
     let startHeight = 0;
     let rawDragHeight = 0;
+    let suppressNextHandleClick = false;
     const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle) => {
       handle.setAttribute("role", "separator");
@@ -5157,6 +5158,7 @@ recommendedJiten	jiten.moe頻度データです。
       onFinish: (_state, wasMoved) => {
         const finishHeight = rawDragHeight;
         if (wasMoved) {
+          suppressNextHandleClick = true;
           applyDrawerHeight(finishHeight, true);
         }
         reset();
@@ -5193,6 +5195,11 @@ recommendedJiten	jiten.moe頻度データです。
       if (!handle) return;
       event.preventDefault();
       event.stopPropagation();
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      onTap?.();
     });
     drawer.addEventListener("pointerdown", (event) => {
       const handle = getHandleFromEvent(event.target);
@@ -9953,7 +9960,7 @@ recommendedJiten	jiten.moe頻度データです。
       this.currentForm = form;
       this.dependencies.mountDialog(backdrop, form);
       this.hideBackgroundForModal(backdrop);
-      installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, "resizeSettings"));
+      installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, "resizeSettings"), () => this.dismissSettings());
       this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
       this.syncRecommendedDictionaryInstallControls(form);
       this.syncDictionaryOperationState(form);

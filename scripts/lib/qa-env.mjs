@@ -4,19 +4,20 @@ import { createYomuPaths } from './paths.mjs';
 
 export function loadLocalEnv(root = path.resolve(import.meta.dirname, '..')) {
     const { envFile, legacyEnvFile } = createYomuPaths(path.join(root, 'scripts'));
-    const file = envFilePath(envFile, legacyEnvFile);
-    if (!existsSync(file)) return;
+    for (const file of envFilePaths(envFile, legacyEnvFile)) {
+        loadEnvFile(file);
+    }
+}
 
+function loadEnvFile(file) {
     const lines = readFileSync(file, 'utf8').split(/\r?\n/);
     for (const line of lines) {
         loadEnvLine(line);
     }
 }
 
-function envFilePath(envFile, legacyEnvFile) {
-    if (existsSync(envFile)) return envFile;
-    if (existsSync(legacyEnvFile)) return legacyEnvFile;
-    return envFile;
+function envFilePaths(envFile, legacyEnvFile) {
+    return [...new Set([envFile, legacyEnvFile])].filter(existsSync);
 }
 
 function loadEnvLine(line) {

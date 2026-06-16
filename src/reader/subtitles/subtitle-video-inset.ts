@@ -130,9 +130,11 @@ function videoInsetWidth(options: ApplySubtitleVideoInsetOptions): number {
         : Math.max(320, Math.round(options.playerSize));
 }
 
-function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, _width: number): number {
+function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, width: number): number {
     if (options.side === 'bottom') return Math.max(180, Math.round(options.playerSize));
-    return Math.max(180, Math.round(options.videoRect.height));
+    const aspectHeight = Math.round(width * videoAspectRatio(options.video));
+    const currentHeight = Math.max(180, Math.round(options.videoRect.height));
+    return Math.max(180, Math.min(currentHeight, aspectHeight));
 }
 
 function applyGenericVideoInsetIfNeeded(options: ApplySubtitleVideoInsetOptions, metrics: VideoInsetMetrics): void {

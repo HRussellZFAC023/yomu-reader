@@ -2,7 +2,8 @@ import { requestJson } from '../network/http';
 import { Logger } from '../app/logger';
 import type { SubtitleCue } from './subtitle-cues';
 
-const TRANSLATION_BATCH_SIZE = 25;
+const TRANSLATION_BATCH_SIZE = 80;
+const TRANSLATION_BATCH_ENCODED_CHAR_BUDGET = 6000;
 const TRANSLATION_TIMEOUT_MS = 8000;
 const TRANSLATION_SEPARATOR = '\n';
 
@@ -12,12 +13,28 @@ interface GoogleTranslateResponse {
     sentences?: Array<{ trans?: string }>;
 }
 
-export async function translateSubtitleCues(cues: SubtitleCue[], sourceLanguage: string, targetLanguage: string): Promise<SubtitleCue[]> {
+interface TranslateSubtitleCueOptions {
+    batchSize?: number;
+    encodedCharBudget?: number;
+}
+
+export async function translateSubtitleCues(
+    cues: SubtitleCue[],
+    sourceLanguage: string,
+    targetLanguage: string,
+    options: TranslateSubtitleCueOptions = {},
+): Promise<SubtitleCue[]> {
     if (!cues.length) return [];
     const texts = cues.map(cue => cue.text.trim());
-    const batches = batchTexts(texts, TRANSLATION_BATCH_SIZE);
+    const batches = batchTexts(
+        texts,
+        options.batchSize ?? TRANSLATION_BATCH_SIZE,
+        options.encodedCharBudget ?? TRANSLATION_BATCH_ENCODED_CHAR_BUDGET,
+    );
     const translated: string[] = [];
-    for (const batch of batches) {
+    for (let index = 0; index < batches.length; index += 1) {
+        if (index > 0) await waitForTranslationTurn();
+        const batch = batches[index] ?? [];
         const results = await translateBatch(batch, sourceLanguage, targetLanguage);
         translated.push(...results);
     }
@@ -27,11 +44,23 @@ export async function translateSubtitleCues(cues: SubtitleCue[], sourceLanguage:
     }));
 }
 
-function batchTexts(texts: string[], size: number): string[][] {
+function batchTexts(texts: string[], size: number, encodedCharBudget: number): string[][] {
     const batches: string[][] = [];
-    for (let start = 0; start < texts.length; start += size) {
-        batches.push(texts.slice(start, start + size));
+    let current: string[] = [];
+    let currentEncodedLength = 0;
+    for (const text of texts) {
+        const separatorLength = current.length ? encodeURIComponent(TRANSLATION_SEPARATOR).length : 0;
+        const encodedLength = encodeURIComponent(text).length;
+        if (current.length
+            && (current.length >= size || currentEncodedLength + separatorLength + encodedLength > encodedCharBudget)) {
+            batches.push(current);
+            current = [];
+            currentEncodedLength = 0;
+        }
+        current.push(text);
+        currentEncodedLength += (current.length > 1 ? encodeURIComponent(TRANSLATION_SEPARATOR).length : 0) + encodedLength;
     }
+    if (current.length) batches.push(current);
     return batches;
 }
 
@@ -59,6 +88,10 @@ async function translateBatch(texts: string[], sourceLanguage: string, targetLan
     } finally {
         done();
     }
+}
+
+function waitForTranslationTurn(): Promise<void> {
+    return new Promise(resolve => globalThis.setTimeout(resolve, 0));
 }
 
 function padTranslationResults(translated: string[], originals: string[]): string[] {

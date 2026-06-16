@@ -11,6 +11,7 @@ import {
     mockJpdbParseFromVocabulary,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
+import { loadLocalEnv } from './lib/qa-env.mjs';
 import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const usage = `Usage: node scripts/youtube-sidebar-resize-profile.mjs
@@ -29,6 +30,7 @@ Useful env:
   YOMU_YOUTUBE_SIDEBAR_RESIZE_OUTPUT_DIR=/tmp/yomu-sidebar-resize
   YOMU_YOUTUBE_SIDEBAR_RESIZE_HEADED=1
   YOMU_YOUTUBE_SIDEBAR_RESIZE_LABEL=working
+  YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB=1
 `;
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
@@ -37,6 +39,7 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 }
 
 const { scriptPath: defaultUserscriptPath, cssPath: defaultCssPath, root, artifacts } = createSmokePaths(import.meta.dirname);
+loadLocalEnv(root);
 const userscriptPath = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_USERSCRIPT ?? defaultUserscriptPath);
 const cssPath = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_CSS ?? defaultCssPath);
 const companionDir = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_COMPANION_DIR ?? join(root, 'dist/greasyfork'));
@@ -47,6 +50,8 @@ const label = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LABEL ?? 'working';
 const outputRoot = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_OUTPUT_DIR ?? join(artifacts, 'youtube-sidebar-resize-profile', label));
 const headed = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_HEADED === '1';
 const liveMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE === '1';
+const liveJpdbMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB === '1';
+const liveJpdbApiKey = (process.env.YOMU_JPDB_API_KEY || process.env.JPDB_API_KEY || '').trim();
 const liveUrl = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_URL?.trim() ?? '';
 const persistentProfileDir = liveMode
     ? (process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_USER_DATA_DIR?.trim()
@@ -71,6 +76,9 @@ const fixtureMobileWatchUrl = 'https://m.youtube.com/watch?v=p044fixture';
 if (liveMode && !liveUrl) {
     throw new Error('Live mode needs YOMU_YOUTUBE_SIDEBAR_RESIZE_URL pointing at a YouTube watch page with usable captions.');
 }
+if (liveJpdbMode && !liveJpdbApiKey) {
+    throw new Error('Live JPDB mode needs YOMU_JPDB_API_KEY or JPDB_API_KEY in the environment.');
+}
 
 assertBuiltArtifacts([userscriptPath, cssPath], root);
 rmSync(outputRoot, { recursive: true, force: true });
@@ -84,7 +92,12 @@ const report = {
     label,
     outputRoot,
     artifacts: { userscriptPath, cssPath, companionPaths },
-    live: { url: liveMode ? liveUrl : null, persistentProfileDir: persistentProfileDir || null, channel: persistentProfileDir ? persistentChannel : null },
+    live: {
+        url: liveMode ? liveUrl : null,
+        persistentProfileDir: persistentProfileDir || null,
+        channel: persistentProfileDir ? persistentChannel : null,
+        jpdb: liveJpdbMode ? 'live' : 'mock',
+    },
     matrix: { viewports: viewportSpecs.map(spec => spec.name), placements },
     scenarios: [],
 };
@@ -155,8 +168,8 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         steps.push(await measuredStep(page, client, 'open-sidebar', async () => {
             await page.locator('.jpdb-subtitle-rail [data-action="panel"]').evaluate(button => button.click());
             await waitForPanelOpen(page);
+            await waitForFullTranscriptRender(page);
         }));
-        await waitForFullTranscriptRender(page);
         await screenshot(page, scenarioDir, 'open');
 
         const afterOpen = await snapshot(page);
@@ -166,6 +179,13 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         drag.drag = await dragEvidence(page, afterOpen);
         steps.push(drag);
         await screenshot(page, scenarioDir, 'dragged');
+
+        const transcriptScroll = await measuredStep(page, client, 'scroll-transcript-list', async () => {
+            await scrollTranscriptList(page);
+        });
+        transcriptScroll.transcriptScroll = await transcriptScrollEvidence(page);
+        steps.push(transcriptScroll);
+        await screenshot(page, scenarioDir, 'transcript-scrolled');
 
         const beforeScroll = await snapshot(page);
         const scroll = await measuredStep(page, client, 'page-scroll-with-panel-open', async () => {
@@ -208,7 +228,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
             layoutEvidence,
             requests: summarizeRequests(requestLog),
             errors: errors.slice(0, 12),
-            screenshots: ['loaded', 'open', 'dragged', 'scrolled', 'orientation'].map(name => join(scenarioDir, `${name}.png`)),
+            screenshots: ['loaded', 'open', 'dragged', 'transcript-scrolled', 'scrolled', 'orientation'].map(name => join(scenarioDir, `${name}.png`)),
         };
         scenario.ok = scenario.ok && scenario.performanceProblems.length === 0;
         writeFileSync(join(scenarioDir, 'scenario.json'), `${JSON.stringify(scenario, null, 2)}\n`);
@@ -443,6 +463,22 @@ async function scrollPageWithPanelOpen(page) {
     }, null, { timeout: 1500 }).catch(() => undefined);
 }
 
+async function scrollTranscriptList(page) {
+    await page.evaluate(() => {
+        const scroller = document.querySelector('.jpdb-subtitle-list-scroll');
+        if (!(scroller instanceof HTMLElement)) return;
+        const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        scroller.scrollTo({ top: Math.round(maxScroll * 0.86), behavior: 'instant' });
+    });
+    await page.waitForFunction(() => {
+        const scroller = document.querySelector('.jpdb-subtitle-list-scroll');
+        if (!(scroller instanceof HTMLElement)) return false;
+        const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        return maxScroll <= 0 || scroller.scrollTop > maxScroll * 0.5;
+    }, null, { timeout: 1500 }).catch(() => undefined);
+    await waitForFrames(page, 3);
+}
+
 async function dragPlan(page, placement) {
     return await page.evaluate(panelPlacement => {
         const handle = document.querySelector('[data-resize-transcript]');
@@ -495,6 +531,14 @@ async function scrollEvidence(page, beforeScroll) {
     };
 }
 
+async function transcriptScrollEvidence(page) {
+    const after = await snapshot(page);
+    return {
+        rowCount: after.rowCount,
+        transcript: after.transcript,
+    };
+}
+
 async function orientationEvidence(page, beforeOrientation) {
     const after = await snapshot(page);
     return {
@@ -528,8 +572,8 @@ async function waitForPanelOpen(page) {
 
 async function waitForFullTranscriptRender(page) {
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 20, null, {
-        timeout: liveMode ? 12_000 : 5_000,
-    }).catch(() => undefined);
+        timeout: liveMode ? 45_000 : 5_000,
+    });
 }
 
 async function waitForViewport(page, viewport) {
@@ -638,7 +682,9 @@ async function snapshot(page) {
             title: rect('ytd-watch-metadata h1, ytm-slim-video-metadata-renderer h2'),
             actions: rect('#actions, ytm-slim-video-action-bar-renderer'),
             description: rect('#description, ytm-expandable-video-description-body-renderer, ytm-description-shelf-renderer'),
-            rowCount: document.querySelectorAll('.jpdb-subtitle-list-row').length,
+            rowCount: transcriptRowCount(),
+            mountedRowCount: document.querySelectorAll('.jpdb-subtitle-list-row').length,
+            transcript: transcriptListState(),
             panelHidden: document.querySelector('.jpdb-subtitle-list')?.hasAttribute('hidden') ?? true,
             panelStyle: style('.jpdb-subtitle-list'),
             playerStyle: style('#player'),
@@ -653,6 +699,36 @@ async function snapshot(page) {
             } : null,
             yomuSetSizeCalls: globalThis.__yomuSetSizeCalls ?? [],
         };
+
+        function transcriptListState() {
+            const scroller = document.querySelector('.jpdb-subtitle-list-scroll');
+            if (!(scroller instanceof HTMLElement)) return null;
+            const scrollerRect = scroller.getBoundingClientRect();
+            const rows = Array.from(scroller.querySelectorAll('.jpdb-subtitle-list-row'));
+            const visibleRows = rows
+                .map(row => ({ row, rect: row.getBoundingClientRect() }))
+                .filter(({ rect }) => rect.bottom >= scrollerRect.top && rect.top <= scrollerRect.bottom);
+            const visibleIndexes = visibleRows
+                .map(({ row }) => Number(row.getAttribute('data-row-index')))
+                .filter(Number.isFinite);
+            const blankVisibleRows = visibleRows.filter(({ row }) => !(row.textContent ?? '').trim()).length;
+            return {
+                scrollTop: scroller.scrollTop,
+                scrollHeight: scroller.scrollHeight,
+                clientHeight: scroller.clientHeight,
+                visibleRows: visibleRows.length,
+                blankVisibleRows,
+                firstVisibleIndex: visibleIndexes.length ? Math.min(...visibleIndexes) : null,
+                lastVisibleIndex: visibleIndexes.length ? Math.max(...visibleIndexes) : null,
+            };
+        }
+
+        function transcriptRowCount() {
+            const totalRows = Number(document.querySelector('.jpdb-subtitle-list-scroll')?.getAttribute('data-total-rows'));
+            return Number.isFinite(totalRows) && totalRows > 0
+                ? totalRows
+                : document.querySelectorAll('.jpdb-subtitle-list-row').length;
+        }
     });
 }
 
@@ -671,6 +747,16 @@ function compactSnapshot(state) {
         actions: roundRect(state.actions),
         description: roundRect(state.description),
         rowCount: state.rowCount,
+        mountedRowCount: state.mountedRowCount,
+        transcript: state.transcript ? {
+            scrollTop: Math.round(state.transcript.scrollTop),
+            scrollHeight: Math.round(state.transcript.scrollHeight),
+            clientHeight: Math.round(state.transcript.clientHeight),
+            visibleRows: state.transcript.visibleRows,
+            blankVisibleRows: state.transcript.blankVisibleRows,
+            firstVisibleIndex: state.transcript.firstVisibleIndex,
+            lastVisibleIndex: state.transcript.lastVisibleIndex,
+        } : null,
         panelHidden: state.panelHidden,
         handleAria: state.handleAria,
         videoInset: state.videoInset,
@@ -683,6 +769,8 @@ function layoutProblems(state, requestedPlacement, stepName) {
     const problems = [];
     if (!state.panel || state.panel.width < 120 || state.panel.height < 80) problems.push('missing usable transcript panel');
     if (!state.video || state.video.width < 160 || state.video.height < 90) problems.push('missing usable YouTube video box');
+    if (state.rowCount < 20) problems.push(`transcript rendered only ${state.rowCount} rows`);
+    if ((state.transcript?.blankVisibleRows ?? 0) > 0) problems.push(`${state.transcript.blankVisibleRows} visible transcript rows are blank`);
     if (state.panel && state.video && overlaps(state.panel, state.video) && !isExpectedBottomOverlapEvidence(state, stepName)) {
         problems.push('transcript panel overlaps video');
     }
@@ -723,7 +811,7 @@ function performanceProblems(steps) {
 }
 
 function isExpectedBottomOverlapEvidence(state, stepName) {
-    return isCrampedMobileBottomLayout(state) || (stepName === 'open-sidebar' && state.placement === 'bottom');
+    return isCrampedMobileBottomLayout(state);
 }
 
 function isCrampedMobileBottomLayout(state) {
@@ -812,6 +900,7 @@ async function installFixtureRoutes(page, requestLog) {
 }
 
 async function installApiMocks(page, requestLog) {
+    if (liveJpdbMode) return;
     await page.route('https://jpdb.io/api/v1/parse', async route => {
         const body = JSON.parse(route.request().postData() || '{}');
         requestLog.push({ kind: 'jpdb-parse-route', chars: JSON.stringify(body.text ?? '').length });
@@ -826,6 +915,8 @@ async function installApiMocks(page, requestLog) {
 async function bridgeResponse(request, requestLog) {
     const response = routeBridgeResponse(request, requestLog);
     if (response) return response;
+    const liveResponse = await liveBridgeResponse(request, requestLog);
+    if (liveResponse) return liveResponse;
     requestLog.push({ kind: 'bridge-passthrough-empty', method: request.method || 'GET', url: redactUrl(request.url) });
     return { status: 204, responseText: '', contentType: 'text/plain' };
 }
@@ -843,6 +934,7 @@ function routeBridgeResponse(request, requestLog) {
         };
     }
     if (target.href.startsWith(jpdbParseUrl)) {
+        if (liveJpdbMode) return null;
         const body = parseJsonBody(gmRequestFetchBody(request));
         requestLog.push({ kind: 'jpdb-parse-bridge', chars: JSON.stringify(body.text ?? '').length });
         return {
@@ -852,6 +944,62 @@ function routeBridgeResponse(request, requestLog) {
         };
     }
     return null;
+}
+
+async function liveBridgeResponse(request, requestLog) {
+    if (!liveMode) return null;
+    const parsed = new URL(request.url);
+    const target = proxiedTargetUrl(parsed) ?? parsed;
+    if (!shouldLiveFetchBridgeUrl(target)) return null;
+    const method = request.method || 'GET';
+    const kind = liveBridgeKind(target);
+    try {
+        const response = await fetch(target.href, liveFetchInit(request, method));
+        const responseText = await response.text();
+        requestLog.push({ kind, status: response.status, chars: responseText.length, url: redactUrl(target.href) });
+        return {
+            status: response.status,
+            responseText,
+            contentType: response.headers.get('content-type') ?? 'text/plain; charset=utf-8',
+        };
+    } catch (error) {
+        requestLog.push({ kind: `${kind}-failed`, error: bridgeErrorMessage(error), url: redactUrl(target.href) });
+        return { status: 599, responseText: '', contentType: 'text/plain' };
+    }
+}
+
+function bridgeErrorMessage(error) {
+    const cause = error && typeof error === 'object' && 'cause' in error ? error.cause : undefined;
+    return cause ? `${String(error)}; cause=${String(cause)}` : String(error);
+}
+
+function shouldLiveFetchBridgeUrl(url) {
+    return isYoutubeTimedTextUrl(url)
+        || url.hostname === 'translate.googleapis.com'
+        || (liveJpdbMode && url.href.startsWith(jpdbParseUrl));
+}
+
+function liveBridgeKind(url) {
+    if (isYoutubeTimedTextUrl(url)) return 'youtube-timedtext-live-bridge';
+    if (url.href.startsWith(jpdbParseUrl)) return 'jpdb-parse-live-bridge';
+    return 'google-translate-live-bridge';
+}
+
+function liveFetchInit(request, method) {
+    const init = {
+        method,
+        headers: liveFetchHeaders(request.headers),
+    };
+    const body = gmRequestFetchBody(request);
+    if (body != null && !/^(GET|HEAD)$/i.test(method)) init.body = body;
+    return init;
+}
+
+function liveFetchHeaders(headers) {
+    if (!headers || typeof headers !== 'object') return {};
+    return Object.fromEntries(Object.entries(headers)
+        .filter(([name, value]) => typeof name === 'string' && value != null)
+        .map(([name, value]) => [name, String(value)]));
 }
 
 function isYoutubeTimedTextUrl(url) {
@@ -880,7 +1028,7 @@ function smokeSettings(placement) {
     return {
         onboardingSeen: true,
         interfaceLanguage: 'en',
-        apiKey: 'profile-key',
+        apiKey: liveJpdbMode ? liveJpdbApiKey : 'profile-key',
         jitenApiKey: '',
         ankiEnabled: false,
         ankiSectionEnabled: false,

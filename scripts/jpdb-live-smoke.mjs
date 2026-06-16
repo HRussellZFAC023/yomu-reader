@@ -6,9 +6,13 @@ import { loadLocalEnv } from './lib/qa-env.mjs';
 const ROOT = path.resolve(import.meta.dirname, '..');
 loadLocalEnv(ROOT);
 
-const token = process.env.YOMU_TEST_API_KEY?.trim() || process.env.YOMU_PROFILE_API_KEY?.trim() || '';
+const token = process.env.YOMU_JPDB_API_KEY?.trim()
+    || process.env.JPDB_API_KEY?.trim()
+    || process.env.YOMU_TEST_API_KEY?.trim()
+    || process.env.YOMU_PROFILE_API_KEY?.trim()
+    || '';
 if (!token) {
-    console.error('JPDB live smoke needs YOMU_TEST_API_KEY or YOMU_PROFILE_API_KEY in the environment or local .env.');
+    console.error('JPDB live smoke needs YOMU_JPDB_API_KEY, JPDB_API_KEY, YOMU_TEST_API_KEY, or YOMU_PROFILE_API_KEY in the environment or local .env.');
     process.exit(1);
 }
 

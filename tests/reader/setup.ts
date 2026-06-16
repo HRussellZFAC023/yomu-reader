@@ -62,6 +62,8 @@ function restoreJsdomMediaElementMethods(): void {
 beforeEach(() => {
     resetLocaleState();
     stubJsdomMediaElementMethods();
+    vi.stubGlobal('GM_xmlhttpRequest', undefined);
+    vi.stubGlobal('GM', undefined);
 });
 
 afterEach(() => {

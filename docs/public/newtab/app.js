@@ -22983,13 +22983,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       disposeObserver.observe(document.documentElement, { childList: true, subtree: true });
     }
   }
-  function installSettingsDrawerHandle(drawer, label = "Resize settings") {
+  function installSettingsDrawerHandle(drawer, label = "Resize settings", onTap) {
     if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === "true") return;
     drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = "true";
     let viewportHeight = 0;
     let drawerHeight = 0;
     let startHeight = 0;
     let rawDragHeight = 0;
+    let suppressNextHandleClick = false;
     const isFullHeight = () => viewportHeight > 0 && drawerHeight >= viewportHeight - SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX;
     const syncHandle = (handle) => {
       handle.setAttribute("role", "separator");
@@ -23049,6 +23050,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       onFinish: (_state, wasMoved) => {
         const finishHeight = rawDragHeight;
         if (wasMoved) {
+          suppressNextHandleClick = true;
           applyDrawerHeight(finishHeight, true);
         }
         reset();
@@ -23085,6 +23087,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!handle) return;
       event.preventDefault();
       event.stopPropagation();
+      if (suppressNextHandleClick) {
+        suppressNextHandleClick = false;
+        return;
+      }
+      onTap?.();
     });
     drawer.addEventListener("pointerdown", (event) => {
       const handle = getHandleFromEvent(event.target);
@@ -27580,7 +27587,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.currentForm = form;
       this.dependencies.mountDialog(backdrop, form);
       this.hideBackgroundForModal(backdrop);
-      installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, "resizeSettings"));
+      installSettingsDrawerHandle(form, uiText(this.settings.interfaceLanguage, "resizeSettings"), () => this.dismissSettings());
       this.dependencies.beginSettingsPreview(this.settings.accentColor, this.settings.interfaceLanguage, this.settings.theme);
       this.syncRecommendedDictionaryInstallControls(form);
       this.syncDictionaryOperationState(form);
@@ -33920,7 +33927,7 @@ ${spelling}`);
     const gap = options.side === "left" ? options.margin * 2 : options.margin;
     const insetPixels = Math.max(0, Math.round(options.panelSize) + gap);
     const width = videoInsetWidth(options);
-    const height = videoInsetHeight(options);
+    const height = videoInsetHeight(options, width);
     const inset = `${insetPixels}px`;
     return {
       insetPixels,
@@ -33933,9 +33940,11 @@ ${spelling}`);
   function videoInsetWidth(options) {
     return options.side === "bottom" ? Math.max(320, Math.round(options.videoRect.width)) : Math.max(320, Math.round(options.playerSize));
   }
-  function videoInsetHeight(options, _width) {
+  function videoInsetHeight(options, width) {
     if (options.side === "bottom") return Math.max(180, Math.round(options.playerSize));
-    return Math.max(180, Math.round(options.videoRect.height));
+    const aspectHeight = Math.round(width * videoAspectRatio(options.video));
+    const currentHeight = Math.max(180, Math.round(options.videoRect.height));
+    return Math.max(180, Math.min(currentHeight, aspectHeight));
   }
   function applyGenericVideoInsetIfNeeded(options, metrics) {
     if (isYouTubePage$1() || !options.video) return;
@@ -35155,16 +35164,23 @@ ${spelling}`);
   function escapeRegExp$2(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
-  const TRANSLATION_BATCH_SIZE = 25;
+  const TRANSLATION_BATCH_SIZE = 80;
+  const TRANSLATION_BATCH_ENCODED_CHAR_BUDGET = 6e3;
   const TRANSLATION_TIMEOUT_MS$1 = 8e3;
   const TRANSLATION_SEPARATOR = "\n";
   const log$l = Logger.scope("SubtitleTranslate");
-  async function translateSubtitleCues(cues, sourceLanguage, targetLanguage) {
+  async function translateSubtitleCues(cues, sourceLanguage, targetLanguage, options = {}) {
     if (!cues.length) return [];
     const texts = cues.map((cue) => cue.text.trim());
-    const batches = batchTexts(texts, TRANSLATION_BATCH_SIZE);
+    const batches = batchTexts(
+      texts,
+      options.batchSize ?? TRANSLATION_BATCH_SIZE,
+      options.encodedCharBudget ?? TRANSLATION_BATCH_ENCODED_CHAR_BUDGET
+    );
     const translated = [];
-    for (const batch of batches) {
+    for (let index = 0; index < batches.length; index += 1) {
+      if (index > 0) await waitForTranslationTurn();
+      const batch = batches[index] ?? [];
       const results = await translateBatch(batch, sourceLanguage, targetLanguage);
       translated.push(...results);
     }
@@ -35173,11 +35189,22 @@ ${spelling}`);
       text: translated[index] || cue.text
     }));
   }
-  function batchTexts(texts, size) {
+  function batchTexts(texts, size, encodedCharBudget) {
     const batches = [];
-    for (let start = 0; start < texts.length; start += size) {
-      batches.push(texts.slice(start, start + size));
+    let current = [];
+    let currentEncodedLength = 0;
+    for (const text2 of texts) {
+      const separatorLength = current.length ? encodeURIComponent(TRANSLATION_SEPARATOR).length : 0;
+      const encodedLength = encodeURIComponent(text2).length;
+      if (current.length && (current.length >= size || currentEncodedLength + separatorLength + encodedLength > encodedCharBudget)) {
+        batches.push(current);
+        current = [];
+        currentEncodedLength = 0;
+      }
+      current.push(text2);
+      currentEncodedLength += (current.length > 1 ? encodeURIComponent(TRANSLATION_SEPARATOR).length : 0) + encodedLength;
     }
+    if (current.length) batches.push(current);
     return batches;
   }
   async function translateBatch(texts, sourceLanguage, targetLanguage) {
@@ -35205,6 +35232,9 @@ ${spelling}`);
       done();
     }
   }
+  function waitForTranslationTurn() {
+    return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+  }
   function padTranslationResults(translated, originals) {
     const result = translated.map((text2) => text2.trim());
     while (result.length < originals.length) result.push(originals[result.length]);
@@ -35225,6 +35255,7 @@ ${spelling}`);
     return { track, cues: track.cues ?? [] };
   }
   async function loadTranslatedTrackCues(track, options) {
+    if (options.translationFallback === "skip") return { track, cues: [] };
     const sourceTrack = options.tracks.find((t) => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
@@ -35266,6 +35297,7 @@ ${spelling}`);
     return { track, cues: [] };
   }
   async function loadYouTubeTranslationSourceFallback(track, options) {
+    if (options.translationFallback === "skip") return [];
     if (track.sourceType !== "translation") return [];
     const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
     const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);
@@ -36640,6 +36672,7 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
   const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
   const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
+  const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 96;
   const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
   const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5e3;
   const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
@@ -36647,6 +36680,10 @@ ${spelling}`);
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
   const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
+  const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
+  const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
+  const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
+  const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
   const SUBTITLE_TICK_ACTIVE_MS = 250;
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
@@ -36769,6 +36806,8 @@ ${spelling}`);
     transcriptHydrateFrame;
     transcriptDeferredRenderFrame;
     transcriptDeferredRenderTimer;
+    transcriptVirtualRenderFrame;
+    transcriptVirtualScrollTop = 0;
     // Manual-scroll override for transcript auto-follow: a user scroll pauses
     // the snap-to-active so advancing to the next cue does not yank the list
     // back; programmatic scrollIntoView calls are ignored for a short window so
@@ -36919,6 +36958,7 @@ ${spelling}`);
       this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
       this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
       this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
+      this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
       this.clearDeferredTranscriptPanelRender();
       this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
       this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
@@ -38763,9 +38803,13 @@ ${spelling}`);
       const loaded = await loadSubtitleTrackCues(selected, {
         ...TRACK_LOAD_OPTIONS,
         tracks: this.tracks,
-        transcriptEligible: request.transcriptEligible
+        transcriptEligible: request.transcriptEligible,
+        translationFallback: this.translationFallbackModeForSelection(request)
       });
       return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+    }
+    translationFallbackModeForSelection(request) {
+      return request.role === "secondary" ? "skip" : "full";
     }
     loadedTrackSelection(request, selected, cues) {
       if (!this.isTrackSelectionCurrent(request.role, request.requestId, request.id)) return null;
@@ -39140,6 +39184,9 @@ ${spelling}`);
       this.transcriptDeferredRenderFrame = clearWindowAnimationFrame(this.transcriptDeferredRenderFrame);
       this.transcriptDeferredRenderTimer = clearWindowTimeout(this.transcriptDeferredRenderTimer);
     }
+    clearTranscriptVirtualRender() {
+      this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
+    }
     openLinesPanel(options = {}) {
       if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
       const persist = options.persist ?? true;
@@ -39226,6 +39273,7 @@ ${spelling}`);
       this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
       this.panelMode = "tracks";
       this.clearDeferredTranscriptPanelRender();
+      this.clearTranscriptVirtualRender();
       this.showTranscriptPanelElement();
       if (persist) {
         this.options.getSettings().subtitleTranscriptVisible = false;
@@ -39244,6 +39292,7 @@ ${spelling}`);
       if (!this.transcriptPanel) return;
       const persist = options.persist ?? true;
       this.clearDeferredTranscriptPanelRender();
+      this.clearTranscriptVirtualRender();
       if (!options.autoPause) {
         this.pausePanelOpen = false;
         if (this.options.getSettings().subtitlePausePanel) this.pausePanelDismissed = true;
@@ -39314,6 +39363,7 @@ ${spelling}`);
       const previewEnd = Math.min(rowCount, previewStart + 3);
       return {
         rows: state.rows.slice(previewStart, previewEnd),
+        warmupRows: state.warmupRows,
         currentRowIndex: state.currentRowIndex,
         signature: `preview:${state.signature}:${previewStart}`,
         rowIndexOffset: previewStart,
@@ -39349,14 +39399,61 @@ ${spelling}`);
       const currentCueIndex = this.activeTranscriptIndex();
       const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
       const settings = this.options.getSettings();
+      const virtual = this.transcriptVirtualWindow(rows.length, currentRowIndex);
+      const renderedRows = virtual ? rows.slice(virtual.start, virtual.end) : rows;
       const signature = [
         rows.length,
         this.selectedTrackId,
         this.tracks.find((track) => track.id === this.selectedTrackId)?.loadingState ?? "",
         !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : "",
-        this.parseCacheKey("", settings)
+        this.parseCacheKey("", settings),
+        virtual ? `v:${virtual.start}:${virtual.end}` : ""
       ].join(":");
-      return { rows, currentRowIndex, signature };
+      return {
+        rows: renderedRows,
+        warmupRows: virtual ? renderedRows : void 0,
+        currentRowIndex,
+        signature,
+        rowIndexOffset: virtual?.start,
+        totalRowCount: virtual ? rows.length : void 0,
+        virtual
+      };
+    }
+    transcriptVirtualWindow(rowCount, currentRowIndex) {
+      if (rowCount <= TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) return void 0;
+      const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
+      const clientHeight = Math.max(
+        scroller?.clientHeight ?? 0,
+        Math.round((this.transcriptPanel?.getBoundingClientRect().height ?? 0) * 0.72),
+        TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX * 6
+      );
+      const scrollTop = Math.max(0, scroller?.scrollTop ?? this.transcriptVirtualScrollTop);
+      const visibleRows = Math.max(
+        TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS,
+        Math.ceil(clientHeight / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2
+      );
+      const preferredStart = this.transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows);
+      const start = Math.max(0, Math.min(preferredStart, Math.max(0, rowCount - visibleRows)));
+      const end = Math.min(rowCount, start + visibleRows);
+      return {
+        start,
+        end,
+        scrollTop,
+        topSpacer: start * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX,
+        bottomSpacer: Math.max(0, (rowCount - end) * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX)
+      };
+    }
+    transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows) {
+      if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex)) {
+        return currentRowIndex - Math.floor(visibleRows / 2);
+      }
+      return Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+    }
+    shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex) {
+      if (currentRowIndex < 0) return false;
+      if (!this.options.getSettings().subtitleTranscriptAutoScroll) return false;
+      if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return false;
+      return scrollTop <= 1 || currentRowIndex < Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
     refreshExistingTranscriptPanel(state) {
       if (this.lastTranscriptSignature !== state.signature) return false;
@@ -39390,21 +39487,35 @@ ${spelling}`);
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
             </div>
-            <div class="jpdb-subtitle-list-scroll">
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ""}>
+                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.topSpacer) : ""}
                 ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
+                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer) : ""}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
+    }
+    renderTranscriptVirtualSpacer(height) {
+      return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
     }
     afterTranscriptPanelRender(state, options = {}) {
       this.indexTranscriptTextTargets();
       this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? "none" : "immediate" });
+      this.restoreTranscriptVirtualScroll(state);
       this.scrollTranscriptToActive();
       this.scheduleTranscriptHydration(state.currentRowIndex);
-      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.rows, state.currentRowIndex);
+      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.warmupRows ?? state.rows, state.currentRowIndex);
       this.syncPanelState();
+    }
+    restoreTranscriptVirtualScroll(state) {
+      if (!state.virtual) return;
+      const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
+      if (!scroller) return;
+      const scrollTop = Math.max(0, state.virtual.scrollTop);
+      if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
+      this.transcriptVirtualScrollTop = scrollTop;
     }
     renderTranscriptRow(row, index, currentIndex) {
       const cue = row.cue;
@@ -39475,7 +39586,23 @@ ${spelling}`);
       scroller.addEventListener("scroll", () => {
         this.noteTranscriptScroll();
         this.scheduleTranscriptHydration();
+        this.scheduleTranscriptVirtualRender(scroller);
       }, { passive: true });
+    }
+    scheduleTranscriptVirtualRender(scroller) {
+      if (!this.isTranscriptVirtualScroller(scroller)) return;
+      this.transcriptVirtualScrollTop = scroller.scrollTop;
+      if (this.transcriptVirtualRenderFrame) return;
+      this.transcriptVirtualRenderFrame = requestAnimationFrame(() => {
+        this.transcriptVirtualRenderFrame = void 0;
+        if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
+        const state = this.transcriptPanelRenderState();
+        if (!state.virtual || state.signature === this.lastTranscriptSignature) return;
+        this.renderTranscriptPanel(true);
+      });
+    }
+    isTranscriptVirtualScroller(scroller) {
+      return scroller.dataset.virtualized === "true";
     }
     bindTranscriptResizeHandle() {
       const handle = this.transcriptPanel?.querySelector("[data-resize-transcript]");
@@ -39780,13 +39907,23 @@ ${spelling}`);
       const priority = this.transcriptHydrationIndexes(preferredIndex, rows.length);
       const focusIndex = preferredIndex >= 0 ? preferredIndex : 0;
       const orderedIndexes = transcriptWarmupIndexes(priority, focusIndex, rows.length);
+      const limit = this.transcriptBackgroundParseLimit(rows.length);
       const seen = /* @__PURE__ */ new Set();
       const plan = [];
       for (const rowIndex of orderedIndexes) {
         this.addTranscriptWarmupPlanItem(plan, seen, rows, rowIndex, settings);
-        if (plan.length >= TRANSCRIPT_BACKGROUND_PARSE_LIMIT) break;
+        if (plan.length >= limit) break;
       }
       return plan;
+    }
+    transcriptBackgroundParseLimit(rowCount) {
+      if (isYouTubePage() && rowCount > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) {
+        return Math.min(YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT, TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS);
+      }
+      if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT) {
+        return YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT;
+      }
+      return TRANSCRIPT_BACKGROUND_PARSE_LIMIT;
     }
     addTranscriptWarmupPlanItem(plan, seen, rows, rowIndex, settings) {
       const text2 = rows[rowIndex]?.cue.text.trim();
@@ -39890,6 +40027,8 @@ ${spelling}`);
       this.selectedTrackId = "";
       this.cues = [];
       this.currentCue = void 0;
+      this.transcriptVirtualScrollTop = 0;
+      this.clearTranscriptVirtualRender();
       this.lastDomCaption = "";
       this.pendingDomCaption = void 0;
       this.youtubeDomCaptionFallbackTrackId = "";
@@ -40131,7 +40270,6 @@ ${spelling}`);
         return false;
       }
       if (layout.placement === "bottom") {
-        if (isYouTubePage()) return this.clearVideoInsetForTranscriptPanel();
         return this.applyPageVideoInset("bottom", layout.top - videoRect.top - layout.margin, layout.height, videoRect, options);
       }
       const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);

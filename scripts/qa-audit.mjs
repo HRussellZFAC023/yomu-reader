@@ -2530,7 +2530,7 @@ async function auditHoverLookup(browser, server) {
         },
     });
     const todayWord = await page.locator('.jpdb-reader-word', { hasText: '今日' }).first().boundingBox();
-    const quietWord = await page.locator('.jpdb-reader-word', { hasText: '静か' }).first().boundingBox();
+    const quietWord = await page.locator('.jpdb-reader-word', { hasText: '静' }).first().boundingBox();
     assertAudit(todayWord, 'no 今日 scanned word bounding box found');
     assertAudit(quietWord, 'no 静か scanned word bounding box found');
     await page.keyboard.down('Shift');
@@ -3001,7 +3001,7 @@ function runtimeRegressionPopoverSnapshotFromDom() {
     return {
         text: normalizedText(popover),
         spelling: compactText(popover?.querySelector('.jpdb-reader-spelling')),
-        reading: compactText(popover?.querySelector('.jpdb-reader-reading')),
+        reading: compactText(popover?.querySelector('.jpdb-reader-meta-reading')),
         pitchCount: popover?.querySelectorAll('.jpdb-reader-pitch svg, .jpdb-reader-pitch path').length ?? 0,
     };
 
@@ -3017,7 +3017,7 @@ function runtimeRegressionPopoverSnapshotFromDom() {
 function assertRegressionReadPopup(snapshot, trigger) {
     assertAudit(!snapshot.spelling.includes('きなものを'), `${trigger} lookup selected left-context text instead of 読んで: ${JSON.stringify(snapshot)}`);
     assertAudit(/読む|読んで/.test(snapshot.spelling), `${trigger} lookup did not open the 読む card: ${JSON.stringify(snapshot)}`);
-    assertAudit(/よむ|よんで/.test(snapshot.reading), `${trigger} lookup lost JPDB reading: ${JSON.stringify(snapshot)}`);
+    assertAudit(/よむ|よんで/.test(snapshot.reading || snapshot.text), `${trigger} lookup lost JPDB reading: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.pitchCount > 0, `${trigger} lookup lost JPDB pitch display: ${JSON.stringify(snapshot)}`);
 }
 
@@ -3240,7 +3240,7 @@ async function auditJpdbSearchCompatibility(browser) {
             index,
             text: (element.textContent ?? '').replace(/\s+/g, ''),
         }));
-        const exact = words.find(word => word.text.startsWith('読みました'));
+        const exact = words.find(word => /読(\([^)]+\))?み?ました/.test(word.text));
         if (exact) elements[exact.index]?.setAttribute('data-yomu-qa-read-target', 'true');
         return { index: exact?.index ?? -1, words: words.slice(0, 24) };
     });
@@ -3311,7 +3311,7 @@ async function auditImmersionKitPopover(browser, server) {
             immersionKitPlayOnHover: true,
         },
     });
-    await page.locator('.jpdb-reader-word').filter({ hasText: '読みました' }).first().click();
+    await page.locator('.jpdb-reader-word').filter({ hasText: '読' }).first().click();
     await openImmersionKitDetails(page);
     await page.waitForSelector('[data-immersion-kit] .jpdb-reader-example-card', { timeout: 8000 });
     await waitForAudit(page, () => {

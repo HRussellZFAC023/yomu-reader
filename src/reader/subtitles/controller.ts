@@ -368,6 +368,7 @@ const TRANSCRIPT_BACKGROUND_PARSE_CONCURRENCY = 2;
 const TRANSCRIPT_BACKGROUND_PARSE_BATCH = 8;
 const TRANSCRIPT_BACKGROUND_PARSE_AHEAD = 32;
 const TRANSCRIPT_BACKGROUND_PARSE_BEHIND = 6;
+const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT = 96;
 const SUBTITLE_PARSE_CACHE_MIN_ENTRIES = 180;
 const SUBTITLE_PARSE_CACHE_MAX_ENTRIES = 5000;
 const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
@@ -377,6 +378,10 @@ const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
 // Cues near the playhead must colorise immediately; only the whole-transcript
 // tail of the warmup queue is paced.
 const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
+const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
+const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
+const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
+const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
 const SUBTITLE_TICK_ACTIVE_MS = 250;
 const SUBTITLE_TICK_PAUSED_MS = 600;
 const SUBTITLE_TICK_IDLE_MS = 1500;
@@ -418,16 +423,26 @@ interface SubtitleDragSession {
 
 interface TranscriptPanelRenderState {
     rows: TranscriptRow[];
+    warmupRows?: TranscriptRow[];
     currentRowIndex: number;
     signature: string;
     rowIndexOffset?: number;
     totalRowCount?: number;
+    virtual?: TranscriptPanelVirtualWindow;
 }
 
 interface TranscriptRowHydrationTarget {
     cue: SubtitleCue;
     target: HTMLElement;
     key: string;
+}
+
+interface TranscriptPanelVirtualWindow {
+    start: number;
+    end: number;
+    scrollTop: number;
+    topSpacer: number;
+    bottomSpacer: number;
 }
 
 function transcriptWarmupIndexes(priority: number[], focusIndex: number, rowCount: number): number[] {
@@ -542,6 +557,8 @@ export class SubtitlePlayerController {
     private transcriptHydrateFrame?: number;
     private transcriptDeferredRenderFrame?: number;
     private transcriptDeferredRenderTimer?: number;
+    private transcriptVirtualRenderFrame?: number;
+    private transcriptVirtualScrollTop = 0;
     // Manual-scroll override for transcript auto-follow: a user scroll pauses
     // the snap-to-active so advancing to the next cue does not yank the list
     // back; programmatic scrollIntoView calls are ignored for a short window so
@@ -692,6 +709,7 @@ export class SubtitlePlayerController {
         this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
         this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
         this.transcriptHydrateFrame = clearWindowAnimationFrame(this.transcriptHydrateFrame);
+        this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
         this.clearDeferredTranscriptPanelRender();
         this.transcriptInsetRealignFrame = clearWindowAnimationFrame(this.transcriptInsetRealignFrame);
         this.transcriptViewportStabilizeTimer = clearWindowTimeout(this.transcriptViewportStabilizeTimer);
@@ -2892,8 +2910,13 @@ export class SubtitlePlayerController {
             ...TRACK_LOAD_OPTIONS,
             tracks: this.tracks,
             transcriptEligible: request.transcriptEligible,
+            translationFallback: this.translationFallbackModeForSelection(request),
         });
         return this.loadedTrackSelection(request, loaded.track, loaded.cues);
+    }
+
+    private translationFallbackModeForSelection(request: SubtitleTrackSelectionLoadRequest): 'full' | 'skip' {
+        return request.role === 'secondary' ? 'skip' : 'full';
     }
 
     private loadedTrackSelection(
@@ -3339,6 +3362,10 @@ export class SubtitlePlayerController {
         this.transcriptDeferredRenderTimer = clearWindowTimeout(this.transcriptDeferredRenderTimer);
     }
 
+    private clearTranscriptVirtualRender(): void {
+        this.transcriptVirtualRenderFrame = clearWindowAnimationFrame(this.transcriptVirtualRenderFrame);
+    }
+
     private openLinesPanel(options: TranscriptPanelOptions = {}): void {
         if (!this.transcriptPanel || !this.hasTranscriptSurface()) return;
         const persist = options.persist ?? true;
@@ -3437,6 +3464,7 @@ export class SubtitlePlayerController {
         this.pausePanelOpen = this.shouldAutoHideOpenPanel(options);
         this.panelMode = 'tracks';
         this.clearDeferredTranscriptPanelRender();
+        this.clearTranscriptVirtualRender();
         this.showTranscriptPanelElement();
         if (persist) {
             this.options.getSettings().subtitleTranscriptVisible = false;
@@ -3457,6 +3485,7 @@ export class SubtitlePlayerController {
         if (!this.transcriptPanel) return;
         const persist = options.persist ?? true;
         this.clearDeferredTranscriptPanelRender();
+        this.clearTranscriptVirtualRender();
         if (!options.autoPause) {
             this.pausePanelOpen = false;
             // An explicit close while paused must stick: otherwise the "open panel
@@ -3542,6 +3571,7 @@ export class SubtitlePlayerController {
         const previewEnd = Math.min(rowCount, previewStart + 3);
         return {
             rows: state.rows.slice(previewStart, previewEnd),
+            warmupRows: state.warmupRows,
             currentRowIndex: state.currentRowIndex,
             signature: `preview:${state.signature}:${previewStart}`,
             rowIndexOffset: previewStart,
@@ -3581,14 +3611,64 @@ export class SubtitlePlayerController {
         const currentCueIndex = this.activeTranscriptIndex();
         const currentRowIndex = this.activeTranscriptRowIndex(rows, currentCueIndex);
         const settings = this.options.getSettings();
+        const virtual = this.transcriptVirtualWindow(rows.length, currentRowIndex);
+        const renderedRows = virtual ? rows.slice(virtual.start, virtual.end) : rows;
         const signature = [
             rows.length,
             this.selectedTrackId,
             this.tracks.find(track => track.id === this.selectedTrackId)?.loadingState ?? '',
             !this.cues.length && this.currentCue ? subtitleCueSignature(this.currentCue) : '',
             this.parseCacheKey('', settings),
+            virtual ? `v:${virtual.start}:${virtual.end}` : '',
         ].join(':');
-        return { rows, currentRowIndex, signature };
+        return {
+            rows: renderedRows,
+            warmupRows: virtual ? renderedRows : undefined,
+            currentRowIndex,
+            signature,
+            rowIndexOffset: virtual?.start,
+            totalRowCount: virtual ? rows.length : undefined,
+            virtual,
+        };
+    }
+
+    private transcriptVirtualWindow(rowCount: number, currentRowIndex: number): TranscriptPanelVirtualWindow | undefined {
+        if (rowCount <= TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) return undefined;
+        const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        const clientHeight = Math.max(
+            scroller?.clientHeight ?? 0,
+            Math.round((this.transcriptPanel?.getBoundingClientRect().height ?? 0) * 0.72),
+            TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX * 6,
+        );
+        const scrollTop = Math.max(0, scroller?.scrollTop ?? this.transcriptVirtualScrollTop);
+        const visibleRows = Math.max(
+            TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS,
+            Math.ceil(clientHeight / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) + TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS * 2,
+        );
+        const preferredStart = this.transcriptVirtualStartIndex(scrollTop, currentRowIndex, visibleRows);
+        const start = Math.max(0, Math.min(preferredStart, Math.max(0, rowCount - visibleRows)));
+        const end = Math.min(rowCount, start + visibleRows);
+        return {
+            start,
+            end,
+            scrollTop,
+            topSpacer: start * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX,
+            bottomSpacer: Math.max(0, (rowCount - end) * TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX),
+        };
+    }
+
+    private transcriptVirtualStartIndex(scrollTop: number, currentRowIndex: number, visibleRows: number): number {
+        if (this.shouldCenterActiveTranscriptRow(scrollTop, currentRowIndex)) {
+            return currentRowIndex - Math.floor(visibleRows / 2);
+        }
+        return Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
+    }
+
+    private shouldCenterActiveTranscriptRow(scrollTop: number, currentRowIndex: number): boolean {
+        if (currentRowIndex < 0) return false;
+        if (!this.options.getSettings().subtitleTranscriptAutoScroll) return false;
+        if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return false;
+        return scrollTop <= 1 || currentRowIndex < Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
 
     private refreshExistingTranscriptPanel(state: TranscriptPanelRenderState): boolean {
@@ -3624,13 +3704,21 @@ export class SubtitlePlayerController {
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
             </div>
-            <div class="jpdb-subtitle-list-scroll">
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ''}>
+                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.topSpacer) : ''}
                 ${state.rows.length
                     ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join('')
                     : this.renderTranscriptWaitingState()}
+                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer) : ''}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeTranscriptPanel'))}"></div>
         `;
+    }
+
+    private renderTranscriptVirtualSpacer(height: number): string {
+        return height > 0
+            ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>`
+            : '';
     }
 
     private afterTranscriptPanelRender(state: TranscriptPanelRenderState, options: { deferPlayerResize?: boolean; warmupRows?: TranscriptRow[] } = {}): void {
@@ -3638,10 +3726,20 @@ export class SubtitlePlayerController {
         this.bindTranscriptScroller();
         this.bindTranscriptResizeHandle();
         this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? 'none' : 'immediate' });
+        this.restoreTranscriptVirtualScroll(state);
         this.scrollTranscriptToActive();
         this.scheduleTranscriptHydration(state.currentRowIndex);
-        this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.rows, state.currentRowIndex);
+        this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.warmupRows ?? state.rows, state.currentRowIndex);
         this.syncPanelState();
+    }
+
+    private restoreTranscriptVirtualScroll(state: TranscriptPanelRenderState): void {
+        if (!state.virtual) return;
+        const scroller = this.transcriptPanel?.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll');
+        if (!scroller) return;
+        const scrollTop = Math.max(0, state.virtual.scrollTop);
+        if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
+        this.transcriptVirtualScrollTop = scrollTop;
     }
 
     private renderTranscriptRow(row: TranscriptRow, index: number, currentIndex: number): string {
@@ -3730,7 +3828,25 @@ export class SubtitlePlayerController {
         scroller.addEventListener('scroll', () => {
             this.noteTranscriptScroll();
             this.scheduleTranscriptHydration();
+            this.scheduleTranscriptVirtualRender(scroller);
         }, { passive: true });
+    }
+
+    private scheduleTranscriptVirtualRender(scroller: HTMLElement): void {
+        if (!this.isTranscriptVirtualScroller(scroller)) return;
+        this.transcriptVirtualScrollTop = scroller.scrollTop;
+        if (this.transcriptVirtualRenderFrame) return;
+        this.transcriptVirtualRenderFrame = requestAnimationFrame(() => {
+            this.transcriptVirtualRenderFrame = undefined;
+            if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== 'lines') return;
+            const state = this.transcriptPanelRenderState();
+            if (!state.virtual || state.signature === this.lastTranscriptSignature) return;
+            this.renderTranscriptPanel(true);
+        });
+    }
+
+    private isTranscriptVirtualScroller(scroller: HTMLElement): boolean {
+        return scroller.dataset.virtualized === 'true';
     }
 
     private bindTranscriptResizeHandle(): void {
@@ -4077,13 +4193,24 @@ export class SubtitlePlayerController {
         const priority = this.transcriptHydrationIndexes(preferredIndex, rows.length);
         const focusIndex = preferredIndex >= 0 ? preferredIndex : 0;
         const orderedIndexes = transcriptWarmupIndexes(priority, focusIndex, rows.length);
+        const limit = this.transcriptBackgroundParseLimit(rows.length);
         const seen = new Set<string>();
         const plan: Array<{ rowIndex: number; text: string; key: string }> = [];
         for (const rowIndex of orderedIndexes) {
             this.addTranscriptWarmupPlanItem(plan, seen, rows, rowIndex, settings);
-            if (plan.length >= TRANSCRIPT_BACKGROUND_PARSE_LIMIT) break;
+            if (plan.length >= limit) break;
         }
         return plan;
+    }
+
+    private transcriptBackgroundParseLimit(rowCount: number): number {
+        if (isYouTubePage() && rowCount > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD) {
+            return Math.min(YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT, TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS);
+        }
+        if (isYouTubePage() && rowCount > YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT) {
+            return YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_LIMIT;
+        }
+        return TRANSCRIPT_BACKGROUND_PARSE_LIMIT;
     }
 
     private addTranscriptWarmupPlanItem(
@@ -4208,6 +4335,8 @@ export class SubtitlePlayerController {
         this.selectedTrackId = '';
         this.cues = [];
         this.currentCue = undefined;
+        this.transcriptVirtualScrollTop = 0;
+        this.clearTranscriptVirtualRender();
         this.lastDomCaption = '';
         this.pendingDomCaption = undefined;
         this.youtubeDomCaptionFallbackTrackId = '';
@@ -4517,7 +4646,6 @@ export class SubtitlePlayerController {
             return false;
         }
         if (layout.placement === 'bottom') {
-            if (isYouTubePage()) return this.clearVideoInsetForTranscriptPanel();
             return this.applyPageVideoInset('bottom', layout.top - videoRect.top - layout.margin, layout.height, videoRect, options);
         }
         const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);

@@ -1237,6 +1237,31 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('virtualizes long transcript drawers instead of mounting every row', () => {
+        const cues = Array.from({ length: 300 }, (_, index) => ({
+            start: index,
+            end: index + 0.8,
+            text: `長い字幕${index}`,
+            transcriptEligible: true,
+        }));
+        const { controller, internals } = setupTranscriptCueController(cues);
+
+        try {
+            internals.openLinesPanel();
+
+            const scroller = document.querySelector<HTMLElement>('.jpdb-subtitle-list-scroll')!;
+            const rows = Array.from(scroller.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row'));
+            expect(scroller.dataset.virtualized).toBe('true');
+            expect(scroller.dataset.totalRows).toBe('300');
+            expect(rows).toHaveLength(48);
+            expect(rows[0]?.dataset.rowIndex).toBe('0');
+            expect(rows.at(-1)?.dataset.rowIndex).toBe('47');
+            expect(scroller.querySelector<HTMLElement>('.jpdb-subtitle-list-spacer')?.style.height).toBe('20160px');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('keeps an explicitly closed pause panel closed until the video plays again', async () => {
         vi.useFakeTimers();
         const settings = {

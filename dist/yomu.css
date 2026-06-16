@@ -1958,16 +1958,16 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   align-items: center;
   justify-content: flex-end;
   min-width: 48px;
-  height: 22px;
+  height: 24px;
   margin: 0;
 }
 .jpdb-reader-onboarding .jpdb-reader-theme-switch {
   position: relative;
   display: block;
-  width: 40px;
-  min-width: 40px;
-  height: 22px !important;
-  min-height: 22px !important;
+  width: 44px;
+  min-width: 44px;
+  height: 24px !important;
+  min-height: 24px !important;
   padding: 0;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
@@ -1981,14 +1981,14 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   left: 1px;
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background: var(--jpdb-reader-bg);
   box-shadow: 0 1px 3px var(--jpdb-reader-shadow);
 }
 .jpdb-reader-onboarding .jpdb-reader-theme-switch[aria-checked="true"] .check {
-  transform: translateX(18px);
+  transform: translateX(20px);
 }
 .jpdb-reader-onboarding .jpdb-reader-theme-switch .icon {
   position: relative;
@@ -7588,16 +7588,16 @@ html.jpdb-reader-doodle-active * {
   align-items: center;
   justify-content: flex-end;
   min-width: 48px;
-  height: 22px;
+  height: 24px;
   margin: 0;
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch {
   position: relative;
   display: block;
-  width: 40px;
-  min-width: 40px;
-  height: 22px !important;
-  min-height: 22px !important;
+  width: 44px;
+  min-width: 44px;
+  height: 24px !important;
+  min-height: 24px !important;
   padding: 0;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
@@ -7611,14 +7611,14 @@ html.jpdb-reader-doodle-active * {
   left: 1px;
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 999px;
   background: var(--jpdb-reader-bg);
   box-shadow: 0 1px 3px var(--jpdb-reader-shadow);
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch[aria-checked="true"] .check {
-  transform: translateX(18px);
+  transform: translateX(20px);
 }
 .jpdb-reader-settings .jpdb-reader-theme-switch .icon {
   position: relative;
@@ -9784,6 +9784,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   bottom: 0;
   width: 24px;
   cursor: ew-resize;
+  transform: translateX(-50%);
 }
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize {
   right: 0;
@@ -9791,13 +9792,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   bottom: 0;
   width: 24px;
   cursor: ew-resize;
+  transform: translateX(50%);
 }
 .jpdb-subtitle-transcript-right .jpdb-subtitle-resize::after,
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize::after {
   top: 16px;
   bottom: 16px;
-  left: 11px;
+  left: 50%;
   width: 2px;
+  transform: translateX(-50%);
 }
 .jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize {
   left: 50%;
@@ -9996,6 +9999,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   gap: 4px;
   padding: 8px 10px 12px;
   overscroll-behavior: contain;
+}
+.jpdb-subtitle-list-spacer {
+  min-height: 0;
+  pointer-events: none;
 }
 .jpdb-subtitle-list-row {
   display: grid;

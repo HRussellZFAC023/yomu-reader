@@ -22,6 +22,7 @@ export interface SubtitleTrackLoadOptions<T extends SubtitleTrackLoadable> {
     tracks: T[];
     transcriptEligible: boolean;
     requestText: (url: string) => Promise<string>;
+    translationFallback?: 'full' | 'skip';
     onRemoteEmpty?: (track: T) => void;
     onRemoteError?: (track: T, error: unknown) => void;
     onYouTubeRequestError?: YouTubeTrackLoadOptions<T>['onRequestError'];
@@ -54,6 +55,7 @@ async function loadTranslatedTrackCues<T extends SubtitleTrackLoadable>(
     track: T,
     options: SubtitleTrackLoadOptions<T>,
 ): Promise<{ track: T; cues: SubtitleCue[] }> {
+    if (options.translationFallback === 'skip') return { track, cues: [] };
     const sourceTrack = options.tracks.find(t => t.id === track.translatedFromTrackId);
     if (!sourceTrack) return { track, cues: [] };
     const { cues: sourceCues } = await loadSubtitleTrackCues(sourceTrack, options);
@@ -106,6 +108,7 @@ async function loadYouTubeTranslationSourceFallback<T extends SubtitleTrackLoada
     track: T,
     options: SubtitleTrackLoadOptions<T>,
 ): Promise<SubtitleCue[]> {
+    if (options.translationFallback === 'skip') return [];
     if (track.sourceType !== 'translation') return [];
     const sourceTrack = findYouTubeTranslationSourceTrack(track, options.tracks);
     const sourceLanguage = normalizedTrackLanguage(track.sourceLanguage);

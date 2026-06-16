@@ -16304,7 +16304,7 @@ describe('reader helpers', () => {
                 expect(columns.style.marginLeft).toBe('');
                 expect(primaryInner.style.width).toBe('1080px');
                 expect(primaryInner.style.maxWidth).toBe('1080px');
-                expect(setSize).toHaveBeenCalledWith(1080, 675);
+                expect(setSize).toHaveBeenCalledWith(1080, 608);
                 expect(primaryRectCalls).toBe(1);
                 expect(primaryInnerRectCalls).toBe(1);
 
@@ -16319,7 +16319,7 @@ describe('reader helpers', () => {
                 expect(primary.style.width).toBe('1040px');
                 expect(primary.style.marginRight).toBe('72px');
                 expect(primaryInner.style.width).toBe('1040px');
-                expect(setSize).toHaveBeenLastCalledWith(1040, 675);
+                expect(setSize).toHaveBeenLastCalledWith(1040, 585);
                 expect(primaryRectCalls).toBe(1);
                 expect(primaryInnerRectCalls).toBe(1);
             } finally {
@@ -16389,7 +16389,7 @@ describe('reader helpers', () => {
                         expect(belowPlayer.style.getPropertyValue(side === 'left' ? 'margin-left' : 'margin-right')).toBe(side === 'left' ? '444px' : '274px');
                         expect(playerContainer.style.getPropertyValue(side === 'left' ? 'margin-right' : 'margin-left')).toBe('0px');
                         expect(belowPlayer.style.getPropertyValue(side === 'left' ? 'margin-right' : 'margin-left')).toBe('0px');
-                        expect(setSize).toHaveBeenCalledWith(552, 487);
+                        expect(setSize).toHaveBeenCalledWith(552, 311);
                     } finally {
                         adapter.clear();
                         document.body.innerHTML = '';
@@ -16449,7 +16449,7 @@ describe('reader helpers', () => {
                 expect(primary.style.marginLeft).toBe('444px');
                 expect(primaryInner.style.width).toBe('552px');
                 expect(primaryInner.style.marginLeft).toBe('0px');
-                expect(setSize).toHaveBeenCalledWith(552, 518);
+                expect(setSize).toHaveBeenCalledWith(552, 311);
             } finally {
                 adapter.clear();
                 Object.defineProperty(window, 'location', {
@@ -16733,7 +16733,7 @@ describe('reader helpers', () => {
 
                 expect(document.documentElement.classList.contains('jpdb-subtitle-video-inset-right')).toBe(true);
                 expect(primary.style.width).toBe('1080px');
-                expect(setSize).toHaveBeenCalledWith(1080, 675);
+                expect(setSize).toHaveBeenCalledWith(1080, 608);
 
                 Object.defineProperty(window, 'location', {
                     configurable: true,
@@ -16808,7 +16808,7 @@ describe('reader helpers', () => {
             await vi.advanceTimersByTimeAsync(1);
             expect(onResize).toHaveBeenCalledTimes(1);
             expect(setSize).toHaveBeenCalledTimes(1);
-            expect(setSize).toHaveBeenCalledWith(1040, 675);
+            expect(setSize).toHaveBeenCalledWith(1040, 585);
         } finally {
             window.removeEventListener('resize', onResize);
             adapter.clear();
@@ -25128,6 +25128,58 @@ describe('reader helpers', () => {
             expect(result.track).toBe(translatedTrack);
             expect(result.cues).toMatchObject([{ start: 1, end: 3, text: '今日は読む。' }]);
             expect(translatedTrack.cues).toMatchObject([{ start: 1, end: 3, text: '今日は読む。' }]);
+        } finally {
+            Object.defineProperty(globalThis, 'fetch', {
+                configurable: true,
+                value: originalFetch,
+            });
+        }
+    });
+
+    it('can skip generated Google translation fallback for secondary YouTube tracks', async () => {
+        const sourceTrack: SubtitleTrackLoadable = {
+            id: 'youtube-ja',
+            kind: 'youtube' as const,
+            label: '日本語 (ja) · auto-generated',
+            language: 'ja',
+            sourceType: 'asr' as const,
+            sourceLanguage: 'ja',
+            url: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja',
+        };
+        const translatedTrack: SubtitleTrackLoadable = {
+            id: 'youtube-en-from-ja',
+            kind: 'youtube' as const,
+            label: 'English (en) · auto-translated from 日本語',
+            language: 'en',
+            sourceType: 'translation' as const,
+            sourceLanguage: 'ja',
+            targetLanguage: 'en',
+            url: 'https://www.youtube.com/api/timedtext?v=abc123&lang=ja&tlang=en',
+        };
+        const requestText = vi.fn(async url => {
+            if (new URL(url).searchParams.has('tlang')) return '';
+            return '<transcript><text start="1" dur="2">今日は読む。</text></transcript>';
+        });
+        const originalFetch = globalThis.fetch;
+        const translateFetch = vi.fn();
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: translateFetch,
+        });
+
+        try {
+            const result = await loadSubtitleTrackCues(translatedTrack, {
+                tracks: [sourceTrack, translatedTrack],
+                transcriptEligible: false,
+                requestText,
+                translationFallback: 'skip',
+            });
+
+            expect(result.track).toBe(translatedTrack);
+            expect(result.cues).toEqual([]);
+            expect(requestText).toHaveBeenCalled();
+            expect(translateFetch).not.toHaveBeenCalled();
+            expect(translatedTrack.cues).toEqual([]);
         } finally {
             Object.defineProperty(globalThis, 'fetch', {
                 configurable: true,
