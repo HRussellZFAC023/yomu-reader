@@ -29099,7 +29099,7 @@ describe('reader helpers', () => {
         const { app, restoreAnimationFrame } = testSynchronousReaderApp();
 
         try {
-            const sourceCard: JPDBCard = { ...card, spelling: 'で', reading: 'で' };
+            const sourceCard: JPDBCard = { ...card, spelling: '腕', reading: 'うで' };
             const internals = app as unknown as {
                 activePopover?: HTMLElement;
                 settings: typeof DEFAULT_SETTINGS;
@@ -29122,26 +29122,32 @@ describe('reader helpers', () => {
             };
             internals.parsePopoverJapanese = vi.fn(async () => undefined);
 
-            await internals.showCard(sourceCard, 'うでが痛むんで？', undefined, { trigger: 'modal', navigation: 'reset', autoPlay: false });
-            const popover = internals.activePopover!;
-            popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
-                <details data-immersion-kit open>
-                    <summary>Immersion Kit Princess Mononoke 2/6 ‹ ›</summary>
-                    <div class="jpdb-reader-example-card" data-immersion-sentence="うでが痛むんで？">
-                        <div class="jpdb-reader-example-sentence jpdb-reader-parseable">
-                            う<span class="jpdb-reader-word jpdb-reader-example-target" data-expression="で" tabindex="-1">で</span>が痛むんで？
-                        </div>
-                    </div>
-                </details>
-            `);
+            await internals.showCard(sourceCard, '腕が痛むんで？', undefined, { trigger: 'modal', navigation: 'reset', autoPlay: false });
+            const popover = internals.activePopover ?? document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            const immersion = document.createElement('div');
+            immersion.setAttribute('data-immersion-kit', '');
+            const exampleCard = document.createElement('div');
+            exampleCard.className = 'jpdb-reader-example-card';
+            exampleCard.dataset.immersionSentence = '腕が痛むんで？';
+            const exampleSentence = document.createElement('div');
+            exampleSentence.className = 'jpdb-reader-example-sentence jpdb-reader-parseable';
+            const target = document.createElement('span');
+            target.className = 'jpdb-reader-word jpdb-reader-example-target';
+            target.dataset.expression = '腕';
+            target.dataset.reading = 'うで';
+            target.tabIndex = -1;
+            target.textContent = '腕';
+            exampleSentence.append(target, document.createTextNode('が痛むんで？'));
+            exampleCard.append(exampleSentence);
+            immersion.append(exampleCard);
+            popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.append(immersion);
             const showCard = vi.spyOn(internals, 'showCard');
-            const target = popover.querySelector<HTMLElement>('.jpdb-reader-example-target')!;
 
             await internals.showWord(target, { trigger: 'click' });
 
             expect(showCard).not.toHaveBeenCalled();
             expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')).toBeNull();
-            expect(document.querySelector<HTMLElement>('.jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '')).toContain('で');
+            expect(document.querySelector<HTMLElement>('.jpdb-reader-spelling')?.textContent?.replace(/\s+/g, '')).toContain('腕');
         } finally {
             restoreAnimationFrame();
             vi.unstubAllGlobals();
@@ -29161,7 +29167,7 @@ describe('reader helpers', () => {
                 settings: typeof DEFAULT_SETTINGS;
                 parser: { cacheCards(cards: JPDBCard[]): void };
                 parsePopoverJapanese(popover: HTMLElement): Promise<void>;
-                showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: { trigger?: 'modal' | 'hover'; navigation?: 'reset' | 'preserve' | 'push-current'; autoPlay?: boolean }): Promise<void>;
+                showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: { trigger?: 'modal' | 'hover'; navigation?: 'reset' | 'preserve' | 'push-current'; autoPlay?: boolean; skipInitialCardResolution?: boolean }): Promise<void>;
                 showWord(word: HTMLElement, options: { trigger?: 'click' | 'hover' }): Promise<void>;
             };
             internals.settings = {
@@ -29176,11 +29182,23 @@ describe('reader helpers', () => {
                 immersionKitEnabled: false,
                 studyGrammarEnabled: false,
                 studyTranslationEnabled: false,
+                hoverCloseDelayMs: 10_000,
             };
             internals.parsePopoverJapanese = vi.fn(async () => undefined);
             internals.parser.cacheCards([nestedCard]);
-            await internals.showCard(sourceCard, '印刷技術です。', undefined, { trigger: 'modal', navigation: 'reset', autoPlay: false });
-            const hoverPopover = internals.activePopover!;
+
+            const hoverAnchor = document.createElement('span');
+            hoverAnchor.className = 'jpdb-reader-word';
+            hoverAnchor.dataset.vid = String(sourceCard.vid);
+            hoverAnchor.dataset.sid = String(sourceCard.sid);
+            hoverAnchor.dataset.expression = sourceCard.spelling;
+            hoverAnchor.dataset.reading = sourceCard.reading;
+            hoverAnchor.dataset.sentence = '印刷技術です。';
+            hoverAnchor.textContent = sourceCard.spelling;
+            document.body.append(hoverAnchor);
+
+            await internals.showCard(sourceCard, '印刷技術です。', hoverAnchor, { trigger: 'hover', navigation: 'reset', autoPlay: false, skipInitialCardResolution: true });
+            const hoverPopover = internals.activePopover ?? document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
             hoverPopover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
                 <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>
                     Grammar また、PDFファイルをダウンロードしたり、印刷して本にすることもできます。
