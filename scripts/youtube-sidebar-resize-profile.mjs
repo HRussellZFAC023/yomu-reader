@@ -52,6 +52,7 @@ const outputRoot = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_OUTPUT_DIR ??
 const headed = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_HEADED === '1';
 const liveMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE === '1';
 const keylessMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_NO_API_KEY === '1';
+const keylessVisualSoftFail = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_KEYLESS_VISUAL_SOFT === '1';
 const liveJpdbMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB === '1' && !keylessMode;
 const liveJpdbApiKey = (process.env.YOMU_JPDB_API_KEY || process.env.JPDB_API_KEY || '').trim();
 const liveUrl = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_URL?.trim() ?? '';
@@ -497,6 +498,7 @@ async function scrollTranscriptList(page) {
         const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
         return maxScroll <= 0 || scroller.scrollTop > maxScroll * 0.5;
     }, null, { timeout: 1500 }).catch(() => undefined);
+    await waitForVisibleTranscriptParse(page);
     await waitForFrames(page, 3);
 }
 
@@ -639,24 +641,31 @@ async function waitForFullTranscriptRender(page) {
 }
 
 async function waitForKeylessVisualParse(page) {
-    await page.waitForFunction(() => {
-        const metrics = globalThis.__yomuSidebarResizeVisualParseMetrics?.();
-        if (!metrics) return false;
-        const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + metrics.panel.knownPitchWords;
-        return metrics.page.words >= 3
-            && metrics.page.furiWords >= 1
-            && metrics.page.wordsWithoutPitch === 0
-            && metrics.page.kanjiWordsWithoutFuri === 0
-            && metrics.overlay.words >= 1
-            && metrics.overlay.furiWords >= 1
-            && metrics.overlay.wordsWithoutPitch === 0
-            && metrics.overlay.kanjiWordsWithoutFuri === 0
-            && metrics.panel.words >= 12
-            && metrics.panel.furiWords >= 6
-            && metrics.panel.wordsWithoutPitch === 0
-            && metrics.panel.kanjiWordsWithoutFuri === 0
-            && totalKnownPitch >= 1;
-    }, null, { timeout: 7_000 });
+    try {
+        await page.waitForFunction(() => {
+            const metrics = globalThis.__yomuSidebarResizeVisualParseMetrics?.();
+            if (!metrics) return false;
+            const panel = metrics.panelVisible;
+            const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + panel.knownPitchWords;
+            return metrics.page.words >= 3
+                && metrics.page.furiWords >= 1
+                && metrics.page.wordsWithoutPitch === 0
+                && metrics.page.kanjiWordsWithoutFuri === 0
+                && metrics.overlay.words >= 1
+                && metrics.overlay.furiWords >= 1
+                && metrics.overlay.wordsWithoutPitch === 0
+                && metrics.overlay.kanjiWordsWithoutFuri === 0
+                && panel.words >= 12
+                && panel.furiWords >= 6
+                && panel.wordsWithoutPitch === 0
+                && panel.kanjiWordsWithoutFuri === 0
+                && totalKnownPitch >= 1;
+        }, null, { timeout: 7_000 });
+    } catch (error) {
+        const evidence = await keylessVisualParseEvidence(page).catch(() => null);
+        if (keylessVisualSoftFail) return;
+        throw new Error(`${String(error)}\nkeyless visual parse metrics: ${JSON.stringify(evidence)}`);
+    }
 }
 
 async function keylessVisualParseEvidence(page) {
@@ -671,6 +680,18 @@ async function waitForPanelSizeChanged(page, before, timeout) {
         const rect = panel.getBoundingClientRect();
         return Math.abs(rect.width - width) > 24 || Math.abs(rect.height - height) > 24;
     }, before, { timeout }).then(() => true, () => false);
+}
+
+async function waitForVisibleTranscriptParse(page) {
+    await page.waitForFunction(() => {
+        const metrics = globalThis.__yomuSidebarResizeVisualParseMetrics?.();
+        if (!metrics) return false;
+        const panel = metrics.panelVisible;
+        return panel.words >= 12
+            && panel.kanjiWords > 0
+            && panel.kanjiWordsWithoutFuri === 0
+            && panel.knownPitchWords > 0;
+    }, null, { timeout: 7_000 }).catch(() => undefined);
 }
 
 async function waitForViewport(page, viewport) {
@@ -759,8 +780,10 @@ async function snapshot(page) {
             const allWords = Array.from(document.querySelectorAll('.jpdb-reader-word')).filter(word => word instanceof HTMLElement);
             const overlayRoot = document.querySelector('.jpdb-subtitle-primary');
             const panelRoot = document.querySelector('.jpdb-subtitle-list');
+            const panelScroller = document.querySelector('.jpdb-subtitle-list-scroll');
             const overlayWords = allWords.filter(word => overlayRoot?.contains(word));
             const panelWords = allWords.filter(word => panelRoot?.contains(word));
+            const panelVisibleWords = panelWords.filter(word => isVisibleTranscriptWord(word, panelScroller));
             const pageWords = allWords.filter(word => !overlayRoot?.contains(word)
                 && !panelRoot?.contains(word)
                 && !word.closest('[data-jpdb-reader-root]'));
@@ -768,6 +791,7 @@ async function snapshot(page) {
                 page: wordMetrics(pageWords),
                 overlay: wordMetrics(overlayWords),
                 panel: wordMetrics(panelWords),
+                panelVisible: wordMetrics(panelVisibleWords),
             };
         };
         globalThis.__yomuSidebarResizeVisualParseMetrics = visualParseMetrics;
@@ -860,6 +884,15 @@ async function snapshot(page) {
                 kanjiWordsWithoutFuri: kanjiWords.filter(word => !word.querySelector('rt')).length,
             };
         }
+
+        function isVisibleTranscriptWord(word, scroller) {
+            if (!(scroller instanceof HTMLElement)) return false;
+            const row = word.closest('.jpdb-subtitle-list-row');
+            if (!(row instanceof HTMLElement)) return false;
+            const rect = row.getBoundingClientRect();
+            const scrollerRect = scroller.getBoundingClientRect();
+            return rect.bottom >= scrollerRect.top && rect.top <= scrollerRect.bottom;
+        }
     });
 }
 
@@ -925,7 +958,7 @@ function visualParseProblems(state, stepName) {
     const surfaces = [
         ['page', metrics.page, stepName === 'loaded' ? 1 : 3],
         ['subtitle overlay', metrics.overlay, stepName === 'loaded' ? 0 : 1],
-        ['transcript panel', metrics.panel, stepName === 'loaded' ? 0 : 12],
+        ['visible transcript panel', metrics.panelVisible ?? metrics.panel, stepName === 'loaded' ? 0 : 12],
     ];
     for (const [label, surface, minimumWords] of surfaces) {
         if (!surface || surface.words < minimumWords) {
@@ -935,7 +968,8 @@ function visualParseProblems(state, stepName) {
         if (surface.wordsWithoutPitch > 0) problems.push(`${label} has ${surface.wordsWithoutPitch} parsed words without pitch classes`);
         if (surface.kanjiWordsWithoutFuri > 0) problems.push(`${label} has ${surface.kanjiWordsWithoutFuri} kanji words without furigana`);
     }
-    const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + metrics.panel.knownPitchWords;
+    const panel = metrics.panelVisible ?? metrics.panel;
+    const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + panel.knownPitchWords;
     if (stepName !== 'loaded' && totalKnownPitch < 1) problems.push('no known pitch accent classes appeared across parsed surfaces');
     return problems;
 }
