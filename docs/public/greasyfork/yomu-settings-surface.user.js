@@ -3062,9 +3062,9 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
-      googleLens: "Google Lens (recommended)",
-      cloudVision: "Google Cloud Vision",
-      localOcr: "Local OCR engine",
+      googleLens: "Google Lens — free, no setup (recommended)",
+      cloudVision: "Google Cloud Vision — needs API key",
+      localOcr: "Local OCR server — advanced",
       off: "Off",
       ocrMaxImagesPerPage: "Images to read per page",
       ocrMinImageArea: "Smallest image to read",
@@ -3082,11 +3082,15 @@
       ocrBackgroundColor: "Image highlight background",
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Custom local OCR URL",
-      ocrCustomLocalServer: "Custom local OCR server",
+      ocrEndpointUrl: "Local OCR server URL",
+      ocrCustomLocalServer: "Local OCR server URL",
       ocrEngine: "Local OCR engine",
-      cloudVisionApiKey: "Cloud Vision API key",
-      ocrHelp: "Reads nearby images; Cloud Vision needs a key.",
+      ocrEngineMangaOcr: "MangaOCR (best for manga)",
+      ocrEngineAppleVision: "Apple Vision (macOS)",
+      cloudVisionApiKey: "Google Cloud Vision API key",
+      ocrHelp: "Reads images near the viewport. Google Lens works out of the box — no setup or key.",
+      ocrCloudHelp: "Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled). Paste the key here.",
+      ocrLocalHelp: "Advanced: runs OCR on your own computer — nothing leaves your device. Start a local OCR server that exposes an HTTP endpoint (e.g. MangaOCR, best for manga), then enter its URL. Most users should keep Google Lens.",
       subtitlePlayerEnabled: "Enable video subtitle player",
       subtitleAutoDetect: "Auto-detect page subtitles",
       subtitleOverlayVisible: "Show subtitle overlay",
@@ -4556,9 +4560,9 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
-googleLens	Google Lens (おすすめ)
-cloudVision	Google Cloud Vision
-localOcr	ローカルOCRエンジン
+googleLens	Google Lens — 無料・設定不要（おすすめ）
+cloudVision	Google Cloud Vision — APIキーが必要
+localOcr	ローカルOCRサーバー — 上級者向け
 off	オフ
 ocrMaxImagesPerPage	ページごとに読む画像数
 ocrMinImageArea	読む画像の最小サイズ
@@ -4576,11 +4580,15 @@ ocrOutlineColor	画像テキストの縁取り
 ocrBackgroundColor	画像ハイライト背景
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
-ocrEndpointUrl	カスタムローカルOCR URL
-ocrCustomLocalServer	カスタムローカルOCRサーバー
+ocrEndpointUrl	ローカルOCRサーバーURL
+ocrCustomLocalServer	ローカルOCRサーバーURL
 ocrEngine	ローカルOCRエンジン
-cloudVisionApiKey	Cloud Vision APIキー
-ocrHelp	近くの画像を読み取ります。Cloud Visionはキーが必要です。
+ocrEngineMangaOcr	MangaOCR（マンガに最適）
+ocrEngineAppleVision	Apple Vision（macOS）
+cloudVisionApiKey	Google Cloud Vision APIキー
+ocrHelp	ビューポート付近の画像を読み取ります。Google Lensは設定もキーも不要ですぐ使えます。
+ocrCloudHelp	Google Cloud VisionのAPIキー（課金を有効にしたGoogle Cloudプロジェクト）が必要です。ここにキーを貼り付けてください。
+ocrLocalHelp	上級者向け：OCRをあなたのPC上で実行します（データは外部に送信されません）。HTTPエンドポイントを公開するローカルOCRサーバー（マンガにはMangaOCRが最適）を起動し、そのURLを入力してください。多くの方はGoogle Lensのままで問題ありません。
 subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
 subtitleAutoDetect	ページの字幕を自動検出
 subtitleOverlayVisible	字幕オーバーレイを表示
@@ -7608,19 +7616,18 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("ocrVideoFrameStatusCard", "Show paused-frame status card", settings.ocrVideoFrameStatusCard)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
-                    ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens (recommended)"], ["cloud-vision", "Google Cloud Vision"], ["local-service", "Local OCR engine"], ["off", "Off"]])}
+                    ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens — free, no setup (recommended)"], ["cloud-vision", "Google Cloud Vision — needs API key"], ["local-service", "Local OCR server — advanced"], ["off", "Off"]])}
                     ${select("ocrMaxImagesPerPage", "Images to read per page", String(settings.ocrMaxImagesPerPage), [["3", "Light"], ["8", "Normal"], ["16", "More"]])}
                     ${select("ocrMinImageArea", "Smallest image to read", String(settings.ocrMinImageArea), [["80000", "Large images only"], ["45000", "Normal"], ["15000", "Include small images"]])}
                     ${select("ocrMaxImagePixels", "Image detail", String(settings.ocrMaxImagePixels), [["640000", "Faster"], ["1200000", "Balanced"], ["2000000", "Sharper"]])}
                     ${renderColorInputs(OCR_COLOR_FIELDS, settings)}
                     ${input("ocrBackgroundOpacity", "Image highlight opacity", String(settings.ocrBackgroundOpacity), "number")}
                     ${input("ocrFontScale", "Image text scale", String(settings.ocrFontScale), "number")}
-                    <div data-local-ocr ${localOcrHidden}>${select("ocrEngine", "Local OCR engine", settings.ocrEngine, [["auto", "Automatic"], ["MangaOCR", "MangaOCR"], ["PaddleOCR", "PaddleOCR"], ["AppleVision", "Apple Vision"]])}</div>
-                    <details data-local-ocr ${localOcrHidden}>
-                        <summary>Custom local OCR server</summary>
-                        <label>Custom local OCR URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
-                    </details>
-                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">Advanced: runs OCR on your own computer. Start a local OCR server (e.g. MangaOCR, best for manga) and enter its URL below. Most users should keep Google Lens.</div>
+                    <div data-local-ocr ${localOcrHidden}>${select("ocrEngine", "Local OCR engine", settings.ocrEngine, [["auto", "Automatic"], ["MangaOCR", "MangaOCR (best for manga)"], ["PaddleOCR", "PaddleOCR"], ["AppleVision", "Apple Vision (macOS)"]])}</div>
+                    <label data-local-ocr ${localOcrHidden}>Local OCR server URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
+                    <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled).</div>
+                    <label data-cloud-ocr ${cloudOcrHidden}>Google Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
@@ -8167,9 +8174,9 @@ recommendedJiten	jiten.moe頻度データです。
     ]);
     setSelectOptionLabels(form, "ocrEngine", [
       ["auto", text("automatic")],
-      ["MangaOCR", "MangaOCR"],
+      ["MangaOCR", text("ocrEngineMangaOcr")],
       ["PaddleOCR", "PaddleOCR"],
-      ["AppleVision", "Apple Vision"]
+      ["AppleVision", text("ocrEngineAppleVision")]
     ]);
   }
   function localizeMiningSettingsSelects(form, text) {
@@ -8208,7 +8215,6 @@ recommendedJiten	jiten.moe頻度データです。
     if (ankiHelp) setInnerHtml(ankiHelp, ankiSetupHelpHtml(resolveUiLanguageFromText(text)));
     form.querySelector("[data-anki-library-availability]")?.replaceChildren(text("ankiLibraryAdapterStatus"));
     form.querySelector("[data-diagnostics-help]")?.replaceChildren(text("diagnosticsHelp"));
-    form.querySelector("details[data-local-ocr] > summary")?.replaceChildren(text("ocrCustomLocalServer"));
   }
   function localizeNewTabHelp(form, text) {
     form.querySelector("[data-newtab-address-help]")?.replaceChildren(text("newTabAddressHelp"));

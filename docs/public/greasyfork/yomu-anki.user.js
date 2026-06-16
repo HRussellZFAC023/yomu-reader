@@ -1919,9 +1919,9 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
-      googleLens: "Google Lens (recommended)",
-      cloudVision: "Google Cloud Vision",
-      localOcr: "Local OCR engine",
+      googleLens: "Google Lens — free, no setup (recommended)",
+      cloudVision: "Google Cloud Vision — needs API key",
+      localOcr: "Local OCR server — advanced",
       off: "Off",
       ocrMaxImagesPerPage: "Images to read per page",
       ocrMinImageArea: "Smallest image to read",
@@ -1939,11 +1939,15 @@
       ocrBackgroundColor: "Image highlight background",
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Custom local OCR URL",
-      ocrCustomLocalServer: "Custom local OCR server",
+      ocrEndpointUrl: "Local OCR server URL",
+      ocrCustomLocalServer: "Local OCR server URL",
       ocrEngine: "Local OCR engine",
-      cloudVisionApiKey: "Cloud Vision API key",
-      ocrHelp: "Reads nearby images; Cloud Vision needs a key.",
+      ocrEngineMangaOcr: "MangaOCR (best for manga)",
+      ocrEngineAppleVision: "Apple Vision (macOS)",
+      cloudVisionApiKey: "Google Cloud Vision API key",
+      ocrHelp: "Reads images near the viewport. Google Lens works out of the box — no setup or key.",
+      ocrCloudHelp: "Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled). Paste the key here.",
+      ocrLocalHelp: "Advanced: runs OCR on your own computer — nothing leaves your device. Start a local OCR server that exposes an HTTP endpoint (e.g. MangaOCR, best for manga), then enter its URL. Most users should keep Google Lens.",
       subtitlePlayerEnabled: "Enable video subtitle player",
       subtitleAutoDetect: "Auto-detect page subtitles",
       subtitleOverlayVisible: "Show subtitle overlay",
@@ -3432,9 +3436,9 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
-googleLens	Google Lens (おすすめ)
-cloudVision	Google Cloud Vision
-localOcr	ローカルOCRエンジン
+googleLens	Google Lens — 無料・設定不要（おすすめ）
+cloudVision	Google Cloud Vision — APIキーが必要
+localOcr	ローカルOCRサーバー — 上級者向け
 off	オフ
 ocrMaxImagesPerPage	ページごとに読む画像数
 ocrMinImageArea	読む画像の最小サイズ
@@ -3452,11 +3456,15 @@ ocrOutlineColor	画像テキストの縁取り
 ocrBackgroundColor	画像ハイライト背景
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
-ocrEndpointUrl	カスタムローカルOCR URL
-ocrCustomLocalServer	カスタムローカルOCRサーバー
+ocrEndpointUrl	ローカルOCRサーバーURL
+ocrCustomLocalServer	ローカルOCRサーバーURL
 ocrEngine	ローカルOCRエンジン
-cloudVisionApiKey	Cloud Vision APIキー
-ocrHelp	近くの画像を読み取ります。Cloud Visionはキーが必要です。
+ocrEngineMangaOcr	MangaOCR（マンガに最適）
+ocrEngineAppleVision	Apple Vision（macOS）
+cloudVisionApiKey	Google Cloud Vision APIキー
+ocrHelp	ビューポート付近の画像を読み取ります。Google Lensは設定もキーも不要ですぐ使えます。
+ocrCloudHelp	Google Cloud VisionのAPIキー（課金を有効にしたGoogle Cloudプロジェクト）が必要です。ここにキーを貼り付けてください。
+ocrLocalHelp	上級者向け：OCRをあなたのPC上で実行します（データは外部に送信されません）。HTTPエンドポイントを公開するローカルOCRサーバー（マンガにはMangaOCRが最適）を起動し、そのURLを入力してください。多くの方はGoogle Lensのままで問題ありません。
 subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
 subtitleAutoDetect	ページの字幕を自動検出
 subtitleOverlayVisible	字幕オーバーレイを表示

@@ -1416,6 +1416,50 @@
       textNode.replaceWith(replacement);
     }
   }
+  const CANVAS_READER_PAGE_SELECTOR = "canvas.default";
+  const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
+  function isBookwalkerViewerHost(hostname = location.hostname) {
+    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function isCanvasReaderPage() {
+    if (isBookwalkerViewerHost()) return true;
+    return Boolean(document.querySelector(PAGE_COUNTER_SELECTOR) && document.querySelector(CANVAS_READER_PAGE_SELECTOR));
+  }
+  function collectCanvasReaderSurfaces() {
+    if (!isCanvasReaderPage()) return [];
+    return Array.from(document.querySelectorAll(CANVAS_READER_PAGE_SELECTOR));
+  }
+  function canvasReaderPageSignature() {
+    const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
+    const scroll = Math.round((window.scrollY || 0) / 40);
+    const surfaces = document.querySelectorAll(CANVAS_READER_PAGE_SELECTOR).length;
+    return `${counter}|${scroll}|${surfaces}`;
+  }
+  function captureCanvasDataUrl(canvas, maxPixels) {
+    try {
+      const width = canvas.width;
+      const height = canvas.height;
+      if (!width || !height) return void 0;
+      const pixels = width * height;
+      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
+      if (scale >= 1) return canvas.toDataURL("image/jpeg", 0.86);
+      const scaled = document.createElement("canvas");
+      scaled.width = Math.max(1, Math.round(width * scale));
+      scaled.height = Math.max(1, Math.round(height * scale));
+      const context = scaled.getContext("2d");
+      if (!context) return void 0;
+      context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
+      return scaled.toDataURL("image/jpeg", 0.86);
+    } catch {
+      return void 0;
+    }
+  }
+  function positionCanvasFrameImage(frame, rect) {
+    frame.style.left = `${rect.left}px`;
+    frame.style.top = `${rect.top}px`;
+    frame.style.width = `${rect.width}px`;
+    frame.style.height = `${rect.height}px`;
+  }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
     const userAgent = navigator.userAgent ?? "";
@@ -2490,9 +2534,9 @@
       ocrVideoPauseFrames: "Read paused video frames",
       ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
-      googleLens: "Google Lens (recommended)",
-      cloudVision: "Google Cloud Vision",
-      localOcr: "Local OCR engine",
+      googleLens: "Google Lens — free, no setup (recommended)",
+      cloudVision: "Google Cloud Vision — needs API key",
+      localOcr: "Local OCR server — advanced",
       off: "Off",
       ocrMaxImagesPerPage: "Images to read per page",
       ocrMinImageArea: "Smallest image to read",
@@ -2510,11 +2554,15 @@
       ocrBackgroundColor: "Image highlight background",
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
-      ocrEndpointUrl: "Custom local OCR URL",
-      ocrCustomLocalServer: "Custom local OCR server",
+      ocrEndpointUrl: "Local OCR server URL",
+      ocrCustomLocalServer: "Local OCR server URL",
       ocrEngine: "Local OCR engine",
-      cloudVisionApiKey: "Cloud Vision API key",
-      ocrHelp: "Reads nearby images; Cloud Vision needs a key.",
+      ocrEngineMangaOcr: "MangaOCR (best for manga)",
+      ocrEngineAppleVision: "Apple Vision (macOS)",
+      cloudVisionApiKey: "Google Cloud Vision API key",
+      ocrHelp: "Reads images near the viewport. Google Lens works out of the box — no setup or key.",
+      ocrCloudHelp: "Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled). Paste the key here.",
+      ocrLocalHelp: "Advanced: runs OCR on your own computer — nothing leaves your device. Start a local OCR server that exposes an HTTP endpoint (e.g. MangaOCR, best for manga), then enter its URL. Most users should keep Google Lens.",
       subtitlePlayerEnabled: "Enable video subtitle player",
       subtitleAutoDetect: "Auto-detect page subtitles",
       subtitleOverlayVisible: "Show subtitle overlay",
@@ -3984,9 +4032,9 @@ ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
 ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
-googleLens	Google Lens (おすすめ)
-cloudVision	Google Cloud Vision
-localOcr	ローカルOCRエンジン
+googleLens	Google Lens — 無料・設定不要（おすすめ）
+cloudVision	Google Cloud Vision — APIキーが必要
+localOcr	ローカルOCRサーバー — 上級者向け
 off	オフ
 ocrMaxImagesPerPage	ページごとに読む画像数
 ocrMinImageArea	読む画像の最小サイズ
@@ -4004,11 +4052,15 @@ ocrOutlineColor	画像テキストの縁取り
 ocrBackgroundColor	画像ハイライト背景
 ocrBackgroundOpacity	画像ハイライト不透明度
 ocrFontScale	画像テキスト倍率
-ocrEndpointUrl	カスタムローカルOCR URL
-ocrCustomLocalServer	カスタムローカルOCRサーバー
+ocrEndpointUrl	ローカルOCRサーバーURL
+ocrCustomLocalServer	ローカルOCRサーバーURL
 ocrEngine	ローカルOCRエンジン
-cloudVisionApiKey	Cloud Vision APIキー
-ocrHelp	近くの画像を読み取ります。Cloud Visionはキーが必要です。
+ocrEngineMangaOcr	MangaOCR（マンガに最適）
+ocrEngineAppleVision	Apple Vision（macOS）
+cloudVisionApiKey	Google Cloud Vision APIキー
+ocrHelp	ビューポート付近の画像を読み取ります。Google Lensは設定もキーも不要ですぐ使えます。
+ocrCloudHelp	Google Cloud VisionのAPIキー（課金を有効にしたGoogle Cloudプロジェクト）が必要です。ここにキーを貼り付けてください。
+ocrLocalHelp	上級者向け：OCRをあなたのPC上で実行します（データは外部に送信されません）。HTTPエンドポイントを公開するローカルOCRサーバー（マンガにはMangaOCRが最適）を起動し、そのURLを入力してください。多くの方はGoogle Lensのままで問題ありません。
 subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
 subtitleAutoDetect	ページの字幕を自動検出
 subtitleOverlayVisible	字幕オーバーレイを表示
@@ -5773,6 +5825,12 @@ ${candidate.depth}`;
     videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
     videoFrameStatuses = /* @__PURE__ */ new Map();
+    // Canvas-reader snapshots (BookWalker): map each page <canvas> to the data-URL
+    // <img> we OCR in its place, plus the page fingerprint and the page-turn poll.
+    canvasFrames = /* @__PURE__ */ new Map();
+    canvasFrameSources = /* @__PURE__ */ new Map();
+    canvasReaderSignature;
+    canvasReaderPoll = 0;
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
@@ -5813,6 +5871,7 @@ ${candidate.depth}`;
         attributes: true,
         attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster"]
       });
+      this.startCanvasReaderPollingIfNeeded();
     }
     destroy() {
       document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
@@ -5830,6 +5889,11 @@ ${candidate.depth}`;
         window.removeEventListener(eventName, this.handleSpaNavigation);
       }
       this.releaseAllVideoFrames();
+      this.releaseAllCanvasFrames();
+      if (this.canvasReaderPoll) {
+        window.clearInterval(this.canvasReaderPoll);
+        this.canvasReaderPoll = 0;
+      }
       this.mutationObserver?.disconnect();
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
       this.clear();
@@ -5840,6 +5904,7 @@ ${candidate.depth}`;
         this.clear();
         return;
       }
+      this.refreshCanvasReaderSurfaces(settings);
       if (this.shouldSkipRefresh(settings, options)) {
         this.pruneDisconnectedStates();
         this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
@@ -6204,6 +6269,7 @@ ${candidate.depth}`;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
         this.positionVideoFrames();
+        this.positionCanvasFrames();
         for (const image of this.states.keys()) this.positionState(image);
       });
     }
@@ -6354,6 +6420,78 @@ ${candidate.depth}`;
     releaseAllVideoFrames() {
       for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
     }
+    // --- Canvas-reader frames (BookWalker browser viewer) ---
+    startCanvasReaderPollingIfNeeded() {
+      if (this.canvasReaderPoll || !isCanvasReaderPage()) return;
+      this.canvasReaderPoll = window.setInterval(() => {
+        this.refreshCanvasReaderSurfaces(this.options.getSettings());
+      }, 1200);
+    }
+    refreshCanvasReaderSurfaces(settings) {
+      if (!settings.ocrEnabled || !settings.ocrAutoScanImages || settings.ocrProvider === "off") return;
+      if (!isCanvasReaderPage()) {
+        this.releaseAllCanvasFrames();
+        return;
+      }
+      this.startCanvasReaderPollingIfNeeded();
+      const signature = canvasReaderPageSignature();
+      if (signature !== this.canvasReaderSignature) {
+        this.releaseAllCanvasFrames();
+        this.canvasReaderSignature = signature;
+      }
+      for (const canvas of collectCanvasReaderSurfaces()) {
+        if (this.canvasFrames.has(canvas)) continue;
+        this.snapshotCanvasSurface(canvas, settings);
+      }
+    }
+    snapshotCanvasSurface(canvas, settings) {
+      if (this.canvasFrames.has(canvas)) return;
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width * rect.height < settings.ocrMinImageArea) return;
+      if (!isNearViewport(canvas, settings.ocrPrefetchMargin) || isHiddenByCss(canvas)) return;
+      const dataUrl = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+      if (!dataUrl) return;
+      const frame = document.createElement("img");
+      frame.className = "jpdb-ocr-canvas-frame";
+      frame.dataset.yomuCanvasFrame = "true";
+      frame.alt = "";
+      positionCanvasFrameImage(frame, rect);
+      frame.addEventListener("load", () => {
+        if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, true);
+      }, { once: true });
+      frame.src = dataUrl;
+      document.body.append(frame);
+      this.canvasFrames.set(canvas, frame);
+      this.canvasFrameSources.set(frame, canvas);
+      this.schedulePosition();
+    }
+    releaseCanvasFrame(canvas) {
+      const frame = this.canvasFrames.get(canvas);
+      if (!frame) return;
+      this.canvasFrames.delete(canvas);
+      const state = this.states.get(frame);
+      if (state) {
+        this.observer?.unobserve(frame);
+        state.overlay.remove();
+        this.states.delete(frame);
+      }
+      this.canvasFrameSources.delete(frame);
+      this.queue = this.queue.filter((queued) => queued !== frame);
+      frame.remove();
+    }
+    releaseAllCanvasFrames() {
+      for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+      this.canvasReaderSignature = void 0;
+    }
+    positionCanvasFrames() {
+      for (const [canvas, frame] of [...this.canvasFrames]) {
+        if (!canvas.isConnected) {
+          this.releaseCanvasFrame(canvas);
+          continue;
+        }
+        positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
+      }
+    }
     positionVideoFrames() {
       for (const [video, frame] of [...this.videoFrames]) {
         if (!video.isConnected || !video.paused) {
@@ -6434,6 +6572,7 @@ ${candidate.depth}`;
       this.observer = void 0;
       this.observerMargin = "";
       window.clearTimeout(this.refreshTimer);
+      this.releaseAllCanvasFrames();
       this.queue = [];
       for (const state of this.states.values()) {
         state.overlay.remove();
@@ -6502,7 +6641,7 @@ ${candidate.depth}`;
     // stale OCR artifact (rail resume button, overlay over the player) carries
     // across the SPA route change, then re-scan the destination page.
     teardownForNavigation() {
-      if (this.states.size === 0 && this.videoFrames.size === 0) return;
+      if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0) return;
       this.releaseAllVideoFrames();
       this.clear();
       if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
