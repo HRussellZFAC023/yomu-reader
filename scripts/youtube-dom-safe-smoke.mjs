@@ -106,12 +106,14 @@ try {
     };
     writeFileSync(join(outputDir, 'evidence.json'), `${JSON.stringify(evidence, null, 2)}\n`);
 
-    assert(home.youtubeOwnedReaderWords === 0, 'Home/feed YouTube-owned text was inline-mutated', home);
+    assert(home.inlineReaderWords === 0, 'Home/feed YouTube-owned text was inline-mutated outside a mirror', home);
+    assert(home.mirrorReaderWords > 0, 'Home/feed YouTube text did not receive mirrored parsed words', home);
     assert(home.chipClicks === 1, 'Native YouTube chip click did not dispatch', home);
     assert(home.visibleJapaneseTitles >= 3, 'Japanese feed titles did not remain visible', home);
     assert(home.maxVisibleBlankGap < 120, 'Home/feed has a large blank gap after filtering', home);
     assert(home.englishCardsCollapsed >= 3, 'Non-Japanese feed cards were not collapsed', home);
-    assert(watch.youtubeOwnedReaderWords === 0, 'Watch YouTube-owned text was inline-mutated', watch);
+    assert(watch.inlineReaderWords === 0, 'Watch YouTube-owned text was inline-mutated outside a mirror', watch);
+    assert(watch.mirrorReaderWords > 0, 'Watch YouTube text did not receive mirrored parsed words', watch);
     assert(watch.titleVisible && watch.metadataVisible && watch.descriptionVisible && watch.commentVisible, 'Watch text disappeared', watch);
     assert(watch.nativeTitleText === '日本語の習慣を学ぶ', 'Watch title text changed', watch);
     assert(watch.maxVisibleBlankGap < 120, 'Watch page has a large blank gap after filtering', watch);
@@ -156,18 +158,33 @@ function homeEvidence() {
         const style = getComputedStyle(element);
         return rect.width > 1 && rect.height > 1 && style.visibility !== 'hidden' && style.opacity !== '0';
     };
+    const nativeTextExcludingMirrors = root => {
+        if (!root) return '';
+        let text = '';
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                return node.parentElement?.closest('.jpdb-reader-text-mirror')
+                    ? NodeFilter.FILTER_REJECT
+                    : NodeFilter.FILTER_ACCEPT;
+            },
+        });
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent || '';
+        return text.replace(/\s+/g, ' ').trim();
+    };
     const visibleCards = [...document.querySelectorAll('ytd-rich-item-renderer')].filter(visible);
     const visibleRects = visibleCards.map(card => card.getBoundingClientRect()).sort((a, b) => a.top - b.top);
     const gaps = visibleRects.slice(1).map((rect, index) => Math.max(0, rect.top - visibleRects[index].bottom));
     return {
-        youtubeOwnedReaderWords: document.querySelectorAll('ytd-app .jpdb-reader-word:not([data-jpdb-reader-root] .jpdb-reader-word)').length,
+        inlineReaderWords: document.querySelectorAll('ytd-app .jpdb-reader-word:not(.jpdb-reader-text-mirror .jpdb-reader-word):not([data-jpdb-reader-root] .jpdb-reader-word)').length,
+        mirrorReaderWords: document.querySelectorAll('ytd-app .jpdb-reader-text-mirror .jpdb-reader-word').length,
+        mirrors: document.querySelectorAll('ytd-app .jpdb-reader-text-mirror').length,
         chipClicks: window.__chipClicks ?? 0,
         visibleJapaneseTitles: [...document.querySelectorAll('ytd-rich-item-renderer:not(.jpdb-youtube-filtered) #video-title')]
             .filter(title => title.textContent?.includes('日本語') || title.textContent?.includes('東京')).length,
         englishCardsCollapsed: document.querySelectorAll('ytd-rich-item-renderer.jpdb-youtube-filter-collapsed').length,
         maxVisibleBlankGap: gaps.length ? Math.max(...gaps) : 0,
         titleTexts: [...document.querySelectorAll('ytd-rich-item-renderer:not(.jpdb-youtube-filtered) #video-title')]
-            .map(title => title.textContent?.trim()).filter(Boolean),
+            .map(title => nativeTextExcludingMirrors(title)).filter(Boolean),
     };
 }
 
@@ -179,6 +196,20 @@ function watchEvidence() {
         const style = getComputedStyle(element);
         return rect.width > 1 && rect.height > 1 && style.visibility !== 'hidden' && style.opacity !== '0';
     };
+    const mirroredVisible = selector => visible(`${selector} .jpdb-reader-text-mirror`) || visible(selector);
+    const nativeTextExcludingMirrors = root => {
+        if (!root) return '';
+        let text = '';
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+            acceptNode(node) {
+                return node.parentElement?.closest('.jpdb-reader-text-mirror')
+                    ? NodeFilter.FILTER_REJECT
+                    : NodeFilter.FILTER_ACCEPT;
+            },
+        });
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent || '';
+        return text.replace(/\s+/g, ' ').trim();
+    };
     const visibleCards = [...document.querySelectorAll('ytd-compact-video-renderer')].filter(element => {
         const rect = element.getBoundingClientRect();
         const style = getComputedStyle(element);
@@ -187,12 +218,14 @@ function watchEvidence() {
     const visibleRects = visibleCards.map(card => card.getBoundingClientRect()).sort((a, b) => a.top - b.top);
     const gaps = visibleRects.slice(1).map((rect, index) => Math.max(0, rect.top - visibleRects[index].bottom));
     return {
-        youtubeOwnedReaderWords: document.querySelectorAll('ytd-watch-flexy .jpdb-reader-word:not([data-jpdb-reader-root] .jpdb-reader-word)').length,
-        nativeTitleText: document.querySelector('ytd-watch-metadata h1')?.textContent?.trim(),
-        titleVisible: visible('ytd-watch-metadata h1'),
-        metadataVisible: visible('ytd-watch-metadata #metadata-line'),
-        descriptionVisible: visible('ytd-watch-metadata #description'),
-        commentVisible: visible('ytd-comments #content-text'),
+        inlineReaderWords: document.querySelectorAll('ytd-watch-flexy .jpdb-reader-word:not(.jpdb-reader-text-mirror .jpdb-reader-word):not([data-jpdb-reader-root] .jpdb-reader-word)').length,
+        mirrorReaderWords: document.querySelectorAll('ytd-watch-flexy .jpdb-reader-text-mirror .jpdb-reader-word').length,
+        mirrors: document.querySelectorAll('ytd-watch-flexy .jpdb-reader-text-mirror').length,
+        nativeTitleText: nativeTextExcludingMirrors(document.querySelector('ytd-watch-metadata h1')),
+        titleVisible: mirroredVisible('ytd-watch-metadata h1'),
+        metadataVisible: mirroredVisible('ytd-watch-metadata #metadata-line'),
+        descriptionVisible: mirroredVisible('ytd-watch-metadata #description'),
+        commentVisible: mirroredVisible('ytd-comments #content-text'),
         noticeVisible: Boolean(document.querySelector('.jpdb-youtube-filter-bar')),
         englishRecommendationsCollapsed: document.querySelectorAll('ytd-compact-video-renderer.jpdb-youtube-filter-collapsed').length,
         maxVisibleBlankGap: gaps.length ? Math.max(...gaps) : 0,

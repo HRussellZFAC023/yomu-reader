@@ -509,6 +509,7 @@ function chunkLongScanTargets(targets: ScanTextTarget[], settings: ReaderSetting
 }
 
 function chunkLongScanTarget(target: ScanTextTarget, settings: ReaderSettings): ScanTextTarget[] {
+    if (target.nonDestructive) return [target];
     const chunkSize = visibleScanTargetTextChunkSize(settings);
     if (target.text.length <= chunkSize) return [target];
     return isFragmentTextTarget(target)
