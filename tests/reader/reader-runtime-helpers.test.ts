@@ -4,7 +4,17 @@ import { APP_NAME, INTERFACE_LANGUAGE_CHANGE_EVENT, OPEN_SETTINGS_EVENT, SETTING
 import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
 import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
 import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
-import { handleReaderActionPillLink } from '../../src/reader/app/main-helpers';
+import {
+    YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+    YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+    YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+    backgroundPitchEnrichmentOptionsForHost,
+    handleReaderActionPillLink,
+    nestedPitchEnrichmentOptionsForHost,
+} from '../../src/reader/app/main-helpers';
 import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
 import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
 import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
@@ -28,6 +38,26 @@ describe('reader runtime helpers', () => {
         expect(shouldShowReaderOnboarding(true, 'https://hrussellzfac023.github.io/yomu-reader/')).toBe(false);
         expect(shouldShowReaderOnboarding(true, 'https://example.com/article')).toBe(true);
         expect(shouldShowReaderOnboarding(false, 'https://example.com/article')).toBe(false);
+    });
+
+    it('keeps no-key YouTube page pitch enrichment bounded but enabled', () => {
+        expect(backgroundPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({
+            publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+            publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+            publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+            publicLookupTermLimit: 2,
+            substantivePublicLookupOnly: true,
+            deferPublicLookup: false,
+        });
+        expect(backgroundPitchEnrichmentOptionsForHost('m.youtube.com', true)).toEqual({
+            publicLookupLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+            publicLookupTotalLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+            publicLookupPageBudget: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+            publicLookupTermLimit: 2,
+            substantivePublicLookupOnly: true,
+            deferPublicLookup: false,
+        });
+        expect(nestedPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({ publicLookup: false });
     });
 
     it('treats large visible image feeds as OCR reading pages without Japanese DOM text', () => {

@@ -26,6 +26,13 @@ export const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 export const PITCH_ENRICHMENT_LIMIT = 12;
 export const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
 export const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
+export const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
+export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
+export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
+export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
+export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 6;
+export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 32;
+export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 12;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
 export const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
@@ -34,6 +41,7 @@ export const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
 export const PITCH_LOCAL_META_LIMIT = 12;
 export const PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT = 800;
 export const RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 800;
+export const UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT = 1_200;
 // DOM strategy threshold only: small updates use exact selectors, larger updates may build a rendered-word index.
 // This is not an Anki cache/card cap.
 export const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
@@ -147,6 +155,29 @@ export function allowsFrequentVisibleAutoScan(): boolean {
     // frequent scans enabled is what makes homepage/feed titles annotate as
     // cards stream in instead of waiting for a manual scan or one capped pass.
     return true;
+}
+
+export function isYouTubeHostname(hostname = location.hostname): boolean {
+    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
+}
+
+export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compactViewport = false): PitchEnrichmentOptions {
+    if (!isYouTubeHostname(hostname)) {
+        return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+    }
+    return {
+        publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+        publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+        publicLookupPageBudget: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+        publicLookupTermLimit: 2,
+        substantivePublicLookupOnly: true,
+        deferPublicLookup: false,
+    };
+}
+
+export function nestedPitchEnrichmentOptionsForHost(hostname: string): PitchEnrichmentOptions {
+    if (isYouTubeHostname(hostname)) return { publicLookup: false };
+    return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
 }
 
 export function visibleAutoScanMutationDelay(defaultDelay = 450): number {
@@ -416,6 +447,10 @@ export interface PitchEnrichmentOptions {
     urgent?: boolean;
     publicLookup?: boolean;
     publicLookupLimit?: number;
+    publicLookupTotalLimit?: number;
+    publicLookupPageBudget?: number;
+    publicLookupTermLimit?: number;
+    substantivePublicLookupOnly?: boolean;
     deferPublicLookup?: boolean;
 }
 

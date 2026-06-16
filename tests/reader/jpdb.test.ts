@@ -43,7 +43,17 @@ import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidat
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup/render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
 import { ReaderApp } from '../../src/reader/app/main';
-import { BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, allowsFrequentVisibleAutoScan, allowsGenericVisibleAutoScan, visibleAutoScanInitialDelay, visibleAutoScanMutationDelay } from '../../src/reader/app/main-helpers';
+import {
+    BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+    PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+    YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+    allowsFrequentVisibleAutoScan,
+    allowsGenericVisibleAutoScan,
+    visibleAutoScanInitialDelay,
+    visibleAutoScanMutationDelay,
+} from '../../src/reader/app/main-helpers';
 import { NewTabController } from '../../src/reader/newtab/controller';
 import { searchWordDetailHtml, type NewTabSearchDetailViewContext } from '../../src/reader/newtab/search-view';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
@@ -3584,13 +3594,13 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background-color: transparent !important; background-image: none !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; --jpdb-reader-word-underline-offset: 0.12em; --jpdb-reader-word-underline-thickness: 0.12em; box-shadow: none !important; text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
-        expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
-        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
+        expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
+        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; border-radius: 3px; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; }');
-        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: color-mix');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi { background: transparent !important; box-shadow: none !important; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; border-radius: 3px; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; }');
+        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: color-mix');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-underline-jpdb .jpdb-ocr-layer');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-text-jpdb .jpdb-ocr-layer');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word.jpdb-reader-has-furi { background: transparent');
@@ -26137,7 +26147,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([token]);
 
-            expect(search).toHaveBeenCalledWith('あらゆる', 1);
+            expect(search).toHaveBeenCalledWith('あらゆる', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(token.card).toBe(publicCard);
             expect(token.pitchClass).toBe('nakadaka');
@@ -26185,8 +26195,8 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([token]);
 
-            expect(search).toHaveBeenCalledWith('読む', 1);
-            expect(search).not.toHaveBeenCalledWith('読みました', 1);
+            expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
+            expect(search).not.toHaveBeenCalledWith('読みました', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(token.card).toBe(publicCard);
             expect(word.dataset.expression).toBe('読む');
@@ -26227,7 +26237,7 @@ describe('reader helpers', () => {
 
         try {
             await internals.enrichPitchWords([firstToken]);
-            expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(firstWord.dataset.vid).toBe('1556420');
 
             const laterFallbackCard = { ...fallbackCard, pitchAccent: [] };
@@ -26329,12 +26339,12 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(firstFallbackCard), testTokenForCard(secondFallbackCard)], { publicLookupLimit: 1 });
 
-            expect(search).toHaveBeenCalledWith('青空', 1);
+            expect(search).toHaveBeenCalledWith('青空', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(firstWord.dataset.vid).toBe('1381470');
             expect(secondWord.dataset.vid).toBe(String(secondFallbackCard.vid));
 
             await waitForExpect(() => {
-                expect(search).toHaveBeenCalledWith('読む', 1);
+                expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
                 expect(secondWord.dataset.vid).toBe('1556420');
                 expect(secondWord.dataset.reading).toBe('よむ');
                 expect(secondWord.dataset.pitchClass).toBe('atamadaka');
@@ -26379,7 +26389,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([token]);
 
-            expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(token.card).toBe(publicCard);
             expect(token.pitchClass).toBe('atamadaka');
@@ -26429,7 +26439,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(fallbackCard, '読む')]);
 
-            expect(search).toHaveBeenCalledWith('読む', 1);
+            expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
             expect(word.dataset.vid).toBe('1556420');
             expect(word.dataset.reading).toBe('よむ');
@@ -26850,7 +26860,7 @@ describe('reader helpers', () => {
             expect(jitenLookup).toHaveBeenCalledWith('青空');
             expect(jitenLookup).not.toHaveBeenCalledWith('の');
             expect(search).not.toHaveBeenCalled();
-            expect(search).not.toHaveBeenCalledWith('の', 1);
+            expect(search).not.toHaveBeenCalledWith('の', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
             expect(tokens[tokens.length - 1]!.card).toBe(publicCard);
             expect(tokens[tokens.length - 1]!.pitchClass).toBe('nakadaka');
             expect(word.dataset.vid).toBe('1381470');
@@ -27028,28 +27038,36 @@ describe('reader helpers', () => {
         }
     });
 
-    it('defers YouTube background public pitch enrichment to avoid feed scan fanout', async () => {
+    it('keeps YouTube background public pitch enrichment bounded and non-deferred', async () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/results?search_query=%E6%97%A5%E6%9C%AC',
             origin: 'https://www.youtube.com',
             hostname: 'www.youtube.com',
         });
         const app = new ReaderApp();
-        const youtubeCard = {
+        const youtubeCards = Array.from({ length: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT + 3 }, (_, index) => ({
             ...card,
-            vid: 66011,
+            vid: 66011 + index,
             sid: 0,
             rid: 0,
-            spelling: '背景',
+            spelling: `背景${index}`,
             reading: 'はいけい',
             source: 'jpdb' as const,
             pitchAccent: [],
-        };
+        }));
         const publicPitch = vi.fn(async () => ['LHHH']);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbPublicPitch: { lookup: typeof publicPitch };
-            backgroundPitchEnrichmentOptions(): { publicLookup?: boolean; publicLookupLimit?: number };
+            backgroundPitchEnrichmentOptions(): {
+                publicLookup?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
             enrichPitchWords(tokens: JPDBToken[], options?: { publicLookup?: boolean; publicLookupLimit?: number }): Promise<void>;
         };
         internals.settings = {
@@ -27061,10 +27079,20 @@ describe('reader helpers', () => {
         internals.jpdbPublicPitch = { lookup: publicPitch };
 
         try {
-            await internals.enrichPitchWords([testTokenForCard(youtubeCard)], internals.backgroundPitchEnrichmentOptions());
+            await internals.enrichPitchWords(youtubeCards.map(lookupCard => testTokenForCard(lookupCard)), internals.backgroundPitchEnrichmentOptions());
 
-            expect(internals.backgroundPitchEnrichmentOptions()).toEqual({ publicLookupLimit: 0 });
-            expect(publicPitch).not.toHaveBeenCalled();
+            expect(internals.backgroundPitchEnrichmentOptions()).toEqual({
+                publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
+                publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
+                publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupTermLimit: 2,
+                substantivePublicLookupOnly: true,
+                deferPublicLookup: false,
+            });
+            expect(publicPitch).toHaveBeenCalledTimes(YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT);
+            expect(publicPitch).toHaveBeenCalledWith('背景0', 'はいけい');
+            expect(publicPitch).toHaveBeenCalledWith(`背景${YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT - 1}`, 'はいけい');
+            expect(publicPitch).not.toHaveBeenCalledWith(`背景${YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT}`, 'はいけい');
         } finally {
             app.destroy();
             vi.unstubAllGlobals();

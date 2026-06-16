@@ -136,7 +136,6 @@ import {
     ANKI_RECOLOR_SCAN_CHUNK_SIZE,
     ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD,
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
-    BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS,
     LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
@@ -149,22 +148,24 @@ import {
     NEARBY_TERM_AUDIO_PRELOAD_DELAY_MS,
     NESTED_PARSE_CONTENT_CACHE_LIMIT,
     NESTED_PARSE_CONTENT_CACHE_TTL_MS,
-    NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT,
     PITCH_ENRICHMENT_LIMIT,
     PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT,
     PITCH_ENRICHMENT_QUEUE_LIMIT,
     PITCH_LOCAL_META_LIMIT,
     POINTER_TEXT_JPDB_TIMEOUT_MS,
     PRELOADED_TERM_AUDIO_KEY_LIMIT,
+    PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT,
     RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS,
     RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT,
     SUBTITLE_SURFACE_SELECTOR,
     TERM_AUDIO_PRELOAD_LIMIT,
     TWO_BUTTON_REVIEW_SHORTCUTS,
+    UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT,
     allowsFrequentVisibleAutoScan,
     allowsGenericVisibleAutoScan,
     ankiLookupHasDisplayableNotes,
     audioPreloadLimits,
+    backgroundPitchEnrichmentOptionsForHost,
     canSchedulePointerTextHoverLookup,
     cardDisplayTrigger,
     cardSourceLabel,
@@ -181,8 +182,10 @@ import {
     hasVisibleAutoScanTargets,
     hasVisibleSiteScanTargets,
     isMousePointerEvent,
+    isYouTubeHostname,
     matchedReviewShortcutGrade,
     mountedHoverPointerPosition,
+    nestedPitchEnrichmentOptionsForHost,
     pointerOffsetInsideLiveLookup,
     popoverAnchorRect,
     renderedWordAnchor,
@@ -622,6 +625,7 @@ export class ReaderApp {
     private nestedParseContentCache = new Map<string, NestedParseContentCacheEntry>();
     private pitchEnrichmentLocalCache = new Map<string, Promise<string>>();
     private resolvedFallbackVocabularyCache = new Map<string, JPDBCard>();
+    private unresolvedFallbackVocabularyCache = new Set<string>();
     private fallbackVocabularyResolutionCache = new Map<string, Promise<JPDBCard>>();
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private renderedWordIndex = new Map<string, Set<HTMLElement>>();
@@ -629,10 +633,13 @@ export class ReaderApp {
     private pitchEnrichmentQueue: JPDBToken[] = [];
     private pitchEnrichmentQueuedKeys = new Set<string>();
     private pitchEnrichmentUrgentKeys = new Set<string>();
+    private pitchEnrichmentQueuedOptions = new Map<string, Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'>>();
     private pitchEnrichmentDrain?: Promise<void>;
     private deferredPublicPitchQueue: JPDBToken[] = [];
     private deferredPublicPitchQueuedKeys = new Set<string>();
     private deferredPublicPitchDrain?: Promise<void>;
+    private backgroundPublicPitchLookupBudgetHref = location.href;
+    private backgroundPublicPitchLookupBudgetUsed = 0;
     private pendingSubtitleRebakeTexts = new Set<string>();
     private subtitleRebakeTimer?: number;
     private cachedPublicVocabularyHydrationTimer?: number;
@@ -932,6 +939,7 @@ export class ReaderApp {
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
+        this.unresolvedFallbackVocabularyCache.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         this.pitchEnrichmentUrgentKeys.clear();
@@ -1063,6 +1071,7 @@ export class ReaderApp {
         this.pitchEnrichmentLocalCache.clear();
         this.nestedParseContentCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
+        this.unresolvedFallbackVocabularyCache.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         window.clearTimeout(this.cachedPublicVocabularyHydrationTimer);
@@ -1319,6 +1328,7 @@ export class ReaderApp {
         this.nestedParseContentCache.clear();
         this.pitchEnrichmentLocalCache.clear();
         this.resolvedFallbackVocabularyCache.clear();
+        this.unresolvedFallbackVocabularyCache.clear();
         this.fallbackVocabularyResolutionCache.clear();
         this.clearPitchEnrichmentQueue();
         window.clearTimeout(this.subtitleRebakeTimer);
@@ -2107,13 +2117,11 @@ export class ReaderApp {
     }
 
     private backgroundPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        if (isYouTubeRuntimeHost()) return { publicLookupLimit: 0 };
-        return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+        return backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
     }
 
     private nestedPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        if (isYouTubeRuntimeHost()) return { publicLookup: false };
-        return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+        return nestedPitchEnrichmentOptionsForHost(location.hostname);
     }
 
     private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {
@@ -3019,15 +3027,19 @@ export class ReaderApp {
 
     private async publicLookupSpellingCard(term: string): Promise<JPDBCard | undefined> {
         if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return undefined;
-        const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
+        const cards = await this.jpdbVocabulary.search(term, PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT).catch(error => {
             log.warn('Public JPDB fallback search failed', { term }, error);
             return [];
         });
         return cards.find(card => card.spelling === term);
     }
 
-    private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
-        for (const term of fallbackLookupTermsForCard(card)) {
+    private async publicLookupFallbackCard(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit'> = {}): Promise<JPDBCard | undefined> {
+        const terms = fallbackLookupTermsForCard(card);
+        const limitedTerms = typeof options.publicLookupTermLimit === 'number'
+            ? terms.slice(0, Math.max(1, Math.floor(options.publicLookupTermLimit)))
+            : terms;
+        for (const term of limitedTerms) {
             const jitenCard = await this.jitenPublicVocabulary?.lookup(term).catch(error => {
                 log.warn('Public Jiten fallback lookup failed', { term }, error);
                 return null;
@@ -3071,10 +3083,10 @@ export class ReaderApp {
         return result;
     }
 
-    private async lookupFallbackApiCard(card: JPDBCard): Promise<JPDBCard | undefined> {
+    private async lookupFallbackApiCard(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit'> = {}): Promise<JPDBCard | undefined> {
         return this.isJitenApiActive()
             ? this.jitenLookupFallbackCard(card)
-            : this.publicLookupFallbackCard(card);
+            : this.publicLookupFallbackCard(card, options);
     }
 
     private async jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
@@ -5721,6 +5733,7 @@ export class ReaderApp {
         const uniqueTokens = tokensNeedingLookup.filter(token => {
             if (token.card.pitchAccent.length) return false;
             if (isLowValuePitchEnrichmentToken(token)) return false;
+            if (options.substantivePublicLookupOnly && token.card.source === 'fallback' && !isSubstantivePublicPitchLookupToken(token)) return false;
             if (!token.card.spelling.trim()) return false;
             const key = cardKey(token.card);
             if (seen.has(key)) return false;
@@ -5741,11 +5754,15 @@ export class ReaderApp {
 
         if (typeof options.publicLookupLimit === 'number') {
             const publicLookupLimit = Math.max(0, Math.floor(options.publicLookupLimit));
-            const publicTokens = uniqueTokens.slice(0, publicLookupLimit);
-            const deferredPublicTokens = uniqueTokens.slice(publicLookupLimit);
+            const requestedPublicTotal = Math.max(publicLookupLimit, Math.floor(options.publicLookupTotalLimit ?? uniqueTokens.length));
+            const publicLookupCandidateLimit = this.reserveBackgroundPublicPitchLookups(requestedPublicTotal, options);
+            const publicLookupCandidates = uniqueTokens.slice(0, publicLookupCandidateLimit);
+            const localOnlyTokens = uniqueTokens.slice(publicLookupCandidateLimit);
+            const publicTokens = publicLookupCandidates.slice(0, publicLookupLimit);
+            const deferredPublicTokens = publicLookupCandidates.slice(publicLookupLimit);
             const shouldDeferPublicLookup = options.deferPublicLookup !== false;
             const localOnly = runLimited(
-                deferredPublicTokens,
+                [...deferredPublicTokens, ...localOnlyTokens],
                 LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
                 token => this.enrichPitchToken(token, { publicLookup: false }),
             );
@@ -5770,6 +5787,24 @@ export class ReaderApp {
         void this.drainDeferredPublicPitchQueue().catch(error => {
             log.warn('Deferred pitch failed', error);
         });
+    }
+
+    private reserveBackgroundPublicPitchLookups(requested: number, options: Pick<PitchEnrichmentOptions, 'publicLookupPageBudget'>): number {
+        const normalizedRequested = Math.max(0, Math.floor(requested));
+        if (!normalizedRequested) return 0;
+        if (typeof options.publicLookupPageBudget !== 'number') return normalizedRequested;
+        this.resetBackgroundPublicPitchLookupBudgetIfNeeded();
+        const budget = Math.max(0, Math.floor(options.publicLookupPageBudget));
+        const remaining = Math.max(0, budget - this.backgroundPublicPitchLookupBudgetUsed);
+        const reserved = Math.min(normalizedRequested, remaining);
+        this.backgroundPublicPitchLookupBudgetUsed += reserved;
+        return reserved;
+    }
+
+    private resetBackgroundPublicPitchLookupBudgetIfNeeded(): void {
+        if (this.backgroundPublicPitchLookupBudgetHref === location.href) return;
+        this.backgroundPublicPitchLookupBudgetHref = location.href;
+        this.backgroundPublicPitchLookupBudgetUsed = 0;
     }
 
     private queueDeferredPublicPitchTokens(tokens: JPDBToken[]): void {
@@ -5802,15 +5837,16 @@ export class ReaderApp {
         }
     }
 
-    private queuePitchEnrichmentTokens(tokens: JPDBToken[], options: { urgent?: boolean } = {}): void {
+    private queuePitchEnrichmentTokens(tokens: JPDBToken[], options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'> = {}): void {
         for (const token of tokens) {
             const key = cardKey(token.card);
             if (this.pitchEnrichmentQueuedKeys.has(key)) {
-                if (options.urgent) this.promoteQueuedPitchEnrichmentToken(key);
+                if (options.urgent) this.promoteQueuedPitchEnrichmentToken(key, options);
                 continue;
             }
             this.pitchEnrichmentQueuedKeys.add(key);
             if (options.urgent) this.pitchEnrichmentUrgentKeys.add(key);
+            this.pitchEnrichmentQueuedOptions.set(key, pitchEnrichmentQueueOptions(options));
             this.pitchEnrichmentQueue.push(token);
         }
         this.sortPitchEnrichmentQueue();
@@ -5832,10 +5868,15 @@ export class ReaderApp {
         return true;
     }
 
-    private promoteQueuedPitchEnrichmentToken(key: string): void {
+    private promoteQueuedPitchEnrichmentToken(key: string, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'> = {}): void {
         const index = this.pitchEnrichmentQueue.findIndex(token => cardKey(token.card) === key);
         if (index < 0) return;
         this.pitchEnrichmentUrgentKeys.add(key);
+        this.pitchEnrichmentQueuedOptions.set(key, pitchEnrichmentQueueOptions({
+            ...this.pitchEnrichmentQueuedOptions.get(key),
+            ...options,
+            urgent: true,
+        }));
         this.sortPitchEnrichmentQueue();
     }
 
@@ -5861,6 +5902,7 @@ export class ReaderApp {
         if (this.pitchEnrichmentQueue.some(token => cardKey(token.card) === key)) return;
         this.pitchEnrichmentQueuedKeys.delete(key);
         this.pitchEnrichmentUrgentKeys.delete(key);
+        this.pitchEnrichmentQueuedOptions.delete(key);
     }
 
     private async drainPitchEnrichmentQueue(): Promise<void> {
@@ -5875,8 +5917,13 @@ export class ReaderApp {
     private async runPitchEnrichmentQueue(): Promise<void> {
         while (!this.isDestroyed && this.settings.showPitchAccent && this.pitchEnrichmentQueue.length) {
             const batch = this.pitchEnrichmentQueue.splice(0, PITCH_ENRICHMENT_LIMIT);
-            batch.forEach(token => this.forgetQueuedPitchEnrichmentToken(cardKey(token.card)));
-            await runLimited(batch, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token));
+            const batchOptions = new Map<string, Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'>>();
+            batch.forEach(token => {
+                const key = cardKey(token.card);
+                batchOptions.set(key, this.pitchEnrichmentQueuedOptions.get(key) ?? {});
+                this.forgetQueuedPitchEnrichmentToken(key);
+            });
+            await runLimited(batch, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, batchOptions.get(cardKey(token.card)) ?? {}));
             if (this.pitchEnrichmentQueue.length) await this.waitForIdle();
         }
     }
@@ -5887,7 +5934,7 @@ export class ReaderApp {
         if (localPitch.length) card.pitchAccent = mergePitchPatterns(localPitch, card.pitchAccent);
     }
 
-    private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup'> = {}): Promise<void> {
+    private async enrichPitchToken(token: JPDBToken, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'> = {}): Promise<void> {
         const fallback = token.card;
         const previousPitchClass = token.pitchClass ?? '';
         const card = await this.pitchEnrichedRenderedCard(fallback, options);
@@ -5901,7 +5948,7 @@ export class ReaderApp {
         if (pitchClass && pitchClass !== previousPitchClass) this.queueSubtitleParsedHtmlRefresh(token.sentence);
     }
 
-    private async pitchEnrichedRenderedCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup'>): Promise<JPDBCard> {
+    private async pitchEnrichedRenderedCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'>): Promise<JPDBCard> {
         await this.fillCardPitchFromLocalDictionary(fallback);
         const card = await this.resolvePitchFallbackCard(fallback, options);
         if (card !== fallback) await this.fillCardPitchFromLocalDictionary(card);
@@ -5909,9 +5956,9 @@ export class ReaderApp {
         return card;
     }
 
-    private async resolvePitchFallbackCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup'>): Promise<JPDBCard> {
+    private async resolvePitchFallbackCard(fallback: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'>): Promise<JPDBCard> {
         if (cardHasContextPitch(fallback) || options.publicLookup === false) return fallback;
-        return await this.resolveRenderedFallbackVocabulary(fallback) ?? fallback;
+        return await this.resolveRenderedFallbackVocabulary(fallback, options) ?? fallback;
     }
 
     private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup'>): Promise<void> {
@@ -5936,8 +5983,11 @@ export class ReaderApp {
         this.pitchEnrichmentQueue = [];
         this.pitchEnrichmentQueuedKeys.clear();
         this.pitchEnrichmentUrgentKeys.clear();
+        this.pitchEnrichmentQueuedOptions.clear();
         this.deferredPublicPitchQueue = [];
         this.deferredPublicPitchQueuedKeys.clear();
+        this.backgroundPublicPitchLookupBudgetHref = location.href;
+        this.backgroundPublicPitchLookupBudgetUsed = 0;
     }
 
     private async localPitchAccentForCard(card: JPDBCard): Promise<string[]> {
@@ -5977,10 +6027,15 @@ export class ReaderApp {
         evictOldestStringKeysWhileOverLimit(this.pitchEnrichmentLocalCache, PITCH_ENRICHMENT_LOCAL_CACHE_LIMIT);
     }
 
-    private async resolveRenderedFallbackVocabulary(card: JPDBCard): Promise<JPDBCard | undefined> {
+    private async resolveRenderedFallbackVocabulary(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'urgent'> = {}): Promise<JPDBCard | undefined> {
         if (card.source !== 'fallback') return undefined;
-        const publicCard = await this.lookupFallbackApiCard(card);
-        if (!publicCard) return undefined;
+        const key = cardKey(card);
+        if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) return undefined;
+        const publicCard = await this.lookupFallbackApiCard(card, options);
+        if (!publicCard) {
+            this.rememberUnresolvedFallbackVocabulary(key);
+            return undefined;
+        }
         if (!publicCard.pitchAccent.length) {
             publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
         }
@@ -5992,10 +6047,17 @@ export class ReaderApp {
     private rememberResolvedFallbackVocabulary(fallback: JPDBCard, card: JPDBCard): void {
         if (fallback.source !== 'fallback') return;
         const key = cardKey(fallback);
+        this.unresolvedFallbackVocabularyCache.delete(key);
         this.resolvedFallbackVocabularyCache.delete(key);
         this.resolvedFallbackVocabularyCache.set(key, card);
         evictOldestStringKeysWhileOverLimit(this.resolvedFallbackVocabularyCache, RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
         this.scheduleCachedPublicVocabularyHydration(document);
+    }
+
+    private rememberUnresolvedFallbackVocabulary(key: string): void {
+        this.unresolvedFallbackVocabularyCache.delete(key);
+        this.unresolvedFallbackVocabularyCache.add(key);
+        evictOldestStringKeysWhileOverLimit(this.unresolvedFallbackVocabularyCache, UNRESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
     }
 
     private preloadTermAudioForTokens(tokens: JPDBToken[]): void {
@@ -6873,7 +6935,29 @@ function nestedParseRequireApi(options: ReaderParserParseOptions, skipApi: boole
 }
 
 function isYouTubeRuntimeHost(hostname = location.hostname): boolean {
-    return hostname === 'youtu.be' || hostname === 'youtube.com' || hostname.endsWith('.youtube.com');
+    return isYouTubeHostname(hostname);
+}
+
+function isCompactPitchEnrichmentViewport(): boolean {
+    return window.innerWidth <= 700 || navigator.maxTouchPoints > 1;
+}
+
+function pitchEnrichmentQueueOptions(
+    options: Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'>,
+): Pick<PitchEnrichmentOptions, 'publicLookup' | 'publicLookupTermLimit' | 'urgent'> {
+    return {
+        publicLookup: options.publicLookup,
+        publicLookupTermLimit: options.publicLookupTermLimit,
+        urgent: options.urgent,
+    };
+}
+
+const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]/u;
+
+function isSubstantivePublicPitchLookupToken(token: JPDBToken): boolean {
+    return SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.spelling)
+        || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.reading)
+        || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.sentence ?? '');
 }
 
 function publicLookupCardRequest(

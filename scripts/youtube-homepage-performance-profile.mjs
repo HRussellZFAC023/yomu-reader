@@ -39,6 +39,14 @@ const vocabularyRows = [
     ['説明', '説明', 'せつめい', 'explanation', ['n', 'vs'], 600, ['known'], ['LHHH']],
     ['配信', '配信', 'はいしん', 'stream', ['n', 'vs'], 1700, ['known'], ['LHHH']],
     ['今日', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
+    ['作成', '作成', 'さくせい', 'create', ['n', 'vs'], 850, ['known'], ['LHHH']],
+    ['音楽', '音楽', 'おんがく', 'music', ['n'], 450, ['known'], ['LHHH']],
+    ['動画', '動画', 'どうが', 'video', ['n'], 650, ['known'], ['LHH']],
+    ['発見', '発見', 'はっけん', 'discovery', ['n', 'vs'], 900, ['known'], ['LHHH']],
+    ['初心者', '初心者', 'しょしんしゃ', 'beginner', ['n'], 1500, ['known'], ['LHHHH']],
+    ['基礎', '基礎', 'きそ', 'basics', ['n'], 1100, ['known'], ['LH']],
+    ['観光', '観光', 'かんこう', 'sightseeing', ['n', 'vs'], 1400, ['known'], ['LHHH']],
+    ['視聴', '視聴', 'しちょう', 'watching', ['n', 'vs'], 1200, ['known'], ['LHHH']],
     ['本', '本', 'ほん', 'book', ['n'], 350, ['known'], ['L']],
     ['読む', '読む', 'よむ', 'read', ['v5m'], 400, ['known'], ['LH']],
     ['読みます', '読む', 'よみます', 'read', ['v5m'], 401, ['known'], ['LH']],
@@ -716,6 +724,12 @@ async function readPageState(page, client) {
                 const rect = word.getBoundingClientRect();
                 return rect.height <= 2 || getComputedStyle(word).color === 'rgba(0, 0, 0, 0)';
             }).length;
+            const concretePitchRe = /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)/u;
+            const concretePitchWords = words.filter(word => concretePitchRe.test(word.className));
+            const unknownPitchWords = words.filter(word => /\bjpdb-pitch-unknown\b/u.test(word.className));
+            const visibleConcretePitchWords = visibleWords.filter(word => concretePitchRe.test(word.className));
+            const resolvedWords = words.filter(word => word.dataset.cardSource === 'jpdb');
+            const visibleResolvedWords = visibleWords.filter(word => word.dataset.cardSource === 'jpdb');
             return {
                 perf: window.__yomuHomePerf,
                 settings: window.yomuSettingsSnapshot?.() ?? null,
@@ -729,7 +743,13 @@ async function readPageState(page, client) {
                     total: words.length,
                     visible: visibleWords.length,
                     ruby: words.filter(word => word.querySelector('rt,.jpdb-reader-furi')).length,
-                    pitch: words.filter(word => /jpdb-pitch-(heiban|atamadaka|nakadaka|odaka|kifuku)/u.test(word.className)).length,
+                    pitch: concretePitchWords.length,
+                    pitchConcrete: concretePitchWords.length,
+                    pitchConcreteVisible: visibleConcretePitchWords.length,
+                    pitchUnknown: unknownPitchWords.length,
+                    pitchAny: concretePitchWords.length + unknownPitchWords.length,
+                    resolved: resolvedWords.length,
+                    resolvedVisible: visibleResolvedWords.length,
                     colored: words.filter(word => /jpdb-(known|new|not-in-deck|learning|due|failed)|anki-|jiten-/u.test(word.className)).length,
                     missingBases,
                 },
@@ -769,6 +789,8 @@ async function installInstrumentation(context) {
             firstJapaneseTextAt: null,
             firstReaderWordAt: null,
             firstRubyAt: null,
+            firstResolvedVocabularyAt: null,
+            firstPitchAt: null,
             addedReaderWords: 0,
             removedReaderWords: 0,
             addedJapaneseMutations: 0,
@@ -848,7 +870,13 @@ async function installInstrumentation(context) {
                 });
             }
         };
-        new NativeMutationObserver(sampleMilestones).observe(document, { subtree: true, childList: true, characterData: true });
+        new NativeMutationObserver(sampleMilestones).observe(document, {
+            subtree: true,
+            childList: true,
+            characterData: true,
+            attributes: true,
+            attributeFilter: ['class', 'data-card-source'],
+        });
         requestAnimationFrame(sampleMilestones);
         observeLongTasks();
         sampleFrames();
@@ -941,6 +969,8 @@ async function installInstrumentation(context) {
             if (perf.firstJapaneseTextAt === null && JapaneseText.test(text)) perf.firstJapaneseTextAt = rounded(performance.now());
             if (perf.firstReaderWordAt === null && document.querySelector('.jpdb-reader-word')) perf.firstReaderWordAt = rounded(performance.now());
             if (perf.firstRubyAt === null && document.querySelector('.jpdb-reader-word rt,.jpdb-reader-word .jpdb-reader-furi')) perf.firstRubyAt = rounded(performance.now());
+            if (perf.firstResolvedVocabularyAt === null && document.querySelector('.jpdb-reader-word[data-card-source="jpdb"]')) perf.firstResolvedVocabularyAt = rounded(performance.now());
+            if (perf.firstPitchAt === null && document.querySelector('.jpdb-reader-word:is(.jpdb-pitch-heiban,.jpdb-pitch-atamadaka,.jpdb-pitch-nakadaka,.jpdb-pitch-odaka,.jpdb-pitch-kifuku)')) perf.firstPitchAt = rounded(performance.now());
         }
 
         function readYomuSettings() {
@@ -1022,10 +1052,19 @@ function rounded(value) {
 function summarizeRequests(requests) {
     const byKind = {};
     for (const request of requests) byKind[request.kind] = (byKind[request.kind] ?? 0) + 1;
+    const searchCounts = new Map();
+    requests.filter(request => request.kind === 'jpdb-search').forEach(request => {
+        const query = String(request.query ?? '');
+        searchCounts.set(query, (searchCounts.get(query) ?? 0) + 1);
+    });
     return {
         count: requests.length,
         byKind,
         jpdbParseChars: requests.filter(request => request.kind === 'jpdb-parse').reduce((sum, request) => sum + (request.chars ?? 0), 0),
+        topSearchQueries: [...searchCounts.entries()]
+            .sort((first, second) => second[1] - first[1] || first[0].localeCompare(second[0]))
+            .slice(0, 12)
+            .map(([query, count]) => ({ query, count })),
         ankiActions: [...new Set(requests.filter(request => request.kind === 'anki').map(request => request.action).filter(Boolean))],
         jitenEndpoints: [...new Set(requests.filter(request => request.kind === 'jiten').map(request => request.endpoint).filter(Boolean))],
         audioUrls: [...new Set(requests.filter(request => request.kind === 'audio').map(request => request.url).filter(Boolean))].slice(0, 8),
