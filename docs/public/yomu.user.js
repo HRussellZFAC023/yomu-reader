@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.67
+// @version      0.7.69
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,9 +13,9 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-zFyC3z6KcNIrqtkGWsmteEp9hiuWQTiWDHUjyRSWgEE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ZwQEmUG/QxZVwjxhodGHhL2fJYPFbrV+1zea4jRYWII=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-rsUXKvd+XP/Esj8KHy3YPOIfZJyfXmdcOM0d0X0f6Yc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tBQq6OB+YEjJPJ1iCxde9i2SvRrGSCxVlgTJgE/nWMg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-+AmKDUNvNuWJL3Sq6DgTeC+MQWgTLA1lCS93SnBZOuE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-l+TD03irGMHVAVEQppiU0TT6Tl5GXqbQhjfDxi1mjIw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -2472,9 +2472,9 @@
   }
   function normalizeRemovedDictionarySettings(value) {
     return {
-      jpdbDefinitionsEnabled: true,
-      localDictionariesEnabled: true,
-      dictionarySourcesInitiallyExpanded: true,
+      jpdbDefinitionsEnabled: booleanSetting(value, "jpdbDefinitionsEnabled"),
+      localDictionariesEnabled: booleanSetting(value, "localDictionariesEnabled"),
+      dictionarySourcesInitiallyExpanded: booleanSetting(value, "dictionarySourcesInitiallyExpanded"),
       localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
       localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };
@@ -19956,7 +19956,7 @@ ${entry.reading || ""}`;
     }
     loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled || isJitenBackedCard(card)) return Promise.resolve(null);
+      if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
         log$e.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
@@ -38246,9 +38246,16 @@ ${glossaryKey}`;
     }
     shouldIgnoreCurrentImmersionExampleTargetClick(word) {
       if (!this.lastCard || !this.isInsideActivePopover(word)) return false;
-      if (!word.closest("[data-immersion-kit] .jpdb-reader-example-sentence")) return false;
+      const exampleSentence = word.closest(".jpdb-reader-example-sentence");
+      if (!exampleSentence || !this.isInsideImmersionKitContainer(exampleSentence)) return false;
       if (!word.closest(".jpdb-reader-example-target")) return false;
       return cardMatchesRenderedLookupValue(this.lastCard, renderedWordLookupText(word));
+    }
+    isInsideImmersionKitContainer(element2) {
+      for (let current = element2.parentElement; current; current = current.parentElement) {
+        if (current.hasAttribute("data-immersion-kit")) return true;
+      }
+      return false;
     }
     renderedWordHoverLookupKey(word, trigger) {
       return trigger === "hover" ? this.hoverLookupKeyForWord(word) : void 0;

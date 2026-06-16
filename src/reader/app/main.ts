@@ -3898,9 +3898,17 @@ export class ReaderApp {
 
     private shouldIgnoreCurrentImmersionExampleTargetClick(word: HTMLElement): boolean {
         if (!this.lastCard || !this.isInsideActivePopover(word)) return false;
-        if (!word.closest('[data-immersion-kit] .jpdb-reader-example-sentence')) return false;
+        const exampleSentence = word.closest('.jpdb-reader-example-sentence');
+        if (!exampleSentence || !this.isInsideImmersionKitContainer(exampleSentence)) return false;
         if (!word.closest('.jpdb-reader-example-target')) return false;
         return cardMatchesRenderedLookupValue(this.lastCard, renderedWordLookupText(word));
+    }
+
+    private isInsideImmersionKitContainer(element: Element): boolean {
+        for (let current = element.parentElement; current; current = current.parentElement) {
+            if (current.hasAttribute('data-immersion-kit')) return true;
+        }
+        return false;
     }
 
     private renderedWordHoverLookupKey(word: HTMLElement, trigger: 'modal' | 'hover'): string | undefined {

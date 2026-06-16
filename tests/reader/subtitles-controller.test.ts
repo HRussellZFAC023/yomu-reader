@@ -1225,6 +1225,9 @@ describe('SubtitlePlayerController', () => {
             expect(panel.textContent).toContain('一時停止した行2');
 
             await vi.advanceTimersByTimeAsync(20);
+            expect(panel.querySelectorAll('.jpdb-subtitle-list-row')).toHaveLength(3);
+
+            await vi.advanceTimersByTimeAsync(500);
             await vi.advanceTimersByTimeAsync(0);
 
             expect(panel.querySelectorAll('.jpdb-subtitle-list-row')).toHaveLength(5);

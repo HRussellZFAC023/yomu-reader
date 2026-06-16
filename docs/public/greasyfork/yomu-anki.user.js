@@ -5647,6 +5647,8 @@ recommendedJiten	jiten.moe頻度データです。
     isDestroyed = false;
     focusStatusRefreshListener;
     lastFocusStatusRefreshAt = 0;
+    // Companion lifecycle API consumed through the structural Anki client.
+    // fallow-ignore-next-line unused-class-member
     destroy() {
       this.isDestroyed = true;
       this.lookupInflight.clear();
@@ -5679,6 +5681,7 @@ recommendedJiten	jiten.moe頻度データです。
       document.addEventListener("visibilitychange", this.focusStatusRefreshListener);
     }
     // Used by settings connection checks through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async isConnected() {
       try {
         await this.invoke("version");
@@ -5719,6 +5722,7 @@ recommendedJiten	jiten.moe頻度データです。
     // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
     // exactly which fields a mining write will target instead of silently
     // retargeting into an existing non-Yomu model at write time.
+    // fallow-ignore-next-line unused-class-member
     async noteFieldTargetPlan() {
       const settings = this.getSettings();
       if (!settings.ankiEnabled) return null;
@@ -5738,6 +5742,7 @@ recommendedJiten	jiten.moe頻度データです。
       return { modelName, yomuManaged: shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames), fieldNames };
     }
     // Used by settings library scan through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async scanLibrary() {
       const [deckNames, modelNames] = await Promise.all([
         this.deckNames().catch(() => []),
@@ -5764,13 +5769,19 @@ recommendedJiten	jiten.moe頻度データです。
       if (!sampleIds.length) return [];
       return await this.invokeOrDefault("notesInfo", { notes: sampleIds }, []);
     }
+    // Used by card preload flows through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     warmStatusIndex() {
       if (this.isDestroyed) return Promise.resolve(null);
       return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? this.loadStatusIndex();
     }
+    // Used by popup render data through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async findExistingCards(card) {
       return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult();
     }
+    // Used by popup render data through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async findCachedStatusBatch(cards) {
       const empty = emptyAnkiLookupResult();
       const untrustedEmpty = untrustedAnkiLookupResult();
@@ -6660,6 +6671,8 @@ recommendedJiten	jiten.moe頻度データです。
       const dueByCardId = new Map(reviewCardIds.map((cardId, index) => [cardId, dueFlags[index]]));
       return cards.map((card) => card.queue === 2 && dueByCardId.has(Number(card.cardId)) ? { ...card, isDue: dueByCardId.get(Number(card.cardId)) === true } : card);
     }
+    // Used by card action controls to answer rendered Anki review cards.
+    // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
       log.info("Answering Anki card", { cardId, grade, ease });
@@ -6719,6 +6732,7 @@ recommendedJiten	jiten.moe頻度データです。
       return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
     }
     // Used by card action controls to merge mining context into existing Anki notes.
+    // fallow-ignore-next-line unused-class-member
     async mergeYomuData(noteId, card, sentence = "", options = {}) {
       const [note] = await this.invoke("notesInfo", { notes: [noteId] });
       if (!note) throw new Error(this.text("ankiNoteNotFound"));
@@ -6732,6 +6746,7 @@ recommendedJiten	jiten.moe頻度データです。
       return merge;
     }
     // Used by card action controls for desktop Anki mining.
+    // fallow-ignore-next-line unused-class-member
     async addCard(card, sentence = "", options = {}) {
       const settings = this.getSettings();
       if (!settings.ankiEnabled) {

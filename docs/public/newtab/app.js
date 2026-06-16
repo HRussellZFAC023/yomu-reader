@@ -2481,9 +2481,9 @@
   }
   function normalizeRemovedDictionarySettings(value) {
     return {
-      jpdbDefinitionsEnabled: true,
-      localDictionariesEnabled: true,
-      dictionarySourcesInitiallyExpanded: true,
+      jpdbDefinitionsEnabled: booleanSetting(value, "jpdbDefinitionsEnabled"),
+      localDictionariesEnabled: booleanSetting(value, "localDictionariesEnabled"),
+      dictionarySourcesInitiallyExpanded: booleanSetting(value, "dictionarySourcesInitiallyExpanded"),
       localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
       localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };
@@ -13322,6 +13322,8 @@ ${entry.reading || ""}`;
     isDestroyed = false;
     focusStatusRefreshListener;
     lastFocusStatusRefreshAt = 0;
+    // Companion lifecycle API consumed through the structural Anki client.
+    // fallow-ignore-next-line unused-class-member
     destroy() {
       this.isDestroyed = true;
       this.lookupInflight.clear();
@@ -13354,6 +13356,7 @@ ${entry.reading || ""}`;
       document.addEventListener("visibilitychange", this.focusStatusRefreshListener);
     }
     // Used by settings connection checks through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async isConnected() {
       try {
         await this.invoke("version");
@@ -13394,6 +13397,7 @@ ${entry.reading || ""}`;
     // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
     // exactly which fields a mining write will target instead of silently
     // retargeting into an existing non-Yomu model at write time.
+    // fallow-ignore-next-line unused-class-member
     async noteFieldTargetPlan() {
       const settings = this.getSettings();
       if (!settings.ankiEnabled) return null;
@@ -13413,6 +13417,7 @@ ${entry.reading || ""}`;
       return { modelName, yomuManaged: shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames), fieldNames };
     }
     // Used by settings library scan through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async scanLibrary() {
       const [deckNames, modelNames] = await Promise.all([
         this.deckNames().catch(() => []),
@@ -13439,13 +13444,19 @@ ${entry.reading || ""}`;
       if (!sampleIds.length) return [];
       return await this.invokeOrDefault("notesInfo", { notes: sampleIds }, []);
     }
+    // Used by card preload flows through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     warmStatusIndex() {
       if (this.isDestroyed) return Promise.resolve(null);
       return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? this.loadStatusIndex();
     }
+    // Used by popup render data through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async findExistingCards(card) {
       return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult$2();
     }
+    // Used by popup render data through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async findCachedStatusBatch(cards) {
       const empty = emptyAnkiLookupResult$2();
       const untrustedEmpty = untrustedAnkiLookupResult$1();
@@ -14335,6 +14346,8 @@ ${entry.reading || ""}`;
       const dueByCardId = new Map(reviewCardIds.map((cardId, index) => [cardId, dueFlags[index]]));
       return cards.map((card) => card.queue === 2 && dueByCardId.has(Number(card.cardId)) ? { ...card, isDue: dueByCardId.get(Number(card.cardId)) === true } : card);
     }
+    // Used by card action controls to answer rendered Anki review cards.
+    // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
       log$v.info("Answering Anki card", { cardId, grade, ease });
@@ -14394,6 +14407,7 @@ ${entry.reading || ""}`;
       return `data:${ankiMediaMimeType(cleanFilename)};base64,${data}`;
     }
     // Used by card action controls to merge mining context into existing Anki notes.
+    // fallow-ignore-next-line unused-class-member
     async mergeYomuData(noteId, card, sentence = "", options = {}) {
       const [note] = await this.invoke("notesInfo", { notes: [noteId] });
       if (!note) throw new Error(this.text("ankiNoteNotFound"));
@@ -14407,6 +14421,7 @@ ${entry.reading || ""}`;
       return merge;
     }
     // Used by card action controls for desktop Anki mining.
+    // fallow-ignore-next-line unused-class-member
     async addCard(card, sentence = "", options = {}) {
       const settings = this.getSettings();
       if (!settings.ankiEnabled) {
@@ -45913,7 +45928,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled || isJitenBackedCard(card)) return Promise.resolve(null);
+      if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
         log$d.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;

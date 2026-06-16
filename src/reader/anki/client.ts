@@ -253,7 +253,7 @@ export class AnkiConnectClient {
         this.installFocusStatusRefresh();
     }
 
-    // Public lifecycle hook used by the page and newtab runtimes through the Anki dependency.
+    // Companion lifecycle API consumed by page and newtab runtimes through the structural Anki client.
     // fallow-ignore-next-line unused-class-member
     destroy(): void {
         this.isDestroyed = true;
@@ -289,7 +289,6 @@ export class AnkiConnectClient {
     }
 
     // Used by settings connection checks through the Anki client dependency.
-    // Public health check used by the settings dialog through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     async isConnected(): Promise<boolean> {
         try {
@@ -362,7 +361,6 @@ export class AnkiConnectClient {
     }
 
     // Used by settings library scan through the Anki client dependency.
-    // Public library scan used by the settings dialog through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     async scanLibrary(): Promise<AnkiLibraryScanResult> {
         const [deckNames, modelNames] = await Promise.all([
@@ -394,20 +392,20 @@ export class AnkiConnectClient {
         return await this.invokeOrDefault<AnkiNoteInfo[]>('notesInfo', { notes: sampleIds }, []);
     }
 
-    // Public warm-up hook used by app/newtab runtimes through the Anki dependency.
+    // Public warm-up hook used by app, newtab, and card preload flows through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     warmStatusIndex(): Promise<AnkiStatusIndex | null> {
         if (this.isDestroyed) return Promise.resolve(null);
         return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? this.loadStatusIndex();
     }
 
-    // Public card status lookup used by app/newtab render paths through the Anki dependency.
+    // Public card status lookup used by popup, page, and newtab render paths through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
         return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult();
     }
 
-    // Public batched status lookup used by page/newtab enrichment through the Anki dependency.
+    // Public batched status lookup used by popup, page, and newtab enrichment through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     async findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> {
         const empty = emptyAnkiLookupResult();
@@ -1614,7 +1612,7 @@ export class AnkiConnectClient {
             : card);
     }
 
-    // Public review action used by card and newtab controllers through the Anki dependency.
+    // Public review action used by card and newtab controls to answer rendered Anki review cards.
     // fallow-ignore-next-line unused-class-member
     async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
         const ease = ankiEaseFromGrade(grade);
