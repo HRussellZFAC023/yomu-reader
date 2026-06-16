@@ -263,6 +263,8 @@ export class AnkiConnectClient {
         this.installFocusStatusRefresh();
     }
 
+    // Companion lifecycle API consumed through the structural Anki client.
+    // fallow-ignore-next-line unused-class-member
     destroy(): void {
         this.isDestroyed = true;
         this.lookupInflight.clear();
@@ -297,6 +299,7 @@ export class AnkiConnectClient {
     }
 
     // Used by settings connection checks through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async isConnected(): Promise<boolean> {
         try {
             await this.invoke<number>('version');
@@ -344,6 +347,7 @@ export class AnkiConnectClient {
     // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
     // exactly which fields a mining write will target instead of silently
     // retargeting into an existing non-Yomu model at write time.
+    // fallow-ignore-next-line unused-class-member
     async noteFieldTargetPlan(): Promise<AnkiNoteFieldTargetPlan | null> {
         const settings = this.getSettings();
         if (!settings.ankiEnabled) return null;
@@ -366,6 +370,7 @@ export class AnkiConnectClient {
     }
 
     // Used by settings library scan through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async scanLibrary(): Promise<AnkiLibraryScanResult> {
         const [deckNames, modelNames] = await Promise.all([
             this.deckNames().catch((): string[] => []),
@@ -396,15 +401,21 @@ export class AnkiConnectClient {
         return await this.invokeOrDefault<AnkiNoteInfo[]>('notesInfo', { notes: sampleIds }, []);
     }
 
+    // Used by card preload flows through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     warmStatusIndex(): Promise<AnkiStatusIndex | null> {
         if (this.isDestroyed) return Promise.resolve(null);
         return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? this.loadStatusIndex();
     }
 
+    // Used by popup render data through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async findExistingCards(card: JPDBCard): Promise<AnkiLookupResult> {
         return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult();
     }
 
+    // Used by popup render data through the Anki client dependency.
+    // fallow-ignore-next-line unused-class-member
     async findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> {
         const empty = emptyAnkiLookupResult();
         const untrustedEmpty = untrustedAnkiLookupResult();
@@ -1610,6 +1621,8 @@ export class AnkiConnectClient {
             : card);
     }
 
+    // Used by card action controls to answer rendered Anki review cards.
+    // fallow-ignore-next-line unused-class-member
     async answerCard(cardId: number, grade: JPDBGrade): Promise<void> {
         const ease = ankiEaseFromGrade(grade);
         log.info('Answering Anki card', { cardId, grade, ease });
@@ -1675,6 +1688,7 @@ export class AnkiConnectClient {
     }
 
     // Used by card action controls to merge mining context into existing Anki notes.
+    // fallow-ignore-next-line unused-class-member
     async mergeYomuData(noteId: number, card: JPDBCard, sentence = '', options: AnkiCardContext & { audioMergeMode?: AnkiAudioMergeMode } = {}): Promise<AnkiMergeYomuResult> {
         const [note] = await this.invoke<AnkiNoteInfo[]>('notesInfo', { notes: [noteId] });
         if (!note) throw new Error(this.text('ankiNoteNotFound'));
@@ -1691,6 +1705,7 @@ export class AnkiConnectClient {
     }
 
     // Used by card action controls for desktop Anki mining.
+    // fallow-ignore-next-line unused-class-member
     async addCard(card: JPDBCard, sentence = '', options: AnkiCardContext = {}): Promise<number | null> {
         const settings = this.getSettings();
         if (!settings.ankiEnabled) {

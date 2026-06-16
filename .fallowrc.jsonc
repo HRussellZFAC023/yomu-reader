@@ -8,6 +8,7 @@
     "src/reader/userscript/entry.ts",
     "src/reader/newtab/entrypoint.ts",
     "scripts/qa-audit.mjs",
+    "scripts/youtube-fullscreen-smoke.mjs",
     "tests/reader/**/*.test.ts"
   ],
   "dynamicallyLoaded": [
@@ -49,6 +50,54 @@
     {
       "file": "src/reader/newtab/index.ts",
       "exports": ["*"]
+    },
+    {
+      "file": "src/reader/anki/card-details.ts",
+      "exports": ["ankiMediaFilenameFromCardUrl", "ANKI_NEVER_FORGET_TAG"]
+    },
+    {
+      "file": "src/reader/anki/client.ts",
+      "exports": [
+        "AnkiExistingNote",
+        "AnkiRenderedCard",
+        "canDirectFetchAnkiConnectFrom",
+        "hasUserscriptAnkiBridge",
+        "isAnkiConnectAvailabilityError",
+        "ANKI_EXPRESSION_FIELD_NAMES",
+        "ANKI_MEANING_FIELD_NAMES",
+        "ANKI_READING_FIELD_NAMES",
+        "ANKI_SENTENCE_FIELD_NAMES",
+        "ankiMediaFilenameFromCardUrl",
+        "untrustedAnkiLookupResult",
+        "YOMU_MODEL_FIELDS"
+      ]
+    },
+    {
+      "file": "src/reader/anki/transport.ts",
+      "exports": ["canDirectFetchAnkiConnectFrom"]
+    },
+    {
+      "file": "src/reader/companions/registry.ts",
+      "exports": [
+        "AnkiConnectClientClass",
+        "AnkiDuplicateNoteErrorClass",
+        "AnkiLookupWithUnavailableDetailsFn",
+        "BuildYomuAnkiFieldsFn",
+        "BuildYomuAnkiPreviewFieldsFn",
+        "CanUseMobileAnkiHandoffFn",
+        "CaptureActiveVideoFrameFn",
+        "IsAnkiDuplicateNoteErrorFn",
+        "MobileAnkiHandoffAppNameFn",
+        "ResolveAnkiWordAudioFn"
+      ]
+    },
+    {
+      "file": "src/reader/immersion/player-view.ts",
+      "exports": ["renderImmersionExampleActions"]
+    },
+    {
+      "file": "src/reader/newtab/card-view.ts",
+      "exports": ["newTabImmersionProviderLabel"]
     }
   ]
 }
