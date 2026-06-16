@@ -769,6 +769,14 @@ function immersionMediaLabel(mediaPath) {
 
 async function newAuditedPage(browser, settings = baseSettings, viewport = { width: 1280, height: 900 }) {
     const { page } = await newAutoClosingPage(browser, { viewport, deviceScaleFactor: 1 });
+    page.on('console', message => {
+        if (message.type() === 'error') {
+            console.error(`[Browser Console Error]: ${message.text()}`);
+        }
+    });
+    page.on('pageerror', error => {
+        console.error(`[Browser Page Error]:`, error);
+    });
     const requests = [];
     await page.addInitScript(installQaReaderWordDomHelpersInPage);
     await page.route(/https:\/\/apiv2(?:express)?\.immersionkit\.com\/download_media.*/, route => {

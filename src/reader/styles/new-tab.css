@@ -1203,8 +1203,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background: transparent !important;
   box-shadow: none !important;
   border-radius: 0 !important;
-  text-decoration-thickness: 0.08em !important;
-  text-underline-offset: 0.08em !important;
+  text-decoration: none !important;
 }
 
 .jpdb-reader-newtab-prompt .jpdb-reader-word *,
