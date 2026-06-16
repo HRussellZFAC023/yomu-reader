@@ -3279,7 +3279,11 @@ describe('SubtitlePlayerController', () => {
             expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
             expect(word.querySelector('.jpdb-reader-furi')?.textContent).toBe('よ');
             expect(parseJapanese).toHaveBeenCalledTimes(1);
-            expect(parseJapanese).toHaveBeenCalledWith('読む', { requireJpdb: true, includeLocalPitch: true });
+            expect(parseJapanese).toHaveBeenCalledWith('読む', {
+                allowSegmentedFallback: true,
+                includeLocalPitch: true,
+                skipJpdb: true,
+            });
         } finally {
             Object.defineProperty(window, 'location', {
                 configurable: true,

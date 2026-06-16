@@ -26850,17 +26850,22 @@ describe('reader helpers', () => {
         const search = vi.fn(async () => []);
         const publicPitch = vi.fn(async () => ['LHHLL']);
         const jitenLookup = vi.fn(async () => jitenCard);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('青空') ? [['青空', jitenCard]] : [],
+        ));
         const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
             search,
             pitch: publicPitch,
             jitenLookup,
+            jitenLookupMany,
             settings: { apiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
         });
 
         try {
             await internals.enrichPitchWords([testTokenForCard(fallbackCard)], { publicLookupLimit: 1 });
 
-            expect(jitenLookup).toHaveBeenCalledWith('青空');
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空']);
+            expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(publicPitch).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([jitenCard]);
@@ -27110,26 +27115,31 @@ describe('reader helpers', () => {
 
         const search = vi.fn(async (term: string) => term === '青空' ? [publicCard] : []);
         const jitenLookup = vi.fn(async (term: string) => term === '青空' ? publicCard : null);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('青空') ? [['青空', publicCard]] : [],
+        ));
         const cacheCards = vi.fn();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbVocabulary: { search: typeof search };
             jpdbPublicPitch: { lookup: (spelling: string, reading: string) => Promise<string[]> };
             parser: { cacheCards: typeof cacheCards };
-            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false, localDictionariesEnabled: false, showPitchAccent: true };
         internals.jpdbVocabulary = { search };
         internals.jpdbPublicPitch = { lookup: vi.fn(async () => []) };
         internals.parser = { cacheCards };
-        (internals as unknown as { jitenPublicVocabulary?: { lookup: typeof jitenLookup } }).jitenPublicVocabulary = {
+        (internals as unknown as { jitenPublicVocabulary?: { lookup: typeof jitenLookup; lookupMany: typeof jitenLookupMany } }).jitenPublicVocabulary = {
             lookup: jitenLookup,
+            lookupMany: jitenLookupMany,
         };
 
         try {
-            await internals.enrichPitchWords(tokens);
+            await internals.enrichPitchWords(tokens, { publicLookupLimit: 1 });
 
-            expect(jitenLookup).toHaveBeenCalledWith('青空');
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空']);
+            expect(jitenLookup).not.toHaveBeenCalled();
             expect(jitenLookup).not.toHaveBeenCalledWith('の');
             expect(search).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalledWith('の', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
