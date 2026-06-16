@@ -3,11 +3,13 @@ import { applyPooledJpdbDeckState, cardNeedsJpdbDeckPoolLookup, sourceCardAnkiLo
 import { cardKey } from './utils';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
 import type { JitenApiClient, JitenVocabularyInfo } from '../dictionaries/jiten';
+import type { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
 import type { JpdbClient } from '../jpdb/jpdb';
 import type { JpdbPublicPitchClient } from '../jpdb/jpdb-public-pitch';
 import type { JpdbVocabularyClient, JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { Logger } from '../app/logger';
 import { localPitchPatternFromMeta, localPitchPatternsFromMeta } from '../lookup/pitch-meta';
+import { lookupPublicPitchAccent } from '../lookup/public-pitch';
 import { isKanjiCharacter, type ExpressionComponentPitch } from '../popup/pitch';
 import { shouldLookupAnkiStatus } from '../settings/index';
 import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
@@ -59,6 +61,7 @@ export interface CardRenderDataLoaderDependencies {
     getSettings: () => ReaderSettings;
     dictionaries: YomitanDictionaryStore;
     jpdbPublicPitch: JpdbPublicPitchClient;
+    jitenPublicVocabulary?: Pick<JitenPublicVocabularyClient, 'lookup'>;
     jpdbVocabulary: JpdbVocabularyClient;
     anki: AnkiConnectClient;
     jpdb: JpdbClient;
@@ -185,7 +188,10 @@ export class CardRenderDataLoader {
     private loadPublicPitch(card: JPDBCard): Promise<string[]> {
         const settings = this.settings();
         if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
-        return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, 'JPDB public pitch', this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(error => {
+        return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, 'public pitch', lookupPublicPitchAccent(card, {
+            jitenPublicVocabulary: this.dependencies.jitenPublicVocabulary,
+            jpdbPublicPitch: this.dependencies.jpdbPublicPitch,
+        }).catch(error => {
             log.warn('Public pitch lookup failed', { term: card.spelling }, error);
             return [];
         }), [] as string[]);

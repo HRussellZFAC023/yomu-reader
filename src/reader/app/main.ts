@@ -240,6 +240,7 @@ import { OnboardingController } from './onboarding';
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import { contextPitchPattern } from '../lookup/pitch-accent';
+import { lookupPublicPitchAccent } from '../lookup/public-pitch';
 import { cardPronunciationReading, isKanjiCharacter, uniqueKanji } from '../popup/pitch';
 import type { ImageOcrController } from '../ocr/controller';
 import { isApiMiningEnabled } from '../cards/srs-providers';
@@ -438,6 +439,7 @@ export class ReaderApp {
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
         jpdbPublicPitch: this.jpdbPublicPitch,
+        jitenPublicVocabulary: this.jitenPublicVocabulary,
         jpdbVocabulary: this.jpdbVocabulary,
         anki: this.anki,
         jpdb: this.jpdb,
@@ -5964,7 +5966,10 @@ export class ReaderApp {
 
     private async ensureCardPitchAccent(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookup'>): Promise<void> {
         if (cardHasContextPitch(card) || options.publicLookup === false) return;
-        const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+        const pitchAccent = await lookupPublicPitchAccent(card, {
+            jitenPublicVocabulary: this.jitenPublicVocabulary,
+            jpdbPublicPitch: this.jpdbPublicPitch,
+        });
         if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
     }
 
@@ -6038,7 +6043,10 @@ export class ReaderApp {
             return undefined;
         }
         if (!publicCard.pitchAccent.length) {
-            publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
+            publicCard.pitchAccent = await lookupPublicPitchAccent(publicCard, {
+                jitenPublicVocabulary: this.jitenPublicVocabulary,
+                jpdbPublicPitch: this.jpdbPublicPitch,
+            });
         }
         this.rememberResolvedFallbackVocabulary(card, publicCard);
         this.parser.cacheCards?.([publicCard]);

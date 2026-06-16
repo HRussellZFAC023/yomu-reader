@@ -38,6 +38,7 @@ import {
 } from '../immersion/query';
 import { runLimited } from '../core/async-utils';
 import type { JitenApiClient, JitenKanjiInfo, JitenVocabularyInfo } from '../dictionaries/jiten';
+import type { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
 import {
     jitenKanjiFactRows,
     jitenKanjiReadingRows,
@@ -68,6 +69,7 @@ import { installOriginGraphInteractions } from '../popup/origin-graph-interactio
 import { matchesShortcut } from '../settings';
 import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
+import { lookupPublicPitchAccent } from '../lookup/public-pitch';
 import {
     buildRtkComponentSummaries,
     renderKanjiKeywordLine,
@@ -366,6 +368,7 @@ export interface NewTabControllerDependencies {
     immersionKit: ImmersionKitClient;
     jpdbVocabulary?: Pick<JpdbVocabularyClient, 'lookup'> & Partial<Pick<JpdbVocabularyClient, 'search'>>;
     jpdbPublicPitch?: Pick<JpdbPublicPitchClient, 'lookup'>;
+    jitenPublicVocabulary?: Pick<JitenPublicVocabularyClient, 'lookup'>;
     jpdbReviewBridge: JpdbReviewBridgeClient;
     parser: ReaderParser;
     dictionaries: YomitanDictionaryStore;
@@ -8195,7 +8198,10 @@ export class NewTabController {
     }
 
     private fetchPublicWordPitch(card: JPDBCard): Promise<string[]> {
-        return this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]);
+        return lookupPublicPitchAccent(card, {
+            jitenPublicVocabulary: this.dependencies.jitenPublicVocabulary,
+            jpdbPublicPitch: this.dependencies.jpdbPublicPitch,
+        }, newTabCardReading(card));
     }
 
     private async fetchLocalWordPitch(card: JPDBCard): Promise<string> {

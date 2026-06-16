@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-rYJChaQG6EwMTGS6LJRa7gXzUWF0X3nTVo6SVTmaLhc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IJ3WmY2mah0oENQYmUaFYrxh2nlbUPIr2oXqkHhrPXg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-GRGBPfZW3WfpIeQobrirkpA2Wlx8dUB0ZP1+FrsS5Sk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-HiiF858oPGDoOLswUu2ROnUM+jSA5Am9AldjTPeScBk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-F7NkXkKmC2frxPduW+BfIjaM0bPEAJvB9ejWnaWk0hw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -19845,6 +19845,32 @@ ${entry.reading || ""}`;
   function cardKey(card) {
     return `${card.vid}:${card.sid}:${card.spelling}:${card.reading}`;
   }
+  async function lookupPublicPitchAccent(card, clients, readingOverride = "") {
+    const jitenPitch = publicJitenPitchForCard(
+      card,
+      await clients.jitenPublicVocabulary?.lookup(card.spelling).catch(() => null) ?? null,
+      readingOverride
+    );
+    if (jitenPitch.length) return jitenPitch;
+    return await clients.jpdbPublicPitch?.lookup(card.spelling, readingOverride || card.reading).catch(() => []) ?? [];
+  }
+  function publicJitenPitchForCard(card, candidate, readingOverride = "") {
+    if (!candidate?.pitchAccent.length) return [];
+    const requestedSpelling = normalizedLookupText$1(card.spelling);
+    const candidateSpelling = normalizedLookupText$1(candidate.spelling);
+    const requestedReading = normalizedLookupText$1(readingOverride || card.reading);
+    const candidateReading = normalizedLookupText$1(candidate.reading);
+    const spellingMatches = Boolean(requestedSpelling && candidateSpelling === requestedSpelling);
+    const readingMatches = Boolean(requestedReading && candidateReading === requestedReading);
+    if (requestedReading && candidateReading && !readingMatches) return [];
+    if (!spellingMatches && !readingMatches) return [];
+    const reading = requestedReading || candidateReading || requestedSpelling;
+    const contextual = candidate.pitchAccent.filter((pattern) => contextPitchPattern([pattern], reading));
+    return contextual.length ? contextual : candidate.pitchAccent;
+  }
+  function normalizedLookupText$1(value) {
+    return value.replace(/\s+/g, "").trim();
+  }
   const log$f = Logger.scope("CardRenderData");
   const CARD_RENDER_DATA_CACHE_TTL_MS = 3e4;
   const CARD_RENDER_DATA_CACHE_LIMIT = 120;
@@ -19963,7 +19989,10 @@ ${entry.reading || ""}`;
     loadPublicPitch(card) {
       const settings = this.settings();
       if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
-      return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
+      return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "public pitch", lookupPublicPitchAccent(card, {
+        jitenPublicVocabulary: this.dependencies.jitenPublicVocabulary,
+        jpdbPublicPitch: this.dependencies.jpdbPublicPitch
+      }).catch((error) => {
         log$f.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
       }), []);
@@ -35775,6 +35804,7 @@ ${glossaryKey}`;
       getSettings: () => this.settings,
       dictionaries: this.dictionaries,
       jpdbPublicPitch: this.jpdbPublicPitch,
+      jitenPublicVocabulary: this.jitenPublicVocabulary,
       jpdbVocabulary: this.jpdbVocabulary,
       anki: this.anki,
       jpdb: this.jpdb,
@@ -40267,7 +40297,10 @@ ${glossaryKey}`;
     }
     async ensureCardPitchAccent(card, options) {
       if (cardHasContextPitch(card) || options.publicLookup === false) return;
-      const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+      const pitchAccent = await lookupPublicPitchAccent(card, {
+        jitenPublicVocabulary: this.jitenPublicVocabulary,
+        jpdbPublicPitch: this.jpdbPublicPitch
+      });
       if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
     }
     applyResolvedPitchCardToToken(token, fallback, card, pitchClass) {
@@ -40331,7 +40364,10 @@ ${glossaryKey}`;
         return void 0;
       }
       if (!publicCard.pitchAccent.length) {
-        publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
+        publicCard.pitchAccent = await lookupPublicPitchAccent(publicCard, {
+          jitenPublicVocabulary: this.jitenPublicVocabulary,
+          jpdbPublicPitch: this.jpdbPublicPitch
+        });
       }
       this.rememberResolvedFallbackVocabulary(card, publicCard);
       this.parser.cacheCards?.([publicCard]);

@@ -87,6 +87,7 @@ import {
 } from '../popup/render';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
 import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
+import { lookupPublicPitchAccent } from '../lookup/public-pitch';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
@@ -245,6 +246,7 @@ export class NewTabRuntime {
         getSettings: () => this.settings,
         dictionaries: this.dictionaries,
         jpdbPublicPitch: this.jpdbPublicPitch,
+        jitenPublicVocabulary: this.jitenPublicVocabulary,
         jpdbVocabulary: this.jpdbVocabulary,
         anki: this.anki,
         jpdb: this.jpdb,
@@ -535,6 +537,7 @@ export class NewTabRuntime {
             immersionKit: this.immersionKit,
             jpdbVocabulary: this.jpdbVocabulary,
             jpdbPublicPitch: this.jpdbPublicPitch,
+            jitenPublicVocabulary: this.jitenPublicVocabulary,
             jpdbReviewBridge: this.jpdbReviewBridge,
             parser: this.parser,
             dictionaries: this.dictionaries,
@@ -1952,7 +1955,10 @@ export class NewTabRuntime {
         );
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
-            const pitchAccent = await this.jpdbPublicPitch.lookup(token.card.spelling, token.card.reading).catch(() => []);
+            const pitchAccent = await lookupPublicPitchAccent(token.card, {
+                jitenPublicVocabulary: this.jitenPublicVocabulary,
+                jpdbPublicPitch: this.jpdbPublicPitch,
+            });
             if (!pitchAccent.length) return;
             if (!token.card.pitchAccent.length) token.card.pitchAccent = pitchAccent;
             this.applyPitchAccentToRenderedWords(token.card);
@@ -1974,7 +1980,10 @@ export class NewTabRuntime {
                 this.unwrapRenderedFallbackWords(token.card);
                 return;
             }
-            if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+            if (!card.pitchAccent.length) card.pitchAccent = await lookupPublicPitchAccent(card, {
+                jitenPublicVocabulary: this.jitenPublicVocabulary,
+                jpdbPublicPitch: this.jpdbPublicPitch,
+            });
             this.parser.cacheCards?.([card]);
             this.applyPublicVocabularyToRenderedWords(token.card, card);
         });
@@ -2233,7 +2242,10 @@ export class NewTabRuntime {
         await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
             if (!card) return;
-            if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
+            if (!card.pitchAccent.length) card.pitchAccent = await lookupPublicPitchAccent(card, {
+                jitenPublicVocabulary: this.jitenPublicVocabulary,
+                jpdbPublicPitch: this.jpdbPublicPitch,
+            });
             const surface = token.sentence?.slice(token.start, token.end) || card.spelling;
             token.card = card;
             token.rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);

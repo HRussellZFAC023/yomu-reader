@@ -17,7 +17,6 @@ import {
 } from './subtitle-cues';
 import {
     TRANSCRIPT_PANEL_MARGIN,
-    TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT,
     applyTranscriptPanelLayout,
     computeSubtitleDrawerLayout,
     loadTranscriptPanelSize,
@@ -516,6 +515,7 @@ export class SubtitlePlayerController {
     private discoverTimer?: number;
     private tickTimer?: number;
     private alignFrame?: number;
+    private alignAfterTranscriptResize = false;
     private lastAlignedVideoRectKey = '';
     private lastShortsNavVideoId = '';
     private destroyed = false;
@@ -584,6 +584,7 @@ export class SubtitlePlayerController {
     private pausePanelSyncScheduled = false;
     private subtitleDragOffsetYPx = 0;
     private subtitleDragActive = false;
+    private transcriptResizeActive = false;
     private asbMoveHandlesActive = false;
     private readonly asbSubtitleDragHandles = new WeakSet<HTMLElement>();
     private readonly asbSubtitleBaseTransforms = new WeakMap<HTMLElement, string>();
@@ -2264,7 +2265,11 @@ export class SubtitlePlayerController {
         settings.subtitleTranscriptPlacement = placement;
         if (placement !== 'bottom') this.clampStoredSideWidthForCurrentVideo(placement);
         this.options.onSettingsChange();
-        this.renderOpenSubtitlePanel();
+        if (this.panelMode === 'tracks' || !this.hasTranscriptSurface()) this.renderOpenSubtitlePanel();
+        else {
+            this.lastTranscriptSignature = '';
+            this.syncPanelPlacementButtons();
+        }
         this.videoInset.clear(this.video);
         this.positionTranscriptPanel({ realignAfterInset: true });
         this.syncControls();
@@ -3742,6 +3747,11 @@ export class SubtitlePlayerController {
         const startWidth = panelRect.width;
         const startHeight = panelRect.height;
         const originalSize = { ...this.transcriptPanelSize };
+        this.transcriptResizeActive = true;
+        this.alignAfterTranscriptResize = false;
+        this.transcriptPanel.classList.add('jpdb-subtitle-resizing');
+        this.root?.classList.add('jpdb-subtitle-resizing');
+        document.documentElement.classList.add('jpdb-subtitle-transcript-resizing');
         (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
 
         // pointermove fires far faster than the display refreshes; coalesce the
@@ -3764,13 +3774,17 @@ export class SubtitlePlayerController {
             resizeFrame = requestAnimationFrame(() => {
                 resizeFrame = undefined;
                 if (this.destroyed) return;
-                this.positionTranscriptPanel({ skipInset: true });
+                this.positionTranscriptPanel({ skipInset: true, skipControlSync: true });
             });
         };
 
         const onUp = (upEvent: PointerEvent) => {
             window.removeEventListener('pointermove', onMove);
             window.removeEventListener('pointerup', onUp);
+            this.transcriptResizeActive = false;
+            this.transcriptPanel?.classList.remove('jpdb-subtitle-resizing');
+            this.root?.classList.remove('jpdb-subtitle-resizing');
+            document.documentElement.classList.remove('jpdb-subtitle-transcript-resizing');
             if (resizeFrame !== undefined) {
                 cancelAnimationFrame(resizeFrame);
                 resizeFrame = undefined;
@@ -3783,6 +3797,10 @@ export class SubtitlePlayerController {
             }
             saveTranscriptPanelSize(this.transcriptPanelSize);
             this.positionTranscriptPanel({ realignAfterInset: true });
+            if (this.alignAfterTranscriptResize) {
+                this.alignAfterTranscriptResize = false;
+                this.scheduleAlignToVideo();
+            }
         };
 
         window.addEventListener('pointermove', onMove, this.eventOptions());
@@ -3811,10 +3829,11 @@ export class SubtitlePlayerController {
     private syncTranscriptResizeHandle(layout?: TranscriptPanelLayout): void {
         const handle = this.transcriptPanel?.querySelector<HTMLElement>('[data-resize-transcript]');
         if (!handle) return;
+        const panelRect = layout ? undefined : this.transcriptPanel?.getBoundingClientRect();
         const metrics = transcriptResizeHandleMetrics({
             bounds: transcriptResizeBounds(this.transcriptViewportWidth(), this.transcriptViewportHeight()),
             layout,
-            panelRect: this.transcriptPanel?.getBoundingClientRect(),
+            panelRect,
             placement: this.effectiveTranscriptPlacement,
         });
         handle.setAttribute('role', 'separator');
@@ -4236,7 +4255,7 @@ export class SubtitlePlayerController {
         if (cleared) log.info('Cleared parsed ASBPlayer subtitle lines', { roots: roots.length, cleared });
     }
 
-    private positionTranscriptPanel(options: { realignAfterInset?: boolean; skipInset?: boolean } = {}): void {
+    private positionTranscriptPanel(options: { realignAfterInset?: boolean; skipInset?: boolean; skipControlSync?: boolean } = {}): void {
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
             return;
@@ -4270,11 +4289,12 @@ export class SubtitlePlayerController {
             preferredPlacement: settings.subtitleTranscriptPlacement,
             size: this.transcriptPanelSize,
         }, referenceVideoRect);
+        const placementChanged = layout.placement !== this.effectiveTranscriptPlacement;
         applyTranscriptPanelLayout(panel, layout);
         this.effectiveTranscriptPlacement = layout.placement;
-        this.syncTranscriptPlacementClass();
+        if (placementChanged) this.syncTranscriptPlacementClass();
         this.syncTranscriptResizeHandle(layout);
-        this.syncDrawerButtons(this.hasVisibleSubtitleLines());
+        if (!options.skipControlSync) this.syncDrawerButtons(this.hasVisibleSubtitleLines());
         const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
             resizeEventMode: options.skipInset ? 'settled' : 'immediate',
         });
@@ -4291,26 +4311,7 @@ export class SubtitlePlayerController {
                 preferredPlacement: 'bottom',
             })
             : layout;
-        return this.constrainDefaultYouTubeBottomTranscriptLayout(resolvedLayout, layoutOptions, referenceVideoRect);
-    }
-
-    private constrainDefaultYouTubeBottomTranscriptLayout(
-        layout: TranscriptPanelLayout,
-        options: SubtitleDrawerLayoutOptions,
-        referenceVideoRect: DOMRect,
-    ): TranscriptPanelLayout {
-        if (!isYouTubePage() || layout.placement !== 'bottom' || options.size?.bottomHeight !== undefined) return layout;
-        const availableBelowVideo = Math.floor(layout.viewportHeight - referenceVideoRect.bottom - TRANSCRIPT_PANEL_MARGIN);
-        if (availableBelowVideo < TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT || layout.height <= availableBelowVideo) return layout;
-        return computeSubtitleDrawerLayout({
-            ...options,
-            compactPanel: true,
-            preferredPlacement: 'bottom',
-            size: {
-                ...(options.size ?? {}),
-                bottomHeight: availableBelowVideo,
-            },
-        });
+        return resolvedLayout;
     }
 
     private withConstrainedSideTranscriptSize(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): SubtitleDrawerLayoutOptions {
@@ -4492,6 +4493,10 @@ export class SubtitlePlayerController {
     }
 
     private scheduleAlignToVideo(): void {
+        if (this.transcriptResizeActive) {
+            this.alignAfterTranscriptResize = true;
+            return;
+        }
         if (this.alignFrame) cancelAnimationFrame(this.alignFrame);
         this.alignFrame = requestAnimationFrame(() => {
             this.alignFrame = undefined;
@@ -4530,7 +4535,7 @@ export class SubtitlePlayerController {
             this.clearVideoInsetForTranscriptPanel();
             return false;
         }
-        const panelRect = this.transcriptPanel?.getBoundingClientRect();
+        const panelRect = panelSize === undefined ? this.transcriptPanel?.getBoundingClientRect() : undefined;
         return this.videoInset.apply({
             video: this.video,
             side,

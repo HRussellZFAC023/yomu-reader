@@ -28,17 +28,19 @@ const PAGE_PATH = '/pitch-underline.html';
 const TARGET = '英会話';
 const READING = 'えいかいわ';
 const SENTENCE = `${TARGET}の練習をします。`;
+const JITEN_WORD_ID = 424242;
+const JITEN_READING_INDEX = 0;
 const PITCH_COLOR = '#f59e0b';
 const EXPECT_MODE = process.env.YOMU_PITCH_UNDERLINE_EXPECT === 'broken' ? 'broken' : 'fixed';
 const SCREENSHOT_NAME = EXPECT_MODE === 'broken'
     ? 'pitch-underline-repro-before.png'
-    : 'pitch-underline-fixed-real-pitch.png';
+    : 'pitch-underline-fixed-jiten-pitch.png';
 const WORD_SCREENSHOT_NAME = EXPECT_MODE === 'broken'
     ? 'pitch-underline-word-before.png'
     : 'pitch-underline-word-fixed.png';
 const REPORT_NAME = EXPECT_MODE === 'broken'
     ? 'pitch-underline-repro-before.json'
-    : 'pitch-underline-fixed-real-pitch.json';
+    : 'pitch-underline-fixed-jiten-pitch.json';
 const TARGET_RGB = hexToRgb(PITCH_COLOR);
 
 const settings = {
@@ -123,8 +125,10 @@ try {
     }, wordSelector, { timeout: 20_000 });
     await page.waitForTimeout(120);
 
-    const pitchRequestCount = requests.filter(request => request.kind === 'jpdb-public-pitch').length;
-    assert(pitchRequestCount > 0, 'Expected real JPDB public pitch lookup to be used.', { requests });
+    const jitenPitchRequestCount = requests.filter(request => request.kind === 'jiten-public-parse' || request.kind === 'jiten-public-detail').length;
+    const jpdbPublicPitchRequestCount = requests.filter(request => request.kind === 'jpdb-public-pitch').length;
+    assert(jitenPitchRequestCount >= 2, 'Expected public Jiten pitch lookup to be used.', { requests });
+    assert(jpdbPublicPitchRequestCount === 0, 'Expected public Jiten pitch to avoid JPDB public pitch scraping.', { requests });
 
     const geometry = await wordGeometry(page, wordSelector);
     const rubyDecorations = await rubyDecorationInfo(page, wordSelector);
@@ -152,7 +156,8 @@ try {
         reading: READING,
         sentence: SENTENCE,
         pitchClass: geometry.pitchClass,
-        pitchRequests: requests.filter(request => request.kind === 'jpdb-public-pitch').map(request => request.url),
+        jitenPublicRequests: requests.filter(request => request.kind === 'jiten-public-parse' || request.kind === 'jiten-public-detail').map(request => request.url),
+        jpdbPublicPitchRequests: requests.filter(request => request.kind === 'jpdb-public-pitch').map(request => request.url),
         parseRequests: requests.filter(request => request.kind === 'jpdb-parse').length,
         screenshot: screenshotPath,
         wordScreenshot: path.join(ARTIFACTS, WORD_SCREENSHOT_NAME),
@@ -250,20 +255,40 @@ function serveFixture(request, response) {
 
 async function handleYomuRequest(request, requestsLog) {
     const url = new URL(request.url);
+    if (url.origin === 'https://api.jiten.moe' && url.pathname === '/api/vocabulary/parse') {
+        requestsLog.push({ kind: 'jiten-public-parse', url: request.url });
+        return jsonHttpResponse([{
+            wordId: JITEN_WORD_ID,
+            readingIndex: JITEN_READING_INDEX,
+            originalText: TARGET,
+        }]);
+    }
+    if (url.origin === 'https://api.jiten.moe' && url.pathname === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/info`) {
+        requestsLog.push({ kind: 'jiten-public-detail', url: request.url });
+        return jsonHttpResponse({
+            wordId: JITEN_WORD_ID,
+            mainReading: {
+                text: `${TARGET}[${READING}]`,
+                frequencyRank: 3000,
+            },
+            partsOfSpeech: ['noun'],
+            definitions: [{
+                meanings: ['English conversation'],
+                partsOfSpeech: ['noun'],
+            }],
+            pitchAccents: [1],
+        });
+    }
     if (url.origin === 'https://jpdb.io' && url.pathname === '/api/v1/parse') {
         requestsLog.push({ kind: 'jpdb-parse', url: request.url });
         return jsonHttpResponse(jpdbParseResponse());
     }
     if (url.origin === 'https://jpdb.io' && url.pathname === '/search') {
         requestsLog.push({ kind: 'jpdb-public-pitch', url: request.url });
-        const response = await fetch(request.url, {
-            method: request.method || 'GET',
-            headers: request.headers ?? {},
-        });
         return {
-            status: response.status,
-            responseText: await response.text(),
-            contentType: response.headers.get('content-type') ?? 'text/html; charset=utf-8',
+            status: 503,
+            responseText: '',
+            contentType: 'text/html; charset=utf-8',
         };
     }
     requestsLog.push({ kind: 'unexpected', url: request.url });
