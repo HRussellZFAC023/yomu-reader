@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.76] - 2026-06-16
+
+### Fixed
+
+- Fixed YouTube DOM instability on real watch pages where decorated title, channel, viewer-count, and live-chat text could disappear, reappear, or duplicate after YouTube/Polymer rerendered managed text nodes.
+- YouTube watch metadata now uses DOM-safe mirrors for ruby and pitch, avoids hidden rolling-number text in watch-info rows, prevents nested enhancement wrappers, and covers current live-chat teaser and `/live_chat` iframe surfaces.
+- Added real-YouTube smoke coverage for the target watch page, a normal watch page, the home feed, and a live-chat watch page, including sustained rerender/scroll/hover checks, duplicate-wrapper checks, missing-parsing checks, and idle reparse sanity.
+
 ## [0.7.75] - 2026-06-16
 
 ### Fixed
@@ -7,6 +15,12 @@
 - Kept YouTube transcript resize/orientation responsive by aborting transcript row hydration and background parse warmup during drag, then resuming it after the panel settles; this removes the parse/DOM work that could fight the resize loop on iPad.
 - Added a Playwright resize profiler for iPad landscape/portrait, iPhone, and desktop that measures open, drag, page scroll while the panel is open, and orientation changes for right/left/bottom transcript placements.
 - Revalidated iPad YouTube left/right/bottom placement with screenshot-backed DOM evidence: left and right shift the video plus title/actions/description beside the panel, while bottom overlays without resizing the player.
+
+## [0.7.73] - 2026-06-16
+
+### Fixed
+
+- Initial YouTube DOM-safe text decoration release for watch/home surfaces; superseded by 0.7.76 after real-site verification found YouTube watch-info rolling-number and live-chat iframe coverage needed the additional hardening above.
 
 ## [0.7.72] - 2026-06-16
 

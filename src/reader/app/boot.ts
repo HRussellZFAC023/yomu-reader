@@ -25,7 +25,7 @@ const RUNTIME_MARKER_OBSERVER_OPTIONS: MutationObserverInit = {
     attributeFilter: ['data-yomu-runtime-kind', 'data-yomu-runtime-owner'],
 };
 const YOUTUBE_PLAYBACK_HOST_RE = /(^|\.)youtube(?:-nocookie)?\.com$/i;
-const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts)(?:[/?#]|$)/i;
+const YOUTUBE_PLAYBACK_PATH_RE = /^\/(?:embed|watch|shorts|live_chat)(?:[/?#]|$)/i;
 let activeRuntime: ActiveRuntime | undefined;
 
 export function bootReaderApp(): void {

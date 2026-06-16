@@ -15,7 +15,7 @@ import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/lookup/d
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/sources/definition-render';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
 import { DictionarySourceStateController } from '../../src/reader/sources/state';
-import { applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords, type ScanTextTarget } from '../../src/reader/dom/index';
+import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords, type ScanTextTarget } from '../../src/reader/dom/index';
 import { FloatingButtonController } from '../../src/reader/ui/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion/kit';
 import type { JitenApiClient } from '../../src/reader/dictionaries/jiten';
@@ -7138,6 +7138,10 @@ describe('reader helpers', () => {
             lookupText: typeof lookupText;
         };
         internals.lookupText = lookupText;
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: false,
+        }));
         const image = createFallbackOcrImage('日本語');
 
         const text = document.createElement('p');
@@ -7175,6 +7179,7 @@ describe('reader helpers', () => {
         } finally {
             if (elementFromPointDescriptor) Object.defineProperty(document, 'elementFromPoint', elementFromPointDescriptor);
             else delete (document as Partial<Document>).elementFromPoint;
+            localStorage.removeItem(SETTINGS_STORAGE_KEY);
             app.destroy();
             vi.unstubAllGlobals();
             document.body.replaceChildren();
@@ -31701,6 +31706,118 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(engagementWord)).toBe('会話');
         expect(engagementWord.querySelector('rt')?.textContent).toBe('かいわ');
         expect(document.querySelector('yt-live-chat-viewer-engagement-message-renderer button .jpdb-reader-word')).toBeNull();
+    });
+
+    it('uses YouTube watch-info aria labels instead of hidden rolling-number text', async () => {
+        const targets = collectYouTubeTargets(`
+            <ytd-watch-metadata>
+                <ytd-watch-info-text role="button">
+                    <div id="info-container">
+                        <div id="view-count" aria-label="226 人が視聴中">
+                            <yt-animated-rolling-number aria-hidden="true">
+                                <animated-rolling-character>12345678901234567890123456789</animated-rolling-character>
+                            </yt-animated-rolling-number>
+                            <yt-formatted-string aria-hidden="true">人が視聴中</yt-formatted-string>
+                        </div>
+                        <div id="date-text" aria-label="35 分前にライブ配信開始">
+                            <yt-animated-rolling-number aria-hidden="true">
+                                <animated-rolling-character>12345678901234567890123456789</animated-rolling-character>
+                            </yt-animated-rolling-number>
+                            <yt-formatted-string aria-hidden="true">分前にライブ配信開始</yt-formatted-string>
+                        </div>
+                    </div>
+                </ytd-watch-info-text>
+            </ytd-watch-metadata>
+        `, YOUTUBE_WATCH_TEST_URL, undefined);
+
+        const watchInfo = targets.find(target => target.parent.matches('ytd-watch-info-text'))!;
+        expect(watchInfo.text).toBe('226 人が視聴中 • 35 分前にライブ配信開始');
+        expect(watchInfo.text).not.toContain('12345678901234567890123456789');
+
+        const host = document.querySelector<HTMLElement>('ytd-watch-info-text')!;
+        let staleEvents = 0;
+        host.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, () => staleEvents += 1);
+        applyTokensToScanTarget(watchInfo, [{
+            card: { ...card, cardState: ['known'], spelling: '視聴', reading: 'しちょう', source: 'jpdb' },
+            start: 6,
+            end: 8,
+            length: 2,
+            rubies: [{ text: 'しちょう', start: 6, end: 8, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '226 人が視聴中 • 35 分前にライブ配信開始',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        document.querySelector('animated-rolling-character')!.textContent = '98765432109876543210987654321';
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        expect(staleEvents).toBe(0);
+        expect(document.querySelectorAll('ytd-watch-info-text .jpdb-reader-text-mirror')).toHaveLength(1);
+        expect(document.querySelector('ytd-watch-info-text .jpdb-reader-text-mirror')!.textContent).not.toContain('9876543210');
+    });
+
+    it('scans YouTube live-chat frame fallback text', () => {
+        const targets = collectYouTubeTargets(`
+            <main>
+                <h1>チャットをご利用いただけません</h1>
+                <p>お使いのブラウザのバージョンが古いようです。チャットを使用するには、ブラウザをアップデートしてください。</p>
+            </main>
+        `, 'https://www.youtube.com/live_chat?continuation=test', undefined);
+
+        const unavailable = targets.find(target => target.text.includes('チャットをご利用いただけません'))!;
+        expect(unavailable).toMatchObject({ nonDestructive: true });
+        applyTokensToScanTarget(unavailable, [{
+            card: { ...card, cardState: ['known'], spelling: 'チャット', reading: 'チャット', source: 'jpdb' },
+            start: 0,
+            end: 4,
+            length: 4,
+            rubies: [{ text: 'チャット', start: 0, end: 4, length: 4 }],
+            pitchClass: 'heiban',
+            sentence: 'チャットをご利用いただけません',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const chatWord = document.querySelector<HTMLElement>('main .jpdb-reader-text-mirror .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(chatWord)).toBe('チャット');
+        expectRenderedPitchWord(chatWord, 'heiban');
+    });
+
+    it('scans YouTube watch metadata live-chat teaser carousel text', () => {
+        const targets = collectYouTubeWatchTargets(`
+            <ytd-watch-metadata>
+                <div id="teaser-carousel">
+                    <yt-video-metadata-carousel-view-model>
+                        <yt-carousel-title-view-model>
+                            <h2>チャット</h2>
+                        </yt-carousel-title-view-model>
+                        <yt-text-carousel-item-view-model>
+                            <span class="ytAttributedStringHost">会話に参加して、クリエイターや、このライブ配信を視聴している人たちと交流する。</span>
+                            <button>パネルを開く</button>
+                        </yt-text-carousel-item-view-model>
+                    </yt-video-metadata-carousel-view-model>
+                </div>
+            </ytd-watch-metadata>
+        `);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            'チャット',
+            '会話に参加して、クリエイターや、このライブ配信を視聴している人たちと交流する。',
+            'パネルを開く',
+        ]));
+
+        const engagement = targets.find(target => target.text.startsWith('会話に参加して'))!;
+        applyTokensToScanTarget(engagement, [{
+            card: { ...card, cardState: ['known'], spelling: '会話', reading: 'かいわ', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'かいわ', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '会話に参加して、クリエイターや、このライブ配信を視聴している人たちと交流する。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const engagementWord = document.querySelector<HTMLElement>('yt-text-carousel-item-view-model .jpdb-reader-text-mirror .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(engagementWord)).toBe('会話');
+        expect(engagementWord.querySelector('rt')?.textContent).toBe('かいわ');
+        expectRenderedPitchWord(engagementWord, 'heiban');
     });
 
     it('scans YouTube player settings submenu labels', () => {

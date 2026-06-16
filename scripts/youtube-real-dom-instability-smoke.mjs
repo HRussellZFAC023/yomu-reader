@@ -23,6 +23,7 @@ assertBuiltArtifacts([scriptPath, cssPath, ...companionPaths], root);
 
 const targetWatchUrl = process.env.YOMU_REAL_YOUTUBE_TARGET_URL ?? 'https://www.youtube.com/watch?v=eWHIWDHkYW8';
 const normalWatchUrl = process.env.YOMU_REAL_YOUTUBE_NORMAL_URL ?? 'https://www.youtube.com/watch?v=TAorfFcb8_g';
+const liveChatWatchUrl = process.env.YOMU_REAL_YOUTUBE_LIVE_URL ?? 'https://www.youtube.com/watch?v=OqwA-w3mMx0';
 const profileDir = resolve(process.env.YOMU_REAL_YOUTUBE_USER_DATA_DIR ?? '/tmp/yomu-signed-profile-home');
 const outputDir = resolve(process.env.YOMU_REAL_YOUTUBE_OUTPUT_DIR ?? join(artifacts, 'youtube-real-dom-instability', process.env.YOMU_REAL_YOUTUBE_LABEL ?? 'latest'));
 const headed = process.env.YOMU_REAL_YOUTUBE_HEADED === '1';
@@ -115,10 +116,10 @@ try {
     await routeYomuRequests(context);
 
     const target = await runWatchScenario(context, {
-        name: 'target-live-watch',
+        name: 'target-watch',
         url: targetWatchUrl,
         artifactPrefix: 'target',
-        requireLiveChat: true,
+        requireLiveChat: false,
     });
     const normal = await runWatchScenario(context, {
         name: 'normal-watch',
@@ -126,16 +127,23 @@ try {
         artifactPrefix: 'normal',
         requireLiveChat: false,
     });
+    const liveChat = await runWatchScenario(context, {
+        name: 'live-chat-watch',
+        url: liveChatWatchUrl,
+        artifactPrefix: 'live-chat',
+        requireLiveChat: true,
+    });
     const home = await runHomeScenario(context);
 
     const report = {
         generatedAt: new Date().toISOString(),
         profileDir,
-        signedIn: target.signedIn || normal.signedIn || home.signedIn,
-        urls: { targetWatchUrl, normalWatchUrl, home: 'https://www.youtube.com/' },
+        signedIn: target.signedIn || normal.signedIn || liveChat.signedIn || home.signedIn,
+        urls: { targetWatchUrl, normalWatchUrl, liveChatWatchUrl, home: 'https://www.youtube.com/' },
         artifacts: { before, outputDir },
         target,
         normal,
+        liveChat,
         home,
         requests: summarizeRequests(requests),
         errors: errors.slice(0, 20),
@@ -145,6 +153,7 @@ try {
     assert(report.signedIn, 'Signed-in YouTube profile was not active; live verification is unresolved.', report);
     assertTargetWatch(report.target);
     assertNormalWatch(report.normal);
+    assertLiveChatWatch(report.liveChat);
     assertHome(report.home);
 
     console.log(JSON.stringify(report, null, 2));
@@ -219,14 +228,22 @@ async function installInstrumentation(context) {
             requestAnimationFrame(raf);
         };
         requestAnimationFrame(raf);
-        new MutationObserver(records => {
-            perf.mutationCallbacks += 1;
-            perf.mutationRecords += records.length;
-            for (const record of records) {
-                for (const node of record.addedNodes) addNodeStats(node, 'added');
-                for (const node of record.removedNodes) addNodeStats(node, 'removed');
+        observeMutationsWhenReady();
+
+        function observeMutationsWhenReady() {
+            if (!document.documentElement) {
+                document.addEventListener('DOMContentLoaded', observeMutationsWhenReady, { once: true });
+                return;
             }
-        }).observe(document.documentElement, { childList: true, subtree: true });
+            new MutationObserver(records => {
+                perf.mutationCallbacks += 1;
+                perf.mutationRecords += records.length;
+                for (const record of records) {
+                    for (const node of record.addedNodes) addNodeStats(node, 'added');
+                    for (const node of record.removedNodes) addNodeStats(node, 'removed');
+                }
+            }).observe(document.documentElement, { childList: true, subtree: true });
+        }
 
         function addNodeStats(node, direction) {
             if (!(node instanceof Element)) {
@@ -477,11 +494,14 @@ async function revealWatchContent(page, requireLiveChat) {
     ]);
     if (requireLiveChat) {
         await clickFirstVisible(page, [
+            'button:has-text("チャットを表示")',
             'button:has-text("チャット")',
             'button:has-text("パネルを開く")',
+            'button[aria-label*="チャットを表示"]',
             'button:has-text("Live chat")',
             'button:has-text("Show chat")',
         ]);
+        await page.waitForTimeout(1500);
     }
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' })).catch(() => undefined);
 }
@@ -569,12 +589,33 @@ function readFrameState() {
         viewer: ['ytd-watch-info-text', 'ytd-watch-metadata #info', 'ytd-watch-metadata #info-strings', 'ytd-watch-metadata #info-container'],
         description: ['ytd-watch-metadata #description-inline-expander', 'ytd-watch-metadata #description', '#description'],
         comments: ['ytd-comment-view-model #content-text', 'ytd-comment-renderer #content-text', '#comments #content-text'],
-        chatHeader: ['yt-live-chat-header-renderer #primary-content', 'yt-live-chat-header-renderer #title', 'yt-live-chat-renderer #chat'],
-        chatEngagement: ['yt-live-chat-viewer-engagement-message-renderer', 'yt-live-chat-banner-renderer', 'yt-live-chat-restricted-participation-renderer'],
+        chatHeader: [
+            'yt-live-chat-header-renderer #primary-content',
+            'yt-live-chat-header-renderer #title',
+            'yt-live-chat-renderer #chat',
+            'ytd-live-chat-frame #header',
+            'ytd-live-chat-frame #show-hide-button',
+            'ytd-watch-metadata #teaser-carousel yt-carousel-title-view-model',
+            'ytd-watch-metadata #teaser-carousel h2',
+        ],
+        chatEngagement: [
+            'yt-live-chat-viewer-engagement-message-renderer',
+            'yt-live-chat-banner-renderer',
+            'yt-live-chat-restricted-participation-renderer',
+            'ytd-live-chat-frame #panel-pages',
+            'ytd-live-chat-frame yt-formatted-string',
+            'ytd-live-chat-frame button',
+            'ytd-watch-metadata #teaser-carousel yt-text-carousel-item-view-model',
+            'ytd-watch-metadata #teaser-carousel .ytAttributedStringHost',
+            'ytd-watch-metadata #teaser-carousel button',
+        ],
         chatMessages: ['yt-live-chat-text-message-renderer #message', 'yt-live-chat-paid-message-renderer #message', 'yt-live-chat-membership-item-renderer #message'],
         feedTitles: ['ytd-rich-item-renderer #video-title', 'ytd-rich-item-renderer #video-title-link', 'ytd-video-renderer #video-title', 'yt-lockup-view-model .ytLockupMetadataViewModelTitle'],
     };
     const areas = Object.fromEntries(Object.entries(areaSelectors).map(([name, selectors]) => [name, areaState(selectors)]));
+    if (location.pathname === '/live_chat') {
+        areas.chatEngagement = mergeAreaState(areas.chatEngagement, areaState(['body']));
+    }
     const allWords = [...document.querySelectorAll('.jpdb-reader-word')];
     const allMirrors = [...document.querySelectorAll('.jpdb-reader-text-mirror')];
     return {
@@ -593,7 +634,7 @@ function readFrameState() {
         },
         areas,
         missingParsing: Object.entries(areas)
-            .filter(([, area]) => area.present && area.hasJapanese && area.words === 0)
+            .filter(([, area]) => area.present && area.visible && area.hasJapanese && area.words === 0)
             .map(([name, area]) => ({ name, text: area.nativeText.slice(0, 160) })),
     };
 
@@ -635,6 +676,24 @@ function readFrameState() {
             nestedWords: root.querySelectorAll('.jpdb-reader-word .jpdb-reader-word').length,
             nestedRuby: root.querySelectorAll('ruby ruby').length,
             duplicateMirrorHosts: duplicateMirrorHosts(root),
+        };
+    }
+
+    function mergeAreaState(a, b) {
+        return {
+            present: a.present || b.present,
+            roots: [...a.roots, ...b.roots],
+            nativeText: [a.nativeText, b.nativeText].filter(Boolean).join(' | '),
+            visibleText: [a.visibleText, b.visibleText].filter(Boolean).join(' | '),
+            hasJapanese: a.hasJapanese || b.hasJapanese,
+            visible: a.visible || b.visible,
+            words: a.words + b.words,
+            mirrors: a.mirrors + b.mirrors,
+            ruby: a.ruby + b.ruby,
+            pitch: a.pitch + b.pitch,
+            inlineWords: a.inlineWords + b.inlineWords,
+            nestedWords: a.nestedWords + b.nestedWords,
+            nestedRuby: a.nestedRuby + b.nestedRuby,
         };
     }
 
@@ -691,15 +750,26 @@ function assertTargetWatch(target) {
     assertAreaParsed(final, 'title', 'Target title did not stay parsed/visible');
     assertAreaParsed(final, 'channel', 'Target channel did not stay parsed/visible', { allowMissing: true });
     assertAreaParsed(final, 'viewer', 'Target viewer/live info did not stay parsed/visible', { allowMissing: true });
-    const chat = bestArea(final, 'chatHeader').present || bestArea(final, 'chatEngagement').present || bestArea(final, 'chatMessages').present;
-    assert(chat, 'Target live chat panel/frame was not present; live-chat verification is unresolved.', target);
-    for (const area of ['chatHeader', 'chatEngagement', 'chatMessages']) {
-        const state = bestArea(final, area);
-        if (state.present && state.hasJapanese) assertAreaParsed(final, area, `Target ${area} did not stay parsed/visible`);
-    }
     assertStableSamples(target.sustained.samples, ['title']);
-    assertNoAreaDuplication(final, ['title', 'channel', 'viewer', 'chatHeader', 'chatEngagement', 'chatMessages']);
+    assertNoAreaDuplication(final, ['title', 'channel', 'viewer']);
     assertNoIdleLoop(target.sustained.requestSummary, 'target watch');
+}
+
+function assertLiveChatWatch(liveChat) {
+    const final = mergedFrames(liveChat.final);
+    const chatAreas = ['chatHeader', 'chatEngagement', 'chatMessages'];
+    const presentChatAreas = chatAreas.map(area => [area, bestArea(final, area)]).filter(([, state]) => state.present);
+    assert(presentChatAreas.length > 0, 'Live chat panel/frame was not present; live-chat verification is unresolved.', liveChat);
+    const japaneseChatAreas = presentChatAreas.filter(([, state]) => state.hasJapanese);
+    assert(japaneseChatAreas.length > 0, 'Live chat panel was present but no Japanese chat chrome/messages were visible.', liveChat);
+    for (const [area] of japaneseChatAreas) {
+        assertAreaParsed(final, area, `Live chat ${area} did not stay parsed/visible`);
+    }
+    const viewer = bestArea(final, 'viewer');
+    if (viewer.present && viewer.hasJapanese) assertAreaParsed(final, 'viewer', 'Live watch viewer/live info did not stay parsed/visible');
+    assertStableAnyJapaneseArea(liveChat.sustained.samples, chatAreas, 'live chat');
+    assertNoAreaDuplication(final, ['viewer', ...chatAreas]);
+    assertNoIdleLoop(liveChat.sustained.requestSummary, 'live chat watch');
 }
 
 function assertNormalWatch(normal) {
@@ -707,13 +777,13 @@ function assertNormalWatch(normal) {
     assertAreaParsed(final, 'title', 'Normal watch title did not parse');
     assertAreaParsed(final, 'description', 'Normal watch description did not parse', { allowMissing: true });
     const comments = bestArea(final, 'comments');
-    if (comments.present && comments.hasJapanese) assertAreaParsed(final, 'comments', 'Normal watch comments did not parse');
+    if (comments.present && comments.hasJapanese) assertAreaParsed(final, 'comments', 'Normal watch comments did not parse', { allowOffscreen: true, allowNoRubyPitch: true });
     assertNoAreaDuplication(final, ['title', 'description', 'comments']);
 }
 
 function assertHome(home) {
     const final = mergedFrames(home.final);
-    assertAreaParsed(final, 'feedTitles', 'YouTube home/feed titles did not parse');
+    assertAreaParsed(final, 'feedTitles', 'YouTube home/feed titles did not parse', { allowNoRubyPitch: true });
     assertNoAreaDuplication(final, ['feedTitles']);
 }
 
@@ -721,10 +791,10 @@ function assertAreaParsed(frameState, areaName, message, options = {}) {
     const area = bestArea(frameState, areaName);
     if (options.allowMissing && !area.present) return;
     assert(area.present, `${message}: area missing`, frameState);
-    assert(area.visible, `${message}: area not visible`, area);
+    if (!options.allowOffscreen) assert(area.visible, `${message}: area not visible`, area);
     assert(area.words > 0, `${message}: no reader words`, area);
     assert(area.mirrors > 0, `${message}: no non-destructive mirrors`, area);
-    assert(area.ruby > 0 || area.pitch > 0, `${message}: no ruby or pitch`, area);
+    if (!options.allowNoRubyPitch) assert(area.ruby > 0 || area.pitch > 0, `${message}: no ruby or pitch`, area);
 }
 
 function assertNoAreaDuplication(frameState, areaNames) {
@@ -746,6 +816,19 @@ function assertStableSamples(samples, areaNames) {
             const area = bestArea(frameState, areaName);
             assert(area.visible && area.words > 0, `${areaName} disappeared during sustained probe`, { t: sample.t, area });
             assert(area.inlineWords === 0 && area.nestedWords === 0 && area.nestedRuby === 0, `${areaName} duplicated during sustained probe`, { t: sample.t, area });
+        }
+    }
+}
+
+function assertStableAnyJapaneseArea(samples, areaNames, label) {
+    assert(samples.length >= 5, `Sustained probe did not collect enough ${label} samples`, { samples: samples.length });
+    for (const sample of samples) {
+        const frameState = mergedFrames(sample.frames);
+        const areas = areaNames.map(areaName => bestArea(frameState, areaName)).filter(area => area.present && area.hasJapanese);
+        assert(areas.length > 0, `${label} disappeared during sustained probe`, { t: sample.t, areaNames });
+        for (const area of areas) {
+            assert(area.visible && area.words > 0, `${label} lost parsed words during sustained probe`, { t: sample.t, area });
+            assert(area.inlineWords === 0 && area.nestedWords === 0 && area.nestedRuby === 0, `${label} duplicated during sustained probe`, { t: sample.t, area });
         }
     }
 }

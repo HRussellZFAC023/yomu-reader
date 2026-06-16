@@ -756,6 +756,10 @@ export class ReaderApp {
     private async initReaderPage(shouldShowWelcome: boolean): Promise<void> {
         if (this.embeddedFrame) {
             this.subtitles.init();
+            if (this.shouldScanEmbeddedFrame()) {
+                this.setupAutoScan();
+                this.scheduleAutoScan(0, { force: true });
+            }
             return;
         }
         this.installFab();
@@ -1425,7 +1429,18 @@ export class ReaderApp {
     }
 
     private observeAutoScanMutations(): void {
+        if (!document.body) {
+            document.addEventListener('DOMContentLoaded', () => {
+                if (!this.isDestroyed) this.observeAutoScanMutations();
+            }, { once: true });
+            return;
+        }
         this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
+    }
+
+    private shouldScanEmbeddedFrame(): boolean {
+        return /(^|\.)youtube\.com$/i.test(location.hostname)
+            && location.pathname === '/live_chat';
     }
 
     private pauseAutoScanObserver<T>(callback: () => T): T {

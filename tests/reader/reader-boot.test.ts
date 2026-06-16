@@ -89,6 +89,17 @@ describe('reader boot', () => {
         expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
     });
 
+    it('boots YouTube live chat frames in restricted mode', () => {
+        withWindowProperty('top', {} as Window, () => {
+            withWindowProperty('location', new URL('https://www.youtube.com/live_chat?continuation=test') as unknown as Location, () => {
+                bootReaderApp();
+            });
+        });
+
+        expect(appMocks.init).toHaveBeenCalledWith({ embeddedFrame: true, showWelcome: true });
+        expect(document.getElementById('jpdb-reader-runtime-owner')?.dataset.yomuRuntimeKind).toBe('userscript');
+    });
+
     it('boots privacy-enhanced YouTube embedded frames in restricted mode', () => {
         withWindowProperty('top', {} as Window, () => {
             withWindowProperty('location', new URL('https://www.youtube-nocookie.com/embed/abc123') as unknown as Location, () => {
