@@ -153,7 +153,7 @@ async function runScenario(scenario) {
     assert(jitenRequests.some(request => request.path.includes(`/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/info`)), `${scenario.label}: no Jiten info request was recorded`, jitenRequests);
     assert(jitenRequests.some(request => request.path.includes('/random-example-sentences')), `${scenario.label}: no Jiten examples request was recorded`, jitenRequests);
     assert(jitenRequests.some(request => request.path.includes('/reader/parse')) === scenario.expectReaderParse, `${scenario.label}: unexpected reader/parse request state`, jitenRequests);
-    assert(jitenRequests.every(request => request.hasAuthorization === scenario.expectAuthorization), `${scenario.label}: Authorization header state was wrong`, jitenRequests);
+    assert(jitenRequests.every(request => request.hasAuthorization === expectedAuthorizationForRequest(request, scenario)), `${scenario.label}: Authorization header state was wrong`, jitenRequests);
 
     await context.close();
     return {
@@ -178,6 +178,16 @@ async function runScenario(scenario) {
             afterDom: artifactPath(scenario.id, 'after-jiten-detail.json'),
         },
     };
+}
+
+function expectedAuthorizationForRequest(request, scenario) {
+    if (!scenario.expectAuthorization) return false;
+    // Public vocabulary parse is intentionally unauthenticated even when a
+    // Jiten API key is configured; it powers keyless pitch/reading enrichment
+    // without spending private SRS quota. Private detail/review endpoints must
+    // still carry the key.
+    if (request.path.startsWith('/api/vocabulary/parse')) return false;
+    return true;
 }
 
 function artifactPath(scenarioId, filename) {

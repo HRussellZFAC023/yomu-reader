@@ -7380,8 +7380,11 @@ recommendedJiten	jiten.moe頻度データです。
     return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
                     <div class="jpdb-reader-local-title" data-settings-preview-title>Preview</div>
-                    <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>
+                    <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewContentHtml()}</div>
                 </div>`;
+  }
+  function appearancePreviewContentHtml() {
+    return `<span class="jpdb-reader-settings-appearance-preview-line">${appearancePreviewHtml()}</span>`;
   }
   function appearancePreviewHtml() {
     const word = (classes, base, furi, tail = "") => `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;
@@ -10329,6 +10332,7 @@ recommendedJiten	jiten.moe頻度データです。
       const target = event.target instanceof HTMLElement ? event.target : null;
       const word = target?.closest("[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word");
       if (!word || !this.dependencies.lookupText) return false;
+      if (!word.dataset.settingsPreviewLookup && word.dataset.jpdbReaderPassive === "true") return false;
       const expression = word.dataset.settingsPreviewLookup?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
       if (!expression) return false;
       event.preventDefault();
@@ -10390,7 +10394,7 @@ recommendedJiten	jiten.moe頻度データです。
     // sense for the known-status mode.
     bindAppearancePresets(form, applyThemePreview) {
       const preview = form.querySelector("[data-yomu-appearance-preview]");
-      if (preview) setInnerHtml(preview, appearancePreviewHtml());
+      if (preview) setInnerHtml(preview, appearancePreviewContentHtml());
       const setSelect = (name, value) => {
         const control = form.querySelector(`select[name="${name}"]`);
         if (control) control.value = value;

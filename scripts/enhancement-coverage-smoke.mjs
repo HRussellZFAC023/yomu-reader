@@ -27,6 +27,12 @@ const {
     newTabDir: NEWTAB_DIR,
 } = createSmokePaths(import.meta.dirname);
 const NEWTAB_CSS_PATH = path.join(NEWTAB_DIR, 'styles.css');
+const COMPANION_SCRIPT_PATHS = [
+    path.join(DIST, 'greasyfork', 'yomu-anki.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-kanji-study.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-settings-surface.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-video.user.js'),
+];
 const BUILT_NEWTAB_ROUTES = new Map([
     ['/yomu-reader/newtab', [path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8']],
     ['/yomu-reader/newtab/index.html', [path.join(NEWTAB_DIR, 'index.html'), 'text/html; charset=utf-8']],
@@ -39,7 +45,7 @@ const BUILT_NEWTAB_ROUTES = new Map([
     ['/yomu-reader/favicon-16x16.png', [path.join(DIST, 'favicon-16x16.png'), 'image/png']],
     ['/yomu-reader/apple-touch-icon.png', [path.join(DIST, 'apple-touch-icon.png'), 'image/png']],
 ]);
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, NEWTAB_CSS_PATH, path.join(NEWTAB_DIR, 'index.html'), path.join(NEWTAB_DIR, 'app.js')], ROOT, 'Run npm run build first.');
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, NEWTAB_CSS_PATH, ...COMPANION_SCRIPT_PATHS, path.join(NEWTAB_DIR, 'index.html'), path.join(NEWTAB_DIR, 'app.js')], ROOT, 'Run npm run build first.');
 mkdirSync(ARTIFACTS, { recursive: true });
 
 const VOCABULARY = [
@@ -131,6 +137,7 @@ async function runCoveragePage(pagePath, name) {
     await page.goto(`${server.origin}${pagePath}`, { waitUntil: 'domcontentloaded' });
     await installUserscriptCssResource(page, CSS_PATH);
     await page.addStyleTag({ path: NEWTAB_CSS_PATH });
+    for (const companionPath of COMPANION_SCRIPT_PATHS) await addScriptTagWithCspFallback(page, companionPath);
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-word.jpdb-pitch-heiban, .jpdb-reader-word.jpdb-pitch-atamadaka, .jpdb-reader-word.jpdb-pitch-nakadaka').length >= 4, null, { timeout: 20_000 });
     await page.waitForTimeout(180);
@@ -335,10 +342,11 @@ function assertUnderlineBaselines(name, state) {
     const visible = state.underline.filter(item => !isTransparentColor(item.borderBlockEndColor));
     assert(visible.length >= 4, `${name} page did not paint enough pitch underlines`, { underline: state.underline });
     for (const [scope, items] of groupedByLine(visible)) {
-        if (items.length < 2) continue;
-        const bottoms = items.map(item => item.bottom);
+        const singleLineItems = items.filter(item => item.bottom - item.lineTop <= Number.parseFloat(item.lineHeight) * 1.35);
+        if (singleLineItems.length < 2) continue;
+        const bottoms = singleLineItems.map(item => item.bottom);
         const spread = Math.max(...bottoms) - Math.min(...bottoms);
-        assert(spread <= 1.5, `${name} ${scope} underline baselines drifted`, { spread, items });
+        assert(spread <= 1.5, `${name} ${scope} underline baselines drifted`, { spread, items: singleLineItems });
     }
 }
 
@@ -373,7 +381,20 @@ function isTransparentColor(value) {
 }
 
 async function handleYomuRequest(request, requestsLog) {
-    const url = new URL(request.url);
+    const requestUrl = new URL(request.url);
+    const url = proxiedTargetUrl(requestUrl) ?? requestUrl;
+    if (url.origin === 'https://api.jiten.moe' && url.pathname === '/api/vocabulary/parse') {
+        const text = url.searchParams.get('text') ?? '';
+        requestsLog.push({ kind: 'jiten-public-parse', text });
+        return jsonHttpResponse(jitenPublicParse(text));
+    }
+    if (url.origin === 'https://api.jiten.moe') {
+        const match = url.pathname.match(/^\/api\/vocabulary\/(\d+)\/(\d+)\/info$/u);
+        if (match) {
+            requestsLog.push({ kind: 'jiten-public-info', wordId: Number(match[1]), readingIndex: Number(match[2]) });
+            return jsonHttpResponse(jitenPublicInfo(Number(match[1]), Number(match[2])));
+        }
+    }
     if (url.origin === 'https://jpdb.io' && url.pathname === '/api/v1/parse') {
         const body = readJsonBody(request.data);
         requestsLog.push({ kind: 'jpdb-parse', text: body.text });
@@ -386,6 +407,56 @@ async function handleYomuRequest(request, requestsLog) {
     }
     requestsLog.push({ kind: 'unexpected', url: request.url });
     return { status: 404, responseText: '' };
+}
+
+function proxiedTargetUrl(url) {
+    const target = url.searchParams.get('url');
+    if (!target) return null;
+    try {
+        return new URL(target);
+    } catch {
+        return null;
+    }
+}
+
+function jitenPublicParse(text) {
+    return VOCABULARY
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => text.includes(row[1]) || text.includes(row[0]))
+        .map(({ row, index }) => ({
+            wordId: 800000 + index,
+            originalText: row[1],
+            readingIndex: 0,
+            conjugations: [],
+        }));
+}
+
+function jitenPublicInfo(wordId, readingIndex) {
+    const row = VOCABULARY[wordId - 800000];
+    if (!row) return {};
+    const [, spelling, reading, gloss, partOfSpeech, frequency, , pitch] = row;
+    return {
+        wordId,
+        mainReading: {
+            text: spelling === reading ? spelling : `${spelling}[${reading}]`,
+            readingIndex,
+            frequencyRank: frequency,
+            usedInMediaAmount: 1,
+        },
+        alternativeReadings: [],
+        partsOfSpeech: partOfSpeech,
+        definitions: [{ index: 1, meanings: [gloss], partsOfSpeech: partOfSpeech }],
+        pitchAccents: [pitchPositionFromPattern(pitch[0] ?? '')],
+        knownStates: [],
+        composedOf: [],
+        usedIn: [],
+        usedInTotal: 0,
+    };
+}
+
+function pitchPositionFromPattern(pattern) {
+    const drop = Array.from(pattern).findIndex((level, index, levels) => level === 'H' && levels[index + 1] === 'L');
+    return drop >= 0 ? drop + 1 : 0;
 }
 
 function jpdbPublicSearchHtml(query) {

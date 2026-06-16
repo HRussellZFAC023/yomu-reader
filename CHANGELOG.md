@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.70] - 2026-06-16
+
+### Fixed
+
+- Integrated the remaining P0 worker fixes into one release lane with proof-backed coverage for YouTube text enhancement, fullscreen subtitle rails, iPad sidebar layout, settings self-enhancement/alignment, Jiten/JPDB dictionary coexistence, keyless Jiten definitions, popover action pills, study cards, and batched fallback enrichment.
+- YouTube text enhancement now skips only internal ripple/icon chrome instead of whole renderer subtrees, restoring ruby and pitch on titles, chips, guide labels, comments, transcripts, watch chrome, and video metadata while keeping framework internals untouched.
+- Added and strengthened Playwright smoke coverage for hosted settings without userscript injection, desktop/tablet/mobile settings layout, Jiten keyless definitions, Jiten+JPDB source matrices, popover pill navigation, YouTube fullscreen/subtitle rails, YouTube sidebar layout, YouTube ruby coverage, popover/new-tab audio, and concurrent enrichment.
+
 ## [0.7.69] - 2026-06-16
 
 ### Fixed

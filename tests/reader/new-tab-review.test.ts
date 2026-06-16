@@ -9821,7 +9821,7 @@ describe('new tab review helpers', () => {
         expect(playJpdbExampleAudio).not.toHaveBeenCalled();
     });
 
-    it('renders Jiten definitions in expanded search word details and keeps empty Jiten panels available', () => {
+    it('renders Jiten definitions in expanded search word details and hides empty Jiten panels', () => {
         const card = newTabTestCard({
             source: 'jpdb',
             spelling: '大学',
@@ -9889,9 +9889,7 @@ describe('new tab review helpers', () => {
             ...detail,
             jitenVocabularyInfo: { ...detail.jitenVocabularyInfo!, definitions: [] },
         }, context);
-        expect(emptyRoot.querySelector('[data-source="jiten"]')).not.toBeNull();
-        expect(emptyRoot.textContent).toContain('Jiten');
-        expect(emptyRoot.textContent).toContain('Open in Jiten');
+        expect(emptyRoot.querySelector('[data-source="jiten"]')).toBeNull();
         expect(emptyRoot.textContent).not.toContain('No Jiten definitions.');
     });
 
@@ -11249,6 +11247,7 @@ describe('new tab review helpers', () => {
         const internals = runtime as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             parser: { canParse(): boolean; parse: typeof parse; cacheCards: typeof cacheCards };
+            jitenPublicVocabulary: { lookup(term: string): Promise<JPDBCard | null>; lookupMany(terms: string[]): Promise<Map<string, JPDBCard>> };
             jpdbVocabulary: { search: typeof search };
             jpdbPublicPitch: { lookup: typeof pitch };
             parseNewTabContent(root: HTMLElement): Promise<void>;
@@ -11262,6 +11261,10 @@ describe('new tab review helpers', () => {
             showPitchAccent: true,
         };
         internals.parser = { canParse: () => true, parse, cacheCards };
+        internals.jitenPublicVocabulary = {
+            lookup: vi.fn(async () => null),
+            lookupMany: vi.fn(async () => new Map()),
+        };
         internals.jpdbVocabulary = { search };
         internals.jpdbPublicPitch = { lookup: pitch };
 
@@ -11304,11 +11307,16 @@ describe('new tab review helpers', () => {
         const internals = runtime as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             parser: { canParse(): boolean; parse: typeof parse; cacheCards(cards: JPDBCard[]): void };
+            jitenPublicVocabulary: { lookup(term: string): Promise<JPDBCard | null>; lookupMany(terms: string[]): Promise<Map<string, JPDBCard>> };
             jpdbVocabulary: { search(query: string, limit?: number): Promise<JPDBCard[]> };
             parseNewTabContent(root: HTMLElement): Promise<void>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false };
         internals.parser = { canParse: () => true, parse, cacheCards: vi.fn() };
+        internals.jitenPublicVocabulary = {
+            lookup: vi.fn(async () => null),
+            lookupMany: vi.fn(async () => new Map()),
+        };
         internals.jpdbVocabulary = { search: vi.fn(async () => [wrongPublicCard]) };
 
         try {

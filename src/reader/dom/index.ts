@@ -73,43 +73,12 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
 const FORM_BOUNDARY_SKIP_ENTRIES = ['form', 'label', 'fieldset', 'legend'];
 const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
-const YOUTUBE_FRAMEWORK_TEXT_SELECTOR = [
-    'ytd-app',
-    'ytm-app',
-    'ytd-watch-flexy',
-    'ytd-watch-metadata',
-    'ytm-watch',
-    'ytd-comments',
-    'ytd-comment-thread-renderer',
-    'ytd-comment-renderer',
-    'ytm-comment-renderer',
-    'ytd-rich-grid-renderer',
-    'ytd-rich-item-renderer',
-    'ytd-video-renderer',
-    'ytd-compact-video-renderer',
-    'ytd-grid-video-renderer',
-    'yt-lockup-view-model',
-    'ytm-rich-grid-renderer',
-    'ytm-rich-item-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-compact-video-renderer',
-    'ytm-shorts-lockup-view-model',
-    'ytd-mini-guide-renderer',
-    'ytd-guide-renderer',
-    'ytd-masthead',
-    'ytd-feed-filter-chip-bar-renderer',
-    'yt-chip-cloud-renderer',
-    'yt-chip-cloud-chip-renderer',
-    'yt-chip-cloud-chip-view-model',
-    'yt-tab-shape',
-    'ytd-transcript-segment-renderer',
-    'ytm-transcript-segment-renderer',
-    'ytd-watch-next-secondary-results-renderer',
-    'yt-live-chat-app',
-    'yt-live-chat-text-message-renderer',
-    'yt-live-chat-paid-message-renderer',
-    'yt-live-chat-membership-item-renderer',
-    'yt-live-chat-viewer-engagement-message-renderer',
+const YOUTUBE_INTERNAL_TEXT_SKIP_SELECTOR = [
+    'yt-touch-feedback-shape',
+    'tp-yt-paper-ripple',
+    'iron-icon',
+    'yt-icon',
+    'yt-icon-shape',
 ].join(',');
 
 const SKIP_SELECTOR = [
@@ -674,7 +643,7 @@ function shouldIgnoreFragmentElement(
 function isYouTubeFrameworkTextElement(element: HTMLElement): boolean {
     if (element.closest(READER_ROOT_SELECTOR)) return false;
     if (typeof location === 'undefined' || !YOUTUBE_HOST_RE.test(location.hostname)) return false;
-    return Boolean(element.closest(YOUTUBE_FRAMEWORK_TEXT_SELECTOR));
+    return Boolean(element.closest(YOUTUBE_INTERNAL_TEXT_SKIP_SELECTOR));
 }
 
 function isRubyAnnotationElement(element: HTMLElement): boolean {

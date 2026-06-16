@@ -122,8 +122,13 @@ try {
     }
     await routeMockedHttpRequests(page, {
         requests,
-        isMockedApiOrigin: url => url.hostname === 'jpdb.io',
-        mockHttpRequest: request => mockedJpdbRequest(request, requests),
+        isMockedApiOrigin: url => {
+            const target = proxiedTargetUrl(url) ?? url;
+            return url.hostname === 'yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev'
+                || target.hostname === 'jpdb.io'
+                || target.hostname === 'api.jiten.moe';
+        },
+        mockHttpRequest: request => mockedVocabularyRequest(request, requests),
     });
     page.on('console', message => {
         if (process.env.SMOKE_DEBUG) console.error('[hosted-settings]', message.type(), message.text());
@@ -174,7 +179,7 @@ try {
     if (!INJECT_USERSCRIPT) {
         assert(initial.rubyCount >= 4, 'Hosted settings did not render ruby without userscript injection', initial);
         assert(initial.pitchCount >= 5, 'Hosted settings did not render pitch classes without userscript injection', initial);
-        assert(initial.exact.title.hasRuby && initial.exact.title.pitch, 'Settings title did not get ruby and pitch', { initial, requests });
+        assert(initial.exact.title.reading && initial.exact.title.pitch, 'Settings title did not get reading and pitch metadata', { initial, requests });
         assert(initial.exact.searchLabel.hasRuby && initial.exact.searchLabel.pitch, 'Settings search label did not get ruby and pitch', initial);
         assert(initial.exact.appearanceTab.hasRuby && initial.exact.appearanceTab.pitch, 'Appearance tab did not get ruby and pitch', initial);
         assert(initial.exact.cancel.found && initial.exact.cancel.passive, 'Cancel button text did not stay passively enhanced', initial);
@@ -278,8 +283,27 @@ function mockedUserscriptRequest(request, requestsLog) {
     };
 }
 
+function mockedVocabularyRequest(request, requestsLog) {
+    const jiten = mockedJitenPublicRequest(request, requestsLog);
+    if (jiten) return jiten;
+    return mockedJpdbRequest(request, requestsLog);
+}
+
+function mockedJitenPublicRequest(request, requestsLog) {
+    const url = proxiedTargetUrl(new URL(request.url)) ?? new URL(request.url);
+    if (url.origin !== 'https://api.jiten.moe') return null;
+    requestsLog.push({ kind: 'jiten-public', endpoint: url.pathname, text: url.searchParams.get('text') ?? '' });
+    if (url.pathname === '/api/vocabulary/parse') {
+        const text = url.searchParams.get('text') ?? '';
+        return jsonHttpResponse(jitenPublicParse(text));
+    }
+    const match = url.pathname.match(/^\/api\/vocabulary\/(\d+)\/(\d+)\/info$/u);
+    if (match) return jsonHttpResponse(jitenPublicInfo(Number(match[1]), Number(match[2])));
+    return jsonHttpResponse({});
+}
+
 function mockedJpdbRequest(request, requestsLog) {
-    const url = new URL(request.url);
+    const url = proxiedTargetUrl(new URL(request.url)) ?? new URL(request.url);
     if (url.origin !== 'https://jpdb.io') return null;
     if (!url.pathname.startsWith('/api/v1/')) {
         return {
@@ -296,6 +320,60 @@ function mockedJpdbRequest(request, requestsLog) {
     if (endpoint === 'deck/list-vocabulary') return jsonHttpResponse({ vocabulary: [] });
     if (endpoint === 'lookup-vocabulary') return jsonHttpResponse({ vocabulary_info: [] });
     return jsonHttpResponse({});
+}
+
+function proxiedTargetUrl(url) {
+    const target = url.searchParams.get('url');
+    if (!target) return null;
+    try {
+        return new URL(target);
+    } catch {
+        return null;
+    }
+}
+
+function jitenPublicParse(text) {
+    return VOCABULARY
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => text.includes(row[1]) || text.includes(row[0]))
+        .map(({ row, index }) => ({
+            wordId: 700000 + index,
+            originalText: row[1],
+            readingIndex: 0,
+            conjugations: [],
+        }));
+}
+
+function jitenPublicInfo(wordId, readingIndex) {
+    const row = VOCABULARY[wordId - 700000];
+    if (!row) return {};
+    const [, spelling, reading, meaning, partOfSpeech, frequencyRank, , pitchAccent] = row;
+    return {
+        wordId,
+        mainReading: {
+            text: annotatedJitenReading(spelling, reading),
+            readingIndex,
+            frequencyRank,
+            usedInMediaAmount: 1,
+        },
+        alternativeReadings: [],
+        partsOfSpeech: partOfSpeech,
+        definitions: [{ index: 1, meanings: [meaning], partsOfSpeech: partOfSpeech }],
+        pitchAccents: [pitchPositionFromPattern(pitchAccent[0] ?? '')],
+        knownStates: [],
+        composedOf: [],
+        usedIn: [],
+        usedInTotal: 0,
+    };
+}
+
+function annotatedJitenReading(spelling, reading) {
+    return spelling === reading ? spelling : `${spelling}[${reading}]`;
+}
+
+function pitchPositionFromPattern(pattern) {
+    const drop = Array.from(pattern).findIndex((level, index, levels) => level === 'H' && levels[index + 1] === 'L');
+    return drop >= 0 ? drop + 1 : 0;
 }
 
 async function waitForSettingsSelector(page, requests, selector) {

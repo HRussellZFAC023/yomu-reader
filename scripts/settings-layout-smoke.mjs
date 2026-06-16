@@ -18,6 +18,8 @@ const NEWTAB_DIR = paths.newTabDir;
 const PUBLIC_DIR = path.join(paths.root, 'docs', 'public');
 const NEWTAB_BASE_PATH = '/yomu-reader/newtab/';
 const JPDB_ORIGIN = 'https://jpdb.io';
+const JITEN_ORIGIN = 'https://api.jiten.moe';
+const YOMU_PUBLIC_PROXY_ORIGIN = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
 const STATIC_CONTENT_TYPES = new Map([
     ['.js', 'text/javascript; charset=utf-8'],
     ['.css', 'text/css; charset=utf-8'],
@@ -25,6 +27,30 @@ const STATIC_CONTENT_TYPES = new Map([
     ['.svg', 'image/svg+xml; charset=utf-8'],
     ['.png', 'image/png'],
 ]);
+const VOCABULARY_READINGS = new Map([
+    ['設定', 'せってい'],
+    ['音声', 'おんせい'],
+    ['表示', 'ひょうじ'],
+    ['再生', 'さいせい'],
+    ['翻訳', 'ほんやく'],
+    ['画像', 'がぞう'],
+    ['例文', 'れいぶん'],
+    ['検索', 'けんさく'],
+    ['外観', 'がいかん'],
+    ['色', 'いろ'],
+    ['単語', 'たんご'],
+    ['漢字', 'かんじ'],
+    ['統計', 'とうけい'],
+    ['読む', 'よむ'],
+    ['新しい', 'あたらしい'],
+    ['言葉', 'ことば'],
+    ['日本語', 'にほんご'],
+    ['毎日', 'まいにち'],
+    ['勉強', 'べんきょう'],
+    ['上手', 'じょうず'],
+    ['読み取る', 'よみとる'],
+]);
+const JITEN_PUBLIC_FIXTURES = new Map();
 
 const BASE_SETTINGS = {
     onboardingSeen: true,
@@ -113,6 +139,8 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         localStorage.setItem(key, JSON.stringify(value));
     }, { key: YOMU_SETTINGS_KEY, value: BASE_SETTINGS });
     await page.route('https://jpdb.io/**', route => route.fulfill(mockedJpdbRoute(route.request(), requests)));
+    await page.route('https://api.jiten.moe/**', route => route.fulfill(mockedJitenRoute(route.request(), requests)));
+    await page.route(`${YOMU_PUBLIC_PROXY_ORIGIN}/**`, route => route.fulfill(mockedProxyRoute(route.request(), requests)));
     try {
         await page.goto(`${baseUrl}${NEWTAB_BASE_PATH}index.html?q=${encodeURIComponent('読み取る')}&settings-layout=${scenario.name}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { timeout: 12_000 });
@@ -415,7 +443,7 @@ async function settingsLayoutSnapshot(page, panel) {
                     const labelRect = label.getBoundingClientRect();
                     const peer = controls
                         .map(control => control.getBoundingClientRect())
-                        .filter(rect => Math.abs(rect.top - labelRect.top) < 80)
+                        .filter(rect => sharesVisualRow(labelRect, rect))
                         .sort((left, right) => Math.abs(left.bottom - labelRect.bottom) - Math.abs(right.bottom - labelRect.bottom))[0];
                     if (!peer) continue;
                     const bottomDelta = Math.abs(peer.bottom - labelRect.bottom);
@@ -433,6 +461,13 @@ async function settingsLayoutSnapshot(page, panel) {
                 }
             }
             return found;
+        }
+
+        function sharesVisualRow(left, right) {
+            const overlap = Math.max(0, Math.min(left.bottom, right.bottom) - Math.max(left.top, right.top));
+            const shorter = Math.max(1, Math.min(left.height, right.height));
+            const centerDelta = Math.abs((left.top + left.bottom) / 2 - (right.top + right.bottom) / 2);
+            return overlap / shorter >= 0.35 || centerDelta <= 14;
         }
 
         function gridOverlapIssues(grid, children) {
@@ -529,6 +564,60 @@ function mockedJpdbRoute(request, requests) {
     };
 }
 
+function mockedJitenRoute(request, requests) {
+    requests.push({ method: request.method(), url: request.url() });
+    const response = mockedJitenResponse(request.url(), request.method());
+    return {
+        status: response.status,
+        contentType: response.contentType,
+        body: response.body,
+        headers: { 'access-control-allow-origin': '*' },
+    };
+}
+
+function mockedProxyRoute(request, requests) {
+    const proxyUrl = new URL(request.url());
+    const targetUrl = proxyUrl.searchParams.get('url') ?? '';
+    requests.push({ method: request.method(), url: request.url(), targetUrl });
+    if (!targetUrl) return { status: 404, contentType: 'application/json; charset=utf-8', body: '{}' };
+    const target = new URL(targetUrl);
+    const response = target.origin === JPDB_ORIGIN
+        ? mockedJpdbResponse(target.href)
+        : target.origin === JITEN_ORIGIN
+            ? mockedJitenResponse(target.href, request.method())
+            : { status: 404, contentType: 'application/json; charset=utf-8', body: '{}' };
+    return {
+        status: response.status,
+        contentType: response.contentType,
+        body: response.body,
+        headers: { 'access-control-allow-origin': '*' },
+    };
+}
+
+function mockedJitenResponse(rawUrl, method = 'GET') {
+    const url = new URL(rawUrl, JITEN_ORIGIN);
+    if (method === 'OPTIONS') {
+        return { status: 204, contentType: 'text/plain; charset=utf-8', body: '' };
+    }
+    if (url.pathname === '/api/vocabulary/parse') {
+        const text = url.searchParams.get('text') ?? '';
+        return {
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify(jitenParseWords(text)),
+        };
+    }
+    const match = url.pathname.match(/^\/api\/vocabulary\/(\d+)\/(\d+)\/info$/u);
+    if (match) {
+        return {
+            status: 200,
+            contentType: 'application/json; charset=utf-8',
+            body: JSON.stringify(jitenVocabularyInfo(Number(match[1]), Number(match[2]))),
+        };
+    }
+    return { status: 404, contentType: 'application/json; charset=utf-8', body: '{}' };
+}
+
 function mockedJpdbResponse(rawUrl) {
     const url = new URL(rawUrl, JPDB_ORIGIN);
     const query = url.searchParams.get('q') || vocabularyFromPath(url.pathname).spelling || '設定';
@@ -589,6 +678,70 @@ function jpdbVocabularyHtml(spelling, reading) {
 </html>`;
 }
 
+function jitenParseWords(text) {
+    const fixtures = [];
+    const seen = new Set();
+    const add = spelling => {
+        const fixture = jitenFixtureForSpelling(spelling);
+        if (!fixture || seen.has(fixture.wordId)) return;
+        seen.add(fixture.wordId);
+        fixtures.push(fixture);
+    };
+    for (const [spelling] of VOCABULARY_READINGS) {
+        if (text.includes(spelling)) add(spelling);
+    }
+    for (const match of text.matchAll(/[一-龯々〆ヶぁ-んァ-ンー]{2,}/gu)) add(match[0]);
+    return fixtures.map(fixture => ({
+        wordId: fixture.wordId,
+        originalText: fixture.spelling,
+        readingIndex: 0,
+        conjugations: [],
+    }));
+}
+
+function jitenVocabularyInfo(wordId, readingIndex) {
+    const fixture = [...JITEN_PUBLIC_FIXTURES.values()].find(item => item.wordId === wordId);
+    if (!fixture) return {};
+    const { spelling, reading } = fixture;
+    return {
+        wordId,
+        mainReading: {
+            text: spelling === reading ? spelling : `${spelling}[${reading}]`,
+            readingIndex,
+            frequencyRank: 1000 + readingIndex,
+            usedInMediaAmount: 1,
+        },
+        alternativeReadings: [],
+        partsOfSpeech: ['n'],
+        definitions: [{ index: 1, meanings: ['settings layout smoke vocabulary'], partsOfSpeech: ['noun'] }],
+        pitchAccents: [pitchPositionForReading(reading)],
+        knownStates: [],
+        composedOf: [],
+        usedIn: [],
+        usedInTotal: 0,
+    };
+}
+
+function jitenFixtureForSpelling(rawSpelling) {
+    const spelling = String(rawSpelling || '').replace(/\s+/g, '').trim();
+    if (!spelling) return null;
+    const existing = JITEN_PUBLIC_FIXTURES.get(spelling);
+    if (existing) return existing;
+    const reading = VOCABULARY_READINGS.get(spelling)
+        ?? (/^[ぁ-んァ-ンー]+$/u.test(spelling) ? spelling : 'よみ');
+    const fixture = {
+        wordId: stableVocabularyId(spelling),
+        spelling,
+        reading,
+    };
+    JITEN_PUBLIC_FIXTURES.set(spelling, fixture);
+    return fixture;
+}
+
+function pitchPositionForReading(reading) {
+    return Math.min(2, Math.max(0, Array.from(reading).length - 1));
+}
+
 function rubyHtml(spelling, reading) {
     if (!/[一-龯々〆ヶ]/u.test(spelling)) return escapeHtml(spelling);
     return `<ruby>${escapeHtml(spelling)}<rt>${escapeHtml(reading)}</rt></ruby>`;
@@ -620,27 +773,3 @@ const HTML_ESCAPES = {
     '"': '&quot;',
     "'": '&#39;',
 };
-
-const VOCABULARY_READINGS = new Map([
-    ['設定', 'せってい'],
-    ['音声', 'おんせい'],
-    ['表示', 'ひょうじ'],
-    ['再生', 'さいせい'],
-    ['翻訳', 'ほんやく'],
-    ['画像', 'がぞう'],
-    ['例文', 'れいぶん'],
-    ['検索', 'けんさく'],
-    ['外観', 'がいかん'],
-    ['色', 'いろ'],
-    ['単語', 'たんご'],
-    ['漢字', 'かんじ'],
-    ['統計', 'とうけい'],
-    ['読む', 'よむ'],
-    ['新しい', 'あたらしい'],
-    ['言葉', 'ことば'],
-    ['日本語', 'にほんご'],
-    ['毎日', 'まいにち'],
-    ['勉強', 'べんきょう'],
-    ['上手', 'じょうず'],
-    ['読み取る', 'よみとる'],
-]);

@@ -897,7 +897,7 @@
     {
       method: "GET",
       route: "yomu-public-only",
-      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse")
+      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname))
     }
   ];
   function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
@@ -5647,7 +5647,7 @@ recommendedJiten	jiten.moe頻度データです。
     isDestroyed = false;
     focusStatusRefreshListener;
     lastFocusStatusRefreshAt = 0;
-    // Companion lifecycle API consumed through the structural Anki client.
+    // Companion lifecycle API consumed by page and newtab runtimes through the structural Anki client.
     // fallow-ignore-next-line unused-class-member
     destroy() {
       this.isDestroyed = true;
@@ -5722,6 +5722,7 @@ recommendedJiten	jiten.moe頻度データです。
     // Mirrors prepareAnkiNoteForConnect's decision so card previews can show
     // exactly which fields a mining write will target instead of silently
     // retargeting into an existing non-Yomu model at write time.
+    // Public preview helper used by card render data through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     async noteFieldTargetPlan() {
       const settings = this.getSettings();
@@ -5769,18 +5770,18 @@ recommendedJiten	jiten.moe頻度データです。
       if (!sampleIds.length) return [];
       return await this.invokeOrDefault("notesInfo", { notes: sampleIds }, []);
     }
-    // Used by card preload flows through the Anki client dependency.
+    // Public warm-up hook used by app, newtab, and card preload flows through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     warmStatusIndex() {
       if (this.isDestroyed) return Promise.resolve(null);
       return this.refreshStatusIndexIfNeeded({ rebuildIfMissing: true }) ?? this.loadStatusIndex();
     }
-    // Used by popup render data through the Anki client dependency.
+    // Public card status lookup used by popup, page, and newtab render paths through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     async findExistingCards(card) {
       return (await this.findExistingCardsBatch([card]))[0] ?? emptyAnkiLookupResult();
     }
-    // Used by popup render data through the Anki client dependency.
+    // Public batched status lookup used by popup, page, and newtab enrichment through the Anki dependency.
     // fallow-ignore-next-line unused-class-member
     async findCachedStatusBatch(cards) {
       const empty = emptyAnkiLookupResult();
@@ -6671,7 +6672,7 @@ recommendedJiten	jiten.moe頻度データです。
       const dueByCardId = new Map(reviewCardIds.map((cardId, index) => [cardId, dueFlags[index]]));
       return cards.map((card) => card.queue === 2 && dueByCardId.has(Number(card.cardId)) ? { ...card, isDue: dueByCardId.get(Number(card.cardId)) === true } : card);
     }
-    // Used by card action controls to answer rendered Anki review cards.
+    // Public review action used by card and newtab controls to answer rendered Anki review cards.
     // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);

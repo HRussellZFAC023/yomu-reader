@@ -19,20 +19,30 @@ import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib
 
 const {
     root: ROOT,
+    dist: DIST,
     artifacts: ARTIFACTS,
     scriptPath: SCRIPT_PATH,
     cssPath: CSS_PATH,
 } = createSmokePaths(import.meta.dirname);
-assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+const COMPANION_SCRIPT_PATHS = [
+    path.join(DIST, 'greasyfork', 'yomu-anki.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-kanji-study.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-settings-surface.user.js'),
+    path.join(DIST, 'greasyfork', 'yomu-video.user.js'),
+];
+assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH, ...COMPANION_SCRIPT_PATHS], ROOT, 'Run npm run build first.');
 mkdirSync(ARTIFACTS, { recursive: true });
 
-const FIRST_PARAGRAPH = '猫'.repeat(2200);
-const SECOND_PARAGRAPH = '犬'.repeat(2200);
-const THIRD_PARAGRAPH = '鳥'.repeat(2200);
+const CAT_SURFACE = '猫'.repeat(90);
+const DOG_SURFACE = '犬'.repeat(90);
+const BIRD_SURFACE = '鳥'.repeat(90);
+const FIRST_PARAGRAPH = Array.from({ length: 25 }, () => CAT_SURFACE).join(' ');
+const SECOND_PARAGRAPH = Array.from({ length: 25 }, () => DOG_SURFACE).join(' ');
+const THIRD_PARAGRAPH = Array.from({ length: 25 }, () => BIRD_SURFACE).join(' ');
 const VOCABULARY = [
-    ['猫', '猫', 'ねこ', 'cat', ['n'], 800, ['not-in-deck'], ['LH']],
-    ['犬', '犬', 'いぬ', 'dog', ['n'], 900, ['not-in-deck'], ['LH']],
-    ['鳥', '鳥', 'とり', 'bird', ['n'], 1000, ['not-in-deck'], ['LH']],
+    [CAT_SURFACE, '猫', 'ねこ', 'cat', ['n'], 800, ['not-in-deck'], ['LH']],
+    [DOG_SURFACE, '犬', 'いぬ', 'dog', ['n'], 900, ['not-in-deck'], ['LH']],
+    [BIRD_SURFACE, '鳥', 'とり', 'bird', ['n'], 1000, ['not-in-deck'], ['LH']],
 ];
 const SETTINGS = {
     onboardingSeen: true,
@@ -96,6 +106,7 @@ try {
 
     await page.goto(`${server.origin}/concurrency/`, { waitUntil: 'domcontentloaded' });
     await installUserscriptCssResource(page, CSS_PATH);
+    for (const companionPath of COMPANION_SCRIPT_PATHS) await addScriptTagWithCspFallback(page, companionPath);
     await addScriptTagWithCspFallback(page, SCRIPT_PATH);
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
     await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-reader-word[data-expression="鳥"]')), null, { timeout: 20_000 });

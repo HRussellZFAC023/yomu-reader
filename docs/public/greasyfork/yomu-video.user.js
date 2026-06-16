@@ -1477,7 +1477,7 @@
     {
       method: "GET",
       route: "yomu-public-only",
-      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse")
+      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname))
     }
   ];
   function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
@@ -12013,7 +12013,7 @@ ${spelling}`);
     // pause/resume) happens to re-trigger discovery. Poll the active /shorts/ id
     // from the tick and run the normal navigation path when it changes.
     syncShortsReelNavigation() {
-      const pathname = (typeof window !== "undefined" ? window.location?.pathname : void 0) || "";
+      const pathname = typeof globalThis.location?.pathname === "string" ? globalThis.location.pathname : "";
       if (!pathname.startsWith("/shorts/")) {
         this.lastShortsNavVideoId = "";
         return;
