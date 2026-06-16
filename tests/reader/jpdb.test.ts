@@ -45,6 +45,7 @@ import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '..
 import { ReaderApp } from '../../src/reader/app/main';
 import {
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
+    PITCH_ENRICHMENT_LIMIT,
     PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT,
     YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
     YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
@@ -26572,6 +26573,62 @@ describe('reader helpers', () => {
         }
     });
 
+    it('batches bounded public fallback pitch lookups through Jiten lookupMany', async () => {
+        const app = new ReaderApp();
+        const firstFallbackCard = testFallbackCard({
+            vid: -1381470,
+            sid: -1381470,
+            spelling: '青空',
+        });
+        const secondFallbackCard = testFallbackCard({
+            vid: -1556420,
+            sid: -1556420,
+            spelling: '読む',
+        });
+        const firstPublicCard = testAozoraCard({ pitchAccent: ['LHHL'] });
+        const secondPublicCard = testPublicCard({
+            vid: 1556420,
+            spelling: '読む',
+            reading: 'よむ',
+            pitchAccent: ['HL'],
+        });
+        const firstWord = appendRenderedReaderWord(firstFallbackCard);
+        const secondWord = appendRenderedReaderWord(secondFallbackCard);
+
+        const search = vi.fn(async () => []);
+        const jitenLookup = vi.fn(async () => null);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(terms.flatMap(term => {
+            if (term === '青空') return [[term, firstPublicCard]];
+            if (term === '読む') return [[term, secondPublicCard]];
+            return [];
+        })));
+        const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            jitenLookup,
+            jitenLookupMany,
+            settings: { apiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
+        });
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(firstFallbackCard), testTokenForCard(secondFallbackCard)], { publicLookupLimit: 2 });
+
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空', '読む']);
+            expect(jitenLookup).not.toHaveBeenCalled();
+            expect(search).not.toHaveBeenCalled();
+            expect(cacheCards).toHaveBeenCalledWith([firstPublicCard, secondPublicCard]);
+            expect(firstWord.dataset.vid).toBe('1381470');
+            expect(firstWord.dataset.reading).toBe('あおぞら');
+            expect(firstWord.dataset.pitchClass).toBe('nakadaka');
+            expect(secondWord.dataset.vid).toBe('1556420');
+            expect(secondWord.dataset.reading).toBe('よむ');
+            expect(secondWord.dataset.pitchClass).toBe('atamadaka');
+        } finally {
+            firstWord.remove();
+            secondWord.remove();
+            app.destroy();
+        }
+    });
+
     it('normalizes public vocabulary pitch on OCR fallback words without forcing OCR furigana', async () => {
         const app = new ReaderApp();
         const fallbackCard = testFallbackCard({
@@ -27126,6 +27183,7 @@ describe('reader helpers', () => {
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
             showPitchAccent: true,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
@@ -27233,6 +27291,7 @@ describe('reader helpers', () => {
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
             showPitchAccent: true,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
@@ -27287,6 +27346,7 @@ describe('reader helpers', () => {
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
+            apiKey: 'test-key',
             showPitchAccent: true,
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
@@ -27308,6 +27368,92 @@ describe('reader helpers', () => {
             expect(publicPitch).toHaveBeenCalledWith('背景0', 'はいけい');
             expect(publicPitch).toHaveBeenCalledWith(`背景${YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT - 1}`, 'はいけい');
             expect(publicPitch).not.toHaveBeenCalledWith(`背景${YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT}`, 'はいけい');
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('uses the visible-page budget for keyless YouTube background public pitch enrichment', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            backgroundPitchEnrichmentOptions(): {
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+
+        try {
+            expect(internals.backgroundPitchEnrichmentOptions()).toEqual({
+                publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
+                publicLookupTermLimit: 2,
+                substantivePublicLookupOnly: true,
+                deferPublicLookup: false,
+            });
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps keyless YouTube subtitle pre-render enrichment out of the shared page budget', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            subtitleBeforeRenderPitchEnrichmentOptions(): {
+                urgent?: boolean;
+                publicLookupLimit?: number;
+                publicLookupTotalLimit?: number;
+                publicLookupPageBudget?: number;
+                publicLookupTermLimit?: number;
+                substantivePublicLookupOnly?: boolean;
+                deferPublicLookup?: boolean;
+            };
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+        };
+
+        try {
+            expect(internals.subtitleBeforeRenderPitchEnrichmentOptions()).toEqual({
+                urgent: true,
+                publicLookupLimit: PITCH_ENRICHMENT_LIMIT * 4,
+                publicLookupTotalLimit: PITCH_ENRICHMENT_LIMIT * 4,
+                publicLookupPageBudget: undefined,
+                publicLookupTermLimit: 2,
+                substantivePublicLookupOnly: true,
+                deferPublicLookup: false,
+            });
         } finally {
             app.destroy();
             vi.unstubAllGlobals();

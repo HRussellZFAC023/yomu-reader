@@ -12,6 +12,7 @@ const DETAIL_CONCURRENCY = 4;
 const REQUEST_BACKOFF_INITIAL_MS = 30_000;
 const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const PARSE_TEXT_LIMIT = 1900;
+const PARSE_TERM_SEPARATOR = '。';
 const log = Logger.scope('JitenPublicVocabulary');
 
 export interface JitenPublicVocabularyClientOptions {
@@ -113,7 +114,7 @@ export class JitenPublicVocabularyClient {
         const parsed = await this.parseTerms(terms);
         const candidatesByTerm = new Map<string, PublicParseWord>();
         terms.forEach(term => {
-            const candidate = bestParsedWordForTerm(term, parsed);
+            const candidate = bestParsedWordForBatchTerm(term, parsed);
             if (candidate) candidatesByTerm.set(term, candidate);
         });
 
@@ -142,7 +143,7 @@ export class JitenPublicVocabularyClient {
     }
 
     private async requestParse(terms: readonly string[]): Promise<PublicParseWord[]> {
-        const text = terms.join('\n');
+        const text = terms.join(PARSE_TERM_SEPARATOR);
         const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`);
         return Array.isArray(payload)
             ? payload.map(normalizePublicParseWord).filter((word): word is PublicParseWord => Boolean(word))
@@ -246,16 +247,24 @@ function normalizePublicParseWord(value: unknown): PublicParseWord | null {
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
     const originalText = stringValue(value.originalText);
-    if (wordId === undefined || readingIndex === undefined || !originalText) return null;
+    if (wordId === undefined || wordId <= 0 || readingIndex === undefined || !originalText) return null;
     return { wordId, readingIndex, originalText };
 }
 
 function bestParsedWordForTerm(term: string, parsed: PublicParseWord[]): PublicParseWord | null {
     const normalized = normalizeLookupText(term);
     return parsed.find(word => normalizeLookupText(word.originalText) === normalized)
-        ?? parsed.find(word => normalized.includes(normalizeLookupText(word.originalText)))
+        ?? parsed.find(word => {
+            const original = normalizeLookupText(word.originalText);
+            return Boolean(original && normalized.includes(original));
+        })
         ?? parsed[0]
         ?? null;
+}
+
+function bestParsedWordForBatchTerm(term: string, parsed: PublicParseWord[]): PublicParseWord | null {
+    const normalized = normalizeLookupText(term);
+    return parsed.find(word => normalizeLookupText(word.originalText) === normalized) ?? null;
 }
 
 function pitchPatterns(value: unknown, reading: string): string[] {
@@ -279,7 +288,7 @@ function chunkTermsForParse(terms: readonly string[]): string[][] {
     let current: string[] = [];
     let length = 0;
     for (const term of terms) {
-        const nextLength = length + term.length + (current.length ? 1 : 0);
+        const nextLength = length + term.length + (current.length ? PARSE_TERM_SEPARATOR.length : 0);
         if (current.length && nextLength > PARSE_TEXT_LIMIT) {
             chunks.push(current);
             current = [];

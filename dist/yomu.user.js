@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.77
+// @version      0.7.78
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-rYJChaQG6EwMTGS6LJRa7gXzUWF0X3nTVo6SVTmaLhc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IJ3WmY2mah0oENQYmUaFYrxh2nlbUPIr2oXqkHhrPXg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-oPZEKNv/T6U/beDRD1/k7L6dYorzylOurlrJoqn2YiQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-55fI6RfTLH02MR3LE0OMBogLsxpmaWaHm6der5Pze+g=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-6oLoTbEwe73h2c9STGjc6RwdjiBwrDLtF/QNVkjzra8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -22203,6 +22203,8 @@ ${entry.reading || ""}`;
   const FALLBACK_INFLECTION_MAX_LENGTH = 18;
   const FALLBACK_LOOKUP_TERM_LIMIT = 8;
   const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など"]);
+  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
+  const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
@@ -22730,7 +22732,21 @@ ${spelling}`);
       end: offset + segment.index + segment.segment.length
     }));
     if (segments.at(-1)?.end !== offset + text2.length) return fallbackJapaneseRunSegment(text2, offset);
-    return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
+    return mergeInflectedFallbackSegments(splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(segments)));
+  }
+  function splitLeadingParticleSegments(segments) {
+    return segments.flatMap(splitLeadingParticleSegment);
+  }
+  function splitLeadingParticleSegment(segment) {
+    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
+      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
+      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
+    });
+    if (!prefix) return [segment];
+    return [
+      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
+      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
+    ];
   }
   function mergeSegmenterCompoundOverrides(segments) {
     const merged = [];
@@ -25254,6 +25270,7 @@ ${spelling}`);
   const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
+  const PARSE_TERM_SEPARATOR = "。";
   const log$a = Logger.scope("JitenPublicVocabulary");
   class JitenPublicVocabularyClient {
     constructor(options = {}) {
@@ -25329,7 +25346,7 @@ ${spelling}`);
       const parsed = await this.parseTerms(terms);
       const candidatesByTerm = /* @__PURE__ */ new Map();
       terms.forEach((term) => {
-        const candidate = bestParsedWordForTerm(term, parsed);
+        const candidate = bestParsedWordForBatchTerm(term, parsed);
         if (candidate) candidatesByTerm.set(term, candidate);
       });
       await mapLimited([...candidatesByTerm], DETAIL_CONCURRENCY, async ([term, candidate]) => {
@@ -25354,7 +25371,7 @@ ${spelling}`);
       return groups.flat();
     }
     async requestParse(terms) {
-      const text2 = terms.join("\n");
+      const text2 = terms.join(PARSE_TERM_SEPARATOR);
       const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`);
       return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
     }
@@ -25444,12 +25461,19 @@ ${spelling}`);
     const wordId = finiteInteger(value.wordId);
     const readingIndex = finiteInteger(value.readingIndex);
     const originalText = stringValue(value.originalText);
-    if (wordId === void 0 || readingIndex === void 0 || !originalText) return null;
+    if (wordId === void 0 || wordId <= 0 || readingIndex === void 0 || !originalText) return null;
     return { wordId, readingIndex, originalText };
   }
   function bestParsedWordForTerm(term, parsed) {
     const normalized = normalizeLookupText(term);
-    return parsed.find((word) => normalizeLookupText(word.originalText) === normalized) ?? parsed.find((word) => normalized.includes(normalizeLookupText(word.originalText))) ?? parsed[0] ?? null;
+    return parsed.find((word) => normalizeLookupText(word.originalText) === normalized) ?? parsed.find((word) => {
+      const original = normalizeLookupText(word.originalText);
+      return Boolean(original && normalized.includes(original));
+    }) ?? parsed[0] ?? null;
+  }
+  function bestParsedWordForBatchTerm(term, parsed) {
+    const normalized = normalizeLookupText(term);
+    return parsed.find((word) => normalizeLookupText(word.originalText) === normalized) ?? null;
   }
   function pitchPatterns(value, reading) {
     return Array.isArray(value) ? value.map(finiteInteger).filter((position) => position !== void 0).map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean) : [];
@@ -25465,7 +25489,7 @@ ${spelling}`);
     let current = [];
     let length = 0;
     for (const term of terms) {
-      const nextLength = length + term.length + (current.length ? 1 : 0);
+      const nextLength = length + term.length + (current.length ? PARSE_TERM_SEPARATOR.length : 0);
       if (current.length && nextLength > PARSE_TEXT_LIMIT) {
         chunks.push(current);
         current = [];
@@ -37501,10 +37525,27 @@ ${glossaryKey}`;
       return this.settings.audioEnabled && this.settings.autoPlayAudio && !isYouTubeRuntimeHost();
     }
     backgroundPitchEnrichmentOptions() {
-      return backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
+      const options = backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
+      if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
+      const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
+      const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
+      return {
+        ...options,
+        publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
+        publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit)
+      };
     }
     nestedPitchEnrichmentOptions() {
-      return nestedPitchEnrichmentOptionsForHost(location.hostname);
+      const options = nestedPitchEnrichmentOptionsForHost(location.hostname);
+      if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
+      return {
+        publicLookupLimit: 16,
+        publicLookupTotalLimit: 16,
+        publicLookupPageBudget: 32,
+        publicLookupTermLimit: 1,
+        substantivePublicLookupOnly: true,
+        deferPublicLookup: false
+      };
     }
     preloadableReaderWordCard(word) {
       if (word.dataset.jpdbReaderPassive === "true") return null;
@@ -38251,10 +38292,10 @@ ${glossaryKey}`;
       }
       return void 0;
     }
-    async publicLookupFallbackCards(cards) {
+    async publicLookupFallbackCards(cards, options = {}) {
       const result = /* @__PURE__ */ new Map();
       if (!canSearchPublicLookupCard(this.settings, {})) return result;
-      const entries = uniqueFallbackLookupEntries(cards);
+      const entries = uniqueFallbackLookupEntries(cards, options.publicLookupTermLimit);
       if (!entries.length) return result;
       const jitenTerms = [...new Set(entries.flatMap((entry) => entry.terms))];
       const jitenCards = await this.jitenPublicVocabulary?.lookupMany?.(jitenTerms).catch((error) => {
@@ -40109,8 +40150,27 @@ ${glossaryKey}`;
     }
     async enrichSubtitleTokensBeforeRender(tokens) {
       if (!tokens.length) return;
-      await this.resolveOcrFallbackTokens(tokens);
-      await this.enrichPitchWords(tokens, { urgent: true });
+      await this.enrichPitchWords(tokens, this.subtitleBeforeRenderPitchEnrichmentOptions());
+    }
+    subtitleBeforeRenderPitchEnrichmentOptions() {
+      const background = this.backgroundPitchEnrichmentOptions();
+      const noApiCredential = !hasJpdbApiCredential(this.settings) && !hasJitenApiCredential(this.settings);
+      const isolateKeylessYouTubeSubtitleBudget = noApiCredential && isYouTubeRuntimeHost();
+      const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT * 4 : 2;
+      const backgroundPublicLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupLimit;
+      const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
+      const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
+      const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
+      const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget ? Math.max(2, Math.floor(background.publicLookupTermLimit ?? 2)) : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
+      return {
+        ...background,
+        urgent: true,
+        publicLookupLimit,
+        publicLookupTotalLimit,
+        publicLookupPageBudget: isolateKeylessYouTubeSubtitleBudget ? void 0 : background.publicLookupPageBudget,
+        publicLookupTermLimit,
+        deferPublicLookup: false
+      };
     }
     async resolveOcrFallbackTokens(tokens) {
       const fallbackTokens = tokens.filter((token) => token.card.source === "fallback");
@@ -40312,7 +40372,7 @@ ${glossaryKey}`;
         await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), LOCAL_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
         return;
       }
-      if (options.urgent) {
+      if (options.urgent && typeof options.publicLookupLimit !== "number") {
         const urgentTokens = uniqueTokens.map((token) => this.takeQueuedPitchEnrichmentToken(cardKey(token.card)) ?? token);
         await runLimited(urgentTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
         return;
@@ -40336,13 +40396,64 @@ ${glossaryKey}`;
           if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
           return;
         }
-        this.queuePitchEnrichmentTokens(publicTokens, options);
+        const queuedPublicTokens = await this.resolvePublicFallbackPitchTokens(publicTokens, options);
+        if (!queuedPublicTokens.length) {
+          await localOnly;
+          if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+          return;
+        }
+        this.queuePitchEnrichmentTokens(queuedPublicTokens, options);
         await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
         if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
         return;
       }
       this.queuePitchEnrichmentTokens(uniqueTokens, options);
       await this.drainPitchEnrichmentQueue();
+    }
+    async resolvePublicFallbackPitchTokens(tokens, options = {}) {
+      if (this.isJitenApiActive()) return tokens;
+      const queuedTokens = [];
+      const groups = /* @__PURE__ */ new Map();
+      for (const token of tokens) {
+        if (token.card.source !== "fallback") {
+          queuedTokens.push(token);
+          continue;
+        }
+        const key = cardKey(token.card);
+        if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+        const group = groups.get(key) ?? { card: token.card, tokens: [] };
+        group.tokens.push(token);
+        groups.set(key, group);
+      }
+      if (!groups.size) return queuedTokens;
+      const resolved = await this.publicLookupFallbackCards([...groups.values()].map((group) => group.card), options);
+      const cardsToCache = [];
+      const localOnlyTokens = [];
+      for (const [key, group] of groups) {
+        const card = resolved.get(key);
+        if (!card || card.source === "fallback") {
+          this.rememberUnresolvedFallbackVocabulary(key);
+          localOnlyTokens.push(...group.tokens);
+          continue;
+        }
+        cardsToCache.push(card);
+        for (const token of group.tokens) {
+          const fallback = token.card;
+          const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || "unknown";
+          this.rememberResolvedFallbackVocabulary(fallback, card);
+          this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+          this.queueSubtitleParsedHtmlRefresh(token.sentence);
+        }
+      }
+      if (cardsToCache.length) this.parser.cacheCards?.(cardsToCache);
+      if (localOnlyTokens.length) {
+        await runLimited(
+          localOnlyTokens,
+          LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
+          (token) => this.enrichPitchToken(token, { publicLookup: false })
+        );
+      }
+      return queuedTokens;
     }
     scheduleDeferredPublicPitchEnrichment(tokens) {
       if (!tokens.length) return;
@@ -41351,9 +41462,10 @@ ${glossaryKey}`;
       urgent: options.urgent
     };
   }
-  const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]/u;
+  const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]|[\u30a0-\u30ffー]{2,}|[\u3040-\u309fー]{2,}/u;
   function isSubstantivePublicPitchLookupToken(token) {
-    return SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.spelling) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.reading) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.sentence ?? "");
+    const surface = token.sentence?.slice(token.start, token.end) ?? "";
+    return SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.spelling) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.reading) || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(surface);
   }
   function publicLookupCardRequest(readingOrOptions, maybeOptions) {
     return typeof readingOrOptions === "string" ? { options: maybeOptions, reading: readingOrOptions } : { options: readingOrOptions, reading: "" };
@@ -41369,14 +41481,15 @@ ${glossaryKey}`;
     const exactMatch = cards.find((card) => card.spelling === term || card.reading === term);
     return exactMatch ?? (exact ? void 0 : cards[0]);
   }
-  function uniqueFallbackLookupEntries(cards) {
+  function uniqueFallbackLookupEntries(cards, termLimit) {
     const seen = /* @__PURE__ */ new Set();
     const entries = [];
     for (const card of cards) {
       const key = cardKey(card);
       if (seen.has(key)) continue;
       seen.add(key);
-      const terms = fallbackLookupTermsForCard(card);
+      const allTerms = fallbackLookupTermsForCard(card);
+      const terms = typeof termLimit === "number" ? allTerms.slice(0, Math.max(1, Math.floor(termLimit))) : allTerms;
       if (!terms.length) continue;
       entries.push({ key, card, terms });
     }

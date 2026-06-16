@@ -2145,7 +2145,15 @@ export class ReaderApp {
     }
 
     private backgroundPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        return backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
+        const options = backgroundPitchEnrichmentOptionsForHost(location.hostname, isCompactPitchEnrichmentViewport());
+        if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
+        const pageBudget = Math.max(0, Math.floor(options.publicLookupPageBudget ?? PITCH_ENRICHMENT_LIMIT));
+        const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
+        return {
+            ...options,
+            publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
+            publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit),
+        };
     }
 
     private nestedPitchEnrichmentOptions(): PitchEnrichmentOptions {
@@ -3084,10 +3092,13 @@ export class ReaderApp {
         return undefined;
     }
 
-    private async publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
+    private async publicLookupFallbackCards(
+        cards: readonly JPDBCard[],
+        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit'> = {},
+    ): Promise<Map<string, JPDBCard>> {
         const result = new Map<string, JPDBCard>();
         if (!canSearchPublicLookupCard(this.settings, {})) return result;
-        const entries = uniqueFallbackLookupEntries(cards);
+        const entries = uniqueFallbackLookupEntries(cards, options.publicLookupTermLimit);
         if (!entries.length) return result;
 
         const jitenTerms = [...new Set(entries.flatMap(entry => entry.terms))];
@@ -5542,15 +5553,22 @@ export class ReaderApp {
     private subtitleBeforeRenderPitchEnrichmentOptions(): PitchEnrichmentOptions {
         const background = this.backgroundPitchEnrichmentOptions();
         const noApiCredential = !hasJpdbApiCredential(this.settings) && !hasJitenApiCredential(this.settings);
-        const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT : 2;
-        const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(background.publicLookupLimit ?? urgentPublicLimit)));
-        const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(background.publicLookupTotalLimit ?? publicLookupLimit)));
+        const isolateKeylessYouTubeSubtitleBudget = noApiCredential && isYouTubeRuntimeHost();
+        const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT * 4 : 2;
+        const backgroundPublicLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupLimit;
+        const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
+        const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
+        const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
+        const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget
+            ? Math.max(2, Math.floor(background.publicLookupTermLimit ?? 2))
+            : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
         return {
             ...background,
             urgent: true,
             publicLookupLimit,
             publicLookupTotalLimit,
-            publicLookupTermLimit: Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1))),
+            publicLookupPageBudget: isolateKeylessYouTubeSubtitleBudget ? undefined : background.publicLookupPageBudget,
+            publicLookupTermLimit,
             deferPublicLookup: false,
         };
     }
@@ -5819,7 +5837,13 @@ export class ReaderApp {
                 if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
                 return;
             }
-            this.queuePitchEnrichmentTokens(publicTokens, options);
+            const queuedPublicTokens = await this.resolvePublicFallbackPitchTokens(publicTokens, options);
+            if (!queuedPublicTokens.length) {
+                await localOnly;
+                if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+                return;
+            }
+            this.queuePitchEnrichmentTokens(queuedPublicTokens, options);
             await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
             if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
             return;
@@ -5827,6 +5851,56 @@ export class ReaderApp {
 
         this.queuePitchEnrichmentTokens(uniqueTokens, options);
         await this.drainPitchEnrichmentQueue();
+    }
+
+    private async resolvePublicFallbackPitchTokens(
+        tokens: JPDBToken[],
+        options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit' | 'urgent'> = {},
+    ): Promise<JPDBToken[]> {
+        if (this.isJitenApiActive()) return tokens;
+        const queuedTokens: JPDBToken[] = [];
+        const groups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
+        for (const token of tokens) {
+            if (token.card.source !== 'fallback') {
+                queuedTokens.push(token);
+                continue;
+            }
+            const key = cardKey(token.card);
+            if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+            const group = groups.get(key) ?? { card: token.card, tokens: [] };
+            group.tokens.push(token);
+            groups.set(key, group);
+        }
+        if (!groups.size) return queuedTokens;
+
+        const resolved = await this.publicLookupFallbackCards([...groups.values()].map(group => group.card), options);
+        const cardsToCache: JPDBCard[] = [];
+        const localOnlyTokens: JPDBToken[] = [];
+        for (const [key, group] of groups) {
+            const card = resolved.get(key);
+            if (!card || card.source === 'fallback') {
+                this.rememberUnresolvedFallbackVocabulary(key);
+                localOnlyTokens.push(...group.tokens);
+                continue;
+            }
+            cardsToCache.push(card);
+            for (const token of group.tokens) {
+                const fallback = token.card;
+                const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
+                this.rememberResolvedFallbackVocabulary(fallback, card);
+                this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
+                this.queueSubtitleParsedHtmlRefresh(token.sentence);
+            }
+        }
+        if (cardsToCache.length) this.parser.cacheCards?.(cardsToCache);
+        if (localOnlyTokens.length) {
+            await runLimited(
+                localOnlyTokens,
+                LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
+                token => this.enrichPitchToken(token, { publicLookup: false }),
+            );
+        }
+        return queuedTokens;
     }
 
     private scheduleDeferredPublicPitchEnrichment(tokens: JPDBToken[]): void {
@@ -7038,14 +7112,17 @@ interface FallbackLookupEntry {
     terms: string[];
 }
 
-function uniqueFallbackLookupEntries(cards: readonly JPDBCard[]): FallbackLookupEntry[] {
+function uniqueFallbackLookupEntries(cards: readonly JPDBCard[], termLimit?: number): FallbackLookupEntry[] {
     const seen = new Set<string>();
     const entries: FallbackLookupEntry[] = [];
     for (const card of cards) {
         const key = cardKey(card);
         if (seen.has(key)) continue;
         seen.add(key);
-        const terms = fallbackLookupTermsForCard(card);
+        const allTerms = fallbackLookupTermsForCard(card);
+        const terms = typeof termLimit === 'number'
+            ? allTerms.slice(0, Math.max(1, Math.floor(termLimit)))
+            : allTerms;
         if (!terms.length) continue;
         entries.push({ key, card, terms });
     }

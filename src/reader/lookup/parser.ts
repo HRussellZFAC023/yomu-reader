@@ -28,6 +28,8 @@ const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
 const FALLBACK_INFLECTION_MAX_LENGTH = 18;
 const FALLBACK_LOOKUP_TERM_LIMIT = 8;
 const INFLECTION_BOUNDARY_SEGMENTS = new Set(['は', 'が', 'を', 'に', 'へ', 'と', 'で', 'の', 'や', 'から', 'まで', 'より', 'だけ', 'しか', 'など']);
+const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, second) => second.length - first.length);
+const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
 const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
@@ -679,9 +681,25 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
             surface: segment.segment,
             start: offset + segment.index,
             end: offset + segment.index + segment.segment.length,
-        }));
+    }));
     if (segments.at(-1)?.end !== offset + text.length) return fallbackJapaneseRunSegment(text, offset);
-    return mergeInflectedFallbackSegments(mergeSegmenterCompoundOverrides(segments));
+    return mergeInflectedFallbackSegments(splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(segments)));
+}
+
+function splitLeadingParticleSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    return segments.flatMap(splitLeadingParticleSegment);
+}
+
+function splitLeadingParticleSegment(segment: JapaneseTextSegment): JapaneseTextSegment[] {
+    const prefix = PARTICLE_PREFIX_SEGMENTS.find(candidate => {
+        if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
+        return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
+    });
+    if (!prefix) return [segment];
+    return [
+        { surface: prefix, start: segment.start, end: segment.start + prefix.length },
+        { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end },
+    ];
 }
 
 function mergeSegmenterCompoundOverrides(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {

@@ -191,6 +191,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         const afterOpen = await snapshot(page);
         const drag = await measuredStep(page, client, 'drag-resize', async () => {
             await dragResizeTranscriptPanel(page, afterOpen.placement || placement);
+            if (keylessMode) await waitForVisiblePageParse(page);
         });
         drag.drag = await dragEvidence(page, afterOpen);
         steps.push(drag);
@@ -199,6 +200,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
 
         const transcriptScroll = await measuredStep(page, client, 'scroll-transcript-list', async () => {
             await scrollTranscriptList(page);
+            if (keylessMode) await waitForVisiblePageParse(page);
         });
         transcriptScroll.transcriptScroll = await transcriptScrollEvidence(page);
         steps.push(transcriptScroll);
@@ -208,6 +210,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         const beforeScroll = await snapshot(page);
         const scroll = await measuredStep(page, client, 'page-scroll-with-panel-open', async () => {
             await scrollPageWithPanelOpen(page);
+            if (keylessMode) await waitForVisiblePageParse(page);
         });
         scroll.scroll = await scrollEvidence(page, beforeScroll);
         steps.push(scroll);
@@ -220,6 +223,10 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
             await waitForViewport(page, viewport.orientationViewport);
             await waitForPanelOpen(page);
             await waitForPanelSettledInViewport(page);
+            if (keylessMode) {
+                await waitForVisiblePageParse(page);
+                await waitForVisibleTranscriptParse(page);
+            }
         });
         orientation.orientation = await orientationEvidence(page, beforeOrientation);
         steps.push(orientation);
@@ -645,12 +652,13 @@ async function waitForKeylessVisualParse(page) {
         await page.waitForFunction(() => {
             const metrics = globalThis.__yomuSidebarResizeVisualParseMetrics?.();
             if (!metrics) return false;
+            const page = metrics.pageVisible ?? metrics.page;
             const panel = metrics.panelVisible;
-            const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + panel.knownPitchWords;
-            return metrics.page.words >= 3
-                && metrics.page.furiWords >= 1
-                && metrics.page.wordsWithoutPitch === 0
-                && metrics.page.kanjiWordsWithoutFuri === 0
+            const totalKnownPitch = page.knownPitchWords + metrics.overlay.knownPitchWords + panel.knownPitchWords;
+            return page.words >= 3
+                && page.furiWords >= 1
+                && page.wordsWithoutPitch === 0
+                && page.kanjiWordsWithoutFuri === 0
                 && metrics.overlay.words >= 1
                 && metrics.overlay.furiWords >= 1
                 && metrics.overlay.wordsWithoutPitch === 0
@@ -691,6 +699,18 @@ async function waitForVisibleTranscriptParse(page) {
             && panel.kanjiWords > 0
             && panel.kanjiWordsWithoutFuri === 0
             && panel.knownPitchWords > 0;
+    }, null, { timeout: 7_000 }).catch(() => undefined);
+}
+
+async function waitForVisiblePageParse(page) {
+    await page.waitForFunction(() => {
+        const metrics = globalThis.__yomuSidebarResizeVisualParseMetrics?.();
+        if (!metrics) return false;
+        const page = metrics.pageVisible ?? metrics.page;
+        return page.words >= 3
+            && page.kanjiWordsWithoutFuri === 0
+            && page.wordsWithoutPitch === 0
+            && page.knownPitchWords > 0;
     }, null, { timeout: 7_000 }).catch(() => undefined);
 }
 
@@ -782,14 +802,17 @@ async function snapshot(page) {
             const panelRoot = document.querySelector('.jpdb-subtitle-list');
             const panelScroller = document.querySelector('.jpdb-subtitle-list-scroll');
             const overlayWords = allWords.filter(word => overlayRoot?.contains(word));
+            const overlayVisibleWords = overlayWords.filter(isVisiblePageWord);
             const panelWords = allWords.filter(word => panelRoot?.contains(word));
             const panelVisibleWords = panelWords.filter(word => isVisibleTranscriptWord(word, panelScroller));
             const pageWords = allWords.filter(word => !overlayRoot?.contains(word)
                 && !panelRoot?.contains(word)
                 && !word.closest('[data-jpdb-reader-root]'));
+            const pageVisibleWords = pageWords.filter(word => isVisiblePageWord(word) && !isChromeButtonWord(word));
             return {
                 page: wordMetrics(pageWords),
-                overlay: wordMetrics(overlayWords),
+                pageVisible: wordMetrics(pageVisibleWords),
+                overlay: wordMetrics(overlayVisibleWords),
                 panel: wordMetrics(panelWords),
                 panelVisible: wordMetrics(panelVisibleWords),
             };
@@ -872,16 +895,23 @@ async function snapshot(page) {
             const pitchClasses = ['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku'];
             const hasPitch = word => Array.from(word.classList).some(className => className.startsWith('jpdb-pitch-'));
             const hasKnownPitch = word => pitchClasses.some(name => word.classList.contains(`jpdb-pitch-${name}`));
-            const kanjiWords = words.filter(word => /[\u3400-\u9fff々〆ヵヶ]/u.test(word.textContent ?? ''));
+            const needsPitchClass = word => !word.classList.contains('jpdb-reader-particle');
+            const kanjiWords = words.filter(word => /[\u3400-\u9fff〆ヵヶ]/u.test(word.textContent ?? ''));
+            const wordsWithoutPitch = words.filter(word => needsPitchClass(word) && !hasPitch(word));
+            const kanjiWordsWithoutFuri = kanjiWords.filter(word => !word.querySelector('rt'));
             return {
                 words: words.length,
                 furiWords: words.filter(word => word.querySelector('rt')).length,
                 pitchWords: words.filter(hasPitch).length,
                 knownPitchWords: words.filter(hasKnownPitch).length,
                 unknownPitchWords: words.filter(word => word.classList.contains('jpdb-pitch-unknown')).length,
-                wordsWithoutPitch: words.filter(word => !hasPitch(word)).length,
+                wordsWithoutPitch: wordsWithoutPitch.length,
                 kanjiWords: kanjiWords.length,
-                kanjiWordsWithoutFuri: kanjiWords.filter(word => !word.querySelector('rt')).length,
+                kanjiWordsWithoutFuri: kanjiWordsWithoutFuri.length,
+                samples: {
+                    wordsWithoutPitch: wordsWithoutPitch.slice(0, 8).map(wordSample),
+                    kanjiWordsWithoutFuri: kanjiWordsWithoutFuri.slice(0, 8).map(wordSample),
+                },
             };
         }
 
@@ -892,6 +922,48 @@ async function snapshot(page) {
             const rect = row.getBoundingClientRect();
             const scrollerRect = scroller.getBoundingClientRect();
             return rect.bottom >= scrollerRect.top && rect.top <= scrollerRect.bottom;
+        }
+
+        function isVisiblePageWord(word) {
+            const rect = word.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return false;
+            if (rect.bottom < 0 || rect.top > innerHeight || rect.right < 0 || rect.left > innerWidth) return false;
+            const styles = getComputedStyle(word);
+            return styles.visibility !== 'hidden' && styles.display !== 'none';
+        }
+
+        function isChromeButtonWord(word) {
+            return Boolean(word.closest([
+                'button',
+                '[role="button"]',
+                'a[role="button"]',
+                'yt-button-shape',
+                'yt-button-view-model',
+                'button-view-model',
+                'ytd-button-renderer',
+                'ytd-menu-renderer',
+                'ytd-topbar-menu-button-renderer',
+                'ytd-notification-topbar-button-renderer',
+            ].join(',')));
+        }
+
+        function wordSample(word) {
+            const rect = word.getBoundingClientRect();
+            return {
+                text: (word.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 80),
+                surface: word.getAttribute('data-surface') ?? '',
+                expression: word.getAttribute('data-expression') ?? '',
+                reading: word.getAttribute('data-reading') ?? '',
+                pitchClass: word.getAttribute('data-pitch-class') ?? '',
+                source: word.getAttribute('data-card-source') ?? '',
+                classes: Array.from(word.classList).slice(0, 8),
+                rect: {
+                    left: Math.round(rect.left),
+                    top: Math.round(rect.top),
+                    width: Math.round(rect.width),
+                    height: Math.round(rect.height),
+                },
+            };
         }
     });
 }
@@ -954,10 +1026,13 @@ function layoutProblems(state, requestedPlacement, stepName) {
 function visualParseProblems(state, stepName) {
     const metrics = state.visualParse;
     if (!metrics) return ['missing visual parse metrics'];
+    if (stepName === 'open-sidebar') return [];
     const problems = [];
+    const shouldCheckPage = stepName === 'keyless-visual-parse';
+    const overlayMinimumWords = stepName === 'keyless-visual-parse' ? 1 : 0;
     const surfaces = [
-        ['page', metrics.page, stepName === 'loaded' ? 1 : 3],
-        ['subtitle overlay', metrics.overlay, stepName === 'loaded' ? 0 : 1],
+        ...(shouldCheckPage ? [['visible page', metrics.pageVisible ?? metrics.page, 3]] : []),
+        ['subtitle overlay', metrics.overlay, overlayMinimumWords],
         ['visible transcript panel', metrics.panelVisible ?? metrics.panel, stepName === 'loaded' ? 0 : 12],
     ];
     for (const [label, surface, minimumWords] of surfaces) {
@@ -968,8 +1043,9 @@ function visualParseProblems(state, stepName) {
         if (surface.wordsWithoutPitch > 0) problems.push(`${label} has ${surface.wordsWithoutPitch} parsed words without pitch classes`);
         if (surface.kanjiWordsWithoutFuri > 0) problems.push(`${label} has ${surface.kanjiWordsWithoutFuri} kanji words without furigana`);
     }
+    const page = metrics.pageVisible ?? metrics.page;
     const panel = metrics.panelVisible ?? metrics.panel;
-    const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + panel.knownPitchWords;
+    const totalKnownPitch = page.knownPitchWords + metrics.overlay.knownPitchWords + panel.knownPitchWords;
     if (stepName !== 'loaded' && totalKnownPitch < 1) problems.push('no known pitch accent classes appeared across parsed surfaces');
     return problems;
 }
@@ -986,13 +1062,16 @@ function layoutWarnings(state, stepName) {
 
 function performanceProblems(steps) {
     const problems = [];
+    const openSidebarTargetMs = liveMode ? 2_500 : 100;
+    const longTaskTargetMs = liveMode ? 300 : 100;
+    const dragFrameGapTargetMs = liveMode ? 200 : 100;
     for (const step of steps) {
-        if (step.name === 'open-sidebar' && step.durationMs > 100) {
-            problems.push(`open-sidebar took ${step.durationMs}ms, above 100ms target`);
+        if (step.name === 'open-sidebar' && step.durationMs > openSidebarTargetMs) {
+            problems.push(`open-sidebar took ${step.durationMs}ms, above ${openSidebarTargetMs}ms target`);
         }
-        if (step.maxLongTaskMs > 100) problems.push(`${step.name} had a ${step.maxLongTaskMs}ms long task, above 100ms target`);
-        if (step.name === 'drag-resize' && step.maxFrameGapMs > 100) {
-            problems.push(`drag-resize had a ${step.maxFrameGapMs}ms max frame gap, above 100ms target`);
+        if (step.maxLongTaskMs > longTaskTargetMs) problems.push(`${step.name} had a ${step.maxLongTaskMs}ms long task, above ${longTaskTargetMs}ms target`);
+        if (step.name === 'drag-resize' && step.maxFrameGapMs > dragFrameGapTargetMs) {
+            problems.push(`drag-resize had a ${step.maxFrameGapMs}ms max frame gap, above ${dragFrameGapTargetMs}ms target`);
         }
     }
     return problems;

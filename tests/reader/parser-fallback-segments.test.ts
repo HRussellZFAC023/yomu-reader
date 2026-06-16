@@ -46,6 +46,10 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(surfaces('日本語を学ぶ')).toEqual(['日本語', 'を', '学ぶ']);
     });
 
+    it('splits leading particles from Segmenter particle+noun compounds', () => {
+        expect(surfaces('日本語の森')).toEqual(['日本語', 'の', '森']);
+    });
+
     it('segments compound nouns like 管理拡張を追加 without fragmenting kanji words', () => {
         expect(surfaces('管理拡張を追加')).toEqual(['管理', '拡張', 'を', '追加']);
     });
