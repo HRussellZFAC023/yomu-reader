@@ -36,6 +36,14 @@ const CANVAS_READER_HOST_PATTERNS: RegExp[] = [
     /(^|\.)bookwalker\.jp$/i,
     /(^|\.)comic-walker\.com$/i,
 ];
+const BACKGROUND_IMAGE_READER_HOST_PATTERNS: RegExp[] = [
+    /(^|\.)mokuro\.app$/i,
+];
+const BACKGROUND_IMAGE_READER_SELECTOR = [
+    '[data-page-index]',
+    '[style*="background-image"]',
+    '[style*="background:"][style*="url("]',
+].join(',');
 
 const MIN_PAGE_CANVAS_DIMENSION = 600;     // drawing-buffer floor: rejects decoy/UI canvases
 const MIN_PAGE_CANVAS_ASPECT = 0.3;        // a single portrait page …
@@ -58,6 +66,10 @@ export function isKnownCanvasReaderHost(hostname: string = location.hostname): b
     return CANVAS_READER_HOST_PATTERNS.some(pattern => pattern.test(hostname));
 }
 
+export function isKnownBackgroundImageReaderHost(hostname: string = location.hostname): boolean {
+    return BACKGROUND_IMAGE_READER_HOST_PATTERNS.some(pattern => pattern.test(hostname));
+}
+
 function hasPageShape(canvas: HTMLCanvasElement): boolean {
     const { width, height } = canvas;
     if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
@@ -65,11 +77,17 @@ function hasPageShape(canvas: HTMLCanvasElement): boolean {
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
 }
 
+function hasRenderedPageShape(rect: DOMRect): boolean {
+    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
+    const aspect = rect.width / rect.height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+}
+
 // Reader pages dominate the viewport; this rejects incidental large canvases
 // (thumbnails rendered to canvas, embedded widgets, sprite buffers) on unknown
 // sites without needing to know the host.
-function isViewportProminent(canvas: HTMLCanvasElement): boolean {
-    const rect = canvas.getBoundingClientRect();
+function isViewportProminent(element: Element): boolean {
+    const rect = element.getBoundingClientRect();
     if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
@@ -84,7 +102,7 @@ function isViewportProminent(canvas: HTMLCanvasElement): boolean {
 // aliasing greys; colour pages span many bands too). Flat UI/solid canvases and
 // near-blank buffers fail the contrast/bucket test; WebGL/vector canvases tend to
 // as well; tainted canvases throw on read and are rejected (un-OCR-able anyway).
-function looksLikeRenderedImage(canvas: HTMLCanvasElement): boolean {
+export function looksLikeRenderedCanvasImage(canvas: HTMLCanvasElement): boolean {
     try {
         const sample = document.createElement('canvas');
         sample.width = CONTENT_SAMPLE_SIZE;
@@ -115,13 +133,32 @@ function looksLikeRenderedImage(canvas: HTMLCanvasElement): boolean {
 function isLikelyPageCanvas(canvas: HTMLCanvasElement, lenient: boolean): boolean {
     if (!hasPageShape(canvas)) return false;
     if (lenient) return true;
-    return isViewportProminent(canvas) && looksLikeRenderedImage(canvas);
+    return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
 }
 
 function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[] {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     return Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
         .filter(canvas => isLikelyPageCanvas(canvas, lenient));
+}
+
+function hasBackgroundReaderSignal(element: HTMLElement): boolean {
+    return element.hasAttribute('data-page-index')
+        || Boolean(element.closest('[data-mokuro-reader]'));
+}
+
+function isLikelyBackgroundImagePage(element: HTMLElement, hostname: string): boolean {
+    if (!backgroundImageReaderUrl(element)) return false;
+    const rect = element.getBoundingClientRect();
+    if (!hasRenderedPageShape(rect)) return false;
+    const knownHost = isKnownBackgroundImageReaderHost(hostname);
+    if (!knownHost && !hasBackgroundReaderSignal(element)) return false;
+    return knownHost || isViewportProminent(element);
+}
+
+function backgroundImagePages(hostname: string = location.hostname): HTMLElement[] {
+    return Array.from(document.querySelectorAll<HTMLElement>(BACKGROUND_IMAGE_READER_SELECTOR))
+        .filter(element => isLikelyBackgroundImagePage(element, hostname));
 }
 
 /**
@@ -138,6 +175,21 @@ export function collectCanvasReaderSurfaces(hostname: string = location.hostname
     return pageCanvases(hostname);
 }
 
+export function isBackgroundImageReaderPage(hostname: string = location.hostname): boolean {
+    return backgroundImagePages(hostname).length > 0;
+}
+
+export function collectBackgroundImageReaderSurfaces(hostname: string = location.hostname): HTMLElement[] {
+    return backgroundImagePages(hostname);
+}
+
+export function isReaderRasterPage(hostname: string = location.hostname): boolean {
+    return isCanvasReaderPage(hostname)
+        || isBackgroundImageReaderPage(hostname)
+        || isKnownCanvasReaderHost(hostname)
+        || isKnownBackgroundImageReaderHost(hostname);
+}
+
 /**
  * Cheap page-change fingerprint. Canvas redraws fire no DOM event, so we detect
  * page turns by combining the viewer's page counter ("3 / 48") and the live
@@ -152,7 +204,10 @@ export function canvasReaderPageSignature(): string {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
     const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
     const surfaces = pageCanvases().length;
-    return `${counter}|${scroll}|${surfaces}`;
+    const backgrounds = backgroundImagePages()
+        .map(element => `${element.getAttribute('data-page-index') ?? ''}:${backgroundImageReaderUrl(element) ?? ''}`)
+        .join('|');
+    return `${counter}|${scroll}|${surfaces}|${backgrounds}`;
 }
 
 /** Snapshot a page canvas to a JPEG data URL, downscaling past `maxPixels`. */
@@ -182,4 +237,15 @@ export function positionCanvasFrameImage(frame: HTMLImageElement, rect: DOMRect)
     frame.style.top = `${rect.top}px`;
     frame.style.width = `${rect.width}px`;
     frame.style.height = `${rect.height}px`;
+}
+
+export function backgroundImageReaderUrl(element: HTMLElement): string | undefined {
+    const image = getComputedStyle(element).backgroundImage;
+    return firstCssBackgroundUrl(image);
+}
+
+function firstCssBackgroundUrl(value: string): string | undefined {
+    const match = value.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/iu);
+    const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? '';
+    return raw.trim() || undefined;
 }

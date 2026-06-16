@@ -254,12 +254,10 @@ const YOMU_HOSTED_DOCS_PARSER_ID = 'yomu-hosted-docs-parser';
 const JPDB_PARSER_ID = 'jpdb-parser';
 const YOMU_HOSTED_DOCS_ROOTS = [
     '.VPHero .heading',
-    '.VPHero .name',
     '.VPHero .text',
     '.VPHero .tagline',
     '.VPHero .main',
     '.VPHomeHero .heading',
-    '.VPHomeHero .name',
     '.VPHomeHero .text',
     '.VPHomeHero .tagline',
     '.VPHomeHero .main',
@@ -269,6 +267,11 @@ const YOMU_HOSTED_DOCS_ROOTS = [
     '.yomu-link-grid',
     '.vp-doc',
 ];
+const YOMU_HOSTED_DOCS_EXCLUDE = [
+    COMMON_EXCLUDE,
+    '.VPHero .name',
+    '.VPHomeHero .name',
+].join(',');
 const YOMU_VIDEO_PLAYER_ROOTS = [
     '.brand strong',
     '[data-yomu-video-frame] .empty strong',
@@ -336,7 +339,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         name: 'Yomu hosted docs',
         description: 'Hosted Yomu docs Japanese text.',
         roots: YOMU_HOSTED_DOCS_ROOTS,
-        exclude: COMMON_EXCLUDE,
+        exclude: YOMU_HOSTED_DOCS_EXCLUDE,
         allowUiText: true,
         heading: true,
         minLength: 1,

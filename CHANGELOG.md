@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.0] - 2026-06-16
+
+### Added
+
+- Image OCR now treats manga reader raster pages as first-class scan surfaces: BookWalker/ComicWalker-style `<canvas>` pages and Mokuro CSS `background-image` pages are converted into invisible OCR anchors and aligned with the existing overlay pipeline.
+
+### Fixed
+
+- Mokuro pages now trigger Yomu OCR when Mokuro's own OCR layer is turned off, including installed-library reader pages that render each page as a CSS background image instead of an `<img>` or `<canvas>`.
+- BookWalker and ComicWalker OCR now wakes up reliably when canvases mount after startup, waits until a canvas has real page pixels before scanning, and captures every visible spread canvas instead of only the first readable side.
+- Hosted Yomu docs no longer annotate the oversized hero brand text, avoiding the huge/shifted ruby and pitch overlay on the main logo.
+
 ## [0.7.90] - 2026-06-16
 
 ### Changed

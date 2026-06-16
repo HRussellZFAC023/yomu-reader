@@ -1,12 +1,17 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+    backgroundImageReaderUrl,
     canvasReaderPageSignature,
     captureCanvasDataUrl,
+    collectBackgroundImageReaderSurfaces,
     collectCanvasReaderSurfaces,
+    isBackgroundImageReaderPage,
     isBookwalkerViewerHost,
     isCanvasReaderPage,
+    isKnownBackgroundImageReaderHost,
     isKnownCanvasReaderHost,
+    isReaderRasterPage,
 } from '../../src/reader/ocr/canvas-readers';
 
 // Canna wish: automatic OCR on BookWalker. Its browser viewer paints pages onto
@@ -43,6 +48,16 @@ function mountComicWalkerFixture(): void {
         <div class="_pageWrapper_x1"><canvas class="_root_bx4cr_1" width="1284" height="1825"></canvas></div>
         <div class="_pageWrapper_x1"><canvas class="_root_bx4cr_1" width="1200" height="1600"></canvas></div>
         <canvas class="_uiSwatch_q9" width="32" height="32"></canvas>`;
+}
+
+function mountMokuroFixture(): HTMLElement {
+    document.body.innerHTML = `
+        <div data-mokuro-reader>
+            <div data-page-index="6" style="width: 1080px; height: 1530px; background-image: url('blob:https://reader.mokuro.app/page-6'); background-size: contain;"></div>
+        </div>`;
+    const page = document.querySelector<HTMLElement>('[data-page-index="6"]')!;
+    page.getBoundingClientRect = () => new DOMRect(32, 24, 681, 965);
+    return page;
 }
 
 afterEach(() => { document.body.innerHTML = ''; });
@@ -92,6 +107,23 @@ describe('canvas readers (BookWalker)', () => {
         // Both 1284×1825 / 1200×1600 page canvases; never the 32×32 UI swatch.
         expect(surfaces).toHaveLength(2);
         expect(surfaces.every(c => c.width >= 600)).toBe(true);
+    });
+
+    it('recognises Mokuro CSS background pages as raster reader surfaces', () => {
+        const page = mountMokuroFixture();
+        expect(isKnownBackgroundImageReaderHost('reader.mokuro.app')).toBe(true);
+        expect(isKnownBackgroundImageReaderHost('example.com')).toBe(false);
+        expect(backgroundImageReaderUrl(page)).toBe('blob:https://reader.mokuro.app/page-6');
+        expect(isBackgroundImageReaderPage('reader.mokuro.app')).toBe(true);
+        expect(isReaderRasterPage('reader.mokuro.app')).toBe(true);
+        expect(collectBackgroundImageReaderSurfaces('reader.mokuro.app')).toEqual([page]);
+    });
+
+    it('starts raster polling on known reader hosts before a page surface is mounted', () => {
+        expect(isCanvasReaderPage('viewer.bookwalker.jp')).toBe(false);
+        expect(isBackgroundImageReaderPage('reader.mokuro.app')).toBe(false);
+        expect(isReaderRasterPage('viewer.bookwalker.jp')).toBe(true);
+        expect(isReaderRasterPage('reader.mokuro.app')).toBe(true);
     });
 
     it('changes the page signature when the counter advances (re-snapshot trigger)', () => {

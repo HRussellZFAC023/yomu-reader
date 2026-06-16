@@ -29254,6 +29254,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     /(^|\.)bookwalker\.jp$/i,
     /(^|\.)comic-walker\.com$/i
   ];
+  const BACKGROUND_IMAGE_READER_HOST_PATTERNS = [
+    /(^|\.)mokuro\.app$/i
+  ];
+  const BACKGROUND_IMAGE_READER_SELECTOR = [
+    "[data-page-index]",
+    '[style*="background-image"]',
+    '[style*="background:"][style*="url("]'
+  ].join(",");
   const MIN_PAGE_CANVAS_DIMENSION = 600;
   const MIN_PAGE_CANVAS_ASPECT = 0.3;
   const MAX_PAGE_CANVAS_ASPECT = 3.2;
@@ -29270,14 +29278,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isKnownCanvasReaderHost(hostname = location.hostname) {
     return CANVAS_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
   }
+  function isKnownBackgroundImageReaderHost(hostname = location.hostname) {
+    return BACKGROUND_IMAGE_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
+  }
   function hasPageShape(canvas) {
     const { width, height } = canvas;
     if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
     const aspect = width / height;
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
   }
-  function isViewportProminent(canvas) {
-    const rect = canvas.getBoundingClientRect();
+  function hasRenderedPageShape(rect) {
+    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
+    const aspect = rect.width / rect.height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+  }
+  function isViewportProminent(element) {
+    const rect = element.getBoundingClientRect();
     if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
@@ -29285,7 +29301,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
     return coversAxis && coversArea;
   }
-  function looksLikeRenderedImage(canvas) {
+  function looksLikeRenderedCanvasImage(canvas) {
     try {
       const sample = document.createElement("canvas");
       sample.width = CONTENT_SAMPLE_SIZE;
@@ -29315,11 +29331,25 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isLikelyPageCanvas(canvas, lenient) {
     if (!hasPageShape(canvas)) return false;
     if (lenient) return true;
-    return isViewportProminent(canvas) && looksLikeRenderedImage(canvas);
+    return isViewportProminent(canvas) && looksLikeRenderedCanvasImage(canvas);
   }
   function pageCanvases(hostname = location.hostname) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
     return Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
+  }
+  function hasBackgroundReaderSignal(element) {
+    return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
+  }
+  function isLikelyBackgroundImagePage(element, hostname) {
+    if (!backgroundImageReaderUrl(element)) return false;
+    const rect = element.getBoundingClientRect();
+    if (!hasRenderedPageShape(rect)) return false;
+    const knownHost = isKnownBackgroundImageReaderHost(hostname);
+    if (!knownHost && !hasBackgroundReaderSignal(element)) return false;
+    return knownHost || isViewportProminent(element);
+  }
+  function backgroundImagePages(hostname = location.hostname) {
+    return Array.from(document.querySelectorAll(BACKGROUND_IMAGE_READER_SELECTOR)).filter((element) => isLikelyBackgroundImagePage(element, hostname));
   }
   function isCanvasReaderPage(hostname = location.hostname) {
     return pageCanvases(hostname).length > 0;
@@ -29327,11 +29357,21 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function collectCanvasReaderSurfaces(hostname = location.hostname) {
     return pageCanvases(hostname);
   }
+  function isBackgroundImageReaderPage(hostname = location.hostname) {
+    return backgroundImagePages(hostname).length > 0;
+  }
+  function collectBackgroundImageReaderSurfaces(hostname = location.hostname) {
+    return backgroundImagePages(hostname);
+  }
+  function isReaderRasterPage(hostname = location.hostname) {
+    return isCanvasReaderPage(hostname) || isBackgroundImageReaderPage(hostname) || isKnownCanvasReaderHost(hostname) || isKnownBackgroundImageReaderHost(hostname);
+  }
   function canvasReaderPageSignature() {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
     const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
     const surfaces = pageCanvases().length;
-    return `${counter}|${scroll}|${surfaces}`;
+    const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
+    return `${counter}|${scroll}|${surfaces}|${backgrounds}`;
   }
   function captureCanvasDataUrl(canvas, maxPixels) {
     try {
@@ -29357,6 +29397,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     frame.style.top = `${rect.top}px`;
     frame.style.width = `${rect.width}px`;
     frame.style.height = `${rect.height}px`;
+  }
+  function backgroundImageReaderUrl(element) {
+    const image = getComputedStyle(element).backgroundImage;
+    return firstCssBackgroundUrl(image);
+  }
+  function firstCssBackgroundUrl(value) {
+    const match = value.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/iu);
+    const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
+    return raw.trim() || void 0;
   }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -31329,6 +31378,7 @@ ${spelling}`);
     positionFrame = 0;
     refreshTimer = 0;
     lastPointerMoveImage;
+    lastPointerMoveReaderSurface;
     videoFrames = /* @__PURE__ */ new Map();
     videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
@@ -31336,12 +31386,16 @@ ${spelling}`);
     // Compact loading/ready indicators for every OCR'd image (not just
     // paused-video frames), so slow image OCR shows progress without a card.
     imageStatuses = /* @__PURE__ */ new Map();
-    // Canvas-reader snapshots (BookWalker): map each page <canvas> to the data-URL
-    // <img> we OCR in its place, plus the page fingerprint and the page-turn poll.
+    // Reader raster snapshots (BookWalker/ComicWalker canvases and Mokuro CSS
+    // background pages): map each page surface to the invisible <img> we OCR in
+    // its place, plus the page fingerprint and the page-turn poll.
     canvasFrames = /* @__PURE__ */ new Map();
     canvasFrameSources = /* @__PURE__ */ new Map();
+    backgroundFrames = /* @__PURE__ */ new Map();
+    backgroundFrameSources = /* @__PURE__ */ new Map();
+    backgroundFrameKeys = /* @__PURE__ */ new Map();
     canvasReaderSignature;
-    canvasReaderPoll = 0;
+    readerRasterPoll = 0;
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
@@ -31382,7 +31436,7 @@ ${spelling}`);
         attributes: true,
         attributeFilter: ["style", "class", "hidden", "src", "srcset", "sizes", "loading", "poster"]
       });
-      this.startCanvasReaderPollingIfNeeded();
+      this.startReaderRasterPollingIfNeeded();
     }
     destroy() {
       document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
@@ -31401,9 +31455,10 @@ ${spelling}`);
       }
       this.releaseAllVideoFrames();
       this.releaseAllCanvasFrames();
-      if (this.canvasReaderPoll) {
-        window.clearInterval(this.canvasReaderPoll);
-        this.canvasReaderPoll = 0;
+      this.releaseAllBackgroundFrames();
+      if (this.readerRasterPoll) {
+        window.clearInterval(this.readerRasterPoll);
+        this.readerRasterPoll = 0;
       }
       this.mutationObserver?.disconnect();
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -31415,7 +31470,8 @@ ${spelling}`);
         this.clear();
         return;
       }
-      this.refreshCanvasReaderSurfaces(settings);
+      this.refreshCanvasReaderSurfaces(settings, options.userRequested);
+      this.refreshBackgroundImageReaderSurfaces(settings, options.userRequested);
       if (this.shouldSkipRefresh(settings, options)) {
         this.pruneDisconnectedStates();
         this.schedulePosition();
@@ -31563,12 +31619,31 @@ ${spelling}`);
       return true;
     }
     requestOcrFromPointerEvent(event) {
-      const image = ocrImageFromPointerEvent(event, this.options.getSettings());
-      if (!image) return;
-      if (event.type === "pointermove" && image === this.lastPointerMoveImage) return;
-      if (event.type === "pointermove") this.lastPointerMoveImage = image;
-      else this.lastPointerMoveImage = void 0;
-      this.enqueue(image, true);
+      const settings = this.options.getSettings();
+      const image = ocrImageFromPointerEvent(event, settings);
+      if (image) {
+        if (event.type === "pointermove" && image === this.lastPointerMoveImage) return;
+        if (event.type === "pointermove") this.lastPointerMoveImage = image;
+        else this.lastPointerMoveImage = void 0;
+        this.lastPointerMoveReaderSurface = void 0;
+        this.enqueue(image, true);
+        return;
+      }
+      const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
+      if (!surface) return;
+      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface) return;
+      if (event.type === "pointermove") this.lastPointerMoveReaderSurface = surface;
+      else this.lastPointerMoveReaderSurface = void 0;
+      const frame = this.snapshotReaderSurface(surface, settings);
+      if (frame) this.enqueue(frame, true);
+    }
+    snapshotReaderSurface(surface, settings) {
+      if (surface instanceof HTMLCanvasElement) {
+        this.snapshotCanvasSurface(surface, settings);
+        return this.canvasFrames.get(surface);
+      }
+      this.snapshotBackgroundImageSurface(surface, settings);
+      return this.backgroundFrames.get(surface);
     }
     queueImageForOcr(image) {
       if (!this.queue.includes(image)) this.queue.push(image);
@@ -31783,6 +31858,7 @@ ${spelling}`);
         this.positionFrame = 0;
         this.positionVideoFrames();
         this.positionCanvasFrames();
+        this.positionBackgroundFrames();
         for (const image of this.states.keys()) this.positionState(image);
         this.positionImageStatusCards();
       });
@@ -31933,26 +32009,33 @@ ${spelling}`);
     releaseAllVideoFrames() {
       for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
     }
-    // --- Canvas-reader frames (BookWalker browser viewer) ---
-    startCanvasReaderPollingIfNeeded() {
-      if (this.canvasReaderPoll || !isCanvasReaderPage()) return;
-      this.canvasReaderPoll = window.setInterval(() => {
-        this.refreshCanvasReaderSurfaces(this.options.getSettings());
+    // --- Reader raster frames (canvas readers + CSS background-image readers) ---
+    startReaderRasterPollingIfNeeded() {
+      if (this.readerRasterPoll || !isReaderRasterPage()) return;
+      this.readerRasterPoll = window.setInterval(() => {
+        const settings = this.options.getSettings();
+        this.refreshCanvasReaderSurfaces(settings);
+        this.refreshBackgroundImageReaderSurfaces(settings);
       }, 1200);
     }
-    refreshCanvasReaderSurfaces(settings) {
-      if (!settings.ocrEnabled || !settings.ocrAutoScanImages || settings.ocrProvider === "off") return;
-      if (!isCanvasReaderPage()) {
+    refreshCanvasReaderSurfaces(settings, userRequested = false) {
+      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!settings.ocrAutoScanImages && !userRequested) return;
+      if (!isReaderRasterPage()) {
         this.releaseAllCanvasFrames();
         return;
       }
-      this.startCanvasReaderPollingIfNeeded();
+      this.startReaderRasterPollingIfNeeded();
       const signature = canvasReaderPageSignature();
       if (signature !== this.canvasReaderSignature) {
         this.releaseAllCanvasFrames();
         this.canvasReaderSignature = signature;
       }
-      for (const canvas of collectCanvasReaderSurfaces()) {
+      const canvases = collectCanvasReaderSurfaces();
+      for (const canvas of [...this.canvasFrames.keys()]) {
+        if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
+      }
+      for (const canvas of canvases) {
         if (this.canvasFrames.has(canvas)) continue;
         this.snapshotCanvasSurface(canvas, settings);
       }
@@ -31962,6 +32045,7 @@ ${spelling}`);
       const rect = canvas.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
       if (!isNearViewport(canvas, settings.ocrPrefetchMargin) || isHiddenByCss(canvas)) return;
+      if (!looksLikeRenderedCanvasImage(canvas)) return;
       const dataUrl = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
       if (!dataUrl) return;
       const frame = document.createElement("img");
@@ -32003,6 +32087,74 @@ ${spelling}`);
           continue;
         }
         positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
+      }
+    }
+    refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
+      if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
+      if (!settings.ocrAutoScanImages && !userRequested) return;
+      if (!isReaderRasterPage()) {
+        this.releaseAllBackgroundFrames();
+        return;
+      }
+      this.startReaderRasterPollingIfNeeded();
+      const surfaces = collectBackgroundImageReaderSurfaces();
+      for (const surface of [...this.backgroundFrames.keys()]) {
+        const key = this.backgroundFrameKeys.get(surface);
+        if (!surfaces.includes(surface) || key !== backgroundSurfaceCacheKey(surface)) this.releaseBackgroundFrame(surface);
+      }
+      for (const surface of surfaces) {
+        if (this.backgroundFrames.has(surface)) continue;
+        this.snapshotBackgroundImageSurface(surface, settings);
+      }
+    }
+    snapshotBackgroundImageSurface(surface, settings) {
+      if (this.backgroundFrames.has(surface)) return;
+      const url = backgroundImageReaderUrl(surface);
+      if (!url) return;
+      const rect = surface.getBoundingClientRect();
+      if (rect.width * rect.height < settings.ocrMinImageArea) return;
+      if (!isNearViewport(surface, settings.ocrPrefetchMargin) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
+      const frame = document.createElement("img");
+      frame.className = "jpdb-ocr-background-frame";
+      frame.dataset.yomuBackgroundFrame = "true";
+      frame.alt = "";
+      frame.decoding = "async";
+      positionCanvasFrameImage(frame, rect);
+      frame.addEventListener("load", () => {
+        if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, true);
+      }, { once: true });
+      frame.src = url;
+      document.body.append(frame);
+      this.backgroundFrames.set(surface, frame);
+      this.backgroundFrameSources.set(frame, surface);
+      this.backgroundFrameKeys.set(surface, backgroundSurfaceCacheKey(surface));
+      this.schedulePosition();
+    }
+    releaseBackgroundFrame(surface) {
+      const frame = this.backgroundFrames.get(surface);
+      if (!frame) return;
+      this.backgroundFrames.delete(surface);
+      this.backgroundFrameKeys.delete(surface);
+      const state = this.states.get(frame);
+      if (state) {
+        this.observer?.unobserve(frame);
+        state.overlay.remove();
+        this.states.delete(frame);
+      }
+      this.backgroundFrameSources.delete(frame);
+      this.queue = this.queue.filter((queued) => queued !== frame);
+      frame.remove();
+    }
+    releaseAllBackgroundFrames() {
+      for (const surface of [...this.backgroundFrames.keys()]) this.releaseBackgroundFrame(surface);
+    }
+    positionBackgroundFrames() {
+      for (const [surface, frame] of [...this.backgroundFrames]) {
+        if (!surface.isConnected) {
+          this.releaseBackgroundFrame(surface);
+          continue;
+        }
+        positionCanvasFrameImage(frame, surface.getBoundingClientRect());
       }
     }
     positionVideoFrames() {
@@ -32086,6 +32238,7 @@ ${spelling}`);
       this.observerMargin = "";
       window.clearTimeout(this.refreshTimer);
       this.releaseAllCanvasFrames();
+      this.releaseAllBackgroundFrames();
       this.queue = [];
       for (const state of this.states.values()) {
         state.overlay.remove();
@@ -32144,7 +32297,7 @@ ${spelling}`);
     // stale OCR artifact (rail resume button, overlay over the player) carries
     // across the SPA route change, then re-scan the destination page.
     teardownForNavigation() {
-      if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0) return;
+      if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0 && this.backgroundFrames.size === 0) return;
       this.releaseAllVideoFrames();
       this.clear();
       if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
@@ -32623,6 +32776,10 @@ ${spelling}`);
     const image = pointerEventImageTarget(event) ?? pointerEventImageAtPoint(event);
     return image && isCandidateImage(image, settings) && shouldObserveImage(image, settings) ? image : null;
   }
+  function ocrReaderSurfaceFromPointerEvent(event, settings) {
+    if (!settings.ocrEnabled || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
+  }
   function shouldHandleOcrPointerEvent(event) {
     if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;
     return (event.type === "pointerover" || event.type === "pointermove") && isHoverPointerType(event.pointerType);
@@ -32643,6 +32800,39 @@ ${spelling}`);
     const element = document.elementFromPoint?.(event.clientX, event.clientY);
     if (!element || element.closest("[data-jpdb-reader-root]")) return null;
     return element instanceof HTMLImageElement ? element : element.closest("img");
+  }
+  function pointerEventReaderSurfaceTarget(event, settings) {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target || target.closest("[data-jpdb-reader-root]")) return null;
+    return readerSurfaceFromElement(target, settings);
+  }
+  function pointerEventReaderSurfaceAtPoint(event, settings) {
+    const element = document.elementFromPoint?.(event.clientX, event.clientY);
+    if (element && !element.closest("[data-jpdb-reader-root]")) {
+      const surface = readerSurfaceFromElement(element, settings);
+      if (surface) return surface;
+    }
+    return readerSurfaceAtPoint(event.clientX, event.clientY, settings);
+  }
+  function readerSurfaceFromElement(element, settings) {
+    const canvas = element instanceof HTMLCanvasElement ? element : element.closest("canvas");
+    if (canvas && collectCanvasReaderSurfaces().includes(canvas) && isReaderSurfaceCandidate(canvas, settings)) return canvas;
+    const background = collectBackgroundImageReaderSurfaces().find((surface) => (surface === element || surface.contains(element)) && isReaderSurfaceCandidate(surface, settings));
+    return background ?? null;
+  }
+  function readerSurfaceAtPoint(clientX, clientY, settings) {
+    const surfaces = [
+      ...collectCanvasReaderSurfaces(),
+      ...collectBackgroundImageReaderSurfaces()
+    ].filter((surface) => isReaderSurfaceCandidate(surface, settings));
+    return surfaces.find((surface) => rectContainsPoint(surface.getBoundingClientRect(), clientX, clientY)) ?? null;
+  }
+  function isReaderSurfaceCandidate(surface, settings) {
+    const rect = surface.getBoundingClientRect();
+    return rect.width * rect.height >= settings.ocrMinImageArea && isNearViewport(surface, settings.ocrPrefetchMargin) && !isHiddenByCss(surface) && !isInsideHiddenAncestor(surface);
+  }
+  function rectContainsPoint(rect, clientX, clientY) {
+    return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
   }
   function isIgnoredOcrImage(image) {
     return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isBrandOrIconOcrImage(image) || isYouTubeThumbnailImage(image));
@@ -32728,7 +32918,7 @@ ${spelling}`);
     return settings.ocrAutoScanImages && shouldAutoScan?.() !== false;
   }
   function nodeContainsRenderableMedia(node) {
-    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLSourceElement || node instanceof Element && Boolean(node.querySelector("img, video, source"));
+    return node instanceof HTMLImageElement || node instanceof HTMLVideoElement || node instanceof HTMLCanvasElement || node instanceof HTMLSourceElement || node instanceof HTMLElement && Boolean(backgroundImageReaderUrl(node)) || node instanceof Element && Boolean(node.querySelector('img, video, source, canvas, [data-page-index], [style*="background-image"], [style*="background:"][style*="url("]'));
   }
   function isImageOccludedByVideo(image, rect = image.getBoundingClientRect()) {
     if (image.dataset.yomuVideoFrame) return false;
@@ -32904,6 +33094,15 @@ ${spelling}`);
   }
   function imageCacheKey(image) {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+  }
+  function backgroundSurfaceCacheKey(surface) {
+    const rect = surface.getBoundingClientRect();
+    return [
+      surface.getAttribute("data-page-index") ?? "",
+      backgroundImageReaderUrl(surface) ?? "",
+      Math.round(rect.width),
+      Math.round(rect.height)
+    ].join("|");
   }
   function protoMessage(...parts) {
     return concatBytes(parts);

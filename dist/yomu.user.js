@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.90
+// @version      1.0.0
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ZT0PEUPo27srxYwr8jzONA3dEh8Bn8mDBW6KEy3MkW4=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IhOTa62YFgcyjDt3SwV8RQpEp46/jtbKpcDuwiVfxCA=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-a9FYuOp6bXnxJs4ltvoPjOsZ5rZ8ACui/cY6QMhN8ZY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-AJDS/h1l0XlQuWlAopL5TTo75PNl56Up5vMlaoNc8JI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-wj2Quj1ZHZzIZFb5bQsYQCl3dYbpo3irW4e5vNdtlOc=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -30538,12 +30538,10 @@ ${glossaryKey}`;
   const JPDB_PARSER_ID = "jpdb-parser";
   const YOMU_HOSTED_DOCS_ROOTS = [
     ".VPHero .heading",
-    ".VPHero .name",
     ".VPHero .text",
     ".VPHero .tagline",
     ".VPHero .main",
     ".VPHomeHero .heading",
-    ".VPHomeHero .name",
     ".VPHomeHero .text",
     ".VPHomeHero .tagline",
     ".VPHomeHero .main",
@@ -30553,6 +30551,11 @@ ${glossaryKey}`;
     ".yomu-link-grid",
     ".vp-doc"
   ];
+  const YOMU_HOSTED_DOCS_EXCLUDE = [
+    COMMON_EXCLUDE,
+    ".VPHero .name",
+    ".VPHomeHero .name"
+  ].join(",");
   const YOMU_VIDEO_PLAYER_ROOTS = [
     ".brand strong",
     "[data-yomu-video-frame] .empty strong",
@@ -30620,7 +30623,7 @@ ${glossaryKey}`;
       name: "Yomu hosted docs",
       description: "Hosted Yomu docs Japanese text.",
       roots: YOMU_HOSTED_DOCS_ROOTS,
-      exclude: COMMON_EXCLUDE,
+      exclude: YOMU_HOSTED_DOCS_EXCLUDE,
       allowUiText: true,
       heading: true,
       minLength: 1,

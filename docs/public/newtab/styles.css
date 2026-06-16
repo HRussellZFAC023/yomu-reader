@@ -5863,7 +5863,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
    page, so this capture anchor stays invisible — it only provides pixels for OCR
    and a rect for overlay alignment. pointer-events:none lets the host viewer's
    own page-turn taps/swipes pass straight through. */
-.jpdb-ocr-canvas-frame {
+.jpdb-ocr-canvas-frame,
+.jpdb-ocr-background-frame {
   position: fixed;
   z-index: 1;
   margin: 0;
