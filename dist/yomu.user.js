@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.68
+// @version      0.7.69
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -38245,10 +38245,17 @@ ${glossaryKey}`;
       return normalizedLookupText(sentence);
     }
     shouldIgnoreCurrentImmersionExampleTargetClick(word) {
-      if (!this.lastCard || !word.closest(".jpdb-reader-popover")) return false;
-      if (!word.closest(".jpdb-reader-example-sentence")) return false;
+      if (!this.lastCard || !this.isInsideActivePopover(word)) return false;
+      const exampleSentence = word.closest(".jpdb-reader-example-sentence");
+      if (!exampleSentence || !this.isInsideImmersionKitContainer(exampleSentence)) return false;
       if (!word.closest(".jpdb-reader-example-target")) return false;
       return cardMatchesRenderedLookupValue(this.lastCard, renderedWordLookupText(word));
+    }
+    isInsideImmersionKitContainer(element2) {
+      for (let current = element2.parentElement; current; current = current.parentElement) {
+        if (current.hasAttribute("data-immersion-kit")) return true;
+      }
+      return false;
     }
     renderedWordHoverLookupKey(word, trigger) {
       return trigger === "hover" ? this.hoverLookupKeyForWord(word) : void 0;

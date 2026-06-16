@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.69] - 2026-06-16
+
+### Fixed
+
+- Rebased and republished the iPad/tablet YouTube transcript sidebar performance and layout fixes on top of the latest dictionary-source release, keeping the preview-first panel open path covered by CI so full transcript hydration stays deferred instead of blocking panel open.
+- Current Immersion Kit example-target clicks now use explicit active-popover and ancestor checks, avoiding redundant popup navigation when the active example word is clicked inside dictionary details.
+
 ## [0.7.68] - 2026-06-16
 
 ### Fixed
