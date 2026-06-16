@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.79
+// @version      0.7.80
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,7 +13,7 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-cAaLgIzGKX5jwTv9PcAxOcqv23vp7Onu6HvEYJ1+9ZM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-WLYRElqWc/8I9gHNgbK1a/tFtPf8y2396XLFmOzlrAE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-5ghlIfkZZqLUmwFh/PSMnKqmsWb7C2CcfMYZPpWVBY0=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-yyU6tq5j1vitIBWDM/Yj0+8s1LtvlRwU8gRlXMlo2Gk=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-dLDYhPJIYesa0RtrdKDgJVKfx1ss+ut/JD5JvMmNna4=
@@ -9257,9 +9257,15 @@ recommendedJiten	jiten.moe頻度データです。
       allowDirectCrossOrigin: true,
       allowPublicProxies: false,
       allowConfiguredProxy: false,
-      preferFetch: true
+      preferFetch: true,
+      headers: { "X-Return-Format": "html" }
     }).catch(() => "");
-    return typeof response === "string" ? extractJishoTextProxyAudioUrls(response, card).slice(0, 1) : [];
+    if (typeof response !== "string" || !response) return [];
+    const searchUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const audioHtml = findJishoAudioElement(response, card);
+    const fromHtml = audioHtml ? jishoAudioSourceUrls(audioHtml, searchUrl) : [];
+    if (fromHtml.length) return fromHtml.slice(0, 1);
+    return extractJishoTextProxyAudioUrls(response, card).slice(0, 1);
   }
   function extractJishoTextProxyAudioUrls(markdown, card) {
     const wordsSection = markdownSection(markdown, /^#{1,6}\s+Words\b/im);
@@ -34796,6 +34802,7 @@ ${glossaryKey}`;
       toast.classList.remove(TOAST_VISIBLE_CLASS);
       window.setTimeout(() => {
         toast.remove();
+        if (typeof document === "undefined") return;
         const stack = document.querySelector(`.${TOAST_STACK_CLASS}`);
         if (stack && !stack.childElementCount) stack.remove();
       }, TOAST_EXIT_MS);

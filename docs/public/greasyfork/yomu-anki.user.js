@@ -8575,9 +8575,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       allowDirectCrossOrigin: true,
       allowPublicProxies: false,
       allowConfiguredProxy: false,
-      preferFetch: true
+      preferFetch: true,
+      headers: { "X-Return-Format": "html" }
     }).catch(() => "");
-    return typeof response === "string" ? extractJishoTextProxyAudioUrls(response, card).slice(0, 1) : [];
+    if (typeof response !== "string" || !response) return [];
+    const searchUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const audioHtml = findJishoAudioElement(response, card);
+    const fromHtml = audioHtml ? jishoAudioSourceUrls(audioHtml, searchUrl) : [];
+    if (fromHtml.length) return fromHtml.slice(0, 1);
+    return extractJishoTextProxyAudioUrls(response, card).slice(0, 1);
   }
   function extractJishoTextProxyAudioUrls(markdown, card) {
     const wordsSection = markdownSection(markdown, /^#{1,6}\s+Words\b/im);
