@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.87] - 2026-06-16
+
+### Changed
+
+- On mokuro readers, mokuro's own "OCR enabled" overlay now defaults off (once, before mokuro loads its settings) so the reader's sharper OCR runs on the page by default; turning mokuro's toggle back on is respected and the reader defers to mokuro's text boxes again. The "OCR enabled" toggle label is annotated to make clear it now switches between Yomu OCR (off) and mokuro OCR (on).
+
 ## [0.7.86] - 2026-06-16
 
 ### Changed
