@@ -543,7 +543,7 @@ describe('OCR sentence focus', () => {
     it('keeps active OCR text readable on light themed image surfaces', () => {
         const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-reader-text); text-shadow: none;');
-        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
     });
 
     it('normalizes late-added OCR furigana so active OCR lines can show it immediately', () => {

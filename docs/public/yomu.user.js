@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.70
+// @version      0.7.71
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -36235,6 +36235,7 @@ ${glossaryKey}`;
     async invalidateRuntimeStoresForFactoryReset() {
       this.dismiss({ suppressHoverTarget: false });
       this.jpdb.clear();
+      this.jitenPublicVocabulary.clear();
       this.parser.clearLocalCache();
       this.dictionarySourceState.clear();
       this.cardRenderData.clear();
@@ -36242,6 +36243,7 @@ ${glossaryKey}`;
       this.preloadedPreparedTermAudioKeys.clear();
       this.nestedParseContentCache.clear();
       this.pitchEnrichmentLocalCache.clear();
+      this.jitenPublicVocabulary.clear();
       this.resolvedFallbackVocabularyCache.clear();
       this.unresolvedFallbackVocabularyCache.clear();
       this.fallbackVocabularyResolutionCache.clear();
@@ -36351,6 +36353,7 @@ ${glossaryKey}`;
     clearBridgeBackedCaches() {
       this.audio.clearCaches();
       this.jpdbVocabulary.clear();
+      this.jitenPublicVocabulary.clear();
       this.cardRenderData.clear();
     }
     scheduleDictionaryRescan() {
@@ -36359,6 +36362,7 @@ ${glossaryKey}`;
         return;
       }
       this.pitchEnrichmentLocalCache.clear();
+      this.jitenPublicVocabulary.clear();
       this.nestedParseContentCache.clear();
       this.resolvedFallbackVocabularyCache.clear();
       this.unresolvedFallbackVocabularyCache.clear();
@@ -36379,6 +36383,7 @@ ${glossaryKey}`;
     }
     async reparseVisiblePage() {
       this.jpdb.clear();
+      this.jitenPublicVocabulary.clear();
       this.parser.clearLocalCache();
       this.nestedParseContentCache.clear();
       this.pauseAutoScanObserver(() => {
@@ -37489,10 +37494,6 @@ ${glossaryKey}`;
       }
     }
     handleReaderWordHover(word, event) {
-      if (word.closest(".jpdb-ocr-line")) {
-        this.cancelPendingHoverLookup();
-        return;
-      }
       this.rememberHoverPopoverPointer(event);
       const hoverLookupKey = this.hoverLookupKeyForWord(word);
       if (this.isActiveHoverLookup(hoverLookupKey)) {

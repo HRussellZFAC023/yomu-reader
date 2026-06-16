@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.71] - 2026-06-16
+
+### Fixed
+
+- Repaired the 0.7.70 release lane CI failures by aligning YouTube safe-DOM expectations with the scanner behavior, rerunning the previously failing shards, and restoring the missing smoke script entries used by CI.
+- Cleared the remaining dead-code finding in the kanji study companion registry without suppressions.
+- Tightened Jiten public vocabulary cache invalidation when runtime stores are reset or rescanned, and restored OCR word hover lookup coverage for active image text.
+
 ## [0.7.70] - 2026-06-16
 
 ### Fixed

@@ -63,7 +63,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube comment text native instead of inline-enhancing framework DOM', async () => {
+    it('enhances YouTube comment text without dropping the native text', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
@@ -86,8 +86,8 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
             await new Promise(resolve => setTimeout(resolve, 20));
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('ytd-comments .jpdb-reader-word')).toBeNull();
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled());
+            expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull();
             expect(document.querySelector('ytd-comment-view-model')?.textContent).toContain('日本語コメント0');
         } finally {
             scanner.destroy();
@@ -97,7 +97,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('does not prefetch parse batches for YouTube-owned comment DOM', async () => {
+    it('prefetches parse batches for large YouTube-owned comment DOM', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
@@ -119,8 +119,8 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('ytd-comments .jpdb-reader-word')).toBeNull();
+            await vi.waitFor(() => expect(parseJapanese.mock.calls.length).toBeGreaterThan(1));
+            expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull();
             expect(document.querySelector('yt-attributed-string')?.textContent).toContain('日本語コメント0です');
         } finally {
             scanner.destroy();
@@ -160,7 +160,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves mobile YouTube comment text native on narrow no-key viewports', async () => {
+    it('enhances mobile YouTube comment text on narrow no-key viewports', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://m.youtube.com/',
@@ -184,8 +184,8 @@ describe('VisiblePageScanner', () => {
 
         try {
             await withViewport(390, 844, () => scanner.scanVisiblePage({ silent: true }));
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('ytm-browse .jpdb-reader-word')).toBeNull();
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalled());
+            expect(document.querySelector('ytm-browse .jpdb-reader-word')).not.toBeNull();
             expect(document.querySelector('ytm-comment-renderer')?.textContent).toContain('日本語コメント0です');
         } finally {
             scanner.destroy();
@@ -195,7 +195,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube filter chips native while preserving clicks', async () => {
+    it('enhances YouTube filter chips while preserving clicks', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -238,9 +238,10 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word')).toBeNull();
-            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer')?.textContent).toContain('最近アップロードされた動画');
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word')).not.toBeNull();
+            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer')?.textContent).toContain('最近アップロードされた');
+            expect(document.querySelector('ytd-feed-filter-chip-bar-renderer .jpdb-reader-word[data-expression="動画"]')).not.toBeNull();
 
             document.querySelectorAll<HTMLButtonElement>('button')[0]?.click();
             document.querySelectorAll<HTMLButtonElement>('button')[1]?.click();
@@ -253,7 +254,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube mini-guide labels native while preserving link dispatch', async () => {
+    it('enhances YouTube mini-guide labels while preserving link dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -302,9 +303,10 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(guide.querySelector('.jpdb-reader-word')).toBeNull();
-            expect(guide.textContent).toContain('登録チャンネル');
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(guide.querySelector('.jpdb-reader-word')).not.toBeNull();
+            expect(guide.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="登録"]')?.textContent).toContain('登録');
+            expect(guide.textContent).toContain('チャンネル');
             expect(guide.querySelector('tp-yt-paper-tooltip .jpdb-reader-word')).toBeNull();
             expect(guide.querySelector('span[hidden] .jpdb-reader-word')).toBeNull();
 
@@ -318,7 +320,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube topbar create button text native while preserving button dispatch', async () => {
+    it('enhances YouTube topbar create button text while preserving button dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -347,8 +349,8 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('ytd-masthead .jpdb-reader-word')).toBeNull();
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(document.querySelector('ytd-masthead .jpdb-reader-word')).not.toBeNull();
             expect(document.querySelector('ytd-masthead button')?.textContent).toContain('作成');
 
             document.querySelector<HTMLButtonElement>('button')?.click();
@@ -361,7 +363,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube search chrome native while preserving form and button dispatch', async () => {
+    it('enhances YouTube search chrome while preserving form and button dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -401,8 +403,8 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('ytd-searchbox .jpdb-reader-word')).toBeNull();
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(document.querySelector('ytd-searchbox .jpdb-reader-word')).not.toBeNull();
             expect(document.querySelector('ytd-searchbox')?.textContent).toContain('検索');
             expect(document.querySelector('input .jpdb-reader-word')).toBeNull();
 
@@ -417,7 +419,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube watch title and metadata native without wrapping controls', async () => {
+    it('enhances YouTube watch title and metadata without wrapping controls', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
@@ -449,11 +451,15 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             const metadata = document.querySelector<HTMLElement>('ytd-watch-metadata')!;
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(metadata.querySelector('.jpdb-reader-word')).toBeNull();
-            expect(metadata.textContent).toContain('日本語の習慣を学ぶ');
-            expect(metadata.textContent).toContain('日本語チャンネル');
-            expect(metadata.textContent).toContain('視聴回数 12万回');
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(metadata.querySelector('.jpdb-reader-word')).not.toBeNull();
+            expect(metadata.querySelector('.jpdb-reader-word[data-expression="日本語"]')).not.toBeNull();
+            expect(metadata.querySelector('.jpdb-reader-word[data-expression="習慣"]')).not.toBeNull();
+            expect(metadata.querySelector('.jpdb-reader-word[data-expression="学ぶ"]')).not.toBeNull();
+            expect(metadata.textContent).toContain('チャンネル');
+            expect(metadata.querySelector('.jpdb-reader-word[data-expression="視聴"]')).not.toBeNull();
+            expect(metadata.textContent).toContain('回数 12万回');
+            expect(metadata.querySelector('button')?.textContent).toContain('登録');
             expect(metadata.querySelector('button .jpdb-reader-word')).toBeNull();
         } finally {
             scanner.destroy();
@@ -463,7 +469,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube transcript, watch sidebar, and feed rows native', async () => {
+    it('enhances YouTube transcript, watch sidebar, and feed rows', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
@@ -500,11 +506,13 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: true });
 
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(document.querySelector('.jpdb-reader-word')).toBeNull();
-            expect(document.querySelector('ytd-transcript-segment-renderer')?.textContent).toContain('字幕の行です');
-            expect(document.querySelector('ytd-compact-video-renderer')?.textContent).toContain('おすすめ講座');
-            expect(document.querySelector('ytd-rich-grid-renderer')?.textContent).toContain('日本語フィード動画0');
+            expect(parseJapanese).toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-reader-word')).not.toBeNull();
+            expect(document.querySelector('ytd-transcript-segment-renderer .jpdb-reader-word[data-expression="字幕"]')).not.toBeNull();
+            expect(document.querySelector('ytd-transcript-segment-renderer .jpdb-reader-word[data-expression="行"]')).not.toBeNull();
+            expect(document.querySelector('ytd-compact-video-renderer .jpdb-reader-word[data-expression="講座"]')).not.toBeNull();
+            expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="日本語"]')).not.toBeNull();
+            expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="動画"]')).not.toBeNull();
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -1750,6 +1758,7 @@ function tokensForYouTubeWatchMetadataText(text: string): JPDBToken[] {
         ['行', 'ぎょう'],
         ['おすすめ', ''],
         ['講座', 'こうざ'],
+        ['動画', 'どうが'],
     ] as const;
     const tokens: JPDBToken[] = [];
     for (const [surface, reading] of targets) {

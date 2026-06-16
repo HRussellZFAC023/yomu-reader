@@ -5,51 +5,6 @@ export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerContro
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
 export type YoutubeImmersionFilterInstance = InstanceType<YoutubeImmersionFilterClass>;
 export type ImageOcrControllerClass = typeof import('../ocr/controller').ImageOcrController;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type KanjiOriginClientClass = typeof import('../kanji/origin').KanjiOriginClient;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type KanjiVGClientClass = typeof import('../kanji/vg').KanjiVGClient;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RtkClientClass = typeof import('../kanji/rtk').RtkClient;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type JpdbKanjiClientClass = typeof import('../jpdb/jpdb-kanji').JpdbKanjiClient;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RenderKanjiOriginGraphFn = typeof import('../popup/origin-graph').renderKanjiOriginGraph;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RenderJpdbKanjiInfoFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiInfo;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RenderJpdbKanjiMiningControlsFn = typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiMiningControls;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RenderKanjiPracticeFn = typeof import('../popup/kanji-practice').renderKanjiPractice;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RenderKanjiOriginsFn = typeof import('../popup/kanji-origin').renderKanjiOrigins;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type BuildRtkComponentSummariesFn = typeof import('../popup/rtk-info').buildRtkComponentSummaries;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RenderKanjiKeywordLineFn = typeof import('../popup/rtk-info').renderKanjiKeywordLine;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type RenderRtkInfoFn = typeof import('../popup/rtk-info').renderRtkInfo;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type InstallOriginGraphInteractionsFn = typeof import('../popup/origin-graph-interactions').installOriginGraphInteractions;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type BuildKanjiFactsFn = typeof import('../kanji/origin').buildKanjiFacts;
-// Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
-export type BuildKanjiOriginGraphFn = typeof import('../kanji/origin').buildKanjiOriginGraph;
 export type RenderAnkiActionRowFn = typeof import('../anki/render-impl').renderAnkiActionRow;
 export type RenderAnkiExistingSectionFn = typeof import('../anki/render-impl').renderAnkiExistingSection;
 export type RenderAnkiNewCardPreviewFn = typeof import('../anki/render-impl').renderAnkiNewCardPreview;
@@ -58,34 +13,24 @@ export type RenderAnkiRenderedCardStudyBodyFn = typeof import('../anki/render-im
 export type RenderReviewButtonsFn = typeof import('../anki/render-impl').renderReviewButtons;
 export type ReviewButtonGradesFn = typeof import('../anki/render-impl').reviewButtonGrades;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type AnkiConnectClientClass = typeof import('../anki/client').AnkiConnectClient;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type AnkiDuplicateNoteErrorClass = typeof import('../anki/client').AnkiDuplicateNoteError;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type AnkiLookupWithUnavailableDetailsFn = typeof import('../anki/client').ankiLookupWithUnavailableDetails;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type BuildYomuAnkiFieldsFn = typeof import('../anki/client').buildYomuAnkiFields;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type BuildYomuAnkiPreviewFieldsFn = typeof import('../anki/client').buildYomuAnkiPreviewFields;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type CanUseMobileAnkiHandoffFn = typeof import('../anki/client').canUseMobileAnkiHandoff;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type CaptureActiveVideoFrameFn = typeof import('../anki/client').captureActiveVideoFrame;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type IsAnkiDuplicateNoteErrorFn = typeof import('../anki/client').isAnkiDuplicateNoteError;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type MobileAnkiHandoffAppNameFn = typeof import('../anki/client').mobileAnkiHandoffAppName;
 // Consumed by the registry slot type below and the companion build.
-// fallow-ignore-next-line unused-type
 export type ResolveAnkiWordAudioFn = typeof import('../anki/audio').resolveAnkiWordAudio;
 
 interface YomuCompanionRegistry {
@@ -121,21 +66,21 @@ interface YomuCompanionRegistry {
     // ADR-0003 Kanji/Study extraction (scaffolding shipped 0.6.112; core
     // import-severing is the follow-up lane — see refactor-backlog).
     kanjiStudy?: {
-        KanjiOriginClient: KanjiOriginClientClass;
-        KanjiVGClient: KanjiVGClientClass;
-        RtkClient: RtkClientClass;
-        JpdbKanjiClient: JpdbKanjiClientClass;
-        renderKanjiOriginGraph: RenderKanjiOriginGraphFn;
-        renderJpdbKanjiInfo: RenderJpdbKanjiInfoFn;
-        renderJpdbKanjiMiningControls: RenderJpdbKanjiMiningControlsFn;
-        renderKanjiPractice: RenderKanjiPracticeFn;
-        renderKanjiOrigins: RenderKanjiOriginsFn;
-        buildRtkComponentSummaries: BuildRtkComponentSummariesFn;
-        renderKanjiKeywordLine: RenderKanjiKeywordLineFn;
-        renderRtkInfo: RenderRtkInfoFn;
-        installOriginGraphInteractions: InstallOriginGraphInteractionsFn;
-        buildKanjiFacts: BuildKanjiFactsFn;
-        buildKanjiOriginGraph: BuildKanjiOriginGraphFn;
+        KanjiOriginClient: typeof import('../kanji/origin').KanjiOriginClient;
+        KanjiVGClient: typeof import('../kanji/vg').KanjiVGClient;
+        RtkClient: typeof import('../kanji/rtk').RtkClient;
+        JpdbKanjiClient: typeof import('../jpdb/jpdb-kanji').JpdbKanjiClient;
+        renderKanjiOriginGraph: typeof import('../popup/origin-graph').renderKanjiOriginGraph;
+        renderJpdbKanjiInfo: typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiInfo;
+        renderJpdbKanjiMiningControls: typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiMiningControls;
+        renderKanjiPractice: typeof import('../popup/kanji-practice').renderKanjiPractice;
+        renderKanjiOrigins: typeof import('../popup/kanji-origin').renderKanjiOrigins;
+        buildRtkComponentSummaries: typeof import('../popup/rtk-info').buildRtkComponentSummaries;
+        renderKanjiKeywordLine: typeof import('../popup/rtk-info').renderKanjiKeywordLine;
+        renderRtkInfo: typeof import('../popup/rtk-info').renderRtkInfo;
+        installOriginGraphInteractions: typeof import('../popup/origin-graph-interactions').installOriginGraphInteractions;
+        buildKanjiFacts: typeof import('../kanji/origin').buildKanjiFacts;
+        buildKanjiOriginGraph: typeof import('../kanji/origin').buildKanjiOriginGraph;
     };
 }
 
