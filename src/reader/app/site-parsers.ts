@@ -214,8 +214,19 @@ const SAFE_UI_CHROME_ARIA_MENU_ROOTS = [
     '[role="menuitemcheckbox"]',
     '[role="menuitemradio"]',
 ].join(',');
+// The YouTube player's own caption/translation overlay is native chrome;
+// annotating it double-renders the caption text (the "原文を見る（Googleによる翻訳）…"
+// strip rendered twice) and fights the dedicated subtitle pipeline. Scoped to
+// the caption window only — the player settings menu (画質/再生速度/字幕 …) is a
+// sibling subtree and must still be scanned.
+const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
+    '.ytp-caption-window-container',
+    '.caption-window',
+    '.captions-text',
+];
 const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     ...STRUCTURAL_EXCLUDE_ENTRIES,
+    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
     '[disabled]',
     '[aria-disabled="true"]',
 ];

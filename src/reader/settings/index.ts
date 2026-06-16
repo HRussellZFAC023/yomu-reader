@@ -355,7 +355,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleBackgroundOpacity: 0,
     subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
-    subtitleMiningPause: false,
+    subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,

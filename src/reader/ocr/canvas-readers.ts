@@ -1,17 +1,44 @@
-// Canvas-based manga readers (notably BookWalker's browser viewer) paint each
-// page onto a <canvas> instead of an <img>, so the normal `document.images` OCR
+// Canvas-based manga readers paint each page onto a <canvas> instead of an
+// <img> (usually to wrap DRM/scrambling), so the normal `document.images` OCR
 // path never sees them. We snapshot the canvas to a data-URL <img> and feed it
 // to the existing OCR pipeline — mirroring the paused-video-frame mechanism.
 //
-// Reference target — BookWalker browser viewer:
-//   host:    viewer.bookwalker.jp / viewer-trial.bookwalker.jp  (page viewer.html)
-//   pages:   <canvas class="default"> inside #wideScreenN containers
-//   counter: #pageSliderCounter -> "current / total"
-// The canvas is NOT tainted (the viewer composites decrypted pages itself), so
-// toDataURL succeeds. See references/BookWalker-Screenshot-Simulator.
+// Detection has to be host-aware: "OCR every large canvas everywhere" would
+// fire on games, charts, map/photo editors, PDF.js, etc. So we activate only on
+// known canvas-reader hosts OR on a page that exposes a reader page-counter, and
+// then treat the LARGE, page-shaped canvases as surfaces. Size/shape — not class
+// names or container ids — is what makes a page canvas, which is both general
+// across readers and resilient to viewer rewrites (an earlier class-name match,
+// `canvas.default`/`#renderer canvas`, silently broke when BookWalker shipped a
+// new DOM). The controller's isHiddenByCss / isNearViewport then narrow capture
+// to the page(s) actually on screen, so off-screen buffers and 0×0 transition
+// canvases drop out on their own.
+//
+// Verified canvas viewers (2026-06-16):
+//   bookwalker.jp     viewer.html — page canvases in #viewport0/#viewport1 under
+//                     #renderer (visible spread = `.currentScreen`, buffers
+//                     `visibility:hidden`); `canvas.dummy` + #frontScreen decoys.
+//                     Page-turn signal: #pageSliderCounter ("3 / 48").
+//   comic-walker.com  カドコミ (Kadokawa) — vertical scroll, one persistent
+//                     canvas per page (1284×1825 etc.), no page counter.
+// Page canvases are NOT tainted (the viewer composites decrypted pages itself),
+// so toDataURL succeeds. See references/BookWalker-Screenshot-Simulator.
 
-const CANVAS_READER_PAGE_SELECTOR = 'canvas.default';
 const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
+
+// Hosts whose browser viewers are known to render manga pages onto <canvas>.
+const CANVAS_READER_HOST_PATTERNS: RegExp[] = [
+    /(^|\.)bookwalker\.jp$/i,
+    /(^|\.)comic-walker\.com$/i,
+];
+
+// A manga page canvas is large and roughly page-shaped. The dimension floor
+// rejects decoy/transition/sprite/UI canvases (BookWalker's 300×150 dummies,
+// swatch canvases, etc.); the aspect window spans a single portrait page through
+// a two-page landscape spread.
+const MIN_PAGE_CANVAS_DIMENSION = 600;
+const MIN_PAGE_CANVAS_ASPECT = 0.3;
+const MAX_PAGE_CANVAS_ASPECT = 3.2;
 
 export function isBookwalkerViewerHost(hostname: string = location.hostname): boolean {
     return hostname === 'viewer.bookwalker.jp'
@@ -19,31 +46,51 @@ export function isBookwalkerViewerHost(hostname: string = location.hostname): bo
         || hostname.endsWith('.bookwalker.jp');
 }
 
-/**
- * True on a page that paints manga into a <canvas> we can OCR. BookWalker's
- * viewer is the reference target; the DOM signature (a page counter alongside a
- * page canvas) also lets local fixtures and future viewers exercise the path.
- */
-export function isCanvasReaderPage(): boolean {
-    if (isBookwalkerViewerHost()) return true;
-    return Boolean(document.querySelector(PAGE_COUNTER_SELECTOR) && document.querySelector(CANVAS_READER_PAGE_SELECTOR));
+export function isKnownCanvasReaderHost(hostname: string = location.hostname): boolean {
+    return CANVAS_READER_HOST_PATTERNS.some(pattern => pattern.test(hostname));
 }
 
-export function collectCanvasReaderSurfaces(): HTMLCanvasElement[] {
-    if (!isCanvasReaderPage()) return [];
-    return Array.from(document.querySelectorAll<HTMLCanvasElement>(CANVAS_READER_PAGE_SELECTOR));
+function isLikelyPageCanvas(canvas: HTMLCanvasElement): boolean {
+    const { width, height } = canvas;
+    if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
+    const aspect = width / height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+}
+
+function pageCanvases(): HTMLCanvasElement[] {
+    return Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas')).filter(isLikelyPageCanvas);
+}
+
+/**
+ * True on a page that paints manga into a <canvas> we can OCR. We require a known
+ * reader host (or a reader page-counter, which also lets local fixtures and other
+ * viewers exercise the path) AND at least one large, page-shaped canvas — so the
+ * path never activates on arbitrary canvas-using sites.
+ */
+export function isCanvasReaderPage(hostname: string = location.hostname): boolean {
+    if (!isKnownCanvasReaderHost(hostname) && !document.querySelector(PAGE_COUNTER_SELECTOR)) return false;
+    return pageCanvases().length > 0;
+}
+
+export function collectCanvasReaderSurfaces(hostname: string = location.hostname): HTMLCanvasElement[] {
+    if (!isCanvasReaderPage(hostname)) return [];
+    return pageCanvases();
 }
 
 /**
  * Cheap page-change fingerprint. Canvas redraws fire no DOM event, so we detect
- * page turns by combining the viewer's page counter ("3 / 48"), the rounded
- * scroll offset (vertical scroll mode) and the live surface count. A change means
- * the canvases were repainted and stale snapshots must be dropped + retaken.
+ * page turns by combining the viewer's page counter ("3 / 48") and the live
+ * surface count. A change means the canvases were repainted and stale snapshots
+ * must be dropped + retaken. The rounded scroll offset is included ONLY for
+ * BookWalker, whose single-viewport vertical mode repaints one canvas as you
+ * scroll; multi-canvas scroll readers (e.g. ComicWalker) paint each page once
+ * into its own persistent canvas, so scrolling must NOT invalidate them — the
+ * per-canvas snapshot map already covers them as they enter the viewport.
  */
 export function canvasReaderPageSignature(): string {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
-    const scroll = Math.round((window.scrollY || 0) / 40);
-    const surfaces = document.querySelectorAll(CANVAS_READER_PAGE_SELECTOR).length;
+    const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
+    const surfaces = pageCanvases().length;
     return `${counter}|${scroll}|${surfaces}`;
 }
 

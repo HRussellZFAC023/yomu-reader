@@ -54,7 +54,10 @@ const SUPPORTED_POPOVER_WRITING_MODES = new Set<NormalizedWritingMode>([
     'sideways-lr',
 ]);
 
-export function pauseActiveVideo(): void {
+// Pauses the most likely active video and returns it ONLY when it was actually
+// playing, so callers can resume exactly the video they interrupted (and never
+// resume one the user had already paused themselves).
+export function pauseActiveVideo(): HTMLVideoElement | undefined {
     const videos = Array.from(document.querySelectorAll('video'));
     const playable = videos
         .filter(video => video.readyState > 0)
@@ -64,7 +67,9 @@ export function pauseActiveVideo(): void {
             return Number(a.paused) - Number(b.paused) || bArea - aArea;
         });
     const target = playable[0];
-    target?.pause();
+    if (!target || target.paused) return undefined;
+    target.pause();
+    return target;
 }
 
 export function hasVisiblePageVideo(): boolean {

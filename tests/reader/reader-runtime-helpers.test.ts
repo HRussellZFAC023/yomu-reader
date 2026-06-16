@@ -19,7 +19,7 @@ import { shouldShowReaderOnboarding } from '../../src/reader/app/startup';
 import { documentLooksLikeImageReadingPage } from '../../src/reader/app/dom-helpers';
 import { scheduleReaderAnkiStatusWarmup } from '../../src/reader/app/status-warmup';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import { openUrlInNewTab } from '../../src/reader/ui/browser';
+import { openUrlInNewTab, pauseActiveVideo } from '../../src/reader/ui/browser';
 
 const originalRequestIdleCallback = window.requestIdleCallback;
 
@@ -30,6 +30,46 @@ afterEach(() => {
     Object.defineProperty(window, 'requestIdleCallback', {
         configurable: true,
         value: originalRequestIdleCallback,
+    });
+});
+
+describe('pauseActiveVideo', () => {
+    function makeVideo({ paused, width = 100, height = 100 }: { paused: boolean; width?: number; height?: number }): HTMLVideoElement {
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'readyState', { configurable: true, value: 2 });
+        let isPaused = paused;
+        Object.defineProperty(video, 'paused', { configurable: true, get: () => isPaused });
+        video.pause = vi.fn(() => { isPaused = true; });
+        Object.defineProperty(video, 'getBoundingClientRect', { configurable: true, value: () => new DOMRect(0, 0, width, height) });
+        document.body.append(video);
+        return video;
+    }
+
+    afterEach(() => {
+        document.querySelectorAll('video').forEach(video => video.remove());
+    });
+
+    it('pauses the playing video and returns it so the caller can resume it later', () => {
+        const playing = makeVideo({ paused: false });
+        expect(pauseActiveVideo()).toBe(playing);
+        expect(playing.pause).toHaveBeenCalledTimes(1);
+        expect(playing.paused).toBe(true);
+    });
+
+    it('prefers the playing video over a larger paused one', () => {
+        makeVideo({ paused: true, width: 800, height: 600 });
+        const playing = makeVideo({ paused: false, width: 200, height: 150 });
+        expect(pauseActiveVideo()).toBe(playing);
+    });
+
+    it('returns undefined when every video is already paused so a user-paused video is never resumed', () => {
+        const already = makeVideo({ paused: true });
+        expect(pauseActiveVideo()).toBeUndefined();
+        expect(already.pause).not.toHaveBeenCalled();
+    });
+
+    it('returns undefined when there is no playable video', () => {
+        expect(pauseActiveVideo()).toBeUndefined();
     });
 });
 
@@ -45,7 +85,7 @@ describe('reader runtime helpers', () => {
             publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
             publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
             publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-            publicLookupTermLimit: 2,
+            publicLookupTermLimit: 3,
             substantivePublicLookupOnly: true,
             deferPublicLookup: false,
         });
@@ -53,7 +93,7 @@ describe('reader runtime helpers', () => {
             publicLookupLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
             publicLookupTotalLimit: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
             publicLookupPageBudget: YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-            publicLookupTermLimit: 2,
+            publicLookupTermLimit: 3,
             substantivePublicLookupOnly: true,
             deferPublicLookup: false,
         });

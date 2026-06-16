@@ -195,7 +195,6 @@ import {
     samePointerTextLookupTarget,
     selectionIntersectsElement,
     shouldLockMountedPopoverPosition,
-    shouldPauseVideoForSubtitleHover,
     visibleAutoScanInitialDelay,
     visibleAutoScanMutationDelay,
     type CardDisplayOptions,
@@ -602,6 +601,9 @@ export class ReaderApp {
     private suppressedHoverWord?: HTMLElement;
     private suppressedHoverLookupKey = '';
     private activePopoverMode?: 'modal' | 'hover';
+    // The video we paused when a subtitle word was clicked, so closing the
+    // lookup popover resumes exactly that video (and only if it is still paused).
+    private subtitleMiningPausedVideo?: HTMLVideoElement;
     private activePopoverAnchor?: HTMLElement;
     private activePopoverAnchorRect?: DOMRect;
     private keyboardActiveWord?: HTMLElement;
@@ -1654,7 +1656,7 @@ export class ReaderApp {
         event.stopPropagation();
         this.prepareModalLookupFromPointer(event);
         this.suppressSelectionLookupUntil = Date.now() + 350;
-        if (surfaces.insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
+        if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
         this.ocr.pinLineForElement(word);
         void this.showWord(word, surfaces.insideReaderPopup
             ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
@@ -1681,6 +1683,21 @@ export class ReaderApp {
         event.preventDefault();
         event.stopPropagation();
         return true;
+    }
+
+    // Clicking a subtitle word enters the pinned lookup state; pause the video so
+    // the user can read the entry, and remember which video we paused so closing
+    // the popover resumes it. Only tracks a video that was actually playing.
+    private pauseVideoForSubtitleMining(): void {
+        if (!this.settings.subtitleMiningPause) return;
+        const paused = pauseActiveVideo();
+        if (paused) this.subtitleMiningPausedVideo = paused;
+    }
+
+    private resumeSubtitleMiningVideo(): void {
+        const video = this.subtitleMiningPausedVideo;
+        this.subtitleMiningPausedVideo = undefined;
+        if (video?.isConnected && video.paused) void video.play().catch(() => undefined);
     }
 
     private handleDocumentKeydown(event: KeyboardEvent): void {
@@ -1984,7 +2001,6 @@ export class ReaderApp {
         this.hoverLookupTimer = undefined;
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
-        if (word.closest(SUBTITLE_SURFACE_SELECTOR) && this.settings.subtitleMiningPause) pauseActiveVideo();
         const hoverLookupGeneration = this.nextHoverLookupGeneration();
         void this.showWord(word, { trigger: 'hover', hoverLookupGeneration });
     }
@@ -2527,7 +2543,26 @@ export class ReaderApp {
             this.cancelHoverClose();
             return;
         }
+        if (this.isWithinHoverWordHostControl(word, related)) {
+            this.cancelHoverClose();
+            return;
+        }
         this.scheduleHoverClose(undefined, { ignoreCssHover: true });
+    }
+
+    // Native interactive controls (e.g. YouTube action buttons) insert transient
+    // hover overlays — ripple, touch-feedback, animated icons — over their label
+    // on hover. The pointer moving onto such an overlay within the SAME control
+    // as the hovered word fires pointerout with relatedTarget inside that
+    // control; it is not a real exit. Closing here would thrash the hover
+    // popover open/closed as the overlay churns pointerout/pointerover. Treat
+    // staying anywhere within the word's host control as still hovering.
+    private isWithinHoverWordHostControl(word: HTMLElement, related: Node | null): boolean {
+        if (!related) return false;
+        const control = word.closest('button,[role="button"],a[href],[aria-controls],[aria-expanded]');
+        if (!control) return false;
+        const relatedElement = related instanceof HTMLElement ? related : related.parentElement;
+        return Boolean(relatedElement && control.contains(relatedElement));
     }
 
     private scheduleHoverLookupAtPointer(event: KeyboardEvent): void {
@@ -2717,7 +2752,6 @@ export class ReaderApp {
             return false;
         }
         if (!this.canOpenHoverLookupForWord(activeWord, event)) return false;
-        if (shouldPauseVideoForSubtitleHover(activeWord, this.settings)) pauseActiveVideo();
         return true;
     }
 
@@ -5566,8 +5600,15 @@ export class ReaderApp {
         const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
         const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
         const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
+        // Keyless YouTube subtitles: dictionaryFirstFallbackLookupTerms places
+        // the surface (dictionary) form LAST, and publicLookupFallbackCard only
+        // tries terms.slice(0, termLimit). A 2-term window can drop an inflected
+        // verb's resolvable dictionary form (e.g. 戦う), leaving it without
+        // furigana; widen to 3 so the dictionary form is reachable. The loop
+        // stops at the first resolving term, so this only adds lookups when the
+        // earlier candidates fail.
         const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget
-            ? Math.max(2, Math.floor(background.publicLookupTermLimit ?? 2))
+            ? Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3))
             : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
         return {
             ...background,
@@ -6180,7 +6221,7 @@ export class ReaderApp {
         this.resolvedFallbackVocabularyCache.delete(key);
         this.resolvedFallbackVocabularyCache.set(key, card);
         evictOldestStringKeysWhileOverLimit(this.resolvedFallbackVocabularyCache, RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
-        this.scheduleCachedPublicVocabularyHydration(document);
+        this.scheduleCachedPublicVocabularyHydration(document, { fallback, card });
     }
 
     private rememberUnresolvedFallbackVocabulary(key: string): void {
@@ -6416,8 +6457,19 @@ export class ReaderApp {
         });
     }
 
-    private scheduleCachedPublicVocabularyHydration(root: ParentNode): void {
-        this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+    private scheduleCachedPublicVocabularyHydration(root: ParentNode, resolved?: { fallback: JPDBCard; card: JPDBCard }): void {
+        if (resolved) {
+            // A single card just resolved: patch only its own rendered spans
+            // instead of re-scanning the whole document. On a keyless transcript
+            // fallback cards resolve in a continuous stream, and a full-document
+            // querySelectorAll sweep per resolution is the open-sidebar long
+            // task. The selector is vid/sid-scoped, so this is
+            // O(occurrences-of-this-card); the cascade below still backfills
+            // words that render after their card resolved.
+            this.applyPublicVocabularyToRenderedWords(resolved.fallback, resolved.card);
+        } else {
+            this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+        }
         if (this.cachedPublicVocabularyHydrationTimer !== undefined) return;
         const delays = [120, 500, 1_500, 5_000, 10_000];
         let index = 0;
@@ -6911,6 +6963,7 @@ export class ReaderApp {
 
     private prepareActivePopoverDismiss(options: DismissOptions): void {
         if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
+        this.resumeSubtitleMiningVideo();
         this.clearHoverDismissState(options);
         this.audio.stop();
         this.immersionPopover.stopAudio();

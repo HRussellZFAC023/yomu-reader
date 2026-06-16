@@ -162,4 +162,41 @@ describe('makeRoomForRubyInCroppedRows', () => {
         expect(document.querySelector('#fits rt')).not.toBeNull();
         document.body.innerHTML = '';
     });
+
+    it('never reserves room inside a filter-collapsed card (sizing it would un-collapse the filter into a giant gap)', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            width: 320, height: 40, top: 0, left: 0, right: 320, bottom: 40, x: 0, y: 0, toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <div class="jpdb-youtube-filter-collapsed" data-yomu-youtube-filtered="true" aria-hidden="true" style="overflow:hidden;height:40px">
+                <div id="title" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:40px;line-height:20px">${annotatedWord()}エンジニアの勉強</div>
+            </div>
+        `;
+        const collapsed = document.querySelector<HTMLElement>('.jpdb-youtube-filter-collapsed')!;
+        const titleBox = document.querySelector<HTMLElement>('#title')!;
+        // The collapsed card's full content height — exactly the value that
+        // previously got written back as height:1055px, un-collapsing it.
+        mockOverflow(collapsed, 1055, 40);
+        mockOverflow(titleBox, 1055, 40);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(titleBox.dataset.yomuRubyRoom).toBeUndefined();
+        expect(collapsed.dataset.yomuRubyRoom).toBeUndefined();
+        expect(collapsed.style.height).toBe('40px');
+        rectSpy.mockRestore();
+        document.body.innerHTML = '';
+    });
+
+    it('refuses an implausibly large room (a mis-measured container, not a text row)', () => {
+        document.body.innerHTML = `
+            <div id="title" style="overflow:hidden;height:22px;line-height:22px">${annotatedWord()}の動画</div>
+        `;
+        const title = document.querySelector<HTMLElement>('#title')!;
+        mockOverflow(title, 900, 22);
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        // The cap leaves the box untouched: its inline height stays as authored.
+        expect(title.style.height).toBe('22px');
+        expect(title.dataset.yomuRubyRoom).toBeUndefined();
+        document.body.innerHTML = '';
+    });
 });

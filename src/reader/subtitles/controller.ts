@@ -250,6 +250,10 @@ function currentFullscreenElement(): Element | null {
         ?? null;
 }
 
+function subtitleViewportRect(): DOMRect {
+    return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+}
+
 function videoIsInNativeFullscreen(video: HTMLVideoElement | undefined): boolean {
     if (!video) return false;
     const fullscreenVideo = video as FullscreenVideoElement;
@@ -382,6 +386,18 @@ const SUBTITLE_PARSE_CACHE_TRANSCRIPT_HEADROOM = 64;
 const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = SUBTITLE_PARSE_CACHE_MAX_ENTRIES;
 const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
 const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
+// Mirror the furigana gate in dom/index.ts (sourceTokenRubies): a kanji surface
+// with a usable kana reading is the only thing that renders ruby. Kept local
+// because those regexes are module-private in the dom module.
+const SUBTITLE_FURIGANA_KANJI_RE = /[㐀-鿿]/u;
+const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
+// A cue whose furigana is still incomplete stays re-hydratable so a later pass
+// (orientation/resize/scroll, or once the public-lookup term window finds the
+// reading) can retry. Subtitle lookups are urgent and bypass the unresolved
+// negative cache, so cap retries: a word genuinely absent from public Jiten
+// must settle to bare rather than re-request on every hydration tick. The cap
+// is generous enough to outlast the open/drag/scroll/orientation sequence.
+const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
 // Cues near the playhead must colorise immediately; only the whole-transcript
 // tail of the warmup queue is paced.
 const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
@@ -551,6 +567,7 @@ export class SubtitlePlayerController {
     private parsedHtmlCache = new Map<string, string>();
     private provisionalParsedHtmlCache = new Map<string, string>();
     private enrichedProvisionalParsedHtmlKeys = new Set<string>();
+    private incompleteEnrichmentAttempts = new Map<string, number>();
     private sessionParseCacheChecked = new Set<string>();
     private emptyParsedHtmlCache = new Map<string, { html: string; expiresAt: number }>();
     private pendingParsedHtml = new Map<string, Promise<string>>();
@@ -1837,7 +1854,7 @@ export class SubtitlePlayerController {
             const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
             if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
-            this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: options.enrichBeforeRender === true });
+            this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true) });
             return html;
         })();
         this.pendingProvisionalParsedHtml.set(key, promise);
@@ -2000,7 +2017,7 @@ export class SubtitlePlayerController {
             const tokenList = tokens[index] ?? [];
             if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-            this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: options.enrichBeforeRender === true });
+            this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
             return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
         }));
     }
@@ -2031,6 +2048,48 @@ export class SubtitlePlayerController {
         const html = this.provisionalParsedHtmlCache.get(key);
         if (!html) return undefined;
         return options.refreshProvisional && !this.enrichedProvisionalParsedHtmlKeys.has(key) ? undefined : html;
+    }
+
+    // A cue is only "fully enriched" when every kanji-bearing token can render
+    // furigana (explicit rubies, or a usable kana reading != surface). A
+    // fallback token whose public lookup has not resolved yet leaves the cue
+    // re-hydratable, so a later pass (e.g. after orientationchange/resize) can
+    // retry it instead of the enriched-once flag freezing the missing furigana
+    // forever. Local/authoritative tokens are final and never block. Mirrors
+    // sourceTokenRubies (dom/index.ts).
+    private tokensFullyEnriched(tokens: JPDBToken[]): boolean {
+        return tokens.every(token => {
+            if (token.rubies.length) return true;
+            const surface = token.card.spelling || '';
+            if (!SUBTITLE_FURIGANA_KANJI_RE.test(surface)) return true;
+            if (token.card.source !== 'fallback') return true;
+            const reading = token.card.reading.trim();
+            return Boolean(reading) && reading !== surface && SUBTITLE_FURIGANA_KANA_RE.test(reading);
+        });
+    }
+
+    // Decide whether a freshly parsed provisional cue is "enriched" (sticky, no
+    // re-hydration). A fully-resolved cue is sticky immediately. A cue that
+    // still has an unresolved fallback kanji word is left re-hydratable so a
+    // later pass can retry — but only up to a bounded number of attempts, after
+    // which it settles to bare to avoid re-requesting an unresolvable word on
+    // every hydration tick.
+    private shouldMarkCueEnriched(key: string, tokens: JPDBToken[], enrichRequested: boolean): boolean {
+        if (!enrichRequested) return false;
+        if (this.tokensFullyEnriched(tokens)) {
+            this.incompleteEnrichmentAttempts.delete(key);
+            return true;
+        }
+        const attempts = (this.incompleteEnrichmentAttempts.get(key) ?? 0) + 1;
+        if (attempts >= SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT) {
+            this.incompleteEnrichmentAttempts.delete(key);
+            return true;
+        }
+        if (this.incompleteEnrichmentAttempts.size >= SUBTITLE_PARSE_CACHE_MAX_ENTRIES) {
+            this.incompleteEnrichmentAttempts.delete(this.incompleteEnrichmentAttempts.keys().next().value ?? '');
+        }
+        this.incompleteEnrichmentAttempts.set(key, attempts);
+        return false;
     }
 
     private rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): void {
@@ -4753,7 +4812,14 @@ export class SubtitlePlayerController {
 
     private syncSubtitleRootParent(fullscreenHost: HTMLElement | null = this.subtitleFullscreenHost()): void {
         if (!this.root) return;
-        const parent = fullscreenHost ?? document.body;
+        // When the entire document is the fullscreen element (YouTube's desktop
+        // fullscreen promotes <html> to the top layer) the overlay already
+        // renders inside it through <body>; appending a <div> directly under
+        // <html> is unnecessary and a non-standard place for it, so keep it in
+        // <body>.
+        const parent = !fullscreenHost || fullscreenHost === document.documentElement
+            ? document.body
+            : fullscreenHost;
         if (this.root.parentElement === parent) return;
         parent.appendChild(this.root);
     }
@@ -4791,8 +4857,17 @@ export class SubtitlePlayerController {
 
     private videoLayoutRect(): DOMRect {
         const fullscreenHost = this.subtitleFullscreenHost();
-        if (fullscreenHost) return fullscreenHost.getBoundingClientRect();
-        if (videoIsInNativeFullscreen(this.video)) return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+        if (fullscreenHost) {
+            // YouTube's desktop fullscreen promotes <html> (the document root) to
+            // the top layer, where its layout box collapses to a zero-size rect.
+            // Measuring it would make the visibility check read the video as
+            // off-screen and hide the overlay, so fall back to the viewport when
+            // the host is the document root or otherwise reports a degenerate box.
+            if (fullscreenHost === document.documentElement) return subtitleViewportRect();
+            const rect = fullscreenHost.getBoundingClientRect();
+            return rect.width >= 1 && rect.height >= 1 ? rect : subtitleViewportRect();
+        }
+        if (videoIsInNativeFullscreen(this.video)) return subtitleViewportRect();
         return subtitleVideoLayoutRect(this.video);
     }
 

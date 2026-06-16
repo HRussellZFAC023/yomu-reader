@@ -663,6 +663,36 @@ describe('hover lookup', () => {
         }
     });
 
+    it('keeps the hover popover open when the pointer moves onto a button feedback overlay within the same control', () => {
+        const app = new ReaderApp();
+        const { overlay, word } = passiveButtonWordFixture();
+        const internals = app as unknown as HoverLookupInternals;
+        const scheduleHoverClose = vi.fn();
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.activeHoverWord = word;
+        internals.activePopoverMode = 'hover';
+        internals.scheduleHoverClose = scheduleHoverClose;
+
+        try {
+            // The button's own ripple/feedback overlay churns pointerout/over on
+            // hover; moving onto it is not a real exit, so the popover must not
+            // close (else it thrashes open/closed).
+            internals.handleHoverPointerOut(hoverPointerEvent(word, 'mouse', 'pointerout', {}, overlay));
+            expect(scheduleHoverClose).not.toHaveBeenCalled();
+
+            // Genuinely leaving the control still closes the popover.
+            internals.handleHoverPointerOut(hoverPointerEvent(word, 'mouse', 'pointerout', {}, document.body));
+            expect(scheduleHoverClose).toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('allows Apple Pencil hover lookup without treating pen contact as tap lookup', () => {
         const app = new ReaderApp();
         const word = readerWordFixture('読む');

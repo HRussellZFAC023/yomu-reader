@@ -27370,7 +27370,7 @@ describe('reader helpers', () => {
                 publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
                 publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
                 publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-                publicLookupTermLimit: 2,
+                publicLookupTermLimit: 3,
                 substantivePublicLookupOnly: true,
                 deferPublicLookup: false,
             });
@@ -27416,7 +27416,7 @@ describe('reader helpers', () => {
                 publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-                publicLookupTermLimit: 2,
+                publicLookupTermLimit: 3,
                 substantivePublicLookupOnly: true,
                 deferPublicLookup: false,
             });
@@ -27460,7 +27460,7 @@ describe('reader helpers', () => {
                 publicLookupLimit: PITCH_ENRICHMENT_LIMIT * 4,
                 publicLookupTotalLimit: PITCH_ENRICHMENT_LIMIT * 4,
                 publicLookupPageBudget: undefined,
-                publicLookupTermLimit: 2,
+                publicLookupTermLimit: 3,
                 substantivePublicLookupOnly: true,
                 deferPublicLookup: false,
             });

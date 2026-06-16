@@ -2762,14 +2762,33 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
 // line-clamp boxes keep their line count but lose the plain-text max-height,
 // other clipped boxes get their active height cap raised to the real content
 // height.
+// Containers we must never reserve ruby room on: cards the YouTube filter has
+// collapsed/hidden (sizing them un-collapses the filter into giant gaps) and
+// any aria-hidden subtree. Scanned words can live inside a collapsed card; room
+// must skip them.
+const RUBY_ROOM_SKIP_SELECTOR = [
+    '[data-yomu-youtube-filtered]',
+    '[data-yomu-youtube-pending]',
+    '[data-yomu-youtube-aria-hidden]',
+    '.jpdb-youtube-filter-collapsed',
+    '.jpdb-youtube-pending',
+].join(',');
+// A clamped/ellipsis text row's furigana never needs more than a few lines of
+// extra height. A room far larger than this means we measured a container (a
+// collapsed card, a virtualized list) rather than a text row — refuse it so a
+// mis-measure can never blow the layout up to hundreds of px.
+const RUBY_ROOM_MAX_PX = 400;
+
 export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
     let adjusted = 0;
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
+        if (word.closest(RUBY_ROOM_SKIP_SELECTOR)) continue;
         for (const box of cropCapableBoxes(word.parentElement)) {
             if (!boxActuallyCrops(box)) continue;
             const roomHeight = rubyRoomHeight(box);
+            if (roomHeight > RUBY_ROOM_MAX_PX) continue;
             if (previousRubyRoomHeight(box) >= roomHeight) continue;
             box.dataset.yomuRubyRoom = 'true';
             box.dataset.yomuRubyRoomHeight = String(roomHeight);
@@ -2788,6 +2807,13 @@ function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, room
         // semantics with taller ruby lines.
         box.style.setProperty('max-height', 'none', 'important');
         if (hasDefiniteCssSize(style.height)) box.style.setProperty('height', 'auto', 'important');
+        // The furigana lives in the out-of-flow absolute mirror, so height:auto
+        // collapses to the furigana-less in-flow text and an ancestor with
+        // overflow:hidden still crops the ruby. Reserve the real furigana'd
+        // height so the box (and content below it) actually accommodates it.
+        if (box.querySelector('.jpdb-reader-text-mirror')) {
+            box.style.setProperty('min-height', `${roomHeight}px`, 'important');
+        }
         return;
     }
 
@@ -2817,7 +2843,14 @@ function boxActuallyCrops(box: HTMLElement): boolean {
 }
 
 function rubyRoomHeight(box: HTMLElement): number {
-    return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box)));
+    // Furigana is painted by the absolutely-positioned text mirror, which is
+    // out of flow and so never raises box.scrollHeight. Its scrollHeight is the
+    // true rendered height of the furigana'd, wrapped text, so use it as a floor
+    // — otherwise a two-line furigana'd title reserves only its base-line height
+    // and the top furigana row / wrapped line is cropped.
+    const mirror = box.querySelector<HTMLElement>('.jpdb-reader-text-mirror');
+    const mirrorHeight = mirror ? mirror.scrollHeight : 0;
+    return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box), mirrorHeight));
 }
 
 function rubyBottomOverflow(box: HTMLElement): number {

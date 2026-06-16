@@ -6,6 +6,7 @@ import {
     collectCanvasReaderSurfaces,
     isBookwalkerViewerHost,
     isCanvasReaderPage,
+    isKnownCanvasReaderHost,
 } from '../../src/reader/ocr/canvas-readers';
 
 // Canna wish: automatic OCR on BookWalker. Its browser viewer paints pages onto
@@ -15,6 +16,33 @@ function mountViewerFixture(counter = '1 / 3'): void {
     document.body.innerHTML = `
         <div id="wideScreen0"><canvas class="default" width="800" height="1130"></canvas></div>
         <span id="pageSliderCounter">${counter}</span>`;
+}
+
+// The live viewer (verified 2026-06-16) uses unclassed page canvases inside
+// #renderer > #viewport0/#viewport1, alongside `canvas.dummy` decoys and a
+// #frontScreen transition canvas. Size-based detection keeps the two big page
+// canvases and drops the small decoys without depending on class names/ids.
+function mountLiveViewerFixture(counter = '1/13'): void {
+    document.body.innerHTML = `
+        <div id="viewer"><div id="renderer">
+            <canvas class="dummy" width="300" height="150"></canvas>
+            <div id="viewport0"><canvas width="2400" height="1794"></canvas></div>
+            <div id="viewport1" class="currentScreen"><canvas width="2400" height="1794"></canvas></div>
+            <div id="frontScreen"><canvas width="300" height="150"></canvas></div>
+        </div></div>
+        <span id="pageSliderCounter">${counter}</span>`;
+}
+
+// ComicWalker (カドコミ): a vertical-scroll reader with one large, persistent
+// page canvas per page and NO page counter — only the known-host gate (mocked
+// here) and the size filter qualify it. Class names are build-hashed, so
+// detection must not depend on them.
+function mountComicWalkerFixture(): void {
+    document.body.innerHTML = `
+        <img src="/cover.jpg" width="350" height="498">
+        <div class="_pageWrapper_x1"><canvas class="_root_bx4cr_1" width="1284" height="1825"></canvas></div>
+        <div class="_pageWrapper_x1"><canvas class="_root_bx4cr_1" width="1200" height="1600"></canvas></div>
+        <canvas class="_uiSwatch_q9" width="32" height="32"></canvas>`;
 }
 
 afterEach(() => { document.body.innerHTML = ''; });
@@ -33,6 +61,37 @@ describe('canvas readers (BookWalker)', () => {
         mountViewerFixture();
         expect(isCanvasReaderPage()).toBe(true);
         expect(collectCanvasReaderSurfaces()).toHaveLength(1);
+    });
+
+    it('collects the live viewer page canvases (#renderer/#viewport) but skips small decoys', () => {
+        mountLiveViewerFixture();
+        expect(isCanvasReaderPage()).toBe(true);
+        const surfaces = collectCanvasReaderSurfaces();
+        // The two big #viewport canvases; never the .dummy or #frontScreen 300×150
+        // decoys (rejected by the size floor). The off-screen #viewport buffer is
+        // narrowed away later by the controller's isHiddenByCss, not here.
+        expect(surfaces).toHaveLength(2);
+        expect(surfaces.some(c => c.classList.contains('dummy'))).toBe(false);
+        expect(surfaces.every(c => c.width >= 600 && c.height >= 600)).toBe(true);
+    });
+
+    it('recognises known canvas-reader hosts', () => {
+        expect(isKnownCanvasReaderHost('comic-walker.com')).toBe(true);
+        expect(isKnownCanvasReaderHost('viewer.bookwalker.jp')).toBe(true);
+        expect(isKnownCanvasReaderHost('example.com')).toBe(false);
+        expect(isKnownCanvasReaderHost('comic-walker.com.evil.com')).toBe(false);
+    });
+
+    it('collects ComicWalker-style hashed-class page canvases on a known host (no counter)', () => {
+        mountComicWalkerFixture();
+        // No page counter: detection relies purely on the known-host gate, passed
+        // explicitly so the test does not depend on jsdom's location.
+        expect(isCanvasReaderPage('comic-walker.com')).toBe(true);
+        expect(isCanvasReaderPage('example.com')).toBe(false); // no host, no counter → off
+        const surfaces = collectCanvasReaderSurfaces('comic-walker.com');
+        // Both 1284×1825 / 1200×1600 page canvases; never the 32×32 UI swatch.
+        expect(surfaces).toHaveLength(2);
+        expect(surfaces.every(c => c.width >= 600)).toBe(true);
     });
 
     it('changes the page signature when the counter advances (re-snapshot trigger)', () => {

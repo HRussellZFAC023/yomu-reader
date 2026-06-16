@@ -31,8 +31,15 @@ export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
 export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 6;
-export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 32;
-export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 12;
+// Per-URL total public-lookup budget for keyless YouTube page words. Raised
+// from 32/12 so low-priority chrome (masthead buttons, action bar, leaderboard,
+// recommendation metadata) is not starved of furigana/pitch after the
+// transcript/comments spend the budget first. Still finite + paced by
+// BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY (4) and the deferred idle scheduler so
+// it stays under jpdb.io's burst threshold. Full coverage of a dense page still
+// wants local dictionaries or an API key (no public throttle).
+export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
+export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
 const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
@@ -169,7 +176,11 @@ export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compac
         publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
         publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
         publicLookupPageBudget: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-        publicLookupTermLimit: 2,
+        // 3 (not 2): dictionaryFirstFallbackLookupTerms places the surface form
+        // last, so a 2-term window can drop an inflected word's resolvable
+        // dictionary form. The loop stops at the first hit, so this only adds a
+        // lookup when the first candidates miss. Matches the subtitle path.
+        publicLookupTermLimit: 3,
         substantivePublicLookupOnly: true,
         deferPublicLookup: false,
     };
@@ -230,10 +241,6 @@ export function evictOldestStringKeysWhileOverLimit(cache: { size: number; keys(
 
 export function ankiLookupHasDisplayableNotes(lookup: AnkiLookupResult): boolean {
     return Boolean(lookup.primary || lookup.notes.length);
-}
-
-export function shouldPauseVideoForSubtitleHover(word: HTMLElement, settings: ReaderSettings): boolean {
-    return settings.subtitleMiningPause && Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
 }
 
 export function cardDisplayTrigger(options: CardDisplayOptions): 'modal' | 'hover' {

@@ -632,6 +632,52 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
+    it('keeps the overlay visible when the document root is the fullscreen element', () => {
+        // YouTube's desktop fullscreen promotes <html> to the top layer. Its
+        // layout box collapses to a zero-size rect, which previously made the
+        // visibility check read the video as off-screen and hide the overlay.
+        withViewport(1280, 720, () => {
+            const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+            const fullscreen = stubFullscreenElement(null);
+            try {
+                document.body.insertAdjacentHTML('beforeend', `
+                    <section class="video-card">
+                        <video></video>
+                        <button class="player-control" type="button">Play</button>
+                    </section>
+                `);
+                const video = document.querySelector<HTMLVideoElement>('.video-card video')!;
+                video.controls = false;
+                mockElementRect(video, new DOMRect(140, 60, 1000, 562));
+                // jsdom's default getBoundingClientRect() already reports a 0x0
+                // box for <html>, matching the real fullscreen top-layer collapse.
+                attachVideo(controller, { video });
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                const internals = controllerInternals<{
+                    alignToVideo: () => void;
+                    syncFullscreenState: () => void;
+                }>(controller);
+
+                fullscreen.set(document.documentElement);
+                internals.syncFullscreenState();
+                internals.alignToVideo();
+
+                // The overlay already renders inside the fullscreen <html> via
+                // <body>, so it stays in <body> rather than being appended to <html>.
+                expect(root.parentElement).toBe(document.body);
+                expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+                expect(root.style.left).toBe('0px');
+                expect(root.style.top).toBe('0px');
+                expect(root.style.width).toBe('1280px');
+                expect(root.style.height).toBe('720px');
+            } finally {
+                fullscreen.restore();
+                controller.destroy();
+            }
+        });
+    });
+
     it('does not mount the subtitle overlay inside a fullscreen video element', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const fullscreen = stubFullscreenElement(null);
@@ -3131,6 +3177,102 @@ describe('SubtitlePlayerController', () => {
             });
             window.requestAnimationFrame = originalRequestAnimationFrame;
             window.cancelAnimationFrame = originalCancelAnimationFrame;
+        }
+    });
+
+    it('leaves a keyless cue re-hydratable while a fallback kanji word still lacks furigana, then marks it enriched once the reading resolves', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=enrich-gate') as unknown as Location,
+        });
+        try {
+            const cue = { start: 0, end: 2, text: '戦う', transcriptEligible: true };
+            // The local tokenizer returns 戦う as an unresolved fallback word
+            // (no reading): furigana depends on the public lookup resolving it.
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => {
+                const token = makeSubtitleToken(text);
+                token.card.source = 'fallback';
+                return [token];
+            }));
+            let resolveReading = false;
+            const beforeRenderTokens = vi.fn(async (tokens: JPDBToken[]) => {
+                if (!resolveReading) return; // first pass: public lookup misses 戦う
+                tokens[0].card.reading = 'たたかう';
+                tokens[0].rubies = [{ start: 0, end: 2, length: 2, text: 'たたかう' }];
+            });
+            const { settings, internals } = setupTranscriptCueController<typeof cue, {
+                parseCueHtmlBatch: (
+                    texts: string[],
+                    settings: ReaderSettings,
+                    options?: { enrichBeforeRender?: boolean; refreshProvisional?: boolean },
+                ) => Promise<Array<{ html: string; provisional?: boolean }>>;
+                enrichedProvisionalParsedHtmlKeys: Set<string>;
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            }>([cue], {
+                hooks: { parseJapaneseBatch, beforeRenderTokens },
+                selectedTrackId: 'youtube-0',
+                settings: { subtitleTranscriptAutoScroll: false, apiKey: '', jitenApiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
+            });
+            const key = internals.parseCacheKey('戦う', settings);
+
+            // First enrichment leaves 戦う without furigana — the cue must NOT be
+            // marked enriched, so a later hydration pass (e.g. after orientation)
+            // can retry instead of freezing the missing ruby forever.
+            await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
+            expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
+
+            // The retry resolves the reading: now the cue is fully enriched and
+            // becomes sticky.
+            resolveReading = true;
+            await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
+            expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+        }
+    });
+
+    it('stops re-hydrating a permanently-unresolvable fallback word after the retry cap so it settles instead of re-requesting forever', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=enrich-cap') as unknown as Location,
+        });
+        try {
+            const cue = { start: 0, end: 2, text: '戦う', transcriptEligible: true };
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => {
+                const token = makeSubtitleToken(text);
+                token.card.source = 'fallback';
+                return [token];
+            }));
+            // Public lookup never resolves 戦う (genuinely absent from Jiten).
+            const beforeRenderTokens = vi.fn(async () => undefined);
+            const { settings, internals } = setupTranscriptCueController<typeof cue, {
+                parseCueHtmlBatch: (
+                    texts: string[],
+                    settings: ReaderSettings,
+                    options?: { enrichBeforeRender?: boolean; refreshProvisional?: boolean },
+                ) => Promise<unknown>;
+                enrichedProvisionalParsedHtmlKeys: Set<string>;
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            }>([cue], {
+                hooks: { parseJapaneseBatch, beforeRenderTokens },
+                selectedTrackId: 'youtube-0',
+                settings: { subtitleTranscriptAutoScroll: false, apiKey: '', jitenApiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
+            });
+            const key = internals.parseCacheKey('戦う', settings);
+
+            // Each hydration pass re-attempts; the cue stays re-hydratable for a
+            // bounded number of attempts, then settles to enriched (bare) so it
+            // is no longer re-parsed/re-looked-up on every tick.
+            for (let attempt = 0; attempt < 5; attempt++) {
+                await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
+                expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(false);
+            }
+            await internals.parseCueHtmlBatch(['戦う'], settings, { enrichBeforeRender: true, refreshProvisional: true });
+            expect(internals.enrichedProvisionalParsedHtmlKeys.has(key)).toBe(true);
+        } finally {
+            Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
         }
     });
 
