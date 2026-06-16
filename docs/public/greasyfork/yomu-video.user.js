@@ -2722,7 +2722,6 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
-      ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
       googleLens: "Google Lens — free, no setup (recommended)",
       cloudVision: "Google Cloud Vision — needs API key",
@@ -3087,8 +3086,7 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
-      ocrHidePausedFrameStatusCard: "Hide status card",
-      ocrPausedFrameScanning: "Reading paused frame...",
+      ocrPausedFrameScanning: "Scanning...",
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
       ocrPausedFrameFailed: "Could not read text",
@@ -3785,8 +3783,7 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
-ocrHidePausedFrameStatusCard	ステータスカードを非表示
-ocrPausedFrameScanning	一時停止フレームを読み取り中...
+ocrPausedFrameScanning	スキャン中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
 ocrPausedFrameFailed	テキストを読み取れませんでした
@@ -4231,7 +4228,6 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
-ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
@@ -6042,9 +6038,8 @@ ${candidate.depth}`;
     videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
     videoFrameStatuses = /* @__PURE__ */ new Map();
-    // Loading/ready status cards for every OCR'd image (not just paused-video
-    // frames), reusing the same card UI — so slow image OCR shows progress and a
-    // dismiss-to-compact spinner, the way YouTube thumbnails already do.
+    // Compact loading/ready indicators for every OCR'd image (not just
+    // paused-video frames), so slow image OCR shows progress without a card.
     imageStatuses = /* @__PURE__ */ new Map();
     // Canvas-reader snapshots (BookWalker): map each page <canvas> to the data-URL
     // <img> we OCR in its place, plus the page fingerprint and the page-turn poll.
@@ -6128,8 +6123,6 @@ ${candidate.depth}`;
       this.refreshCanvasReaderSurfaces(settings);
       if (this.shouldSkipRefresh(settings, options)) {
         this.pruneDisconnectedStates();
-        this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
-        this.imageStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
         this.schedulePosition();
         return;
       }
@@ -6139,8 +6132,6 @@ ${candidate.depth}`;
       for (const image of images) {
         this.observeRefreshImage(image, settings);
       }
-      this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
-      this.imageStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
       this.schedulePosition();
     }
     shouldSkipRefresh(settings, options) {
@@ -6318,8 +6309,14 @@ ${candidate.depth}`;
       }
     }
     async renderCachedOcrResult(state, key) {
+      if (!this.cache.has(key)) return false;
       const cached = this.cache.get(key);
-      if (!cached) return false;
+      if (!cached) {
+        renderNoOcrLines(state);
+        this.updateOcrStatus(state.image, "empty");
+        state.manualRequested = false;
+        return true;
+      }
       await this.renderResult(state, cached);
       state.manualRequested = false;
       return true;
@@ -6329,6 +6326,7 @@ ${candidate.depth}`;
       const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
+        this.remember(key, null);
         renderNoOcrLines(state);
         this.updateOcrStatus(image, "empty");
         return;
@@ -6406,10 +6404,7 @@ ${candidate.depth}`;
       }
       this.positionState(state.image);
       this.updateOcrStatus(state.image, "ready");
-      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => {
-        this.clearInactiveOcrMarkup(state.overlay);
-        this.schedulePosition();
-      });
+      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();
@@ -6449,7 +6444,6 @@ ${candidate.depth}`;
     unpinLine(element) {
       element.classList.remove("jpdb-ocr-line-active");
       element.dataset.pinned = "false";
-      this.clearOcrMarkup(element);
       this.schedulePosition();
     }
     unpinOcrLinesFromDocumentEvent(event) {
@@ -6562,28 +6556,6 @@ ${candidate.depth}`;
       element.dataset.jpdbReaderSurfaceIgnore = "true";
       element.setAttribute("role", "status");
       element.setAttribute("aria-live", "polite");
-      const text = document.createElement("span");
-      text.className = "jpdb-ocr-video-frame-status-text";
-      const dismiss = document.createElement("button");
-      dismiss.type = "button";
-      dismiss.className = "jpdb-ocr-video-frame-status-dismiss";
-      setInnerHtml(dismiss, closeStatusCardIcon());
-      const label = uiText(this.options.getSettings().interfaceLanguage, "ocrHidePausedFrameStatusCard");
-      dismiss.setAttribute("aria-label", label);
-      dismiss.setAttribute("title", label);
-      dismiss.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        this.setVideoFrameStatusCardVisible(false);
-      });
-      element.addEventListener("pointerdown", (event) => {
-        const target = event.target;
-        if (target instanceof Node && dismiss.contains(target)) return;
-        event.preventDefault();
-        event.stopPropagation();
-        element.classList.add("jpdb-ocr-video-frame-status-reveal-dismiss");
-      });
-      element.append(text, dismiss);
       this.setVideoFrameStatus(element, status);
       document.body.append(element);
       return element;
@@ -6593,13 +6565,7 @@ ${candidate.depth}`;
       const label = uiText(language, videoFrameStatusTextKey(status));
       element.dataset.status = status;
       element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
-      element.querySelector(".jpdb-ocr-video-frame-status-text")?.replaceChildren(label);
       element.setAttribute("aria-label", label);
-      const dismiss = element.querySelector(".jpdb-ocr-video-frame-status-dismiss");
-      const dismissLabel = uiText(language, "ocrHidePausedFrameStatusCard");
-      dismiss?.setAttribute("aria-label", dismissLabel);
-      dismiss?.setAttribute("title", dismissLabel);
-      this.syncVideoFrameStatusCardMode(element);
     }
     updateVideoFrameStatusForImage(image, status) {
       const video = this.videoFrameVideos.get(image);
@@ -6641,21 +6607,6 @@ ${candidate.depth}`;
       if (!card) return;
       card.remove();
       this.imageStatuses.delete(image);
-    }
-    setVideoFrameStatusCardVisible(visible) {
-      const settings = this.options.getSettings();
-      if (this.options.setVideoFrameStatusCardVisible) {
-        void this.options.setVideoFrameStatusCardVisible(visible);
-      } else if (settings.ocrVideoFrameStatusCard !== visible) {
-        settings.ocrVideoFrameStatusCard = visible;
-      }
-      this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
-      this.imageStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
-    }
-    syncVideoFrameStatusCardMode(element) {
-      const compact = !this.options.getSettings().ocrVideoFrameStatusCard;
-      element.classList.toggle("jpdb-ocr-video-frame-status-compact", compact);
-      if (compact) element.classList.remove("jpdb-ocr-video-frame-status-reveal-dismiss");
     }
     refreshVideoFrameAfterSeek(target) {
       if (!(target instanceof HTMLVideoElement) || !target.paused) return;
@@ -6877,18 +6828,6 @@ ${candidate.depth}`;
       });
       line.dataset.hasFuri = String(hasFurigana);
     }
-    clearOcrMarkup(line) {
-      line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
-        const state = this.ocrWordRenderStates.get(word);
-        if (!state) return;
-        this.clearOcrPitchClass(word);
-        this.setOcrWordPlainText(word, state.surface);
-      });
-      line.dataset.hasFuri = "false";
-    }
-    clearInactiveOcrMarkup(root) {
-      root.querySelectorAll(".jpdb-ocr-line:not(.jpdb-ocr-line-active)").forEach((line) => this.clearOcrMarkup(line));
-    }
     applyOcrPitchClass(word, token) {
       this.clearOcrPitchClass(word);
       const pitchClass = ocrSafePitchClass(token.pitchClass);
@@ -7007,15 +6946,9 @@ ${spelling}`);
   function createOcrLineText(line, tokens, settings) {
     const textElement = document.createElement("span");
     textElement.className = "jpdb-ocr-line-text";
-    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, inactiveOcrTokens(tokens), inactiveOcrSettings(settings)) : escapeHtml(line.text));
+    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
     normalizeOcrRenderedText(textElement);
     return textElement;
-  }
-  function inactiveOcrTokens(tokens) {
-    return tokens.map((token) => ({ ...token, pitchClass: "" }));
-  }
-  function inactiveOcrSettings(settings) {
-    return { ...settings, furiganaMode: "off" };
   }
   function ocrTokenRenderKey(token) {
     return `${token.start}:${token.end}:${token.card.vid}:${token.card.sid}`;
@@ -7417,10 +7350,48 @@ ${spelling}`);
     return element instanceof HTMLImageElement ? element : element.closest("img");
   }
   function isIgnoredOcrImage(image) {
-    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isYouTubeThumbnailImage(image));
+    return Boolean(image.closest("[data-jpdb-reader-root]") || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]') || image.closest('[aria-hidden="true"], [hidden], .slick-cloned') || isBrandOrIconOcrImage(image) || isYouTubeThumbnailImage(image));
   }
   function isYouTubeThumbnailImage(image) {
     return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
+  }
+  const OCR_BRAND_IMAGE_TEXT_RE = /(^|[\s/_.?#&=-])(?:app-?icon|apple-touch-icon|avatar|badge|brand|favicon|icon|logo|site-icon|touch-icon|yomu-icon)(?=$|[\s/_.?#&=-])/iu;
+  const OCR_BRAND_IMAGE_CONTAINER_SELECTOR = [
+    "header",
+    "nav",
+    '[role="banner"]',
+    '[role="navigation"]',
+    '[class*="brand" i]',
+    '[class*="logo" i]',
+    '[id*="brand" i]',
+    '[id*="logo" i]'
+  ].join(",");
+  function isBrandOrIconOcrImage(image) {
+    if (OCR_BRAND_IMAGE_TEXT_RE.test(imageIdentityText(image))) return true;
+    const rect = image.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    if (area > 0 && area <= 12e3 && isIconLikeImage(image, rect)) return true;
+    if (image.closest(OCR_BRAND_IMAGE_CONTAINER_SELECTOR)) return area <= 16e4 || isIconLikeImage(image, rect);
+    return false;
+  }
+  function imageIdentityText(image) {
+    return [
+      image.currentSrc,
+      image.src,
+      image.alt,
+      image.title,
+      image.id,
+      image.className,
+      image.getAttribute("aria-label"),
+      image.getAttribute("role")
+    ].filter(Boolean).join(" ");
+  }
+  function isIconLikeImage(image, rect = image.getBoundingClientRect()) {
+    const width = image.naturalWidth || rect.width;
+    const height = image.naturalHeight || rect.height;
+    if (!width || !height) return false;
+    const ratio = width / height;
+    return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
   }
   function isVisibleOcrImage(image) {
     return !isHiddenByCss(image) && !isInsideHiddenAncestor(image);
@@ -7621,9 +7592,6 @@ ${spelling}`);
   }
   function playVideoIcon() {
     return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
-  }
-  function closeStatusCardIcon() {
-    return `<svg class="jpdb-ocr-video-frame-status-dismiss-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
   }
   function videoContentBox(rect, video) {
     const intrinsicWidth = video.videoWidth;

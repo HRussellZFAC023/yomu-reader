@@ -2002,7 +2002,6 @@
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrVideoPauseFrames: true,
-    ocrVideoFrameStatusCard: true,
     ocrShowTextOverlay: false,
     ocrProvider: "google-lens",
     ocrEndpointUrl: "",
@@ -2398,7 +2397,6 @@
       immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
-      ocrVideoFrameStatusCard: booleanSetting(value, "ocrVideoFrameStatusCard"),
       ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
       ocrEngine: normalizeOcrEngine(settings.ocrEngine),
       ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
@@ -3188,7 +3186,6 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
-      ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
       googleLens: "Google Lens — free, no setup (recommended)",
       cloudVision: "Google Cloud Vision — needs API key",
@@ -3553,8 +3550,7 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
-      ocrHidePausedFrameStatusCard: "Hide status card",
-      ocrPausedFrameScanning: "Reading paused frame...",
+      ocrPausedFrameScanning: "Scanning...",
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
       ocrPausedFrameFailed: "Could not read text",
@@ -4251,8 +4247,7 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
-ocrHidePausedFrameStatusCard	ステータスカードを非表示
-ocrPausedFrameScanning	一時停止フレームを読み取り中...
+ocrPausedFrameScanning	スキャン中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
 ocrPausedFrameFailed	テキストを読み取れませんでした
@@ -4697,7 +4692,6 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
-ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
@@ -6016,7 +6010,6 @@ recommendedJiten	jiten.moe頻度データです。
       ocrAutoScanImages: formReaderValuePresent(reader, "ocrAutoScanImages") ? has("ocrAutoScanImages") : current.ocrAutoScanImages,
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
       ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
-      ocrVideoFrameStatusCard: has("ocrVideoFrameStatusCard"),
       ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
@@ -7758,7 +7751,6 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
                     ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
-                    ${checkbox("ocrVideoFrameStatusCard", "Show paused-frame status card", settings.ocrVideoFrameStatusCard)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens — free, no setup (recommended)"], ["cloud-vision", "Google Cloud Vision — needs API key"], ["local-service", "Local OCR server — advanced"], ["off", "Off"]])}
@@ -8708,7 +8700,6 @@ recommendedJiten	jiten.moe頻度データです。
     "ocrAutoScanImages",
     "ocrShowTextOverlay",
     "ocrVideoPauseFrames",
-    "ocrVideoFrameStatusCard",
     "ocrProvider",
     "ocrMaxImagesPerPage",
     "ocrMinImageArea",

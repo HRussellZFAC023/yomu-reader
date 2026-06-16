@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.89
+// @version      0.7.90
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-nbh/omNrtXpDI7Mv5I9ZM34ZpWELehFtaPIj/8F2Baw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-HwJVGxpDYmn0+75znYhD79n9Z/Of/NCHD7rOQKqPq98=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-rhvVYqBuOpds0FQG1LhWwg9c2KRrU1LWCuW2FKxxDwA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-tRxjhs5WMpzzNFgiqHMFQXwj+0NVNgqXiLHcDTG/72k=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ZT0PEUPo27srxYwr8jzONA3dEh8Bn8mDBW6KEy3MkW4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IhOTa62YFgcyjDt3SwV8RQpEp46/jtbKpcDuwiVfxCA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-a9FYuOp6bXnxJs4ltvoPjOsZ5rZ8ACui/cY6QMhN8ZY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-AJDS/h1l0XlQuWlAopL5TTo75PNl56Up5vMlaoNc8JI=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2656,7 +2656,6 @@
     ocrEnabled: true,
     ocrAutoScanImages: true,
     ocrVideoPauseFrames: true,
-    ocrVideoFrameStatusCard: true,
     ocrShowTextOverlay: false,
     ocrProvider: "google-lens",
     ocrEndpointUrl: "",
@@ -3049,7 +3048,6 @@
       immersionKitRevealTranslationOnClick: booleanSetting(value, "immersionKitRevealTranslationOnClick"),
       immersionKitPlayOnHover: booleanSetting(value, "immersionKitPlayOnHover"),
       immersionKitPlayOnImageClick: booleanSetting(value, "immersionKitPlayOnImageClick"),
-      ocrVideoFrameStatusCard: booleanSetting(value, "ocrVideoFrameStatusCard"),
       ocrProvider: normalizeOcrProvider(settings.ocrProvider, value),
       ocrEngine: normalizeOcrEngine(settings.ocrEngine),
       ocrCloudVisionApiKey: normalizeCloudVisionApiKey(settings.ocrCloudVisionApiKey),
@@ -6786,7 +6784,6 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
-      ocrVideoFrameStatusCard: "Show paused-frame status card",
       ocrProvider: "Image reading",
       googleLens: "Google Lens — free, no setup (recommended)",
       cloudVision: "Google Cloud Vision — needs API key",
@@ -7151,8 +7148,7 @@
       ocrHiddenToast: "Image reading hidden.",
       ocrPlayVideo: "Play video",
       ocrResumeVideo: "Resume video",
-      ocrHidePausedFrameStatusCard: "Hide status card",
-      ocrPausedFrameScanning: "Reading paused frame...",
+      ocrPausedFrameScanning: "Scanning...",
       ocrPausedFrameReady: "Text ready",
       ocrPausedFrameNoText: "No text found",
       ocrPausedFrameFailed: "Could not read text",
@@ -7868,8 +7864,7 @@ ocrEnabledToast	画像読み取りを有効にしました。
 ocrHiddenToast	画像読み取りを非表示にしました。
 ocrPlayVideo	動画を再生
 ocrResumeVideo	動画を再開
-ocrHidePausedFrameStatusCard	ステータスカードを非表示
-ocrPausedFrameScanning	一時停止フレームを読み取り中...
+ocrPausedFrameScanning	スキャン中...
 ocrPausedFrameReady	テキスト準備完了
 ocrPausedFrameNoText	テキストが見つかりません
 ocrPausedFrameFailed	テキストを読み取れませんでした
@@ -8314,7 +8309,6 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
-ocrVideoFrameStatusCard	一時停止フレームのステータスカードを表示
 ocrProvider	画像読み取り
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
@@ -32069,6 +32063,52 @@ ${glossaryKey}`;
     const closest = target?.closest;
     return typeof closest === "function" ? closest.call(target, selector) : null;
   }
+  function normalizeOcrRenderedText(root) {
+    normalizeOcrRuby(root);
+    normalizeOcrPlainText(root);
+  }
+  function normalizeOcrRuby(root) {
+    root.querySelectorAll("ruby").forEach((ruby) => {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-ruby";
+      const furi = document.createElement("span");
+      furi.className = "jpdb-ocr-furi";
+      furi.dataset.jpdbReaderSurfaceIgnore = "true";
+      furi.setAttribute("aria-hidden", "true");
+      const base = document.createElement("span");
+      base.className = "jpdb-ocr-ruby-base";
+      for (const child of Array.from(ruby.childNodes)) {
+        if (child instanceof HTMLElement && child.tagName === "RT") {
+          furi.textContent += child.textContent ?? "";
+        } else if (!(child instanceof HTMLElement && child.tagName === "RP")) {
+          base.append(child.cloneNode(true));
+        }
+      }
+      replacement.append(furi, base);
+      ruby.replaceWith(replacement);
+    });
+  }
+  function normalizeOcrPlainText(root) {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: (node) => {
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        if (!node.textContent?.trim()) return NodeFilter.FILTER_REJECT;
+        if (parent.classList.contains("jpdb-ocr-furi") || parent.classList.contains("jpdb-ocr-ruby-base")) return NodeFilter.FILTER_REJECT;
+        return parent === root || parent.classList.contains("jpdb-reader-word") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      }
+    });
+    const textNodes = [];
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (node instanceof Text) textNodes.push(node);
+    }
+    for (const textNode of textNodes) {
+      const replacement = document.createElement("span");
+      replacement.className = "jpdb-ocr-plain";
+      replacement.textContent = textNode.textContent ?? "";
+      textNode.replaceWith(replacement);
+    }
+  }
   const RENDERED_WORD_CONTRAST_VARS = [
     "--jpdb-reader-page-bg",
     "--jpdb-reader-highlight-backdrop",
@@ -32173,10 +32213,6 @@ ${glossaryKey}`;
     Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
     word.dataset.pitchClass = pitchClass;
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
-  }
-  function storeRenderedWordPitchClass(word, pitchClass) {
-    Array.from(word.classList).filter((className) => className.startsWith("jpdb-pitch-")).forEach((className) => word.classList.remove(className));
-    word.dataset.pitchClass = pitchClass;
   }
   function setRenderedWordCardIdentity(word, card) {
     const source = renderedWordCardSource(card);
@@ -32333,7 +32369,6 @@ ${glossaryKey}`;
   function applyPublicVocabularyFurigana(word, card, settings) {
     if (word.closest("ruby")) return;
     const ocrLine = word.closest(".jpdb-ocr-line");
-    if (ocrLine) return;
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
@@ -32349,7 +32384,9 @@ ${glossaryKey}`;
     const html = renderRuby(surface, token);
     if (!html.includes("<rt")) return;
     setInnerHtml(word, html);
+    if (ocrLine) normalizeOcrRenderedText(word);
     word.classList.add("jpdb-reader-has-furi");
+    if (ocrLine) ocrLine.dataset.hasFuri = "true";
   }
   function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {}) {
     if (!ankiLookup.primary) {
@@ -36746,7 +36783,6 @@ ${glossaryKey}`;
       }
       return new Controller({
         getSettings: () => this.settings,
-        setVideoFrameStatusCardVisible: (visible) => this.setOcrVideoFrameStatusCardVisible(visible),
         parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
         parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
         onToast: (message) => this.toast(message),
@@ -36926,14 +36962,6 @@ ${glossaryKey}`;
       await saveSettings(this.settings);
       this.youtube.refresh();
       log.info("YouTube channel recommendations changed", { visible });
-    }
-    setOcrVideoFrameStatusCardVisible(visible) {
-      if (this.settings.ocrVideoFrameStatusCard === visible) return;
-      this.settings = { ...this.settings, ocrVideoFrameStatusCard: visible };
-      document.querySelectorAll('input[name="ocrVideoFrameStatusCard"]').forEach((input) => {
-        input.checked = visible;
-      });
-      void saveSettings(this.settings);
     }
     async setInterfaceLanguage(language) {
       if (this.settings.interfaceLanguage === language) return;
@@ -41434,11 +41462,6 @@ ${glossaryKey}`;
       applyPublicVocabularyFurigana(word, card, this.settings);
     }
     applyPitchClassToRenderedSurface(word, pitchClass) {
-      const ocrLine = word.closest(".jpdb-ocr-line");
-      if (ocrLine && !ocrLine.classList.contains("jpdb-ocr-line-active")) {
-        storeRenderedWordPitchClass(word, pitchClass);
-        return;
-      }
       setRenderedWordPitchClass(word, pitchClass);
     }
     async handleCardAction(button2, card, sentence) {
