@@ -2149,7 +2149,16 @@ export class ReaderApp {
     }
 
     private nestedPitchEnrichmentOptions(): PitchEnrichmentOptions {
-        return nestedPitchEnrichmentOptionsForHost(location.hostname);
+        const options = nestedPitchEnrichmentOptionsForHost(location.hostname);
+        if (!isYouTubeRuntimeHost() || hasJpdbApiCredential(this.settings) || hasJitenApiCredential(this.settings)) return options;
+        return {
+            publicLookupLimit: 16,
+            publicLookupTotalLimit: 16,
+            publicLookupPageBudget: 32,
+            publicLookupTermLimit: 1,
+            substantivePublicLookupOnly: true,
+            deferPublicLookup: false,
+        };
     }
 
     private preloadableReaderWordCard(word: HTMLElement): JPDBCard | null {
@@ -5527,8 +5536,23 @@ export class ReaderApp {
 
     private async enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void> {
         if (!tokens.length) return;
-        await this.resolveOcrFallbackTokens(tokens);
-        await this.enrichPitchWords(tokens, { urgent: true });
+        await this.enrichPitchWords(tokens, this.subtitleBeforeRenderPitchEnrichmentOptions());
+    }
+
+    private subtitleBeforeRenderPitchEnrichmentOptions(): PitchEnrichmentOptions {
+        const background = this.backgroundPitchEnrichmentOptions();
+        const noApiCredential = !hasJpdbApiCredential(this.settings) && !hasJitenApiCredential(this.settings);
+        const urgentPublicLimit = noApiCredential ? PITCH_ENRICHMENT_LIMIT : 2;
+        const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(background.publicLookupLimit ?? urgentPublicLimit)));
+        const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(background.publicLookupTotalLimit ?? publicLookupLimit)));
+        return {
+            ...background,
+            urgent: true,
+            publicLookupLimit,
+            publicLookupTotalLimit,
+            publicLookupTermLimit: Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1))),
+            deferPublicLookup: false,
+        };
     }
 
     private async resolveOcrFallbackTokens(tokens: JPDBToken[]): Promise<void> {
@@ -5770,7 +5794,7 @@ export class ReaderApp {
             return;
         }
 
-        if (options.urgent) {
+        if (options.urgent && typeof options.publicLookupLimit !== 'number') {
             const urgentTokens = uniqueTokens.map(token => this.takeQueuedPitchEnrichmentToken(cardKey(token.card)) ?? token);
             await runLimited(urgentTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
             return;
@@ -6976,12 +7000,13 @@ function pitchEnrichmentQueueOptions(
     };
 }
 
-const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]/u;
+const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]|[\u30a0-\u30ffー]{2,}|[\u3040-\u309fー]{2,}/u;
 
 function isSubstantivePublicPitchLookupToken(token: JPDBToken): boolean {
+    const surface = token.sentence?.slice(token.start, token.end) ?? '';
     return SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.spelling)
         || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.card.reading)
-        || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(token.sentence ?? '');
+        || SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE.test(surface);
 }
 
 function publicLookupCardRequest(

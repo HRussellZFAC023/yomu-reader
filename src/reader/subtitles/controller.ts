@@ -223,6 +223,7 @@ interface ParseCueHtmlOptions {
     allowProvisional?: boolean;
     enrichBeforeRender?: boolean;
     authoritativeUpgrade?: boolean;
+    refreshProvisional?: boolean;
 }
 
 function isYouTubeTheaterMode(): boolean {
@@ -549,6 +550,7 @@ export class SubtitlePlayerController {
     private pendingDomCaption?: { text: string; firstSeenAt: number };
     private parsedHtmlCache = new Map<string, string>();
     private provisionalParsedHtmlCache = new Map<string, string>();
+    private enrichedProvisionalParsedHtmlKeys = new Set<string>();
     private sessionParseCacheChecked = new Set<string>();
     private emptyParsedHtmlCache = new Map<string, { html: string; expiresAt: number }>();
     private pendingParsedHtml = new Map<string, Promise<string>>();
@@ -1830,7 +1832,7 @@ export class SubtitlePlayerController {
             const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
             if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
             const html = withBreaks(renderTokensToHtml(text, tokens, settings));
-            this.rememberParsedCueHtml(key, html, tokens, { provisional: true });
+            this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: options.enrichBeforeRender === true });
             return html;
         })();
         this.pendingProvisionalParsedHtml.set(key, promise);
@@ -1903,7 +1905,7 @@ export class SubtitlePlayerController {
         if (previous === undefined) return;
         const html = withBreaks(renderTokensToHtml(text, tokens, settings));
         if (html === previous) return;
-        this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true } : {});
+        this.rememberParsedCueHtml(key, html, tokens, provisional ? { provisional: true, enriched: true } : {});
         this.updateTranscriptRowsForParseKey(key, html, { provisional, force: true });
         if (this.currentPrimaryParseCacheKey() !== key) return;
         this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
@@ -1959,8 +1961,8 @@ export class SubtitlePlayerController {
         const { ready, batch } = planProvisionalSubtitleParseBatch(
             items,
             key => this.parsedHtmlCache.get(key),
-            key => this.provisionalParsedHtmlCache.get(key),
-            key => this.pendingParsedCueHtml(key, 'provisional'),
+            key => this.usableProvisionalParsedHtml(key, options),
+            key => options.refreshProvisional ? undefined : this.pendingParsedCueHtml(key, 'provisional'),
             key => this.freshEmptyParsedHtml(key),
         );
         if (!batch.length) return Promise.all(ready);
@@ -1981,7 +1983,7 @@ export class SubtitlePlayerController {
             const tokenList = tokens[index] ?? [];
             if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-            this.rememberParsedCueHtml(item.key, html, tokenList, options);
+            this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: options.enrichBeforeRender === true });
             return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
         }));
     }
@@ -2008,12 +2010,23 @@ export class SubtitlePlayerController {
         }
     }
 
-    private rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean } = {}): void {
+    private usableProvisionalParsedHtml(key: string, options: Pick<ParseCueHtmlOptions, 'refreshProvisional'>): string | undefined {
+        const html = this.provisionalParsedHtmlCache.get(key);
+        if (!html) return undefined;
+        return options.refreshProvisional && !this.enrichedProvisionalParsedHtmlKeys.has(key) ? undefined : html;
+    }
+
+    private rememberParsedCueHtml(key: string, html: string, tokens: JPDBToken[] = [], options: { provisional?: boolean; forceNotify?: boolean; enriched?: boolean } = {}): void {
         if (parsedSubtitleHtmlHasReaderWords(html)) {
-            if (options.provisional) this.provisionalParsedHtmlCache.set(key, html);
+            if (options.provisional) {
+                this.provisionalParsedHtmlCache.set(key, html);
+                if (options.enriched) this.enrichedProvisionalParsedHtmlKeys.add(key);
+                else this.enrichedProvisionalParsedHtmlKeys.delete(key);
+            }
             else {
                 this.parsedHtmlCache.set(key, html);
                 this.provisionalParsedHtmlCache.delete(key);
+                this.enrichedProvisionalParsedHtmlKeys.delete(key);
             }
             // UT-48: refreshing the page must keep the parsed ruby — the
             // final tier per key (authoritative, or provisional when no API
@@ -3680,8 +3693,9 @@ export class SubtitlePlayerController {
     private refreshExistingTranscriptPanel(state: TranscriptPanelRenderState): boolean {
         if (this.lastTranscriptSignature !== state.signature) return false;
         this.updateTranscriptActiveLine(state.currentRowIndex);
-        this.scheduleTranscriptHydration(state.currentRowIndex);
-        this.scheduleTranscriptCacheWarmup(state.rows, state.currentRowIndex);
+        const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+        this.scheduleTranscriptHydration(hydrationIndex);
+        this.scheduleTranscriptCacheWarmup(state.rows, hydrationIndex);
         return true;
     }
 
@@ -3734,9 +3748,14 @@ export class SubtitlePlayerController {
         this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? 'none' : 'immediate' });
         this.restoreTranscriptVirtualScroll(state);
         this.scrollTranscriptToActive();
-        this.scheduleTranscriptHydration(state.currentRowIndex);
-        this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.warmupRows ?? state.rows, state.currentRowIndex);
+        const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+        this.scheduleTranscriptHydration(hydrationIndex);
+        this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.warmupRows ?? state.rows, hydrationIndex);
         this.syncPanelState();
+    }
+
+    private transcriptHydrationPreferredIndex(state: TranscriptPanelRenderState): number {
+        return state.virtual?.start ?? state.currentRowIndex;
     }
 
     private restoreTranscriptVirtualScroll(state: TranscriptPanelRenderState): void {
@@ -4094,9 +4113,9 @@ export class SubtitlePlayerController {
 
     private async hydrateTranscriptRowTargets(targets: TranscriptRowHydrationTarget[], settings: ReaderSettings, serial: number): Promise<void> {
         try {
-            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings, { enrichBeforeRender: true });
+            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings, { enrichBeforeRender: true, refreshProvisional: true });
             if (serial !== this.transcriptHydrationSerial) return;
-            for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
+            for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
         } catch {
             targets.forEach(hydration => {
                 hydration.target.dataset.parseFailedKey = hydration.key;
@@ -4111,7 +4130,9 @@ export class SubtitlePlayerController {
         const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
         if (!cue || !target) return null;
         const key = this.parseCacheKey(cue.text, settings);
-        return hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
+        const provisionalNeedsHydration = target.dataset.parsedProvisional === 'true'
+            && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
+        return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
     }
 
     private applyCachedTranscriptRowHtml(hydration: TranscriptRowHydrationTarget, html: string): void {

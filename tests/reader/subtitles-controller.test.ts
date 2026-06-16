@@ -3017,6 +3017,77 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('refreshes cheap provisional transcript rows with enriched furigana when they become visible', async () => {
+        vi.useFakeTimers();
+        const originalLocation = window.location;
+        const originalRequestAnimationFrame = window.requestAnimationFrame;
+        const originalCancelAnimationFrame = window.cancelAnimationFrame;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=provisional') as unknown as Location,
+        });
+        window.requestAnimationFrame = ((callback: FrameRequestCallback) => window.setTimeout(() => callback(performance.now()), 0)) as typeof window.requestAnimationFrame;
+        window.cancelAnimationFrame = ((id: number) => window.clearTimeout(id)) as typeof window.cancelAnimationFrame;
+
+        try {
+            const cue = { start: 0, end: 2, text: '日本語', transcriptEligible: true };
+            const parseJapaneseBatch = vi.fn(async (texts: string[]) => texts.map(text => [makeSubtitleToken(text)]));
+            const beforeRenderTokens = vi.fn(async (tokens: JPDBToken[]) => {
+                tokens[0].card.reading = 'にほんご';
+                tokens[0].card.pitchAccent = ['LHHH'];
+                tokens[0].rubies = [{ start: 0, end: 3, length: 3, text: 'にほんご' }];
+                tokens[0].pitchClass = 'heiban';
+            });
+            const { settings, internals } = setupTranscriptCueController<typeof cue, {
+                parseCueHtmlBatch: (
+                    texts: string[],
+                    settings: ReaderSettings,
+                    options?: { enrichBeforeRender?: boolean },
+                ) => Promise<Array<{ html: string; provisional?: boolean }>>;
+                provisionalParsedHtmlCache: Map<string, string>;
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+            }>([cue], {
+                hooks: { parseJapaneseBatch, beforeRenderTokens },
+                selectedTrackId: 'youtube-0',
+                settings: {
+                    subtitleTranscriptAutoScroll: false,
+                    apiKey: '',
+                    jitenApiKey: '',
+                    localDictionariesEnabled: false,
+                    furiganaMode: 'all',
+                },
+            });
+            const key = internals.parseCacheKey('日本語', settings);
+
+            await internals.parseCueHtmlBatch(['日本語'], settings, { enrichBeforeRender: false });
+            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
+            expect(internals.provisionalParsedHtmlCache.get(key)).not.toContain('jpdb-reader-furi');
+
+            internals.openLinesPanel();
+            expect(document.querySelector('.jpdb-subtitle-row-text')?.innerHTML).not.toContain('jpdb-reader-furi');
+
+            await vi.advanceTimersByTimeAsync(1);
+            await Promise.resolve();
+
+            expect(parseJapaneseBatch).toHaveBeenCalledTimes(2);
+            expect(beforeRenderTokens).toHaveBeenCalledTimes(1);
+            await vi.waitFor(() => {
+                expect(document.querySelector('.jpdb-subtitle-row-text .jpdb-reader-word.jpdb-pitch-heiban')).not.toBeNull();
+            });
+            const row = document.querySelector<HTMLElement>('.jpdb-subtitle-row-text');
+            expect(row?.querySelector('.jpdb-reader-word.jpdb-pitch-heiban')).not.toBeNull();
+            expect(row?.querySelector('.jpdb-reader-furi')?.textContent).toBe('にほんご');
+            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-furi');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            window.requestAnimationFrame = originalRequestAnimationFrame;
+            window.cancelAnimationFrame = originalCancelAnimationFrame;
+        }
+    });
+
     it('updates transcript rows through the parse-key index instead of scanning every row', () => {
         const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
         const { settings, internals } = setupTranscriptCueController<typeof cue, {
