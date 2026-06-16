@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.0.3
+// @version      1.0.4
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ZT0PEUPo27srxYwr8jzONA3dEh8Bn8mDBW6KEy3MkW4=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IhOTa62YFgcyjDt3SwV8RQpEp46/jtbKpcDuwiVfxCA=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-a9FYuOp6bXnxJs4ltvoPjOsZ5rZ8ACui/cY6QMhN8ZY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-5jC5y0rXRMvyN12kqIEV5xh7bkSZoK7QWCDJPTdzgt0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-tWKEgGVEp8kSefXb5JNBfeDFhZCfbD0zMQS8eX4pfTk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5607,7 +5607,22 @@
     "[data-yomu-youtube-pending]",
     "[data-yomu-youtube-aria-hidden]",
     ".jpdb-youtube-filter-collapsed",
-    ".jpdb-youtube-pending"
+    ".jpdb-youtube-pending",
+    // YouTube's Polymer/view-model hosts own their measured height. Reserving
+    // ruby room on them writes inline height/max-height that YouTube treats as
+    // authoritative, causing watch descriptions to balloon and compact metadata
+    // rows/action chips to stack or flicker.
+    "ytd-text-inline-expander",
+    "yt-attributed-string",
+    "yt-formatted-string",
+    ".ytAttributedStringHost",
+    ".yt-core-attributed-string",
+    ".ytContentMetadataViewModelMetadataRow",
+    "yt-content-metadata-view-model",
+    "yt-button-shape",
+    "yt-button-view-model",
+    "button",
+    '[role="button"]'
   ].join(",");
   const RUBY_ROOM_MAX_PX = 400;
   function makeRoomForRubyInCroppedRows(root = document) {

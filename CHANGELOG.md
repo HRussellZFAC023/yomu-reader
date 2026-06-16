@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.4] - 2026-06-17
+
+### Fixed
+
+- YouTube channel recommendations now hide cleanly when the signed-in account is already subscribed to every curated channel, and the shelf no longer shows stale Subscribe rows or the "Previews load from YouTube on this page." footer copy.
+- YouTube text mirrors no longer let ruby-room sizing write height onto YouTube description expanders, metadata rows, or action buttons, preventing watch descriptions from growing, metadata from stacking vertically, and action labels/channel metadata from flickering or clipping.
+
 ## [1.0.3] - 2026-06-17
 
 ### Fixed

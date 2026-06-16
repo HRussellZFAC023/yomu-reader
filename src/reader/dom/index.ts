@@ -2825,6 +2825,21 @@ const RUBY_ROOM_SKIP_SELECTOR = [
     '[data-yomu-youtube-aria-hidden]',
     '.jpdb-youtube-filter-collapsed',
     '.jpdb-youtube-pending',
+    // YouTube's Polymer/view-model hosts own their measured height. Reserving
+    // ruby room on them writes inline height/max-height that YouTube treats as
+    // authoritative, causing watch descriptions to balloon and compact metadata
+    // rows/action chips to stack or flicker.
+    'ytd-text-inline-expander',
+    'yt-attributed-string',
+    'yt-formatted-string',
+    '.ytAttributedStringHost',
+    '.yt-core-attributed-string',
+    '.ytContentMetadataViewModelMetadataRow',
+    'yt-content-metadata-view-model',
+    'yt-button-shape',
+    'yt-button-view-model',
+    'button',
+    '[role="button"]',
 ].join(',');
 // A clamped/ellipsis text row's furigana never needs more than a few lines of
 // extra height. A room far larger than this means we measured a container (a

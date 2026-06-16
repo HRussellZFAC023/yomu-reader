@@ -32093,6 +32093,74 @@ describe('reader helpers', () => {
         expect(document.querySelector('ytd-watch-info-text .jpdb-reader-text-mirror')!.textContent).not.toContain('9876543210');
     });
 
+    it('keeps YouTube owner and metadata mirrors visible without duplicating', () => {
+        const targets = collectYouTubeWatchTargets(`
+            <ytd-watch-metadata>
+                <div id="owner">
+                    <ytd-channel-name>
+                        <yt-formatted-string id="text">にほんごのじかん | Japanese Comprehensible Input</yt-formatted-string>
+                    </ytd-channel-name>
+                    <yt-formatted-string id="owner-sub-count">チャンネル登録者数 2040人</yt-formatted-string>
+                </div>
+                <div id="metadata-line" class="ytContentMetadataViewModelMetadataRow">
+                    <span class="yt-core-attributed-string ytAttributedStringHost">1 日前</span>
+                </div>
+            </ytd-watch-metadata>
+        `);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '1 日前',
+        ]));
+        expect(targets.some(target => target.text.includes('にほんごのじかん | Japanese Comprehensible Input')
+            && target.text.includes('チャンネル登録者数 2040人'))).toBe(true);
+
+        const owner = targets.find(target => target.text.includes('チャンネル登録者数 2040人'))!;
+        const metadataAge = targets.find(target => target.text === '1 日前')!;
+        expect(owner).toMatchObject({ nonDestructive: true });
+        expect(metadataAge).toMatchObject({ nonDestructive: true });
+
+        const settings: ReaderSettings = { ...DEFAULT_SETTINGS, furiganaMode: 'all' };
+        const subscriberStart = owner.text.indexOf('登録者数');
+        const subscriberToken: JPDBToken = {
+            card: { ...card, cardState: ['known'], spelling: '登録者数', reading: 'とうろくしゃすう', source: 'jpdb' },
+            start: subscriberStart,
+            end: subscriberStart + 4,
+            length: 4,
+            rubies: [{ text: 'とうろくしゃすう', start: subscriberStart, end: subscriberStart + 4, length: 4 }],
+            pitchClass: 'heiban',
+            sentence: owner.text,
+        };
+        const ageToken: JPDBToken = {
+            card: { ...card, cardState: ['known'], spelling: '日', reading: 'にち', source: 'jpdb' },
+            start: 2,
+            end: 3,
+            length: 1,
+            rubies: [{ text: 'にち', start: 2, end: 3, length: 1 }],
+            pitchClass: 'heiban',
+            sentence: '1 日前',
+        };
+
+        applyTokensToScanTarget(owner, [subscriberToken], settings);
+        applyTokensToScanTarget(metadataAge, [ageToken], settings);
+        applyTokensToScanTarget(owner, [subscriberToken], settings);
+        applyTokensToScanTarget(metadataAge, [ageToken], settings);
+
+        const ownerHost = document.querySelector<HTMLElement>('#owner')!;
+        const metadataHost = document.querySelector<HTMLElement>('.ytAttributedStringHost')!;
+        expect(ownerHost.textContent).toContain('にほんごのじかん | Japanese Comprehensible Input');
+        expect(ownerHost.textContent).toContain('チャンネル登録者数 2040人');
+        expect(ownerHost.querySelectorAll(':scope > .jpdb-reader-text-mirror')).toHaveLength(1);
+        expect(metadataHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+        const subscriberWord = ownerHost.querySelector<HTMLElement>(':scope > .jpdb-reader-text-mirror .jpdb-reader-word')!;
+        const metadataWord = metadataHost.querySelector<HTMLElement>('.jpdb-reader-text-mirror .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(subscriberWord)).toBe('登録者数');
+        expect(readerWordSurfaceText(metadataWord)).toBe('日');
+        expectRenderedPitchWord(subscriberWord, 'heiban');
+        expectRenderedPitchWord(metadataWord, 'heiban');
+        expect(document.querySelector('.jpdb-reader-word .jpdb-reader-word')).toBeNull();
+        expect(document.querySelector('ruby ruby')).toBeNull();
+    });
+
     it('scans YouTube live-chat frame fallback text', () => {
         const targets = collectYouTubeTargets(`
             <main>

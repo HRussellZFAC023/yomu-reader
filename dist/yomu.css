@@ -417,6 +417,22 @@
   white-space: normal;
 }
 
+/* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
+   as the host does, but keep each rendered word atomic so short YouTube metadata
+   and action labels do not collapse into one-character vertical stacks. */
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal !important;
+  line-break: strict;
+}
+
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
 /* Hosted docs cards are links, so their annotated text is passive; still let
    the card prose wrap inside its own grid cell. */
 .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word,

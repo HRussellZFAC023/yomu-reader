@@ -262,6 +262,19 @@ async function waitForChannelSubscriptionResult(
     }
 }
 
+async function waitForChannelShelfCondition(
+    predicate: (shelf: HTMLElement | null) => boolean,
+    attempts = 160,
+): Promise<void> {
+    for (let i = 0; i < attempts; i += 1) {
+        await settlePromises();
+        await vi.advanceTimersByTimeAsync(50);
+        await settlePromises();
+        const shelf = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf');
+        if (predicate(shelf)) return;
+    }
+}
+
 describe('YouTube immersion filter', () => {
     afterEach(() => {
         vi.useRealTimers();
@@ -894,7 +907,8 @@ describe('YouTube immersion filter', () => {
         expect(shelf.textContent).toContain('100 curated channels');
         expect(shelf.querySelectorAll('.jpdb-youtube-channel-row')).toHaveLength(8);
         expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
-        expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent).toContain('Subscribe here');
+        expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent).toBe('');
+        expect(shelf.textContent).not.toContain('Previews load from YouTube on this page.');
 
         shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
         await vi.advanceTimersByTimeAsync(0);
@@ -998,11 +1012,10 @@ describe('YouTube immersion filter', () => {
         });
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+        await waitForChannelShelfCondition(shelf => Boolean(shelf?.querySelector('.jpdb-youtube-channel-row')));
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
-        await flushPendingFilterWork();
-        await vi.advanceTimersByTimeAsync(0);
-        await flushPendingFilterWork();
+        await waitForChannelShelfCondition(shelf => (shelf?.querySelectorAll('.jpdb-youtube-channel-row').length ?? 0) >= 99);
 
         const handles = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
             .map(row => row.dataset.yomuChannelHandle);
@@ -1026,13 +1039,14 @@ describe('YouTube immersion filter', () => {
         });
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+        await waitForChannelShelfCondition(shelf => Boolean(shelf?.querySelector('.jpdb-youtube-channel-row')));
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
-        await flushPendingFilterWork();
+        await waitForChannelShelfCondition(shelf => (shelf?.querySelectorAll('.jpdb-youtube-channel-row').length ?? 0) >= 99);
 
         expect(Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
             .map(row => row.dataset.yomuChannelHandle))
-            .toContain(subscribedHandle);
+            .not.toContain(subscribedHandle);
 
         for (let i = 0; i < 40 && document.querySelector<HTMLElement>(`[data-yomu-channel-handle="${subscribedHandle}"]`); i += 1) {
             await vi.advanceTimersByTimeAsync(250);
@@ -1044,6 +1058,31 @@ describe('YouTube immersion filter', () => {
         expect(handles).not.toContain(subscribedHandle);
         expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')?.textContent)
             .toContain('99 shown from 100 curated channels.');
+
+        filter.destroy();
+    });
+
+    it('keeps the channel shelf hidden when live previews show all curated channels are already subscribed', async () => {
+        stubYouTubeChannelPreviewFetch(new Set(allYouTubeChannelRecommendations().map(channel => channel.handle)));
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/',
+            search: '',
+        });
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+
+        const allSubscribedFlag = (): string | undefined =>
+            gmStorageGetSync<{ signature?: string } | null>('yomu:youtube-all-subscribed:v1', null)?.signature;
+        await waitForChannelShelfCondition(() => allSubscribedFlag() === youTubeChannelListSignature(), 260);
+
+        expect(allSubscribedFlag()).toBe(youTubeChannelListSignature());
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
+        expect(document.querySelector('.jpdb-youtube-channel-shelf-list')).toBeNull();
+        expect(document.body.textContent).not.toContain('Subscribe visible');
+        expect(document.body.textContent).not.toContain('Previews load from YouTube on this page.');
 
         filter.destroy();
     });
@@ -1310,16 +1349,11 @@ describe('YouTube immersion filter', () => {
             pathname: '/',
             search: '',
         });
-        vi.stubGlobal('ytcfg', {
-            get: (key: string) => ({
-                INNERTUBE_API_KEY: 'test-key',
-                INNERTUBE_CONTEXT: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
-            } as Record<string, unknown>)[key],
-        });
-        const fetchMock = vi.fn(async (..._args: unknown[]) => ({ ok: true, json: async () => ({}) }));
-        vi.stubGlobal('fetch', fetchMock);
+        stubYouTubeChannelPreviewFetch(new Set());
+        const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+        await waitForChannelShelfCondition(shelf => Boolean(shelf?.querySelector('.jpdb-youtube-channel-row')));
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!.click();
         await flushPendingFilterWork();

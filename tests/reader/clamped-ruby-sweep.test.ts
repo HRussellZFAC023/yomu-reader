@@ -199,4 +199,44 @@ describe('makeRoomForRubyInCroppedRows', () => {
         expect(title.dataset.yomuRubyRoom).toBeUndefined();
         document.body.innerHTML = '';
     });
+
+    it('does not reserve ruby room on YouTube description expanders', () => {
+        document.body.innerHTML = `
+            <ytd-text-inline-expander id="description-inline-expander" style="overflow:hidden;height:104px;max-height:104px;line-height:20px">
+                概要欄で${annotatedWord('にほんご', '日本語')}を勉強します。
+            </ytd-text-inline-expander>
+        `;
+        const description = document.querySelector<HTMLElement>('#description-inline-expander')!;
+        mockOverflow(description, 400, 104);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(description.style.height).toBe('104px');
+        expect(description.style.maxHeight).toBe('104px');
+        expect(description.dataset.yomuRubyRoom).toBeUndefined();
+        expect(description.querySelector('rt')?.textContent).toBe('にほんご');
+        document.body.innerHTML = '';
+    });
+
+    it('does not reserve ruby room on YouTube attributed metadata mirrors', () => {
+        document.body.innerHTML = `
+            <div class="ytContentMetadataViewModelMetadataRow" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">
+                <span class="yt-core-attributed-string ytAttributedStringHost" style="visibility:hidden;position:relative">
+                    1 日前
+                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" style="visibility:visible">
+                        1 ${annotatedWord('にち', '日')}前
+                    </span>
+                </span>
+            </div>
+        `;
+        const row = document.querySelector<HTMLElement>('.ytContentMetadataViewModelMetadataRow')!;
+        const host = document.querySelector<HTMLElement>('.ytAttributedStringHost')!;
+        mockOverflow(row, 57, 22);
+        mockOverflow(host, 57, 22);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
+        expect(row.style.height).toBe('22px');
+        expect(host.dataset.yomuRubyRoom).toBeUndefined();
+        expect(row.querySelector('rt')?.textContent).toBe('にち');
+        document.body.innerHTML = '';
+    });
 });

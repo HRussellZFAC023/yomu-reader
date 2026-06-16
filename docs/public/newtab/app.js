@@ -41438,6 +41438,7 @@ ${spelling}`);
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
   const YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY = "yomu:youtube-all-subscribed:v1";
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_BACKFILL_DELAY_MS = 250;
+  const YOUTUBE_CHANNEL_SUBSCRIPTION_PROBE_DELAY_MS = 250;
   const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
   const YOUTUBE_NAVIGATION_EVENTS = [
     "yt-navigate-finish",
@@ -41512,6 +41513,9 @@ ${spelling}`);
     // list signature so editing the list re-tests against the new set.
     channelsAllSubscribed = false;
     channelSubscriptionStateLoaded = false;
+    channelSubscriptionProbeComplete = false;
+    channelSubscriptionProbeQueue = [];
+    channelSubscriptionProbeTimer;
     channelShelfRefreshTimer;
     lastShelfBackfillAt = 0;
     lastAdvancedShortKey = "";
@@ -41538,12 +41542,18 @@ ${spelling}`);
     // Persist the "all subscribed" flag once every channel is subscribed or
     // unresolvable (deleted/moved/renamed), so the shelf stops re-testing
     // subscription status on every render. A dead channel never blocks this.
-    markChannelSubscriptionCompleteIfReady() {
+    markChannelSubscriptionCompleteIfReady(options = {}) {
       if (this.channelsAllSubscribed) return;
       const settled = (handle) => this.subscribedChannelHandles.has(handle) || this.unresolvableChannelHandles.has(handle);
       if (!allYouTubeChannelRecommendations().every((channel) => settled(channel.handle))) return;
       this.channelsAllSubscribed = true;
+      this.channelSubscriptionProbeComplete = true;
+      this.clearChannelSubscriptionProbe();
       gmStorageSetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, { signature: youTubeChannelListSignature() });
+      if (!options.keepShelf) {
+        this.clearChannelShelfRefresh();
+        this.removeChannelShelf();
+      }
     }
     init() {
       this.destroy();
@@ -41970,11 +41980,19 @@ ${spelling}`);
         this.removeChannelShelf();
         return;
       }
+      if (this.channelsAllSubscribed) {
+        this.removeChannelShelf();
+        return;
+      }
+      const recommendations = this.currentChannelRecommendations();
+      this.hydrateChannelPreviewCandidates(recommendations);
+      this.ensureChannelSubscriptionProbe();
       if (!this.unsubscribedChannels(allYouTubeChannelRecommendations()).length) {
         this.removeChannelShelf();
         return;
       }
-      if (!this.channelShelfExpanded && !this.compactChannelRecommendations.length) {
+      const renderableRecommendations = this.renderableChannelRecommendations(recommendations);
+      if (!renderableRecommendations.length) {
         this.removeChannelShelf();
         return;
       }
@@ -41982,7 +42000,7 @@ ${spelling}`);
       if (!this.channelShelf && this.dismissedChannelShelfScope === scope) return;
       const shelf = this.ensureChannelShelf();
       const elements = this.channelShelfElements(shelf);
-      this.renderChannelShelf(elements);
+      this.renderChannelShelf(elements, renderableRecommendations);
       this.placeChannelShelf(shelf);
     }
     shouldShowChannelShelf(filteredCount, settings) {
@@ -42054,10 +42072,8 @@ ${spelling}`);
         never: shelf.querySelector('[data-yomu-youtube-channel-action="never"]')
       };
     }
-    renderChannelShelf(elements) {
-      const recommendations = this.currentChannelRecommendations();
-      const visibleRecommendations = this.channelShelfExpanded ? recommendations : this.compactChannelRecommendations;
-      const renderedRecommendations = visibleRecommendations.slice(0, this.channelShelfExpanded ? YOUTUBE_CHANNEL_RECOMMENDATION_COUNT : YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+    renderChannelShelf(elements, recommendations = this.renderableChannelRecommendations(this.currentChannelRecommendations())) {
+      const renderedRecommendations = recommendations.slice(0, this.channelShelfExpanded ? YOUTUBE_CHANNEL_RECOMMENDATION_COUNT : YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
       this.channelShelf?.classList.toggle("is-expanded", this.channelShelfExpanded);
       elements.title.textContent = "Start your Japanese YouTube feed";
       elements.copy.textContent = this.channelShelfExpanded ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.` : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
@@ -42070,7 +42086,7 @@ ${spelling}`);
       elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
       if (!this.subscriptionBusy) {
-        elements.status.textContent = this.channelShelfStatusOverride || (!renderedRecommendations.length ? `You are subscribed to all ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels — your Japanese feed is fully set up.` : readYouTubeClientConfig() ? "Previews load from YouTube on this page." : "Subscribe here when YouTube session data is available.");
+        elements.status.textContent = this.channelShelfStatusOverride;
       }
       this.renderChannelFilters(elements.filters);
       elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));
@@ -42087,6 +42103,15 @@ ${spelling}`);
     }
     currentChannelRecommendations() {
       return this.channelShelfExpanded ? this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter)) : this.compactChannelRecommendations;
+    }
+    renderableChannelRecommendations(channels) {
+      if (!readYouTubeClientConfig()) return channels;
+      return channels.filter((channel) => this.isKnownUnsubscribedChannel(channel));
+    }
+    isKnownUnsubscribedChannel(channel) {
+      if (this.subscribedChannelHandles.has(channel.handle) || this.unresolvableChannelHandles.has(channel.handle)) return false;
+      if (!this.channelPreviewCache.has(channel.handle)) return false;
+      return this.channelPreviewCache.get(channel.handle)?.subscribed !== true;
     }
     renderChannelFilters(filters) {
       filters.hidden = !this.channelShelfExpanded;
@@ -42195,10 +42220,12 @@ ${spelling}`);
           return true;
         case "dismiss":
           this.dismissedChannelShelfScope = this.currentChannelShelfScope();
+          this.clearChannelShelfRefresh();
           this.removeChannelShelf();
           return true;
         case "never":
           this.options.setShowChannelRecommendations?.(false);
+          this.clearChannelShelfRefresh();
           this.removeChannelShelf();
           return true;
         default:
@@ -42227,15 +42254,49 @@ ${spelling}`);
       return this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter));
     }
     hydrateRenderedChannelPreviews(channels) {
-      if (this.channelsAllSubscribed) return;
-      const missing = channels.filter((channel) => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
-      void this.hydrateChannelPreviews(missing.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+      this.hydrateChannelPreviewCandidates(channels);
       if (!this.channelShelfExpanded) {
         this.clearChannelPreviewBackfill();
         return;
       }
+      const missing = this.missingChannelPreviewCandidates(channels);
       this.channelPreviewBackfillQueue = missing.slice(YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT);
       this.scheduleChannelPreviewBackfill();
+    }
+    hydrateChannelPreviewCandidates(channels) {
+      if (this.channelsAllSubscribed) return;
+      const missing = this.missingChannelPreviewCandidates(channels);
+      void this.hydrateChannelPreviews(missing.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
+    }
+    missingChannelPreviewCandidates(channels) {
+      return channels.filter((channel) => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle) && !this.subscribedChannelHandles.has(channel.handle) && !this.unresolvableChannelHandles.has(channel.handle));
+    }
+    ensureChannelSubscriptionProbe() {
+      if (this.channelsAllSubscribed || this.channelSubscriptionProbeComplete || !readYouTubeClientConfig()) return;
+      this.updateChannelSubscriptionProbeState();
+      if (this.channelSubscriptionProbeComplete || this.channelSubscriptionProbeTimer !== void 0 || this.channelSubscriptionProbeQueue.length) return;
+      this.channelSubscriptionProbeQueue = this.missingChannelPreviewCandidates(allYouTubeChannelRecommendations());
+      this.scheduleChannelSubscriptionProbeBatch(0);
+    }
+    scheduleChannelSubscriptionProbeBatch(delayMs = YOUTUBE_CHANNEL_SUBSCRIPTION_PROBE_DELAY_MS) {
+      if (!this.channelSubscriptionProbeQueue.length) {
+        this.updateChannelSubscriptionProbeState();
+        return;
+      }
+      window.clearTimeout(this.channelSubscriptionProbeTimer);
+      this.channelSubscriptionProbeTimer = window.setTimeout(() => {
+        this.channelSubscriptionProbeTimer = void 0;
+        if (this.destroyed || this.channelsAllSubscribed) return;
+        const batch = this.channelSubscriptionProbeQueue.splice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT).filter((channel) => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
+        void this.hydrateChannelPreviews(batch);
+        this.scheduleChannelSubscriptionProbeBatch();
+      }, delayMs);
+    }
+    updateChannelSubscriptionProbeState() {
+      const settled = (channel) => this.subscribedChannelHandles.has(channel.handle) || this.unresolvableChannelHandles.has(channel.handle) || this.channelPreviewCache.has(channel.handle);
+      if (!allYouTubeChannelRecommendations().every(settled)) return;
+      this.channelSubscriptionProbeComplete = true;
+      this.markChannelSubscriptionCompleteIfReady();
     }
     scheduleChannelPreviewBackfill() {
       if (!this.channelPreviewBackfillQueue.length || this.channelPreviewBackfillTimer !== void 0) return;
@@ -42262,6 +42323,7 @@ ${spelling}`);
         if (this.channelPreviewCache.has(channel.handle) || this.pendingChannelPreviews.has(channel.handle)) continue;
         this.pendingChannelPreviews.add(channel.handle);
         void fetchYouTubeChannelPreview(channel, config, this.channelIdCache).then((preview) => {
+          if (this.destroyed) return;
           this.channelPreviewCache.set(channel.handle, preview);
           if (preview?.channelId) this.channelIdCache.set(channel.handle, preview.channelId);
           if (preview?.subscribed) {
@@ -42270,9 +42332,18 @@ ${spelling}`);
             this.scheduleChannelShelfRefresh(0);
             return;
           }
+          if (!preview && this.channelIdCache.has(channel.handle) && this.channelIdCache.get(channel.handle) === null) {
+            this.unresolvableChannelHandles.add(channel.handle);
+            this.markChannelSubscriptionCompleteIfReady();
+          }
           this.updateRenderedChannelPreview(channel);
+          this.updateChannelSubscriptionProbeState();
+          this.scheduleChannelShelfRefresh(0);
         }).catch(() => {
+          if (this.destroyed) return;
           this.channelPreviewCache.set(channel.handle, null);
+          this.updateChannelSubscriptionProbeState();
+          this.scheduleChannelShelfRefresh(0);
         }).finally(() => {
           this.pendingChannelPreviews.delete(channel.handle);
         });
@@ -42323,7 +42394,7 @@ ${spelling}`);
           failed += 1;
         }
       }
-      this.markChannelSubscriptionCompleteIfReady();
+      this.markChannelSubscriptionCompleteIfReady({ keepShelf: true });
       this.subscriptionBusy = false;
       this.setChannelShelfBusy(false);
       this.setChannelShelfStatus(elements, failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`);
@@ -42350,8 +42421,27 @@ ${spelling}`);
       window.clearTimeout(this.channelShelfRefreshTimer);
       this.channelShelfRefreshTimer = window.setTimeout(() => {
         this.channelShelfRefreshTimer = void 0;
-        if (this.channelShelf?.isConnected) this.renderChannelShelf(this.channelShelfElements(this.channelShelf));
+        if (this.channelsAllSubscribed) {
+          this.removeChannelShelf();
+          return;
+        }
+        if (this.channelShelf?.isConnected) {
+          const recommendations = this.renderableChannelRecommendations(this.currentChannelRecommendations());
+          if (recommendations.length) this.renderChannelShelf(this.channelShelfElements(this.channelShelf), recommendations);
+          else this.schedule(0);
+          return;
+        }
+        this.schedule(0);
       }, delayMs);
+    }
+    clearChannelShelfRefresh() {
+      window.clearTimeout(this.channelShelfRefreshTimer);
+      this.channelShelfRefreshTimer = void 0;
+    }
+    clearChannelSubscriptionProbe() {
+      window.clearTimeout(this.channelSubscriptionProbeTimer);
+      this.channelSubscriptionProbeTimer = void 0;
+      this.channelSubscriptionProbeQueue = [];
     }
     setChannelShelfBusy(busy) {
       const allSubscribed = !this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
@@ -42378,11 +42468,12 @@ ${spelling}`);
     clear() {
       window.clearTimeout(this.timer);
       window.clearTimeout(this.metadataRescanTimer);
-      window.clearTimeout(this.channelShelfRefreshTimer);
+      this.clearChannelShelfRefresh();
+      this.clearChannelSubscriptionProbe();
       this.clearChannelPreviewBackfill();
       this.timer = void 0;
       this.metadataRescanTimer = void 0;
-      this.channelShelfRefreshTimer = void 0;
+      this.channelSubscriptionProbeComplete = false;
       this.revealed = false;
       this.clearFilteredCards();
       this.removeNotice();
