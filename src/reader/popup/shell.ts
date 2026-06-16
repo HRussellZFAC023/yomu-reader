@@ -566,7 +566,7 @@ export function installSheetCloseButton(popover: HTMLElement, onDismiss: () => v
     }
 }
 
-export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize settings'): void {
+export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize settings', onTap?: () => void): void {
     if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === 'true') return;
     drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = 'true';
 
@@ -677,7 +677,11 @@ export function installSettingsDrawerHandle(drawer: HTMLElement, label = 'Resize
         if (!handle) return;
         event.preventDefault();
         event.stopPropagation();
-        if (suppressNextHandleClick) suppressNextHandleClick = false;
+        if (suppressNextHandleClick) {
+            suppressNextHandleClick = false;
+            return;
+        }
+        onTap?.();
     });
     drawer.addEventListener('pointerdown', event => {
         const handle = getHandleFromEvent(event.target);

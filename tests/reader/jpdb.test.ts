@@ -4224,6 +4224,56 @@ describe('reader helpers', () => {
         localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
     });
 
+    it('dismisses the mobile settings drawer when its top handle is tapped', () => {
+        const drawer = document.createElement('form');
+        drawer.className = 'jpdb-reader-settings';
+        drawer.innerHTML = `
+            <div class="jpdb-reader-settings-head">
+                <div class="jpdb-reader-settings-drag-handle"></div>
+                <h2>よむ Settings</h2>
+            </div>
+            <div class="jpdb-reader-settings-scroll"></div>
+            <div class="footer"></div>
+        `;
+        document.body.append(drawer);
+        const handle = drawer.querySelector<HTMLElement>('.jpdb-reader-settings-drag-handle')!;
+        const dismiss = vi.fn();
+
+        installSettingsDrawerHandle(drawer, 'Resize settings', dismiss);
+        handle.click();
+
+        expect(dismiss).toHaveBeenCalledOnce();
+    });
+
+    it('does not dismiss the mobile settings drawer after resizing from its top handle', () => {
+        localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
+        const drawer = document.createElement('form');
+        drawer.className = 'jpdb-reader-settings';
+        drawer.innerHTML = `
+            <div class="jpdb-reader-settings-head">
+                <div class="jpdb-reader-settings-drag-handle"></div>
+                <h2>よむ Settings</h2>
+            </div>
+            <div class="jpdb-reader-settings-scroll"></div>
+            <div class="footer"></div>
+        `;
+        document.body.append(drawer);
+        const handle = drawer.querySelector<HTMLElement>('.jpdb-reader-settings-drag-handle')!;
+        const dismiss = vi.fn();
+        handle.setPointerCapture = vi.fn();
+        handle.releasePointerCapture = vi.fn();
+
+        installSettingsDrawerHandle(drawer, 'Resize settings', dismiss);
+
+        handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), { clientY: 120, pointerId: 17 }));
+        document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), { clientY: 248, pointerId: 17 }));
+        document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), { clientY: 248, pointerId: 17 }));
+        handle.click();
+
+        expect(dismiss).not.toHaveBeenCalled();
+        localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
+    });
+
     it('lifts the mobile settings drawer above the keyboard visual viewport', () => {
         localStorage.removeItem(SETTINGS_DRAWER_HEIGHT_STORAGE_KEY);
         const heightDescriptor = Object.getOwnPropertyDescriptor(window, 'innerHeight');
