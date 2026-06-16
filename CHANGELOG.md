@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.77] - 2026-06-16
+
+### Fixed
+
+- Remove duplicate clearTranscriptVirtualRender method implementation to resolve typescript compilation errors.
+- Adapted Playwright QA integration test assertions and locators to support ruby/furigana text nodes in the DOM.
+- Prevented userscript network globals leakage by resetting GM_xmlhttpRequest and GM in Vitest beforeEach setup.
+
 ## [0.7.76] - 2026-06-16
 
 ### Fixed
