@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.86
+// @version      0.7.87
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -41953,14 +41953,98 @@ ${span.end}`;
     const marker = document.getElementById(RUNTIME_MARKER_ID);
     if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
   }
+  const MOKURO_OCR_DEFAULT_MARKER = "yomu_mokuro_ocr_default_applied";
+  const MOKURO_TOGGLE_LABEL = "OCR enabled";
+  const MOKURO_TOGGLE_NOTE = "off = Yomu OCR · on = mokuro OCR";
+  function isMokuroReaderHost(hostname = location.hostname, pathname = location.pathname, protocol = location.protocol) {
+    return hostname === "reader.mokuro.app" || hostname === "mokuro.moe" || hostname.endsWith(".mokuro.moe") || protocol === "file:" && /mokuro/i.test(safeDecode(pathname));
+  }
+  function safeDecode(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function defaultMokuroProfileOcrOffOnce(storage) {
+    try {
+      if (storage.getItem(MOKURO_OCR_DEFAULT_MARKER)) return false;
+      storage.setItem(MOKURO_OCR_DEFAULT_MARKER, "1");
+      const raw = storage.getItem("profiles");
+      if (!raw) return false;
+      const profiles = JSON.parse(raw);
+      const currentRaw = storage.getItem("currentProfile") ?? "Default";
+      let current = currentRaw;
+      try {
+        current = JSON.parse(currentRaw);
+      } catch {
+      }
+      const profile = profiles[current] ?? profiles[currentRaw];
+      if (!profile || typeof profile !== "object" || profile.displayOCR === false) return false;
+      profile.displayOCR = false;
+      storage.setItem("profiles", JSON.stringify(profiles));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function applyMokuroReaderOcrDefault() {
+    if (typeof localStorage === "undefined" || !isMokuroReaderHost()) return;
+    defaultMokuroProfileOcrOffOnce(localStorage);
+  }
+  function injectMokuroToggleNote(root) {
+    for (const el of root.querySelectorAll("label, span, p, div")) {
+      if (elementOwnText(el) !== MOKURO_TOGGLE_LABEL) continue;
+      if (el.querySelector("[data-yomu-mokuro-note]")) continue;
+      const note = document.createElement("span");
+      note.dataset.yomuMokuroNote = "true";
+      note.className = "yomu-mokuro-ocr-note";
+      note.textContent = ` (${MOKURO_TOGGLE_NOTE})`;
+      el.append(note);
+    }
+  }
+  function elementOwnText(el) {
+    let text2 = "";
+    el.childNodes.forEach((node) => {
+      if (node.nodeType === 3) text2 += node.textContent ?? "";
+    });
+    return text2.trim();
+  }
+  function installMokuroOcrToggleNote() {
+    if (typeof document === "undefined" || !isMokuroReaderHost()) return;
+    let scheduled = false;
+    const run = () => {
+      scheduled = false;
+      injectMokuroToggleNote(document);
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16))(run);
+    };
+    run();
+    new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.addedNodes.length) {
+          schedule();
+          return;
+        }
+      }
+    }).observe(document.body ?? document.documentElement, { childList: true, subtree: true });
+  }
   installPreferredJapaneseSiteLanguageFromStoredSettings();
+  applyMokuroReaderOcrDefault();
   installUserscriptHttpBridgeWhenReady();
   if (!isYomuNewTabUrl(location.href)) bootWhenDocumentIsReady();
   function bootWhenDocumentIsReady() {
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", () => bootReaderApp(), { once: true });
+      document.addEventListener("DOMContentLoaded", onDocumentReady, { once: true });
       return;
     }
+    onDocumentReady();
+  }
+  function onDocumentReady() {
+    installMokuroOcrToggleNote();
     bootReaderApp();
   }
 
