@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.78
+// @version      0.7.79
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -32083,10 +32083,10 @@ ${glossaryKey}`;
             <div class="jpdb-reader-popover-body" data-token-list-selected="${escapeHtml$1(selected)}">
                 ${renderTokenListNavigation(previousNavigationEntry, language)}
                 <div class="jpdb-reader-pos">${escapeHtml$1(title)}</div>
+                ${renderSelectionLookupPills(selected, settings)}
                 <div class="jpdb-reader-meanings">
                     ${tokens.map((token) => renderTokenListButton(token)).join("")}
                 </div>
-                ${renderSelectionLookupPills(selected, settings)}
                 <div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "parsedFrom"))}: ${escapeHtml$1(selected)}</div>
             </div>
         `;
@@ -35956,6 +35956,12 @@ ${glossaryKey}`;
     ".jpdb-ocr-layer",
     "[data-jpdb-reader-root]"
   ].join(",");
+  const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
+    ".jpdb-reader-popover button[data-token-choice]",
+    ".jpdb-reader-popover [data-action]",
+    ".jpdb-reader-popover a.jpdb-reader-pill",
+    ".jpdb-reader-popover .jpdb-reader-action-pill"
+  ].join(",");
   function createNoopImageOcrController() {
     const noop2 = () => void 0;
     return {
@@ -37062,6 +37068,7 @@ ${glossaryKey}`;
       document.addEventListener("keyup", () => this.scheduleSelectionLookup(120));
       document.addEventListener("mouseup", () => this.scheduleSelectionLookup(140));
       document.addEventListener("touchend", () => this.scheduleSelectionLookup(180), { passive: true });
+      document.addEventListener("selectionchange", () => this.scheduleSelectionLookup(250));
       document.addEventListener("keydown", (event) => this.handleDocumentKeydown(event));
       document.addEventListener("keyup", (event) => {
         this.pressedKeys.delete(normalizePressedKey(event.key));
@@ -37086,6 +37093,7 @@ ${glossaryKey}`;
       if (this.isMiningDrawerHandlePointerEvent(event)) return;
       const target = event.target;
       if (shouldIgnoreDocumentClickTarget(target)) return;
+      if (target.closest?.(TOKEN_LIST_POPOVER_CONTROL_SELECTOR)) return;
       const word = this.readerWordForPointerEvent(event);
       if (!word && target.closest?.("[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]")) return;
       const insideActivePopover = this.activePopoverMode === "modal" && this.isInsideActivePopover(event.target);

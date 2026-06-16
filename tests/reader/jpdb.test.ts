@@ -18271,6 +18271,11 @@ describe('reader helpers', () => {
             expect([...wrapper.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-selection-pills a')].map(link => link.textContent?.trim())).toEqual(expect.arrayContaining(['Yomu', 'Jiten', 'JPDB']));
             expect(wrapper.querySelector<HTMLButtonElement>('.jpdb-reader-selection-pills [data-action="copy-selection"]')).not.toBeNull();
             expect(wrapper.querySelector<HTMLButtonElement>('button[data-token-choice][data-vid="20"][data-sid="30"]')).not.toBeNull();
+            // Pills sit above the parsed word list so the actions are reachable
+            // without scrolling past a long selection's tokens.
+            const pills = wrapper.querySelector('.jpdb-reader-selection-pills')!;
+            const meanings = wrapper.querySelector('.jpdb-reader-meanings')!;
+            expect(pills.compareDocumentPosition(meanings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         } finally {
             app.destroy();
         }
@@ -18614,6 +18619,51 @@ describe('reader helpers', () => {
                 const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
                 button.dispatchEvent(event);
 
+                expect(event.defaultPrevented).toBe(false);
+                expect(showWord).not.toHaveBeenCalled();
+            });
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not hit-test page words under a selection token-list button', () => {
+        const app = new ReaderApp();
+        const pageWord = document.createElement('span');
+        pageWord.className = 'jpdb-reader-word';
+        pageWord.dataset.vid = '501';
+        pageWord.dataset.sid = '501';
+        pageWord.dataset.sentence = '下の言葉';
+        pageWord.textContent = '下';
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        // A selection/token-list popover's parsed-word button sits over page text.
+        popover.innerHTML = '<button class="jpdb-reader-btn" type="button" data-token-choice="true" data-vid="700" data-sid="700">語</button>';
+        document.body.append(pageWord, popover);
+        const button = popover.querySelector<HTMLButtonElement>('button')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            activePopover: HTMLElement;
+            activePopoverMode: 'modal';
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'modal';
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            withElementsFromPointMock([button, popover, pageWord], () => {
+                const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
+                button.dispatchEvent(event);
+
+                // The token-list popover's own handler owns this click; the page
+                // word underneath must not be looked up at its (wrong) location.
                 expect(event.defaultPrevented).toBe(false);
                 expect(showWord).not.toHaveBeenCalled();
             });

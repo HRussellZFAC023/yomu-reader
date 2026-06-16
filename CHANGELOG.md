@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.7.79] - 2026-06-16
+
+### Changed
+
+- Moved the text-selection popover's action pills (Jiten/JPDB/Jisho/Copy/Yomu) to the top, directly under the title, so they are reachable without scrolling past a long parsed token list.
+- Compacted the Japanese docs hero: the in-place parsed tagline now uses a smaller display size with balanced wrapping, so furigana no longer pushes it into a tall, sparse column (less wasted space).
+
+### Fixed
+
+- Selection popover word buttons no longer fall through to the page word underneath the popover. Because the popover overlaps page text, clicking a parsed token could resolve the underlying word by point geometry and open *its* dictionary at the wrong location (shifting the popover); document click handling now ignores clicks on the popover's own controls.
+- Text selection now opens the lookup popover consistently once the selection settles, including iPad selection-handle and loupe adjustments that do not emit a fresh `mouseup`/`touchend` — a debounced `selectionchange` trigger covers them.
+
+### Added
+
+- Simulated user-research notes and a ranked backlog for the selection feature (`docs/research/selection-popover-research.md`).
+
 ## [0.7.78] - 2026-06-16
 
 ### Fixed

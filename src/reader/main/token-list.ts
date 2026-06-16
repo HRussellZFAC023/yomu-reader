@@ -32,10 +32,10 @@ export function renderTokenListHtml(
             <div class="jpdb-reader-popover-body" data-token-list-selected="${escapeHtml(selected)}">
                 ${renderTokenListNavigation(previousNavigationEntry, language)}
                 <div class="jpdb-reader-pos">${escapeHtml(title)}</div>
+                ${renderSelectionLookupPills(selected, settings)}
                 <div class="jpdb-reader-meanings">
                     ${tokens.map(token => renderTokenListButton(token)).join('')}
                 </div>
-                ${renderSelectionLookupPills(selected, settings)}
                 <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'parsedFrom'))}: ${escapeHtml(selected)}</div>
             </div>
         `;
