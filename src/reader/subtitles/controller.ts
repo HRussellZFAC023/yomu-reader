@@ -161,7 +161,7 @@ import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-cre
 // UT-48: parsed cue html survives reloads via sessionStorage (same-tab,
 // same video session). Keys are hashed — raw parse keys embed whole cue
 // texts and would blow past storage key-size sanity.
-const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v2:';
+const SUBTITLE_SESSION_PARSE_CACHE_PREFIX = 'yomu:subtitle-parse:v3:';
 const SUBTITLE_SESSION_PARSE_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function subtitleSessionParseHash(key: string): string {
@@ -1681,7 +1681,10 @@ export class SubtitlePlayerController {
         if (cached !== undefined) return cached;
         const provisional = this.provisionalParsedHtmlCache.get(key);
         if (provisional !== undefined) {
-            if (this.shouldUseProvisionalSubtitleParse(settings)) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+            if (this.shouldUseProvisionalSubtitleParse(settings)) {
+                if (this.enrichedProvisionalParsedHtmlKeys.has(key)) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+                else this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
+            }
             return provisional;
         }
         return undefined;
@@ -1823,10 +1826,12 @@ export class SubtitlePlayerController {
         if (restored) return restored;
         if (options.authoritativeUpgrade !== false) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
         const cached = this.provisionalParsedHtmlCache.get(key);
-        if (cached) {
+        if (cached && (!options.refreshProvisional || this.enrichedProvisionalParsedHtmlKeys.has(key))) {
             return cached;
         }
-        const pending = this.pendingParsedCueHtml(key, 'provisional');
+        const pending = options.refreshProvisional
+            ? this.pendingProvisionalParsedHtml.get(key)
+            : this.pendingParsedCueHtml(key, 'provisional');
         if (pending) return pending;
         const promise = (async () => {
             const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
@@ -1841,6 +1846,18 @@ export class SubtitlePlayerController {
         } finally {
             this.pendingProvisionalParsedHtml.delete(key);
         }
+    }
+
+    private ensureEnrichedProvisionalParsedCueHtml(text: string, settings: ReaderSettings, key: string): void {
+        if (this.enrichedProvisionalParsedHtmlKeys.has(key) || this.pendingProvisionalParsedHtml.has(key)) return;
+        void this.parseProvisionalCueHtml(text, settings, key, {
+            authoritativeUpgrade: false,
+            enrichBeforeRender: true,
+            refreshProvisional: true,
+        }).then(html => {
+            this.updateTranscriptRowsForParseKey(key, html, { provisional: true, force: true });
+            if (this.currentPrimaryParseCacheKey() === key) this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
+        }).catch(() => undefined);
     }
 
     private ensureAuthoritativeParsedCueHtml(text: string, settings: ReaderSettings, key: string): void {
@@ -2028,10 +2045,10 @@ export class SubtitlePlayerController {
                 this.provisionalParsedHtmlCache.delete(key);
                 this.enrichedProvisionalParsedHtmlKeys.delete(key);
             }
-            // UT-48: refreshing the page must keep the parsed ruby — the
-            // final tier per key (authoritative, or provisional when no API
-            // credential exists) persists for the session.
-            if (!options.provisional || !this.hasAuthoritativeParseTier()) this.persistSessionParsedCueHtml(key, html);
+            // UT-48: refreshing the page must keep parsed ruby. Keyless cheap
+            // warmup is provisional-only; persist it only after visible
+            // enrichment has rebaked furigana/pitch into the HTML.
+            if (!options.provisional || (!this.hasAuthoritativeParseTier() && options.enriched)) this.persistSessionParsedCueHtml(key, html);
             this.emptyParsedHtmlCache.delete(key);
             if (tokens.length) this.parsedTokenCache.set(key, tokens);
             this.pruneParsedSubtitleCaches();
@@ -4650,6 +4667,8 @@ export class SubtitlePlayerController {
         this.syncFullscreenState();
         this.resetTranscriptLayoutReference();
         this.scheduleAlignToVideo();
+        this.scheduleTranscriptHydration();
+        this.scheduleTranscriptCacheWarmup();
         if (options.stabilize) this.scheduleTranscriptViewportStabilizeAlign();
     }
 
@@ -4660,6 +4679,8 @@ export class SubtitlePlayerController {
             if (this.destroyed) return;
             this.resetTranscriptLayoutReference();
             this.scheduleAlignToVideo();
+            this.scheduleTranscriptHydration();
+            this.scheduleTranscriptCacheWarmup();
         }, 120);
     }
 
