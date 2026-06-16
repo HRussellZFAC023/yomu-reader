@@ -15130,7 +15130,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-subtitle-list.jpdb-subtitle-transcript-bottom {
     left: 0 !important;
     right: auto !important;
-    width: 100vw !important;
+    /* 100% resolves to the ICB content box (scrollbar excluded), matching the
+       JS-computed layout width; 100vw includes the classic-scrollbar gutter and
+       spilled the drawer ~15px past the right edge on narrow viewports. */
+    width: 100% !important;
     border-right: 0;
     border-bottom: 0;
     border-left: 0;
@@ -15145,7 +15148,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-subtitle-list {
     left: 0 !important;
     right: auto !important;
-    width: 100vw !important;
+    width: 100% !important;
     border-right: 0;
     border-bottom: 0;
     border-left: 0;

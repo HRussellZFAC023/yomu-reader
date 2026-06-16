@@ -267,6 +267,7 @@ describe('YouTube immersion filter', () => {
         vi.useRealTimers();
         vi.unstubAllGlobals();
         sessionStorage.clear();
+        localStorage.clear();
         document.body.replaceChildren();
         document.title = '';
     });

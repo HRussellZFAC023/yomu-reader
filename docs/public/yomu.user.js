@@ -15,8 +15,8 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-WLYRElqWc/8I9gHNgbK1a/tFtPf8y2396XLFmOzlrAE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-5ghlIfkZZqLUmwFh/PSMnKqmsWb7C2CcfMYZPpWVBY0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-GF9Nq3hZYC5+2dQAlMpX60CsaOVYGeXbTAd5+B+uxMI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-RLd+ACqNGlFhkmeims5BcYxj/gHvXai4/jDQztxsnTc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-tdbC3HaXGZ9bHgSbvmWOX1PQRtlxnwmAaowIlAV+P+o=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-7iaEsVib3v+Mlv9cLOE2zmOe+cXvIpPNIy6yENmhjEM=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2240,7 +2240,7 @@
     subtitleBackgroundOpacity: 0,
     subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
-    subtitleMiningPause: false,
+    subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
@@ -5109,14 +5109,24 @@
   function hasVisibleControlLinkBox(style) {
     return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
   }
+  const RUBY_ROOM_SKIP_SELECTOR = [
+    "[data-yomu-youtube-filtered]",
+    "[data-yomu-youtube-pending]",
+    "[data-yomu-youtube-aria-hidden]",
+    ".jpdb-youtube-filter-collapsed",
+    ".jpdb-youtube-pending"
+  ].join(",");
+  const RUBY_ROOM_MAX_PX = 400;
   function makeRoomForRubyInCroppedRows(root = document) {
     let adjusted = 0;
     const words = root.querySelectorAll(".jpdb-reader-word");
     for (const word of words) {
       if (!word.querySelector("rt")) continue;
+      if (word.closest(RUBY_ROOM_SKIP_SELECTOR)) continue;
       for (const box of cropCapableBoxes(word.parentElement)) {
         if (!boxActuallyCrops(box)) continue;
         const roomHeight = rubyRoomHeight(box);
+        if (roomHeight > RUBY_ROOM_MAX_PX) continue;
         if (previousRubyRoomHeight(box) >= roomHeight) continue;
         box.dataset.yomuRubyRoom = "true";
         box.dataset.yomuRubyRoomHeight = String(roomHeight);
@@ -5131,6 +5141,9 @@
     if (hasLineClamp(style)) {
       box.style.setProperty("max-height", "none", "important");
       if (hasDefiniteCssSize(style.height)) box.style.setProperty("height", "auto", "important");
+      if (box.querySelector(".jpdb-reader-text-mirror")) {
+        box.style.setProperty("min-height", `${roomHeight}px`, "important");
+      }
       return;
     }
     const contentHeight = `${roomHeight}px`;
@@ -5156,7 +5169,9 @@
     return box.scrollHeight > box.clientHeight + 1 || rubyBottomOverflow(box) > 1;
   }
   function rubyRoomHeight(box) {
-    return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box)));
+    const mirror = box.querySelector(".jpdb-reader-text-mirror");
+    const mirrorHeight = mirror ? mirror.scrollHeight : 0;
+    return Math.ceil(Math.max(box.scrollHeight, box.clientHeight + rubyBottomOverflow(box), mirrorHeight));
   }
   function rubyBottomOverflow(box) {
     const boxRect = box.getBoundingClientRect();
@@ -10748,7 +10763,9 @@ recommendedJiten	jiten.moe頻度データです。
       return Number(a.paused) - Number(b.paused) || bArea - aArea;
     });
     const target = playable[0];
-    target?.pause();
+    if (!target || target.paused) return void 0;
+    target.pause();
+    return target;
   }
   function hasVisiblePageVideo() {
     return Array.from(document.querySelectorAll("video")).some(isVisiblePageVideo);
@@ -30096,8 +30113,14 @@ ${glossaryKey}`;
     '[role="menuitemcheckbox"]',
     '[role="menuitemradio"]'
   ].join(",");
+  const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
+    ".ytp-caption-window-container",
+    ".caption-window",
+    ".captions-text"
+  ];
   const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     ...STRUCTURAL_EXCLUDE_ENTRIES,
+    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
     "[disabled]",
     '[aria-disabled="true"]'
   ];
@@ -31059,8 +31082,8 @@ ${glossaryKey}`;
   const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
   const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 10;
   const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT = 6;
-  const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 32;
-  const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 12;
+  const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
+  const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
   const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
   const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
   const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
@@ -31157,7 +31180,11 @@ ${glossaryKey}`;
       publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
       publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
       publicLookupPageBudget: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-      publicLookupTermLimit: 2,
+      // 3 (not 2): dictionaryFirstFallbackLookupTerms places the surface form
+      // last, so a 2-term window can drop an inflected word's resolvable
+      // dictionary form. The loop stops at the first hit, so this only adds a
+      // lookup when the first candidates miss. Matches the subtitle path.
+      publicLookupTermLimit: 3,
       substantivePublicLookupOnly: true,
       deferPublicLookup: false
     };
@@ -31200,9 +31227,6 @@ ${glossaryKey}`;
   }
   function ankiLookupHasDisplayableNotes(lookup) {
     return Boolean(lookup.primary || lookup.notes.length);
-  }
-  function shouldPauseVideoForSubtitleHover(word, settings) {
-    return settings.subtitleMiningPause && Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
   }
   function cardDisplayTrigger(options) {
     return options.trigger === "hover" ? "hover" : "modal";
@@ -36203,6 +36227,9 @@ ${glossaryKey}`;
     suppressedHoverWord;
     suppressedHoverLookupKey = "";
     activePopoverMode;
+    // The video we paused when a subtitle word was clicked, so closing the
+    // lookup popover resumes exactly that video (and only if it is still paused).
+    subtitleMiningPausedVideo;
     activePopoverAnchor;
     activePopoverAnchorRect;
     keyboardActiveWord;
@@ -37132,7 +37159,7 @@ ${glossaryKey}`;
       event.stopPropagation();
       this.prepareModalLookupFromPointer(event);
       this.suppressSelectionLookupUntil = Date.now() + 350;
-      if (surfaces.insideSubtitlePlayer && this.settings.subtitleMiningPause) pauseActiveVideo();
+      if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
       this.ocr.pinLineForElement(word);
       void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
     }
@@ -37153,6 +37180,19 @@ ${glossaryKey}`;
       event.preventDefault();
       event.stopPropagation();
       return true;
+    }
+    // Clicking a subtitle word enters the pinned lookup state; pause the video so
+    // the user can read the entry, and remember which video we paused so closing
+    // the popover resumes it. Only tracks a video that was actually playing.
+    pauseVideoForSubtitleMining() {
+      if (!this.settings.subtitleMiningPause) return;
+      const paused = pauseActiveVideo();
+      if (paused) this.subtitleMiningPausedVideo = paused;
+    }
+    resumeSubtitleMiningVideo() {
+      const video = this.subtitleMiningPausedVideo;
+      this.subtitleMiningPausedVideo = void 0;
+      if (video?.isConnected && video.paused) void video.play().catch(() => void 0);
     }
     handleDocumentKeydown(event) {
       if (this.isDestroyed) return;
@@ -37415,7 +37455,6 @@ ${glossaryKey}`;
       this.hoverLookupTimer = void 0;
       this.hoverPendingWord = void 0;
       this.hoverPendingLookupKey = "";
-      if (word.closest(SUBTITLE_SURFACE_SELECTOR) && this.settings.subtitleMiningPause) pauseActiveVideo();
       const hoverLookupGeneration = this.nextHoverLookupGeneration();
       void this.showWord(word, { trigger: "hover", hoverLookupGeneration });
     }
@@ -37868,7 +37907,25 @@ ${glossaryKey}`;
         this.cancelHoverClose();
         return;
       }
+      if (this.isWithinHoverWordHostControl(word, related)) {
+        this.cancelHoverClose();
+        return;
+      }
       this.scheduleHoverClose(void 0, { ignoreCssHover: true });
+    }
+    // Native interactive controls (e.g. YouTube action buttons) insert transient
+    // hover overlays — ripple, touch-feedback, animated icons — over their label
+    // on hover. The pointer moving onto such an overlay within the SAME control
+    // as the hovered word fires pointerout with relatedTarget inside that
+    // control; it is not a real exit. Closing here would thrash the hover
+    // popover open/closed as the overlay churns pointerout/pointerover. Treat
+    // staying anywhere within the word's host control as still hovering.
+    isWithinHoverWordHostControl(word, related) {
+      if (!related) return false;
+      const control = word.closest('button,[role="button"],a[href],[aria-controls],[aria-expanded]');
+      if (!control) return false;
+      const relatedElement = related instanceof HTMLElement ? related : related.parentElement;
+      return Boolean(relatedElement && control.contains(relatedElement));
     }
     scheduleHoverLookupAtPointer(event) {
       const pointer = this.activeHoverPointerPosition();
@@ -38021,7 +38078,6 @@ ${glossaryKey}`;
         return false;
       }
       if (!this.canOpenHoverLookupForWord(activeWord, event)) return false;
-      if (shouldPauseVideoForSubtitleHover(activeWord, this.settings)) pauseActiveVideo();
       return true;
     }
     isRunnableScheduledHoverWord(activeWord, hoverLookupKey) {
@@ -40194,7 +40250,7 @@ ${glossaryKey}`;
       const backgroundPublicTotalLimit = isolateKeylessYouTubeSubtitleBudget ? urgentPublicLimit : background.publicLookupTotalLimit;
       const publicLookupLimit = Math.min(urgentPublicLimit, Math.max(0, Math.floor(backgroundPublicLimit ?? urgentPublicLimit)));
       const publicLookupTotalLimit = Math.min(publicLookupLimit, Math.max(0, Math.floor(backgroundPublicTotalLimit ?? publicLookupLimit)));
-      const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget ? Math.max(2, Math.floor(background.publicLookupTermLimit ?? 2)) : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
+      const publicLookupTermLimit = isolateKeylessYouTubeSubtitleBudget ? Math.max(3, Math.floor(background.publicLookupTermLimit ?? 3)) : Math.min(1, Math.max(1, Math.floor(background.publicLookupTermLimit ?? 1)));
       return {
         ...background,
         urgent: true,
@@ -40726,7 +40782,7 @@ ${glossaryKey}`;
       this.resolvedFallbackVocabularyCache.delete(key);
       this.resolvedFallbackVocabularyCache.set(key, card);
       evictOldestStringKeysWhileOverLimit(this.resolvedFallbackVocabularyCache, RESOLVED_FALLBACK_VOCABULARY_CACHE_LIMIT);
-      this.scheduleCachedPublicVocabularyHydration(document);
+      this.scheduleCachedPublicVocabularyHydration(document, { fallback, card });
     }
     rememberUnresolvedFallbackVocabulary(key) {
       this.unresolvedFallbackVocabularyCache.delete(key);
@@ -40921,8 +40977,12 @@ ${glossaryKey}`;
         changedRoots.forEach((r) => refreshReaderWordContrast(r));
       });
     }
-    scheduleCachedPublicVocabularyHydration(root) {
-      this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+    scheduleCachedPublicVocabularyHydration(root, resolved) {
+      if (resolved) {
+        this.applyPublicVocabularyToRenderedWords(resolved.fallback, resolved.card);
+      } else {
+        this.applyCachedPublicVocabularyToRenderedFallbackWords(root);
+      }
       if (this.cachedPublicVocabularyHydrationTimer !== void 0) return;
       const delays = [120, 500, 1500, 5e3, 1e4];
       let index = 0;
@@ -41348,6 +41408,7 @@ ${glossaryKey}`;
     }
     prepareActivePopoverDismiss(options) {
       if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
+      this.resumeSubtitleMiningVideo();
       this.clearHoverDismissState(options);
       this.audio.stop();
       this.immersionPopover.stopAudio();

@@ -1920,7 +1920,7 @@
     subtitleBackgroundOpacity: 0,
     subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
-    subtitleMiningPause: false,
+    subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
@@ -7651,7 +7651,7 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
+                    ${checkbox("subtitleMiningPause", "Pause video when looking up a clicked subtitle word (resumes on close)", settings.subtitleMiningPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}

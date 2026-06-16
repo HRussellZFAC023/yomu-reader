@@ -2246,7 +2246,7 @@
     subtitleBackgroundOpacity: 0,
     subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
-    subtitleMiningPause: false,
+    subtitleMiningPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
@@ -25761,7 +25761,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox("subtitleMiningPause", "Pause video when mining subtitle", settings.subtitleMiningPause)}
+                    ${checkbox("subtitleMiningPause", "Pause video when looking up a clicked subtitle word (resumes on close)", settings.subtitleMiningPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
@@ -29065,23 +29065,41 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       textNode.replaceWith(replacement);
     }
   }
-  const CANVAS_READER_PAGE_SELECTOR = "canvas.default";
   const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
+  const CANVAS_READER_HOST_PATTERNS = [
+    /(^|\.)bookwalker\.jp$/i,
+    /(^|\.)comic-walker\.com$/i
+  ];
+  const MIN_PAGE_CANVAS_DIMENSION = 600;
+  const MIN_PAGE_CANVAS_ASPECT = 0.3;
+  const MAX_PAGE_CANVAS_ASPECT = 3.2;
   function isBookwalkerViewerHost(hostname = location.hostname) {
     return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
   }
-  function isCanvasReaderPage() {
-    if (isBookwalkerViewerHost()) return true;
-    return Boolean(document.querySelector(PAGE_COUNTER_SELECTOR) && document.querySelector(CANVAS_READER_PAGE_SELECTOR));
+  function isKnownCanvasReaderHost(hostname = location.hostname) {
+    return CANVAS_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
   }
-  function collectCanvasReaderSurfaces() {
-    if (!isCanvasReaderPage()) return [];
-    return Array.from(document.querySelectorAll(CANVAS_READER_PAGE_SELECTOR));
+  function isLikelyPageCanvas(canvas) {
+    const { width, height } = canvas;
+    if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
+    const aspect = width / height;
+    return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
+  }
+  function pageCanvases() {
+    return Array.from(document.querySelectorAll("canvas")).filter(isLikelyPageCanvas);
+  }
+  function isCanvasReaderPage(hostname = location.hostname) {
+    if (!isKnownCanvasReaderHost(hostname) && !document.querySelector(PAGE_COUNTER_SELECTOR)) return false;
+    return pageCanvases().length > 0;
+  }
+  function collectCanvasReaderSurfaces(hostname = location.hostname) {
+    if (!isCanvasReaderPage(hostname)) return [];
+    return pageCanvases();
   }
   function canvasReaderPageSignature() {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
-    const scroll = Math.round((window.scrollY || 0) / 40);
-    const surfaces = document.querySelectorAll(CANVAS_READER_PAGE_SELECTOR).length;
+    const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
+    const surfaces = pageCanvases().length;
     return `${counter}|${scroll}|${surfaces}`;
   }
   function captureCanvasDataUrl(canvas, maxPixels) {
@@ -36740,6 +36758,9 @@ ${spelling}`);
     const fullscreenDocument = document;
     return document.fullscreenElement ?? fullscreenDocument.webkitFullscreenElement ?? fullscreenDocument.mozFullScreenElement ?? fullscreenDocument.msFullscreenElement ?? null;
   }
+  function subtitleViewportRect() {
+    return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+  }
   function videoIsInNativeFullscreen(video) {
     if (!video) return false;
     const fullscreenVideo = video;
@@ -36847,6 +36868,9 @@ ${spelling}`);
   const TRANSCRIPT_BACKGROUND_PARSE_LIMIT = SUBTITLE_PARSE_CACHE_MAX_ENTRIES;
   const TRANSCRIPT_WARMUP_SIGNATURE_BUCKET_SIZE = 8;
   const YOUTUBE_TRANSCRIPT_BACKGROUND_PARSE_PAUSE_MS = 120;
+  const SUBTITLE_FURIGANA_KANJI_RE = /[㐀-鿿]/u;
+  const SUBTITLE_FURIGANA_KANA_RE = /^[぀-ヿー・]+$/u;
+  const SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT = 6;
   const TRANSCRIPT_WARMUP_PRIORITY_ROWS = 48;
   const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
   const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
@@ -36961,6 +36985,7 @@ ${spelling}`);
     parsedHtmlCache = /* @__PURE__ */ new Map();
     provisionalParsedHtmlCache = /* @__PURE__ */ new Map();
     enrichedProvisionalParsedHtmlKeys = /* @__PURE__ */ new Set();
+    incompleteEnrichmentAttempts = /* @__PURE__ */ new Map();
     sessionParseCacheChecked = /* @__PURE__ */ new Set();
     emptyParsedHtmlCache = /* @__PURE__ */ new Map();
     pendingParsedHtml = /* @__PURE__ */ new Map();
@@ -38066,7 +38091,7 @@ ${spelling}`);
         const tokens = await this.options.parseJapanese(text2, provisionalSubtitleParseOptions());
         if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokens);
         const html = withBreaks(renderTokensToHtml(text2, tokens, settings));
-        this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: options.enrichBeforeRender === true });
+        this.rememberParsedCueHtml(key, html, tokens, { provisional: true, enriched: this.shouldMarkCueEnriched(key, tokens, options.enrichBeforeRender === true) });
         return html;
       })();
       this.pendingProvisionalParsedHtml.set(key, promise);
@@ -38199,7 +38224,7 @@ ${spelling}`);
         const tokenList = tokens[index] ?? [];
         if (options.enrichBeforeRender) await this.beforeRenderParsedTokens(tokenList);
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
-        this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: options.enrichBeforeRender === true });
+        this.rememberParsedCueHtml(item.key, html, tokenList, { ...options, enriched: this.shouldMarkCueEnriched(item.key, tokenList, options.enrichBeforeRender === true) });
         return options.provisional ? { key: item.key, html, provisional: true } : { key: item.key, html };
       }));
     }
@@ -38222,6 +38247,46 @@ ${spelling}`);
       const html = this.provisionalParsedHtmlCache.get(key);
       if (!html) return void 0;
       return options.refreshProvisional && !this.enrichedProvisionalParsedHtmlKeys.has(key) ? void 0 : html;
+    }
+    // A cue is only "fully enriched" when every kanji-bearing token can render
+    // furigana (explicit rubies, or a usable kana reading != surface). A
+    // fallback token whose public lookup has not resolved yet leaves the cue
+    // re-hydratable, so a later pass (e.g. after orientationchange/resize) can
+    // retry it instead of the enriched-once flag freezing the missing furigana
+    // forever. Local/authoritative tokens are final and never block. Mirrors
+    // sourceTokenRubies (dom/index.ts).
+    tokensFullyEnriched(tokens) {
+      return tokens.every((token) => {
+        if (token.rubies.length) return true;
+        const surface = token.card.spelling || "";
+        if (!SUBTITLE_FURIGANA_KANJI_RE.test(surface)) return true;
+        if (token.card.source !== "fallback") return true;
+        const reading = token.card.reading.trim();
+        return Boolean(reading) && reading !== surface && SUBTITLE_FURIGANA_KANA_RE.test(reading);
+      });
+    }
+    // Decide whether a freshly parsed provisional cue is "enriched" (sticky, no
+    // re-hydration). A fully-resolved cue is sticky immediately. A cue that
+    // still has an unresolved fallback kanji word is left re-hydratable so a
+    // later pass can retry — but only up to a bounded number of attempts, after
+    // which it settles to bare to avoid re-requesting an unresolvable word on
+    // every hydration tick.
+    shouldMarkCueEnriched(key, tokens, enrichRequested) {
+      if (!enrichRequested) return false;
+      if (this.tokensFullyEnriched(tokens)) {
+        this.incompleteEnrichmentAttempts.delete(key);
+        return true;
+      }
+      const attempts = (this.incompleteEnrichmentAttempts.get(key) ?? 0) + 1;
+      if (attempts >= SUBTITLE_INCOMPLETE_ENRICHMENT_RETRY_LIMIT) {
+        this.incompleteEnrichmentAttempts.delete(key);
+        return true;
+      }
+      if (this.incompleteEnrichmentAttempts.size >= SUBTITLE_PARSE_CACHE_MAX_ENTRIES) {
+        this.incompleteEnrichmentAttempts.delete(this.incompleteEnrichmentAttempts.keys().next().value ?? "");
+      }
+      this.incompleteEnrichmentAttempts.set(key, attempts);
+      return false;
     }
     rememberParsedCueHtml(key, html, tokens = [], options = {}) {
       if (parsedSubtitleHtmlHasReaderWords(html)) {
@@ -40514,7 +40579,7 @@ ${spelling}`);
     }
     syncSubtitleRootParent(fullscreenHost = this.subtitleFullscreenHost()) {
       if (!this.root) return;
-      const parent = fullscreenHost ?? document.body;
+      const parent = !fullscreenHost || fullscreenHost === document.documentElement ? document.body : fullscreenHost;
       if (this.root.parentElement === parent) return;
       parent.appendChild(this.root);
     }
@@ -40545,8 +40610,12 @@ ${spelling}`);
     }
     videoLayoutRect() {
       const fullscreenHost = this.subtitleFullscreenHost();
-      if (fullscreenHost) return fullscreenHost.getBoundingClientRect();
-      if (videoIsInNativeFullscreen(this.video)) return new DOMRect(0, 0, window.innerWidth, window.innerHeight);
+      if (fullscreenHost) {
+        if (fullscreenHost === document.documentElement) return subtitleViewportRect();
+        const rect = fullscreenHost.getBoundingClientRect();
+        return rect.width >= 1 && rect.height >= 1 ? rect : subtitleViewportRect();
+      }
+      if (videoIsInNativeFullscreen(this.video)) return subtitleViewportRect();
       return subtitleVideoLayoutRect(this.video);
     }
     transcriptAnchorRect() {
