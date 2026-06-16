@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.80] - 2026-06-16
+
+### Fixed
+
+- Jisho.org audio now works on the hosted reader. Without a userscript, jisho.org cannot be fetched directly (CORS) and the public proxy fails its TLS handshake with jisho (525), so the fallback scraped the text proxy's markdown rendering — which drops the audio `<source>`, leaving jisho silent. The reader now requests the raw jisho HTML from the text proxy and parses the `<audio id="audio_{word}:{reading}"><source>` element with the same logic as the userscript path and yomitan, so the pronunciation resolves and plays.
+- Guarded toast cleanup against a torn-down document so a toast's exit timer can no longer throw an unhandled "document is not defined".
+
 ## [0.7.79] - 2026-06-16
 
 ### Changed
