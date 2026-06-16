@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.85] - 2026-06-16
+
+### Changed
+
+- On mokuro readers the image OCR now follows mokuro's own "OCR enabled" (displayOCR) setting: when mokuro OCR is off, the reader runs its own sharper, more touch-friendly image OCR on the page instead of deferring to mokuro's built-in engine; when it is on, the reader keeps using mokuro's native text boxes.
+- The OCR loading/ready status card (with the dismiss-to-compact spinner) now appears on every OCR'd image, not just paused video frames, so slower image OCR shows progress.
+
+### Fixed
+
+- The "title flips between plain and annotated" loop on reconciling single-page apps (e.g. the mokuro.moe catalog): a host whose annotation is repeatedly reverted now switches to the non-destructive text mirror, which overlays the annotation without mutating the app's own node, ending the loop for any such site.
+
 ## [0.7.84] - 2026-06-16
 
 ### Fixed
