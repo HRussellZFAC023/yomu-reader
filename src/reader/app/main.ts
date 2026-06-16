@@ -279,7 +279,6 @@ import {
     rootContainsRenderedWord,
     setRenderedWordCardIdentity,
     setRenderedWordPitchClass,
-    storeRenderedWordPitchClass,
     uniqueParentNodes,
 } from '../dom/rendered-word-state';
 import {
@@ -714,7 +713,6 @@ export class ReaderApp {
         }
         return new Controller({
             getSettings: () => this.settings,
-            setVideoFrameStatusCardVisible: visible => this.setOcrVideoFrameStatusCardVisible(visible),
             parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             onToast: message => this.toast(message),
@@ -916,15 +914,6 @@ export class ReaderApp {
         await saveSettings(this.settings);
         this.youtube.refresh();
         log.info('YouTube channel recommendations changed', { visible });
-    }
-
-    private setOcrVideoFrameStatusCardVisible(visible: boolean): void {
-        if (this.settings.ocrVideoFrameStatusCard === visible) return;
-        this.settings = { ...this.settings, ocrVideoFrameStatusCard: visible };
-        document.querySelectorAll<HTMLInputElement>('input[name="ocrVideoFrameStatusCard"]').forEach(input => {
-            input.checked = visible;
-        });
-        void saveSettings(this.settings);
     }
 
     private async setInterfaceLanguage(language: InterfaceLanguage): Promise<void> {
@@ -6526,11 +6515,6 @@ export class ReaderApp {
     }
 
     private applyPitchClassToRenderedSurface(word: HTMLElement, pitchClass: string): void {
-        const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
-        if (ocrLine && !ocrLine.classList.contains('jpdb-ocr-line-active')) {
-            storeRenderedWordPitchClass(word, pitchClass);
-            return;
-        }
         setRenderedWordPitchClass(word, pitchClass);
     }
 

@@ -3595,7 +3595,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background-color: transparent !important; background-image: none !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; --jpdb-reader-word-underline-offset: 0.12em; --jpdb-reader-word-underline-thickness: 0.12em; box-shadow: none !important; text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; text-decoration-color: var(--jpdb-reader-word-decoration-source, transparent) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
         expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
         expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
@@ -26688,7 +26688,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('normalizes public vocabulary pitch on OCR fallback words without forcing OCR furigana', async () => {
+    it('normalizes public vocabulary pitch and furigana on active OCR fallback words', async () => {
         const app = new ReaderApp();
         const fallbackCard = testFallbackCard({
             vid: -10001,
@@ -26729,12 +26729,12 @@ describe('reader helpers', () => {
             expect(word.dataset.pitchClass).toBe('atamadaka');
             expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
             expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
-            expect(line.dataset.hasFuri).not.toBe('true');
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(line.dataset.hasFuri).toBe('true');
             expect(word.querySelector('ruby')).toBeNull();
-            expect(word.querySelector('.jpdb-ocr-furi')).toBeNull();
-            expect(word.querySelector('.jpdb-ocr-ruby-base')).toBeNull();
-            expect(word.querySelector('.jpdb-ocr-plain')).toBeNull();
+            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
+            expect(word.querySelector('.jpdb-ocr-ruby-base')?.textContent).toBe('読');
+            expect(word.querySelector('.jpdb-ocr-plain')?.textContent).toBe('む');
             expect(readerWordSurfaceText(word)).toBe('読む');
         } finally {
             line.remove();
@@ -26742,7 +26742,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not leave public vocabulary furigana on inactive OCR fallback words', async () => {
+    it('normalizes public vocabulary pitch and furigana on inactive OCR fallback words', async () => {
         const app = new ReaderApp();
         const fallbackCard = testFallbackCard({
             vid: -10002,
@@ -26775,10 +26775,10 @@ describe('reader helpers', () => {
             expect(word.dataset.vid).toBe('1556420');
             expect(word.dataset.reading).toBe('よむ');
             expect(word.dataset.pitchClass).toBe('atamadaka');
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(false);
-            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
-            expect(line.dataset.hasFuri).not.toBe('true');
-            expect(word.querySelector('.jpdb-ocr-furi')).toBeNull();
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(line.dataset.hasFuri).toBe('true');
+            expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
             expect(readerWordSurfaceText(word)).toBe('読む');
         } finally {
             line.remove();

@@ -46,7 +46,7 @@ export function browseSourceForCard(card: JPDBCard): BrowseSourceFilter {
     return 'jpdb';
 }
 
-export function browseSourceCounts(cards: JPDBCard[]): Map<BrowseSourceFilter, number> {
+function browseSourceCounts(cards: JPDBCard[]): Map<BrowseSourceFilter, number> {
     const counts = new Map<BrowseSourceFilter, number>();
     for (const card of cards) {
         const source = browseSourceForCard(card);

@@ -56,7 +56,6 @@ interface OcrRenderableMediaMutationSummary {
 
 interface OcrControllerOptions {
     getSettings: () => ReaderSettings;
-    setVideoFrameStatusCardVisible?: (visible: boolean) => void | Promise<void>;
     parseJapanese: (text: string, options?: ReaderParserParseOptions) => Promise<JPDBToken[]>;
     parseJapaneseBatch?: (texts: string[], options?: ReaderParserParseOptions) => Promise<JPDBToken[][]>;
     onToast: (message: string) => void;
@@ -215,7 +214,7 @@ const OCR_NAVIGATION_EVENTS = ['yt-navigate-start', 'yt-navigate-finish', 'popst
 
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
-    private cache = new Map<string, OcrResult>();
+    private cache = new Map<string, OcrResult | null>();
     private localOcrUnavailable?: { endpointUrl: string; retryAt: number };
     private observer?: IntersectionObserver;
     private observerMargin = '';
@@ -229,9 +228,8 @@ export class ImageOcrController {
     private videoFrameVideos = new Map<HTMLImageElement, HTMLVideoElement>();
     private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
     private videoFrameStatuses = new Map<HTMLVideoElement, HTMLElement>();
-    // Loading/ready status cards for every OCR'd image (not just paused-video
-    // frames), reusing the same card UI — so slow image OCR shows progress and a
-    // dismiss-to-compact spinner, the way YouTube thumbnails already do.
+    // Compact loading/ready indicators for every OCR'd image (not just
+    // paused-video frames), so slow image OCR shows progress without a card.
     private imageStatuses = new Map<HTMLImageElement, HTMLElement>();
     // Canvas-reader snapshots (BookWalker): map each page <canvas> to the data-URL
     // <img> we OCR in its place, plus the page fingerprint and the page-turn poll.
@@ -329,8 +327,6 @@ export class ImageOcrController {
         this.refreshCanvasReaderSurfaces(settings);
         if (this.shouldSkipRefresh(settings, options)) {
             this.pruneDisconnectedStates();
-            this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
-        this.imageStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
             this.schedulePosition();
             return;
         }
@@ -342,8 +338,6 @@ export class ImageOcrController {
         for (const image of images) {
             this.observeRefreshImage(image, settings);
         }
-        this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
-        this.imageStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
         this.schedulePosition();
     }
 
@@ -557,8 +551,14 @@ export class ImageOcrController {
     }
 
     private async renderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
+        if (!this.cache.has(key)) return false;
         const cached = this.cache.get(key);
-        if (!cached) return false;
+        if (!cached) {
+            renderNoOcrLines(state);
+            this.updateOcrStatus(state.image, 'empty');
+            state.manualRequested = false;
+            return true;
+        }
         await this.renderResult(state, cached);
         state.manualRequested = false;
         return true;
@@ -576,6 +576,7 @@ export class ImageOcrController {
         const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
+            this.remember(key, null);
             renderNoOcrLines(state);
             this.updateOcrStatus(image, 'empty');
             return;
@@ -676,10 +677,7 @@ export class ImageOcrController {
         }
         this.positionState(state.image);
         this.updateOcrStatus(state.image, 'ready');
-        void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => {
-            this.clearInactiveOcrMarkup(state.overlay);
-            this.schedulePosition();
-        });
+        void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
     }
 
     private async parseOcrLines(lines: OcrLine[]): Promise<JPDBToken[][]> {
@@ -738,7 +736,6 @@ export class ImageOcrController {
     private unpinLine(element: HTMLElement): void {
         element.classList.remove('jpdb-ocr-line-active');
         element.dataset.pinned = 'false';
-        this.clearOcrMarkup(element);
         this.schedulePosition();
     }
 
@@ -773,7 +770,7 @@ export class ImageOcrController {
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
     }
 
-    private remember(key: string, result: OcrResult): void {
+    private remember(key: string, result: OcrResult | null): void {
         // Paused-video frames key by their data: URL — far too large to keep.
         if (key.startsWith('data:')) return;
         this.cache.set(key, result);
@@ -870,28 +867,6 @@ export class ImageOcrController {
         element.dataset.jpdbReaderSurfaceIgnore = 'true';
         element.setAttribute('role', 'status');
         element.setAttribute('aria-live', 'polite');
-        const text = document.createElement('span');
-        text.className = 'jpdb-ocr-video-frame-status-text';
-        const dismiss = document.createElement('button');
-        dismiss.type = 'button';
-        dismiss.className = 'jpdb-ocr-video-frame-status-dismiss';
-        setInnerHtml(dismiss, closeStatusCardIcon());
-        const label = uiText(this.options.getSettings().interfaceLanguage, 'ocrHidePausedFrameStatusCard');
-        dismiss.setAttribute('aria-label', label);
-        dismiss.setAttribute('title', label);
-        dismiss.addEventListener('click', event => {
-            event.preventDefault();
-            event.stopPropagation();
-            this.setVideoFrameStatusCardVisible(false);
-        });
-        element.addEventListener('pointerdown', event => {
-            const target = event.target;
-            if (target instanceof Node && dismiss.contains(target)) return;
-            event.preventDefault();
-            event.stopPropagation();
-            element.classList.add('jpdb-ocr-video-frame-status-reveal-dismiss');
-        });
-        element.append(text, dismiss);
         this.setVideoFrameStatus(element, status);
         document.body.append(element);
         return element;
@@ -902,13 +877,7 @@ export class ImageOcrController {
         const label = uiText(language, videoFrameStatusTextKey(status));
         element.dataset.status = status;
         element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
-        element.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status-text')?.replaceChildren(label);
         element.setAttribute('aria-label', label);
-        const dismiss = element.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status-dismiss');
-        const dismissLabel = uiText(language, 'ocrHidePausedFrameStatusCard');
-        dismiss?.setAttribute('aria-label', dismissLabel);
-        dismiss?.setAttribute('title', dismissLabel);
-        this.syncVideoFrameStatusCardMode(element);
     }
 
     private updateVideoFrameStatusForImage(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
@@ -953,23 +922,6 @@ export class ImageOcrController {
         if (!card) return;
         card.remove();
         this.imageStatuses.delete(image);
-    }
-
-    private setVideoFrameStatusCardVisible(visible: boolean): void {
-        const settings = this.options.getSettings();
-        if (this.options.setVideoFrameStatusCardVisible) {
-            void this.options.setVideoFrameStatusCardVisible(visible);
-        } else if (settings.ocrVideoFrameStatusCard !== visible) {
-            settings.ocrVideoFrameStatusCard = visible;
-        }
-        this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
-        this.imageStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
-    }
-
-    private syncVideoFrameStatusCardMode(element: HTMLElement): void {
-        const compact = !this.options.getSettings().ocrVideoFrameStatusCard;
-        element.classList.toggle('jpdb-ocr-video-frame-status-compact', compact);
-        if (compact) element.classList.remove('jpdb-ocr-video-frame-status-reveal-dismiss');
     }
 
     private refreshVideoFrameAfterSeek(target: EventTarget | null): void {
@@ -1223,20 +1175,6 @@ export class ImageOcrController {
         line.dataset.hasFuri = String(hasFurigana);
     }
 
-    private clearOcrMarkup(line: HTMLElement): void {
-        line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]').forEach(word => {
-            const state = this.ocrWordRenderStates.get(word);
-            if (!state) return;
-            this.clearOcrPitchClass(word);
-            this.setOcrWordPlainText(word, state.surface);
-        });
-        line.dataset.hasFuri = 'false';
-    }
-
-    private clearInactiveOcrMarkup(root: ParentNode): void {
-        root.querySelectorAll<HTMLElement>('.jpdb-ocr-line:not(.jpdb-ocr-line-active)').forEach(line => this.clearOcrMarkup(line));
-    }
-
     private applyOcrPitchClass(word: HTMLElement, token: JPDBToken): void {
         this.clearOcrPitchClass(word);
         const pitchClass = ocrSafePitchClass(token.pitchClass);
@@ -1392,17 +1330,9 @@ function setOcrLineDataset(element: HTMLElement, result: OcrResult, line: OcrLin
 function createOcrLineText(line: OcrLine, tokens: JPDBToken[], settings: ReaderSettings): HTMLElement {
     const textElement = document.createElement('span');
     textElement.className = 'jpdb-ocr-line-text';
-    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, inactiveOcrTokens(tokens), inactiveOcrSettings(settings)) : escapeHtml(line.text));
+    setInnerHtml(textElement, tokens.length ? renderTokensToHtml(line.text, tokens, settings) : escapeHtml(line.text));
     normalizeOcrRenderedText(textElement);
     return textElement;
-}
-
-function inactiveOcrTokens(tokens: JPDBToken[]): JPDBToken[] {
-    return tokens.map(token => ({ ...token, pitchClass: '' }));
-}
-
-function inactiveOcrSettings(settings: ReaderSettings): ReaderSettings {
-    return { ...settings, furiganaMode: 'off' };
 }
 
 function ocrTokenRenderKey(token: JPDBToken): string {
@@ -1878,11 +1808,54 @@ function isIgnoredOcrImage(image: HTMLImageElement): boolean {
     return Boolean(image.closest('[data-jpdb-reader-root]')
         || image.closest('[data-yomu-ocr="ignore"], [data-jpdb-reader-ocr="ignore"]')
         || image.closest('[aria-hidden="true"], [hidden], .slick-cloned')
+        || isBrandOrIconOcrImage(image)
         || isYouTubeThumbnailImage(image));
 }
 
 function isYouTubeThumbnailImage(image: HTMLImageElement): boolean {
     return Boolean(image.closest(OCR_IMAGE_THUMBNAIL_CONTAINER_SELECTOR));
+}
+
+const OCR_BRAND_IMAGE_TEXT_RE = /(^|[\s/_.?#&=-])(?:app-?icon|apple-touch-icon|avatar|badge|brand|favicon|icon|logo|site-icon|touch-icon|yomu-icon)(?=$|[\s/_.?#&=-])/iu;
+const OCR_BRAND_IMAGE_CONTAINER_SELECTOR = [
+    'header',
+    'nav',
+    '[role="banner"]',
+    '[role="navigation"]',
+    '[class*="brand" i]',
+    '[class*="logo" i]',
+    '[id*="brand" i]',
+    '[id*="logo" i]',
+].join(',');
+
+function isBrandOrIconOcrImage(image: HTMLImageElement): boolean {
+    if (OCR_BRAND_IMAGE_TEXT_RE.test(imageIdentityText(image))) return true;
+    const rect = image.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    if (area > 0 && area <= 12_000 && isIconLikeImage(image, rect)) return true;
+    if (image.closest(OCR_BRAND_IMAGE_CONTAINER_SELECTOR)) return area <= 160_000 || isIconLikeImage(image, rect);
+    return false;
+}
+
+function imageIdentityText(image: HTMLImageElement): string {
+    return [
+        image.currentSrc,
+        image.src,
+        image.alt,
+        image.title,
+        image.id,
+        image.className,
+        image.getAttribute('aria-label'),
+        image.getAttribute('role'),
+    ].filter(Boolean).join(' ');
+}
+
+function isIconLikeImage(image: HTMLImageElement, rect = image.getBoundingClientRect()): boolean {
+    const width = image.naturalWidth || rect.width;
+    const height = image.naturalHeight || rect.height;
+    if (!width || !height) return false;
+    const ratio = width / height;
+    return ratio >= 0.72 && ratio <= 1.38 && Math.max(rect.width, rect.height, width, height) <= 256;
 }
 
 function isVisibleOcrImage(image: HTMLImageElement): boolean {
@@ -2156,10 +2129,6 @@ function updateSubtitleRailResumeState(root: HTMLElement | null): void {
 
 function playVideoIcon(): string {
     return `<svg class="jpdb-ocr-video-frame-resume-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5v14l11-7-11-7Z"></path></svg>`;
-}
-
-function closeStatusCardIcon(): string {
-    return `<svg class="jpdb-ocr-video-frame-status-dismiss-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>`;
 }
 
 function videoContentBox(rect: DOMRect, video: HTMLVideoElement): { left: number; top: number; width: number; height: number } {

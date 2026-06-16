@@ -339,7 +339,6 @@ export interface ReaderSettings {
     ocrEnabled: boolean;
     ocrAutoScanImages: boolean;
     ocrVideoPauseFrames: boolean;
-    ocrVideoFrameStatusCard: boolean;
     ocrShowTextOverlay: boolean;
     ocrProvider: OcrProvider;
     ocrEndpointUrl: string;

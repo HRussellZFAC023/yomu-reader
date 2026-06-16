@@ -84,7 +84,7 @@ describe('paused-video OCR frames', () => {
         },
     );
 
-    it('shows paused-frame OCR status while reading and when text is ready', async () => {
+    it('shows a compact paused-frame OCR status indicator while reading and when text is ready', async () => {
         createController();
         const video = pausedVideo();
 
@@ -93,7 +93,8 @@ describe('paused-video OCR frames', () => {
         const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
         expect(status).not.toBeNull();
         expect(status!.dataset.status).toBe('loading');
-        expect(status!.textContent).toBe('Reading paused frame...');
+        expect(status!.textContent).toBe('');
+        expect(status!.getAttribute('aria-label')).toBe('Scanning...');
 
         Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
         Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
@@ -105,11 +106,12 @@ describe('paused-video OCR frames', () => {
         await waitForExpect(() => {
             expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
             expect(status!.dataset.status).toBe('ready');
-            expect(status!.textContent).toBe('Text ready');
+            expect(status!.textContent).toBe('');
+            expect(status!.getAttribute('aria-label')).toBe('Text ready');
         });
     });
 
-    it('renders paused-frame OCR words with ruby and pitch color classes only when active', async () => {
+    it('prepares paused-frame OCR words with ruby and pitch so focus can reveal them instantly', async () => {
         const token: JPDBToken = {
             card: {
                 vid: 101,
@@ -138,7 +140,6 @@ describe('paused-video OCR frames', () => {
                 furiganaMode: 'all',
                 showPitchAccent: true,
                 wordUnderlineColorSource: 'pitch',
-                ocrVideoFrameStatusCard: true,
             }),
             parseJapanese: vi.fn(async () => [token]),
             onToast: vi.fn(),
@@ -162,61 +163,20 @@ describe('paused-video OCR frames', () => {
         });
         const line = document.querySelector<HTMLElement>('.jpdb-ocr-line')!;
         const word = line.querySelector<HTMLElement>('.jpdb-reader-word')!;
-        expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
-        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(false);
-        expect(word.querySelector('.jpdb-ocr-furi')).toBeNull();
+        expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+        expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+        expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
 
         line.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
+        expect(line.classList.contains('jpdb-ocr-line-active')).toBe(true);
         expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
         expect(word.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
         expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('data-jpdb-reader-surface-ignore')).toBe('true');
-    });
-
-    it('dismisses the paused-frame status card into compact indicator mode', () => {
-        const settings: ReaderSettings = { ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrVideoFrameStatusCard: true };
-        let persisted: boolean | undefined;
-        controller = new ImageOcrController({
-            getSettings: () => settings,
-            setVideoFrameStatusCardVisible: visible => {
-                persisted = visible;
-                settings.ocrVideoFrameStatusCard = visible;
-            },
-            parseJapanese: vi.fn(async () => []),
-            onToast: vi.fn(),
-            captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
-        });
-        controller.init();
-        const video = pausedVideo();
-
-        video.dispatchEvent(new Event('pause'));
-
-        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
-        const dismiss = status.querySelector<HTMLButtonElement>('.jpdb-ocr-video-frame-status-dismiss')!;
-        expect(status.classList.contains('jpdb-ocr-video-frame-status-compact')).toBe(false);
-        expect(dismiss.getAttribute('title')).toBe('Hide status card');
-
-        status.dispatchEvent(new Event('pointerdown', { bubbles: true, cancelable: true }));
-        expect(status.classList.contains('jpdb-ocr-video-frame-status-reveal-dismiss')).toBe(true);
-
-        dismiss.click();
-
-        expect(persisted).toBe(false);
-        expect(settings.ocrVideoFrameStatusCard).toBe(false);
-        expect(status.classList.contains('jpdb-ocr-video-frame-status-compact')).toBe(true);
-        expect(status.textContent).toBe('Reading paused frame...');
-    });
-
-    it('starts paused-frame status in compact mode when the card is hidden in settings', () => {
-        createController({ ocrVideoFrameStatusCard: false });
-        const video = pausedVideo();
-
-        video.dispatchEvent(new Event('pause'));
-
-        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
-        expect(status.classList.contains('jpdb-ocr-video-frame-status-compact')).toBe(true);
-        expect(status.getAttribute('aria-label')).toBe('Reading paused frame...');
+        document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        expect(line.classList.contains('jpdb-ocr-line-active')).toBe(false);
     });
 
     it('shows paused-frame OCR status when no text is found', async () => {
@@ -235,7 +195,8 @@ describe('paused-video OCR frames', () => {
         await waitForExpect(() => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             expect(status.dataset.status).toBe('empty');
-            expect(status.textContent).toBe('No text found');
+            expect(status.textContent).toBe('');
+            expect(status.getAttribute('aria-label')).toBe('No text found');
         });
     });
 

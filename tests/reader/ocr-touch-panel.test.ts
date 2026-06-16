@@ -205,7 +205,7 @@ describe('OCR sentence focus', () => {
         }
     });
 
-    it('hydrates OCR furigana and pitch only for the active line, then clears on selection change and close', async () => {
+    it('keeps OCR furigana and pitch prepared while selection changes the active line', async () => {
         stubInstantIntersectionObserver();
         const image = document.createElement('img');
         image.src = '/ocr-lifecycle.png';
@@ -242,27 +242,27 @@ describe('OCR sentence focus', () => {
                 expect(document.querySelectorAll('.jpdb-ocr-line .jpdb-reader-word')).toHaveLength(2);
             });
             const lines = [...document.querySelectorAll<HTMLElement>('.jpdb-ocr-line')];
-            expect(document.querySelector('.jpdb-ocr-furi')).toBeNull();
-            expect(document.querySelector('.jpdb-pitch-heiban')).toBeNull();
+            expect(document.querySelectorAll('.jpdb-ocr-furi')).toHaveLength(2);
+            expect(document.querySelectorAll('.jpdb-pitch-heiban')).toHaveLength(2);
 
             lines[0]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
             expect(lines[0]!.classList.contains('jpdb-ocr-line-active')).toBe(true);
             expect(lines[0]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
             expect(lines[0]!.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
-            expect(lines[1]!.querySelector('.jpdb-ocr-furi')).toBeNull();
-            expect(lines[1]!.querySelector('.jpdb-pitch-heiban')).toBeNull();
+            expect(lines[1]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(lines[1]!.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
 
             lines[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 220 }));
             expect(lines[0]!.classList.contains('jpdb-ocr-line-active')).toBe(false);
-            expect(lines[0]!.querySelector('.jpdb-ocr-furi')).toBeNull();
-            expect(lines[0]!.querySelector('.jpdb-pitch-heiban')).toBeNull();
+            expect(lines[0]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
+            expect(lines[0]!.querySelector('.jpdb-pitch-heiban')).not.toBeNull();
             expect(lines[1]!.classList.contains('jpdb-ocr-line-active')).toBe(true);
             expect(lines[1]!.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
 
             document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
             expect(document.querySelector('.jpdb-ocr-line-active')).toBeNull();
-            expect(document.querySelector('.jpdb-ocr-furi')).toBeNull();
-            expect(document.querySelector('.jpdb-pitch-heiban')).toBeNull();
+            expect(document.querySelectorAll('.jpdb-ocr-furi')).toHaveLength(2);
+            expect(document.querySelectorAll('.jpdb-pitch-heiban')).toHaveLength(2);
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
@@ -436,8 +436,8 @@ describe('OCR sentence focus', () => {
             ]));
             const enriched = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word[data-expression="日本語"]')!;
             expect(enriched.classList.contains('jpdb-known')).toBe(true);
-            expect(enriched.classList.contains('jpdb-pitch-heiban')).toBe(false);
-            expect(enriched.querySelector<HTMLElement>('.jpdb-ocr-furi')).toBeNull();
+            expect(enriched.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(enriched.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
 
             enriched.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 120, clientY: 120 }));
 
@@ -510,7 +510,7 @@ describe('OCR sentence focus', () => {
         }
     });
 
-    it('scopes OCR word color channels to active lines and paints furigana base text only', () => {
+    it('hides OCR pitch and furigana until focus while painting active-line highlights on the base text only', () => {
         const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word {');
         expect(normalizedCss).toContain('color: inherit !important;');
@@ -522,7 +522,8 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toMatch(/--jpdb-reader-pitch-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-pitch-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
         expect(normalizedCss).toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word { --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-pitch-highlight, transparent); --jpdb-reader-word-highlight-shadow-source: var(--jpdb-reader-source-pitch-highlight-shadow, none); }');
         expect(normalizedCss).toContain(') .jpdb-reader-word { --jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) ); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none); color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important; -webkit-text-fill-color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ); text-shadow: var(--jpdb-reader-word-contrast-shadow, none); }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; text-decoration-color: var(--jpdb-reader-word-decoration-source, transparent) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
+        expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word:is( .jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku ) { --jpdb-reader-source-pitch-decoration: var( --jpdb-reader-pitch-color, currentColor ); }');
         expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word:is( .jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku ) { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor); }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-underline-jpdb .jpdb-ocr-layer');
@@ -546,7 +547,7 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
     });
 
-    it('normalizes late-added OCR furigana so active OCR lines can show it immediately', () => {
+    it('normalizes late-added OCR furigana so OCR lines can show it immediately', () => {
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-reader-has-furi';
         word.innerHTML = '<ruby>日本語<rt class="jpdb-reader-furi">にほんご</rt></ruby>';
@@ -558,7 +559,8 @@ describe('OCR sentence focus', () => {
         expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('aria-hidden')).toBe('true');
         expect(word.querySelector('.jpdb-ocr-ruby-base')?.textContent).toBe('日本語');
         const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain('.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-ocr-furi');
+        expect(normalizedCss).toContain('.jpdb-ocr-furi { position: absolute; top: 0; left: 50%; color: currentColor; font-size: 0.42em; line-height: 1; opacity: 0;');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-ocr-furi');
     });
 
     it('keeps multi-ruby OCR words inside one stylable reader word span', () => {
@@ -600,6 +602,27 @@ describe('OCR sentence focus', () => {
                 const words = [...document.querySelectorAll<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')];
                 expect(words.map(word => word.dataset.expression)).toEqual(['事実', '上', '日本', '国内']);
             });
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not scan brand or logo-like images', async () => {
+        stubInstantIntersectionObserver();
+        const { controller, parseJapanese } = createOcrImageControllerFixture({
+            sentence: '日本語',
+            src: 'https://hrussellzfac023.github.io/yomu-reader/yomu-icon.png',
+        });
+
+        try {
+            controller.init();
+
+            await new Promise(resolve => setTimeout(resolve, 20));
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
@@ -805,6 +828,11 @@ describe('OCR sentence focus', () => {
                 expect(document.querySelector('.jpdb-ocr-status')).toBeNull();
                 expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             });
+
+            dispatchPointerEvent(image, 'pointerover');
+            await new Promise(resolve => setTimeout(resolve, 20));
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
         } finally {
             controller.destroy();
             restoreCanvas();

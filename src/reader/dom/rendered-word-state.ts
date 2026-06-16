@@ -119,13 +119,6 @@ export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string)
     if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
 }
 
-export function storeRenderedWordPitchClass(word: HTMLElement, pitchClass: string): void {
-    Array.from(word.classList)
-        .filter(className => className.startsWith('jpdb-pitch-'))
-        .forEach(className => word.classList.remove(className));
-    word.dataset.pitchClass = pitchClass;
-}
-
 export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): void {
     const source = renderedWordCardSource(card);
     const state = primaryCardState(card.cardState);

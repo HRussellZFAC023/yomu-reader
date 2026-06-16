@@ -747,72 +747,16 @@
   z-index: 2147483644;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 1px solid var(--jpdb-reader-border, rgba(255, 255, 255, 0.22));
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface, rgb(15, 18, 24)) 86%, transparent);
-  color: var(--jpdb-reader-text, #fff);
-  box-shadow: 0 12px 30px var(--jpdb-reader-shadow, rgba(0, 0, 0, 0.35));
-  backdrop-filter: blur(14px);
-  font: 750 12px/1.2 var(--jpdb-reader-font, system-ui);
-  pointer-events: auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.jpdb-ocr-video-frame-status-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.jpdb-ocr-video-frame-status-dismiss {
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
-  margin-right: -5px;
+  justify-content: center;
+  width: 24px;
+  min-width: 24px;
+  max-width: 24px !important;
+  min-height: 24px;
   padding: 0;
   border: 0;
-  border-radius: 999px;
   background: transparent;
-  color: currentColor;
-  cursor: pointer;
-  opacity: 0;
   pointer-events: none;
-  transition: opacity 120ms ease, background-color 120ms ease;
-}
-
-.jpdb-ocr-video-frame-status:hover .jpdb-ocr-video-frame-status-dismiss,
-.jpdb-ocr-video-frame-status:focus-within .jpdb-ocr-video-frame-status-dismiss,
-.jpdb-ocr-video-frame-status-reveal-dismiss .jpdb-ocr-video-frame-status-dismiss {
-  opacity: 0.88;
-  pointer-events: auto;
-}
-
-.jpdb-ocr-video-frame-status-dismiss:hover,
-.jpdb-ocr-video-frame-status-dismiss:focus-visible {
-  opacity: 1;
-  background: color-mix(in srgb, currentColor 16%, transparent);
-}
-
-.jpdb-ocr-video-frame-status-dismiss:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
-}
-
-.jpdb-ocr-video-frame-status-dismiss-icon {
-  width: 14px;
-  height: 14px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2.4;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  overflow: hidden;
 }
 
 .jpdb-ocr-video-frame-status::before {
@@ -833,10 +777,6 @@
   animation: jpdb-ocr-video-frame-status-spin 850ms linear infinite;
 }
 
-.jpdb-ocr-video-frame-status-ready {
-  border-color: color-mix(in srgb, var(--jpdb-reader-state-known, #31c48d) 42%, var(--jpdb-reader-border, rgba(255, 255, 255, 0.22)));
-}
-
 .jpdb-ocr-video-frame-status-ready::before {
   background: var(--jpdb-reader-state-known, #31c48d);
 }
@@ -846,36 +786,12 @@
   color: var(--jpdb-reader-muted, #a8b0bd);
 }
 
-.jpdb-ocr-video-frame-status-failed {
-  border-color: color-mix(in srgb, var(--jpdb-reader-state-failed, #f87171) 45%, var(--jpdb-reader-border, rgba(255, 255, 255, 0.22)));
-}
-
 .jpdb-ocr-video-frame-status-empty::before {
   background: var(--jpdb-reader-muted, #a8b0bd);
 }
 
 .jpdb-ocr-video-frame-status-failed::before {
   background: var(--jpdb-reader-state-failed, #f87171);
-}
-
-.jpdb-ocr-video-frame-status-compact {
-  justify-content: center;
-  width: 24px;
-  min-width: 24px;
-  max-width: 24px !important;
-  min-height: 24px;
-  padding: 0;
-  gap: 0;
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  pointer-events: none;
-}
-
-.jpdb-ocr-video-frame-status-compact .jpdb-ocr-video-frame-status-text,
-.jpdb-ocr-video-frame-status-compact .jpdb-ocr-video-frame-status-dismiss {
-  display: none;
 }
 
 @keyframes jpdb-ocr-video-frame-status-spin {
@@ -1058,6 +974,18 @@
   cursor: pointer;
   line-height: 1 !important;
 }
+.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka,
+  .jpdb-pitch-kifuku
+) {
+  --jpdb-reader-source-pitch-decoration: var(
+    --jpdb-reader-pitch-color,
+    currentColor
+  );
+}
 .jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 1 !important;
 }
@@ -1083,6 +1011,7 @@
   background-repeat: no-repeat !important;
   background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important;
+  text-decoration-color: var(--jpdb-reader-word-decoration-source, transparent) !important;
   color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important;
   -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text))));
 }
@@ -1136,7 +1065,7 @@
   transform: translateX(-50%);
   white-space: nowrap;
 }
-.jpdb-ocr-line.jpdb-ocr-line-active .jpdb-ocr-furi {
+.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
   opacity: 0.9;
   text-shadow:
     0 1px 1px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),

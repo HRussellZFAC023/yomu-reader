@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.90] - 2026-06-16
+
+### Changed
+
+- Image OCR now uses the compact spinner indicator only: no expanded scanning card and no dismiss control. The same compact indicator covers normal images and paused-video frames.
+- OCR image/video loading copy is consistently "Scanning..." in accessible labels.
+
+### Fixed
+
+- OCR text keeps pitch and furigana prepared as soon as it renders, so tapping an image text segment reveals the furigana and pitch underline instantly; clicking away hides both again without rebuilding the line.
+- Brand/logo/icon images, including the hosted Yomu logo, are skipped by image OCR, and images that return no OCR text are remembered so repeat hovers do not rescan them.
+
 ## [0.7.89] - 2026-06-16
 
 ### Added
