@@ -1215,3 +1215,13 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 .jpdb-reader-fab.jpdb-reader-fab-raised {
   bottom: max(150px, calc(env(safe-area-inset-bottom) + 136px));
 }
+
+/* Note appended to mokuro's "OCR enabled" toggle label, clarifying that off uses
+   Yomu's OCR and on uses mokuro's built-in OCR. */
+.yomu-mokuro-ocr-note {
+  margin-inline-start: 0.4em;
+  opacity: 0.7;
+  font-size: 0.85em;
+  font-style: italic;
+  white-space: normal;
+}
