@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.82] - 2026-06-16
+
+### Added
+
+- YouTube channel shelf now records when every curated channel is subscribed (or can no longer be resolved) and stops re-testing subscription status on each render. The flag is keyed by a signature of the channel list, so editing the curated list automatically re-tests against the new set. Channels that were deleted, moved, or renamed are treated as unresolvable and never block the all-subscribed state or raise errors.
+
 ## [0.7.81] - 2026-06-16
 
 ### Fixed

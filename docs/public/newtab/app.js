@@ -40695,6 +40695,10 @@ ${spelling}`);
   function allYouTubeChannelRecommendations() {
     return [...YOUTUBE_CHANNEL_RECOMMENDATIONS];
   }
+  function youTubeChannelListSignature() {
+    const handles = YOUTUBE_CHANNEL_RECOMMENDATIONS.map((channel) => channel.handle.toLowerCase()).sort();
+    return `${handles.length}:${stableHashBase36(handles.join("|"))}`;
+  }
   function youtubeChannelUrl(channel) {
     return `https://www.youtube.com/${encodeURI(channel.handle)}`;
   }
@@ -40861,6 +40865,7 @@ ${spelling}`);
   const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = "--yomu-youtube-filter-card-height";
   const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
+  const YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY = "yomu:youtube-all-subscribed:v1";
   const YOUTUBE_CHANNEL_SHELF_PREVIEW_BACKFILL_DELAY_MS = 250;
   const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
   const YOUTUBE_NAVIGATION_EVENTS = [
@@ -40928,6 +40933,14 @@ ${spelling}`);
     cardTimers = /* @__PURE__ */ new WeakMap();
     compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
     subscribedChannelHandles = /* @__PURE__ */ new Set();
+    // Channels whose id can no longer be resolved (deleted/moved/renamed). Kept
+    // separate so a dead channel never blocks the "all subscribed" state.
+    unresolvableChannelHandles = /* @__PURE__ */ new Set();
+    // Once every channel is subscribed (or unresolvable) we stop re-testing
+    // subscription status on each shelf render. Persisted, keyed by the channel
+    // list signature so editing the list re-tests against the new set.
+    channelsAllSubscribed = false;
+    channelSubscriptionStateLoaded = false;
     channelShelfRefreshTimer;
     lastShelfBackfillAt = 0;
     lastAdvancedShortKey = "";
@@ -40940,6 +40953,27 @@ ${spelling}`);
     unsubscribedChannels(channels) {
       return channels.filter((channel) => !this.subscribedChannelHandles.has(channel.handle));
     }
+    loadChannelSubscriptionState() {
+      if (this.channelSubscriptionStateLoaded) return;
+      this.channelSubscriptionStateLoaded = true;
+      const stored = gmStorageGetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, null);
+      if (stored?.signature === youTubeChannelListSignature()) {
+        this.channelsAllSubscribed = true;
+        for (const channel of allYouTubeChannelRecommendations()) this.subscribedChannelHandles.add(channel.handle);
+      } else if (stored) {
+        gmStorageDeleteSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY);
+      }
+    }
+    // Persist the "all subscribed" flag once every channel is subscribed or
+    // unresolvable (deleted/moved/renamed), so the shelf stops re-testing
+    // subscription status on every render. A dead channel never blocks this.
+    markChannelSubscriptionCompleteIfReady() {
+      if (this.channelsAllSubscribed) return;
+      const settled = (handle) => this.subscribedChannelHandles.has(handle) || this.unresolvableChannelHandles.has(handle);
+      if (!allYouTubeChannelRecommendations().every((channel) => settled(channel.handle))) return;
+      this.channelsAllSubscribed = true;
+      gmStorageSetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, { signature: youTubeChannelListSignature() });
+    }
     init() {
       this.destroy();
       this.destroyed = false;
@@ -40947,6 +40981,7 @@ ${spelling}`);
         this.destroyed = true;
         return;
       }
+      this.loadChannelSubscriptionState();
       this.setFilterActiveClass(true);
       this.startWatching();
       this.scan();
@@ -41621,6 +41656,7 @@ ${spelling}`);
       return this.unsubscribedChannels(filterYouTubeChannelRecommendations(this.channelShelfFilter));
     }
     hydrateRenderedChannelPreviews(channels) {
+      if (this.channelsAllSubscribed) return;
       const missing = channels.filter((channel) => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
       void this.hydrateChannelPreviews(missing.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
       if (!this.channelShelfExpanded) {
@@ -41659,6 +41695,7 @@ ${spelling}`);
           if (preview?.channelId) this.channelIdCache.set(channel.handle, preview.channelId);
           if (preview?.subscribed) {
             this.subscribedChannelHandles.add(channel.handle);
+            this.markChannelSubscriptionCompleteIfReady();
             this.scheduleChannelShelfRefresh(0);
             return;
           }
@@ -41704,7 +41741,10 @@ ${spelling}`);
         elements.status.textContent = `Subscribing ${index + 1}/${channels.length}: ${channel.name}`;
         try {
           const channelId = await resolveYouTubeChannelId(channel, config, this.channelIdCache);
-          if (!channelId) throw new Error("Missing YouTube channel id.");
+          if (!channelId) {
+            this.unresolvableChannelHandles.add(channel.handle);
+            throw new Error("Missing YouTube channel id.");
+          }
           await subscribeYouTubeChannel(channelId, config);
           subscribed += 1;
           this.markChannelRowSubscribed(channel);
@@ -41712,6 +41752,7 @@ ${spelling}`);
           failed += 1;
         }
       }
+      this.markChannelSubscriptionCompleteIfReady();
       this.subscriptionBusy = false;
       this.setChannelShelfBusy(false);
       this.setChannelShelfStatus(elements, failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`);
