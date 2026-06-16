@@ -247,12 +247,13 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
             finalViewport: finalSnapshot.viewport,
             steps,
             performanceProblems: performanceProblems(steps),
+            credentialProblems: credentialProblems(requestLog),
             layoutEvidence,
             requests: summarizeRequests(requestLog),
             errors: errors.slice(0, 12),
             screenshots: screenshotNames.map(name => join(scenarioDir, `${name}.png`)),
         };
-        scenario.ok = scenario.ok && scenario.performanceProblems.length === 0;
+        scenario.ok = scenario.ok && scenario.performanceProblems.length === 0 && scenario.credentialProblems.length === 0;
         writeFileSync(join(scenarioDir, 'scenario.json'), `${JSON.stringify(scenario, null, 2)}\n`);
         return scenario;
     } finally {
@@ -644,13 +645,16 @@ async function waitForKeylessVisualParse(page) {
         const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + metrics.panel.knownPitchWords;
         return metrics.page.words >= 3
             && metrics.page.furiWords >= 1
-            && metrics.page.pitchWords >= metrics.page.words
+            && metrics.page.wordsWithoutPitch === 0
+            && metrics.page.kanjiWordsWithoutFuri === 0
             && metrics.overlay.words >= 1
             && metrics.overlay.furiWords >= 1
-            && metrics.overlay.pitchWords >= metrics.overlay.words
+            && metrics.overlay.wordsWithoutPitch === 0
+            && metrics.overlay.kanjiWordsWithoutFuri === 0
             && metrics.panel.words >= 12
             && metrics.panel.furiWords >= 6
-            && metrics.panel.pitchWords >= metrics.panel.words
+            && metrics.panel.wordsWithoutPitch === 0
+            && metrics.panel.kanjiWordsWithoutFuri === 0
             && totalKnownPitch >= 1;
     }, null, { timeout: 7_000 });
 }
@@ -844,12 +848,16 @@ async function snapshot(page) {
             const pitchClasses = ['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku'];
             const hasPitch = word => Array.from(word.classList).some(className => className.startsWith('jpdb-pitch-'));
             const hasKnownPitch = word => pitchClasses.some(name => word.classList.contains(`jpdb-pitch-${name}`));
+            const kanjiWords = words.filter(word => /[\u3400-\u9fff々〆ヵヶ]/u.test(word.textContent ?? ''));
             return {
                 words: words.length,
                 furiWords: words.filter(word => word.querySelector('rt')).length,
                 pitchWords: words.filter(hasPitch).length,
                 knownPitchWords: words.filter(hasKnownPitch).length,
                 unknownPitchWords: words.filter(word => word.classList.contains('jpdb-pitch-unknown')).length,
+                wordsWithoutPitch: words.filter(word => !hasPitch(word)).length,
+                kanjiWords: kanjiWords.length,
+                kanjiWordsWithoutFuri: kanjiWords.filter(word => !word.querySelector('rt')).length,
             };
         }
     });
@@ -880,6 +888,7 @@ function compactSnapshot(state) {
             firstVisibleIndex: state.transcript.firstVisibleIndex,
             lastVisibleIndex: state.transcript.lastVisibleIndex,
         } : null,
+        visualParse: state.visualParse,
         panelHidden: state.panelHidden,
         handleAria: state.handleAria,
         videoInset: state.videoInset,
@@ -909,6 +918,28 @@ function layoutProblems(state, requestedPlacement, stepName) {
     return problems;
 }
 
+function visualParseProblems(state, stepName) {
+    const metrics = state.visualParse;
+    if (!metrics) return ['missing visual parse metrics'];
+    const problems = [];
+    const surfaces = [
+        ['page', metrics.page, stepName === 'loaded' ? 1 : 3],
+        ['subtitle overlay', metrics.overlay, stepName === 'loaded' ? 0 : 1],
+        ['transcript panel', metrics.panel, stepName === 'loaded' ? 0 : 12],
+    ];
+    for (const [label, surface, minimumWords] of surfaces) {
+        if (!surface || surface.words < minimumWords) {
+            problems.push(`${label} has only ${surface?.words ?? 0} parsed words`);
+            continue;
+        }
+        if (surface.wordsWithoutPitch > 0) problems.push(`${label} has ${surface.wordsWithoutPitch} parsed words without pitch classes`);
+        if (surface.kanjiWordsWithoutFuri > 0) problems.push(`${label} has ${surface.kanjiWordsWithoutFuri} kanji words without furigana`);
+    }
+    const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + metrics.panel.knownPitchWords;
+    if (stepName !== 'loaded' && totalKnownPitch < 1) problems.push('no known pitch accent classes appeared across parsed surfaces');
+    return problems;
+}
+
 function layoutWarnings(state, stepName) {
     const warnings = [];
     if (state.panel && state.video && overlaps(state.panel, state.video) && isExpectedBottomOverlapEvidence(state, stepName)) {
@@ -931,6 +962,14 @@ function performanceProblems(steps) {
         }
     }
     return problems;
+}
+
+function credentialProblems(requestLog) {
+    if (!keylessMode) return [];
+    const privateJpdbParse = requestLog.filter(entry => entry.kind === 'jpdb-parse-keyless-blocked');
+    return privateJpdbParse.length
+        ? [`keyless mode attempted ${privateJpdbParse.length} JPDB parse API request(s)`]
+        : [];
 }
 
 function isExpectedBottomOverlapEvidence(state, stepName) {
@@ -1023,7 +1062,7 @@ async function installFixtureRoutes(page, requestLog) {
 }
 
 async function installApiMocks(page, requestLog) {
-    if (liveJpdbMode) return;
+    if (liveJpdbMode || keylessMode) return;
     await page.route('https://jpdb.io/api/v1/parse', async route => {
         const body = JSON.parse(route.request().postData() || '{}');
         requestLog.push({ kind: 'jpdb-parse-route', chars: JSON.stringify(body.text ?? '').length });
@@ -1057,6 +1096,14 @@ function routeBridgeResponse(request, requestLog) {
         };
     }
     if (target.href.startsWith(jpdbParseUrl)) {
+        if (keylessMode) {
+            requestLog.push({ kind: 'jpdb-parse-keyless-blocked', ...jpdbParseRequestDetails(request), url: redactUrl(target.href) });
+            return {
+                status: 403,
+                responseText: JSON.stringify({ error: 'JPDB parse API is disabled in keyless smoke mode.' }),
+                contentType: 'application/json; charset=utf-8',
+            };
+        }
         if (liveJpdbMode) return null;
         const body = parseJsonBody(gmRequestFetchBody(request));
         requestLog.push({ kind: 'jpdb-parse-bridge', chars: JSON.stringify(body.text ?? '').length });
@@ -1094,6 +1141,21 @@ async function liveBridgeResponse(request, requestLog) {
 
 function liveBridgeRequestDetails(url, request) {
     if (url.href.startsWith(jpdbParseUrl)) return jpdbParseRequestDetails(request);
+    if (isJpdbPublicLookupUrl(url)) {
+        const query = url.searchParams.get('q') ?? '';
+        return {
+            path: url.pathname,
+            query,
+            requestChars: query.length,
+        };
+    }
+    if (isJitenPublicUrl(url)) {
+        const text = url.searchParams.get('text') ?? url.searchParams.get('q') ?? '';
+        return {
+            path: url.pathname,
+            requestChars: text.length,
+        };
+    }
     if (isYoutubeTimedTextUrl(url)) {
         return {
             lang: url.searchParams.get('lang') ?? null,
@@ -1135,13 +1197,27 @@ function bridgeErrorMessage(error) {
 function shouldLiveFetchBridgeUrl(url) {
     return isYoutubeTimedTextUrl(url)
         || url.hostname === 'translate.googleapis.com'
+        || isJpdbPublicLookupUrl(url)
+        || isJitenPublicUrl(url)
         || (liveJpdbMode && url.href.startsWith(jpdbParseUrl));
 }
 
 function liveBridgeKind(url) {
     if (isYoutubeTimedTextUrl(url)) return 'youtube-timedtext-live-bridge';
     if (url.href.startsWith(jpdbParseUrl)) return 'jpdb-parse-live-bridge';
+    if (isJpdbPublicLookupUrl(url)) return 'jpdb-public-live-bridge';
+    if (isJitenPublicUrl(url)) return 'jiten-public-live-bridge';
     return 'google-translate-live-bridge';
+}
+
+function isJpdbPublicLookupUrl(url) {
+    return url.hostname === 'jpdb.io'
+        && (url.pathname === '/search' || url.pathname.startsWith('/vocabulary/'));
+}
+
+function isJitenPublicUrl(url) {
+    return url.hostname === 'api.jiten.moe'
+        && url.pathname.startsWith('/api/');
 }
 
 function liveFetchInit(request, method) {
@@ -1195,18 +1271,19 @@ function smokeSettings(placement) {
     return {
         onboardingSeen: true,
         interfaceLanguage: 'en',
-        apiKey: liveJpdbMode ? liveJpdbApiKey : 'profile-key',
+        apiKey: keylessMode ? '' : liveJpdbMode ? liveJpdbApiKey : 'profile-key',
         jitenApiKey: '',
         ankiEnabled: false,
         ankiSectionEnabled: false,
-        localDictionariesEnabled: false,
+        localDictionariesEnabled: keylessMode,
         audioEnabled: false,
-        jpdbDefinitionsEnabled: false,
+        jpdbDefinitionsEnabled: keylessMode,
         immersionKitEnabled: false,
         studyTranslationEnabled: false,
         studyGrammarEnabled: false,
         enableLogging: false,
         showFloatingButton: false,
+        showPitchAccent: true,
         furiganaMode: 'all',
         subtitlePlayerEnabled: true,
         subtitleAutoDetect: true,
