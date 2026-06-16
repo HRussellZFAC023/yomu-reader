@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
+import { canHoverLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { localizeSettingsForm, renderSettingsForm } from '../../src/reader/settings/form';
@@ -61,11 +62,14 @@ describe('hosted newtab settings self enhancement', () => {
             expect(appearanceTab?.closest('button[data-action="settings-panel"]')).toBeInstanceOf(HTMLButtonElement);
             expect(appearanceTab?.querySelector('.jpdb-reader-furi')?.textContent).toBe('がいかん');
             expect(appearanceTab?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(appearanceTab?.dataset.jpdbReaderPassive).toBe('true');
+            expect(appearanceTab ? canHoverLookupReaderWordElement(appearanceTab, true) : true).toBe(false);
 
             const cancelWord = form.querySelector<HTMLElement>('.footer [data-action="cancel"] .jpdb-reader-word[data-expression="キャンセル"]');
             expect(cancelWord).toBeTruthy();
             expect(cancelWord?.closest('button[data-action="cancel"]')).toBeInstanceOf(HTMLButtonElement);
             expect(cancelWord?.dataset.jpdbReaderPassive).toBe('true');
+            expect(cancelWord ? canHoverLookupReaderWordElement(cancelWord, true) : true).toBe(false);
             expect(cancelWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
 
             const saveWord = form.querySelector<HTMLElement>('.footer button[type="submit"] .jpdb-reader-word[data-expression="保存"]');

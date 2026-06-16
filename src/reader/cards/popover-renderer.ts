@@ -233,39 +233,7 @@ export class CardPopoverRenderer {
         data: CardRenderData & { loading: boolean },
         provider: ApiSrsProviderView | null,
     ): string {
-        if (!this.canRenderApiMiningActions(provider)) return '';
-        const state = miningActionState(cardStates, language);
-        const addDeckSelect = this.renderAddDeckSelect(data, language, provider);
-        return this.renderApiMiningActionDetails(language, state, addDeckSelect);
-    }
-
-    private canRenderApiMiningActions(provider: ApiSrsProviderView | null): boolean {
-        const settings = this.settings();
-        return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
-    }
-
-    private renderAddDeckSelect(data: CardRenderData & { loading: boolean }, language: InterfaceLanguage, provider: ApiSrsProviderView | null): string {
-        const deckOptions = renderDeckChoiceOptions(this.settings(), data.jpdbDecks, data.ankiDecks, {
-            includeJpdb: provider?.id === 'jpdb',
-            includeJiten: provider?.id === 'jiten',
-            jitenDecks: data.jitenDecks ?? [],
-        });
-        if (!deckOptions) return '';
-        return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
-    }
-
-    private renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string): string {
-        const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
-        return `
-                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
-                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml(uiText(language, 'addToDeckHint'))}" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
-                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
-                    </div>
-                    ${addDeckSelect}
-                </div>
-            `;
+        return renderApiMiningActions(this.settings(), cardStates, language, data, provider);
     }
 
     private renderReviewButtons(options: ReviewButtonsRenderOptions): string {
@@ -408,7 +376,7 @@ export class CardPopoverRenderer {
         const canShowProviderStatus = Boolean(provider?.hasApiKey);
         return [
             renderMetaReading(card, settings),
-            card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : '',
+            card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : '',
             canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
             renderAnkiMeta(data.ankiLookup, settings),
         ].filter(Boolean);
@@ -436,6 +404,16 @@ export class CardPopoverRenderer {
         if (provider?.id === 'jiten') return jitenDeckLabel((data.jitenDecks ?? [])[0]);
         return jpdbDeckLabel(this.settings(), this.settings().miningDeck.trim() || 'forq', data.jpdbDecks);
     }
+}
+
+export function renderApiMiningPanel(
+    settings: ReaderSettings,
+    cardStates: ReturnType<typeof normalizeCardStates>,
+    data: CardRenderData & { loading: boolean },
+    provider: ApiSrsProviderView | null,
+): string {
+    const actions = renderApiMiningActions(settings, cardStates, settings.interfaceLanguage, data, provider);
+    return actions ? `<div class="jpdb-reader-mining-panel">${actions}</div>` : '';
 }
 
 export function updatePopoverReviewTargetSelection(select: HTMLSelectElement): void {
@@ -524,6 +502,52 @@ function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, l
         neverForgetLabel: isNeverForget ? uiText(language, 'forget') : uiText(language, 'never'),
         blacklistLabel: isBlacklisted ? uiText(language, 'unlist') : uiText(language, 'blacklist'),
     };
+}
+
+function renderApiMiningActions(
+    settings: ReaderSettings,
+    cardStates: ReturnType<typeof normalizeCardStates>,
+    language: InterfaceLanguage,
+    data: CardRenderData & { loading: boolean },
+    provider: ApiSrsProviderView | null,
+): string {
+    if (!canRenderApiMiningActions(settings, provider)) return '';
+    const state = miningActionState(cardStates, language);
+    const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
+    return renderApiMiningActionDetails(language, state, addDeckSelect);
+}
+
+function canRenderApiMiningActions(settings: ReaderSettings, provider: ApiSrsProviderView | null): boolean {
+    return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+}
+
+function renderAddDeckSelect(
+    settings: ReaderSettings,
+    data: CardRenderData & { loading: boolean },
+    language: InterfaceLanguage,
+    provider: ApiSrsProviderView | null,
+): string {
+    const deckOptions = renderDeckChoiceOptions(settings, data.jpdbDecks, data.ankiDecks, {
+        includeJpdb: provider?.id === 'jpdb',
+        includeJiten: provider?.id === 'jiten',
+        jitenDecks: data.jitenDecks ?? [],
+    });
+    if (!deckOptions) return '';
+    return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
+}
+
+function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string): string {
+    const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
+    return `
+                <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
+                    <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml(uiText(language, 'addToDeckHint'))}" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
+                    </div>
+                    ${addDeckSelect}
+                </div>
+            `;
 }
 
 function renderMetaReading(card: JPDBCard, settings: ReaderSettings): string {

@@ -45,6 +45,9 @@ const STATIC_NEW_TAB_ROUTES = new Map([
     ['/favicon-32x32.png', [path.join(DIST, 'favicon-32x32.png'), 'image/png']],
 ]);
 const JITEN_REQUEST_HANDLERS = new Map([
+    ['GET srs/reader-study-decks', handleJitenReaderStudyDecks],
+    ['POST srs/reader-study-decks', handleJitenReaderStudyDecks],
+    ['GET srs/study-decks', handleJitenReaderStudyDecks],
     ['GET srs/study-batch', handleJitenStudyBatch],
     ['POST srs/review', handleJitenReview],
 ]);
@@ -60,6 +63,7 @@ const PUBLIC_SEARCH_FIXTURES = new Map([
     ['学習能力', { vid: 101002, expression: '学習能力', reading: 'がくしゅうのうりょく', meaning: 'learning ability', rank: 32900 }],
 ]);
 const JITEN_SEARCH_FIXTURES = new Map([
+    ['たっぷり', { wordId: 42, readingIndex: 2, expression: 'たっぷり', reading: 'たっぷり', annotated: 'たっぷり', meaning: 'plenty; full', example: 'たっぷり時間がある。' }],
     ['読む', { wordId: 201000, readingIndex: 0, expression: '読む', reading: 'よむ', annotated: '読[よ]む', meaning: 'to read', example: '本を読む。' }],
     ['読み取る', { wordId: 201001, readingIndex: 0, expression: '読み取る', reading: 'よみとる', annotated: '読[よ]み取[と]る', meaning: 'to read; to understand', example: '意図を読み取る。' }],
     ['学習能力', { wordId: 201002, readingIndex: 0, expression: '学習能力', reading: 'がくしゅうのうりょく', annotated: '学習能力[がくしゅうのうりょく]', meaning: 'learning ability', example: '学習能力が高い。' }],
@@ -148,6 +152,11 @@ async function handleMockedApiRoute(route, requests) {
     const publicJpdb = publicJpdbResponse(url, request.method());
     if (publicJpdb) {
         await route.fulfill(mockedRouteResponse(publicJpdb));
+        return;
+    }
+    const immersionKit = immersionKitResponse(url, request.method(), requests);
+    if (immersionKit) {
+        await route.fulfill(mockedRouteResponse(immersionKit));
         return;
     }
     const mocked = mockedApiRequest(routeRequestSnapshot(request), requests);
@@ -253,6 +262,25 @@ function publicJpdbVocabularyResultHtml(fixture) {
     `;
 }
 
+function immersionKitResponse(url, method, requests) {
+    if (method !== 'GET' || !/^https:\/\/apiv2(?:express)?\.immersionkit\.com$/.test(url.origin)) return null;
+    if (url.pathname !== '/search') return null;
+    requests.push({ kind: 'immersion-kit-search', query: url.searchParams.get('q') ?? '' });
+    return jsonHttpResponse({
+        examples: [{
+            id: 'ik-smoke-tappuri',
+            sentence: 'たっぷり食べたので満足です。',
+            sentence_with_furigana: 'たっぷり 食[た]べたので 満足[まんぞく]です。',
+            translation: 'I ate plenty, so I am satisfied.',
+            title: 'Immersion Smoke',
+            sourceTitle: 'Immersion Smoke',
+            source: 'Immersion Smoke',
+            category: 'anime',
+            sound_url: 'https://media.example.test/immersion-tappuri.mp3',
+        }],
+    });
+}
+
 function corsHeaders() {
     return {
         'access-control-allow-origin': '*',
@@ -274,6 +302,8 @@ function mockedApiRequestInner(request, requests) {
     const url = new URL(request.url);
     const publicJpdb = publicJpdbResponse(url, request.method);
     if (publicJpdb) return publicJpdb;
+    const immersionKit = immersionKitResponse(url, request.method, requests);
+    if (immersionKit) return immersionKit;
     if (url.origin === JITEN_API_ORIGIN) return mockedJitenRequest(url, request, requests);
     if (url.origin === JPDB_API_ORIGIN) return mockedJpdbRequest(url, request, requests);
     return null;
@@ -310,6 +340,11 @@ function handleJitenReview(_url, request, requests) {
     return jsonHttpResponse({});
 }
 
+function handleJitenReaderStudyDecks(_url, _request, requests) {
+    requests.push({ kind: 'jiten-reader-study-decks' });
+    return jsonHttpResponse([{ userStudyDeckId: 2864, name: 'Smoke deck' }]);
+}
+
 function handleJitenPing(_url, _request, requests) {
     requests.push({ kind: 'jiten-ping' });
     return jsonHttpResponse({});
@@ -342,7 +377,18 @@ function handleJitenVocabularyInfo(url, _request, requests) {
         definitions: [{ senseIndex: 0, englishMeanings: [fixture.meaning], pos: ['noun'] }],
         pitchAccents: [0],
         knownStates: [],
-        composedOf: [],
+        composedOf: [{
+            wordId: fixture.wordId + 500,
+            readingIndex: 0,
+            reading: fixture.expression,
+            readingFurigana: fixture.annotated,
+            mainDefinition: fixture.meaning,
+            frequencyRank: 1800,
+            matchSurface: fixture.expression,
+            knownStates: [],
+            pitchAccents: [0],
+            audioUrls: ['https://media.example.test/jiten-word.mp3'],
+        }],
         usedIn: [{
             wordId: fixture.wordId + 1000,
             readingIndex: 0,
@@ -353,6 +399,7 @@ function handleJitenVocabularyInfo(url, _request, requests) {
             matchSurface: `${fixture.expression}力`,
             knownStates: [],
             pitchAccents: [1],
+            audioUrls: ['https://media.example.test/jiten-related.mp3'],
         }],
         usedInTotal: 1,
     });
@@ -369,7 +416,7 @@ function handleJitenVocabularyExamples(url, _request, requests) {
         wordLength: fixture.expression.length,
         difficulty: null,
         sourceTitle: 'Smoke fixture',
-        audioUrls: [],
+        audioUrls: ['https://media.example.test/jiten-sentence.mp3'],
     }]);
 }
 
@@ -449,6 +496,14 @@ function jitenStudyBatchResponse() {
     return {
         sessionId: 'smoke-session',
         cards: [createJitenStudyBatchCard({
+            wordText: 'たっぷり',
+            wordTextPlain: 'たっぷり',
+            readings: [{ text: 'たっぷり', rubyText: 'たっぷり', readingIndex: 2, formType: 0 }],
+            definitions: [{ index: 0, meanings: ['plenty; full'], partsOfSpeech: ['adv'] }],
+            partsOfSpeech: ['adv'],
+            pitchAccents: [0],
+            frequencyRank: 1800,
+            exampleSentence: { text: 'たっぷり時間がある。' },
             sourceDeckName: 'Smoke deck',
         })],
         newCardsRemaining: 1,
@@ -477,9 +532,19 @@ function jpdbVocabularyTuple() {
 
 async function runJitenOnlySmoke(browser, fixture) {
     const requests = [];
-    const { context, page } = await installNewTabPage(browser, fixture, createSettings(), requests);
+    const { context, page } = await installNewTabPage(browser, fixture, createSettings({
+        newTabFrontSentenceEnabled: true,
+        newTabParsingEnabled: true,
+        immersionKitEnabled: true,
+        immersionKitShowImages: false,
+        immersionKitShowTranslation: true,
+        immersionKitAutoPlayAudio: false,
+        immersionKitPlayOnHover: false,
+        audioEnabled: true,
+        }), requests);
     try {
-        await expectText(page, '[data-newtab-prompt]', '日本語');
+        await expectText(page, '[data-newtab-prompt]', 'たっぷり');
+        await expectText(page, '.jpdb-reader-newtab-sentence', 'たっぷり');
         await expectText(page, '[data-newtab-status]', 'Jiten');
         await expectText(page, '[data-newtab-count]', 'Left 1');
         await assertStatusLight(page, 'jiten');
@@ -488,6 +553,20 @@ async function runJitenOnlySmoke(browser, fixture) {
         assertNoRequests(requests, request => String(request.kind).startsWith('jpdb-'), 'Jiten-only smoke unexpectedly called JPDB');
         await page.click('[data-newtab-action="reveal"]');
         await expectText(page, '[data-newtab-grade-target-text]', 'Grades Jiten');
+        await page.waitForSelector('[data-newtab-study-details] [data-source="jiten"]', { timeout: 12_000 });
+        await expectText(page, '[data-newtab-study-details] .jpdb-reader-jiten-headword', 'たっぷり');
+        await expectText(page, '[data-newtab-study-details] [data-source="jiten"]', 'plenty; full');
+        await expectText(page, '[data-newtab-study-details] [data-source="jiten"]', 'Smoke fixture');
+        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-jiten-example [data-action="jiten-audio"][data-jiten-audio-urls]', { timeout: 12_000 });
+        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-mining-panel [data-action="deck-picker"]', { timeout: 12_000 });
+        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-mining-panel [data-action="neverforget"]', { timeout: 12_000 });
+        await page.waitForSelector('[data-newtab-study-details] .jpdb-reader-mining-panel [data-action="blacklist"]', { timeout: 12_000 });
+        await page.waitForSelector('.jpdb-reader-newtab-immersion .jpdb-reader-example-card', { timeout: 12_000 });
+        await expectText(page, '.jpdb-reader-newtab-immersion', 'Immersion Smoke');
+        assertRequestCountAtLeast(requests, 'jiten-vocabulary-info', 1);
+        assertRequestCountAtLeast(requests, 'jiten-vocabulary-examples', 1);
+        assertRequestCountAtLeast(requests, 'jiten-reader-study-decks', 1);
+        assertRequestCountAtLeast(requests, 'immersion-kit-search', 1);
         assertRequestCount(requests, 'jiten-review', 0);
         await screenshot(page, 'jiten-newtab-jiten-only.png');
         // Failed-card loop: a failing grade submits a review but requeues the
@@ -496,7 +575,7 @@ async function runJitenOnlySmoke(browser, fixture) {
         const failedReview = await waitForRequest(requests, item => item.kind === 'jiten-review', 8_000);
         assert(failedReview, 'Failed Jiten review request was not submitted', { requests });
         assert(failedReview.body.rating === 1, 'Failed Jiten review should submit rating 1', failedReview.body);
-        await expectText(page, '[data-newtab-prompt]', '日本語');
+        await expectText(page, '[data-newtab-prompt]', 'たっぷり');
         // Undo affordance appears once a Jiten review has been graded.
         await page.waitForSelector('[data-newtab-action="undo-review"]', { timeout: 8_000 });
         await page.click('[data-newtab-action="reveal"]');

@@ -737,19 +737,26 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text:has(.jpdb-reader-has-furi) { min-height: 0; display: block; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid > label:not(.inline) > .jpdb-reader-settings-label-text, .jpdb-reader-settings .jpdb-reader-settings-cgrid > * > label:not(.inline) > .jpdb-reader-settings-label-text { min-height: 0; display: block; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > label.inline { align-self: end; margin: 0; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid > label.inline { align-self: start; align-items: center; min-height: 38px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid:has(> label:not(.inline)) > label.inline { align-self: start; margin-top: 28px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-tgrid > label.inline { align-self: start; align-items: center; min-height: 38px; margin-top: 0; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-settings-cgrid > label.inline { align-self: start; align-items: center; min-height: 38px; margin-top: 28px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-color-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] { display: flex; align-items: flex-start; padding-top: 36px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%; min-width: 0; height: 40px;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) { line-height: 1; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate { border-color: var(--jpdb-reader-accent); background: var(--jpdb-reader-accent);');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist { display: flex; flex-wrap: wrap;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist a { color: var(--jpdb-reader-accent-readable);');
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word {');
         expect(normalizedCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview { min-height: 170px;');
-        expect(normalizedCss).toContain('display: grid; place-items: center; align-content: center; min-width: 0; overflow-wrap: normal; word-break: normal; text-align: center; font-size: 28px; line-height: 1.48;');
+        expect(normalizedCss).toContain('display: flex; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; min-width: 0; overflow-wrap: anywhere; word-break: normal; text-align: center; font-size: 28px; line-height: 1.48;');
+        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; width: 100%; max-width: min(100%, 36em); min-width: 0; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview-line .jpdb-reader-word { display: inline-block !important; width: auto !important; max-width: none !important; vertical-align: baseline; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.28; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini { grid-column: 2; grid-row: 1; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta { grid-column: 1 / -1; }');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-select-options-meta { font-size: 10px; line-height: 1.28; }');
     });
 
     it('groups media settings into compact toggle and control grids', () => {
@@ -807,6 +814,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-up"] { grid-column: 1; grid-row: 1; }');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-down"] { grid-column: 1; grid-row: 2; }');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-source-drag-handle] { grid-column: 2; grid-row: 2; }');
+        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-select-options-meta:not(.expanded) { display: -webkit-box; max-height: 2.6em; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }');
         expect(normalizedCss).toContain('@media (max-width: 380px) { .jpdb-reader-order-row { grid-template-columns: 44px minmax(0, 1fr) 73px; gap: 5px;');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-tools { gap: 5px; width: 73px; min-width: 73px; max-width: 73px; }');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 1; align-self: start; justify-content: flex-end; }');

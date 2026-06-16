@@ -1,10 +1,11 @@
 #!/usr/bin/env node
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
     assert,
     assertBuiltArtifacts,
+    addGmStorageBridgeInitScript,
     closeServer,
     createSmokePaths,
     jsonHttpResponse,
@@ -20,9 +21,13 @@ import {
 const {
     root: ROOT,
     newTabDir: NEWTAB_DIR,
+    scriptPath: SCRIPT_PATH,
+    cssPath: CSS_PATH,
 } = createSmokePaths(import.meta.dirname);
+const INJECT_USERSCRIPT = process.env.YOMU_HOSTED_SETTINGS_INJECT_USERSCRIPT === '1';
 
 assertBuiltArtifacts([
+    ...(INJECT_USERSCRIPT ? [SCRIPT_PATH, CSS_PATH] : []),
     path.join(NEWTAB_DIR, 'index.html'),
     path.join(NEWTAB_DIR, 'app.js'),
     path.join(NEWTAB_DIR, 'styles.css'),
@@ -104,6 +109,17 @@ try {
     }, { key: YOMU_SETTINGS_KEY, settings: SETTINGS });
 
     const page = await context.newPage();
+    if (INJECT_USERSCRIPT) {
+        await page.exposeFunction('__yomuHostedSettingsSmokeRequest', request => mockedUserscriptRequest(request, requests));
+        await addGmStorageBridgeInitScript(page, {
+            key: YOMU_SETTINGS_KEY,
+            value: SETTINGS,
+            css: readFileSync(CSS_PATH, 'utf8'),
+            requestBridgeName: '__yomuHostedSettingsSmokeRequest',
+            initialize: 'ifMissing',
+        });
+        await page.addInitScript({ path: SCRIPT_PATH });
+    }
     await routeMockedHttpRequests(page, {
         requests,
         isMockedApiOrigin: url => url.hostname === 'jpdb.io',
@@ -116,45 +132,74 @@ try {
         if (process.env.SMOKE_DEBUG) console.error('[hosted-settings pageerror]', error.message);
     });
 
-    await page.goto(`${server.origin}/newtab/index.html?q=%E8%AA%AD%E3%81%BF%E5%8F%96%E3%82%8B`, { waitUntil: 'domcontentloaded' });
+    const targetUrl = `${server.origin}/newtab/index.html?q=%E8%AA%AD%E3%81%BF%E5%8F%96%E3%82%8B`;
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('[data-jpdb-reader-root].jpdb-reader-newtab', { state: 'attached', timeout: 15_000 });
     await page.waitForSelector('.jpdb-reader-newtab-more summary', { timeout: 15_000 });
     await page.locator('.jpdb-reader-newtab-more summary').click();
-    await page.locator('[data-newtab-action="settings"]').click();
-    await waitForSettingsSelector(page, requests, '.jpdb-reader-settings h2 .jpdb-reader-word[data-expression="設定"].jpdb-pitch-heiban');
-    await waitForSettingsSelector(page, requests, '.jpdb-reader-settings-search .jpdb-reader-word[data-expression="検索"].jpdb-pitch-heiban');
-    await waitForSettingsSelector(page, requests, '.jpdb-reader-settings-tabs [data-panel="appearance"] .jpdb-reader-word[data-expression="外観"].jpdb-pitch-heiban');
-    await waitForSettingsSelector(page, requests, '.jpdb-reader-settings > .footer [data-action="cancel"] .jpdb-reader-word[data-expression="キャンセル"]');
-    await waitForSettingsSelector(page, requests, '.jpdb-reader-settings > .footer button[type="submit"] .jpdb-reader-word[data-expression="保存"]');
+    if (INJECT_USERSCRIPT) {
+        await page.locator('[data-newtab-action="settings"]').evaluate(button => {
+            if (!(button instanceof HTMLButtonElement)) throw new Error('Settings menu item is not a button.');
+            button.click();
+        });
+    } else {
+        await page.locator('[data-newtab-action="settings"]').click();
+    }
+    if (INJECT_USERSCRIPT) {
+        await page.waitForFunction(() => document.querySelectorAll('.jpdb-reader-settings .jpdb-reader-word').length > 0, { timeout: 60_000 })
+            .catch(async error => {
+                throw new Error(`${error.message}\n${JSON.stringify({
+                    selector: '.jpdb-reader-settings .jpdb-reader-word',
+                    snapshot: await settingsSnapshot(page),
+                    parseRequests: requests
+                        .filter(request => request.endpoint === 'parse')
+                        .map(request => ({ chars: request.text.length, hasSettingsText: request.text.includes('設定'), preview: request.text.slice(0, 160) })),
+                }, null, 2)}`);
+            });
+    } else {
+        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings h2 .jpdb-reader-word[data-expression="設定"].jpdb-pitch-heiban');
+        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings-search .jpdb-reader-word[data-expression="検索"].jpdb-pitch-heiban');
+        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings-tabs [data-panel="appearance"] .jpdb-reader-word[data-expression="外観"].jpdb-pitch-heiban');
+        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings > .footer [data-action="cancel"] .jpdb-reader-word[data-expression="キャンセル"]');
+        await waitForSettingsSelector(page, requests, '.jpdb-reader-settings > .footer button[type="submit"] .jpdb-reader-word[data-expression="保存"]');
+    }
 
     const initial = await settingsSnapshot(page);
-    assert(initial.noUserscriptBridge, 'Hosted settings smoke unexpectedly found a userscript bridge', initial);
+    assert(initial.noUserscriptBridge === !INJECT_USERSCRIPT, INJECT_USERSCRIPT
+        ? 'Hosted settings smoke did not find the injected userscript bridge'
+        : 'Hosted settings smoke unexpectedly found a userscript bridge',
+    initial);
     assert(initial.runtimeMarker === 'newtab', 'Hosted newtab runtime marker missing', initial);
     assert(initial.wordCount >= 8, 'Hosted settings did not enhance enough Japanese labels', initial);
-    assert(initial.rubyCount >= 4, 'Hosted settings did not render ruby without userscript injection', initial);
-    assert(initial.pitchCount >= 5, 'Hosted settings did not render pitch classes without userscript injection', initial);
-    assert(initial.exact.title.hasRuby && initial.exact.title.pitch, 'Settings title did not get ruby and pitch', { initial, requests });
-    assert(initial.exact.searchLabel.hasRuby && initial.exact.searchLabel.pitch, 'Settings search label did not get ruby and pitch', initial);
-    assert(initial.exact.appearanceTab.hasRuby && initial.exact.appearanceTab.pitch, 'Appearance tab did not get ruby and pitch', initial);
-    assert(initial.exact.cancel.found && initial.exact.cancel.passive, 'Cancel button text did not stay passively enhanced', initial);
-    assert(initial.exact.save.hasRuby && initial.exact.save.pitch && initial.exact.save.passive, 'Save button text did not get passive ruby and pitch', initial);
+    if (!INJECT_USERSCRIPT) {
+        assert(initial.rubyCount >= 4, 'Hosted settings did not render ruby without userscript injection', initial);
+        assert(initial.pitchCount >= 5, 'Hosted settings did not render pitch classes without userscript injection', initial);
+        assert(initial.exact.title.hasRuby && initial.exact.title.pitch, 'Settings title did not get ruby and pitch', { initial, requests });
+        assert(initial.exact.searchLabel.hasRuby && initial.exact.searchLabel.pitch, 'Settings search label did not get ruby and pitch', initial);
+        assert(initial.exact.appearanceTab.hasRuby && initial.exact.appearanceTab.pitch, 'Appearance tab did not get ruby and pitch', initial);
+        assert(initial.exact.cancel.found && initial.exact.cancel.passive, 'Cancel button text did not stay passively enhanced', initial);
+        assert(initial.exact.save.hasRuby && initial.exact.save.pitch && initial.exact.save.passive, 'Save button text did not get passive ruby and pitch', initial);
+    }
     assert(initial.searchInputNative, 'Settings search input was not left as a native input', initial);
     assert(initial.cancelNative, 'Settings Cancel button was not left as a native button', initial);
     assert(initial.saveNative, 'Settings Save button was not left as a native submit button', initial);
-    assert(initial.surfaces.some(surface => surface.text === '設定' && surface.hasRuby && surface.pitch),
-        'Hosted settings title/search text was not rendered from the hosted parser path', initial);
-    assert(initial.surfaces.some(surface => surface.text === '外観' && surface.hasRuby && surface.pitch),
-        'Hosted settings tab text was not rendered from the hosted parser path', initial);
+    if (!INJECT_USERSCRIPT) {
+        assert(initial.surfaces.some(surface => surface.text === '設定' && surface.hasRuby && surface.pitch),
+            'Hosted settings title/search text was not rendered from the hosted parser path', initial);
+        assert(initial.surfaces.some(surface => surface.text === '外観' && surface.hasRuby && surface.pitch),
+            'Hosted settings tab text was not rendered from the hosted parser path', initial);
+    }
 
-    await page.locator('[data-action="settings-panel"][data-panel="media"]').evaluate(button => {
-        if (!(button instanceof HTMLButtonElement)) throw new Error('Media settings tab is not a button.');
-        button.click();
-    });
-    await page.waitForFunction(() => document.querySelector('[data-action="settings-panel"][data-panel="media"]')?.getAttribute('aria-selected') === 'true')
-        .catch(async error => {
-            throw new Error(`Settings media tab did not activate after click.\n${JSON.stringify(await settingsSnapshot(page), null, 2)}\n${error.message}`);
-        });
-    await page.waitForSelector('[data-settings-panel="media"]:not([hidden]) .jpdb-reader-word', { timeout: 20_000 });
+    const tabClicks = [];
+    for (const tab of [
+        { panel: 'help', label: 'ヘルプ' },
+        { panel: 'newTab', label: '学習' },
+        { panel: 'media', label: 'メディア' },
+        { panel: 'appearance', label: '外観' },
+    ]) {
+        tabClicks.push(await clickSettingsTab(page, tab.panel, tab.label));
+    }
+    await page.waitForSelector('[data-settings-panel="appearance"]:not([hidden]) .jpdb-reader-word', { timeout: 20_000 });
 
     const settingsSearch = page.locator('[data-settings-search]');
     await settingsSearch.click();
@@ -162,14 +207,18 @@ try {
     await settingsSearch.press('Backspace');
     await settingsSearch.pressSequentially('外観');
     await page.waitForFunction(() => document.querySelector('.jpdb-reader-settings')?.getAttribute('data-settings-searching') === 'true');
-    await page.waitForSelector('[data-settings-panel="appearance"]:not([hidden]) .jpdb-reader-word[data-expression="外観"]', { timeout: 20_000 });
+    if (!INJECT_USERSCRIPT) {
+        await page.waitForSelector('[data-settings-panel="appearance"]:not([hidden]) .jpdb-reader-word[data-expression="外観"]', { timeout: 20_000 });
+    }
     await page.waitForTimeout(800);
 
     const afterSearch = await settingsSnapshot(page);
-    assert(afterSearch.activePanel === 'media', 'Parsed settings tab click did not switch panels natively', afterSearch);
+    assert(afterSearch.activePanel === 'appearance', 'Parsed settings tab click did not switch panels natively', afterSearch);
     assert(afterSearch.searchValue === '外観', 'Settings search field did not keep native input value', afterSearch);
     assert(afterSearch.visiblePanels >= 1, 'Settings search hid all matching panels', afterSearch);
-    assert(afterSearch.exact.appearancePanel.hasRuby && afterSearch.exact.appearancePanel.pitch, 'Settings search results did not keep matching Japanese panel text enhanced', { afterSearch, requests });
+    if (!INJECT_USERSCRIPT) {
+        assert(afterSearch.exact.appearancePanel.hasRuby && afterSearch.exact.appearancePanel.pitch, 'Settings search results did not keep matching Japanese panel text enhanced', { afterSearch, requests });
+    }
     assert(afterSearch.wordCount >= 8, 'Settings search dropped enhanced settings labels', { initial, afterSearch });
 
     await page.locator('.jpdb-reader-settings [data-action="cancel"]').click();
@@ -177,8 +226,12 @@ try {
 
     console.log(JSON.stringify({
         ok: true,
+        source: INJECT_USERSCRIPT ? 'dist/newtab with dist/yomu.user.js injected' : 'dist/newtab without userscript injection',
+        browser: 'chromium headless',
+        url: targetUrl,
         initial: summarizeSnapshot(initial),
         afterSearch: summarizeSnapshot(afterSearch),
+        tabClicks,
         parseRequests: requests
             .filter(request => request.endpoint === 'parse')
             .map(request => ({ chars: request.text.length, hasSettingsText: request.text.includes('設定') })),
@@ -189,6 +242,40 @@ try {
     server.server.closeAllConnections?.();
     server.server.closeIdleConnections?.();
     await closeServer(server.server);
+}
+
+function mockedUserscriptRequest(request, requestsLog) {
+    const url = new URL(request.url);
+    if (url.origin !== 'https://jpdb.io') {
+        return {
+            status: 200,
+            responseText: '',
+        };
+    }
+    if (!url.pathname.startsWith('/api/v1/')) {
+        return {
+            status: 200,
+            responseText: '<!doctype html><html><body></body></html>',
+        };
+    }
+    const endpoint = url.pathname.slice('/api/v1/'.length);
+    const body = readJsonBody(request.data);
+    requestsLog.push({ kind: 'userscript-jpdb', endpoint, text: jpdbParseText(body) });
+    const payload = endpoint === 'parse'
+        ? mockJpdbParseFromVocabulary(body, VOCABULARY)
+        : endpoint === 'ping'
+            ? {}
+            : endpoint === 'list-user-decks'
+                ? { decks: [[1, 'Smoke deck', 0, 0]] }
+                : endpoint === 'deck/list-vocabulary'
+                    ? { vocabulary: [] }
+                    : endpoint === 'lookup-vocabulary'
+                        ? { vocabulary_info: [] }
+                        : {};
+    return {
+        status: 200,
+        responseText: JSON.stringify(payload),
+    };
 }
 
 function mockedJpdbRequest(request, requestsLog) {
@@ -225,6 +312,29 @@ async function waitForSettingsSelector(page, requests, selector) {
     }
 }
 
+async function clickSettingsTab(page, panel, label) {
+    const selector = `[data-action="settings-panel"][data-panel="${panel}"]`;
+    const tab = page.locator(selector);
+    await tab.waitFor({ state: 'visible', timeout: 20_000 });
+    await tab.click();
+    await page.waitForFunction(
+        expectedPanel => document.querySelector(`[data-action="settings-panel"][data-panel="${expectedPanel}"]`)?.getAttribute('aria-selected') === 'true',
+        panel,
+    ).catch(async error => {
+        throw new Error(`Settings ${label} tab did not activate after user click.\n${JSON.stringify(await settingsSnapshot(page), null, 2)}\n${error.message}`);
+    });
+    await page.waitForTimeout(120);
+    const snapshot = await settingsSnapshot(page);
+    assert(snapshot.activePanel === panel, `Settings ${label} tab did not become the active panel`, snapshot);
+    assert(snapshot.popoverCount === 0, `Settings ${label} tab click opened a reader lookup popover`, snapshot);
+    return {
+        panel,
+        label,
+        activePanel: snapshot.activePanel,
+        popoverCount: snapshot.popoverCount,
+    };
+}
+
 function jpdbParseText(body) {
     if (typeof body.text === 'string') return body.text;
     if (Array.isArray(body.text)) return body.text.filter(item => typeof item === 'string').join('\n');
@@ -239,6 +349,7 @@ function summarizeSnapshot(snapshot) {
         rubyCount: snapshot.rubyCount,
         pitchCount: snapshot.pitchCount,
         passiveCount: snapshot.passiveCount,
+        popoverCount: snapshot.popoverCount,
         searchInputNative: snapshot.searchInputNative,
         cancelNative: snapshot.cancelNative,
         saveNative: snapshot.saveNative,
@@ -299,6 +410,7 @@ async function settingsSnapshot(page) {
             searchValue: document.querySelector('[data-settings-search]') instanceof HTMLInputElement
                 ? document.querySelector('[data-settings-search]').value
                 : '',
+            popoverCount: document.querySelectorAll('.jpdb-reader-popover').length,
             exact: {
                 title: stateFor('.jpdb-reader-settings h2 .jpdb-reader-word[data-expression="設定"]'),
                 searchLabel: stateFor('.jpdb-reader-settings-search .jpdb-reader-word[data-expression="検索"]'),

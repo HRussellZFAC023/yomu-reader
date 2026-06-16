@@ -276,8 +276,9 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
             return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
         }
         if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
-            if (detail.jitenVocabularyInfo && !hasSearchJitenContent(detail.jitenVocabularyInfo)) return '';
-            return renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage);
+            return hasSearchJitenContent(detail)
+                ? renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage)
+                : '';
         }
         if (sourceId === ANKI_SOURCE_ID) {
             return detail.ankiLookup ? renderAnkiExistingSection(detail.ankiLookup, null, settings) : '';
@@ -299,8 +300,13 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
     return definitionSections.filter(Boolean).join('');
 }
 
-function hasSearchJitenContent(info: JitenVocabularyInfo): boolean {
-    return Boolean(info.definitions.length || info.composedOf.length || info.usedIn.length || info.examples.length);
+function hasSearchJitenContent(detail: NewTabSearchWordDetailData): boolean {
+    const info = detail.jitenVocabularyInfo;
+    if (!info) return false;
+    return info.definitions.some(definition => definition.meanings.some(meaning => meaning.trim()))
+        || info.composedOf.length > 0
+        || info.usedIn.length > 0
+        || info.examples.length > 0;
 }
 
 export function searchWordKanjiSourceShell(card: JPDBCard, context: NewTabSearchDetailViewContext): HTMLElement | null {

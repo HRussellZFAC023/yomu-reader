@@ -595,13 +595,14 @@ function jitenParseResultToTokens(paragraphs: string[], result: JitenParseResult
             const vocabularyEntry = vocabByKey.get(jitenLookupKey(token.wordId, token.readingIndex));
             const pitchClass = card.partOfSpeech.includes('prt') ? '' : getPitchClass(card.pitchAccent, card.reading);
             lastPitchClass = pitchClass || lastPitchClass;
-            const rubies = jitenTokenRubies(vocabularyEntry, token);
-            if (rubies.length) card.wordWithReading = jitenWordWithReading(card.spelling, rubies, token.start);
+            const span = jitenTokenTextSpan(paragraph, token, card);
+            const rubies = jitenTokenRubies(vocabularyEntry, span.start);
+            if (rubies.length) card.wordWithReading = jitenWordWithReading(card.spelling, rubies, span.start);
             parsed.push({
                 card,
-                start: token.start,
-                end: token.end,
-                length: token.length,
+                start: span.start,
+                end: span.end,
+                length: span.length,
                 rubies,
                 pitchClass: lastPitchClass,
                 sentence: paragraph,
@@ -982,11 +983,63 @@ function jitenMeaningPartOfSpeech(value: JitenRawVocabulary['meaningsPartOfSpeec
         : arrayOfStrings(value);
 }
 
-function jitenTokenRubies(vocabulary: JitenRawVocabulary | undefined, token: JitenRawToken): JPDBRuby[] {
+function jitenTokenTextSpan(paragraph: string, token: JitenRawToken, card: JPDBCard): { start: number; end: number; length: number } {
+    const raw = { start: token.start, end: token.end, length: token.end - token.start };
+    const utf8 = utf8ByteRangeToUtf16Range(paragraph, token.start, token.end);
+    return bestJitenTextSpan(paragraph, card.spelling, [raw, utf8]) ?? raw;
+}
+
+function bestJitenTextSpan(
+    text: string,
+    expectedSurface: string,
+    candidates: Array<{ start: number; end: number; length: number }>,
+): { start: number; end: number; length: number } | null {
+    let best: { span: { start: number; end: number; length: number }; score: number } | null = null;
+    for (const span of candidates) {
+        if (span.start < 0 || span.end <= span.start || span.end > text.length) continue;
+        const surface = text.slice(span.start, span.end);
+        let score = 1;
+        if (surface === expectedSurface) score += 100;
+        else if (expectedSurface && (expectedSurface.startsWith(surface) || surface.startsWith(expectedSurface))) score += 20;
+        if (/[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(surface)) score += 10;
+        if (!best || score > best.score) best = { span, score };
+    }
+    return best?.span ?? null;
+}
+
+function utf8ByteRangeToUtf16Range(text: string, start: number, end: number): { start: number; end: number; length: number } {
+    const utf16Start = utf16OffsetForUtf8ByteOffset(text, start);
+    const utf16End = utf16OffsetForUtf8ByteOffset(text, end);
+    return { start: utf16Start, end: utf16End, length: utf16End - utf16Start };
+}
+
+function utf16OffsetForUtf8ByteOffset(text: string, byteOffset: number): number {
+    if (byteOffset <= 0) return 0;
+    let bytes = 0;
+    let offset = 0;
+    for (const char of text) {
+        if (bytes >= byteOffset) return offset;
+        const nextBytes = bytes + utf8ByteLength(char);
+        if (nextBytes > byteOffset) return offset;
+        bytes = nextBytes;
+        offset += char.length;
+    }
+    return text.length;
+}
+
+function utf8ByteLength(char: string): number {
+    const point = char.codePointAt(0) ?? 0;
+    if (point <= 0x7f) return 1;
+    if (point <= 0x7ff) return 2;
+    if (point <= 0xffff) return 3;
+    return 4;
+}
+
+function jitenTokenRubies(vocabulary: JitenRawVocabulary | undefined, tokenStart: number): JPDBRuby[] {
     return extractJitenRubiesFromAnnotated(vocabulary?.reading ?? '').map(ruby => ({
         ...ruby,
-        start: token.start + ruby.start,
-        end: token.start + ruby.end,
+        start: tokenStart + ruby.start,
+        end: tokenStart + ruby.end,
     }));
 }
 

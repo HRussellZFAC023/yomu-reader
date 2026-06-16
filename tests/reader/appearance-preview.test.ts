@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { appearancePreviewHtml, renderSettingsForm } from '../../src/reader/settings/form';
+import { appearancePreviewContentHtml, appearancePreviewHtml, renderSettingsForm } from '../../src/reader/settings/form';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 describe('appearance preview (UT-47)', () => {
@@ -8,6 +8,7 @@ describe('appearance preview (UT-47)', () => {
         const html = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         expect(html).toContain('data-yomu-appearance-preview');
         expect(html).toContain('data-settings-preview-title');
+        expect(html).toContain('jpdb-reader-settings-appearance-preview-line');
         expect(html).not.toContain('jpdb-reader-word-highlight-jpdb jpdb-reader-word-underline-pitch jpdb-reader-word-text-status');
         const sample = appearancePreviewHtml();
         expect(sample).toContain('jpdb-reader-word');
@@ -17,6 +18,7 @@ describe('appearance preview (UT-47)', () => {
         expect(sample).toContain('anki-known');
         expect(sample).toContain('jpdb-pitch-heiban');
         expect(sample).toContain('jpdb-pitch-kifuku');
+        expect(appearancePreviewContentHtml()).toContain('jpdb-reader-settings-appearance-preview-line');
     });
 });
 

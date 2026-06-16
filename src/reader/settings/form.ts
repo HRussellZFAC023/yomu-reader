@@ -433,12 +433,16 @@ function renderAppearancePreview(): string {
     return `
                 <div class="jpdb-reader-settings-subsection jpdb-reader-settings-preview-section">
                     <div class="jpdb-reader-local-title" data-settings-preview-title>Preview</div>
-                    <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewHtml()}</div>
+                    <div class="jpdb-reader-settings-appearance-preview" data-yomu-appearance-preview data-settings-preview-lookup lang="ja" aria-hidden="true">${appearancePreviewContentHtml()}</div>
                 </div>`;
 }
 
 // The preview words carry the same state classes real annotations get, so
 // the root-level yomu-furi-*/yomu-word-color-* classes restyle them live.
+export function appearancePreviewContentHtml(): string {
+    return `<span class="jpdb-reader-settings-appearance-preview-line">${appearancePreviewHtml()}</span>`;
+}
+
 export function appearancePreviewHtml(): string {
     const word = (classes: string, base: string, furi: string, tail = ''): string =>
         `<span class="jpdb-reader-word jpdb-reader-has-furi ${classes}"><ruby><span class="jpdb-reader-ruby-base">${base}</span><rt class="jpdb-reader-furi">${furi}</rt></ruby>${tail}</span>`;

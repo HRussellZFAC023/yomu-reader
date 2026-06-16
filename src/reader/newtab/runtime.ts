@@ -577,6 +577,7 @@ export class NewTabRuntime {
                 dictionaryLabel: name => this.dictionaryLabel(name),
             }),
             installSearchDetailSources: (root, card, sentence, jpdbVocabularyInfo) => this.installLookupPopoverSources(root, card, sentence, jpdbVocabularyInfo),
+            renderStudyDefinitionSources: (card, data, sentence) => this.renderDefinitionSources(card, data.localEntries, sentence, data.jpdbVocabularyInfo, data.jitenVocabularyInfo ?? null, { includeStudySources: false }),
             preloadWordAudio: card => this.maybePreloadLookupCardAudio(card),
             playWordAudio: card => this.audioActions.playTermAudio(card, { userGesture: true }),
             playJpdbExampleAudio: (audioIds, fallbackSentence) => this.audioActions.playJpdbExampleAudio(audioIds, fallbackSentence),

@@ -12,7 +12,9 @@ import {
     type NewTabSearchViewContext,
     type NewTabSearchWordDetailData,
 } from './search-view';
-import { primaryCardState } from '../cards/state';
+import { normalizeCardStates, primaryCardState } from '../cards/state';
+import { renderApiMiningPanel } from '../cards/popover-renderer';
+import { apiSrsProviderViewForCard } from '../cards/srs-providers';
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord, normalizedJapaneseCardReading } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
@@ -64,6 +66,7 @@ import { FIVE_BUTTON_REVIEW_SHORTCUTS, TWO_BUTTON_REVIEW_SHORTCUTS, handleReader
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { installOriginGraphInteractions } from '../popup/origin-graph-interactions';
 import { matchesShortcut } from '../settings';
+import { openDeckPickerForCardAdd } from '../study/mining-controls';
 import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import {
     buildRtkComponentSummaries,
@@ -373,6 +376,7 @@ export interface NewTabControllerDependencies {
     showKanjiCard?: (card: JPDBCard, kanji: string, sentence: string, anchor?: HTMLElement, options?: NewTabLookupDependencyOptions) => Promise<void> | void;
     loadCardRenderData?: (card: JPDBCard) => Promise<CardRenderData>;
     renderSearchDefinitionSources?: (card: JPDBCard, entries: YomitanTermEntry[], sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null, jitenVocabularyInfo: JitenVocabularyInfo | null) => string;
+    renderStudyDefinitionSources?: (card: JPDBCard, data: CardRenderData, sentence: string | undefined) => string;
     renderSearchWordPills?: (card: JPDBCard, metaEntries: YomitanMetaEntry[], ankiLookup?: CardRenderData['ankiLookup']) => string;
     installSearchDetailSources?: (root: HTMLElement, card: JPDBCard, sentence: string | undefined, jpdbVocabularyInfo: JpdbVocabularyInfo | null) => void;
     preloadWordAudio?: (card: JPDBCard) => void;
@@ -1620,10 +1624,10 @@ export class NewTabController {
 
     private parsedWordLookupTarget(root: HTMLElement, target: HTMLElement, event: MouseEvent): HTMLElement | null {
         const direct = target.closest<HTMLElement>('.jpdb-reader-parseable .jpdb-reader-word');
-        if (direct && root.contains(direct)) return direct;
+        if (direct && root.contains(direct)) return isPassiveParsedWord(direct) ? null : direct;
         if (event.clientX === 0 && event.clientY === 0) return null;
         for (const word of root.querySelectorAll<HTMLElement>('.jpdb-reader-parseable .jpdb-reader-word')) {
-            if (pointInElementClientRects(event.clientX, event.clientY, word)) return word;
+            if (!isPassiveParsedWord(word) && pointInElementClientRects(event.clientX, event.clientY, word)) return word;
         }
         return null;
     }
@@ -1719,7 +1723,10 @@ export class NewTabController {
         if (action === 'anki-media-audio') {
             return this.handleNestedAnkiMediaAudioAction(actionTarget, event);
         }
-        if (action === 'copy-word' || action === 'anki' || action === 'anki-edit') {
+        if (action === 'deck-picker' || action === 'add') {
+            return this.handleNestedDeckPickerAction(actionTarget, event);
+        }
+        if (action === 'copy-word' || action === 'anki' || action === 'anki-edit' || action === 'neverforget' || action === 'blacklist') {
             return this.handleNestedCardAction(actionTarget, event);
         }
         return false;
@@ -1820,6 +1827,19 @@ export class NewTabController {
         if (!button || !card || !this.dependencies.performCardAction) return false;
         consumeNestedLookupEvent(event);
         void this.dependencies.performCardAction(button, card, button.dataset.studySentence || sentenceForCard(card), button);
+        return true;
+    }
+
+    private handleNestedDeckPickerAction(actionTarget: HTMLElement, event: MouseEvent): boolean {
+        const button = actionTarget instanceof HTMLButtonElement ? actionTarget : actionTarget.closest<HTMLButtonElement>('button');
+        const card = this.nestedCardActionCard(actionTarget);
+        const performCardAction = this.dependencies.performCardAction;
+        if (!button || !card || !performCardAction) return false;
+        consumeNestedLookupEvent(event);
+        const sentence = button.dataset.studySentence || sentenceForCard(card);
+        openDeckPickerForCardAdd(button, card, sentence, (actionButton, actionCard, actionSentence) => (
+            performCardAction(actionButton, actionCard, actionSentence, actionButton)
+        ));
         return true;
     }
 
@@ -4279,6 +4299,7 @@ export class NewTabController {
                 : null,
         );
         this.appendComposedOfLine(meaning, card);
+        void this.renderWordStudyDetails(meaning, card);
     }
 
     private providerDeckMembershipLine(card: JPDBCard): string {
@@ -4326,6 +4347,46 @@ export class NewTabController {
             const keyword = this.keywordCache.get(chip.dataset.kanji ?? '');
             if (small && keyword) small.textContent = keyword;
         });
+    }
+
+    private async renderWordStudyDetails(meaning: HTMLElement, card: JPDBCard): Promise<void> {
+        const loadDetails = this.dependencies.loadCardRenderData;
+        if (!loadDetails || !this.dependencies.renderStudyDefinitionSources) return;
+        const key = cardKey(card);
+        const requestId = `${key}:${performance.now()}:${Math.random()}`;
+        meaning.dataset.newtabStudyDetailsRequest = requestId;
+        const data = await loadDetails(card).catch(() => null);
+        if (!data || !this.canApplyWordStudyDetails(meaning, key, requestId)) return;
+        const html = this.renderWordStudyDetailsHtml(card, data);
+        if (!html.trim()) return;
+        const details = htmlToFirstElement(`<div class="jpdb-reader-newtab-study-details" data-newtab-study-details>${html}</div>`);
+        if (!details || !this.canApplyWordStudyDetails(meaning, key, requestId)) return;
+        meaning.querySelectorAll(':scope > [data-newtab-study-details]').forEach(element => element.remove());
+        meaning.append(details);
+        this.dependencies.installDictionarySourceTracking?.(details);
+        void this.dependencies.parseContent?.(details, newTabShortParseOptions())?.catch(() => undefined);
+    }
+
+    private renderWordStudyDetailsHtml(card: JPDBCard, data: CardRenderData): string {
+        const sentence = sentenceForCard(card);
+        return [
+            this.dependencies.renderStudyDefinitionSources?.(card, data, sentence) ?? '',
+            this.renderWordStudyMiningPanel(card, data),
+        ].filter(Boolean).join('');
+    }
+
+    private renderWordStudyMiningPanel(card: JPDBCard, data: CardRenderData): string {
+        const settings = this.dependencies.getSettings();
+        const provider = apiSrsProviderViewForCard(card, settings, value => this.dependencies.parser.isJpdbBackedCard(value));
+        return renderApiMiningPanel(settings, normalizeCardStates(card.cardState), { ...data, loading: false }, provider);
+    }
+
+    private canApplyWordStudyDetails(meaning: HTMLElement, key: string, requestId: string): boolean {
+        return meaning.isConnected
+            && meaning.dataset.newtabStudyDetailsRequest === requestId
+            && this.state.mode === 'word'
+            && this.state.revealAnswer
+            && cardKey(this.visibleWords[this.index]) === key;
     }
 
     private renderAnkiRenderedWordPrompt(slots: NewTabStudySlots, card: JPDBCard): boolean {
@@ -8505,6 +8566,10 @@ export class NewTabController {
             // Refresh stability is a convenience; the page still works without storage.
         }
     }
+}
+
+function isPassiveParsedWord(word: HTMLElement): boolean {
+    return word.dataset.jpdbReaderPassive === 'true';
 }
 
 function cleanNestedLookupValue(value: string | undefined): string {

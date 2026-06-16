@@ -273,6 +273,7 @@ import {
     rootContainsRenderedWord,
     setRenderedWordCardIdentity,
     setRenderedWordPitchClass,
+    storeRenderedWordPitchClass,
     uniqueParentNodes,
 } from '../dom/rendered-word-state';
 import {
@@ -3188,11 +3189,17 @@ export class ReaderApp {
     private isNativeTextLookupTarget(target: Element, options: PointerTextLookupOptions = {}): boolean {
         return (!options.allowPassiveInteractionText && isPassiveInteractionElement(target))
             || this.isReaderImmersionExampleSentenceText(target)
-            || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'));
+            || Boolean(target.closest('input,textarea,select,[contenteditable="true"],.jpdb-reader-word'))
+            || this.isSettingsNativeControlText(target);
     }
 
     private isReaderImmersionExampleSentenceText(target: Element): boolean {
         return Boolean(target.closest('[data-jpdb-reader-root] [data-immersion-kit] .jpdb-reader-example-sentence'));
+    }
+
+    private isSettingsNativeControlText(target: Element): boolean {
+        return Boolean(target.closest('.jpdb-reader-settings')
+            && target.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
     }
 
     private async showLookupCandidate(candidate: PointerTextLookup, trigger: 'modal' | 'hover', options: { navigation?: CardNavigationMode; preservePosition?: boolean; hoverLookupGeneration?: number; userGesture?: boolean } = {}): Promise<void> {
@@ -6100,11 +6107,11 @@ export class ReaderApp {
             const changedRoots = new Set<ParentNode>();
             roots.forEach(root => {
                 if (root instanceof HTMLElement && root.matches(selector)) {
-                    setRenderedWordPitchClass(root, pitchClass);
+                    this.applyPitchClassToRenderedSurface(root, pitchClass);
                     changedRoots.add(root);
                 }
                 root.querySelectorAll<HTMLElement>(selector).forEach(word => {
-                    setRenderedWordPitchClass(word, pitchClass);
+                    this.applyPitchClassToRenderedSurface(word, pitchClass);
                     changedRoots.add(word.parentElement ?? word);
                 });
             });
@@ -6165,10 +6172,19 @@ export class ReaderApp {
 
     private applyPublicVocabularyToRenderedWord(word: HTMLElement, card: JPDBCard, pitchClass: string): void {
         this.renderedWordIndex.get(renderedWordElementKey(word))?.delete(word);
-        setRenderedWordPitchClass(word, pitchClass);
+        this.applyPitchClassToRenderedSurface(word, pitchClass);
         setRenderedWordCardIdentity(word, card);
         this.registerRenderedWord(word);
         applyPublicVocabularyFurigana(word, card, this.settings);
+    }
+
+    private applyPitchClassToRenderedSurface(word: HTMLElement, pitchClass: string): void {
+        const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
+        if (ocrLine && !ocrLine.classList.contains('jpdb-ocr-line-active')) {
+            storeRenderedWordPitchClass(word, pitchClass);
+            return;
+        }
+        setRenderedWordPitchClass(word, pitchClass);
     }
 
     private async handleCardAction(button: HTMLButtonElement, card: JPDBCard, sentence?: string): Promise<void> {

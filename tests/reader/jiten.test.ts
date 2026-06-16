@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createJitenStudyBatchCard } from '../../scripts/fixtures/jiten-fixtures.mjs';
 import { JITEN_API_BASE_URL, JitenApiClient, JitenApiError, jitenCardReference, jitenRatingForGrade, validateJitenApiKey } from '../../src/reader/dictionaries/jiten';
+import { renderTokensToHtml } from '../../src/reader/dom/index';
 import { renderJitenDefinitionSource } from '../../src/reader/jiten/jiten-definition-source-render';
 import { jitenKanjiFactRows, jitenKanjiOriginFactLabels, jitenKanjiVocabulary, renderJitenKanjiInfo } from '../../src/reader/jiten/jiten-kanji-info-render';
 import { renderKanjiOrigins } from '../../src/reader/popup/kanji-origin';
@@ -192,6 +193,66 @@ describe('JitenApiClient', () => {
                 wordWithReading: '日本語[にほんご]',
             },
         });
+    });
+
+    it('normalizes Jiten byte offsets before rendering multi-kanji reader tokens', async () => {
+        const fetchMock = createFetchMock({
+            vocabulary: [
+                {
+                    wordId: 42,
+                    readingIndex: 0,
+                    spelling: '検索',
+                    reading: '検索[けんさく]',
+                    partsOfSpeech: ['n', 'vs'],
+                    meaningsChunks: [['search']],
+                    knownState: [1],
+                    pitchAccents: [0],
+                },
+                {
+                    wordId: 43,
+                    readingIndex: 0,
+                    spelling: '訓読み',
+                    reading: '訓読[くんよ]み',
+                    partsOfSpeech: ['n'],
+                    meaningsChunks: [['kun reading']],
+                    knownState: [2],
+                    pitchAccents: [0],
+                },
+            ],
+            tokens: [
+                [{ wordId: 42, readingIndex: 0, start: 0, end: 6, length: 6 }],
+                [{ wordId: 43, readingIndex: 0, start: 9, end: 18, length: 9 }],
+            ],
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        const parsed = await client.parse(['検索する。', '今日は訓読みを学ぶ。']);
+        const [searchToken] = parsed[0] ?? [];
+        const [kunReadingToken] = parsed[1] ?? [];
+
+        expect(searchToken).toMatchObject({
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'けんさく', start: 0, end: 2, length: 2 }],
+        });
+        expect(kunReadingToken).toMatchObject({
+            start: 3,
+            end: 6,
+            length: 3,
+            rubies: [{ text: 'くんよ', start: 3, end: 5, length: 2 }],
+        });
+
+        document.body.innerHTML = renderTokensToHtml('検索する。', parsed[0] ?? [], {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            furiganaMode: 'all',
+        });
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        expect(word.dataset.expression).toBe('検索');
+        expect(word.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('検索');
+        expect(word.nextSibling?.textContent).toBe('する。');
     });
 
     it('refreshes a card state from a self-parse after reviews (JPDB refreshCard parity)', async () => {
@@ -651,14 +712,14 @@ describe('JitenApiClient', () => {
                 readingFurigana: '訓読[くんよ]み',
                 mainDefinition: 'kun reading',
                 frequencyRank: null,
-                matchSurface: '訓読み',
+                matchSurface: '訓',
             }],
             usedInTotal: 1,
             examples: [{
                 sentenceId: 99,
-                text: '訓むこともある。',
-                wordPosition: 0,
-                wordLength: 2,
+                text: '今日は訓むこともある。',
+                wordPosition: 9,
+                wordLength: 6,
                 difficulty: null,
                 sourceTitle: 'Jiten examples',
                 audioUrls: ['https://audio.example.test/sentence.mp3'],
@@ -671,7 +732,7 @@ describe('JitenApiClient', () => {
         const buttons = Array.from(mount.querySelectorAll<HTMLButtonElement>('.jpdb-reader-jiten-audio'));
         expect(buttons).toHaveLength(3);
         expect(buttons.map(button => button.dataset.action)).toEqual(['jiten-audio', 'jiten-audio', 'jiten-audio']);
-        expect(buttons.map(button => button.dataset.studySentence)).toEqual(['訓む', '訓読み', '訓むこともある。']);
+        expect(buttons.map(button => button.dataset.studySentence)).toEqual(['訓む', '訓読み', '今日は訓むこともある。']);
         expect(buttons[0]?.dataset.jitenWordId).toBe('7');
         expect(buttons[0]?.dataset.jitenReadingIndex).toBe('0');
         expect(buttons[0]?.dataset.jitenAudioUrls).toBe(JSON.stringify(['https://audio.example.test/word.mp3']));
@@ -699,6 +760,16 @@ describe('JitenApiClient', () => {
         expect(relatedWord?.dataset.expression).toBe('訓む');
         expect(relatedWord?.dataset.reading).toBe('よむ');
 
+        const relatedRows = Array.from(mount.querySelectorAll<HTMLElement>('.jpdb-reader-jiten-related-row'));
+        const usedInRow = relatedRows[1];
+        const usedInLink = usedInRow?.querySelector<HTMLAnchorElement>('.jpdb-reader-jiten-related-link');
+        const usedInWord = usedInRow?.querySelector<HTMLElement>('.jpdb-reader-word.jpdb-reader-passive-word');
+        expect(usedInLink?.dataset.dictionaryLookup).toBe('訓読み');
+        expect(usedInLink?.dataset.dictionaryReading).toBe('くんよみ');
+        expect(usedInWord?.dataset.expression).toBe('訓読み');
+        expect(usedInWord?.dataset.reading).toBe('くんよみ');
+        expect(usedInWord?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓読み');
+
         const exampleRow = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-example-row.has-audio');
         expect(exampleRow).not.toBeNull();
         const target = exampleRow?.querySelector<HTMLElement>('.jpdb-reader-jiten-example-target');
@@ -710,9 +781,12 @@ describe('JitenApiClient', () => {
         expect(target?.dataset.sid).toBe('0');
         expect(target?.dataset.expression).toBe('訓む');
         expect(target?.dataset.reading).toBe('よむ');
-        expect(target?.dataset.sentence).toBe('訓むこともある。');
+        expect(target?.dataset.sentence).toBe('今日は訓むこともある。');
         expect(target?.innerHTML).toContain('<ruby>');
         expect(target?.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('訓む');
+        const sentence = exampleRow?.querySelector<HTMLElement>('.jpdb-reader-jiten-example-sentence');
+        expect(sentence?.innerHTML).toContain('今日は');
+        expect(sentence?.innerHTML).toContain('こともある。');
     });
 
     it('marks long Jiten related words with horizontal wrapping and neutral decoration hooks', () => {

@@ -428,6 +428,33 @@ describe('settings dialog keyboard dismissal', () => {
         expect(parseSettingsJapanese).not.toHaveBeenCalled();
     });
 
+    it('lets passive parsed settings tab words activate the tab instead of opening lookup', () => {
+        const lookupText = vi.fn();
+        const { form } = createSettingsDialog({ lookupText });
+        const helpTab = form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="help"]')!;
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-reader-passive-word';
+        word.dataset.jpdbReaderPassive = 'true';
+        word.textContent = helpTab.textContent || 'Help';
+        helpTab.replaceChildren(word);
+
+        word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(helpTab.getAttribute('aria-selected')).toBe('true');
+        expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="appearance"]')?.getAttribute('aria-selected')).toBe('false');
+        expect(lookupText).not.toHaveBeenCalled();
+
+        const preview = document.createElement('span');
+        preview.className = 'jpdb-reader-word jpdb-reader-passive-word';
+        preview.dataset.jpdbReaderPassive = 'true';
+        preview.dataset.settingsPreviewLookup = '読む';
+        preview.textContent = '読む';
+        form.append(preview);
+        preview.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(lookupText).toHaveBeenCalledWith('読む', '読む', preview);
+    });
+
     it('publishes and consumes shared theme changes', () => {
         const events: Array<CustomEvent<{ preview?: boolean; settings?: { theme?: unknown } }>> = [];
         const controller = new AbortController();

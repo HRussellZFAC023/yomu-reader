@@ -115,7 +115,14 @@ export function setRenderedWordPitchClass(word: HTMLElement, pitchClass: string)
     Array.from(word.classList)
         .filter(className => className.startsWith('jpdb-pitch-'))
         .forEach(className => word.classList.remove(className));
-    word.classList.add(`jpdb-pitch-${pitchClass}`);
+    word.dataset.pitchClass = pitchClass;
+    if (pitchClass) word.classList.add(`jpdb-pitch-${pitchClass}`);
+}
+
+export function storeRenderedWordPitchClass(word: HTMLElement, pitchClass: string): void {
+    Array.from(word.classList)
+        .filter(className => className.startsWith('jpdb-pitch-'))
+        .forEach(className => word.classList.remove(className));
     word.dataset.pitchClass = pitchClass;
 }
 

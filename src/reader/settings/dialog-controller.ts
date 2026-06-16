@@ -34,7 +34,7 @@ import {
     renderDictionarySourceRows,
     renderFrequencyDictionaryRows,
     renderRecommendedDictionaries,
-    appearancePreviewHtml,
+    appearancePreviewContentHtml,
     renderSettingsForm,
     jpdbStatusLineForSettings,
     syncAudioSourceRow,
@@ -904,6 +904,7 @@ export class SettingsDialogController {
         const target = event.target instanceof HTMLElement ? event.target : null;
         const word = target?.closest<HTMLElement>('[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word');
         if (!word || !this.dependencies.lookupText) return false;
+        if (!word.dataset.settingsPreviewLookup && word.dataset.jpdbReaderPassive === 'true') return false;
         const expression = word.dataset.settingsPreviewLookup?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || '';
         if (!expression) return false;
         event.preventDefault();
@@ -972,7 +973,7 @@ export class SettingsDialogController {
     // sense for the known-status mode.
     private bindAppearancePresets(form: HTMLFormElement, applyThemePreview: () => void): void {
         const preview = form.querySelector<HTMLElement>('[data-yomu-appearance-preview]');
-        if (preview) setInnerHtml(preview, appearancePreviewHtml());
+        if (preview) setInnerHtml(preview, appearancePreviewContentHtml());
         const setSelect = (name: string, value: string): void => {
             const control = form.querySelector<HTMLSelectElement>(`select[name="${name}"]`);
             if (control) control.value = value;

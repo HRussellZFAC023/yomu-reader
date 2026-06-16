@@ -218,10 +218,11 @@ function renderJitenExample(example: JitenVocabularyExample, card: CardHighlight
 }
 
 function renderJitenExampleSentence(example: JitenVocabularyExample, card: CardHighlightTarget, info: JitenVocabularyInfo): string {
-    if (example.wordPosition < 0 || example.wordLength <= 0) return renderCardHighlightedTextHtml(example.text, card);
-    const before = example.text.slice(0, example.wordPosition);
-    const target = example.text.slice(example.wordPosition, example.wordPosition + example.wordLength);
-    const after = example.text.slice(example.wordPosition + example.wordLength);
+    const range = jitenExampleTargetRange(example, card, info);
+    if (!range) return renderCardHighlightedTextHtml(example.text, card);
+    const before = example.text.slice(0, range.start);
+    const target = example.text.slice(range.start, range.end);
+    const after = example.text.slice(range.end);
     const reference = jitenExampleTargetReference(target, card, info);
     const targetHtml = reference
         ? renderPassiveJitenReference(reference, { className: 'jpdb-reader-example-target jpdb-reader-jiten-example-target', sentence: example.text })
@@ -264,7 +265,7 @@ function jitenAnnotatedKana(value: string): string {
 }
 
 function cleanJitenWordSurface(word: JitenVocabularyWordSummary): string {
-    return cleanJitenAnnotatedText(word.matchSurface || word.readingFurigana || word.reading);
+    return cleanJitenAnnotatedText(word.readingFurigana || word.reading || word.matchSurface);
 }
 
 function jitenWordAudioAttributes(entry: JitenVocabularyWordSummary): string {
@@ -336,6 +337,60 @@ function jitenExampleTargetReference(target: string, card: CardHighlightTarget, 
     const text = target.trim();
     if (!text) return null;
     return jitenDefinitionTextReferences(card as JPDBCard, info).find(reference => reference.text === text) ?? null;
+}
+
+function jitenExampleTargetRange(example: JitenVocabularyExample, card: CardHighlightTarget, info: JitenVocabularyInfo): { start: number; end: number } | null {
+    if (example.wordPosition < 0 || example.wordLength <= 0) return null;
+    const references = jitenDefinitionTextReferences(card as JPDBCard, info);
+    const raw = { start: example.wordPosition, end: example.wordPosition + example.wordLength };
+    const utf8 = utf8ByteRangeToUtf16Range(example.text, example.wordPosition, example.wordPosition + example.wordLength);
+    return bestJitenExampleRange(example.text, references, [raw, utf8]);
+}
+
+function bestJitenExampleRange(
+    text: string,
+    references: JitenTextReference[],
+    candidates: Array<{ start: number; end: number }>,
+): { start: number; end: number } | null {
+    let best: { range: { start: number; end: number }; score: number } | null = null;
+    for (const range of candidates) {
+        if (range.start < 0 || range.end <= range.start || range.end > text.length) continue;
+        const target = text.slice(range.start, range.end);
+        let score = 1;
+        if (references.some(reference => reference.text === target)) score += 100;
+        if (/[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(target)) score += 10;
+        if (!best || score > best.score) best = { range, score };
+    }
+    return best?.range ?? null;
+}
+
+function utf8ByteRangeToUtf16Range(text: string, start: number, end: number): { start: number; end: number } {
+    return {
+        start: utf16OffsetForUtf8ByteOffset(text, start),
+        end: utf16OffsetForUtf8ByteOffset(text, end),
+    };
+}
+
+function utf16OffsetForUtf8ByteOffset(text: string, byteOffset: number): number {
+    if (byteOffset <= 0) return 0;
+    let bytes = 0;
+    let offset = 0;
+    for (const char of text) {
+        if (bytes >= byteOffset) return offset;
+        const nextBytes = bytes + utf8ByteLength(char);
+        if (nextBytes > byteOffset) return offset;
+        bytes = nextBytes;
+        offset += char.length;
+    }
+    return text.length;
+}
+
+function utf8ByteLength(char: string): number {
+    const point = char.codePointAt(0) ?? 0;
+    if (point <= 0x7f) return 1;
+    if (point <= 0x7ff) return 2;
+    if (point <= 0xffff) return 3;
+    return 4;
 }
 
 function renderJitenTextWithReferences(text: string, references: JitenTextReference[]): string {

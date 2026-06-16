@@ -1330,6 +1330,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background: transparent !important;
   box-shadow: none !important;
   border-radius: 0;
+  text-shadow: none;
 }
 
 .jpdb-reader-newtab-kanji-mode .jpdb-reader-newtab-prompt {

@@ -1502,6 +1502,13 @@ describe('new tab review helpers', () => {
             .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-translation { color: var(--jpdb-reader-muted); text-shadow: none; }');
     });
 
+    it('does not stack prompt text shadow under the study term underline', () => {
+        const termRule = newTabCssRule('.jpdb-reader-newtab-term .jpdb-reader-word');
+
+        expect(termRule).toContain('text-shadow: none;');
+        expect(termRule).toContain('box-shadow: none !important;');
+    });
+
     it('keeps generic new-tab accent surfaces on accent tokens', () => {
         const genericAccentRules = [
             newTabCssRule('.jpdb-reader-newtab-mode button[data-active="true"]'),
@@ -9814,7 +9821,7 @@ describe('new tab review helpers', () => {
         expect(playJpdbExampleAudio).not.toHaveBeenCalled();
     });
 
-    it('renders Jiten definitions in expanded search word details and omits empty Jiten panels', () => {
+    it('renders Jiten definitions in expanded search word details and keeps empty Jiten panels available', () => {
         const card = newTabTestCard({
             source: 'jpdb',
             spelling: '大学',
@@ -9882,7 +9889,9 @@ describe('new tab review helpers', () => {
             ...detail,
             jitenVocabularyInfo: { ...detail.jitenVocabularyInfo!, definitions: [] },
         }, context);
-        expect(emptyRoot.querySelector('[data-source="jiten"]')).toBeNull();
+        expect(emptyRoot.querySelector('[data-source="jiten"]')).not.toBeNull();
+        expect(emptyRoot.textContent).toContain('Jiten');
+        expect(emptyRoot.textContent).toContain('Open in Jiten');
         expect(emptyRoot.textContent).not.toContain('No Jiten definitions.');
     });
 

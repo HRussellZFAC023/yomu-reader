@@ -290,6 +290,9 @@
 .jpdb-reader-settings .jpdb-reader-word.jpdb-reader-has-furi {
   line-height: inherit;
 }
+.jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) {
+  line-height: 1;
+}
 .jpdb-reader-select-options-meta {
   display: block;
   min-width: 0;
@@ -697,6 +700,12 @@
   margin: 0;
 }
 
+.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] {
+  display: flex;
+  align-items: flex-start;
+  padding-top: 36px;
+}
+
 /* Ensure nested labels inside wrappers in the grid layout align correctly */
 .jpdb-reader-settings .grid > .jpdb-reader-font-family-control > label,
 .jpdb-reader-settings .grid > [data-nadeshiko-api-key-field] > label,
@@ -709,7 +718,7 @@
 }
 
 .jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] > label.inline {
-  align-self: end;
+  align-self: flex-start;
   margin: 0;
 }
 
@@ -731,10 +740,21 @@
   align-self: end;
   margin: 0;
 }
+.jpdb-reader-settings .grid:has(> label:not(.inline)) > label.inline {
+  align-self: start;
+  margin-top: 28px;
+}
 .jpdb-reader-settings .jpdb-reader-settings-tgrid > label.inline {
   align-self: start;
   align-items: center;
   min-height: 38px;
+  margin-top: 0;
+}
+.jpdb-reader-settings .jpdb-reader-settings-cgrid > label.inline {
+  align-self: start;
+  align-items: center;
+  min-height: 38px;
+  margin-top: 28px;
 }
 .jpdb-reader-settings .jpdb-reader-radio-group {
   grid-column: 1 / -1;
@@ -1516,6 +1536,10 @@
 .jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta {
   grid-column: 1 / -1;
 }
+.jpdb-reader-order-row .jpdb-reader-select-options-meta {
+  font-size: 10px;
+  line-height: 1.28;
+}
 .jpdb-reader-audio-source-fields {
   display: grid;
   gap: 6px;
@@ -2068,6 +2092,14 @@
     overflow-wrap: anywhere;
   }
 
+  .jpdb-reader-order-row .jpdb-reader-select-options-meta:not(.expanded) {
+    display: -webkit-box;
+    max-height: 2.6em;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .jpdb-reader-audio-source-fields select,
   .jpdb-reader-audio-source-fields input,
   .jpdb-reader-lookup-link-row input,
@@ -2234,16 +2266,33 @@
     ) 0 0 / 30px 30px,
     color-mix(in srgb, var(--jpdb-reader-surface-2) 74%, var(--jpdb-reader-bg));
   color: var(--jpdb-reader-text) !important;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
   align-content: center;
   min-width: 0;
-  overflow-wrap: normal;
+  overflow-wrap: anywhere;
   word-break: normal;
   text-align: center;
   font-size: 28px;
   line-height: 1.48;
   user-select: none;
+}
+.jpdb-reader-settings-appearance-preview-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  width: 100%;
+  max-width: min(100%, 36em);
+  min-width: 0;
+}
+.jpdb-reader-settings-appearance-preview-line .jpdb-reader-word {
+  display: inline-block !important;
+  width: auto !important;
+  max-width: none !important;
+  vertical-align: baseline;
 }
 .jpdb-reader-settings-appearance-preview .jpdb-reader-word {
   --jpdb-reader-word-underline: var(

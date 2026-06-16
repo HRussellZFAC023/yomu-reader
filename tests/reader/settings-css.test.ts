@@ -74,7 +74,9 @@ describe('settings CSS', () => {
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-search-suggestions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-search-suggestion-term, .jpdb-reader-newtab-search-suggestion-detail { min-width: 0; max-width: 100%; overflow: visible; overflow-wrap: anywhere; white-space: normal; }');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview { min-height: 170px;');
-        expect(normalizedSettingsCss).toContain('display: grid; place-items: center; align-content: center; min-width: 0; overflow-wrap: normal; word-break: normal; text-align: center; font-size: 28px; line-height: 1.48;');
+        expect(normalizedSettingsCss).toContain('display: flex; flex-wrap: wrap; align-items: center; justify-content: center; align-content: center; min-width: 0; overflow-wrap: anywhere; word-break: normal; text-align: center; font-size: 28px; line-height: 1.48;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; width: 100%; max-width: min(100%, 36em); min-width: 0; }');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview-line .jpdb-reader-word { display: inline-block !important; width: auto !important; max-width: none !important; vertical-align: baseline; }');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word {');
         expect(normalizedSettingsCss).toContain('color: var( --jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, currentColor) ) !important;');
     });

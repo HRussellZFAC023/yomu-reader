@@ -4880,7 +4880,7 @@ describe('reader helpers', () => {
         const meta = document.querySelector<HTMLElement>('.jpdb-reader-meta')!;
         const metaItems = [...meta.children].map(child => child.textContent?.trim() ?? '');
 
-        expect(metaItems).toEqual(['よむ', '#20200', 'JPDB Redundant', 'Anki Due']);
+        expect(metaItems).toEqual(['よむ', 'JPDB Redundant', 'Anki Due']);
         expect(meta.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('よむ');
         expect(meta.querySelector('.jpdb-reader-state-dot.jpdb-redundant')).not.toBeNull();
         expect(meta.querySelector('.jpdb-reader-state-dot.anki-due')).not.toBeNull();
@@ -4904,7 +4904,7 @@ describe('reader helpers', () => {
         }, '学習能力を伸ばす。');
 
         expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
-        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('#32900');
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('JPDB New');
     });
 
     it('keeps alternate reading metadata when it is not represented by ruby', () => {
@@ -4925,7 +4925,7 @@ describe('reader helpers', () => {
         }, '人気がある。');
 
         expect(document.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('にんき');
-        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('#800');
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('にんきJPDB New');
     });
 
     it('shows separate JPDB and Anki status when JPDB is not in deck but Anki exists', () => {
@@ -13154,6 +13154,47 @@ describe('reader helpers', () => {
             jpdbVocabularyInfo: { meanings: ['to read'] },
         });
         expect(lookup).toHaveBeenCalledWith(-1, '読む', 'よむ');
+    });
+
+    it('loads JPDB vocabulary details for Jiten cards when a Jiten key is configured', async () => {
+        const lookup = vi.fn(async () => ({ meanings: ['JPDB page definition'], compounds: [], examples: [] }));
+        const lookupVocabularyInfoForCard = vi.fn(async () => ({
+            wordId: 42,
+            mainReading: { text: '読む', readingIndex: 2, frequencyRank: 500, usedInMediaAmount: null },
+            alternativeReadings: [],
+            partsOfSpeech: ['verb'],
+            definitions: [],
+            pitchAccents: [],
+            knownStates: ['new'] as JPDBCard['cardState'],
+            composedOf: [],
+            usedIn: [],
+            usedInTotal: 0,
+            examples: [],
+        }));
+        const settings = cardDetailLoaderSettings({
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            jpdbDefinitionsEnabled: true,
+            jitenDefinitionsEnabled: true,
+            localDictionariesEnabled: false,
+            ankiEnabled: false,
+            jpdbMiningEnabled: false,
+        });
+        const loader = testCardRenderDataLoader({
+            settings,
+            jpdbVocabulary: { lookup },
+            jiten: { lookupVocabularyInfoForCard },
+            isJpdbBackedCard: () => false,
+        });
+        const lookupCard = jitenTestCard();
+        const load = loader.load(lookupCard);
+
+        await expect(load.all).resolves.toMatchObject({
+            jpdbVocabularyInfo: { meanings: ['JPDB page definition'] },
+            jitenVocabularyInfo: { wordId: 42 },
+        });
+        expect(lookup).toHaveBeenCalledWith(lookupCard.vid, lookupCard.spelling, lookupCard.reading);
+        expect(lookupVocabularyInfoForCard).toHaveBeenCalledWith(lookupCard);
     });
 
     it('renders media controls for compound fallback clips instead of current-sentence pseudo examples', async () => {
@@ -26288,7 +26329,7 @@ describe('reader helpers', () => {
             expect(word.dataset.vid).toBe('1556420');
             expect(word.dataset.reading).toBe('よむ');
             expect(word.dataset.pitchClass).toBe('atamadaka');
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(false);
             expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
             expect(line.dataset.hasFuri).not.toBe('true');

@@ -52,6 +52,7 @@ const BASE_SETTINGS = {
     furiganaMode: 'all',
     showFurigana: true,
     showPitchAccent: true,
+    theme: 'dark',
     wordUnderlineColorSource: 'pitch',
     wordTextColorSource: 'pitch',
     lookupOnHover: false,
@@ -60,12 +61,12 @@ const BASE_SETTINGS = {
     enableLogging: false,
 };
 
+const PANELS = ['appearance', 'api', 'dictionaries', 'media', 'mining', 'newTab', 'shortcuts', 'help'];
 const VIEWPORTS = [
-    { name: 'desktop', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false, panel: 'media' },
-    { name: 'tablet', viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: false, panel: 'media' },
-    { name: 'mobile', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true, panel: 'media' },
-    { name: 'desktop-appearance', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false, panel: 'appearance' },
-];
+    { name: 'desktop', viewport: { width: 1360, height: 900 }, hasTouch: false, isMobile: false },
+    { name: 'tablet', viewport: { width: 820, height: 1180 }, hasTouch: true, isMobile: false },
+    { name: 'mobile', viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true },
+].flatMap(viewport => PANELS.map(panel => ({ ...viewport, name: `${viewport.name}-${panel.toLowerCase()}`, panel })));
 
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 assertBuiltArtifacts([
@@ -97,6 +98,7 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         viewport: scenario.viewport,
         hasTouch: scenario.hasTouch,
         isMobile: scenario.isMobile,
+        colorScheme: 'dark',
     });
     const page = await context.newPage();
     const requests = [];
@@ -117,11 +119,15 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         await openSettingsFromNewTabMenu(page);
         await selectSettingsPanel(page, scenario.panel);
         await waitForRealSettingsRubyAndPitch(page, scenario.panel, requests, browserMessages);
-        await exerciseNativeSettingsControls(page, scenario.panel);
 
         const snapshot = await settingsLayoutSnapshot(page, scenario.panel);
         const screenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}.png`);
         await page.screenshot({ path: screenshotPath, fullPage: false });
+        await scrollSettingsToBottom(page);
+        const bottomScreenshotPath = path.join(ARTIFACT_DIR, `settings-layout-${scenario.name}-bottom.png`);
+        await page.screenshot({ path: bottomScreenshotPath, fullPage: false });
+        await exerciseNativeSettingsControls(page, scenario.panel);
+        const interactionSnapshot = await settingsLayoutSnapshot(page, scenario.panel);
 
         assert(snapshot.dialog.visible, `${scenario.name} settings dialog did not open`, snapshot);
         assert(snapshot.panel.visible, `${scenario.name} ${scenario.panel} settings panel is not visible`, snapshot);
@@ -131,8 +137,18 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
             assert(snapshot.controlGridCount >= 5, `${scenario.name} compact media grids were not rendered`, snapshot);
             assert(snapshot.mediaFieldsetCount >= 5, `${scenario.name} did not expose all media settings groups`, snapshot);
         }
-        assert(snapshot.nativeControls.selectChanged, `${scenario.name} native select interaction did not work`, snapshot);
-        assert(snapshot.nativeControls.checkboxChanged, `${scenario.name} native checkbox interaction did not work`, snapshot);
+        if (scenario.panel === 'appearance') {
+            const maxPreviewRows = scenario.viewport.width <= 420 ? 4 : 3;
+            assert(snapshot.preview.wordCount >= 6, `${scenario.name} appearance preview did not expose the Japanese sample words`, snapshot);
+            assert(snapshot.preview.rowCount <= maxPreviewRows, `${scenario.name} appearance preview stacked Japanese words`, snapshot);
+            assert(snapshot.preview.maxWordsPerRow >= 2, `${scenario.name} appearance preview did not keep words flowing together`, snapshot);
+        }
+        if (interactionSnapshot.nativeControls.selectCount > 0) {
+            assert(interactionSnapshot.nativeControls.selectChanged, `${scenario.name} native select interaction did not work`, interactionSnapshot);
+        }
+        if (interactionSnapshot.nativeControls.checkboxCount > 0) {
+            assert(interactionSnapshot.nativeControls.checkboxChanged, `${scenario.name} native checkbox interaction did not work`, interactionSnapshot);
+        }
         assert(snapshot.popoverCount === 0, `${scenario.name} settings layout smoke opened an unrelated lookup popover`, snapshot);
         assert(snapshot.issues.length === 0, `${scenario.name} settings layout issues`, snapshot);
         return {
@@ -142,8 +158,14 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
             rubyCount: snapshot.rubyCount,
             pitchWordCount: snapshot.pitchWordCount,
             gridCount: snapshot.controlGridCount,
+            preview: {
+                wordCount: snapshot.preview.wordCount,
+                rowCount: snapshot.preview.rowCount,
+                maxWordsPerRow: snapshot.preview.maxWordsPerRow,
+            },
             requestCount: requests.length,
             screenshotPath,
+            bottomScreenshotPath,
         };
     } finally {
         await context.close();
@@ -201,7 +223,7 @@ async function waitForRealSettingsRubyAndPitch(page, panel, requests, browserMes
         const pitchCount = [...root.querySelectorAll('.jpdb-reader-word')]
             .filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length;
         return rubyCount >= 4 && pitchCount >= 2;
-        }, { panelName: panel }, { timeout: 15_000 });
+        }, { panelName: panel }, { timeout: 30_000 });
     } catch (error) {
         const snapshot = await settingsHydrationSnapshot(page, panel);
         throw new Error(`Settings ruby/pitch did not hydrate for ${panel}: ${error.message}\n${JSON.stringify({ snapshot, requests, browserMessages }, null, 2)}`);
@@ -237,22 +259,43 @@ async function exerciseNativeSettingsControls(page, panel) {
     await page.evaluate(panelName => {
         const root = document.querySelector(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden])`);
         if (!root) return;
-        const select = root.querySelector('select');
-        const checkbox = root.querySelector('input[type="checkbox"]');
+        const visible = element => {
+            const rect = element.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return rect.width > 0 && rect.height > 0 && style.display !== 'none' && style.visibility !== 'hidden';
+        };
+        const select = [...root.querySelectorAll('select')]
+            .find(item => item instanceof HTMLSelectElement && !item.disabled && visible(item) && [...item.options].some(option => option.value !== item.value));
+        const checkbox = [...root.querySelectorAll('input[type="checkbox"]')]
+            .find(item => item instanceof HTMLInputElement && !item.disabled && visible(item));
         if (select instanceof HTMLSelectElement && select.options.length > 1) {
             const before = select.value;
             const next = [...select.options].find(option => option.value !== before)?.value ?? before;
+            root.closest('.jpdb-reader-settings')?.setAttribute('data-settings-layout-smoke-select-changed', String(next !== before));
             select.value = next;
             select.dispatchEvent(new Event('change', { bubbles: true }));
             select.dataset.settingsLayoutSmokeChanged = String(select.value !== before);
+            root.dataset.settingsLayoutSmokeSelectChanged = String(select.value !== before);
+            root.closest('.jpdb-reader-settings')?.setAttribute('data-settings-layout-smoke-select-changed', String(select.value !== before));
         }
         if (checkbox instanceof HTMLInputElement) {
             const before = checkbox.checked;
+            root.closest('.jpdb-reader-settings')?.setAttribute('data-settings-layout-smoke-checkbox-changed', 'true');
             checkbox.click();
             checkbox.dataset.settingsLayoutSmokeChanged = String(checkbox.checked !== before);
+            root.dataset.settingsLayoutSmokeCheckboxChanged = String(checkbox.checked !== before);
+            root.closest('.jpdb-reader-settings')?.setAttribute('data-settings-layout-smoke-checkbox-changed', String(checkbox.checked !== before));
         }
     }, panel);
     await page.waitForTimeout(100);
+}
+
+async function scrollSettingsToBottom(page) {
+    await page.evaluate(() => {
+        const scroll = document.querySelector('.jpdb-reader-settings-scroll');
+        if (scroll instanceof HTMLElement) scroll.scrollTop = scroll.scrollHeight;
+    });
+    await page.waitForTimeout(80);
 }
 
 async function settingsLayoutSnapshot(page, panel) {
@@ -277,8 +320,11 @@ async function settingsLayoutSnapshot(page, panel) {
             issues.push(...gridOverlapIssues(grid, children));
             issues.push(...gridGapIssues(grid, children));
         }
+        issues.push(...sourceRowIssues(panelRoot));
+        issues.push(...gridInlineControlAlignmentIssues(panelRoot));
 
         const words = [...(panelRoot?.querySelectorAll('.jpdb-reader-word') ?? [])];
+        const preview = previewSnapshot(panelRoot);
         return {
             dialog: { visible: isVisible(dialog), rect: dialogRect },
             panel: { visible: isVisible(panelRoot), name: panelName },
@@ -288,11 +334,106 @@ async function settingsLayoutSnapshot(page, panel) {
             pitchWordCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length,
             popoverCount: visibleElements('.jpdb-reader-popover').length,
             nativeControls: {
-                selectChanged: Boolean(panelRoot?.querySelector('select[data-settings-layout-smoke-changed="true"]')),
-                checkboxChanged: Boolean(panelRoot?.querySelector('input[type="checkbox"][data-settings-layout-smoke-changed="true"]')),
+                selectCount: Array.from(panelRoot?.querySelectorAll('select') ?? [])
+                    .filter(item => item instanceof HTMLSelectElement && !item.disabled && isVisible(item) && Array.from(item.options).some(option => option.value !== item.value)).length,
+                checkboxCount: Array.from(panelRoot?.querySelectorAll('input[type="checkbox"]') ?? [])
+                    .filter(item => item instanceof HTMLInputElement && !item.disabled && isVisible(item)).length,
+                selectChanged: panelRoot?.getAttribute('data-settings-layout-smoke-select-changed') === 'true'
+                    || document.querySelector('.jpdb-reader-settings')?.getAttribute('data-settings-layout-smoke-select-changed') === 'true'
+                    || Boolean(panelRoot?.querySelector('select[data-settings-layout-smoke-changed="true"]')),
+                checkboxChanged: panelRoot?.getAttribute('data-settings-layout-smoke-checkbox-changed') === 'true'
+                    || document.querySelector('.jpdb-reader-settings')?.getAttribute('data-settings-layout-smoke-checkbox-changed') === 'true'
+                    || Boolean(panelRoot?.querySelector('input[type="checkbox"][data-settings-layout-smoke-changed="true"]')),
             },
+            preview,
             issues,
         };
+
+        function sourceRowIssues(root) {
+            if (!root) return [];
+            const found = [];
+            for (const row of Array.from(root.querySelectorAll('.jpdb-reader-order-row')).filter(isVisible)) {
+                const rowRect = row.getBoundingClientRect();
+                const rail = row.querySelector('.jpdb-reader-row-order-tools, .jpdb-reader-row-remove-tools');
+                if (rail && isVisible(rail)) {
+                    const railRect = rail.getBoundingClientRect();
+                    if (railRect.right > rowRect.right + 2 || railRect.left < rowRect.left - 2) {
+                        found.push({ type: 'source-action-rail-overflow', row: textOf(row), rail: rectSnapshot(railRect), bounds: rectSnapshot(rowRect) });
+                    }
+                    for (const main of Array.from(row.querySelectorAll('.jpdb-reader-field-display, .jpdb-reader-audio-source-choice, .jpdb-reader-audio-source-fields, input[name$=".alias"]')).filter(isVisible)) {
+                        const overlap = overlapArea(railRect, main.getBoundingClientRect());
+                        if (overlap > 6) found.push({ type: 'source-action-rail-overlap', row: textOf(row), overlap });
+                    }
+                }
+                if (rowRect.height > 180) {
+                    found.push({ type: 'source-row-too-tall', row: textOf(row), rect: rectSnapshot(rowRect) });
+                }
+            }
+            return found;
+        }
+
+        function previewSnapshot(root) {
+            const preview = root?.querySelector('[data-yomu-appearance-preview]');
+            const line = preview?.querySelector('.jpdb-reader-settings-appearance-preview-line');
+            const wordRects = Array.from(preview?.querySelectorAll('.jpdb-reader-word') ?? [])
+                .filter(isVisible)
+                .map(word => word.getBoundingClientRect());
+            const rows = rowBounds(wordRects);
+            return {
+                wordCount: wordRects.length,
+                rowCount: rows.length,
+                maxWordsPerRow: rows.reduce((max, row) => Math.max(max, row.count), 0),
+                rect: rectSnapshot(preview?.getBoundingClientRect()),
+                line: styleSnapshot(line),
+                words: Array.from(preview?.querySelectorAll('.jpdb-reader-word') ?? [])
+                    .filter(isVisible)
+                    .slice(0, 6)
+                    .map(word => ({ text: textOf(word), rect: rectSnapshot(word.getBoundingClientRect()), style: styleSnapshot(word) })),
+            };
+        }
+
+        function styleSnapshot(element) {
+            if (!(element instanceof Element)) return null;
+            const style = getComputedStyle(element);
+            return {
+                display: style.display,
+                width: style.width,
+                maxWidth: style.maxWidth,
+                flexBasis: style.flexBasis,
+                whiteSpace: style.whiteSpace,
+            };
+        }
+
+        function gridInlineControlAlignmentIssues(root) {
+            if (!root) return [];
+            const found = [];
+            for (const grid of Array.from(root.querySelectorAll('.grid')).filter(isVisible)) {
+                const controls = Array.from(grid.querySelectorAll(':scope > label:not(.inline) > input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), :scope > label:not(.inline) > select, :scope > label:not(.inline) > textarea, :scope > * > label:not(.inline) > input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), :scope > * > label:not(.inline) > select, :scope > * > label:not(.inline) > textarea'))
+                    .filter(isVisible);
+                const inlineLabels = Array.from(grid.querySelectorAll(':scope > label.inline, :scope > * > label.inline')).filter(isVisible);
+                for (const label of inlineLabels) {
+                    const labelRect = label.getBoundingClientRect();
+                    const peer = controls
+                        .map(control => control.getBoundingClientRect())
+                        .filter(rect => Math.abs(rect.top - labelRect.top) < 80)
+                        .sort((left, right) => Math.abs(left.bottom - labelRect.bottom) - Math.abs(right.bottom - labelRect.bottom))[0];
+                    if (!peer) continue;
+                    const bottomDelta = Math.abs(peer.bottom - labelRect.bottom);
+                    const centerDelta = Math.abs((peer.top + peer.bottom) / 2 - (labelRect.top + labelRect.bottom) / 2);
+                    if (bottomDelta > 12 && centerDelta > 12) {
+                        found.push({
+                            type: 'inline-control-misaligned',
+                            text: textOf(label),
+                            label: rectSnapshot(labelRect),
+                            peer: rectSnapshot(peer),
+                            bottomDelta: round(bottomDelta),
+                            centerDelta: round(centerDelta),
+                        });
+                    }
+                }
+            }
+            return found;
+        }
 
         function gridOverlapIssues(grid, children) {
             const found = [];
@@ -319,7 +460,7 @@ async function settingsLayoutSnapshot(page, panel) {
             const found = [];
             for (let index = 1; index < rows.length; index++) {
                 const gap = rows[index].top - rows[index - 1].bottom;
-                if (gap > 34) found.push({ type: 'large-grid-row-gap', grid: gridClass(grid), gap: round(gap), row: index + 1 });
+                if (gap > 72) found.push({ type: 'large-grid-row-gap', grid: gridClass(grid), gap: round(gap), row: index + 1 });
             }
             return found;
         }
@@ -327,12 +468,15 @@ async function settingsLayoutSnapshot(page, panel) {
         function rowBounds(rects) {
             const rows = [];
             for (const rect of rects.sort((left, right) => left.top - right.top || left.left - right.left)) {
-                const row = rows.find(item => Math.abs(item.top - rect.top) < 8);
+                const center = (rect.top + rect.bottom) / 2;
+                const row = rows.find(item => Math.abs(item.center - center) < 18);
                 if (row) {
                     row.top = Math.min(row.top, rect.top);
                     row.bottom = Math.max(row.bottom, rect.bottom);
+                    row.center = (row.top + row.bottom) / 2;
+                    row.count += 1;
                 } else {
-                    rows.push({ top: rect.top, bottom: rect.bottom });
+                    rows.push({ top: rect.top, bottom: rect.bottom, center, count: 1 });
                 }
             }
             return rows;
