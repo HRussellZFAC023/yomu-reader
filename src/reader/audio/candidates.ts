@@ -583,16 +583,29 @@ function jishoAudioSourceUrls(audioHtml: string, baseUrl: string): string[] {
 
 async function getJishoTextProxyAudioUrls(card: JPDBCard, timeoutMs: number, proxyUrl: string): Promise<string[]> {
     const url = `${JISHO_TEXT_PROXY_BASE_URL}/${encodeURIComponent(card.spelling)}`;
+    // Ask the reader text proxy (r.jina.ai) for the RAW jisho HTML instead of its
+    // markdown rendering. jisho.org itself is unreachable from the hosted reader
+    // (CORS-blocked direct; the public worker proxy fails its TLS handshake with a
+    // 525), so this is the only browser-reachable path. The HTML carries the
+    // <audio id="audio_{spelling}:{reading}"><source …cloudfront…> element, which
+    // we parse with the same logic as the direct/userscript path (and yomitan) —
+    // the markdown rendering drops/mangles that <source>, which is why jisho audio
+    // silently produced no candidates on the hosted reader.
     const response = await requestUrl(url, 'text', timeoutMs, {
         proxyUrl,
         allowDirectCrossOrigin: true,
         allowPublicProxies: false,
         allowConfiguredProxy: false,
         preferFetch: true,
+        headers: { 'X-Return-Format': 'html' },
     }).catch(() => '');
-    return typeof response === 'string'
-        ? extractJishoTextProxyAudioUrls(response, card).slice(0, 1)
-        : [];
+    if (typeof response !== 'string' || !response) return [];
+    const searchUrl = `https://jisho.org/search/${encodeURIComponent(card.spelling)}`;
+    const audioHtml = findJishoAudioElement(response, card);
+    const fromHtml = audioHtml ? jishoAudioSourceUrls(audioHtml, searchUrl) : [];
+    if (fromHtml.length) return fromHtml.slice(0, 1);
+    // Fallback for a markdown-only proxy response (no audio element to parse).
+    return extractJishoTextProxyAudioUrls(response, card).slice(0, 1);
 }
 
 function extractJishoTextProxyAudioUrls(markdown: string, card: JPDBCard): string[] {
