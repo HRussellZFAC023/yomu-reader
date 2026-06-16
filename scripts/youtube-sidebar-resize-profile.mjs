@@ -953,19 +953,55 @@ async function liveBridgeResponse(request, requestLog) {
     if (!shouldLiveFetchBridgeUrl(target)) return null;
     const method = request.method || 'GET';
     const kind = liveBridgeKind(target);
+    const details = liveBridgeRequestDetails(target, request);
     try {
         const response = await fetch(target.href, liveFetchInit(request, method));
         const responseText = await response.text();
-        requestLog.push({ kind, status: response.status, chars: responseText.length, url: redactUrl(target.href) });
+        requestLog.push({ kind, status: response.status, chars: responseText.length, ...details, url: redactUrl(target.href) });
         return {
             status: response.status,
             responseText,
             contentType: response.headers.get('content-type') ?? 'text/plain; charset=utf-8',
         };
     } catch (error) {
-        requestLog.push({ kind: `${kind}-failed`, error: bridgeErrorMessage(error), url: redactUrl(target.href) });
+        requestLog.push({ kind: `${kind}-failed`, error: bridgeErrorMessage(error), ...details, url: redactUrl(target.href) });
         return { status: 599, responseText: '', contentType: 'text/plain' };
     }
+}
+
+function liveBridgeRequestDetails(url, request) {
+    if (url.href.startsWith(jpdbParseUrl)) return jpdbParseRequestDetails(request);
+    if (isYoutubeTimedTextUrl(url)) {
+        return {
+            lang: url.searchParams.get('lang') ?? null,
+            tlang: url.searchParams.get('tlang') ?? null,
+            trackKind: url.searchParams.get('kind') ?? null,
+        };
+    }
+    if (url.hostname === 'translate.googleapis.com') {
+        const query = url.searchParams.getAll('q').join('\n');
+        return {
+            sourceLanguage: url.searchParams.get('sl') ?? null,
+            targetLanguage: url.searchParams.get('tl') ?? null,
+            requestItems: url.searchParams.getAll('q').length,
+            requestChars: query.length,
+        };
+    }
+    return {};
+}
+
+function jpdbParseRequestDetails(request) {
+    const body = safeParseJsonBody(gmRequestFetchBody(request));
+    const texts = Array.isArray(body.text)
+        ? body.text.map(value => String(value))
+        : body.text != null
+            ? [String(body.text)]
+            : [];
+    return {
+        requestItems: texts.length,
+        requestChars: texts.reduce((total, text) => total + text.length, 0),
+        requestJsonChars: JSON.stringify(body).length,
+    };
 }
 
 function bridgeErrorMessage(error) {
@@ -1022,6 +1058,14 @@ function parseJsonBody(rawBody) {
     if (typeof rawBody === 'string') return JSON.parse(rawBody || '{}');
     if (typeof rawBody === 'object') return rawBody;
     return {};
+}
+
+function safeParseJsonBody(rawBody) {
+    try {
+        return parseJsonBody(rawBody);
+    } catch {
+        return {};
+    }
 }
 
 function smokeSettings(placement) {
@@ -1130,9 +1174,33 @@ function defaultViewportSpecs() {
 
 function summarizeRequests(requestLog) {
     const counts = new Map();
-    for (const item of requestLog) counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+    const byKind = new Map();
+    for (const item of requestLog) {
+        counts.set(item.kind, (counts.get(item.kind) ?? 0) + 1);
+        const summary = byKind.get(item.kind) ?? {
+            count: 0,
+            responseChars: 0,
+            requestChars: 0,
+            requestItems: 0,
+            maxRequestChars: 0,
+            statuses: {},
+        };
+        summary.count += 1;
+        summary.responseChars += Number(item.chars || 0);
+        summary.requestChars += Number(item.requestChars || 0);
+        summary.requestItems += Number(item.requestItems || 0);
+        summary.maxRequestChars = Math.max(summary.maxRequestChars, Number(item.requestChars || 0));
+        if (item.status !== undefined) summary.statuses[item.status] = (summary.statuses[item.status] ?? 0) + 1;
+        byKind.set(item.kind, summary);
+    }
     return {
         counts: Object.fromEntries(counts),
+        byKind: Object.fromEntries([...byKind].map(([kind, summary]) => [kind, {
+            ...summary,
+            responseChars: Math.round(summary.responseChars),
+            requestChars: Math.round(summary.requestChars),
+            maxRequestChars: Math.round(summary.maxRequestChars),
+        }])),
         samples: requestLog.slice(0, 16),
     };
 }

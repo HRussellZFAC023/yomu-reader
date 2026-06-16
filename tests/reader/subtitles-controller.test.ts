@@ -4218,6 +4218,68 @@ describe('SubtitlePlayerController', () => {
         expect(parseJapaneseBatch.mock.calls[1]?.[0]).toEqual(['字幕8']);
     });
 
+    it('keeps long YouTube transcript background warmup provisional and keyless', async () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=long-transcript') as unknown as Location,
+        });
+        try {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                subtitleTranscriptAutoScroll: false,
+                apiKey: 'test-key',
+                localDictionariesEnabled: false,
+            };
+            const parseJapaneseBatch = vi.fn(async (texts: string[], _options?: { skipJpdb?: boolean; requireJpdb?: boolean }) => texts.map(text => [makeSubtitleToken(text)]));
+            const beforeRenderTokens = vi.fn(async () => undefined);
+            const { controller } = createSubtitleController(settings, {
+                parseJapanese: async () => [],
+                parseJapaneseBatch,
+                beforeRenderTokens,
+            });
+            const cues = Array.from({ length: 300 }, (_, index) => ({
+                start: index,
+                end: index + 0.8,
+                text: `長い字幕${index}`,
+                transcriptEligible: true,
+            }));
+            const rows = cues.slice(0, 48).map((cue, cueIndex) => ({ cue, cueIndex }));
+            type WarmupRows = typeof rows;
+            type WarmupSettings = typeof settings;
+            const internals = controller as unknown as {
+                cues: typeof cues;
+                transcriptCacheWarmupSerial: number;
+                warmTranscriptParseCache: (
+                    rows: WarmupRows,
+                    preferredIndex: number,
+                    settings: WarmupSettings,
+                    serial: number,
+                ) => Promise<void>;
+                parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                parsedHtmlCache: Map<string, string>;
+                provisionalParsedHtmlCache: Map<string, string>;
+            };
+
+            internals.cues = cues;
+            internals.transcriptCacheWarmupSerial = 1;
+            await internals.warmTranscriptParseCache(rows, 0, settings, 1);
+
+            expect(parseJapaneseBatch).toHaveBeenCalled();
+            expect(parseJapaneseBatch.mock.calls.every(call => (call[1] as { skipJpdb?: boolean })?.skipJpdb === true)).toBe(true);
+            expect(parseJapaneseBatch.mock.calls.some(call => (call[1] as { requireJpdb?: boolean })?.requireJpdb === true)).toBe(false);
+            expect(beforeRenderTokens).not.toHaveBeenCalled();
+            const key = internals.parseCacheKey('長い字幕0', settings);
+            expect(internals.provisionalParsedHtmlCache.get(key)).toContain('jpdb-reader-word');
+            expect(internals.parsedHtmlCache.has(key)).toBe(false);
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('enriches transcript background warmup html before caching future subtitle lines', async () => {
         const settings = {
             ...DEFAULT_SETTINGS,

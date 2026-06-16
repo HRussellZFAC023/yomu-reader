@@ -219,6 +219,12 @@ interface TranscriptPanelOptions {
     deferRender?: boolean;
 }
 
+interface ParseCueHtmlOptions {
+    allowProvisional?: boolean;
+    enrichBeforeRender?: boolean;
+    authoritativeUpgrade?: boolean;
+}
+
 function isYouTubeTheaterMode(): boolean {
     return isYouTubePage() && Boolean(document.querySelector('ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]'));
 }
@@ -1784,7 +1790,7 @@ export class SubtitlePlayerController {
         ].join(':');
     }
 
-    private async parseCueHtml(text: string, settings = this.options.getSettings(), options: { allowProvisional?: boolean; enrichBeforeRender?: boolean } = {}): Promise<string> {
+    private async parseCueHtml(text: string, settings = this.options.getSettings(), options: ParseCueHtmlOptions = {}): Promise<string> {
         const key = this.parseCacheKey(text, settings);
         const cached = this.parsedHtmlCache.get(key) ?? this.restoreSessionParsedCueHtml(key);
         if (cached) {
@@ -1810,10 +1816,10 @@ export class SubtitlePlayerController {
         }
     }
 
-    private async parseProvisionalCueHtml(text: string, settings: ReaderSettings, key: string, options: { enrichBeforeRender?: boolean } = {}): Promise<string> {
+    private async parseProvisionalCueHtml(text: string, settings: ReaderSettings, key: string, options: ParseCueHtmlOptions = {}): Promise<string> {
         const restored = this.restoreSessionParsedCueHtml(key);
         if (restored) return restored;
-        this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+        if (options.authoritativeUpgrade !== false) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
         const cached = this.provisionalParsedHtmlCache.get(key);
         if (cached) {
             return cached;
@@ -1916,7 +1922,7 @@ export class SubtitlePlayerController {
         return text ? this.parseCacheKey(text, this.options.getSettings()) : '';
     }
 
-    private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings(), options: { allowProvisional?: boolean; enrichBeforeRender?: boolean } = {}): Promise<ParsedSubtitleHtmlResult[]> {
+    private async parseCueHtmlBatch(texts: string[], settings = this.options.getSettings(), options: ParseCueHtmlOptions = {}): Promise<ParsedSubtitleHtmlResult[]> {
         const items = uniqueSubtitleParseTexts(texts).map(text => ({ text, key: this.parseCacheKey(text, settings) }));
         if (options.allowProvisional !== false && this.shouldUseProvisionalSubtitleParse(settings)) return await this.parseCueHtmlBatchWithProvisionalFallback(items, settings, options);
 
@@ -1947,9 +1953,9 @@ export class SubtitlePlayerController {
     private async parseCueHtmlBatchWithProvisionalFallback(
         items: SubtitleParseBatchItem[],
         settings: ReaderSettings,
-        options: { enrichBeforeRender?: boolean } = {},
+        options: ParseCueHtmlOptions = {},
     ): Promise<ParsedSubtitleHtmlResult[]> {
-        this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
+        if (options.authoritativeUpgrade !== false) this.ensureAuthoritativeParsedCueHtmlBatch(items, settings);
         const { ready, batch } = planProvisionalSubtitleParseBatch(
             items,
             key => this.parsedHtmlCache.get(key),
@@ -4145,16 +4151,14 @@ export class SubtitlePlayerController {
 
         let cursor = 0;
         const pauseMs = this.transcriptBackgroundParsePauseMs();
+        const parseOptions = this.transcriptWarmupParseOptions(Math.max(rows.length, this.cues.length));
         const worker = async () => {
             while (cursor < planned.length) {
                 if (serial !== this.transcriptCacheWarmupSerial) return;
                 const batch = this.nextTranscriptWarmupBatch(planned, () => cursor++);
                 if (!batch.length) continue;
                 try {
-                    const parsed = await this.parseCueHtmlBatch(batch.map(item => item.text), settings, {
-                        allowProvisional: false,
-                        enrichBeforeRender: true,
-                    });
+                    const parsed = await this.parseCueHtmlBatch(batch.map(item => item.text), settings, parseOptions);
                     if (serial !== this.transcriptCacheWarmupSerial) return;
                     for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true });
                 } catch {
@@ -4172,6 +4176,24 @@ export class SubtitlePlayerController {
             () => worker(),
         );
         await Promise.all(workers);
+    }
+
+    private transcriptWarmupParseOptions(totalRows: number): ParseCueHtmlOptions {
+        if (this.shouldUseCheapYouTubeTranscriptWarmup(totalRows)) {
+            return {
+                allowProvisional: true,
+                authoritativeUpgrade: false,
+                enrichBeforeRender: false,
+            };
+        }
+        return {
+            allowProvisional: false,
+            enrichBeforeRender: true,
+        };
+    }
+
+    private shouldUseCheapYouTubeTranscriptWarmup(totalRows: number): boolean {
+        return isYouTubePage() && totalRows > TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD;
     }
 
     private nextTranscriptWarmupBatch(
