@@ -12476,6 +12476,53 @@ describe('reader helpers', () => {
         expect(disabledListReaderStudyDecks).not.toHaveBeenCalled();
     });
 
+    it('loads public JPDB vocabulary details for Jiten-backed cards when JPDB definitions are enabled', async () => {
+        const lookup = vi.fn(async () => ({
+            meanings: ['JPDB public meaning'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        }));
+        const enabledLoader = testCardRenderDataLoader({
+            settings: cardDetailLoaderSettings({
+                apiKey: '',
+                jitenApiKey: 'jiten-key',
+                jpdbDefinitionsEnabled: true,
+                jitenDefinitionsEnabled: true,
+                jpdbMiningEnabled: false,
+            }),
+            jpdbVocabulary: { lookup },
+            isJpdbBackedCard: () => false,
+        });
+        const jitenCard = jitenTestCard({ spelling: '復習', reading: 'ふくしゅう' });
+
+        await expect(enabledLoader.load(jitenCard).jpdbVocabularyInfo).resolves.toMatchObject({
+            meanings: ['JPDB public meaning'],
+        });
+        expect(lookup).toHaveBeenCalledWith(jitenCard.vid, '復習', 'ふくしゅう');
+
+        const disabledLookup = vi.fn(async () => ({
+            meanings: ['hidden'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        }));
+        const disabledLoader = testCardRenderDataLoader({
+            settings: cardDetailLoaderSettings({
+                apiKey: '',
+                jitenApiKey: 'jiten-key',
+                jpdbDefinitionsEnabled: false,
+                jitenDefinitionsEnabled: true,
+                jpdbMiningEnabled: false,
+            }),
+            jpdbVocabulary: { lookup: disabledLookup },
+            isJpdbBackedCard: () => false,
+        });
+
+        await expect(disabledLoader.load(jitenCard).jpdbVocabularyInfo).resolves.toBeNull();
+        expect(disabledLookup).not.toHaveBeenCalled();
+    });
+
     it('promotes JPDB not-in-deck cards when pooled deck membership finds them', async () => {
         const isInUserDeckPool = vi.fn(async () => true);
         const loader = testCardRenderDataLoader({
@@ -29054,6 +29101,7 @@ describe('reader helpers', () => {
         try {
             const sourceCard: JPDBCard = { ...card, spelling: 'で', reading: 'で' };
             const internals = app as unknown as {
+                activePopover?: HTMLElement;
                 settings: typeof DEFAULT_SETTINGS;
                 parsePopoverJapanese(popover: HTMLElement): Promise<void>;
                 showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: { trigger?: 'modal' | 'hover'; navigation?: 'reset' | 'preserve' | 'push-current'; autoPlay?: boolean }): Promise<void>;
@@ -29075,7 +29123,7 @@ describe('reader helpers', () => {
             internals.parsePopoverJapanese = vi.fn(async () => undefined);
 
             await internals.showCard(sourceCard, 'うでが痛むんで？', undefined, { trigger: 'modal', navigation: 'reset', autoPlay: false });
-            const popover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            const popover = internals.activePopover!;
             popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
                 <details data-immersion-kit open>
                     <summary>Immersion Kit Princess Mononoke 2/6 ‹ ›</summary>
@@ -29087,8 +29135,9 @@ describe('reader helpers', () => {
                 </details>
             `);
             const showCard = vi.spyOn(internals, 'showCard');
+            const target = popover.querySelector<HTMLElement>('.jpdb-reader-example-target')!;
 
-            await internals.showWord(popover.querySelector<HTMLElement>('.jpdb-reader-example-target')!, { trigger: 'click' });
+            await internals.showWord(target, { trigger: 'click' });
 
             expect(showCard).not.toHaveBeenCalled();
             expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')).toBeNull();
@@ -29101,13 +29150,14 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps a back arrow when clicking study-source words inside a hover-opened popup', async () => {
+    it('keeps a back arrow when clicking study-source words inside a popup', async () => {
         const { app, restoreAnimationFrame } = testSynchronousReaderApp();
 
         try {
             const sourceCard: JPDBCard = { ...card, spelling: '印刷', reading: 'いんさつ' };
             const nestedCard: JPDBCard = { ...card, vid: -91, sid: -92, spelling: '技術', reading: 'ぎじゅつ', source: 'fallback' };
             const internals = app as unknown as {
+                activePopover?: HTMLElement;
                 settings: typeof DEFAULT_SETTINGS;
                 parser: { cacheCards(cards: JPDBCard[]): void };
                 parsePopoverJapanese(popover: HTMLElement): Promise<void>;
@@ -29129,9 +29179,8 @@ describe('reader helpers', () => {
             };
             internals.parsePopoverJapanese = vi.fn(async () => undefined);
             internals.parser.cacheCards([nestedCard]);
-
-            await internals.showCard(sourceCard, '印刷技術です。', undefined, { trigger: 'hover', navigation: 'reset', autoPlay: false });
-            const hoverPopover = document.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+            await internals.showCard(sourceCard, '印刷技術です。', undefined, { trigger: 'modal', navigation: 'reset', autoPlay: false });
+            const hoverPopover = internals.activePopover!;
             hoverPopover.querySelector<HTMLElement>('.jpdb-reader-popover-body')?.insertAdjacentHTML('beforeend', `
                 <div class="jpdb-reader-study-original jpdb-reader-parseable" data-study-original-render>
                     Grammar また、PDFファイルをダウンロードしたり、印刷して本にすることもできます。

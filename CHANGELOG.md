@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.68] - 2026-06-16
+
+### Fixed
+
+- JPDB public dictionary details now render alongside Jiten details even when the clicked/search result card came from Jiten parsing, so keyless, Jiten-key-only, JPDB-key-only, and dual-key lookups can all show the real JPDB and Jiten source panels together.
+- Definition source toggles now persist through settings normalization, so turning off JPDB or Jiten removes that source from both popover dictionary cards and the `/search` detail page.
+
 ## [0.7.67] - 2026-06-15
 
 ### Fixed

@@ -385,6 +385,17 @@ describe('settings form localization', () => {
         expect(normalizeReaderSettings({}).ankiMobileHandoff).toBe(false);
         expect(normalizeReaderSettings({}).ankiMineWithJpdb).toBe(false);
         expect(normalizeReaderSettings({}).popupMode).toBe('auto');
+        expect(normalizeReaderSettings({
+            jpdbDefinitionsEnabled: false,
+            jitenDefinitionsEnabled: false,
+            localDictionariesEnabled: false,
+            dictionarySourcesInitiallyExpanded: false,
+        })).toMatchObject({
+            jpdbDefinitionsEnabled: false,
+            jitenDefinitionsEnabled: false,
+            localDictionariesEnabled: false,
+            dictionarySourcesInitiallyExpanded: false,
+        });
         expect(shouldLookupAnkiStatus(DEFAULT_SETTINGS)).toBe(false);
         expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiSectionEnabled: true })).toBe(false);
         expect(shouldLookupAnkiStatus({ ...DEFAULT_SETTINGS, ankiEnabled: true })).toBe(true);

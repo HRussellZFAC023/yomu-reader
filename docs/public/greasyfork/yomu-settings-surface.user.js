@@ -2155,9 +2155,9 @@
   }
   function normalizeRemovedDictionarySettings(value) {
     return {
-      jpdbDefinitionsEnabled: true,
-      localDictionariesEnabled: true,
-      dictionarySourcesInitiallyExpanded: true,
+      jpdbDefinitionsEnabled: booleanSetting(value, "jpdbDefinitionsEnabled"),
+      localDictionariesEnabled: booleanSetting(value, "localDictionariesEnabled"),
+      dictionarySourcesInitiallyExpanded: booleanSetting(value, "dictionarySourcesInitiallyExpanded"),
       localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
       localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };

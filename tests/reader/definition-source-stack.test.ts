@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
 import { orderedDefinitionSourceIds } from '../../src/reader/sources/sections';
 import type { JitenVocabularyInfo } from '../../src/reader/dictionaries/jiten';
+import type { JpdbVocabularyInfo } from '../../src/reader/jpdb/jpdb-vocabulary';
 import type { YomitanTermEntry } from '../../src/reader/dictionaries/yomitan';
 
 function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
@@ -31,6 +32,7 @@ function renderSources(
     extraSectionsOrOptions?: Parameters<typeof renderDefinitionSourcesStack>[0]['extraSectionsOrOptions'],
     jitenVocabularyInfo?: JitenVocabularyInfo | null,
     entries: YomitanTermEntry[] = [],
+    jpdbVocabularyInfo: JpdbVocabularyInfo | null = null,
 ): string {
     return renderDefinitionSourcesStack({
         card: sourceCard,
@@ -40,6 +42,7 @@ function renderSources(
         dictionaryLabel: name => name,
         noDefinitionsHtml: () => '<p>No definitions</p>',
         extraSectionsOrOptions,
+        jpdbVocabularyInfo,
         jitenVocabularyInfo,
         renderTranslationSource: () => '',
         renderGrammarSource: () => '',
@@ -205,6 +208,28 @@ describe('definition source stack', () => {
 
         expect(html).toContain('data-source="jiten"');
         expect(html).not.toContain('data-source="jpdb"');
+    });
+
+    it('renders public JPDB details beside a Jiten-backed card when both sources have content', () => {
+        const html = renderSources(card({
+            source: 'jiten',
+            jitenWordId: 10,
+            jitenReadingIndex: 0,
+            spelling: '復習',
+            reading: 'ふくしゅう',
+            meanings: [{ glosses: ['Jiten card meaning only'], partOfSpeech: [] }],
+        }), DEFAULT_SETTINGS, undefined, jitenInfo(['Jiten real meaning']), [], {
+            meanings: ['JPDB public meaning'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        });
+
+        expect(html).toContain('data-source="jpdb"');
+        expect(html).toContain('data-source="jiten"');
+        expect(html).toContain('JPDB public meaning');
+        expect(html).toContain('Jiten real meaning');
+        expect(html).not.toContain('Jiten card meaning only');
     });
 
     it('keeps Jiten available when the JPDB source panel is disabled', () => {

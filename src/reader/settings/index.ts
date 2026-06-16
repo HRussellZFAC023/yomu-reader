@@ -635,9 +635,9 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
 
 function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'dictionarySourcesInitiallyExpanded' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {
     return {
-        jpdbDefinitionsEnabled: true,
-        localDictionariesEnabled: true,
-        dictionarySourcesInitiallyExpanded: true,
+        jpdbDefinitionsEnabled: booleanSetting(value, 'jpdbDefinitionsEnabled'),
+        localDictionariesEnabled: booleanSetting(value, 'localDictionariesEnabled'),
+        dictionarySourcesInitiallyExpanded: booleanSetting(value, 'dictionarySourcesInitiallyExpanded'),
         localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
         localDictionaryShowKanji: booleanSetting(value, 'localDictionaryShowKanji'),
     };

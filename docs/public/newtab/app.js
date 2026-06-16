@@ -2481,9 +2481,9 @@
   }
   function normalizeRemovedDictionarySettings(value) {
     return {
-      jpdbDefinitionsEnabled: true,
-      localDictionariesEnabled: true,
-      dictionarySourcesInitiallyExpanded: true,
+      jpdbDefinitionsEnabled: booleanSetting(value, "jpdbDefinitionsEnabled"),
+      localDictionariesEnabled: booleanSetting(value, "localDictionariesEnabled"),
+      dictionarySourcesInitiallyExpanded: booleanSetting(value, "dictionarySourcesInitiallyExpanded"),
       localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
       localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };
@@ -45913,7 +45913,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled || isJitenBackedCard(card)) return Promise.resolve(null);
+      if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
         log$d.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;

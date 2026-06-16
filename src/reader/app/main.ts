@@ -3890,8 +3890,8 @@ export class ReaderApp {
     }
 
     private shouldIgnoreCurrentImmersionExampleTargetClick(word: HTMLElement): boolean {
-        if (!this.lastCard || !this.isInsideActivePopover(word)) return false;
-        if (!word.closest('[data-immersion-kit] .jpdb-reader-example-sentence')) return false;
+        if (!this.lastCard || !word.closest('.jpdb-reader-popover')) return false;
+        if (!word.closest('.jpdb-reader-example-sentence')) return false;
         if (!word.closest('.jpdb-reader-example-target')) return false;
         return cardMatchesRenderedLookupValue(this.lastCard, renderedWordLookupText(word));
     }
