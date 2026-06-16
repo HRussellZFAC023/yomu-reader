@@ -349,6 +349,7 @@ async function settingsLayoutSnapshot(page, panel) {
             issues.push(...gridGapIssues(grid, children));
         }
         issues.push(...sourceRowIssues(panelRoot));
+        issues.push(...audioSourceBoxAlignmentIssues(panelRoot));
         issues.push(...gridInlineControlAlignmentIssues(panelRoot));
 
         const words = [...(panelRoot?.querySelectorAll('.jpdb-reader-word') ?? [])];
@@ -395,6 +396,32 @@ async function settingsLayoutSnapshot(page, panel) {
                 }
                 if (rowRect.height > 180) {
                     found.push({ type: 'source-row-too-tall', row: textOf(row), rect: rectSnapshot(rowRect) });
+                }
+            }
+            return found;
+        }
+
+        function audioSourceBoxAlignmentIssues(root) {
+            if (!root) return [];
+            const found = [];
+            for (const row of Array.from(root.querySelectorAll('.jpdb-reader-audio-source-row')).filter(isVisible)) {
+                const rowRect = row.getBoundingClientRect();
+                if (rowRect.width < 640) continue;
+                const sourceSelect = row.querySelector('.jpdb-reader-audio-source-choice select');
+                const pairedControl = Array.from(row.querySelectorAll('.jpdb-reader-audio-source-fields input, .jpdb-reader-audio-source-fields select')).find(isVisible);
+                if (!isVisible(sourceSelect) || !isVisible(pairedControl)) continue;
+                const sourceRect = sourceSelect.getBoundingClientRect();
+                const pairedRect = pairedControl.getBoundingClientRect();
+                if (!sharesVisualRow(sourceRect, pairedRect)) continue;
+                const topDelta = Math.abs(sourceRect.top - pairedRect.top);
+                if (topDelta > 3) {
+                    found.push({
+                        type: 'audio-source-box-misaligned',
+                        row: textOf(row),
+                        source: rectSnapshot(sourceRect),
+                        paired: rectSnapshot(pairedRect),
+                        topDelta: round(topDelta),
+                    });
                 }
             }
             return found;

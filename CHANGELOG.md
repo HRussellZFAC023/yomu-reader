@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] - 2026-06-17
+
+### Fixed
+
+- Audio-source rows in settings now keep the source dropdown and voice/URL box top-aligned, including Japanese option helper text.
+
 ## [1.0.0] - 2026-06-16
 
 ### Added

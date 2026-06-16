@@ -12873,6 +12873,7 @@ html.jpdb-reader-doodle-active * {
   grid-template-columns: minmax(0, 1fr) max-content;
   gap: 6px;
   align-items: center;
+  align-self: start;
   min-width: 0;
 }
 .jpdb-reader-audio-source-choice select {
@@ -12893,6 +12894,7 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-audio-source-fields {
   display: grid;
   gap: 6px;
+  align-self: start;
 }
 .jpdb-reader-row-tools {
   display: flex;
