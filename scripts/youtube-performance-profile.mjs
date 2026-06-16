@@ -185,6 +185,7 @@ const PROFILE_ANKI_HANDLERS = {
 
 const parseRequests = [];
 const ankiRequests = [];
+const jitenPublicRequests = [];
 
 const browser = await chromium.launch({ headless: !headed });
 try {
@@ -203,6 +204,7 @@ try {
 async function runScenario(browser, scenario) {
     parseRequests.length = 0;
     ankiRequests.length = 0;
+    jitenPublicRequests.length = 0;
     const scenarioArtifactsDir = scenarioNames.length > 1 ? join(outputRoot, scenario.name) : outputRoot;
     mkdirSync(scenarioArtifactsDir, { recursive: true });
     const context = await browser.newContext({
@@ -292,6 +294,7 @@ async function runScenario(browser, scenario) {
         profile.mobileStress = await runMobileHoverStress(context, scenario, scenarioArtifactsDir);
         profile.finalState = await readPageState(page);
         profile.parseRequests = parseRequestSummary(0);
+        profile.jitenPublicRequests = jitenPublicRequestSummary(0);
         profile.ankiRequests = ankiRequestSummary(0);
         await page.screenshot({ path: join(scenarioArtifactsDir, 'youtube-performance.png'), fullPage: false }).catch(() => undefined);
         await page.close().catch(() => undefined);
@@ -495,35 +498,110 @@ async function installRoutes(page, scenario) {
 
 function routeResponse(url, rawBody, scenario, method = 'GET') {
     const parsed = new URL(url);
+    const target = proxiedTargetUrl(parsed) ?? parsed;
     if (method === 'OPTIONS') return textResponse('', 'text/plain', 204);
-    if ((parsed.hostname === 'www.youtube.com' || parsed.hostname === 'm.youtube.com') && parsed.pathname === '/watch') {
-        return textResponse(youtubeWatchHtml({ mobile: parsed.hostname === 'm.youtube.com' }), 'text/html; charset=utf-8');
+    if ((target.hostname === 'www.youtube.com' || target.hostname === 'm.youtube.com') && target.pathname === '/watch') {
+        return textResponse(youtubeWatchHtml({ mobile: target.hostname === 'm.youtube.com' }), 'text/html; charset=utf-8');
     }
-    if (parsed.hostname === 'www.youtube.com' && parsed.pathname === '/api/timedtext') {
-        return textResponse(youtubeTimedText(parsed.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
+    if (target.hostname === 'www.youtube.com' && target.pathname === '/api/timedtext') {
+        return textResponse(youtubeTimedText(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
     }
-    if (parsed.hostname === 'www.youtube.com' && parsed.pathname === '/youtubei/v1/player') {
+    if (target.hostname === 'www.youtube.com' && target.pathname === '/youtubei/v1/player') {
         return jsonResponse(youtubePlayerResponse());
     }
-    if (parsed.hostname === 'jpdb.io' && parsed.pathname === '/search') {
-        return textResponse(jpdbPublicSearchHtml(parsed.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
+    if (target.hostname === 'jpdb.io' && target.pathname === '/search') {
+        return textResponse(jpdbPublicSearchHtml(target.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
     }
+    if (target.hostname === 'api.jiten.moe') return jitenPublicResponse(target);
     if (isAnkiConnectUrl(parsed)) return ankiConnectResponse(rawBody, scenario);
-    if (parsed.href.startsWith(JPDB_PARSE_URL)) return jpdbParseResponse(rawBody);
+    if (target.href.startsWith(JPDB_PARSE_URL)) return jpdbParseResponse(rawBody);
     return textResponse('', 'text/plain', 204);
 }
 
 function responseForRequest(url, rawBody, scenario) {
     const parsed = new URL(url);
-    if (parsed.href.startsWith(JPDB_PARSE_URL)) return jpdbParseResponse(rawBody);
+    const target = proxiedTargetUrl(parsed) ?? parsed;
+    if (target.href.startsWith(JPDB_PARSE_URL)) return jpdbParseResponse(rawBody);
     if (isAnkiConnectUrl(parsed)) return ankiConnectResponse(rawBody, scenario);
-    if (parsed.hostname === 'www.youtube.com' && parsed.pathname === '/api/timedtext') {
-        return textResponse(youtubeTimedText(parsed.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
+    if (target.hostname === 'www.youtube.com' && target.pathname === '/api/timedtext') {
+        return textResponse(youtubeTimedText(target.searchParams.get('lang') ?? 'ja'), 'text/xml; charset=utf-8');
     }
-    if (parsed.hostname === 'jpdb.io' && parsed.pathname === '/search') {
-        return textResponse(jpdbPublicSearchHtml(parsed.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
+    if (target.hostname === 'jpdb.io' && target.pathname === '/search') {
+        return textResponse(jpdbPublicSearchHtml(target.searchParams.get('q') ?? ''), 'text/html; charset=utf-8');
     }
+    if (target.hostname === 'api.jiten.moe') return jitenPublicResponse(target);
     return textResponse('', 'text/plain', 204);
+}
+
+function proxiedTargetUrl(url) {
+    const target = url.searchParams.get('url');
+    if (!target) return null;
+    try {
+        return new URL(target);
+    } catch {
+        return null;
+    }
+}
+
+function jitenPublicResponse(url) {
+    if (url.pathname === '/api/vocabulary/parse') {
+        const text = url.searchParams.get('text') ?? '';
+        const started = performance.now();
+        const words = jitenPublicParse(text);
+        jitenPublicRequests.push({
+            kind: 'parse',
+            chars: text.length,
+            words: words.length,
+            durationMs: Math.round((performance.now() - started) * 10) / 10,
+        });
+        return jsonResponse(words);
+    }
+    const match = url.pathname.match(/^\/api\/vocabulary\/(\d+)\/(\d+)\/info$/u);
+    if (match) {
+        jitenPublicRequests.push({ kind: 'info', wordId: Number(match[1]), readingIndex: Number(match[2]), chars: 0, words: 1, durationMs: 0 });
+        return jsonResponse(jitenPublicInfo(Number(match[1]), Number(match[2])));
+    }
+    return jsonResponse({}, 404);
+}
+
+function jitenPublicParse(text) {
+    return vocabulary
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => text.includes(row[1]) || text.includes(row[0]))
+        .map(({ row, index }) => ({
+            wordId: 910000 + index,
+            originalText: row[1],
+            readingIndex: 0,
+            conjugations: [],
+        }));
+}
+
+function jitenPublicInfo(wordId, readingIndex) {
+    const entry = vocabulary[wordId - 910000];
+    if (!entry) return {};
+    const [, spelling, reading, meaning, partOfSpeech, rank, , pitchAccent] = entry;
+    return {
+        wordId,
+        mainReading: {
+            text: spelling === reading ? spelling : `${spelling}[${reading}]`,
+            readingIndex,
+            frequencyRank: rank,
+            usedInMediaAmount: 1,
+        },
+        alternativeReadings: [],
+        partsOfSpeech: partOfSpeech,
+        definitions: [{ index: 1, meanings: [meaning], partsOfSpeech: partOfSpeech }],
+        pitchAccents: [pitchPositionFromPattern(pitchAccent[0] ?? '')],
+        knownStates: [],
+        composedOf: [],
+        usedIn: [],
+        usedInTotal: 0,
+    };
+}
+
+function pitchPositionFromPattern(pattern) {
+    const drop = Array.from(pattern).findIndex((level, index, levels) => level === 'H' && levels[index + 1] === 'L');
+    return drop >= 0 ? drop + 1 : 0;
 }
 
 function jpdbPublicSearchHtml(query) {
@@ -734,6 +812,17 @@ function parseRequestSummary(startIndex) {
         paragraphs: slice.reduce((sum, item) => sum + item.paragraphs, 0),
         chars: slice.reduce((sum, item) => sum + item.chars, 0),
         maxChars: slice.reduce((max, item) => Math.max(max, item.chars), 0),
+    };
+}
+
+function jitenPublicRequestSummary(startIndex) {
+    const slice = jitenPublicRequests.slice(startIndex);
+    return {
+        count: slice.length,
+        parseCount: slice.filter(item => item.kind === 'parse').length,
+        infoCount: slice.filter(item => item.kind === 'info').length,
+        chars: slice.reduce((sum, item) => sum + item.chars, 0),
+        words: slice.reduce((sum, item) => sum + item.words, 0),
     };
 }
 

@@ -2252,12 +2252,18 @@ function configurePublicVocabularyEnrichment(app: ReaderApp, options: {
     search: (term: string, limit?: number) => Promise<JPDBCard[]>;
     settings?: Partial<ReaderSettings>;
     pitch?: (term: string, reading?: string) => Promise<unknown>;
+    jitenLookup?: (term: string) => Promise<JPDBCard | null>;
+    jitenLookupMany?: (terms: readonly string[]) => Promise<Map<string, JPDBCard>>;
 }) {
     const cacheCards = vi.fn();
     const internals = app as unknown as {
         settings: ReaderSettings;
         jpdbVocabulary: { search: typeof options.search };
         jpdbPublicPitch?: { lookup: NonNullable<typeof options.pitch> };
+        jitenPublicVocabulary?: {
+            lookup: NonNullable<typeof options.jitenLookup>;
+            lookupMany?: NonNullable<typeof options.jitenLookupMany>;
+        };
         parser: { cacheCards: typeof cacheCards };
         enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
         enrichJpdbRelatedWords(root: ParentNode): void;
@@ -2270,6 +2276,10 @@ function configurePublicVocabularyEnrichment(app: ReaderApp, options: {
     };
     internals.jpdbVocabulary = { search: options.search };
     if (options.pitch) internals.jpdbPublicPitch = { lookup: options.pitch };
+    internals.jitenPublicVocabulary = {
+        lookup: options.jitenLookup ?? vi.fn(async () => null),
+        ...(options.jitenLookupMany ? { lookupMany: options.jitenLookupMany } : {}),
+    };
     internals.parser = { cacheCards };
     return { cacheCards, internals };
 }
@@ -3574,13 +3584,13 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word { background-color: transparent !important; background-image: none !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline: transparent; --jpdb-reader-word-underline-offset: 0.12em; --jpdb-reader-word-underline-thickness: 0.12em; box-shadow: none !important; text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('.jpdb-ocr-layer .jpdb-ocr-line .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
-        expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
-        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent); background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))) !important; -webkit-text-fill-color: var(--jpdb-reader-word-accessible-color, var(--jpdb-reader-word-color-source, var(--jpdb-ocr-text-color, var(--jpdb-reader-video-text)))); }');
+        expect(normalizedCss).toMatch(/\.jpdb-ocr-line:is\(:hover, :focus, \.jpdb-ocr-line-active\) \.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, currentColor\); \}/);
+        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, currentColor);');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-jpdb .jpdb-ocr-layer');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi { background: transparent !important; box-shadow: none !important; }');
-        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; border-radius: 3px; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; }');
-        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: color-mix');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi { background: transparent !important; box-shadow: none !important; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-word-highlight-source, transparent), var(--jpdb-reader-word-highlight-source, transparent)) !important; background-position: center !important; background-repeat: no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100% !important; border-radius: 3px; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none) !important; }');
+        expect(normalizedCss).not.toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word.jpdb-reader-has-furi .jpdb-ocr-ruby-base { background: color-mix');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-underline-jpdb .jpdb-ocr-layer');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-text-jpdb .jpdb-ocr-layer');
         expect(normalizedCss).not.toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word.jpdb-reader-has-furi { background: transparent');
@@ -26376,7 +26386,7 @@ describe('reader helpers', () => {
             expect(word.dataset.vid).toBe('1556420');
             expect(word.dataset.reading).toBe('よむ');
             expect(word.dataset.pitchClass).toBe('atamadaka');
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(false);
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
             expect(word.classList.contains('jpdb-pitch-unknown')).toBe(false);
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
             expect(line.dataset.hasFuri).not.toBe('true');
@@ -26424,7 +26434,7 @@ describe('reader helpers', () => {
             expect(word.dataset.vid).toBe('1556420');
             expect(word.dataset.reading).toBe('よむ');
             expect(word.dataset.pitchClass).toBe('atamadaka');
-            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(false);
             expect(word.classList.contains('jpdb-reader-has-furi')).toBe(false);
             expect(line.dataset.hasFuri).not.toBe('true');
             expect(word.querySelector('.jpdb-ocr-furi')).toBeNull();
@@ -26523,6 +26533,62 @@ describe('reader helpers', () => {
             expect(lookupCard.pitchAccent).toEqual(['LHHLL']);
             expect(token.pitchClass).toBe('nakadaka');
             expectRenderedPitchWord(word, 'nakadaka');
+        } finally {
+            word.remove();
+            app.destroy();
+        }
+    });
+
+    it('uses keyless Jiten vocabulary before JPDB public lookup for fallback words', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -1381470,
+            sid: -1381470,
+            spelling: '青空',
+        });
+        const jitenCard: JPDBCard = {
+            ...card,
+            vid: 1381470,
+            sid: 0,
+            rid: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            frequencyRank: 6924,
+            partOfSpeech: ['n'],
+            meanings: [{ glosses: ['blue sky'], partOfSpeech: ['noun'] }],
+            cardState: ['not-in-deck'],
+            pitchAccent: ['LHHLL'],
+            wordWithReading: '青[あお]空[ぞら]',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 1381470,
+            jitenReadingIndex: 0,
+        };
+        const word = appendRenderedReaderWord(fallbackCard);
+        const search = vi.fn(async () => []);
+        const publicPitch = vi.fn(async () => ['LHHLL']);
+        const jitenLookup = vi.fn(async () => jitenCard);
+        const { cacheCards, internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            pitch: publicPitch,
+            jitenLookup,
+            settings: { apiKey: '', localDictionariesEnabled: false, furiganaMode: 'all' },
+        });
+
+        try {
+            await internals.enrichPitchWords([testTokenForCard(fallbackCard)], { publicLookupLimit: 1 });
+
+            expect(jitenLookup).toHaveBeenCalledWith('青空');
+            expect(search).not.toHaveBeenCalled();
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(cacheCards).toHaveBeenCalledWith([jitenCard]);
+            expect(word.dataset.vid).toBe('1381470');
+            expect(word.dataset.sid).toBe('0');
+            expect(word.dataset.reading).toBe('あおぞら');
+            expect(word.dataset.pitchClass).toBe('nakadaka');
+            expect(word.classList.contains('jpdb-pitch-nakadaka')).toBe(true);
+            expect(word.classList.contains('jpdb-reader-has-furi')).toBe(true);
+            expect(word.querySelector('rt')?.textContent).toBe('あおぞら');
         } finally {
             word.remove();
             app.destroy();
@@ -26722,7 +26788,7 @@ describe('reader helpers', () => {
             rid: 0,
             spelling: '青空',
             reading: 'あおぞら',
-            source: 'jpdb',
+            source: 'jiten',
             pitchAccent: ['LHHL'],
         };
         const word = document.createElement('span');
@@ -26761,6 +26827,7 @@ describe('reader helpers', () => {
         ];
 
         const search = vi.fn(async (term: string) => term === '青空' ? [publicCard] : []);
+        const jitenLookup = vi.fn(async (term: string) => term === '青空' ? publicCard : null);
         const cacheCards = vi.fn();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
@@ -26769,15 +26836,20 @@ describe('reader helpers', () => {
             parser: { cacheCards: typeof cacheCards };
             enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
         };
-        internals.settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false, showPitchAccent: true };
+        internals.settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false, localDictionariesEnabled: false, showPitchAccent: true };
         internals.jpdbVocabulary = { search };
         internals.jpdbPublicPitch = { lookup: vi.fn(async () => []) };
         internals.parser = { cacheCards };
+        (internals as unknown as { jitenPublicVocabulary?: { lookup: typeof jitenLookup } }).jitenPublicVocabulary = {
+            lookup: jitenLookup,
+        };
 
         try {
             await internals.enrichPitchWords(tokens);
 
-            expect(search).toHaveBeenCalledWith('青空', 1);
+            expect(jitenLookup).toHaveBeenCalledWith('青空');
+            expect(jitenLookup).not.toHaveBeenCalledWith('の');
+            expect(search).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalledWith('の', 1);
             expect(tokens[tokens.length - 1]!.card).toBe(publicCard);
             expect(tokens[tokens.length - 1]!.pitchClass).toBe('nakadaka');
@@ -29044,7 +29116,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('resolves segmented fallback lookup cards through public JPDB search before rendering', async () => {
+    it('resolves segmented fallback lookup cards through public Jiten before JPDB search', async () => {
         const app = new ReaderApp();
         const fallbackCard: JPDBCard = {
             ...card,
@@ -29064,24 +29136,31 @@ describe('reader helpers', () => {
             spelling: '青空',
             reading: 'あおぞら',
             frequencyRank: 6100,
-            source: 'jpdb',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 1381470,
+            jitenReadingIndex: 0,
             pitchAccent: ['LHHL'],
         };
         const search = vi.fn(async () => [publicCard]);
+        const jitenLookup = vi.fn(async (term: string) => term === '青空' ? publicCard : null);
         const cacheCards = vi.fn();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbVocabulary: { search: typeof search };
+            jitenPublicVocabulary: { lookup: typeof jitenLookup };
             parser: { cacheCards: typeof cacheCards };
             resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false, showPitchAccent: true };
         internals.jpdbVocabulary = { search };
+        internals.jitenPublicVocabulary = { lookup: jitenLookup };
         internals.parser = { cacheCards };
 
         try {
             await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(publicCard);
-            expect(search).toHaveBeenCalledWith('青空', 1);
+            expect(jitenLookup).toHaveBeenCalledWith('青空');
+            expect(search).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
         } finally {
             app.destroy();

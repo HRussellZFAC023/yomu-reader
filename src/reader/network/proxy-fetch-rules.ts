@@ -78,7 +78,8 @@ const SPECIALIZED_PROXY_ROUTE_RULES: SpecializedProxyRouteRule[] = [
             && (target.pathname.startsWith('/api/tts/word/')
                 || target.pathname.startsWith('/api/tts/sentence/')
                 || target.pathname === '/api/vocabulary/search'
-                || target.pathname === '/api/vocabulary/parse'),
+                || target.pathname === '/api/vocabulary/parse'
+                || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)),
     },
 ];
 

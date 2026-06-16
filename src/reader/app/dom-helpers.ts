@@ -10,7 +10,6 @@ import { cardStateLabel } from './i18n';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
-import { normalizeOcrRenderedText } from '../ocr/rendered-text';
 import { isKanjiCharacter, renderPitch } from '../popup/render';
 import { clearRenderedWordAnkiState, renderedWordHasAnkiState } from '../dom/rendered-word-state';
 import type { AnkiLookupResult } from '../anki/index';
@@ -124,7 +123,7 @@ export function updateRenderedPitch(popover: HTMLElement, card: JPDBCard, metaEn
 export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard, settings: ReaderSettings): void {
     if (word.closest('ruby')) return;
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
-    if (ocrLine && !ocrLine.classList.contains('jpdb-ocr-line-active')) return;
+    if (ocrLine) return;
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token: JPDBToken = {
@@ -140,10 +139,6 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     const html = renderRuby(surface, token);
     if (!html.includes('<rt')) return;
     setInnerHtml(word, html);
-    if (ocrLine) {
-        normalizeOcrRenderedText(word);
-        ocrLine.dataset.hasFuri = 'true';
-    }
     word.classList.add('jpdb-reader-has-furi');
 }
 

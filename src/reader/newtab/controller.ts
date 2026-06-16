@@ -6680,7 +6680,20 @@ export class NewTabController {
     private async searchKanjiResult(character: string, words: JPDBCard[] = [], parentCards: JPDBCard[] = []): Promise<NewTabSearchKanjiResult | null> {
         const details = await this.loadKanjiDetails(character).catch(error => {
             log.debug('Search kanji summary details unavailable', { kanji: character, error });
-            return { jpdb: null, jiten: null, rtk: null, vg: null, local: [] } satisfies KanjiDetailBundle;
+            return {
+                jpdb: null,
+                jiten: null,
+                rtk: null,
+                vg: null,
+                local: [],
+                sourceStates: {
+                    jpdb: 'unavailable',
+                    jiten: 'unavailable',
+                    rtk: 'unavailable',
+                    vg: 'unavailable',
+                    local: 'unavailable',
+                },
+            } satisfies KanjiDetailBundle;
         });
         const fullInfo = details.jpdb ? normalizeJpdbKanjiInfo(details.jpdb) : null;
         const parentMeanings = searchParentMeaningKeys(parentCards, character);

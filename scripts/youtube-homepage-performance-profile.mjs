@@ -359,10 +359,23 @@ function jitenResponse(url, rawBody, scenario, requests) {
     requests.push({ kind: 'jiten', scenario: scenario.name, endpoint });
     if (endpoint === 'reader/ping') return jsonResponse({ ok: true });
     if (endpoint === 'reader/parse') return jsonResponse(jitenParseResponse(parseJsonBody(rawBody)));
+    if (endpoint === 'vocabulary/parse') return jsonResponse(jitenPublicParseResponse(url.searchParams.get('text') ?? ''));
     if (endpoint === 'srs/reader-study-decks') return jsonResponse([{ userStudyDeckId: 1, name: 'Mining' }]);
     if (/^vocabulary\/\d+\/\d+\/info$/.test(endpoint)) return jsonResponse(jitenVocabularyInfo(endpoint));
     if (/^vocabulary\/\d+\/\d+\/random-example-sentences$/.test(endpoint)) return jsonResponse([]);
     return jsonResponse({});
+}
+
+function jitenPublicParseResponse(text) {
+    return vocabularyRows
+        .map((row, index) => ({ row, index }))
+        .filter(({ row }) => text.includes(row[1]) || text.includes(row[0]))
+        .map(({ row, index }) => ({
+            wordId: 600_001 + index,
+            originalText: row[1],
+            readingIndex: 0,
+            conjugations: [],
+        }));
 }
 
 function jitenParseResponse(body) {

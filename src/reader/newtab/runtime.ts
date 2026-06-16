@@ -42,6 +42,7 @@ import {
 } from './lookup-dom';
 import { JpdbClient } from '../jpdb/jpdb';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
+import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
 import type { JpdbKanjiClient, JpdbKanjiInfo } from '../jpdb/jpdb-kanji';
@@ -134,6 +135,7 @@ const NEW_TAB_LOCAL_LOOKUP_TIMEOUT_MS = 450;
 const NEW_TAB_REMOTE_LOOKUP_TIMEOUT_MS = 8_000;
 const NEW_TAB_PITCH_ENRICHMENT_LIMIT = 12;
 const NEW_TAB_SETTINGS_ENRICHMENT_LIMIT = 192;
+const NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT = 64;
 const NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY = 4;
 const NEW_TAB_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 const NEW_TAB_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -224,6 +226,7 @@ export class NewTabRuntime {
     private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : createNoopJpdbKanjiClient();
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
+    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : createNoopKanjiVGClient();
     private immersionKit = new ImmersionKitClient();
     private audio = new AudioPlayer(() => this.settings);
@@ -1682,6 +1685,11 @@ export class NewTabRuntime {
     private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
         if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return undefined;
         for (const term of fallbackLookupTermsForCard(card)) {
+            const jitenCard = await this.jitenPublicVocabulary?.lookup(term).catch(error => {
+                log.warn('Public Jiten fallback search failed', { term }, error);
+                return null;
+            });
+            if (jitenCard) return jitenCard;
             const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
                 log.warn('Public JPDB fallback search failed', { term }, error);
                 return [];
@@ -1690,6 +1698,42 @@ export class NewTabRuntime {
             if (publicCard) return publicCard;
         }
         return undefined;
+    }
+
+    private async publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
+        const result = new Map<string, JPDBCard>();
+        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return result;
+        const entries = uniqueFallbackLookupEntries(cards);
+        if (!entries.length) return result;
+
+        const terms = [...new Set(entries.flatMap(entry => entry.terms))];
+        const jitenCards = await this.jitenPublicVocabulary?.lookupMany?.(terms).catch(error => {
+            log.warn('Public Jiten batch fallback search failed', { terms: terms.length }, error);
+            return new Map<string, JPDBCard>();
+        }) ?? new Map<string, JPDBCard>();
+        for (const entry of entries) {
+            for (const term of entry.terms) {
+                const card = jitenCards.get(normalizedJitenLookupKey(term));
+                if (!card) continue;
+                result.set(entry.key, card);
+                break;
+            }
+        }
+
+        const unresolved = entries.filter(entry => !result.has(entry.key));
+        await runLimited(unresolved, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async entry => {
+            for (const term of entry.terms) {
+                const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
+                    log.warn('Public JPDB fallback search failed', { term }, error);
+                    return [];
+                });
+                const publicCard = cards.find(candidate => candidate.spelling === term);
+                if (!publicCard) continue;
+                result.set(entry.key, publicCard);
+                return;
+            }
+        });
+        return result;
     }
 
     private async localLookupEntry(term: string, reading: string): Promise<YomitanTermEntry | undefined> {
@@ -1922,9 +1966,10 @@ export class NewTabRuntime {
             token => token.card.source === 'fallback',
             limit,
         );
+        const resolvedCards = await this.publicLookupFallbackCards(uniqueTokens.map(token => token.card));
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
-            const card = await this.publicLookupFallbackCard(token.card);
+            const card = resolvedCards.get(cardKey(token.card));
             if (!card) {
                 this.unwrapRenderedFallbackWords(token.card);
                 return;
@@ -2162,7 +2207,7 @@ export class NewTabRuntime {
             form.dataset.jpdbReaderParseKey = currentPlan.parseKey;
             form.dataset.yomuSettingsSelfEnhanced = 'true';
             const tokens = currentParsed.flat();
-            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
+            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT);
             void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
         } catch {
         } finally {
@@ -2182,10 +2227,11 @@ export class NewTabRuntime {
         const tokens = this.uniqueTokens(
             parsed.flat(),
             token => token.card.source === 'fallback',
-            NEW_TAB_SETTINGS_ENRICHMENT_LIMIT,
+            NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT,
         );
+        const resolvedCards = await this.publicLookupFallbackCards(tokens.map(token => token.card));
         await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
-            const card = await this.publicLookupFallbackCard(token.card);
+            const card = resolvedCards.get(cardKey(token.card));
             if (!card) return;
             if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
             const surface = token.sentence?.slice(token.start, token.end) || card.spelling;
@@ -2217,6 +2263,28 @@ function parsedSettingsTargetsForCurrentPlan(
         parsedByText.set(target.text, queue);
     });
     return currentPlan.targets.map(target => parsedByText.get(target.text)?.shift() ?? []);
+}
+
+interface FallbackLookupEntry {
+    key: string;
+    terms: string[];
+}
+
+function uniqueFallbackLookupEntries(cards: readonly JPDBCard[]): FallbackLookupEntry[] {
+    const seen = new Set<string>();
+    const entries: FallbackLookupEntry[] = [];
+    for (const card of cards) {
+        const key = cardKey(card);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const terms = fallbackLookupTermsForCard(card);
+        if (terms.length) entries.push({ key, terms });
+    }
+    return entries;
+}
+
+function normalizedJitenLookupKey(term: string): string {
+    return term.replace(/\s+/g, '').trim();
 }
 
 function settingsForSettingsFormParse(form: HTMLFormElement, settings: ReaderSettings): ReaderSettings {

@@ -50,6 +50,7 @@ import { ImmersionPopoverController, type ImmersionSearchOptions } from '../imme
 import { waitForIdle as waitForBrowserIdle } from '../platform/idle';
 import { FloatingButtonController } from '../ui/floating-button';
 import { JitenApiClient, type JitenKanjiInfo, type JitenVocabularyInfo } from '../dictionaries/jiten';
+import { JitenPublicVocabularyClient } from '../dictionaries/jiten-public-vocabulary';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import { jitenKanjiOriginFactLabels, renderJitenKanjiInfo, renderJitenKanjiKeywordLine } from '../jiten/jiten-kanji-info-render';
 import { filterJitenKanjiWords as filterSharedJitenKanjiWords, loadMoreJitenKanjiWords as loadMoreSharedJitenKanjiWords, type JitenKanjiWordsActionContext } from '../jiten/jiten-kanji-words-actions';
@@ -422,6 +423,7 @@ export class ReaderApp {
     private jpdbKanji = this.kanjiCompanion ? new this.kanjiCompanion.JpdbKanjiClient(() => this.settings.corsProxyUrl) : null;
     private jpdbPublicPitch = new JpdbPublicPitchClient(() => this.settings.corsProxyUrl);
     private jpdbVocabulary = new JpdbVocabularyClient(() => this.settings.corsProxyUrl);
+    private jitenPublicVocabulary = new JitenPublicVocabularyClient({ proxyUrl: () => this.settings.corsProxyUrl });
     private kanjiVG = this.kanjiCompanion ? new this.kanjiCompanion.KanjiVGClient() : null;
     private kanjiOrigin = this.kanjiCompanion ? new this.kanjiCompanion.KanjiOriginClient() : null;
     private immersionKit = new ImmersionKitClient();
@@ -2396,6 +2398,10 @@ export class ReaderApp {
     }
 
     private handleReaderWordHover(word: HTMLElement, event: PointerEvent): void {
+        if (word.closest('.jpdb-ocr-line')) {
+            this.cancelPendingHoverLookup();
+            return;
+        }
         this.rememberHoverPopoverPointer(event);
         const hoverLookupKey = this.hoverLookupKeyForWord(word);
         if (this.isActiveHoverLookup(hoverLookupKey)) {
@@ -3022,10 +3028,47 @@ export class ReaderApp {
 
     private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
         for (const term of fallbackLookupTermsForCard(card)) {
+            const jitenCard = await this.jitenPublicVocabulary?.lookup(term).catch(error => {
+                log.warn('Public Jiten fallback lookup failed', { term }, error);
+                return null;
+            });
+            if (jitenCard) return jitenCard;
             const publicCard = await this.publicLookupSpellingCard(term);
             if (publicCard) return publicCard;
         }
         return undefined;
+    }
+
+    private async publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
+        const result = new Map<string, JPDBCard>();
+        if (!canSearchPublicLookupCard(this.settings, {})) return result;
+        const entries = uniqueFallbackLookupEntries(cards);
+        if (!entries.length) return result;
+
+        const jitenTerms = [...new Set(entries.flatMap(entry => entry.terms))];
+        const jitenCards = await this.jitenPublicVocabulary?.lookupMany?.(jitenTerms).catch(error => {
+            log.warn('Public Jiten batch fallback lookup failed', { terms: jitenTerms.length }, error);
+            return new Map<string, JPDBCard>();
+        }) ?? new Map<string, JPDBCard>();
+        for (const entry of entries) {
+            for (const term of entry.terms) {
+                const card = jitenCards.get(normalizedJitenLookupKey(term));
+                if (!card) continue;
+                result.set(entry.key, card);
+                break;
+            }
+        }
+
+        const unresolved = entries.filter(entry => !result.has(entry.key));
+        await runLimited(unresolved, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async entry => {
+            for (const term of entry.terms) {
+                const publicCard = await this.publicLookupSpellingCard(term);
+                if (!publicCard) continue;
+                result.set(entry.key, publicCard);
+                return;
+            }
+        });
+        return result;
     }
 
     private async lookupFallbackApiCard(card: JPDBCard): Promise<JPDBCard | undefined> {
@@ -5455,12 +5498,39 @@ export class ReaderApp {
     private async resolveOcrFallbackTokens(tokens: JPDBToken[]): Promise<void> {
         const fallbackTokens = tokens.filter(token => token.card.source === 'fallback');
         if (!fallbackTokens.length) return;
+        if (!this.isJitenApiActive()) {
+            await this.resolvePublicOcrFallbackTokens(fallbackTokens);
+            return;
+        }
         await runLimited(fallbackTokens, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async token => {
             const fallback = token.card;
             const resolved = await this.resolveFallbackVocabularyForPriorityRender(fallback);
             if (resolved === fallback || resolved.source === 'fallback') return;
             this.applyResolvedFallbackVocabularyToToken(token, fallback, resolved);
         });
+    }
+
+    private async resolvePublicOcrFallbackTokens(tokens: JPDBToken[]): Promise<void> {
+        const pending = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
+        for (const token of tokens) {
+            const fallback = token.card;
+            const key = cardKey(fallback);
+            const cached = this.resolvedFallbackVocabularyCache.get(key);
+            if (cached && cached !== fallback && cached.source !== 'fallback') {
+                this.applyResolvedFallbackVocabularyToToken(token, fallback, cached);
+                continue;
+            }
+            const group = pending.get(key) ?? { card: fallback, tokens: [] };
+            group.tokens.push(token);
+            pending.set(key, group);
+        }
+        if (!pending.size) return;
+        const resolved = await this.publicLookupFallbackCards([...pending.values()].map(group => group.card));
+        for (const [key, group] of pending) {
+            const card = resolved.get(key);
+            if (!card || card.source === 'fallback') continue;
+            for (const token of group.tokens) this.applyResolvedFallbackVocabularyToToken(token, group.card, card);
+        }
     }
 
     private async resolveFallbackVocabularyForPriorityRender(fallback: JPDBCard): Promise<JPDBCard> {
@@ -6827,6 +6897,30 @@ function publicLookupCardFromResults(cards: JPDBCard[], term: string, exact: boo
     if (reading) return cards.find(card => card.spelling === term && card.reading === reading);
     const exactMatch = cards.find(card => card.spelling === term || card.reading === term);
     return exactMatch ?? (exact ? undefined : cards[0]);
+}
+
+interface FallbackLookupEntry {
+    key: string;
+    card: JPDBCard;
+    terms: string[];
+}
+
+function uniqueFallbackLookupEntries(cards: readonly JPDBCard[]): FallbackLookupEntry[] {
+    const seen = new Set<string>();
+    const entries: FallbackLookupEntry[] = [];
+    for (const card of cards) {
+        const key = cardKey(card);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const terms = fallbackLookupTermsForCard(card);
+        if (!terms.length) continue;
+        entries.push({ key, card, terms });
+    }
+    return entries;
+}
+
+function normalizedJitenLookupKey(term: string): string {
+    return normalizedLookupText(term);
 }
 
 function uniquePointerTextSpans(spans: PointerTextSpanCandidate[]): PointerTextSpanCandidate[] {
