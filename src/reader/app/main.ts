@@ -26,6 +26,7 @@ import { DictionaryStyleController } from '../sources/styles';
 import { createFactoryResetCoordinator, type FactoryResetCoordinator } from './factory-reset-coordinator';
 import {
     HAS_JAPANESE,
+    NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT,
     appendToDocumentHead,
     documentHasJapaneseText,
     escapeHtml,
@@ -36,6 +37,7 @@ import {
     readerRenderRejectionRescanDelay,
     readerWordAtPointInScope,
     readerWordSurfaceText,
+    removeNonDestructiveScanMirrors,
     setInnerHtml,
     unwrapReaderWords,
 } from '../dom/index';
@@ -584,6 +586,9 @@ export class ReaderApp {
     private autoScanDeadline = 0;
     private autoScanForced = false;
     private autoScanObserver?: MutationObserver;
+    private readonly handleNonDestructiveMirrorStale = () => {
+        if (this.canParseJapanese()) this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: true, debounce: true });
+    };
     private asbScanTimer?: number;
     private hoverLookupTimer?: number;
     private hoverCloseTimer?: number;
@@ -1317,6 +1322,7 @@ export class ReaderApp {
         window.clearTimeout(this.hostThemeEnforceTimer);
         window.cancelAnimationFrame(this.themeContrastRefreshFrame ?? 0);
         window.clearTimeout(this.themeContrastRefreshTimer);
+        document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
         this.autoScanObserver?.disconnect();
         this.ocr.destroy();
         this.subtitles.destroy();
@@ -1364,6 +1370,7 @@ export class ReaderApp {
         this.activeBackdrop?.remove();
         this.removeJpdbPageEnhancements();
         if (!options.preservePageWords) {
+            removeNonDestructiveScanMirrors(document);
             document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
                 if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
                     const text = document.createTextNode(el.classList.contains('jpdb-reader-word')
@@ -1416,6 +1423,7 @@ export class ReaderApp {
         }, { passive: true });
         window.addEventListener('resize', () => this.scheduleJpdbPageEnhancements(700), { passive: true });
         if (this.hasVisibleAutoScanWork()) this.scheduleAutoScan(visibleAutoScanInitialDelay());
+        document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
     }
 
     private observeAutoScanMutations(): void {

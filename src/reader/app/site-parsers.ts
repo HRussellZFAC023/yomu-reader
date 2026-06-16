@@ -24,6 +24,7 @@ export interface SiteParserProfile {
     scanLimit?: number;
     heading?: boolean;
     singlePassScan?: boolean;
+    nonDestructive?: boolean;
     includePassiveInteractionRoots?: boolean;
     matches(url: URL): boolean;
 }
@@ -36,6 +37,7 @@ interface GenericProseCollection {
 
 const STRUCTURAL_EXCLUDE_ENTRIES = [
     '[data-jpdb-reader-root]',
+    '.jpdb-reader-text-mirror',
     '.jpdb-reader-word',
     'script',
     'style',
@@ -57,32 +59,6 @@ const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    '#movie_player',
-    '.html5-video-player',
-    '.ytp-tooltip',
-    'ytd-feed-filter-chip-bar-renderer',
-    'ytd-guide-renderer',
-    'ytd-masthead',
-    'ytd-mini-guide-renderer',
-    'yt-chip-cloud-renderer',
-    'ytm-feed-filter-chip-bar-renderer',
-    'ytm-mobile-topbar-renderer',
-    'ytm-pivot-bar-renderer',
-    'ytd-watch-metadata button',
-    'ytd-watch-metadata [role="button"]',
-    'ytm-slim-video-metadata-section-renderer button',
-    'ytm-slim-video-metadata-section-renderer [role="button"]',
-    'yt-live-chat-text-message-renderer button',
-    'yt-live-chat-text-message-renderer [role="button"]',
-    'yt-live-chat-paid-message-renderer button',
-    'yt-live-chat-paid-message-renderer [role="button"]',
-    'yt-live-chat-membership-item-renderer button',
-    'yt-live-chat-membership-item-renderer [role="button"]',
-    'yt-live-chat-viewer-engagement-message-renderer button',
-    'yt-live-chat-viewer-engagement-message-renderer [role="button"]',
-    '[slot="more-button"]',
-    '.more-button',
-    'tp-yt-paper-tooltip',
 ].join(',');
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
 const GENERIC_PROSE_ROOTS = [
@@ -317,6 +293,9 @@ const YOUTUBE_CHROME_ROOTS = [
     'ytd-masthead .ytAttributedStringHost',
     'ytd-masthead yt-attributed-string',
 ];
+const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
+    'ytd-watch-info-text',
+].join(',');
 const GOOGLE_SEARCH_ROOTS = [
     '#search',
     '#rso',
@@ -553,21 +532,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         matches: url => url.hostname === 'tadoku.org' || url.hostname.endsWith('.tadoku.org'),
     },
     {
-        id: 'youtube-chrome-parser',
-        name: 'YouTube chrome',
-        description: 'Stable Japanese YouTube chips, navigation, and topbar controls.',
-        roots: YOUTUBE_CHROME_ROOTS,
-        exclude: COMMON_EXCLUDE,
-        allowUiText: true,
-        minLength: 1,
-        includeUiChrome: true,
-        singlePassScan: true,
-        includePassiveInteractionRoots: false,
-        matches: url => url.hostname === 'youtube.com'
-            || url.hostname.endsWith('.youtube.com')
-            || url.hostname === 'youtu.be',
-    },
-    {
         id: 'youtube-comments-parser',
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
@@ -583,6 +547,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-metadata #owner',
             'ytd-watch-metadata #info',
             'ytd-watch-metadata #info-strings',
+            'ytd-watch-metadata #info-container',
+            'ytd-watch-metadata #info-text',
+            'ytd-watch-info-text',
             'ytd-watch-metadata #metadata',
             'ytd-watch-metadata #metadata-line',
             'ytd-watch-metadata #description-inline-expander',
@@ -604,7 +571,15 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'yt-live-chat-paid-message-renderer #message',
             'yt-live-chat-membership-item-renderer #author-name',
             'yt-live-chat-membership-item-renderer #message',
+            'yt-live-chat-header-renderer #title',
+            'yt-live-chat-header-renderer #primary-content',
+            'yt-live-chat-renderer #chat-messages',
+            'yt-live-chat-viewer-engagement-message-renderer #content',
+            'yt-live-chat-viewer-engagement-message-renderer #message',
+            'yt-live-chat-viewer-engagement-message-renderer yt-formatted-string',
             'yt-live-chat-viewer-engagement-message-renderer',
+            'yt-live-chat-banner-renderer',
+            'yt-live-chat-restricted-participation-renderer',
             'yt-live-chat-ticker-renderer',
             'ytd-watch-next-secondary-results-renderer',
             'ytd-compact-video-renderer',
@@ -623,6 +598,23 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         allowUiText: true,
         includeUiChrome: true,
         singlePassScan: true,
+        nonDestructive: true,
+        includePassiveInteractionRoots: false,
+        matches: url => url.hostname === 'youtube.com'
+            || url.hostname.endsWith('.youtube.com')
+            || url.hostname === 'youtu.be',
+    },
+    {
+        id: 'youtube-chrome-parser',
+        name: 'YouTube chrome',
+        description: 'Stable Japanese YouTube chips, navigation, and topbar controls.',
+        roots: YOUTUBE_CHROME_ROOTS,
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        includeUiChrome: true,
+        singlePassScan: true,
+        nonDestructive: true,
         includePassiveInteractionRoots: false,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
@@ -763,6 +755,7 @@ function createSiteScanContext(profiles: SiteParserProfile[], limit: number): Si
 }
 
 function collectProfileScanTargets(profile: SiteParserProfile, context: SiteScanContext): void {
+    if (profile.id === 'youtube-comments-parser') collectYouTubeSyntheticTextTargets(profile, context);
     for (const root of queryParserRoots(profile)) {
         if (!siteScanHasRoom(context)) break;
         collectRootScanTargets(profile, root, context);
@@ -770,6 +763,35 @@ function collectProfileScanTargets(profile: SiteParserProfile, context: SiteScan
     if (profile.includePassiveInteractionRoots !== false) {
         collectProfilePassiveInteractionTargets(profile, context);
     }
+}
+
+function collectYouTubeSyntheticTextTargets(profile: SiteParserProfile, context: SiteScanContext): void {
+    const roots = uniqueVisibleRoots(Array.from(document.querySelectorAll<HTMLElement>(YOUTUBE_SYNTHETIC_TEXT_ROOTS)));
+    for (const root of roots) {
+        if (!siteScanHasRoom(context)) break;
+        if (context.targets.some(target => target.parent === root)) continue;
+        const text = syntheticYouTubeElementText(root);
+        if (!text || !hasJapaneseText(text)) continue;
+        context.targets.push(siteScanTargetWithProfileOptions(profile, {
+            text,
+            parent: root,
+            fragments: [],
+            layoutSensitive: true,
+        }));
+    }
+}
+
+function syntheticYouTubeElementText(root: HTMLElement): string {
+    for (const text of [
+        root.getAttribute('aria-label'),
+        root.getAttribute('title'),
+        root.innerText,
+        root.textContent,
+    ]) {
+        const normalized = text?.replace(/\s+/g, ' ').trim();
+        if (normalized && hasJapaneseText(normalized)) return normalized;
+    }
+    return '';
 }
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext, excludeSelector = siteScanExcludeSelector(profile)): void {
@@ -833,6 +855,7 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
         ...target,
         parserId: profile.id,
         singlePassScan: profile.singlePassScan || undefined,
+        nonDestructive: profile.nonDestructive || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
@@ -953,8 +976,9 @@ function collectProfileSafeUiChromeTargets(
     const extraExclude = profiles.map(p => p.exclude).filter(Boolean).join(',');
 
     const parserId = profiles.length === 1 ? profiles[0].id : 'safe-ui-chrome-parser';
-    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId);
-    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId);
+    const nonDestructive = profiles.some(profile => profile.nonDestructive);
+    collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId, nonDestructive);
+    collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
 
     return collection.targets;
 }
@@ -978,9 +1002,10 @@ function collectSafeUiChromeRootTargets(
     collection: GenericProseCollection,
     extraExclude = '',
     parserId = 'safe-ui-chrome-parser',
+    nonDestructive = false,
 ): void {
     for (const root of roots) {
-        collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude, parserId);
+        collectSafeUiChromeTargetsFromRoot(root, collection, extraExclude, parserId, nonDestructive);
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1002,10 +1027,11 @@ function collectSafeUiChromeTargetsFromRoot(
     collection: GenericProseCollection,
     extraExclude = '',
     parserId = 'safe-ui-chrome-parser',
+    nonDestructive = false,
 ): void {
     const baseExclude = safeUiChromeExcludeForRoot(root);
     const exclude = extraExclude ? `${baseExclude},${extraExclude}` : baseExclude;
-    collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, {
+    collectPassiveChromeTargetsFromRoot(root, collection, exclude, parserId, nonDestructive, {
         allowUiText: true,
         includeUiChrome: true,
         includeTabChrome: true,
@@ -1025,9 +1051,10 @@ function collectSafeFormChromeRootTargets(
     roots: HTMLElement[],
     collection: GenericProseCollection,
     parserId = 'safe-ui-chrome-parser',
+    nonDestructive = false,
 ): void {
     for (const root of roots) {
-        collectSafeFormChromeTargetsFromRoot(root, collection, parserId);
+        collectSafeFormChromeTargetsFromRoot(root, collection, parserId, nonDestructive);
         if (genericProseCollectionFull(collection)) break;
     }
 }
@@ -1041,8 +1068,9 @@ function collectSafeFormChromeTargetsFromRoot(
     root: HTMLElement,
     collection: GenericProseCollection,
     parserId = 'safe-ui-chrome-parser',
+    nonDestructive = false,
 ): void {
-    collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, {
+    collectPassiveChromeTargetsFromRoot(root, collection, SAFE_FORM_CHROME_EXCLUDE, parserId, nonDestructive, {
         allowUiText: true,
         includeFormChrome: true,
         includePassiveInteractions: true,
@@ -1056,6 +1084,7 @@ function collectPassiveChromeTargetsFromRoot(
     collection: GenericProseCollection,
     exclude: string,
     parserId: string,
+    nonDestructive: boolean,
     options: Parameters<typeof collectFragmentTextTargetsIn>[4],
 ): void {
     const collected = collectFragmentTextTargetsIn(root, genericProseRemaining(collection), true, exclude, options);
@@ -1064,6 +1093,7 @@ function collectPassiveChromeTargetsFromRoot(
             ...target,
             parserId,
             passiveInteraction: true,
+            nonDestructive: nonDestructive || undefined,
         });
         if (genericProseCollectionFull(collection)) break;
     }

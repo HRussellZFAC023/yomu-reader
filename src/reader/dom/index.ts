@@ -64,6 +64,7 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
     '[class*="sound" i]',
     '[class*="speaker" i]',
     '[class*="voice" i]',
+    '.jpdb-reader-text-mirror',
     '.jpdb-reader-word',
     // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
     // letter soup, but "Kanji used" spellings are real JPDB links and should
@@ -72,14 +73,6 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
 ];
 const FORM_BOUNDARY_SKIP_ENTRIES = ['form', 'label', 'fieldset', 'legend'];
 const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
-const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
-const YOUTUBE_INTERNAL_TEXT_SKIP_SELECTOR = [
-    'yt-touch-feedback-shape',
-    'tp-yt-paper-ripple',
-    'iron-icon',
-    'yt-icon',
-    'yt-icon-shape',
-].join(',');
 
 const SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES,
@@ -250,6 +243,7 @@ export interface TextTarget {
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
+    nonDestructive?: boolean;
 }
 
 export interface TextFragment {
@@ -269,6 +263,7 @@ export interface FragmentTextTarget {
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
+    nonDestructive?: boolean;
 }
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
@@ -325,12 +320,25 @@ interface RenderedScanHost {
     rejectionCount?: number;
 }
 
+interface TextMirrorHostState {
+    observer: MutationObserver;
+    sourceText: string;
+    visibility: string;
+    visibilityPriority: string;
+    position: string;
+    positionPriority: string;
+    positioned: boolean;
+}
+
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
+const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
 const RENDERED_SCAN_HOST_MAX_TEXT = 1000;
 const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15000;
 const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 60000;
 const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4000, 10000];
+export const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = 'jpdb-reader-text-mirror-stale';
 const renderedScanHosts = new WeakMap<HTMLElement, RenderedScanHost>();
+const textMirrorHosts = new WeakMap<HTMLElement, TextMirrorHostState>();
 
 export function getSelectionText(): string {
     const selection = window.getSelection();
@@ -463,7 +471,6 @@ function shouldRejectTextTargetParent(parent: HTMLElement, text: string, visible
     const blocked = parent.closest(SKIP_SELECTOR);
     if (blocked && !isAnnotatableChipControl(blocked)) return true;
     if (isInsideExcludedReaderRoot(parent, options)) return true;
-    if (isYouTubeFrameworkTextElement(parent)) return true;
     if (isShortCenteredDisplayHeading(parent, text)) return true;
     return shouldRejectTextTargetPresentation(parent, text, visibleOnly);
 }
@@ -636,14 +643,7 @@ function shouldIgnoreFragmentElement(
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
     return isRubyAnnotationElement(element)
-        || isExcludedReaderRootElement(element, options)
-        || isYouTubeFrameworkTextElement(element);
-}
-
-function isYouTubeFrameworkTextElement(element: HTMLElement): boolean {
-    if (element.closest(READER_ROOT_SELECTOR)) return false;
-    if (typeof location === 'undefined' || !YOUTUBE_HOST_RE.test(location.hostname)) return false;
-    return Boolean(element.closest(YOUTUBE_INTERNAL_TEXT_SKIP_SELECTOR));
+        || isExcludedReaderRootElement(element, options);
 }
 
 function isRubyAnnotationElement(element: HTMLElement): boolean {
@@ -677,7 +677,14 @@ function matchesSkippedFragmentElement(
 }
 
 function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: boolean): boolean {
-    return visibleOnly && !isVisible(element);
+    return visibleOnly && !isVisible(element) && !hasVisibleTextMirror(element);
+}
+
+function hasVisibleTextMirror(element: HTMLElement): boolean {
+    return Array.from(element.children)
+        .some((child): child is HTMLElement => child instanceof HTMLElement
+            && child.matches(READER_TEXT_MIRROR_SELECTOR)
+            && isVisible(child));
 }
 
 function shouldSkipFragmentTextPresentation(
@@ -794,7 +801,7 @@ function hasRawJapaneseOutsideReaderWords(element: HTMLElement): boolean {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const parent = node.parentElement;
-            if (!parent || parent.closest('.jpdb-reader-word,[data-jpdb-reader-root],script,style,noscript,rt,rp')) {
+            if (!parent || parent.closest('.jpdb-reader-word,.jpdb-reader-text-mirror,[data-jpdb-reader-root],script,style,noscript,rt,rp')) {
                 return NodeFilter.FILTER_REJECT;
             }
             return HAS_JAPANESE.test(node.textContent ?? '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
@@ -961,7 +968,8 @@ export function isCurrentScanTarget(target: ScanTextTarget): boolean {
 }
 
 function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
-    if (!target.parent.isConnected || !target.fragments.length) return false;
+    if (!target.parent.isConnected) return false;
+    if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
     const text = target.fragments.map(fragment => {
         if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
         return fragment.node.data.slice(fragment.start, fragment.end);
@@ -971,6 +979,10 @@ function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
 }
 
 export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    if (target.nonDestructive) {
+        applyTokensToNonDestructiveScanTarget(target, tokens, settings);
+        return;
+    }
     if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
     else applyTokensToTextNode(target, tokens, settings);
 }
@@ -987,17 +999,30 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
 }
 
 function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): DocumentFragment {
+    return renderTokenizedScanText(target.text, tokens, settings, {
+        parent: target.parent,
+        hasNativeRuby: target.hasNativeRuby,
+        passiveInteraction: target.passiveInteraction,
+    });
+}
+
+function renderTokenizedScanText(
+    text: string,
+    tokens: JPDBToken[],
+    settings: ReaderSettings,
+    target: { parent: HTMLElement; hasNativeRuby?: boolean; passiveInteraction?: boolean },
+): DocumentFragment {
     const fragment = document.createDocumentFragment();
     let offset = 0;
     const tokenPlans = tokens.map(token => ({
         token,
-        tokenWithSentence: tokenWithReadableSentence(token, target.text, token.sentence),
+        tokenWithSentence: tokenWithReadableSentence(token, text, token.sentence),
     }));
     const miningInsightKeys = miningInsightTokenKeys(tokenPlans.map(plan => plan.tokenWithSentence));
     for (const plan of tokenPlans) {
         const { token, tokenWithSentence } = plan;
-        appendPlainTextBeforeToken(fragment, target.text, offset, token.start);
-        fragment.append(renderToken(target.text.slice(token.start, token.end), tokenWithSentence, settings, {
+        appendPlainTextBeforeToken(fragment, text, offset, token.start);
+        fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, settings, {
             allowRuby: !target.hasNativeRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
@@ -1007,8 +1032,167 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
         }));
         offset = token.end;
     }
-    appendPlainTextBeforeToken(fragment, target.text, offset, target.text.length);
+    appendPlainTextBeforeToken(fragment, text, offset, text.length);
     return fragment;
+}
+
+function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    const host = nonDestructiveScanHost(target);
+    if (!host.isConnected) return;
+
+    const text = target.text;
+    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    removeTextMirror(host);
+    if (!safeTokens.length) return;
+
+    const mirror = document.createElement('span');
+    mirror.className = 'jpdb-reader-text-mirror';
+    mirror.dataset.jpdbReaderTextMirror = 'true';
+    mirror.dataset.sourceText = text;
+    styleTextMirrorHost(host);
+    styleTextMirror(mirror, host);
+    mirror.append(renderTokenizedScanText(text, safeTokens, settings, {
+        parent: host,
+        hasNativeRuby: targetHasNativeRuby(target),
+        passiveInteraction: target.passiveInteraction,
+    }));
+    host.append(mirror);
+    observeTextMirrorHost(host, text);
+}
+
+function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
+    if (!isFragmentTextTarget(target)) return target.parent;
+    const parents = target.fragments
+        .map(fragment => fragment.node.parentElement)
+        .filter((parent): parent is HTMLElement => Boolean(parent));
+    return commonFragmentTextHost(parents) ?? target.parent;
+}
+
+function commonFragmentTextHost(elements: HTMLElement[]): HTMLElement | null {
+    if (!elements.length) return null;
+    let candidate: HTMLElement | null = elements[0];
+    while (candidate) {
+        const host = candidate;
+        if (elements.every(element => host.contains(element))) return host;
+        candidate = candidate.parentElement;
+    }
+    return null;
+}
+
+function targetHasNativeRuby(target: ScanTextTarget): boolean {
+    return isFragmentTextTarget(target)
+        ? target.fragments.some(fragment => fragment.hasNativeRuby)
+        : Boolean(target.hasNativeRuby);
+}
+
+function styleTextMirrorHost(host: HTMLElement): void {
+    const computed = safeComputedStyle(host);
+    const state: TextMirrorHostState = {
+        observer: new MutationObserver(() => undefined),
+        sourceText: '',
+        visibility: host.style.getPropertyValue('visibility'),
+        visibilityPriority: host.style.getPropertyPriority('visibility'),
+        position: host.style.getPropertyValue('position'),
+        positionPriority: host.style.getPropertyPriority('position'),
+        positioned: computed.position === 'static',
+    };
+    textMirrorHosts.set(host, state);
+    host.style.setProperty('visibility', 'hidden', 'important');
+    if (state.positioned) host.style.setProperty('position', 'relative', 'important');
+}
+
+function styleTextMirror(mirror: HTMLElement, host: HTMLElement): void {
+    const style = safeComputedStyle(host);
+    mirror.style.setProperty('position', 'absolute');
+    mirror.style.setProperty('inset', '0 auto auto 0');
+    mirror.style.setProperty('width', '100%');
+    mirror.style.setProperty('min-width', '100%');
+    mirror.style.setProperty('height', 'auto');
+    mirror.style.setProperty('overflow', 'visible');
+    mirror.style.setProperty('visibility', 'visible', 'important');
+    mirror.style.setProperty('pointer-events', 'auto');
+    mirror.style.setProperty('white-space', style.whiteSpace);
+    mirror.style.setProperty('font', style.font);
+    mirror.style.setProperty('font-size', style.fontSize);
+    mirror.style.setProperty('font-weight', style.fontWeight);
+    mirror.style.setProperty('line-height', style.lineHeight);
+    mirror.style.setProperty('letter-spacing', style.letterSpacing);
+    mirror.style.setProperty('text-align', style.textAlign);
+    mirror.style.setProperty('color', style.color);
+    mirror.style.setProperty('z-index', '1');
+}
+
+function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
+    const state = textMirrorHosts.get(host);
+    if (!state) return;
+    state.sourceText = normalizedMirrorHostText(sourceText);
+    state.observer = new MutationObserver(mutations => {
+        if (mutations.every(mutationInsideTextMirror)) return;
+        const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
+        if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
+            removeTextMirror(host);
+            return;
+        }
+        if (currentText !== state.sourceText) dispatchTextMirrorStale(host);
+    });
+    state.observer.observe(host, { childList: true, characterData: true, subtree: true });
+}
+
+function dispatchTextMirrorStale(host: HTMLElement): void {
+    host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
+        bubbles: true,
+    }));
+}
+
+function mutationInsideTextMirror(mutation: MutationRecord): boolean {
+    const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+    return Boolean(target?.closest(READER_TEXT_MIRROR_SELECTOR));
+}
+
+function nativeTextMirrorHostText(host: HTMLElement): string {
+    let text = '';
+    const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+            const parent = node.parentElement;
+            if (!parent || parent.closest(READER_TEXT_MIRROR_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            return NodeFilter.FILTER_ACCEPT;
+        },
+    });
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? '';
+    return text;
+}
+
+function normalizedMirrorHostText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+function removeTextMirror(host: HTMLElement): void {
+    const state = textMirrorHosts.get(host);
+    state?.observer.disconnect();
+    Array.from(host.children)
+        .filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR))
+        .forEach(mirror => mirror.remove());
+    if (state) restoreTextMirrorHost(host, state);
+    textMirrorHosts.delete(host);
+}
+
+function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
+    restoreStyleProperty(host, 'visibility', state.visibility, state.visibilityPriority);
+    if (state.positioned) restoreStyleProperty(host, 'position', state.position, state.positionPriority);
+}
+
+function restoreStyleProperty(host: HTMLElement, property: string, value: string, priority: string): void {
+    if (value) host.style.setProperty(property, value, priority);
+    else host.style.removeProperty(property);
+}
+
+export function removeNonDestructiveScanMirrors(root: ParentNode = document): number {
+    const hosts = new Set<HTMLElement>();
+    root.querySelectorAll<HTMLElement>(READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
+        if (mirror.parentElement) hosts.add(mirror.parentElement);
+    });
+    hosts.forEach(removeTextMirror);
+    return hosts.size;
 }
 
 function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, start: number, end: number): void {
