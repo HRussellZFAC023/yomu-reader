@@ -246,6 +246,7 @@ export class ImageOcrController {
     private canvasReaderSignature?: string;
     private readerRasterPoll = 0;
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
+    private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -734,12 +735,31 @@ export class ImageOcrController {
     ): HTMLElement {
         const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
         this.rememberOcrWordRenderStates(element, tokens);
+        element.addEventListener('pointerenter', () => this.activateOcrMarkup(element));
+        element.addEventListener('focusin', () => this.activateOcrMarkup(element));
+        element.addEventListener('pointerdown', event => this.activateOcrLineFromPointer(state, element, event), true);
         element.addEventListener('click', event => this.toggleOcrLinePinned(state, element, event));
         return element;
     }
 
-    private toggleOcrLinePinned(state: ImageState, element: HTMLElement, event: MouseEvent): void {
+    private activateOcrLineFromPointer(state: ImageState, element: HTMLElement, event: PointerEvent): void {
+        if (event.button !== 0) return;
         if (element.dataset.pinned === 'true') {
+            this.activateOcrMarkup(element);
+            return;
+        }
+        element.focus({ preventScroll: true });
+        this.pinLine(state, element);
+        this.pointerActivatedOcrLines.set(element, Date.now());
+    }
+
+    private toggleOcrLinePinned(state: ImageState, element: HTMLElement, event: MouseEvent): void {
+        if (this.wasRecentlyPointerActivated(element)) {
+            // The pointerdown handler already made tapped OCR text active before
+            // popup lookup handlers run. Keep the following click from toggling
+            // the line off again.
+            this.activateOcrMarkup(element);
+        } else if (element.dataset.pinned === 'true') {
             this.unpinLine(element);
         } else {
             element.focus({ preventScroll: true });
@@ -751,6 +771,14 @@ export class ImageOcrController {
         // phase, which has already fired by the time this bubble handler runs.
         event.preventDefault();
         event.stopPropagation();
+    }
+
+    private wasRecentlyPointerActivated(element: HTMLElement): boolean {
+        const activatedAt = this.pointerActivatedOcrLines.get(element);
+        if (activatedAt === undefined) return false;
+        const recent = Date.now() - activatedAt < 800;
+        if (!recent) this.pointerActivatedOcrLines.delete(element);
+        return recent;
     }
 
     private pinLine(state: ImageState, element: HTMLElement): void {

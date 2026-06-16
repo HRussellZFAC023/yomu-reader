@@ -31397,6 +31397,7 @@ ${spelling}`);
     canvasReaderSignature;
     readerRasterPoll = 0;
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
+    pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
     handleMediaResume = (event) => this.releaseVideoFrame(event.target);
     // Stepping subtitle lines while paused seeks the video — the snapshot
@@ -31789,11 +31790,26 @@ ${spelling}`);
     renderOcrLineElement(state, result, line, tokens, sentence, showText, settings) {
       const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
       this.rememberOcrWordRenderStates(element, tokens);
+      element.addEventListener("pointerenter", () => this.activateOcrMarkup(element));
+      element.addEventListener("focusin", () => this.activateOcrMarkup(element));
+      element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state, element, event), true);
       element.addEventListener("click", (event) => this.toggleOcrLinePinned(state, element, event));
       return element;
     }
-    toggleOcrLinePinned(state, element, event) {
+    activateOcrLineFromPointer(state, element, event) {
+      if (event.button !== 0) return;
       if (element.dataset.pinned === "true") {
+        this.activateOcrMarkup(element);
+        return;
+      }
+      element.focus({ preventScroll: true });
+      this.pinLine(state, element);
+      this.pointerActivatedOcrLines.set(element, Date.now());
+    }
+    toggleOcrLinePinned(state, element, event) {
+      if (this.wasRecentlyPointerActivated(element)) {
+        this.activateOcrMarkup(element);
+      } else if (element.dataset.pinned === "true") {
         this.unpinLine(element);
       } else {
         element.focus({ preventScroll: true });
@@ -31801,6 +31817,13 @@ ${spelling}`);
       }
       event.preventDefault();
       event.stopPropagation();
+    }
+    wasRecentlyPointerActivated(element) {
+      const activatedAt = this.pointerActivatedOcrLines.get(element);
+      if (activatedAt === void 0) return false;
+      const recent = Date.now() - activatedAt < 800;
+      if (!recent) this.pointerActivatedOcrLines.delete(element);
+      return recent;
     }
     pinLine(state, element) {
       state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {

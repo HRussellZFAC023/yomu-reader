@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2] - 2026-06-17
+
+### Fixed
+
+- Image OCR text now reveals its pitch-accent underline and furigana on hover, not only when focused or pinned — matching how normal reader words behave on hover.
+- Tapping an OCR text line on touch/pointer devices reliably activates its markup (pitch and furigana) before the dictionary popup's lookup handlers run, and a short post-tap guard keeps the follow-up click from immediately toggling the line back off. Previously the first tap could open the popup without the line ever showing its prepared pitch/furigana.
+
 ## [1.0.1] - 2026-06-17
 
 ### Fixed
