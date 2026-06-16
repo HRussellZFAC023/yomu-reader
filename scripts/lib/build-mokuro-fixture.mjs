@@ -33,9 +33,15 @@ function renderPage(page, idx, forceTopBlock) {
         const lines = (b.lines || []).map(l => `<p>${esc(l)}</p>`).join('');
         return `<div class="textBox" style="left:${left}%;top:${top}%;width:${w}%;height:${h}%;writing-mode:${wm};font-size:${fs}cqh">${lines}</div>`;
     }).join('\n      ');
+    // Same-origin data: URL keeps the canvas un-tainted so OCR capture works in a
+    // file:// smoke (a file:// <img src=…jpg> taints the canvas). Opt-in via env.
+    let src = `page${idx}.jpg`;
+    if (process.env.MOKURO_INLINE_IMAGES && existsSync(localImg)) {
+        src = `data:image/jpeg;base64,${readFileSync(localImg).toString('base64')}`;
+    }
     return `  <div class="page" id="page${idx}">
     <div class="pageContainer" style="aspect-ratio:${W}/${H}">
-      <img class="pageImage" src="page${idx}.jpg" width="${W}" height="${H}" alt="page ${idx}">
+      <img class="pageImage" src="${src}" width="${W}" height="${H}" alt="page ${idx}">
       ${blocks}
     </div>
   </div>`;

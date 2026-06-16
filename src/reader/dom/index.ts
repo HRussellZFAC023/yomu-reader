@@ -992,8 +992,34 @@ function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
         && text.join('') === target.text;
 }
 
+// Some single-page apps (e.g. the mokuro.moe catalog) reconcile their own DOM
+// and strip the word/ruby spans the reader paints into a text node — so the
+// reader re-paints, the app strips again, and the title visibly flips between
+// plain and annotated ("no space above the text it glitches": adding furigana
+// grows the line, the app's resize/reconcile reaction wipes it, repeat).
+// Detect a host whose SAME source text we have re-painted several times in a
+// short window and permanently switch it to the non-destructive text mirror,
+// which overlays an absolutely-positioned copy and never mutates the app's node
+// (no text-diff, no height change) — breaking the loop for any such site.
+const REPAINT_LOOP_THRESHOLD = 4;
+const REPAINT_LOOP_WINDOW_MS = 3000;
+const loopingScanHosts = new WeakSet<HTMLElement>();
+const scanHostRepaintLog = new WeakMap<HTMLElement, { text: string; times: number[] }>();
+
+function scanHostIsRepaintLooping(host: HTMLElement, text: string): boolean {
+    if (loopingScanHosts.has(host)) return true;
+    const now = typeof performance !== 'undefined' && typeof performance.now === 'function' ? performance.now() : Date.now();
+    const previous = scanHostRepaintLog.get(host);
+    const times = (previous && previous.text === text ? previous.times : []).filter(time => now - time < REPAINT_LOOP_WINDOW_MS);
+    times.push(now);
+    scanHostRepaintLog.set(host, { text, times });
+    if (times.length < REPAINT_LOOP_THRESHOLD) return false;
+    loopingScanHosts.add(host);
+    return true;
+}
+
 export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
-    if (target.nonDestructive) {
+    if (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }

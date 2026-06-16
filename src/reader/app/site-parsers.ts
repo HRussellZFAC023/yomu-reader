@@ -798,11 +798,41 @@ export function getMatchingSiteParsers(href = window.location.href): SiteParserP
 
 /**
  * True when a matching site parser already supplies an accurate native Japanese
- * text layer (e.g. mokuro). Image OCR auto-scan is redundant and harmful there:
- * it both misses characters the native layer has and paints a competing overlay.
+ * text layer that the reader should use instead of running image OCR. For most
+ * such sites this is static, but for mokuro it follows mokuro's own "OCR
+ * enabled" setting: when the user turns mokuro OCR off (or it is off by
+ * default), mokuro stops rendering its text boxes, so the reader runs its own
+ * image OCR — which is sharper and more touch-friendly than mokuro's built-in
+ * engine — instead.
  */
 export function siteProvidesNativeTextLayer(href = window.location.href): boolean {
-    return getMatchingSiteParsers(href).some(profile => profile.providesTextLayer === true);
+    return getMatchingSiteParsers(href).some(profile => {
+        if (!profile.providesTextLayer) return false;
+        if (profile.id === 'mokuro-parser') return mokuroDisplayOcrEnabled();
+        return true;
+    });
+}
+
+/**
+ * Read mokuro's own "OCR enabled" (displayOCR) toggle from the page. mokuro
+ * stores per-profile settings in localStorage `profiles`, keyed by the active
+ * `currentProfile`. Defaults to enabled when the state cannot be read so we
+ * never hide an established mokuro setup unexpectedly.
+ */
+export function mokuroDisplayOcrEnabled(): boolean {
+    try {
+        if (typeof localStorage === 'undefined') return true;
+        const raw = localStorage.getItem('profiles');
+        if (!raw) return true;
+        const profiles = JSON.parse(raw) as Record<string, { displayOCR?: boolean } | undefined>;
+        const currentRaw = localStorage.getItem('currentProfile') ?? '';
+        let current = currentRaw;
+        try { current = JSON.parse(currentRaw); } catch { /* plain string profile name */ }
+        const profile = profiles[current] ?? profiles[currentRaw] ?? Object.values(profiles)[0];
+        return profile?.displayOCR !== false;
+    } catch {
+        return true;
+    }
 }
 
 export function collectSiteScanTargets(limit = 40, href = window.location.href): ScanTextTarget[] | null {

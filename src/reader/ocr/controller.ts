@@ -229,6 +229,10 @@ export class ImageOcrController {
     private videoFrameVideos = new Map<HTMLImageElement, HTMLVideoElement>();
     private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
     private videoFrameStatuses = new Map<HTMLVideoElement, HTMLElement>();
+    // Loading/ready status cards for every OCR'd image (not just paused-video
+    // frames), reusing the same card UI — so slow image OCR shows progress and a
+    // dismiss-to-compact spinner, the way YouTube thumbnails already do.
+    private imageStatuses = new Map<HTMLImageElement, HTMLElement>();
     // Canvas-reader snapshots (BookWalker): map each page <canvas> to the data-URL
     // <img> we OCR in its place, plus the page fingerprint and the page-turn poll.
     private canvasFrames = new Map<HTMLCanvasElement, HTMLImageElement>();
@@ -326,6 +330,7 @@ export class ImageOcrController {
         if (this.shouldSkipRefresh(settings, options)) {
             this.pruneDisconnectedStates();
             this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
+        this.imageStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
             this.schedulePosition();
             return;
         }
@@ -338,6 +343,7 @@ export class ImageOcrController {
             this.observeRefreshImage(image, settings);
         }
         this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
+        this.imageStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
         this.schedulePosition();
     }
 
@@ -537,6 +543,7 @@ export class ImageOcrController {
         this.resetStateIfImageChanged(state);
         if (await this.renderCachedOcrResult(state, key)) return;
 
+        this.updateOcrStatus(image, 'loading');
         const scan = beginOcrScan(state, image, settings, manualRequested);
 
         try {
@@ -570,7 +577,7 @@ export class ImageOcrController {
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
             renderNoOcrLines(state);
-            this.updateVideoFrameStatusForImage(image, 'empty');
+            this.updateOcrStatus(image, 'empty');
             return;
         }
 
@@ -594,7 +601,7 @@ export class ImageOcrController {
             return;
         }
         logOcrFailure(state, provider, manualRequested, error);
-        this.updateVideoFrameStatusForImage(image, 'failed');
+        this.updateOcrStatus(image, 'failed');
     }
 
     private recognizeImage(image: HTMLImageElement, settings: ReaderSettings): Promise<OcrResult | null> {
@@ -648,7 +655,7 @@ export class ImageOcrController {
         const lines = cleanOcrLookupLines(result.lines, initialParsed);
         if (!lines.length) {
             renderNoOcrLines(state);
-            this.updateVideoFrameStatusForImage(state.image, 'empty');
+            this.updateOcrStatus(state.image, 'empty');
             return;
         }
         const parsed = ocrLinesChanged(result.lines, lines)
@@ -668,7 +675,7 @@ export class ImageOcrController {
             state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
         }
         this.positionState(state.image);
-        this.updateVideoFrameStatusForImage(state.image, 'ready');
+        this.updateOcrStatus(state.image, 'ready');
         void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => {
             this.clearInactiveOcrMarkup(state.overlay);
             this.schedulePosition();
@@ -784,7 +791,15 @@ export class ImageOcrController {
             this.positionVideoFrames();
             this.positionCanvasFrames();
             for (const image of this.states.keys()) this.positionState(image);
+            this.positionImageStatusCards();
         });
+    }
+
+    private positionImageStatusCards(): void {
+        for (const [image, card] of [...this.imageStatuses]) {
+            if (!image.isConnected) this.removeImageStatusCard(image);
+            else this.positionImageStatusCard(image, card);
+        }
     }
 
     // --- Paused-video frames (UT-27) ---
@@ -903,6 +918,43 @@ export class ImageOcrController {
         if (element) this.setVideoFrameStatus(element, status);
     }
 
+    // Drive both status surfaces: paused-video frames keep their card over the
+    // player; every other OCR'd image gets its own card over the image.
+    private updateOcrStatus(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
+        this.updateVideoFrameStatusForImage(image, status);
+        this.updateImageStatusCard(image, status);
+    }
+
+    private updateImageStatusCard(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
+        if (this.videoFrameVideos.has(image)) return; // already shown over its video
+        if (!this.options.getSettings().ocrEnabled) return;
+        const existing = this.imageStatuses.get(image);
+        // No recognizable text — drop the loader rather than linger on the image.
+        if (status === 'empty') {
+            existing?.remove();
+            this.imageStatuses.delete(image);
+            return;
+        }
+        const card = existing ?? this.createVideoFrameStatus(status);
+        if (existing) this.setVideoFrameStatus(card, status);
+        else this.imageStatuses.set(image, card);
+        this.positionImageStatusCard(image, card);
+    }
+
+    private positionImageStatusCard(image: HTMLImageElement, card: HTMLElement): void {
+        const rect = image.getBoundingClientRect();
+        if (!isImageVisibleForOcr(image, rect)) { card.hidden = true; return; }
+        card.hidden = false;
+        positionOcrImageStatus(card, rect);
+    }
+
+    private removeImageStatusCard(image: HTMLImageElement): void {
+        const card = this.imageStatuses.get(image);
+        if (!card) return;
+        card.remove();
+        this.imageStatuses.delete(image);
+    }
+
     private setVideoFrameStatusCardVisible(visible: boolean): void {
         const settings = this.options.getSettings();
         if (this.options.setVideoFrameStatusCardVisible) {
@@ -911,6 +963,7 @@ export class ImageOcrController {
             settings.ocrVideoFrameStatusCard = visible;
         }
         this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
+        this.imageStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
     }
 
     private syncVideoFrameStatusCardMode(element: HTMLElement): void {
@@ -1135,6 +1188,8 @@ export class ImageOcrController {
             state.overlay.remove();
         }
         this.states.clear();
+        for (const card of this.imageStatuses.values()) card.remove();
+        this.imageStatuses.clear();
     }
 
     private rememberOcrWordRenderStates(line: HTMLElement, tokens: JPDBToken[]): void {
@@ -1218,6 +1273,7 @@ export class ImageOcrController {
             this.observer?.unobserve(image);
             state.overlay.remove();
             this.states.delete(image);
+            this.removeImageStatusCard(image);
         }
     }
 }
@@ -2038,6 +2094,13 @@ function positionVideoFrameStatus(status: HTMLElement, rect: DOMRect, video: HTM
     const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
     status.style.left = `${Math.max(8, content.left + 12)}px`;
     status.style.top = `${Math.max(8, content.top + 12)}px`;
+    status.style.maxWidth = `${maxWidth}px`;
+}
+
+function positionOcrImageStatus(status: HTMLElement, rect: DOMRect): void {
+    const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
+    status.style.left = `${Math.max(8, rect.left + 12)}px`;
+    status.style.top = `${Math.max(8, rect.top + 12)}px`;
     status.style.maxWidth = `${maxWidth}px`;
 }
 
