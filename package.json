@@ -71,6 +71,7 @@
     "smoke:mobile-youtube": "node scripts/mobile-youtube-overlap-probe.mjs",
     "smoke:newtab-study-underline": "node scripts/newtab-study-underline-smoke.mjs",
     "smoke:youtube-sidebar-layout": "node scripts/youtube-sidebar-layout-matrix.mjs",
+    "smoke:youtube-sidebar-resize-profile": "node scripts/youtube-sidebar-resize-profile.mjs",
     "smoke:popover-actions": "node scripts/popover-action-pills-smoke.mjs",
     "smoke:youtube-grid": "node scripts/youtube-grid-probe.mjs",
     "smoke:youtube-performance": "node scripts/youtube-performance-profile.mjs",
