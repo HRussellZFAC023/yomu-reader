@@ -675,19 +675,18 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('ocrVideoFrameStatusCard', 'Show paused-frame status card', settings.ocrVideoFrameStatusCard)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
-                    ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens (recommended)'], ['cloud-vision', 'Google Cloud Vision'], ['local-service', 'Local OCR engine'], ['off', 'Off']])}
+                    ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens — free, no setup (recommended)'], ['cloud-vision', 'Google Cloud Vision — needs API key'], ['local-service', 'Local OCR server — advanced'], ['off', 'Off']])}
                     ${select('ocrMaxImagesPerPage', 'Images to read per page', String(settings.ocrMaxImagesPerPage), [['3', 'Light'], ['8', 'Normal'], ['16', 'More']])}
                     ${select('ocrMinImageArea', 'Smallest image to read', String(settings.ocrMinImageArea), [['80000', 'Large images only'], ['45000', 'Normal'], ['15000', 'Include small images']])}
                     ${select('ocrMaxImagePixels', 'Image detail', String(settings.ocrMaxImagePixels), [['640000', 'Faster'], ['1200000', 'Balanced'], ['2000000', 'Sharper']])}
                     ${renderColorInputs(OCR_COLOR_FIELDS, settings)}
                     ${input('ocrBackgroundOpacity', 'Image highlight opacity', String(settings.ocrBackgroundOpacity), 'number')}
                     ${input('ocrFontScale', 'Image text scale', String(settings.ocrFontScale), 'number')}
-                    <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', 'Local OCR engine', settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision']])}</div>
-                    <details data-local-ocr ${localOcrHidden}>
-                        <summary>Custom local OCR server</summary>
-                        <label>Custom local OCR URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
-                    </details>
-                    <label data-cloud-ocr ${cloudOcrHidden}>Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
+                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">Advanced: runs OCR on your own computer. Start a local OCR server (e.g. MangaOCR, best for manga) and enter its URL below. Most users should keep Google Lens.</div>
+                    <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', 'Local OCR engine', settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR (best for manga)'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision (macOS)']])}</div>
+                    <label data-local-ocr ${localOcrHidden}>Local OCR server URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
+                    <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled).</div>
+                    <label data-cloud-ocr ${cloudOcrHidden}>Google Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
                 </div>
@@ -1274,9 +1273,9 @@ function localizeOcrSettingsSelects(form: HTMLFormElement, text: SettingsText): 
     ]);
     setSelectOptionLabels(form, 'ocrEngine', [
         ['auto', text('automatic')],
-        ['MangaOCR', 'MangaOCR'],
+        ['MangaOCR', text('ocrEngineMangaOcr')],
         ['PaddleOCR', 'PaddleOCR'],
-        ['AppleVision', 'Apple Vision'],
+        ['AppleVision', text('ocrEngineAppleVision')],
     ]);
 }
 
@@ -1320,7 +1319,6 @@ function localizeSettingsHelpText(form: HTMLFormElement, text: SettingsText): vo
     if (ankiHelp) setInnerHtml(ankiHelp, ankiSetupHelpHtml(resolveUiLanguageFromText(text)));
     form.querySelector<HTMLElement>('[data-anki-library-availability]')?.replaceChildren(text('ankiLibraryAdapterStatus'));
     form.querySelector<HTMLElement>('[data-diagnostics-help]')?.replaceChildren(text('diagnosticsHelp'));
-    form.querySelector<HTMLElement>('details[data-local-ocr] > summary')?.replaceChildren(text('ocrCustomLocalServer'));
 }
 
 function localizeNewTabHelp(form: HTMLFormElement, text: SettingsText): void {

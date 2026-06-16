@@ -222,6 +222,7 @@ import {
     type TokenListOptions,
     type TokenListSource,
 } from './main-helpers';
+import { siteProvidesNativeTextLayer } from './site-parsers';
 import {
     inferMiningSourceKind,
     resolveMiningContext as resolveStoredMiningContext,
@@ -706,7 +707,13 @@ export class ReaderApp {
             parseJapanese: async (text, options) => (await this.parseJapanese([text], options))[0] ?? [],
             parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
             onToast: message => this.toast(message),
-            shouldAutoScan: () => this.pageHasJapaneseText || documentLooksLikeImageReadingPage(),
+            // Skip image OCR auto-scan when the site already exposes an accurate
+            // native text layer (e.g. mokuro's `.textBox` overlays). Re-OCRing the
+            // same artwork with Google Lens misses characters the native layer has
+            // (Canna: 事 dropped) and double-paints a competing overlay. Manual FAB
+            // scan still works for panels the native layer missed.
+            shouldAutoScan: () => !siteProvidesNativeTextLayer()
+                && (this.pageHasJapaneseText || documentLooksLikeImageReadingPage()),
             enrichTokensBeforeRender: tokens => this.enrichOcrTokensBeforeRender(tokens),
             enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
             fallbackCardFromText: text => this.parser.fallbackCardFromText(text),

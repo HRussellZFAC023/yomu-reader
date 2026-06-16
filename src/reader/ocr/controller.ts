@@ -1,5 +1,12 @@
 import { escapeHtml, renderRuby, renderTokensToHtml, setInnerHtml, shouldRenderRuby } from '../dom/index';
 import { normalizeOcrRenderedText } from './rendered-text';
+import {
+    canvasReaderPageSignature,
+    captureCanvasDataUrl,
+    collectCanvasReaderSurfaces,
+    isCanvasReaderPage,
+    positionCanvasFrameImage,
+} from './canvas-readers';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
@@ -222,6 +229,12 @@ export class ImageOcrController {
     private videoFrameVideos = new Map<HTMLImageElement, HTMLVideoElement>();
     private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
     private videoFrameStatuses = new Map<HTMLVideoElement, HTMLElement>();
+    // Canvas-reader snapshots (BookWalker): map each page <canvas> to the data-URL
+    // <img> we OCR in its place, plus the page fingerprint and the page-turn poll.
+    private canvasFrames = new Map<HTMLCanvasElement, HTMLImageElement>();
+    private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
+    private canvasReaderSignature?: string;
+    private canvasReaderPoll = 0;
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
     private readonly handleMediaResume = (event: Event) => this.releaseVideoFrame(event.target);
@@ -275,6 +288,7 @@ export class ImageOcrController {
             attributes: true,
             attributeFilter: ['style', 'class', 'hidden', 'src', 'srcset', 'sizes', 'loading', 'poster'],
         });
+        this.startCanvasReaderPollingIfNeeded();
     }
 
     destroy(): void {
@@ -293,6 +307,8 @@ export class ImageOcrController {
             window.removeEventListener(eventName, this.handleSpaNavigation);
         }
         this.releaseAllVideoFrames();
+        this.releaseAllCanvasFrames();
+        if (this.canvasReaderPoll) { window.clearInterval(this.canvasReaderPoll); this.canvasReaderPoll = 0; }
         this.mutationObserver?.disconnect();
         if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
         this.clear();
@@ -304,6 +320,9 @@ export class ImageOcrController {
             this.clear();
             return;
         }
+        // Canvas readers (BookWalker) have no <img> to find, so drive their
+        // snapshots independently of the document.images skip logic below.
+        this.refreshCanvasReaderSurfaces(settings);
         if (this.shouldSkipRefresh(settings, options)) {
             this.pruneDisconnectedStates();
             this.videoFrameStatuses.forEach(status => this.syncVideoFrameStatusCardMode(status));
@@ -763,6 +782,7 @@ export class ImageOcrController {
         this.positionFrame = requestAnimationFrame(() => {
             this.positionFrame = 0;
             this.positionVideoFrames();
+            this.positionCanvasFrames();
             for (const image of this.states.keys()) this.positionState(image);
         });
     }
@@ -932,6 +952,88 @@ export class ImageOcrController {
         for (const video of [...this.videoFrames.keys()]) this.releaseVideoFrame(video);
     }
 
+    // --- Canvas-reader frames (BookWalker browser viewer) ---
+
+    private startCanvasReaderPollingIfNeeded(): void {
+        if (this.canvasReaderPoll || !isCanvasReaderPage()) return;
+        // Canvas redraws emit no DOM event, so a light poll catches page turns and
+        // the viewer's async boot. The per-tick work is cheap (a fingerprint
+        // string + querySelectorAll); a real capture only runs when it changes.
+        this.canvasReaderPoll = window.setInterval(() => {
+            this.refreshCanvasReaderSurfaces(this.options.getSettings());
+        }, 1200);
+    }
+
+    private refreshCanvasReaderSurfaces(settings: ReaderSettings): void {
+        if (!settings.ocrEnabled || !settings.ocrAutoScanImages || settings.ocrProvider === 'off') return;
+        if (!isCanvasReaderPage()) {
+            this.releaseAllCanvasFrames();
+            return;
+        }
+        this.startCanvasReaderPollingIfNeeded();
+        const signature = canvasReaderPageSignature();
+        if (signature !== this.canvasReaderSignature) {
+            this.releaseAllCanvasFrames();
+            this.canvasReaderSignature = signature;
+        }
+        for (const canvas of collectCanvasReaderSurfaces()) {
+            if (this.canvasFrames.has(canvas)) continue;
+            this.snapshotCanvasSurface(canvas, settings);
+        }
+    }
+
+    private snapshotCanvasSurface(canvas: HTMLCanvasElement, settings: ReaderSettings): void {
+        if (this.canvasFrames.has(canvas)) return;
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width * rect.height < settings.ocrMinImageArea) return;
+        if (!isNearViewport(canvas, settings.ocrPrefetchMargin) || isHiddenByCss(canvas)) return;
+        const dataUrl = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+        if (!dataUrl) return;
+        const frame = document.createElement('img');
+        frame.className = 'jpdb-ocr-canvas-frame';
+        frame.dataset.yomuCanvasFrame = 'true';
+        frame.alt = '';
+        positionCanvasFrameImage(frame, rect);
+        frame.addEventListener('load', () => {
+            if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, true);
+        }, { once: true });
+        frame.src = dataUrl;
+        document.body.append(frame);
+        this.canvasFrames.set(canvas, frame);
+        this.canvasFrameSources.set(frame, canvas);
+        this.schedulePosition();
+    }
+
+    private releaseCanvasFrame(canvas: HTMLCanvasElement): void {
+        const frame = this.canvasFrames.get(canvas);
+        if (!frame) return;
+        this.canvasFrames.delete(canvas);
+        const state = this.states.get(frame);
+        if (state) {
+            this.observer?.unobserve(frame);
+            state.overlay.remove();
+            this.states.delete(frame);
+        }
+        this.canvasFrameSources.delete(frame);
+        this.queue = this.queue.filter(queued => queued !== frame);
+        frame.remove();
+    }
+
+    private releaseAllCanvasFrames(): void {
+        for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+        this.canvasReaderSignature = undefined;
+    }
+
+    private positionCanvasFrames(): void {
+        for (const [canvas, frame] of [...this.canvasFrames]) {
+            if (!canvas.isConnected) {
+                this.releaseCanvasFrame(canvas);
+                continue;
+            }
+            positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
+        }
+    }
+
     private positionVideoFrames(): void {
         for (const [video, frame] of [...this.videoFrames]) {
             if (!video.isConnected || !video.paused) {
@@ -1027,6 +1129,7 @@ export class ImageOcrController {
         this.observer = undefined;
         this.observerMargin = '';
         window.clearTimeout(this.refreshTimer);
+        this.releaseAllCanvasFrames();
         this.queue = [];
         for (const state of this.states.values()) {
             state.overlay.remove();
@@ -1103,7 +1206,7 @@ export class ImageOcrController {
     // stale OCR artifact (rail resume button, overlay over the player) carries
     // across the SPA route change, then re-scan the destination page.
     private teardownForNavigation(): void {
-        if (this.states.size === 0 && this.videoFrames.size === 0) return;
+        if (this.states.size === 0 && this.videoFrames.size === 0 && this.canvasFrames.size === 0) return;
         this.releaseAllVideoFrames();
         this.clear();
         if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
