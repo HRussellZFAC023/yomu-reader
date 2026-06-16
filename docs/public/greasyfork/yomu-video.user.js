@@ -1424,28 +1424,75 @@
   const MIN_PAGE_CANVAS_DIMENSION = 600;
   const MIN_PAGE_CANVAS_ASPECT = 0.3;
   const MAX_PAGE_CANVAS_ASPECT = 3.2;
+  const MIN_RENDERED_DIMENSION = 200;
+  const VIEWPORT_COVERAGE_FRACTION = 0.4;
+  const VIEWPORT_AREA_FRACTION = 0.18;
+  const CONTENT_SAMPLE_SIZE = 20;
+  const MIN_CONTENT_CONTRAST = 36;
+  const MIN_CONTENT_BUCKETS = 3;
+  const MIN_OPAQUE_FRACTION = 0.5;
   function isBookwalkerViewerHost(hostname = location.hostname) {
     return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
   }
   function isKnownCanvasReaderHost(hostname = location.hostname) {
     return CANVAS_READER_HOST_PATTERNS.some((pattern) => pattern.test(hostname));
   }
-  function isLikelyPageCanvas(canvas) {
+  function hasPageShape(canvas) {
     const { width, height } = canvas;
     if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
     const aspect = width / height;
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
   }
-  function pageCanvases() {
-    return Array.from(document.querySelectorAll("canvas")).filter(isLikelyPageCanvas);
+  function isViewportProminent(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+    const coversAxis = rect.width >= viewportWidth * VIEWPORT_COVERAGE_FRACTION || rect.height >= viewportHeight * VIEWPORT_COVERAGE_FRACTION;
+    const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
+    return coversAxis && coversArea;
+  }
+  function looksLikeRenderedImage(canvas) {
+    try {
+      const sample = document.createElement("canvas");
+      sample.width = CONTENT_SAMPLE_SIZE;
+      sample.height = CONTENT_SAMPLE_SIZE;
+      const context = sample.getContext("2d", { willReadFrequently: true });
+      if (!context) return false;
+      context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+      const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+      const buckets = /* @__PURE__ */ new Set();
+      let min = 255;
+      let max = 0;
+      let opaque = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i + 3] < 8) continue;
+        opaque++;
+        const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 | 0;
+        if (luminance < min) min = luminance;
+        if (luminance > max) max = luminance;
+        buckets.add(luminance >> 4);
+      }
+      if (opaque < data.length / 4 * MIN_OPAQUE_FRACTION) return false;
+      return max - min >= MIN_CONTENT_CONTRAST && buckets.size >= MIN_CONTENT_BUCKETS;
+    } catch {
+      return false;
+    }
+  }
+  function isLikelyPageCanvas(canvas, lenient) {
+    if (!hasPageShape(canvas)) return false;
+    if (lenient) return true;
+    return isViewportProminent(canvas) && looksLikeRenderedImage(canvas);
+  }
+  function pageCanvases(hostname = location.hostname) {
+    const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
+    return Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
   }
   function isCanvasReaderPage(hostname = location.hostname) {
-    if (!isKnownCanvasReaderHost(hostname) && !document.querySelector(PAGE_COUNTER_SELECTOR)) return false;
-    return pageCanvases().length > 0;
+    return pageCanvases(hostname).length > 0;
   }
   function collectCanvasReaderSurfaces(hostname = location.hostname) {
-    if (!isCanvasReaderPage(hostname)) return [];
-    return pageCanvases();
+    return pageCanvases(hostname);
   }
   function canvasReaderPageSignature() {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";

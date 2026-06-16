@@ -117,3 +117,77 @@ describe('canvas readers (BookWalker)', () => {
         expect(captureCanvasDataUrl(tainted, 1_200_000)).toBeUndefined();
     });
 });
+
+// Generic detection: an UNKNOWN host with no page counter must clear all three
+// gates — page shape, viewport prominence, and rendered-image content — before a
+// canvas is treated as a manga page. jsdom ships no canvas 2D context or layout,
+// so we stub getContext (for the content sniff) and getBoundingClientRect (for
+// prominence). jsdom's viewport is 1024×768.
+describe('canvas readers (generic, unknown host)', () => {
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+
+    function stubContextPixels(pixels: Uint8ClampedArray): void {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({
+            drawImage() { /* noop */ },
+            getImageData: () => ({ data: pixels }),
+        });
+    }
+    function pixels(fill: (p: number) => [number, number, number, number]): Uint8ClampedArray {
+        const data = new Uint8ClampedArray(20 * 20 * 4);
+        for (let p = 0; p < 400; p++) {
+            const [r, g, b, a] = fill(p);
+            data[p * 4] = r; data[p * 4 + 1] = g; data[p * 4 + 2] = b; data[p * 4 + 3] = a;
+        }
+        return data;
+    }
+    const richImage = () => pixels(p => { const v = (p * 7) % 256; return [v, v, v, 255]; });   // high contrast, many bands
+    const flatImage = () => pixels(() => [128, 128, 128, 255]);                                  // solid grey UI canvas
+    const transparentImage = () => pixels(p => { const v = (p * 7) % 256; return [v, v, v, 0]; }); // overlay/sprite
+
+    function mountCanvas(bufferW: number, bufferH: number, renderedW: number, renderedH: number): HTMLCanvasElement {
+        const canvas = document.createElement('canvas');
+        canvas.width = bufferW; canvas.height = bufferH;
+        canvas.getBoundingClientRect = () => ({
+            width: renderedW, height: renderedH, left: 0, top: 0, right: renderedW, bottom: renderedH, x: 0, y: 0, toJSON() { /* noop */ },
+        } as DOMRect);
+        document.body.appendChild(canvas);
+        return canvas;
+    }
+
+    afterEach(() => {
+        HTMLCanvasElement.prototype.getContext = originalGetContext;
+        document.body.innerHTML = '';
+    });
+
+    it('detects a prominent, image-bearing page canvas on an unknown host', () => {
+        stubContextPixels(richImage());
+        mountCanvas(1200, 1680, 900, 1260);
+        expect(isCanvasReaderPage('example.com')).toBe(true);
+        expect(collectCanvasReaderSurfaces('example.com')).toHaveLength(1);
+    });
+
+    it('rejects a page-shaped image canvas that is not viewport-prominent (e.g. a thumbnail)', () => {
+        stubContextPixels(richImage());
+        mountCanvas(1200, 1680, 240, 336);
+        expect(isCanvasReaderPage('example.com')).toBe(false);
+    });
+
+    it('rejects a prominent canvas whose content is flat/non-image (UI, chart, blank)', () => {
+        stubContextPixels(flatImage());
+        mountCanvas(1200, 1680, 900, 1260);
+        expect(isCanvasReaderPage('example.com')).toBe(false);
+    });
+
+    it('rejects a prominent but mostly-transparent overlay canvas', () => {
+        stubContextPixels(transparentImage());
+        mountCanvas(1200, 1680, 900, 1260);
+        expect(isCanvasReaderPage('example.com')).toBe(false);
+    });
+
+    it('rejects a sub-threshold canvas regardless of content', () => {
+        stubContextPixels(richImage());
+        mountCanvas(400, 560, 400, 560);
+        expect(isCanvasReaderPage('example.com')).toBe(false);
+    });
+});

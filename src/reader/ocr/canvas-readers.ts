@@ -3,42 +3,50 @@
 // path never sees them. We snapshot the canvas to a data-URL <img> and feed it
 // to the existing OCR pipeline — mirroring the paused-video-frame mechanism.
 //
-// Detection has to be host-aware: "OCR every large canvas everywhere" would
-// fire on games, charts, map/photo editors, PDF.js, etc. So we activate only on
-// known canvas-reader hosts OR on a page that exposes a reader page-counter, and
-// then treat the LARGE, page-shaped canvases as surfaces. Size/shape — not class
-// names or container ids — is what makes a page canvas, which is both general
-// across readers and resilient to viewer rewrites (an earlier class-name match,
-// `canvas.default`/`#renderer canvas`, silently broke when BookWalker shipped a
-// new DOM). The controller's isHiddenByCss / isNearViewport then narrow capture
-// to the page(s) actually on screen, so off-screen buffers and 0×0 transition
-// canvases drop out on their own.
+// Detection is GENERIC — it targets "canvas-wrapped rendered images" on any
+// site, not a fixed host list. A manga page canvas is:
+//   1. large + page-shaped (drawing-buffer size & aspect),
+//   2. prominent in the viewport (a reader fills the screen with the page), and
+//   3. carrying a RENDERED RASTER IMAGE — the decoded page. Test 3 is what tells
+//      a wrapped page image apart from WebGL games, vector/UI canvases, charts
+//      and blank buffers; it also rejects cross-origin-tainted canvases, which
+//      throw on read and which we could not OCR anyway.
+// Known reader hosts (or a reader page-counter) take a LENIENT path — size+shape
+// only — because the context already disambiguates them and we want maximum
+// reliability there; every other site must additionally clear the prominence +
+// rendered-image tests before we spend an OCR call. Size/shape/content — not
+// class names or container ids — is what makes a page canvas, which is resilient
+// to viewer rewrites (an earlier class-name match, `canvas.default`/`#renderer
+// canvas`, silently broke when BookWalker shipped a new DOM). The controller's
+// isHiddenByCss / isNearViewport then narrow capture to the page(s) on screen, so
+// off-screen buffers and transition canvases drop out on their own.
 //
-// Verified canvas viewers (2026-06-16):
-//   bookwalker.jp     viewer.html — page canvases in #viewport0/#viewport1 under
-//                     #renderer (visible spread = `.currentScreen`, buffers
-//                     `visibility:hidden`); `canvas.dummy` + #frontScreen decoys.
-//                     Page-turn signal: #pageSliderCounter ("3 / 48").
-//   comic-walker.com  カドコミ (Kadokawa) — vertical scroll, one persistent
-//                     canvas per page (1284×1825 etc.), no page counter.
-// Page canvases are NOT tainted (the viewer composites decrypted pages itself),
-// so toDataURL succeeds. See references/BookWalker-Screenshot-Simulator.
+// Verified canvas viewers (2026-06-16): bookwalker.jp (viewer.html, #viewport
+// canvases under #renderer, page counter), comic-walker.com (カドコミ, vertical
+// scroll, one persistent canvas per page, no counter). Page canvases are NOT
+// tainted (the viewer composites decrypted pages itself), so toDataURL /
+// getImageData succeed. See references/BookWalker-Screenshot-Simulator.
 
 const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
 
-// Hosts whose browser viewers are known to render manga pages onto <canvas>.
+// Hosts known to render manga pages onto <canvas>. They skip the prominence +
+// rendered-image heuristics (the host already disambiguates them); the generic
+// path below covers every other reader.
 const CANVAS_READER_HOST_PATTERNS: RegExp[] = [
     /(^|\.)bookwalker\.jp$/i,
     /(^|\.)comic-walker\.com$/i,
 ];
 
-// A manga page canvas is large and roughly page-shaped. The dimension floor
-// rejects decoy/transition/sprite/UI canvases (BookWalker's 300×150 dummies,
-// swatch canvases, etc.); the aspect window spans a single portrait page through
-// a two-page landscape spread.
-const MIN_PAGE_CANVAS_DIMENSION = 600;
-const MIN_PAGE_CANVAS_ASPECT = 0.3;
-const MAX_PAGE_CANVAS_ASPECT = 3.2;
+const MIN_PAGE_CANVAS_DIMENSION = 600;     // drawing-buffer floor: rejects decoy/UI canvases
+const MIN_PAGE_CANVAS_ASPECT = 0.3;        // a single portrait page …
+const MAX_PAGE_CANVAS_ASPECT = 3.2;        // … through a two-page landscape spread
+const MIN_RENDERED_DIMENSION = 200;        // must be laid out at a readable on-screen size
+const VIEWPORT_COVERAGE_FRACTION = 0.4;    // a reader page fills ≥40% of a viewport axis …
+const VIEWPORT_AREA_FRACTION = 0.18;       // … and ≥18% of the viewport area
+const CONTENT_SAMPLE_SIZE = 20;            // downscale target for the rendered-image sniff
+const MIN_CONTENT_CONTRAST = 36;           // luminance spread of a real page (B&W manga = high)
+const MIN_CONTENT_BUCKETS = 3;             // distinct luminance bands (anti-aliasing/screentone)
+const MIN_OPAQUE_FRACTION = 0.5;           // a mostly-transparent canvas is an overlay, not a page
 
 export function isBookwalkerViewerHost(hostname: string = location.hostname): boolean {
     return hostname === 'viewer.bookwalker.jp'
@@ -50,31 +58,84 @@ export function isKnownCanvasReaderHost(hostname: string = location.hostname): b
     return CANVAS_READER_HOST_PATTERNS.some(pattern => pattern.test(hostname));
 }
 
-function isLikelyPageCanvas(canvas: HTMLCanvasElement): boolean {
+function hasPageShape(canvas: HTMLCanvasElement): boolean {
     const { width, height } = canvas;
     if (width < MIN_PAGE_CANVAS_DIMENSION || height < MIN_PAGE_CANVAS_DIMENSION) return false;
     const aspect = width / height;
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
 }
 
-function pageCanvases(): HTMLCanvasElement[] {
-    return Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas')).filter(isLikelyPageCanvas);
+// Reader pages dominate the viewport; this rejects incidental large canvases
+// (thumbnails rendered to canvas, embedded widgets, sprite buffers) on unknown
+// sites without needing to know the host.
+function isViewportProminent(canvas: HTMLCanvasElement): boolean {
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 1;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 1;
+    const coversAxis = rect.width >= viewportWidth * VIEWPORT_COVERAGE_FRACTION
+        || rect.height >= viewportHeight * VIEWPORT_COVERAGE_FRACTION;
+    const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
+    return coversAxis && coversArea;
+}
+
+// A wrapped page image has rich, mostly-opaque raster content: high luminance
+// spread across several bands (manga is high-contrast B&W with screentone/anti-
+// aliasing greys; colour pages span many bands too). Flat UI/solid canvases and
+// near-blank buffers fail the contrast/bucket test; WebGL/vector canvases tend to
+// as well; tainted canvases throw on read and are rejected (un-OCR-able anyway).
+function looksLikeRenderedImage(canvas: HTMLCanvasElement): boolean {
+    try {
+        const sample = document.createElement('canvas');
+        sample.width = CONTENT_SAMPLE_SIZE;
+        sample.height = CONTENT_SAMPLE_SIZE;
+        const context = sample.getContext('2d', { willReadFrequently: true });
+        if (!context) return false;
+        context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+        const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
+        const buckets = new Set<number>();
+        let min = 255;
+        let max = 0;
+        let opaque = 0;
+        for (let i = 0; i < data.length; i += 4) {
+            if (data[i + 3] < 8) continue;
+            opaque++;
+            const luminance = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114) | 0;
+            if (luminance < min) min = luminance;
+            if (luminance > max) max = luminance;
+            buckets.add(luminance >> 4);
+        }
+        if (opaque < (data.length / 4) * MIN_OPAQUE_FRACTION) return false;
+        return max - min >= MIN_CONTENT_CONTRAST && buckets.size >= MIN_CONTENT_BUCKETS;
+    } catch {
+        return false;
+    }
+}
+
+function isLikelyPageCanvas(canvas: HTMLCanvasElement, lenient: boolean): boolean {
+    if (!hasPageShape(canvas)) return false;
+    if (lenient) return true;
+    return isViewportProminent(canvas) && looksLikeRenderedImage(canvas);
+}
+
+function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[] {
+    const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
+    return Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
+        .filter(canvas => isLikelyPageCanvas(canvas, lenient));
 }
 
 /**
- * True on a page that paints manga into a <canvas> we can OCR. We require a known
- * reader host (or a reader page-counter, which also lets local fixtures and other
- * viewers exercise the path) AND at least one large, page-shaped canvas — so the
- * path never activates on arbitrary canvas-using sites.
+ * True on a page that paints manga into a <canvas> we can OCR. Generic: any
+ * large, page-shaped, viewport-prominent canvas carrying a rendered raster image
+ * qualifies. A known reader host / reader page-counter relaxes the prominence +
+ * content tests (the context already disambiguates them).
  */
 export function isCanvasReaderPage(hostname: string = location.hostname): boolean {
-    if (!isKnownCanvasReaderHost(hostname) && !document.querySelector(PAGE_COUNTER_SELECTOR)) return false;
-    return pageCanvases().length > 0;
+    return pageCanvases(hostname).length > 0;
 }
 
 export function collectCanvasReaderSurfaces(hostname: string = location.hostname): HTMLCanvasElement[] {
-    if (!isCanvasReaderPage(hostname)) return [];
-    return pageCanvases();
+    return pageCanvases(hostname);
 }
 
 /**

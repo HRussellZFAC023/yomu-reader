@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.86] - 2026-06-16
+
+### Changed
+
+- Canvas-based manga readers are now detected generically, not just on a host allowlist. Any reader that paints page images onto a `<canvas>` qualifies when the canvas is large and page-shaped, prominent in the viewport, and carries a rendered raster image (the decoded page) — verified live on Shonen Jump+ (shonenjumpplus.com) in addition to BookWalker and ComicWalker. The rendered-image test keeps the path off WebGL games, charts, vector/UI canvases and blank buffers, and skips cross-origin-tainted canvases that can't be read; known reader hosts and reader page-counters keep a lenient size/shape-only fast-path.
+
 ## [0.7.85] - 2026-06-16
 
 ### Changed
