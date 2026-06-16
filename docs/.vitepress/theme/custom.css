@@ -128,18 +128,35 @@
   font-weight: 860;
 }
 
-/* Japanese hero layout overrides to prevent furigana overlap and wrapping issues */
+/* Japanese hero: the userscript parses this tagline in place and adds furigana,
+   which raises the line box. Inheriting the English display size (up to 78px)
+   then wrapped the short sentence into a tall, sparse column. Use a smaller
+   display size and balanced wrapping so the parsed sentence sits in ~two tidy
+   lines (furigana included) instead of wasting vertical space. */
 html[lang="ja"] .VPHomeHero .name,
 html[lang="ja"] .VPHomeHero .text {
-  line-height: 1.35;
+  line-height: 1.28;
+  text-wrap: balance;
 }
 
 html[lang="ja"] .VPHomeHero .name {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 html[lang="ja"] .VPHomeHero .text {
-  max-width: none;
+  max-width: 18ch;
+  font-size: clamp(32px, 4.6vw, 52px);
+}
+
+html[lang="ja"] .VPHomeHero .tagline {
+  text-wrap: pretty;
+}
+
+@media (max-width: 959px) {
+  html[lang="ja"] .VPHomeHero .text {
+    max-width: none;
+    font-size: clamp(28px, 8vw, 44px);
+  }
 }
 
 .VPHomeHero .tagline {
@@ -183,7 +200,7 @@ html[lang="ja"] .VPHomeHero .text {
 
 @media (min-width: 1200px) {
   .VPHomeHero .container {
-    min-height: 420px;
+    min-height: 340px;
   }
 
   .VPHomeHero .image {

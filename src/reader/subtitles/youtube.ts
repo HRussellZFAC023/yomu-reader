@@ -7,11 +7,13 @@ import {
     allYouTubeChannelRecommendations,
     filterYouTubeChannelRecommendations,
     starterYouTubeChannelRecommendations,
+    youTubeChannelListSignature,
     youtubeChannelRecommendationDescription,
     youtubeChannelUrl,
     type YouTubeChannelRecommendation,
     type YouTubeChannelRecommendationFilter,
 } from './youtube-channel-recommendations';
+import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSetSync } from '../app/storage';
 import {
     classifyYouTubeFilterCandidates,
     isProbablyJapaneseYouTubeText,
@@ -108,6 +110,7 @@ const YOUTUBE_FILTER_CARD_HEIGHT_PROPERTY = '--yomu-youtube-filter-card-height';
 // Multiple of the list's 4/2/1-column layouts so the compact shelf fills its rows.
 const YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT = 8;
 const YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT = 8;
+const YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY = 'yomu:youtube-all-subscribed:v1';
 const YOUTUBE_CHANNEL_SHELF_PREVIEW_BACKFILL_DELAY_MS = 250;
 const YOUTUBE_NAVIGATION_RESCAN_DELAY_MS = 120;
 const YOUTUBE_NAVIGATION_EVENTS = [
@@ -232,6 +235,14 @@ export class YoutubeImmersionFilter {
     private readonly cardTimers = new WeakMap<HTMLElement, number[]>();
     private readonly compactChannelPool = randomStarterYouTubeChannelRecommendations(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
     private readonly subscribedChannelHandles = new Set<string>();
+    // Channels whose id can no longer be resolved (deleted/moved/renamed). Kept
+    // separate so a dead channel never blocks the "all subscribed" state.
+    private readonly unresolvableChannelHandles = new Set<string>();
+    // Once every channel is subscribed (or unresolvable) we stop re-testing
+    // subscription status on each shelf render. Persisted, keyed by the channel
+    // list signature so editing the list re-tests against the new set.
+    private channelsAllSubscribed = false;
+    private channelSubscriptionStateLoaded = false;
     private channelShelfRefreshTimer?: number;
     private lastShelfBackfillAt = 0;
     private lastAdvancedShortKey = '';
@@ -245,6 +256,31 @@ export class YoutubeImmersionFilter {
 
     private unsubscribedChannels(channels: YouTubeChannelRecommendation[]): YouTubeChannelRecommendation[] {
         return channels.filter(channel => !this.subscribedChannelHandles.has(channel.handle));
+    }
+
+    private loadChannelSubscriptionState(): void {
+        if (this.channelSubscriptionStateLoaded) return;
+        this.channelSubscriptionStateLoaded = true;
+        const stored = gmStorageGetSync<{ signature?: string } | null>(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, null);
+        if (stored?.signature === youTubeChannelListSignature()) {
+            this.channelsAllSubscribed = true;
+            for (const channel of allYouTubeChannelRecommendations()) this.subscribedChannelHandles.add(channel.handle);
+        } else if (stored) {
+            // The curated list changed since the flag was stored — drop it and re-test.
+            gmStorageDeleteSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY);
+        }
+    }
+
+    // Persist the "all subscribed" flag once every channel is subscribed or
+    // unresolvable (deleted/moved/renamed), so the shelf stops re-testing
+    // subscription status on every render. A dead channel never blocks this.
+    private markChannelSubscriptionCompleteIfReady(): void {
+        if (this.channelsAllSubscribed) return;
+        const settled = (handle: string): boolean =>
+            this.subscribedChannelHandles.has(handle) || this.unresolvableChannelHandles.has(handle);
+        if (!allYouTubeChannelRecommendations().every(channel => settled(channel.handle))) return;
+        this.channelsAllSubscribed = true;
+        gmStorageSetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, { signature: youTubeChannelListSignature() });
     }
 
     constructor(private readonly options: {
@@ -263,6 +299,7 @@ export class YoutubeImmersionFilter {
             return;
         }
 
+        this.loadChannelSubscriptionState();
         this.setFilterActiveClass(true);
         this.startWatching();
         this.scan();
@@ -1086,6 +1123,9 @@ export class YoutubeImmersionFilter {
     }
 
     private hydrateRenderedChannelPreviews(channels: YouTubeChannelRecommendation[]): void {
+        // Every channel was already confirmed subscribed; don't re-test on each
+        // render. The flag is reset when the curated list changes.
+        if (this.channelsAllSubscribed) return;
         const missing = channels.filter(channel => !this.channelPreviewCache.has(channel.handle) && !this.pendingChannelPreviews.has(channel.handle));
         void this.hydrateChannelPreviews(missing.slice(0, YOUTUBE_CHANNEL_SHELF_PREVIEW_LIMIT));
         if (!this.channelShelfExpanded) {
@@ -1129,6 +1169,7 @@ export class YoutubeImmersionFilter {
                     if (preview?.channelId) this.channelIdCache.set(channel.handle, preview.channelId);
                     if (preview?.subscribed) {
                         this.subscribedChannelHandles.add(channel.handle);
+                        this.markChannelSubscriptionCompleteIfReady();
                         this.scheduleChannelShelfRefresh(0);
                         return;
                     }
@@ -1183,7 +1224,13 @@ export class YoutubeImmersionFilter {
             elements.status.textContent = `Subscribing ${index + 1}/${channels.length}: ${channel.name}`;
             try {
                 const channelId = await resolveYouTubeChannelId(channel, config, this.channelIdCache);
-                if (!channelId) throw new Error('Missing YouTube channel id.');
+                if (!channelId) {
+                    // No id resolves for this handle — the channel was deleted,
+                    // moved, or renamed. Mark it so it never blocks the
+                    // "all subscribed" flag, and move on without erroring out.
+                    this.unresolvableChannelHandles.add(channel.handle);
+                    throw new Error('Missing YouTube channel id.');
+                }
                 await subscribeYouTubeChannel(channelId, config);
                 subscribed += 1;
                 this.markChannelRowSubscribed(channel);
@@ -1191,6 +1238,7 @@ export class YoutubeImmersionFilter {
                 failed += 1;
             }
         }
+        this.markChannelSubscriptionCompleteIfReady();
         this.subscriptionBusy = false;
         this.setChannelShelfBusy(false);
         this.setChannelShelfStatus(elements, failed

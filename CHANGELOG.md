@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.7.83] - 2026-06-16
+
+### Fixed
+
+- Jiten related-words / used-in lists now distribute furigana per kanji using the annotated reading (e.g. 読み取る renders 読(よ)み取(と)る) instead of placing the whole reading (よみとる) over the whole word. Okurigana stays as plain base text and is no longer shown as if it were a kanji reading.
+
+## [0.7.82] - 2026-06-16
+
+### Added
+
+- YouTube channel shelf now records when every curated channel is subscribed (or can no longer be resolved) and stops re-testing subscription status on each render. The flag is keyed by a signature of the channel list, so editing the curated list automatically re-tests against the new set. Channels that were deleted, moved, or renamed are treated as unresolvable and never block the all-subscribed state or raise errors.
+
+## [0.7.81] - 2026-06-16
+
+### Fixed
+
+- A Jiten API key (starts with `ak_`) pasted into the JPDB API key box now moves to the Jiten API key box once the field is committed, instead of staying displayed in the JPDB box. The key was already routed to the Jiten credential internally; now the visible inputs match where each key belongs (a genuine JPDB key stays put).
+
+## [0.7.80] - 2026-06-16
+
+### Fixed
+
+- Jisho.org audio now works on the hosted reader. Without a userscript, jisho.org cannot be fetched directly (CORS) and the public proxy fails its TLS handshake with jisho (525), so the fallback scraped the text proxy's markdown rendering — which drops the audio `<source>`, leaving jisho silent. The reader now requests the raw jisho HTML from the text proxy and parses the `<audio id="audio_{word}:{reading}"><source>` element with the same logic as the userscript path and yomitan, so the pronunciation resolves and plays.
+- Guarded toast cleanup against a torn-down document so a toast's exit timer can no longer throw an unhandled "document is not defined".
+
+## [0.7.79] - 2026-06-16
+
+### Changed
+
+- Moved the text-selection popover's action pills (Jiten/JPDB/Jisho/Copy/Yomu) to the top, directly under the title, so they are reachable without scrolling past a long parsed token list.
+- Compacted the Japanese docs hero: the in-place parsed tagline now uses a smaller display size with balanced wrapping, so furigana no longer pushes it into a tall, sparse column (less wasted space).
+
+### Fixed
+
+- Selection popover word buttons no longer fall through to the page word underneath the popover. Because the popover overlaps page text, clicking a parsed token could resolve the underlying word by point geometry and open *its* dictionary at the wrong location (shifting the popover); document click handling now ignores clicks on the popover's own controls.
+- Text selection now opens the lookup popover consistently once the selection settles, including iPad selection-handle and loupe adjustments that do not emit a fresh `mouseup`/`touchend` — a debounced `selectionchange` trigger covers them.
+
+### Added
+
+- Simulated user-research notes and a ranked backlog for the selection feature (`docs/research/selection-popover-research.md`).
+
 ## [0.7.78] - 2026-06-16
 
 ### Fixed

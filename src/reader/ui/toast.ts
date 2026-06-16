@@ -46,6 +46,9 @@ function scheduleToastRemoval(toast: HTMLElement, durationMs: number): void {
         toast.classList.remove(TOAST_VISIBLE_CLASS);
         window.setTimeout(() => {
             toast.remove();
+            // The toast can outlive its document (page teardown, test env teardown),
+            // so guard the DOM access to avoid an unhandled "document is not defined".
+            if (typeof document === 'undefined') return;
             const stack = document.querySelector<HTMLElement>(`.${TOAST_STACK_CLASS}`);
             if (stack && !stack.childElementCount) stack.remove();
         }, TOAST_EXIT_MS);

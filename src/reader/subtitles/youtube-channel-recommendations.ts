@@ -1,3 +1,5 @@
+import { stableHashBase36 } from '../core/stable-hash';
+
 export type YouTubeChannelLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1';
 export type YouTubeChannelCaptionKind = 'soft' | 'hard' | 'furigana';
 export type YouTubeChannelRecommendationSource = 'nihongotube' | 'jpdb' | 'reddit' | 'search' | 'user';
@@ -135,6 +137,14 @@ export const YOUTUBE_CHANNEL_RECOMMENDATION_COUNT = YOUTUBE_CHANNEL_RECOMMENDATI
 
 export function allYouTubeChannelRecommendations(): YouTubeChannelRecommendation[] {
     return [...YOUTUBE_CHANNEL_RECOMMENDATIONS];
+}
+
+// Identifies the current curated channel set. The "all subscribed" flag is keyed
+// by this signature so editing the list (add/remove/rename a handle) invalidates
+// the flag and re-tests against the new set.
+export function youTubeChannelListSignature(): string {
+    const handles = YOUTUBE_CHANNEL_RECOMMENDATIONS.map(channel => channel.handle.toLowerCase()).sort();
+    return `${handles.length}:${stableHashBase36(handles.join('|'))}`;
 }
 
 export function youtubeChannelUrl(channel: YouTubeChannelRecommendation): string {

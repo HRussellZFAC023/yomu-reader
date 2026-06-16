@@ -11,7 +11,9 @@ import {
     allYouTubeChannelRecommendations,
     YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
     youtubeChannelRecommendationDescription,
+    youTubeChannelListSignature,
 } from '../../src/reader/subtitles/youtube-channel-recommendations';
+import { gmStorageGetSync, gmStorageSetSync } from '../../src/reader/app/storage';
 import { classifyYouTubeFilterCandidates } from '../../src/reader/subtitles/youtube-filter-scan';
 import {
     YoutubeImmersionFilter,
@@ -1968,5 +1970,69 @@ describe('YouTube immersion filter', () => {
         expect(document.getElementById('v1')!.classList.contains('jpdb-youtube-first-in-row')).toBe(true);
         expect(document.getElementById('v2')!.classList.contains('jpdb-youtube-first-in-row')).toBe(false);
         expect(document.getElementById('v3')!.classList.contains('jpdb-youtube-first-in-row')).toBe(true);
+    });
+});
+
+describe('YouTube channel subscription flag', () => {
+    const STORAGE_KEY = 'yomu:youtube-all-subscribed:v1';
+
+    type FlagInternals = {
+        subscribedChannelHandles: Set<string>;
+        unresolvableChannelHandles: Set<string>;
+        channelsAllSubscribed: boolean;
+        markChannelSubscriptionCompleteIfReady(): void;
+        loadChannelSubscriptionState(): void;
+    };
+
+    afterEach(() => {
+        localStorage.clear();
+    });
+
+    it('signature is stable and encodes the channel count', () => {
+        const signature = youTubeChannelListSignature();
+        expect(signature).toBe(youTubeChannelListSignature());
+        expect(signature.startsWith(`${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT}:`)).toBe(true);
+    });
+
+    it('persists the all-subscribed flag and a fresh instance skips re-testing', () => {
+        const filter = createYoutubeFilter(() => youtubeFilterSettings());
+        const internals = filter as unknown as FlagInternals;
+        allYouTubeChannelRecommendations().forEach(channel => internals.subscribedChannelHandles.add(channel.handle));
+        internals.markChannelSubscriptionCompleteIfReady();
+        expect(internals.channelsAllSubscribed).toBe(true);
+        expect(gmStorageGetSync<{ signature?: string } | null>(STORAGE_KEY, null)?.signature).toBe(youTubeChannelListSignature());
+
+        const fresh = createYoutubeFilter(() => youtubeFilterSettings());
+        const freshInternals = fresh as unknown as FlagInternals;
+        freshInternals.loadChannelSubscriptionState();
+        expect(freshInternals.channelsAllSubscribed).toBe(true);
+        expect(freshInternals.subscribedChannelHandles.size).toBe(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT);
+    });
+
+    it('resets the flag when the stored signature no longer matches the list', () => {
+        gmStorageSetSync(STORAGE_KEY, { signature: 'stale-list-signature' });
+        const fresh = createYoutubeFilter(() => youtubeFilterSettings());
+        (fresh as unknown as FlagInternals).loadChannelSubscriptionState();
+        expect((fresh as unknown as FlagInternals).channelsAllSubscribed).toBe(false);
+        expect(gmStorageGetSync(STORAGE_KEY, null)).toBeNull();
+    });
+
+    it('still completes when a channel is unresolvable (deleted/moved)', () => {
+        const filter = createYoutubeFilter(() => youtubeFilterSettings());
+        const internals = filter as unknown as FlagInternals;
+        const channels = allYouTubeChannelRecommendations();
+        channels.slice(1).forEach(channel => internals.subscribedChannelHandles.add(channel.handle));
+        internals.unresolvableChannelHandles.add(channels[0]!.handle);
+        internals.markChannelSubscriptionCompleteIfReady();
+        expect(internals.channelsAllSubscribed).toBe(true);
+    });
+
+    it('does not set the flag while channels are still unsubscribed', () => {
+        const filter = createYoutubeFilter(() => youtubeFilterSettings());
+        const internals = filter as unknown as FlagInternals;
+        allYouTubeChannelRecommendations().slice(0, 5).forEach(channel => internals.subscribedChannelHandles.add(channel.handle));
+        internals.markChannelSubscriptionCompleteIfReady();
+        expect(internals.channelsAllSubscribed).toBe(false);
+        expect(gmStorageGetSync(STORAGE_KEY, null)).toBeNull();
     });
 });

@@ -353,6 +353,15 @@ const READER_POINTER_SURFACE_SELECTOR = [
     '[data-jpdb-reader-root]',
 ].join(',');
 
+// Interactive controls the selection/token-list popover handles itself. A click
+// on any of these must not be re-resolved to a page word by point geometry.
+const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
+    '.jpdb-reader-popover button[data-token-choice]',
+    '.jpdb-reader-popover [data-action]',
+    '.jpdb-reader-popover a.jpdb-reader-pill',
+    '.jpdb-reader-popover .jpdb-reader-action-pill',
+].join(',');
+
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
     return {
@@ -1596,6 +1605,13 @@ export class ReaderApp {
 
         document.addEventListener('touchend', () => this.scheduleSelectionLookup(180), { passive: true });
 
+        // mouseup/touchend/keyup miss selections that settle without a fresh
+        // gesture end on document — most visibly iPad selection-handle drags and
+        // the text loupe. A debounced selectionchange catches the settled
+        // selection so the popover triggers consistently; the longer delay
+        // coalesces the burst of events a drag emits into a single lookup.
+        document.addEventListener('selectionchange', () => this.scheduleSelectionLookup(250));
+
         document.addEventListener('keydown', event => this.handleDocumentKeydown(event));
         document.addEventListener('keyup', event => {
             this.pressedKeys.delete(normalizePressedKey(event.key));
@@ -1622,6 +1638,13 @@ export class ReaderApp {
         if (this.isMiningDrawerHandlePointerEvent(event)) return;
         const target = event.target as HTMLElement;
         if (shouldIgnoreDocumentClickTarget(target)) return;
+
+        // The selection/token-list popover installs its own click handlers for
+        // its word buttons, action pills and copy control. Let those run instead
+        // of resolving a page word from the click point — the popover overlaps
+        // page text, so point geometry would pierce through to an underlying word
+        // and open its dictionary at the wrong location (and shift this popover).
+        if (target.closest?.(TOKEN_LIST_POPOVER_CONTROL_SELECTOR)) return;
 
         const word = this.readerWordForPointerEvent(event);
         if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;

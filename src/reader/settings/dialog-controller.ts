@@ -11,7 +11,7 @@ import { clearNewTabOfflineCache } from '../newtab/cache';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './index';
-import { effectiveJpdbApiKey } from './api-credential';
+import { effectiveJpdbApiKey, mergeApiCredentialValues } from './api-credential';
 import { exportManagedStoredValues, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
@@ -187,6 +187,18 @@ function namedSettingsControl<T extends HTMLInputElement | HTMLSelectElement | H
     return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement
         ? control as T
         : null;
+}
+
+// A Jiten key (ak_ prefix) pasted into the JPDB field is routed to jitenApiKey
+// internally, but the inputs kept showing it in the wrong box. Once a field is
+// committed, move each key to the input it belongs to so the display matches.
+export function reconcileApiCredentialInputs(form: HTMLFormElement): void {
+    const jpdbField = namedSettingsControl<HTMLInputElement>(form, 'apiCredentialJpdb');
+    const jitenField = namedSettingsControl<HTMLInputElement>(form, 'apiCredentialJiten');
+    if (!jpdbField && !jitenField) return;
+    const { apiKey, jitenApiKey } = mergeApiCredentialValues(jpdbField?.value ?? '', jitenField?.value ?? '');
+    if (jpdbField && jpdbField.value !== apiKey) jpdbField.value = apiKey;
+    if (jitenField && jitenField.value !== jitenApiKey) jitenField.value = jitenApiKey;
 }
 
 function suppressCredentialAutofill(form: HTMLFormElement): void {
@@ -871,6 +883,7 @@ export class SettingsDialogController {
         for (const apiKeyInput of form.querySelectorAll<HTMLInputElement>('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"]')) {
             apiKeyInput.addEventListener('input', () => this.syncJpdbStatus(form));
             apiKeyInput.addEventListener('change', () => {
+                reconcileApiCredentialInputs(form);
                 void this.refreshDeckControls(form);
                 void this.refreshJpdbConnectionStatus(form);
             });

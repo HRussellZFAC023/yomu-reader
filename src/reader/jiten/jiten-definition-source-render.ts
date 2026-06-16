@@ -22,6 +22,9 @@ interface JitenTextReference {
 interface RenderJitenReferenceOptions {
     className?: string;
     sentence?: string;
+    // Per-kanji annotated reading (e.g. "読[よ]み取[と]る"); when present the
+    // ruby is distributed per kanji instead of one rt over the whole word.
+    annotatedReading?: string;
 }
 
 export function renderJitenDefinitionSource(
@@ -174,7 +177,7 @@ function renderJitenRelatedWord(entry: JitenVocabularyWordSummary, language: Int
         reading,
         wordId: entry.wordId,
         readingIndex: entry.readingIndex,
-    });
+    }, { annotatedReading: entry.readingFurigana });
     return `
         <li class="jpdb-reader-jpdb-used-in-row jpdb-reader-jiten-related-row has-audio">
             ${renderJitenAudioButton(lookup, language, jitenWordAudioAttributes(entry))}
@@ -421,7 +424,12 @@ function renderPassiveJitenReference(reference: JitenTextReference, options: Ren
     const identityAttributes = identity ? ` ${identity}` : '';
     const extraClass = options.className?.trim();
     const classes = `jpdb-reader-word jpdb-reader-passive-word jpdb-reader-parseable${reading ? ' jpdb-reader-has-furi' : ''}${extraClass ? ` ${escapeHtml(extraClass)}` : ''}`;
-    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml(options.sentence ?? reference.text)}" data-expression="${escapeHtml(reference.text)}"${readingAttribute} tabindex="-1">${renderJitenReferenceContent(reference.text, reading)}</span>`;
+    // Prefer per-kanji ruby from the annotated reading so okurigana stays as
+    // plain base text instead of the whole reading sitting over the whole word.
+    const content = reading && options.annotatedReading && /\[[^\]]+\]/.test(options.annotatedReading)
+        ? renderJitenAnnotatedReading(options.annotatedReading)
+        : renderJitenReferenceContent(reference.text, reading);
+    return `<span class="${classes}" data-jpdb-reader-passive="true"${identityAttributes} data-dictionary="Jiten" data-pitch-class="" data-sentence="${escapeHtml(options.sentence ?? reference.text)}" data-expression="${escapeHtml(reference.text)}"${readingAttribute} tabindex="-1">${content}</span>`;
 }
 
 function renderJitenReferenceContent(text: string, reading: string): string {

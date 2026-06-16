@@ -9712,6 +9712,14 @@ recommendedJiten	jiten.moe頻度データです。
     const control = form.elements.namedItem(name);
     return control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement ? control : null;
   }
+  function reconcileApiCredentialInputs(form) {
+    const jpdbField = namedSettingsControl(form, "apiCredentialJpdb");
+    const jitenField = namedSettingsControl(form, "apiCredentialJiten");
+    if (!jpdbField && !jitenField) return;
+    const { apiKey, jitenApiKey } = mergeApiCredentialValues(jpdbField?.value ?? "", jitenField?.value ?? "");
+    if (jpdbField && jpdbField.value !== apiKey) jpdbField.value = apiKey;
+    if (jitenField && jitenField.value !== jitenApiKey) jitenField.value = jitenApiKey;
+  }
   function suppressCredentialAutofill(form) {
     const guarded = form.querySelectorAll(
       "input.jpdb-reader-masked-input, input[data-settings-search]"
@@ -10313,6 +10321,7 @@ recommendedJiten	jiten.moe頻度データです。
       for (const apiKeyInput of form.querySelectorAll('input[name="apiCredential"], input[name="apiCredentialJpdb"], input[name="apiCredentialJiten"]')) {
         apiKeyInput.addEventListener("input", () => this.syncJpdbStatus(form));
         apiKeyInput.addEventListener("change", () => {
+          reconcileApiCredentialInputs(form);
           void this.refreshDeckControls(form);
           void this.refreshJpdbConnectionStatus(form);
         });
