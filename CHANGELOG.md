@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.88] - 2026-06-16
+
+### Fixed
+
+- YouTube page furigana no longer duplicates text or thrashes (a word repeatedly "flashing" while it re-rendered), which had also degraded watch-page performance. The non-destructive furigana text-mirror was being re-ingested by the passive-interaction scan path (used for every site-profile root, including YouTube): a rescan of a mirror host re-collected the mirror's bare gap text nodes — punctuation/ASCII such as `（Googleによる翻訳）` — *alongside* the still-present (hidden) original host text, doubling the collected text (e.g. `原文を見る（Googleによる翻訳）` rendered twice) and self-perpetuating into a rebuild loop on YouTube's constantly-mutating DOM (caption/translation strip, chrome). `PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR` now skips `.jpdb-reader-text-mirror` (matching the base skip list), so the reader's own mirror is never re-scanned — the chrome is still annotated, just not doubled. The mirror host's `visibility:hidden`/`position:relative` are also re-asserted when YouTube re-renders and strips our inline styles, preventing the original text from reappearing beside the mirror (duplication) or the mirror anchoring to the wrong ancestor (misalignment).
+
 ## [0.7.87] - 2026-06-16
 
 ### Changed

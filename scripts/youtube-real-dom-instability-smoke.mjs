@@ -783,7 +783,19 @@ function assertNormalWatch(normal) {
 
 function assertHome(home) {
     const final = mergedFrames(home.final);
-    assertAreaParsed(final, 'feedTitles', 'YouTube home/feed titles did not parse', { allowNoRubyPitch: true });
+    const feed = bestArea(final, 'feedTitles');
+    // A signed-in home feed is frequently English-dominant or has its Japanese
+    // items below the fold, where the visible-only scan correctly leaves them
+    // alone. Only require annotation when a Japanese feed title is actually
+    // on-screen (matching the comments/viewer gating); duplication checks always
+    // run. Annotation on guaranteed-Japanese surfaces is covered by the
+    // watch/live-chat probes.
+    const visibleJapaneseFeedTitle = (feed.roots ?? []).some(root => root.visible && root.hasJapanese);
+    if (visibleJapaneseFeedTitle) {
+        assertAreaParsed(final, 'feedTitles', 'YouTube home/feed titles did not parse', { allowNoRubyPitch: true });
+    } else {
+        console.error('[youtube-real-dom] home: no visible Japanese feed title on screen; skipping feed-title annotation assert (English-dominant/off-screen feed)');
+    }
     assertNoAreaDuplication(final, ['feedTitles']);
 }
 

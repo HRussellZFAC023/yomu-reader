@@ -3189,6 +3189,14 @@
     "[hidden]",
     '[aria-hidden="true"]',
     '[contenteditable="true"]',
+    // The reader's own furigana mirror must never be re-ingested by a rescan.
+    // BASE_SKIP_SELECTOR_ENTRIES already skips it, but the passive-interaction
+    // path (used for every site profile root, incl. YouTube) did not — so a
+    // rescan of a mirror host re-collected the mirror's bare gap text nodes
+    // (punctuation/ASCII like （Googleによる翻訳）) ALONGSIDE the still-hidden
+    // original host text, doubling target.text and self-perpetuating into a
+    // rebuild loop (the duplicated, flashing caption strip).
+    ".jpdb-reader-text-mirror",
     ".jpdb-reader-word",
     ".subsection-pitch-accent .subsection",
     "[data-jpdb-reader-root]"
@@ -3739,7 +3747,10 @@
         removeTextMirror(host);
         return;
       }
-      if (currentText !== state.sourceText) dispatchTextMirrorStale(host);
+      if (currentText !== state.sourceText) {
+        reassertTextMirrorHostStyles(host, state);
+        dispatchTextMirrorStale(host);
+      }
     });
     state.observer.observe(host, { childList: true, characterData: true, subtree: true });
   }
@@ -3775,6 +3786,14 @@
     Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)).forEach((mirror) => mirror.remove());
     if (state) restoreTextMirrorHost(host, state);
     textMirrorHosts.delete(host);
+  }
+  function reassertTextMirrorHostStyles(host, state) {
+    if (host.style.getPropertyValue("visibility") !== "hidden") {
+      host.style.setProperty("visibility", "hidden", "important");
+    }
+    if (state.positioned && host.style.getPropertyValue("position") !== "relative") {
+      host.style.setProperty("position", "relative", "important");
+    }
   }
   function restoreTextMirrorHost(host, state) {
     restoreStyleProperty$1(host, "visibility", state.visibility, state.visibilityPriority);

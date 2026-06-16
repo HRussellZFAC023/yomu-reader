@@ -144,6 +144,14 @@ const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = [
     '[hidden]',
     '[aria-hidden="true"]',
     '[contenteditable="true"]',
+    // The reader's own furigana mirror must never be re-ingested by a rescan.
+    // BASE_SKIP_SELECTOR_ENTRIES already skips it, but the passive-interaction
+    // path (used for every site profile root, incl. YouTube) did not — so a
+    // rescan of a mirror host re-collected the mirror's bare gap text nodes
+    // (punctuation/ASCII like （Googleによる翻訳）) ALONGSIDE the still-hidden
+    // original host text, doubling target.text and self-perpetuating into a
+    // rebuild loop (the duplicated, flashing caption strip).
+    '.jpdb-reader-text-mirror',
     '.jpdb-reader-word',
     '.subsection-pitch-accent .subsection',
     '[data-jpdb-reader-root]',
@@ -1173,7 +1181,10 @@ function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
             removeTextMirror(host);
             return;
         }
-        if (currentText !== state.sourceText) dispatchTextMirrorStale(host);
+        if (currentText !== state.sourceText) {
+            reassertTextMirrorHostStyles(host, state);
+            dispatchTextMirrorStale(host);
+        }
     });
     state.observer.observe(host, { childList: true, characterData: true, subtree: true });
 }
@@ -1219,6 +1230,22 @@ function removeTextMirror(host: HTMLElement): void {
         .forEach(mirror => mirror.remove());
     if (state) restoreTextMirrorHost(host, state);
     textMirrorHosts.delete(host);
+}
+
+// A YouTube re-render of a live host (e.g. the caption/translation strip) can
+// strip the inline styles we set in styleTextMirrorHost. Without
+// visibility:hidden the original host text re-appears beside the mirror
+// (duplication); without position:relative the absolutely-positioned mirror
+// anchors to the wrong ancestor (misalignment). Re-assert both when the host
+// text changes, before refreshing the mirror. The host-text observer does not
+// watch attributes, so re-setting styles here cannot re-trigger it.
+function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostState): void {
+    if (host.style.getPropertyValue('visibility') !== 'hidden') {
+        host.style.setProperty('visibility', 'hidden', 'important');
+    }
+    if (state.positioned && host.style.getPropertyValue('position') !== 'relative') {
+        host.style.setProperty('position', 'relative', 'important');
+    }
 }
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {

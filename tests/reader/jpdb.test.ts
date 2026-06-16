@@ -30213,6 +30213,27 @@ describe('reader helpers', () => {
         expect(remainingTargets.map(item => item.text).join('\n')).not.toContain('文法的');
     });
 
+    it('does not re-ingest an existing text mirror on the passive-interaction scan path (no caption-strip duplication)', () => {
+        // Post-apply DOM of YouTube's dynamic caption/translation strip: the
+        // host keeps its (hidden) original text and carries a reader mirror
+        // whose bare gap text nodes (the parenthetical) previously got
+        // re-collected ALONGSIDE the original, doubling target.text into
+        // "原文を見る（Googleによる翻訳）原文を見る（Googleによる翻訳）".
+        document.body.innerHTML = `
+            <button type="button">
+                <span class="host" style="visibility:hidden">原文を見る（Googleによる翻訳）<span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="原文を見る（Googleによる翻訳）" style="visibility:visible">原文を<span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true">見る</span>（Googleによる翻訳）</span></span>
+            </button>
+        `;
+        const collected = collectFragmentTextTargetsIn(document.body, 10, false, '', {
+            includePassiveInteractions: true,
+            allowUiText: true,
+            minLength: 1,
+        }).map(target => target.text).join('\n');
+        // The mirror subtree must be skipped, so the parenthetical appears once.
+        expect(collected.split('（Googleによる翻訳）').length - 1).toBeLessThanOrEqual(1);
+        expect(collected).not.toContain('原文を見る（Googleによる翻訳）原文');
+    });
+
     it('keeps parsed dictionary hyperlink text passive so link clicks can pass through', () => {
         document.body.innerHTML = `
             <div data-jpdb-reader-root="true">
