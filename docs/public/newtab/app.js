@@ -46236,8 +46236,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         </div>`;
     }
     renderTitleRow(card, view) {
+      const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
+      const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
       return `<div class="jpdb-reader-title-row">
-            <div class="jpdb-reader-spelling jpdb-${view.state}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language, "showKanji"))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, "showKanji") })}</div>
+            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language, "showKanji"))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, "showKanji") })}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.83
+// @version      0.7.84
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -19576,6 +19576,10 @@ ${entry.reading || ""}`;
     const end = start + selected.length;
     return tokens.filter((token) => token.start < end && token.end > start);
   }
+  function getPitchClass(pitchAccent, reading) {
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+  }
   class CardPopoverRenderer {
     constructor(dependencies) {
       this.dependencies = dependencies;
@@ -19650,8 +19654,10 @@ ${entry.reading || ""}`;
         </div>`;
     }
     renderTitleRow(card, view) {
+      const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
+      const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
       return `<div class="jpdb-reader-title-row">
-            <div class="jpdb-reader-spelling jpdb-${view.state}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language, "showKanji"))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, "showKanji") })}</div>
+            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language, "showKanji"))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, "showKanji") })}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
@@ -22010,10 +22016,6 @@ ${entry.reading || ""}`;
   }
   function toHiragana(value) {
     return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
-  }
-  function getPitchClass(pitchAccent, reading) {
-    const pattern = contextPitchPattern(pitchAccent, reading);
-    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
   }
   function assignSentenceInfo(paragraphs, tokens) {
     paragraphs.forEach((paragraph, index) => {

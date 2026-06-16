@@ -811,6 +811,26 @@
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable);
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
 }
+/* The card headword (.jpdb-reader-spelling) reuses the same pitch colors so it
+   shows the pitch-accent underline like words on the page; previously the card
+   header only rendered the pitch graph and never the underline. */
+.jpdb-reader-spelling.jpdb-pitch-heiban { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban); }
+.jpdb-reader-spelling.jpdb-pitch-atamadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka); }
+.jpdb-reader-spelling.jpdb-pitch-nakadaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka); }
+.jpdb-reader-spelling.jpdb-pitch-odaka { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka); }
+.jpdb-reader-spelling.jpdb-pitch-kifuku { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku); }
+.jpdb-reader-word-underline-pitch .jpdb-reader-spelling:is(
+  .jpdb-pitch-heiban,
+  .jpdb-pitch-atamadaka,
+  .jpdb-pitch-nakadaka,
+  .jpdb-pitch-odaka,
+  .jpdb-pitch-kifuku
+) {
+  text-decoration: underline;
+  text-decoration-color: var(--jpdb-reader-pitch-color, transparent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
 .jpdb-reader-word:is(
   .jpdb-pitch-heiban,
   .jpdb-pitch-atamadaka,

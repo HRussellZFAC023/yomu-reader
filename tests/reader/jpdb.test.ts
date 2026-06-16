@@ -4590,6 +4590,15 @@ describe('reader helpers', () => {
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');
     });
 
+    it('marks the card headword with its pitch class so it can show the pitch underline', () => {
+        const renderer = testCardPopoverRenderer({ showPitchAccent: true });
+        document.body.innerHTML = renderModalCard(renderer, card, '食べる。');
+        const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
+        // card fixture: pitchAccent ['LHH'] over たべる => heiban.
+        expect(spelling.dataset.pitchClass).toBe('heiban');
+        expect(spelling.classList.contains('jpdb-pitch-heiban')).toBe(true);
+    });
+
     it('keeps Add to Anki visible inside the mining drawer panel', () => {
         const settings = {
             apiKey: 'test-key',

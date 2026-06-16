@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.84] - 2026-06-16
+
+### Fixed
+
+- The word-card headword now shows the pitch-accent underline (matching words on the page) when a pitch pattern is known. The headword was rendered as `.jpdb-reader-spelling` without a pitch class, so it only showed the pitch graph and never the colored underline. It now carries its `jpdb-pitch-*` class and reuses the same per-pattern pitch colors (e.g. odaka teal, heiban blue); words without a known pitch are left undecorated.
+
 ## [0.7.83] - 2026-06-16
 
 ### Fixed

@@ -12,6 +12,7 @@ import { speakerIcon } from '../ui/icons';
 import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch } from '../popup/render';
+import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
 import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
@@ -161,8 +162,13 @@ export class CardPopoverRenderer {
     }
 
     private renderTitleRow(card: JPDBCard, view: CardPopoverRenderView): string {
+        // Carry the pitch class on the headword so it shows the same pitch-accent
+        // underline as words on the page (the underline CSS keys off jpdb-pitch-*);
+        // the card header only showed the pitch graph before, never the underline.
+        const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
+        const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ''}`;
         return `<div class="jpdb-reader-title-row">
-            <div class="jpdb-reader-spelling jpdb-${view.state}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(view.language, 'showKanji'))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, 'showKanji') })}</div>
+            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(view.language, 'showKanji'))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, 'showKanji') })}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
