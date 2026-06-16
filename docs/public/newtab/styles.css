@@ -13716,7 +13716,7 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: anywhere;
   word-break: keep-all;
   max-height: min(45%, calc(100% - 24px));
-  overflow: hidden;
+  overflow: visible;
   pointer-events: auto;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
@@ -14404,7 +14404,7 @@ html.jpdb-reader-doodle-active * {
   width: min(460px, calc(100vw - 24px));
   height: min(78vh, 860px);
   max-height: calc(100vh - 24px);
-  overflow: visible;
+  overflow: hidden;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   container-type: inline-size;
