@@ -2,7 +2,7 @@ import { createWindowEvent, dispatchWindowEvent } from '../platform/window-event
 import { setStylePropertyIfChanged } from './subtitle-surface';
 
 export type SubtitleVideoInsetSide = 'left' | 'right' | 'bottom';
-export type SubtitleVideoInsetResizeEventMode = 'immediate' | 'settled';
+export type SubtitleVideoInsetResizeEventMode = 'immediate' | 'none' | 'settled';
 
 export interface ApplySubtitleVideoInsetOptions {
     video?: HTMLVideoElement;
@@ -16,6 +16,7 @@ export interface ApplySubtitleVideoInsetOptions {
 
 export class SubtitleVideoInsetAdapter {
     private lastSignature = '';
+    private lastResizeSignature = '';
 
     hasActiveInset(): boolean {
         return hasActiveVideoInset(this.lastSignature);
@@ -39,7 +40,10 @@ export class SubtitleVideoInsetAdapter {
             return this.clear(options.video);
         }
         const metrics = videoInsetMetrics(options);
-        if (metrics.signature === this.lastSignature) return false;
+        if (metrics.signature === this.lastSignature) {
+            this.applyResizeIfNeeded(options, metrics);
+            return false;
+        }
 
         const previousSignature = this.lastSignature;
         const preservesYouTubeBottomPlayer = shouldPreserveYouTubeBottomPlayerSize(options.side);
@@ -53,10 +57,7 @@ export class SubtitleVideoInsetAdapter {
             clearStableBottom: !previousSignature.startsWith('bottom:'),
         });
         applyGenericVideoInsetIfNeeded(options, metrics);
-        if (!preservesYouTubeBottomPlayer) {
-            scheduleYouTubePlayerResize(metrics.width, metrics.height, options.resizeEventMode ?? 'immediate');
-            dispatchVideoLayoutResize(options.resizeEventMode ?? 'immediate');
-        }
+        this.applyResizeIfNeeded(options, metrics);
         return true;
     }
 
@@ -72,11 +73,21 @@ export class SubtitleVideoInsetAdapter {
         clearYouTubeInsetTargets();
         if (video) clearGenericVideoInset(video);
         resetYouTubePlayerResizeTracking();
+        this.lastResizeSignature = '';
         // Restoring the player box does not, on its own, make a site's player
         // recompute the <video> element size, so it keeps the stale inset size
         // until something forces a relayout. Nudge it like exiting fullscreen does.
         dispatchVideoLayoutResize();
         return true;
+    }
+
+    private applyResizeIfNeeded(options: ApplySubtitleVideoInsetOptions, metrics: VideoInsetMetrics): void {
+        if (shouldPreserveYouTubeBottomPlayerSize(options.side)) return;
+        const mode = options.resizeEventMode ?? 'immediate';
+        if (mode === 'none' || this.lastResizeSignature === metrics.signature) return;
+        this.lastResizeSignature = metrics.signature;
+        scheduleYouTubePlayerResize(metrics.width, metrics.height, mode);
+        dispatchVideoLayoutResize(mode);
     }
 }
 
@@ -119,9 +130,11 @@ function videoInsetWidth(options: ApplySubtitleVideoInsetOptions): number {
         : Math.max(320, Math.round(options.playerSize));
 }
 
-function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, _width: number): number {
+function videoInsetHeight(options: ApplySubtitleVideoInsetOptions, width: number): number {
     if (options.side === 'bottom') return Math.max(180, Math.round(options.playerSize));
-    return Math.max(180, Math.round(options.videoRect.height));
+    const aspectHeight = Math.round(width * videoAspectRatio(options.video));
+    const currentHeight = Math.max(180, Math.round(options.videoRect.height));
+    return Math.max(180, Math.min(currentHeight, aspectHeight));
 }
 
 function applyGenericVideoInsetIfNeeded(options: ApplySubtitleVideoInsetOptions, metrics: VideoInsetMetrics): void {
@@ -187,12 +200,45 @@ export function createSubtitleVideoInsetAdapter(): SubtitleVideoInsetAdapter {
     return new SubtitleVideoInsetAdapter();
 }
 
+export function subtitleVisibleViewportSize(): { width: number; height: number } {
+    const innerWidth = Math.max(1, Math.round(window.innerWidth));
+    const innerHeight = Math.max(1, Math.round(window.innerHeight));
+    const visual = window.visualViewport;
+    if (!visual) return { width: innerWidth, height: innerHeight };
+
+    const visualWidth = Math.max(1, Math.round(visual.width));
+    const visualHeight = Math.max(1, Math.round(visual.height));
+    if (isStaleSwappedVisualViewport(visualWidth, visualHeight, innerWidth, innerHeight)) {
+        return { width: innerWidth, height: innerHeight };
+    }
+    return { width: visualWidth, height: visualHeight };
+}
+
+function isStaleSwappedVisualViewport(
+    visualWidth: number,
+    visualHeight: number,
+    innerWidth: number,
+    innerHeight: number,
+): boolean {
+    if ((visualWidth > visualHeight) !== (innerWidth > innerHeight)) return true;
+    const widthDelta = Math.abs(visualWidth - innerWidth);
+    const heightDelta = Math.abs(visualHeight - innerHeight);
+    const swappedWidthDelta = Math.abs(visualWidth - innerHeight);
+    const swappedHeightDelta = Math.abs(visualHeight - innerWidth);
+    const widthThreshold = Math.max(96, innerWidth * 0.12);
+    const heightThreshold = Math.max(96, innerHeight * 0.12);
+    return widthDelta > widthThreshold
+        && heightDelta > heightThreshold
+        && swappedWidthDelta <= Math.max(96, innerHeight * 0.12)
+        && swappedHeightDelta <= Math.max(96, innerWidth * 0.12);
+}
+
 function visibleViewportWidth(): number {
-    return Math.max(1, Math.round(window.visualViewport?.width ?? window.innerWidth));
+    return subtitleVisibleViewportSize().width;
 }
 
 function visibleViewportHeight(): number {
-    return Math.max(1, Math.round(window.visualViewport?.height ?? window.innerHeight));
+    return subtitleVisibleViewportSize().height;
 }
 
 export function subtitleVideoLayoutRect(video?: HTMLVideoElement): DOMRect {

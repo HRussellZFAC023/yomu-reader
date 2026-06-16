@@ -332,6 +332,20 @@ interface TextMirrorHostState {
 
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
+const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
+    READER_TEXT_MIRROR_SELECTOR,
+    'script',
+    'style',
+    'noscript',
+    'template',
+    '[hidden]',
+    '[aria-hidden="true"]',
+].join(',');
+const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = [
+    READER_TEXT_MIRROR_SELECTOR,
+    '[hidden]',
+    '[aria-hidden="true"]',
+].join(',');
 const RENDERED_SCAN_HOST_MAX_TEXT = 1000;
 const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15000;
 const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 60000;
@@ -1154,12 +1168,17 @@ function nativeTextMirrorHostText(host: HTMLElement): string {
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const parent = node.parentElement;
-            if (!parent || parent.closest(READER_TEXT_MIRROR_SELECTOR)) return NodeFilter.FILTER_REJECT;
+            if (!parent || parent.closest(TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
             return NodeFilter.FILTER_ACCEPT;
         },
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode()) text += node.textContent ?? '';
-    return text;
+    if (HAS_JAPANESE.test(text)) return text;
+    const labelledText = Array.from(host.querySelectorAll<HTMLElement>('[aria-label]'))
+        .filter(element => !element.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR))
+        .map(element => element.getAttribute('aria-label') ?? '')
+        .join(' • ');
+    return HAS_JAPANESE.test(labelledText) ? labelledText : text;
 }
 
 function normalizedMirrorHostText(text: string): string {

@@ -296,6 +296,10 @@ const YOUTUBE_CHROME_ROOTS = [
 const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
     'ytd-watch-info-text',
 ].join(',');
+const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
+    '#view-count[aria-label]',
+    '#date-text[aria-label]',
+].join(',');
 const GOOGLE_SEARCH_ROOTS = [
     '#search',
     '#rso',
@@ -532,6 +536,40 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         matches: url => url.hostname === 'tadoku.org' || url.hostname.endsWith('.tadoku.org'),
     },
     {
+        id: 'youtube-live-chat-frame-parser',
+        name: 'YouTube live chat frame',
+        description: 'Japanese live-chat frame messages, chrome, and fallback/error text.',
+        roots: [
+            'yt-live-chat-text-message-renderer #author-name',
+            'yt-live-chat-text-message-renderer #message',
+            'yt-live-chat-paid-message-renderer #author-name',
+            'yt-live-chat-paid-message-renderer #message',
+            'yt-live-chat-membership-item-renderer #author-name',
+            'yt-live-chat-membership-item-renderer #message',
+            'yt-live-chat-header-renderer #title',
+            'yt-live-chat-header-renderer #primary-content',
+            'yt-live-chat-renderer #chat-messages',
+            'yt-live-chat-viewer-engagement-message-renderer #content',
+            'yt-live-chat-viewer-engagement-message-renderer #message',
+            'yt-live-chat-viewer-engagement-message-renderer yt-formatted-string',
+            'yt-live-chat-viewer-engagement-message-renderer',
+            'yt-live-chat-banner-renderer',
+            'yt-live-chat-restricted-participation-renderer',
+            'yt-live-chat-ticker-renderer',
+            'body',
+        ],
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        includeUiChrome: true,
+        singlePassScan: true,
+        nonDestructive: true,
+        includePassiveInteractionRoots: false,
+        scanLimit: 80,
+        matches: url => (url.hostname === 'youtube.com' || url.hostname.endsWith('.youtube.com'))
+            && url.pathname === '/live_chat',
+    },
+    {
         id: 'youtube-comments-parser',
         name: 'YouTube text',
         description: 'Japanese descriptions, comments, live chat, and watch UI in YouTube views.',
@@ -552,6 +590,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-watch-info-text',
             'ytd-watch-metadata #metadata',
             'ytd-watch-metadata #metadata-line',
+            'ytd-watch-metadata #teaser-carousel',
+            'ytd-watch-metadata yt-video-metadata-carousel-view-model',
+            'ytd-watch-metadata yt-carousel-title-view-model',
+            'ytd-watch-metadata yt-text-carousel-item-view-model',
+            'ytd-watch-metadata .ytAttributedStringHost',
             'ytd-watch-metadata #description-inline-expander',
             'ytd-watch-metadata #description yt-attributed-string',
             'ytd-watch-metadata #description .yt-core-attributed-string',
@@ -581,6 +624,10 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'yt-live-chat-banner-renderer',
             'yt-live-chat-restricted-participation-renderer',
             'yt-live-chat-ticker-renderer',
+            'ytd-live-chat-frame #show-hide-button',
+            'ytd-live-chat-frame #header',
+            'ytd-live-chat-frame #panel-pages',
+            'ytd-live-chat-frame yt-formatted-string',
             'ytd-watch-next-secondary-results-renderer',
             'ytd-compact-video-renderer',
             // General feed/search grids are useful, but lower priority because
@@ -782,6 +829,7 @@ function collectYouTubeSyntheticTextTargets(profile: SiteParserProfile, context:
 }
 
 function syntheticYouTubeElementText(root: HTMLElement): string {
+    if (root.matches('ytd-watch-info-text')) return syntheticYouTubeWatchInfoText(root);
     for (const text of [
         root.getAttribute('aria-label'),
         root.getAttribute('title'),
@@ -792,6 +840,23 @@ function syntheticYouTubeElementText(root: HTMLElement): string {
         if (normalized && hasJapaneseText(normalized)) return normalized;
     }
     return '';
+}
+
+function syntheticYouTubeWatchInfoText(root: HTMLElement): string {
+    const parts = Array.from(root.querySelectorAll<HTMLElement>(YOUTUBE_WATCH_INFO_ARIA_PARTS))
+        .map(element => normalizedAttributeText(element, 'aria-label'))
+        .filter((text): text is string => Boolean(text));
+    const text = parts.join(' • ');
+    if (hasJapaneseText(text)) return text;
+    for (const attribute of ['aria-label', 'title']) {
+        const fallback = normalizedAttributeText(root, attribute);
+        if (fallback && hasJapaneseText(fallback)) return fallback;
+    }
+    return '';
+}
+
+function normalizedAttributeText(element: HTMLElement, attribute: string): string {
+    return element.getAttribute(attribute)?.replace(/\s+/g, ' ').trim() ?? '';
 }
 
 function collectRootScanTargets(profile: SiteParserProfile, root: Element, context: SiteScanContext, excludeSelector = siteScanExcludeSelector(profile)): void {

@@ -167,18 +167,22 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         steps.push(drag);
         await screenshot(page, scenarioDir, 'dragged');
 
+        const beforeScroll = await snapshot(page);
         const scroll = await measuredStep(page, client, 'page-scroll-with-panel-open', async () => {
             await scrollPageWithPanelOpen(page);
         });
+        scroll.scroll = await scrollEvidence(page, beforeScroll);
         steps.push(scroll);
         await screenshot(page, scenarioDir, 'scrolled');
 
+        const beforeOrientation = await snapshot(page);
         const orientation = await measuredStep(page, client, 'orientation-change', async () => {
             await page.setViewportSize(viewport.orientationViewport);
             await waitForViewport(page, viewport.orientationViewport);
             await waitForPanelOpen(page);
-            await page.waitForTimeout(220);
+            await waitForPanelSettledInViewport(page);
         });
+        orientation.orientation = await orientationEvidence(page, beforeOrientation);
         steps.push(orientation);
         await screenshot(page, scenarioDir, 'orientation');
 
@@ -201,7 +205,6 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
             finalViewport: finalSnapshot.viewport,
             steps,
             performanceProblems: performanceProblems(steps),
-            performanceWarnings: performanceWarnings(steps),
             layoutEvidence,
             requests: summarizeRequests(requestLog),
             errors: errors.slice(0, 12),
@@ -329,27 +332,30 @@ async function installPerformanceInstrumentation(page) {
 async function measuredStep(page, client, name, action) {
     const started = await perfAnchor(page, client);
     await action();
-    await waitForFrames(page, 3);
     const ended = await perfAnchor(page, client);
+    await waitForFrames(page, 3);
     const snapshotAfterStep = await snapshot(page);
+    const longTasks = performanceEntriesBetween(ended.profile.longTasks, started.now, ended.now, 'duration');
+    const layoutShifts = performanceEntriesBetween(ended.profile.layoutShifts, started.now, ended.now, 'value');
+    const frameGaps = (ended.profile.frameGaps ?? []).filter(entry => entry.at >= started.now && entry.at <= ended.now).map(entry => ({
+        at: round(entry.at),
+        gap: round(entry.gap),
+    }));
     return {
         name,
         durationMs: round(ended.now - started.now),
         cdp: diffCdpMetrics(started.cdp, ended.cdp),
-        longTasks: performanceEntriesBetween(ended.profile.longTasks, started.now, ended.now, 'duration'),
-        longTaskTotalMs: roundTotal(performanceEntriesBetween(ended.profile.longTasks, started.now, ended.now, 'duration'), 'duration'),
-        maxLongTaskMs: roundMax(performanceEntriesBetween(ended.profile.longTasks, started.now, ended.now, 'duration'), 'duration'),
-        layoutShifts: performanceEntriesBetween(ended.profile.layoutShifts, started.now, ended.now, 'value'),
+        longTasks,
+        longTaskTotalMs: roundTotal(longTasks, 'duration'),
+        maxLongTaskMs: roundMax(longTasks, 'duration'),
+        layoutShifts,
         cumulativeLayoutShift: roundTotal(
-            performanceEntriesBetween(ended.profile.layoutShifts, started.now, ended.now, 'value')
-                .filter(entry => !entry.hadRecentInput),
+            layoutShifts.filter(entry => !entry.hadRecentInput),
             'value',
         ),
         resizeEvents: (ended.profile.resizeEvents ?? []).filter(entry => entry.at >= started.now && entry.at <= ended.now),
-        frameGaps: (ended.profile.frameGaps ?? []).filter(entry => entry.at >= started.now && entry.at <= ended.now).map(entry => ({
-            at: round(entry.at),
-            gap: round(entry.gap),
-        })),
+        frameGaps,
+        maxFrameGapMs: roundMax(frameGaps, 'gap'),
         snapshot: snapshotAfterStep,
     };
 }
@@ -422,7 +428,6 @@ async function dragResizeTranscriptPanel(page, placement) {
     }, before, { timeout: 2500 }).catch(async () => {
         await resizeTranscriptPanelFromKeyboard(page, placement);
     });
-    await page.waitForTimeout(180);
 }
 
 async function scrollPageWithPanelOpen(page) {
@@ -436,7 +441,6 @@ async function scrollPageWithPanelOpen(page) {
         const scroller = document.scrollingElement ?? document.documentElement;
         return scroller.scrollTop > 16 || scroller.scrollHeight <= innerHeight + 16;
     }, null, { timeout: 1500 }).catch(() => undefined);
-    await page.waitForTimeout(80);
 }
 
 async function dragPlan(page, placement) {
@@ -477,6 +481,35 @@ async function dragEvidence(page, beforeOpen) {
     };
 }
 
+async function scrollEvidence(page, beforeScroll) {
+    const after = await snapshot(page);
+    return {
+        before: compactSnapshot(beforeScroll),
+        after: compactSnapshot(after),
+        delta: {
+            scrollY: round((after.scroll?.y ?? 0) - (beforeScroll.scroll?.y ?? 0)),
+            panelTop: round((after.panel?.top ?? 0) - (beforeScroll.panel?.top ?? 0)),
+            panelBottom: round((after.panel?.bottom ?? 0) - (beforeScroll.panel?.bottom ?? 0)),
+        },
+        panelStillOpen: !after.panelHidden && Boolean(after.panel),
+    };
+}
+
+async function orientationEvidence(page, beforeOrientation) {
+    const after = await snapshot(page);
+    return {
+        before: compactSnapshot(beforeOrientation),
+        after: compactSnapshot(after),
+        delta: {
+            viewportWidth: round((after.viewport?.width ?? 0) - (beforeOrientation.viewport?.width ?? 0)),
+            viewportHeight: round((after.viewport?.height ?? 0) - (beforeOrientation.viewport?.height ?? 0)),
+            visualViewportWidth: round((after.visualViewport?.width ?? 0) - (beforeOrientation.visualViewport?.width ?? 0)),
+            visualViewportHeight: round((after.visualViewport?.height ?? 0) - (beforeOrientation.visualViewport?.height ?? 0)),
+        },
+        panelStillOpen: !after.panelHidden && Boolean(after.panel),
+    };
+}
+
 async function waitForPanelButton(page) {
     await page.waitForFunction(() => {
         const button = document.querySelector('.jpdb-subtitle-rail [data-action="panel"]');
@@ -501,6 +534,26 @@ async function waitForFullTranscriptRender(page) {
 
 async function waitForViewport(page, viewport) {
     await page.waitForFunction(expected => innerWidth === expected.width && innerHeight === expected.height, viewport, { timeout: 3000 });
+}
+
+async function waitForPanelSettledInViewport(page) {
+    await page.waitForFunction(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        if (!(panel instanceof HTMLElement) || panel.hidden) return false;
+        const rect = panel.getBoundingClientRect();
+        const placement = document.querySelector('.jpdb-subtitle-player')?.getAttribute('data-transcript-placement')
+            || panel.getAttribute('data-transcript-placement')
+            || '';
+        if (placement === 'bottom') {
+            return Math.abs(rect.bottom - innerHeight) <= 2
+                && rect.left >= -2
+                && rect.right <= innerWidth + 2;
+        }
+        return rect.left >= -2
+            && rect.top >= -2
+            && rect.right <= innerWidth + 2
+            && rect.bottom <= innerHeight + 2;
+    }, null, { timeout: 800 });
 }
 
 async function waitForFrames(page, count) {
@@ -570,6 +623,11 @@ async function snapshot(page) {
             visualViewport: window.visualViewport
                 ? { width: window.visualViewport.width, height: window.visualViewport.height, scale: window.visualViewport.scale }
                 : null,
+            scroll: {
+                x: scrollX,
+                y: scrollY,
+                maxY: Math.max(0, (document.scrollingElement ?? document.documentElement).scrollHeight - innerHeight),
+            },
             documentWidth: document.documentElement.scrollWidth,
             documentHeight: document.documentElement.scrollHeight,
             panel: rect('.jpdb-subtitle-list'),
@@ -602,7 +660,10 @@ function compactSnapshot(state) {
     return {
         placement: state.placement,
         viewport: state.viewport,
+        visualViewport: roundVisualViewport(state.visualViewport),
+        scroll: roundScroll(state.scroll),
         documentWidth: Math.round(state.documentWidth ?? 0),
+        documentHeight: Math.round(state.documentHeight ?? 0),
         panel: roundRect(state.panel),
         handle: roundRect(state.handle),
         video: roundRect(state.video),
@@ -650,29 +711,15 @@ function layoutWarnings(state, stepName) {
 function performanceProblems(steps) {
     const problems = [];
     for (const step of steps) {
-        if (step.name === 'open-sidebar' && step.durationMs > 320) {
-            problems.push(`open-sidebar took ${step.durationMs}ms, above 320ms hard target`);
+        if (step.name === 'open-sidebar' && step.durationMs > 100) {
+            problems.push(`open-sidebar took ${step.durationMs}ms, above 100ms target`);
         }
-        const syntheticViewportResize = step.name === 'orientation-change';
-        if (!syntheticViewportResize && step.maxLongTaskMs > 120) {
-            problems.push(`${step.name} had a ${step.maxLongTaskMs}ms long task`);
-        }
-        if (syntheticViewportResize && step.maxLongTaskMs > 240) {
-            problems.push(`${step.name} had a ${step.maxLongTaskMs}ms long task`);
+        if (step.maxLongTaskMs > 100) problems.push(`${step.name} had a ${step.maxLongTaskMs}ms long task, above 100ms target`);
+        if (step.name === 'drag-resize' && step.maxFrameGapMs > 100) {
+            problems.push(`drag-resize had a ${step.maxFrameGapMs}ms max frame gap, above 100ms target`);
         }
     }
     return problems;
-}
-
-function performanceWarnings(steps) {
-    const warnings = [];
-    for (const step of steps) {
-        if (step.name === 'open-sidebar' && step.durationMs > 100) {
-            warnings.push(`open-sidebar took ${step.durationMs}ms, above 100ms soft target`);
-        }
-        if (step.maxLongTaskMs > 100) warnings.push(`${step.name} had a ${step.maxLongTaskMs}ms long task`);
-    }
-    return warnings;
 }
 
 function isExpectedBottomOverlapEvidence(state, stepName) {
@@ -692,6 +739,24 @@ function overlaps(a, b) {
 function roundRect(rect) {
     if (!rect) return null;
     return Object.fromEntries(['left', 'top', 'right', 'bottom', 'width', 'height'].map(key => [key, Math.round(rect[key])]));
+}
+
+function roundVisualViewport(viewport) {
+    if (!viewport) return null;
+    return {
+        width: round(viewport.width),
+        height: round(viewport.height),
+        scale: round(viewport.scale),
+    };
+}
+
+function roundScroll(scroll) {
+    if (!scroll) return null;
+    return {
+        x: Math.round(scroll.x ?? 0),
+        y: Math.round(scroll.y ?? 0),
+        maxY: Math.round(scroll.maxY ?? 0),
+    };
 }
 
 function round(value) {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.73
+// @version      0.7.74
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-rYJChaQG6EwMTGS6LJRa7gXzUWF0X3nTVo6SVTmaLhc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IJ3WmY2mah0oENQYmUaFYrxh2nlbUPIr2oXqkHhrPXg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-GRGBPfZW3WfpIeQobrirkpA2Wlx8dUB0ZP1+FrsS5Sk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-F7NkXkKmC2frxPduW+BfIjaM0bPEAJvB9ejWnaWk0hw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-xrQe3lIiim5f3/dsd90hYE0xhpC/Sg9xEpkrp+0wwQc=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3313,6 +3313,20 @@
   ]);
   const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
   const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
+  const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
+    READER_TEXT_MIRROR_SELECTOR,
+    "script",
+    "style",
+    "noscript",
+    "template",
+    "[hidden]",
+    '[aria-hidden="true"]'
+  ].join(",");
+  const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = [
+    READER_TEXT_MIRROR_SELECTOR,
+    "[hidden]",
+    '[aria-hidden="true"]'
+  ].join(",");
   const RENDERED_SCAN_HOST_MAX_TEXT = 1e3;
   const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15e3;
   const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 6e4;
@@ -3899,12 +3913,14 @@
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent = node.parentElement;
-        if (!parent || parent.closest(READER_TEXT_MIRROR_SELECTOR)) return NodeFilter.FILTER_REJECT;
+        if (!parent || parent.closest(TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode()) text2 += node.textContent ?? "";
-    return text2;
+    if (HAS_JAPANESE$1.test(text2)) return text2;
+    const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element2) => !element2.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element2) => element2.getAttribute("aria-label") ?? "").join(" • ");
+    return HAS_JAPANESE$1.test(labelledText) ? labelledText : text2;
   }
   function normalizedMirrorHostText(text2) {
     return text2.replace(/\s+/g, " ").trim();
@@ -30158,6 +30174,10 @@ ${glossaryKey}`;
   const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
     "ytd-watch-info-text"
   ].join(",");
+  const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
+    "#view-count[aria-label]",
+    "#date-text[aria-label]"
+  ].join(",");
   const GOOGLE_SEARCH_ROOTS = [
     "#search",
     "#rso",
@@ -30392,6 +30412,39 @@ ${glossaryKey}`;
       matches: (url) => url.hostname === "tadoku.org" || url.hostname.endsWith(".tadoku.org")
     },
     {
+      id: "youtube-live-chat-frame-parser",
+      name: "YouTube live chat frame",
+      description: "Japanese live-chat frame messages, chrome, and fallback/error text.",
+      roots: [
+        "yt-live-chat-text-message-renderer #author-name",
+        "yt-live-chat-text-message-renderer #message",
+        "yt-live-chat-paid-message-renderer #author-name",
+        "yt-live-chat-paid-message-renderer #message",
+        "yt-live-chat-membership-item-renderer #author-name",
+        "yt-live-chat-membership-item-renderer #message",
+        "yt-live-chat-header-renderer #title",
+        "yt-live-chat-header-renderer #primary-content",
+        "yt-live-chat-renderer #chat-messages",
+        "yt-live-chat-viewer-engagement-message-renderer #content",
+        "yt-live-chat-viewer-engagement-message-renderer #message",
+        "yt-live-chat-viewer-engagement-message-renderer yt-formatted-string",
+        "yt-live-chat-viewer-engagement-message-renderer",
+        "yt-live-chat-banner-renderer",
+        "yt-live-chat-restricted-participation-renderer",
+        "yt-live-chat-ticker-renderer",
+        "body"
+      ],
+      exclude: COMMON_EXCLUDE,
+      allowUiText: true,
+      minLength: 1,
+      includeUiChrome: true,
+      singlePassScan: true,
+      nonDestructive: true,
+      includePassiveInteractionRoots: false,
+      scanLimit: 80,
+      matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com")) && url.pathname === "/live_chat"
+    },
+    {
       id: "youtube-comments-parser",
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
@@ -30412,6 +30465,11 @@ ${glossaryKey}`;
         "ytd-watch-info-text",
         "ytd-watch-metadata #metadata",
         "ytd-watch-metadata #metadata-line",
+        "ytd-watch-metadata #teaser-carousel",
+        "ytd-watch-metadata yt-video-metadata-carousel-view-model",
+        "ytd-watch-metadata yt-carousel-title-view-model",
+        "ytd-watch-metadata yt-text-carousel-item-view-model",
+        "ytd-watch-metadata .ytAttributedStringHost",
         "ytd-watch-metadata #description-inline-expander",
         "ytd-watch-metadata #description yt-attributed-string",
         "ytd-watch-metadata #description .yt-core-attributed-string",
@@ -30441,6 +30499,10 @@ ${glossaryKey}`;
         "yt-live-chat-banner-renderer",
         "yt-live-chat-restricted-participation-renderer",
         "yt-live-chat-ticker-renderer",
+        "ytd-live-chat-frame #show-hide-button",
+        "ytd-live-chat-frame #header",
+        "ytd-live-chat-frame #panel-pages",
+        "ytd-live-chat-frame yt-formatted-string",
         "ytd-watch-next-secondary-results-renderer",
         "ytd-compact-video-renderer",
         // General feed/search grids are useful, but lower priority because
@@ -30617,6 +30679,7 @@ ${glossaryKey}`;
     }
   }
   function syntheticYouTubeElementText(root) {
+    if (root.matches("ytd-watch-info-text")) return syntheticYouTubeWatchInfoText(root);
     for (const text2 of [
       root.getAttribute("aria-label"),
       root.getAttribute("title"),
@@ -30627,6 +30690,19 @@ ${glossaryKey}`;
       if (normalized && hasJapaneseText(normalized)) return normalized;
     }
     return "";
+  }
+  function syntheticYouTubeWatchInfoText(root) {
+    const parts = Array.from(root.querySelectorAll(YOUTUBE_WATCH_INFO_ARIA_PARTS)).map((element2) => normalizedAttributeText(element2, "aria-label")).filter((text22) => Boolean(text22));
+    const text2 = parts.join(" • ");
+    if (hasJapaneseText(text2)) return text2;
+    for (const attribute of ["aria-label", "title"]) {
+      const fallback = normalizedAttributeText(root, attribute);
+      if (fallback && hasJapaneseText(fallback)) return fallback;
+    }
+    return "";
+  }
+  function normalizedAttributeText(element2, attribute) {
+    return element2.getAttribute(attribute)?.replace(/\s+/g, " ").trim() ?? "";
   }
   function collectRootScanTargets(profile, root, context, excludeSelector = siteScanExcludeSelector(profile)) {
     const collected = collectFragmentTextTargetsIn(root, siteScanRemaining(context), profile.visibleOnly ?? true, excludeSelector, {
@@ -36255,6 +36331,10 @@ ${glossaryKey}`;
     async initReaderPage(shouldShowWelcome) {
       if (this.embeddedFrame) {
         this.subtitles.init();
+        if (this.shouldScanEmbeddedFrame()) {
+          this.setupAutoScan();
+          this.scheduleAutoScan(0, { force: true });
+        }
         return;
       }
       this.installFab();
@@ -36846,7 +36926,16 @@ ${glossaryKey}`;
       document.addEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
     }
     observeAutoScanMutations() {
+      if (!document.body) {
+        document.addEventListener("DOMContentLoaded", () => {
+          if (!this.isDestroyed) this.observeAutoScanMutations();
+        }, { once: true });
+        return;
+      }
       this.autoScanObserver?.observe(document.body, AUTO_SCAN_OBSERVER_OPTIONS);
+    }
+    shouldScanEmbeddedFrame() {
+      return /(^|\.)youtube\.com$/i.test(location.hostname) && location.pathname === "/live_chat";
     }
     pauseAutoScanObserver(callback) {
       const observer = this.autoScanObserver;

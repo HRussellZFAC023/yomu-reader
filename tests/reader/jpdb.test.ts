@@ -7169,8 +7169,12 @@ describe('reader helpers', () => {
             });
             dispatchPointerEvent(line, 'pointerover', 120, 'mouse', 40);
 
-            await new Promise(resolve => window.setTimeout(resolve, 20));
-            expect(lookupText).not.toHaveBeenCalled();
+            await waitForExpect(() => {
+                expect(lookupText).toHaveBeenCalledWith('日本語', '日本語', expect.objectContaining({
+                    anchor: expect.any(HTMLElement),
+                    trigger: 'hover',
+                }));
+            });
             expect(document.querySelector('.jpdb-ocr-line')).toBe(line);
         } finally {
             if (elementFromPointDescriptor) Object.defineProperty(document, 'elementFromPoint', elementFromPointDescriptor);
@@ -16249,7 +16253,7 @@ describe('reader helpers', () => {
                 expect(columns.style.marginLeft).toBe('');
                 expect(primaryInner.style.width).toBe('1080px');
                 expect(primaryInner.style.maxWidth).toBe('1080px');
-                expect(setSize).toHaveBeenCalledWith(1080, 675);
+                expect(setSize).toHaveBeenCalledWith(1080, 608);
                 expect(primaryRectCalls).toBe(1);
                 expect(primaryInnerRectCalls).toBe(1);
 
@@ -16264,7 +16268,7 @@ describe('reader helpers', () => {
                 expect(primary.style.width).toBe('1040px');
                 expect(primary.style.marginRight).toBe('72px');
                 expect(primaryInner.style.width).toBe('1040px');
-                expect(setSize).toHaveBeenLastCalledWith(1040, 675);
+                expect(setSize).toHaveBeenLastCalledWith(1040, 585);
                 expect(primaryRectCalls).toBe(1);
                 expect(primaryInnerRectCalls).toBe(1);
             } finally {
@@ -16334,7 +16338,7 @@ describe('reader helpers', () => {
                         expect(belowPlayer.style.getPropertyValue(side === 'left' ? 'margin-left' : 'margin-right')).toBe(side === 'left' ? '444px' : '274px');
                         expect(playerContainer.style.getPropertyValue(side === 'left' ? 'margin-right' : 'margin-left')).toBe('0px');
                         expect(belowPlayer.style.getPropertyValue(side === 'left' ? 'margin-right' : 'margin-left')).toBe('0px');
-                        expect(setSize).toHaveBeenCalledWith(552, 487);
+                        expect(setSize).toHaveBeenCalledWith(552, 311);
                     } finally {
                         adapter.clear();
                         document.body.innerHTML = '';
@@ -16394,7 +16398,7 @@ describe('reader helpers', () => {
                 expect(primary.style.marginLeft).toBe('444px');
                 expect(primaryInner.style.width).toBe('552px');
                 expect(primaryInner.style.marginLeft).toBe('0px');
-                expect(setSize).toHaveBeenCalledWith(552, 518);
+                expect(setSize).toHaveBeenCalledWith(552, 311);
             } finally {
                 adapter.clear();
                 Object.defineProperty(window, 'location', {
@@ -16753,7 +16757,7 @@ describe('reader helpers', () => {
             await vi.advanceTimersByTimeAsync(1);
             expect(onResize).toHaveBeenCalledTimes(1);
             expect(setSize).toHaveBeenCalledTimes(1);
-            expect(setSize).toHaveBeenCalledWith(1040, 675);
+            expect(setSize).toHaveBeenCalledWith(1040, 585);
         } finally {
             window.removeEventListener('resize', onResize);
             adapter.clear();
@@ -26857,6 +26861,7 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             parser: { parse: typeof parse };
             jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookup: (term: string) => Promise<JPDBCard | null> };
             parsePopoverJapanese(popover: HTMLElement): Promise<void>;
         };
         internals.activePopover = popover;
@@ -26870,6 +26875,7 @@ describe('reader helpers', () => {
         };
         internals.parser = { parse };
         internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookup: vi.fn(async () => null) };
 
         try {
             await internals.parsePopoverJapanese(popover);
@@ -27015,6 +27021,7 @@ describe('reader helpers', () => {
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookup: (term: string) => Promise<JPDBCard | null> };
             enrichPitchWords(tokens: JPDBToken[], options?: { urgent?: boolean }): Promise<void>;
         };
         internals.settings = {
@@ -27024,6 +27031,7 @@ describe('reader helpers', () => {
             jpdbDefinitionsEnabled: false,
         };
         internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookup: vi.fn(async () => null) };
 
         let background: Promise<void> | undefined;
         try {
@@ -27074,6 +27082,7 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             dictionaries: { lookupTermMeta: typeof lookupTermMeta };
             jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookup: (term: string) => Promise<JPDBCard | null> };
             enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
         };
         internals.settings = {
@@ -27084,6 +27093,7 @@ describe('reader helpers', () => {
         };
         internals.dictionaries = { lookupTermMeta };
         internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookup: vi.fn(async () => null) };
 
         try {
             await internals.enrichPitchWords(cards.map(lookupCard => testTokenForCard(lookupCard)), { publicLookupLimit: 2 });
@@ -27167,6 +27177,7 @@ describe('reader helpers', () => {
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookup: (term: string) => Promise<JPDBCard | null> };
             backgroundPitchEnrichmentOptions(): {
                 publicLookup?: boolean;
                 publicLookupLimit?: number;
@@ -27185,6 +27196,7 @@ describe('reader helpers', () => {
             jpdbDefinitionsEnabled: false,
         };
         internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookup: vi.fn(async () => null) };
 
         try {
             await internals.enrichPitchWords(youtubeCards.map(lookupCard => testTokenForCard(lookupCard)), internals.backgroundPitchEnrichmentOptions());
@@ -28305,10 +28317,12 @@ describe('reader helpers', () => {
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookup: (term: string) => Promise<JPDBCard | null> };
             enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: false, jpdbDefinitionsEnabled: false, showPitchAccent: true };
         internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookup: vi.fn(async () => null) };
 
         try {
             await internals.enrichPitchWords(tokens);
@@ -29170,12 +29184,14 @@ describe('reader helpers', () => {
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookup: (term: string) => Promise<JPDBCard | null> };
             queuePitchEnrichmentTokens(tokens: JPDBToken[]): void;
             prioritizeQueuedPitchEnrichment(card: JPDBCard): void;
             drainPitchEnrichmentQueue(): Promise<void>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: false, showPitchAccent: true };
         internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookup: vi.fn(async () => null) };
 
         try {
             internals.queuePitchEnrichmentTokens(tokens);

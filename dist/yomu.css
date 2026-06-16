@@ -9640,18 +9640,6 @@ html.jpdb-reader-doodle-active * {
 .jpdb-subtitle-list.jpdb-subtitle-panel-opened {
   will-change: auto;
 }
-.jpdb-subtitle-transcript-bottom .jpdb-subtitle-list,
-.jpdb-subtitle-list.jpdb-subtitle-transcript-bottom {
-  left: 0 !important;
-  right: auto !important;
-  width: 100vw !important;
-  border-right: 0;
-  border-bottom: 0;
-  border-left: 0;
-  border-radius: 20px 20px 0 0;
-  transform: none;
-  transition: opacity .12s ease;
-}
 .jpdb-subtitle-list.jpdb-subtitle-resizing {
   transition: none;
   backdrop-filter: none;
@@ -9667,7 +9655,7 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-subtitle-list.jpdb-subtitle-transcript-bottom.jpdb-subtitle-panel-entering,
 .jpdb-subtitle-list.jpdb-subtitle-transcript-bottom.jpdb-subtitle-panel-closing {
-  transform: none;
+  transform: translate3d(0, 10px, 0);
 }
 @media (prefers-reduced-motion: reduce) {
   .jpdb-subtitle-rail,
@@ -9791,25 +9779,28 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   cursor: grabbing;
 }
 .jpdb-subtitle-transcript-right .jpdb-subtitle-resize {
-  left: -12px;
+  left: 0;
   top: 0;
   bottom: 0;
   width: 24px;
   cursor: ew-resize;
+  transform: translateX(-50%);
 }
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize {
-  right: -12px;
+  right: 0;
   top: 0;
   bottom: 0;
   width: 24px;
   cursor: ew-resize;
+  transform: translateX(50%);
 }
 .jpdb-subtitle-transcript-right .jpdb-subtitle-resize::after,
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize::after {
   top: 16px;
   bottom: 16px;
-  left: 11px;
+  left: 50%;
   width: 2px;
+  transform: translateX(-50%);
 }
 .jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize {
   left: 50%;
@@ -10308,6 +10299,16 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-panel-mode button {
     min-height: 44px;
+  }
+  .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list,
+  .jpdb-subtitle-list.jpdb-subtitle-transcript-bottom {
+    left: 0 !important;
+    right: auto !important;
+    width: 100vw !important;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 20px 20px 0 0;
   }
   .jpdb-subtitle-transcript-bottom .jpdb-subtitle-list-scroll {
     padding-bottom: calc(12px + env(safe-area-inset-bottom));
