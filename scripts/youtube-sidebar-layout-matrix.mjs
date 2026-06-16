@@ -354,7 +354,6 @@ async function snapshot(page) {
 function assertLayout(state, viewportName, requestedPlacement, phase) {
     assertBox(state.panel, `${viewportName}/${requestedPlacement}/${phase} panel`);
     assertBox(state.video, `${viewportName}/${requestedPlacement}/${phase} video`);
-    assert(!overlaps(state.panel, state.video), `panel overlaps video in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     const expectedBottom = requestedPlacement === 'bottom' || state.viewport.width < 700;
     if (expectedBottom) {
         assert(state.placement === 'bottom', `expected bottom placement in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
@@ -368,6 +367,7 @@ function assertLayout(state, viewportName, requestedPlacement, phase) {
         assert((state.description?.width ?? 0) <= state.viewport.width + 1, `description became abnormally wide in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
         return;
     }
+    assert(!overlaps(state.panel, state.video), `panel overlaps video in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     assert(state.placement === requestedPlacement, `unexpected side placement in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     assert(state.columnsComputed?.justifyContent === 'flex-start', `side docking did not anchor YouTube columns to the viewport start in ${viewportName}/${requestedPlacement}/${phase}`, compactSnapshot(state));
     if (requestedPlacement === 'left') {

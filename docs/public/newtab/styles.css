@@ -13716,7 +13716,7 @@ html.jpdb-reader-doodle-active * {
   overflow-wrap: anywhere;
   word-break: keep-all;
   max-height: min(45%, calc(100% - 24px));
-  overflow: visible;
+  overflow: hidden;
   pointer-events: auto;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
@@ -14404,7 +14404,7 @@ html.jpdb-reader-doodle-active * {
   width: min(460px, calc(100vw - 24px));
   height: min(78vh, 860px);
   max-height: calc(100vh - 24px);
-  overflow: hidden;
+  overflow: visible;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
   container-type: inline-size;
@@ -14429,6 +14429,11 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-subtitle-list.jpdb-subtitle-panel-opened {
   will-change: auto;
+}
+.jpdb-subtitle-list.jpdb-subtitle-resizing {
+  transition: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .jpdb-subtitle-list.jpdb-subtitle-transcript-right.jpdb-subtitle-panel-entering,
 .jpdb-subtitle-list.jpdb-subtitle-transcript-right.jpdb-subtitle-panel-closing {
@@ -14564,14 +14569,14 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   cursor: grabbing;
 }
 .jpdb-subtitle-transcript-right .jpdb-subtitle-resize {
-  left: -12px;
+  left: 0;
   top: 0;
   bottom: 0;
   width: 24px;
   cursor: ew-resize;
 }
 .jpdb-subtitle-transcript-left .jpdb-subtitle-resize {
-  right: -12px;
+  right: 0;
   top: 0;
   bottom: 0;
   width: 24px;

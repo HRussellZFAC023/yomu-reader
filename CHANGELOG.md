@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.74] - 2026-06-16
+
+### Fixed
+
+- Kept YouTube transcript resize/orientation responsive by aborting transcript row hydration and background parse warmup during drag, then resuming it after the panel settles; this removes the parse/DOM work that could fight the resize loop on iPad.
+- Added a Playwright resize profiler for iPad landscape/portrait, iPhone, and desktop that measures open, drag, page scroll while the panel is open, and orientation changes for right/left/bottom transcript placements.
+- Revalidated iPad YouTube left/right/bottom placement with screenshot-backed DOM evidence: left and right shift the video plus title/actions/description beside the panel, while bottom overlays without resizing the player.
+
 ## [0.7.72] - 2026-06-16
 
 ### Fixed
