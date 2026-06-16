@@ -31,6 +31,7 @@ Useful env:
   YOMU_YOUTUBE_SIDEBAR_RESIZE_HEADED=1
   YOMU_YOUTUBE_SIDEBAR_RESIZE_LABEL=working
   YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB=1
+  YOMU_YOUTUBE_SIDEBAR_RESIZE_NO_API_KEY=1
 `;
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
@@ -50,7 +51,8 @@ const label = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LABEL ?? 'working';
 const outputRoot = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_OUTPUT_DIR ?? join(artifacts, 'youtube-sidebar-resize-profile', label));
 const headed = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_HEADED === '1';
 const liveMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE === '1';
-const liveJpdbMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB === '1';
+const keylessMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_NO_API_KEY === '1';
+const liveJpdbMode = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_LIVE_JPDB === '1' && !keylessMode;
 const liveJpdbApiKey = (process.env.YOMU_JPDB_API_KEY || process.env.JPDB_API_KEY || '').trim();
 const liveUrl = process.env.YOMU_YOUTUBE_SIDEBAR_RESIZE_URL?.trim() ?? '';
 const persistentProfileDir = liveMode
@@ -96,7 +98,8 @@ const report = {
         url: liveMode ? liveUrl : null,
         persistentProfileDir: persistentProfileDir || null,
         channel: persistentProfileDir ? persistentChannel : null,
-        jpdb: liveJpdbMode ? 'live' : 'mock',
+        jpdb: keylessMode ? 'none' : liveJpdbMode ? 'live' : 'mock',
+        keyless: keylessMode,
     },
     matrix: { viewports: viewportSpecs.map(spec => spec.name), placements },
     scenarios: [],
@@ -165,12 +168,24 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         await screenshot(page, scenarioDir, 'loaded');
 
         const steps = [];
+        const screenshotNames = ['loaded'];
         steps.push(await measuredStep(page, client, 'open-sidebar', async () => {
             await page.locator('.jpdb-subtitle-rail [data-action="panel"]').evaluate(button => button.click());
             await waitForPanelOpen(page);
             await waitForFullTranscriptRender(page);
         }));
         await screenshot(page, scenarioDir, 'open');
+        screenshotNames.push('open');
+
+        if (keylessMode) {
+            const visualParse = await measuredStep(page, client, 'keyless-visual-parse', async () => {
+                await waitForKeylessVisualParse(page);
+            });
+            visualParse.visualParse = await keylessVisualParseEvidence(page);
+            steps.push(visualParse);
+            await screenshot(page, scenarioDir, 'keyless-visual-parse');
+            screenshotNames.push('keyless-visual-parse');
+        }
 
         const afterOpen = await snapshot(page);
         const drag = await measuredStep(page, client, 'drag-resize', async () => {
@@ -179,6 +194,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         drag.drag = await dragEvidence(page, afterOpen);
         steps.push(drag);
         await screenshot(page, scenarioDir, 'dragged');
+        screenshotNames.push('dragged');
 
         const transcriptScroll = await measuredStep(page, client, 'scroll-transcript-list', async () => {
             await scrollTranscriptList(page);
@@ -186,6 +202,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         transcriptScroll.transcriptScroll = await transcriptScrollEvidence(page);
         steps.push(transcriptScroll);
         await screenshot(page, scenarioDir, 'transcript-scrolled');
+        screenshotNames.push('transcript-scrolled');
 
         const beforeScroll = await snapshot(page);
         const scroll = await measuredStep(page, client, 'page-scroll-with-panel-open', async () => {
@@ -194,6 +211,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         scroll.scroll = await scrollEvidence(page, beforeScroll);
         steps.push(scroll);
         await screenshot(page, scenarioDir, 'scrolled');
+        screenshotNames.push('scrolled');
 
         const beforeOrientation = await snapshot(page);
         const orientation = await measuredStep(page, client, 'orientation-change', async () => {
@@ -205,13 +223,17 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
         orientation.orientation = await orientationEvidence(page, beforeOrientation);
         steps.push(orientation);
         await screenshot(page, scenarioDir, 'orientation');
+        screenshotNames.push('orientation');
 
         const finalSnapshot = await snapshot(page);
         const layoutEvidence = steps.map(step => ({
             step: step.name,
             requestedPlacement: placement,
             effectivePlacement: step.snapshot.placement,
-            problems: layoutProblems(step.snapshot, placement, step.name),
+            problems: [
+                ...layoutProblems(step.snapshot, placement, step.name),
+                ...(keylessMode ? visualParseProblems(step.snapshot, step.name) : []),
+            ],
             warnings: layoutWarnings(step.snapshot, step.name),
             layout: compactSnapshot(step.snapshot),
         }));
@@ -228,7 +250,7 @@ async function runScenario({ viewport, placement, sharedBrowser }) {
             layoutEvidence,
             requests: summarizeRequests(requestLog),
             errors: errors.slice(0, 12),
-            screenshots: ['loaded', 'open', 'dragged', 'transcript-scrolled', 'scrolled', 'orientation'].map(name => join(scenarioDir, `${name}.png`)),
+            screenshots: screenshotNames.map(name => join(scenarioDir, `${name}.png`)),
         };
         scenario.ok = scenario.ok && scenario.performanceProblems.length === 0;
         writeFileSync(join(scenarioDir, 'scenario.json'), `${JSON.stringify(scenario, null, 2)}\n`);
@@ -483,23 +505,52 @@ async function dragPlan(page, placement) {
         if (!(handle instanceof HTMLElement)) throw new Error('Missing transcript resize handle.');
         const rect = handle.getBoundingClientRect();
         const start = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        const metrics = resizeHandleMetrics(handle);
+        const sideDirection = shouldGrowPanel(metrics) ? 1 : -1;
         const delta = panelPlacement === 'bottom'
-            ? { x: 0, y: 160 }
+            ? { x: 0, y: shouldGrowPanel(metrics) ? -160 : 160 }
             : panelPlacement === 'left'
-                ? { x: 180, y: 0 }
-                : { x: -180, y: 0 };
+                ? { x: 180 * sideDirection, y: 0 }
+                : { x: -180 * sideDirection, y: 0 };
         const moves = Array.from({ length: 8 }, (_, index) => {
             const ratio = (index + 1) / 8;
             return { x: start.x + delta.x * ratio, y: start.y + delta.y * ratio };
         });
         return { start, moves };
+
+        function resizeHandleMetrics(element) {
+            const current = Number(element.getAttribute('aria-valuenow') || 0);
+            const min = Number(element.getAttribute('aria-valuemin') || 0);
+            const max = Number(element.getAttribute('aria-valuemax') || 0);
+            return {
+                current: Number.isFinite(current) ? current : 0,
+                min: Number.isFinite(min) ? min : 0,
+                max: Number.isFinite(max) ? max : 0,
+            };
+        }
+
+        function shouldGrowPanel(metrics) {
+            const growRoom = metrics.max - metrics.current;
+            const shrinkRoom = metrics.current - metrics.min;
+            return growRoom > shrinkRoom;
+        }
     }, placement);
 }
 
 async function resizeTranscriptPanelFromKeyboard(page, placement) {
     const handle = page.locator('[data-resize-transcript]').first();
     await handle.focus();
-    const key = placement === 'bottom' ? 'ArrowDown' : placement === 'left' ? 'ArrowRight' : 'ArrowLeft';
+    const grow = await handle.evaluate(element => {
+        const current = Number(element.getAttribute('aria-valuenow') || 0);
+        const min = Number(element.getAttribute('aria-valuemin') || 0);
+        const max = Number(element.getAttribute('aria-valuemax') || 0);
+        return max - current > current - min;
+    });
+    const key = placement === 'bottom'
+        ? grow ? 'ArrowUp' : 'ArrowDown'
+        : placement === 'left'
+            ? grow ? 'ArrowRight' : 'ArrowLeft'
+            : grow ? 'ArrowLeft' : 'ArrowRight';
     for (let index = 0; index < 4; index += 1) await page.keyboard.press(key);
 }
 
@@ -584,6 +635,29 @@ async function waitForFullTranscriptRender(page) {
     await page.waitForFunction(() => document.querySelectorAll('.jpdb-subtitle-list-row').length > 20, null, {
         timeout: liveMode ? 45_000 : 5_000,
     });
+}
+
+async function waitForKeylessVisualParse(page) {
+    await page.waitForFunction(() => {
+        const metrics = globalThis.__yomuSidebarResizeVisualParseMetrics?.();
+        if (!metrics) return false;
+        const totalKnownPitch = metrics.page.knownPitchWords + metrics.overlay.knownPitchWords + metrics.panel.knownPitchWords;
+        return metrics.page.words >= 3
+            && metrics.page.furiWords >= 1
+            && metrics.page.pitchWords >= metrics.page.words
+            && metrics.overlay.words >= 1
+            && metrics.overlay.furiWords >= 1
+            && metrics.overlay.pitchWords >= metrics.overlay.words
+            && metrics.panel.words >= 12
+            && metrics.panel.furiWords >= 6
+            && metrics.panel.pitchWords >= metrics.panel.words
+            && totalKnownPitch >= 1;
+    }, null, { timeout: 7_000 });
+}
+
+async function keylessVisualParseEvidence(page) {
+    const after = await snapshot(page);
+    return after.visualParse;
 }
 
 async function waitForPanelSizeChanged(page, before, timeout) {
@@ -677,6 +751,22 @@ async function snapshot(page) {
             };
         };
         const handle = document.querySelector('[data-resize-transcript]');
+        const visualParseMetrics = () => {
+            const allWords = Array.from(document.querySelectorAll('.jpdb-reader-word')).filter(word => word instanceof HTMLElement);
+            const overlayRoot = document.querySelector('.jpdb-subtitle-primary');
+            const panelRoot = document.querySelector('.jpdb-subtitle-list');
+            const overlayWords = allWords.filter(word => overlayRoot?.contains(word));
+            const panelWords = allWords.filter(word => panelRoot?.contains(word));
+            const pageWords = allWords.filter(word => !overlayRoot?.contains(word)
+                && !panelRoot?.contains(word)
+                && !word.closest('[data-jpdb-reader-root]'));
+            return {
+                page: wordMetrics(pageWords),
+                overlay: wordMetrics(overlayWords),
+                panel: wordMetrics(panelWords),
+            };
+        };
+        globalThis.__yomuSidebarResizeVisualParseMetrics = visualParseMetrics;
         return {
             url: location.href,
             placement: document.querySelector('.jpdb-subtitle-player')?.getAttribute('data-transcript-placement')
@@ -710,6 +800,7 @@ async function snapshot(page) {
             moviePlayerStyle: style('#movie_player, .html5-video-player'),
             rootClasses: document.documentElement.className,
             videoInset: document.documentElement.style.getPropertyValue('--jpdb-subtitle-video-inset'),
+            visualParse: visualParseMetrics(),
             handleAria: handle instanceof HTMLElement ? {
                 orientation: handle.getAttribute('aria-orientation'),
                 valueNow: handle.getAttribute('aria-valuenow'),
@@ -747,6 +838,19 @@ async function snapshot(page) {
             return Number.isFinite(totalRows) && totalRows > 0
                 ? totalRows
                 : document.querySelectorAll('.jpdb-subtitle-list-row').length;
+        }
+
+        function wordMetrics(words) {
+            const pitchClasses = ['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku'];
+            const hasPitch = word => Array.from(word.classList).some(className => className.startsWith('jpdb-pitch-'));
+            const hasKnownPitch = word => pitchClasses.some(name => word.classList.contains(`jpdb-pitch-${name}`));
+            return {
+                words: words.length,
+                furiWords: words.filter(word => word.querySelector('rt')).length,
+                pitchWords: words.filter(hasPitch).length,
+                knownPitchWords: words.filter(hasKnownPitch).length,
+                unknownPitchWords: words.filter(word => word.classList.contains('jpdb-pitch-unknown')).length,
+            };
         }
     });
 }
