@@ -5871,6 +5871,10 @@ ${candidate.depth}`;
     videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
     videoFrameStatuses = /* @__PURE__ */ new Map();
+    // Loading/ready status cards for every OCR'd image (not just paused-video
+    // frames), reusing the same card UI — so slow image OCR shows progress and a
+    // dismiss-to-compact spinner, the way YouTube thumbnails already do.
+    imageStatuses = /* @__PURE__ */ new Map();
     // Canvas-reader snapshots (BookWalker): map each page <canvas> to the data-URL
     // <img> we OCR in its place, plus the page fingerprint and the page-turn poll.
     canvasFrames = /* @__PURE__ */ new Map();
@@ -5954,6 +5958,7 @@ ${candidate.depth}`;
       if (this.shouldSkipRefresh(settings, options)) {
         this.pruneDisconnectedStates();
         this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
+        this.imageStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
         this.schedulePosition();
         return;
       }
@@ -5964,6 +5969,7 @@ ${candidate.depth}`;
         this.observeRefreshImage(image, settings);
       }
       this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
+      this.imageStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
       this.schedulePosition();
     }
     shouldSkipRefresh(settings, options) {
@@ -6129,6 +6135,7 @@ ${candidate.depth}`;
       const manualRequested = state.manualRequested;
       this.resetStateIfImageChanged(state);
       if (await this.renderCachedOcrResult(state, key)) return;
+      this.updateOcrStatus(image, "loading");
       const scan = beginOcrScan(state, image, settings, manualRequested);
       try {
         await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
@@ -6152,7 +6159,7 @@ ${candidate.depth}`;
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
         renderNoOcrLines(state);
-        this.updateVideoFrameStatusForImage(image, "empty");
+        this.updateOcrStatus(image, "empty");
         return;
       }
       this.remember(key, result);
@@ -6168,7 +6175,7 @@ ${candidate.depth}`;
         return;
       }
       logOcrFailure(state, provider, manualRequested, error);
-      this.updateVideoFrameStatusForImage(image, "failed");
+      this.updateOcrStatus(image, "failed");
     }
     recognizeImage(image, settings) {
       const recognizer = ocrRecognizer(settings);
@@ -6210,7 +6217,7 @@ ${candidate.depth}`;
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
       if (!lines.length) {
         renderNoOcrLines(state);
-        this.updateVideoFrameStatusForImage(state.image, "empty");
+        this.updateOcrStatus(state.image, "empty");
         return;
       }
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
@@ -6227,7 +6234,7 @@ ${candidate.depth}`;
         state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
       }
       this.positionState(state.image);
-      this.updateVideoFrameStatusForImage(state.image, "ready");
+      this.updateOcrStatus(state.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => {
         this.clearInactiveOcrMarkup(state.overlay);
         this.schedulePosition();
@@ -6317,7 +6324,14 @@ ${candidate.depth}`;
         this.positionVideoFrames();
         this.positionCanvasFrames();
         for (const image of this.states.keys()) this.positionState(image);
+        this.positionImageStatusCards();
       });
+    }
+    positionImageStatusCards() {
+      for (const [image, card] of [...this.imageStatuses]) {
+        if (!image.isConnected) this.removeImageStatusCard(image);
+        else this.positionImageStatusCard(image, card);
+      }
     }
     // --- Paused-video frames (UT-27) ---
     snapshotPausedVideo(target) {
@@ -6422,6 +6436,41 @@ ${candidate.depth}`;
       const element = this.videoFrameStatuses.get(video);
       if (element) this.setVideoFrameStatus(element, status);
     }
+    // Drive both status surfaces: paused-video frames keep their card over the
+    // player; every other OCR'd image gets its own card over the image.
+    updateOcrStatus(image, status) {
+      this.updateVideoFrameStatusForImage(image, status);
+      this.updateImageStatusCard(image, status);
+    }
+    updateImageStatusCard(image, status) {
+      if (this.videoFrameVideos.has(image)) return;
+      if (!this.options.getSettings().ocrEnabled) return;
+      const existing = this.imageStatuses.get(image);
+      if (status === "empty") {
+        existing?.remove();
+        this.imageStatuses.delete(image);
+        return;
+      }
+      const card = existing ?? this.createVideoFrameStatus(status);
+      if (existing) this.setVideoFrameStatus(card, status);
+      else this.imageStatuses.set(image, card);
+      this.positionImageStatusCard(image, card);
+    }
+    positionImageStatusCard(image, card) {
+      const rect = image.getBoundingClientRect();
+      if (!isImageVisibleForOcr(image, rect)) {
+        card.hidden = true;
+        return;
+      }
+      card.hidden = false;
+      positionOcrImageStatus(card, rect);
+    }
+    removeImageStatusCard(image) {
+      const card = this.imageStatuses.get(image);
+      if (!card) return;
+      card.remove();
+      this.imageStatuses.delete(image);
+    }
     setVideoFrameStatusCardVisible(visible) {
       const settings = this.options.getSettings();
       if (this.options.setVideoFrameStatusCardVisible) {
@@ -6430,6 +6479,7 @@ ${candidate.depth}`;
         settings.ocrVideoFrameStatusCard = visible;
       }
       this.videoFrameStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
+      this.imageStatuses.forEach((status) => this.syncVideoFrameStatusCardMode(status));
     }
     syncVideoFrameStatusCardMode(element) {
       const compact = !this.options.getSettings().ocrVideoFrameStatusCard;
@@ -6624,6 +6674,8 @@ ${candidate.depth}`;
         state.overlay.remove();
       }
       this.states.clear();
+      for (const card of this.imageStatuses.values()) card.remove();
+      this.imageStatuses.clear();
     }
     rememberOcrWordRenderStates(line, tokens) {
       const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));
@@ -6698,6 +6750,7 @@ ${candidate.depth}`;
         this.observer?.unobserve(image);
         state.overlay.remove();
         this.states.delete(image);
+        this.removeImageStatusCard(image);
       }
     }
   }
@@ -7343,6 +7396,12 @@ ${spelling}`);
     const maxWidth = Math.max(96, Math.min(Math.max(96, content.width - 24), 320));
     status.style.left = `${Math.max(8, content.left + 12)}px`;
     status.style.top = `${Math.max(8, content.top + 12)}px`;
+    status.style.maxWidth = `${maxWidth}px`;
+  }
+  function positionOcrImageStatus(status, rect) {
+    const maxWidth = Math.max(96, Math.min(Math.max(96, rect.width - 24), 320));
+    status.style.left = `${Math.max(8, rect.left + 12)}px`;
+    status.style.top = `${Math.max(8, rect.top + 12)}px`;
     status.style.maxWidth = `${maxWidth}px`;
   }
   function videoFrameStatusTextKey(status) {

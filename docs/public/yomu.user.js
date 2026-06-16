@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      0.7.84
+// @version      0.7.85
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ubwjx5hJINKqQa6aTiuPMrcTIRsERGyTMPXoycgwAbo=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-X0AAUSZtk99Osfd5ovdnj/cFOR1saS5lHdnpp3mvRSk=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-xY5RjRbeBAs702aOiyHq5ng3PMMVPy+G4AciFiAckUI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-lM6prxZh+BfvCItPPp1J2zf0Q2J36KZckXVy7urngP8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-c2HgLqpD7GlWpKxkk6PkK2CfZkQ1Uldea1HXss+5/Kk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3763,8 +3763,23 @@
     });
     return text2.every((value) => value !== null) && text2.join("") === target.text;
   }
+  const REPAINT_LOOP_THRESHOLD = 4;
+  const REPAINT_LOOP_WINDOW_MS = 3e3;
+  const loopingScanHosts = /* @__PURE__ */ new WeakSet();
+  const scanHostRepaintLog = /* @__PURE__ */ new WeakMap();
+  function scanHostIsRepaintLooping(host, text2) {
+    if (loopingScanHosts.has(host)) return true;
+    const now = typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+    const previous = scanHostRepaintLog.get(host);
+    const times = (previous && previous.text === text2 ? previous.times : []).filter((time) => now - time < REPAINT_LOOP_WINDOW_MS);
+    times.push(now);
+    scanHostRepaintLog.set(host, { text: text2, times });
+    if (times.length < REPAINT_LOOP_THRESHOLD) return false;
+    loopingScanHosts.add(host);
+    return true;
+  }
   function applyTokensToScanTarget(target, tokens, settings) {
-    if (target.nonDestructive) {
+    if (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text)) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
@@ -30760,7 +30775,29 @@ ${glossaryKey}`;
     return SITE_PARSER_PROFILES.filter((profile) => profile.matches(url));
   }
   function siteProvidesNativeTextLayer(href = window.location.href) {
-    return getMatchingSiteParsers(href).some((profile) => profile.providesTextLayer === true);
+    return getMatchingSiteParsers(href).some((profile) => {
+      if (!profile.providesTextLayer) return false;
+      if (profile.id === "mokuro-parser") return mokuroDisplayOcrEnabled();
+      return true;
+    });
+  }
+  function mokuroDisplayOcrEnabled() {
+    try {
+      if (typeof localStorage === "undefined") return true;
+      const raw = localStorage.getItem("profiles");
+      if (!raw) return true;
+      const profiles = JSON.parse(raw);
+      const currentRaw = localStorage.getItem("currentProfile") ?? "";
+      let current = currentRaw;
+      try {
+        current = JSON.parse(currentRaw);
+      } catch {
+      }
+      const profile = profiles[current] ?? profiles[currentRaw] ?? Object.values(profiles)[0];
+      return profile?.displayOCR !== false;
+    } catch {
+      return true;
+    }
   }
   function collectSiteScanTargets(limit = 40, href = window.location.href) {
     const profiles = getMatchingSiteParsers(href);
