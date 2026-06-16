@@ -118,7 +118,8 @@
 }
 
 .VPHomeHero .name {
-  margin-bottom: 12px;
+  font-size: clamp(48px, 9vw, 84px);
+  margin-bottom: 20px;
 }
 
 .VPHomeHero .text {
@@ -140,7 +141,7 @@ html[lang="ja"] .VPHomeHero .text {
 }
 
 html[lang="ja"] .VPHomeHero .name {
-  margin-bottom: 14px;
+  margin-bottom: 22px;
 }
 
 html[lang="ja"] .VPHomeHero .text {
