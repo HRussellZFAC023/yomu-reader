@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1] - 2026-06-17
+
+### Fixed
+
+- Landing page hero: shortened the Japanese action-button labels (よむをインストール → インストール, 学習アプリを開く → 学習) so the pills no longer wrap onto extra rows on mobile, and added breathing room between the よむ wordmark and the headline so the wordmark's underline (and its tap/hover target) no longer crowds the first line of the headline.
+- Reverted the forced line break in the Japanese hero headline. Inserting a hard newline switched the headline to `white-space: pre-wrap`, which broke the in-place furigana rendering (readings went missing / misaligned until the line was re-selected). The headline now wraps with the reader's default behaviour so furigana renders consistently with the rest of the page.
+
 ## [1.2.0] - 2026-06-17
 
 ### Added

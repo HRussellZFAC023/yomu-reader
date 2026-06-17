@@ -122,7 +122,9 @@
    display size it used to inherit. */
 .VPHomeHero .name {
   font-size: clamp(30px, 4.8vw, 56px);
-  margin-bottom: 16px;
+  /* Clear the wordmark's pitch underline from the headline below (and its
+     furigana), and keep the parsed wordmark's hover/popup off the headline. */
+  margin-bottom: 26px;
 }
 
 .VPHomeHero .text {
@@ -145,19 +147,12 @@ html[lang="ja"] .VPHomeHero .text {
 
 html[lang="ja"] .VPHomeHero .name {
   font-size: clamp(28px, 4vw, 48px);
-  margin-bottom: 16px;
+  margin-bottom: 26px;
 }
 
 html[lang="ja"] .VPHomeHero .text {
-  max-width: none;
+  max-width: 18ch;
   font-size: clamp(32px, 4.6vw, 52px);
-  /* The translation string carries a hard newline at the clause boundary, so the
-     headline breaks as 好きなものを読んで / 日本語を学ぶ. `keep-all` stops a parsed
-     word (e.g. 読んで) from being split mid-span across a wrap, which also keeps
-     its pitch-accent underline intact. Overrides the shared `text-wrap: balance`. */
-  white-space: pre-line;
-  word-break: keep-all;
-  text-wrap: normal;
 }
 
 html[lang="ja"] .VPHomeHero .tagline {
