@@ -34673,10 +34673,21 @@ ${spelling}`);
     const userscriptRequest = requestViaUserscript({
       method: "GET",
       url,
-      responseType: "blob"
-    }, (response) => response.response, (status) => `Image fetch returned ${status}.`);
+      responseType: "arraybuffer"
+    }, (response) => blobFromUserscriptResponse(response), (status) => `Image fetch returned ${status}.`);
     if (userscriptRequest) return userscriptRequest;
     return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+  }
+  function blobFromUserscriptResponse(response) {
+    if (response.response instanceof Blob) return response.response;
+    if (response.response instanceof ArrayBuffer) return new Blob([response.response]);
+    if (ArrayBuffer.isView(response.response)) {
+      const source = new Uint8Array(response.response.buffer, response.response.byteOffset, response.response.byteLength);
+      const copy = new Uint8Array(source.byteLength);
+      copy.set(source);
+      return new Blob([copy.buffer]);
+    }
+    return new Blob([response.response]);
   }
   function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.19] - 2026-06-17
+
+### Fixed
+
+- BookWalker Firefox/iPad mirror replay now fetches clean source images through the same `GM_xmlhttpRequest` `arraybuffer` path proven by the mirror probe, then wraps the bytes in a `Blob` locally. This avoids userscript-manager differences around `responseType: "blob"` that could leave the tainted canvas path with no rebuilt OCR frame and no spinner.
+
 ## [1.3.18] - 2026-06-17
 
 ### Fixed
