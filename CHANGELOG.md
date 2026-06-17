@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.1] - 2026-06-17
+
+### Fixed
+
+- Hosted-page image OCR cache hits now render immediately after refresh and pending OCR cache writes flush on pagehide/visibility changes, so stable docs screenshots do not wait for another recognizer pass before their overlays come back.
+- OCR cache persistence now ignores volatile `data:` and `blob:` frame keys, keeping refresh-ready cached OCR focused on stable page images.
+- BookWalker canvas OCR now falls back from a blank `.currentScreen` buffer to a painted sibling page buffer, recovering OCR on NFBR viewer pages where the visible buffer marker changes before the page is drawn.
+- OCR furigana now anchors to each normalized base span instead of the wider word/line wrapper, so readings such as `いばしょ` stay over the specific kanji/base text they annotate.
+- YouTube home no longer shows the curated channel subscription shelf, and failed/unknown channel preview probes no longer count as unsubscribed channels that can flash the shelf back into view.
+- YouTube channel shelf refreshes are now structurally stable: preview hydration updates a row in place without rebuilding the action bar or replacing the full list.
+- Compact YouTube feed/search/suggested titles keep lookup/color styling without furigana, preventing title clipping and the add/remove furigana churn caused by YouTube's frequent title rerenders.
+
 ## [1.3.0] - 2026-06-17
 
 ### Fixed

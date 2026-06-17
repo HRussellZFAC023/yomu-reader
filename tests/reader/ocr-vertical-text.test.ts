@@ -52,8 +52,8 @@ describe('vertical OCR text styling', () => {
     });
 
     it('does not change the shared horizontal furigana anchor (regression guard)', () => {
-        // Horizontal furigana stays above the word: top:0; left:50%.
-        expect(css).toContain('.jpdb-ocr-furi { position: absolute; top: 0; left: 50%;');
+        // Horizontal furigana stays above its own base span.
+        expect(css).toContain('.jpdb-ocr-furi { position: absolute; top: -1.18em; left: 50%;');
     });
 
     it('keeps the vertical word pitch mark on one side only', () => {

@@ -26356,7 +26356,7 @@ describe('reader helpers', () => {
     });
 
     it('ignores OCR furigana when deriving the reader word surface text', () => {
-        document.body.innerHTML = '<span class="jpdb-reader-word"><span class="jpdb-ocr-ruby"><span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true">かがみ</span><span class="jpdb-ocr-ruby-base">鏡</span></span>のない<span class="jpdb-ocr-ruby"><span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true">むら</span><span class="jpdb-ocr-ruby-base">村</span></span></span>';
+        document.body.innerHTML = '<span class="jpdb-reader-word"><span class="jpdb-ocr-ruby"><span class="jpdb-ocr-ruby-base"><span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true">かがみ</span><span class="jpdb-ocr-ruby-base-text">鏡</span></span></span>のない<span class="jpdb-ocr-ruby"><span class="jpdb-ocr-ruby-base"><span class="jpdb-ocr-furi" data-jpdb-reader-surface-ignore="true">むら</span><span class="jpdb-ocr-ruby-base-text">村</span></span></span></span>';
 
         expect(readerWordSurfaceText(document.querySelector('.jpdb-reader-word')!)).toBe('鏡のない村');
     });
@@ -26971,7 +26971,7 @@ describe('reader helpers', () => {
             expect(line.dataset.hasFuri).toBe('true');
             expect(word.querySelector('ruby')).toBeNull();
             expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('よ');
-            expect(word.querySelector('.jpdb-ocr-ruby-base')?.textContent).toBe('読');
+            expect(word.querySelector('.jpdb-ocr-ruby-base-text')?.textContent).toBe('読');
             expect(word.querySelector('.jpdb-ocr-plain')?.textContent).toBe('む');
             expect(readerWordSurfaceText(word)).toBe('読む');
         } finally {
@@ -32646,7 +32646,7 @@ describe('reader helpers', () => {
 
         const word = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
         expect(readerWordSurfaceText(word)).toBe('東京');
-        expect(word.querySelector('rt')?.textContent).toBe('とうきょう');
+        expect(word.querySelector('rt')).toBeNull();
     });
 
     it('scans YouTube transcript rows while leaving native caption overlays untouched', () => {
@@ -32931,9 +32931,9 @@ describe('reader helpers', () => {
             <yt-lockup-view-model>
                 <a class="ytLockupViewModelContentImage" href="/watch?v=news"></a>
                 <div class="ytLockupMetadataViewModelMetadata">
-                    <a class="ytLockupMetadataViewModelTitle" href="/watch?v=news">
-                        【LIVE】朝のニュース（Japan News Digest Live）最新情報など
-                    </a>
+                    <h3 class="ytLockupMetadataViewModelHeadingReset">
+                        <a href="/watch?v=news"><span class="ytAttributedStringHost">【LIVE】朝のニュース（Japan News Digest Live）最新情報など</span></a>
+                    </h3>
                 </div>
             </yt-lockup-view-model>
             <ytm-shorts-lockup-view-model>
@@ -32947,8 +32947,20 @@ describe('reader helpers', () => {
             '【LIVE】朝のニュース（Japan News Digest Live）最新情報など',
             '日本語が難しい理由',
         ]));
+        expect(targets.find(target => target.text.includes('朝のニュース'))).toMatchObject({ suppressRuby: true, passiveInteraction: true, nonDestructive: true });
+        expect(targets.find(target => target.text === '日本語が難しい理由')).toMatchObject({ suppressRuby: true, passiveInteraction: true, nonDestructive: true });
 
+        const lockupTitle = targets.find(target => target.text.includes('朝のニュース'))!;
         const shortsTitle = targets.find(target => target.text === '日本語が難しい理由')!;
+        applyTokensToScanTarget(lockupTitle, [{
+            card: { ...card, cardState: ['known'], spelling: '朝', reading: 'あさ', source: 'jpdb' },
+            start: 6,
+            end: 7,
+            length: 1,
+            rubies: [{ text: 'あさ', start: 6, end: 7, length: 1 }],
+            pitchClass: 'heiban',
+            sentence: '【LIVE】朝のニュース（Japan News Digest Live）最新情報など',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         applyTokensToScanTarget(shortsTitle, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
             start: 0,
@@ -32959,9 +32971,46 @@ describe('reader helpers', () => {
             sentence: '日本語が難しい理由',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
+        const lockupWord = document.querySelector<HTMLElement>('yt-lockup-view-model .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(lockupWord)).toBe('朝');
+        expect(lockupWord.querySelector('rt')).toBeNull();
+        expect(document.querySelector('yt-lockup-view-model .jpdb-reader-text-mirror')).not.toBeNull();
         const word = document.querySelector<HTMLElement>('ytm-shorts-lockup-view-model .jpdb-reader-word')!;
         expect(readerWordSurfaceText(word)).toBe('日本語');
-        expect(word.querySelector('rt')?.textContent).toBe('にほんご');
+        expect(word.querySelector('rt')).toBeNull();
+    });
+
+    it('suppresses ruby in compact YouTube title mirrors even without collector metadata', () => {
+        document.body.innerHTML = `
+            <yt-lockup-view-model>
+                <h3 class="ytLockupMetadataViewModelHeadingReset">
+                    <a class="ytLockupMetadataViewModelTitle" href="/watch?v=jlpt">
+                        <span class="ytAttributedStringHost">直前対策</span>
+                    </a>
+                </h3>
+            </yt-lockup-view-model>`;
+        const host = document.querySelector<HTMLElement>('.ytAttributedStringHost')!;
+        const target: ScanTextTarget = {
+            node: host.firstChild as Text,
+            parent: host,
+            text: '直前対策',
+            nonDestructive: true,
+        };
+
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '直前', reading: 'ちょくぜん', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'ちょくぜん', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '直前対策',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('yt-lockup-view-model .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('直前');
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
     it('ignores aria-hidden feedback chrome while wrapping YouTube feed titles', () => {
@@ -32993,6 +33042,7 @@ describe('reader helpers', () => {
 
         const titleWord = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('英語');
+        expect(titleWord.querySelector('rt')).toBeNull();
         expect(document.querySelector('yt-touch-feedback-shape .jpdb-reader-word')).toBeNull();
     });
 

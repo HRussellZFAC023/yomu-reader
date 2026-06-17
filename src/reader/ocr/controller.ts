@@ -622,7 +622,7 @@ export class ImageOcrController {
         // the entire point, so skip the 900ms batching idle that only earns its
         // keep on incidental page images — the page is already on screen and waiting.
         const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
-        const delay = this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
+        const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
         void waitForIdle(delay, delay)
             .then(() => this.scanImage(image))
             .finally(() => {

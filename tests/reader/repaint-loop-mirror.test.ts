@@ -68,4 +68,18 @@ describe('repaint-loop mirror fallback', () => {
         expect(host.style.visibility).toBe('');
         expect(host.style.position).toBe('');
     });
+
+    it('does not replace an unchanged non-destructive mirror on repeated scans', () => {
+        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
+        const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;
+        const nonDestructive = { ...target, nonDestructive: true };
+
+        applyTokensToScanTarget(nonDestructive, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        const firstMirror = document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+
+        applyTokensToScanTarget(nonDestructive, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')).toBe(firstMirror);
+        expect(document.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+    });
 });

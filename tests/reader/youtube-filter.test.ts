@@ -171,6 +171,13 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reje
 type FilterWait = 'none' | 'initial-scan' | 'timer-tick' | 'flush-work';
 
 type StubbedLocation = Pick<Location, 'href' | 'origin' | 'hostname' | 'pathname' | 'search'>;
+const YOUTUBE_RESULTS_LOCATION: StubbedLocation = {
+    href: 'https://www.youtube.com/results?search_query=nihongo',
+    origin: 'https://www.youtube.com',
+    hostname: 'www.youtube.com',
+    pathname: '/results',
+    search: '?search_query=nihongo',
+};
 
 interface StartYoutubeFilterOptions {
     html?: string;
@@ -900,6 +907,7 @@ describe('YouTube immersion filter', () => {
         expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(100);
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
+            location: YOUTUBE_RESULTS_LOCATION,
             oEmbedTitles: {
                 jp: '日本語で花の名前を覚える',
                 en: '10 habits for studying',
@@ -938,6 +946,123 @@ describe('YouTube immersion filter', () => {
 
         filter.destroy();
     });
+
+    it('does not show the channel suggestion shelf on the YouTube home feed', async () => {
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({
+            location: {
+                href: 'https://www.youtube.com/',
+                origin: 'https://www.youtube.com',
+                hostname: 'www.youtube.com',
+                pathname: '/',
+                search: '',
+            },
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
+        expect(document.body.textContent).not.toContain('Subscribe visible');
+
+        filter.destroy();
+    });
+
+    it('keeps channel shelf rows stable on a no-op refresh', async () => {
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({
+            location: YOUTUBE_RESULTS_LOCATION,
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        const shelf = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
+        const list = shelf.querySelector<HTMLElement>('[data-role="channel-list"]')!;
+        const firstRow = list.querySelector<HTMLElement>('.jpdb-youtube-channel-row')!;
+        const secondRow = list.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row')[1]!;
+        const actions = shelf.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf-actions')!;
+        const subscribeVisible = shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-visible"]')!;
+        filter.refresh();
+        await vi.advanceTimersByTimeAsync(0);
+        await settlePromises();
+
+        expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')).toBe(shelf);
+        expect(shelf.querySelector<HTMLElement>('[data-role="channel-list"]')).toBe(list);
+        expect(list.querySelector<HTMLElement>('.jpdb-youtube-channel-row')).toBe(firstRow);
+        expect(shelf.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf-actions')).toBe(actions);
+        expect(shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-visible"]')).toBe(subscribeVisible);
+
+        const firstHandle = firstRow.dataset.yomuChannelHandle!;
+        const firstChannel = allYouTubeChannelRecommendations().find(channel => channel.handle === firstHandle)!;
+        const internals = filter as unknown as {
+            channelPreviewCache: Map<string, unknown>;
+            updateRenderedChannelPreview(channel: unknown): void;
+        };
+        internals.channelPreviewCache.set(firstHandle, {
+            channelId: 'UC12345678901234567890',
+            title: 'Hydrated Stable Row',
+            avatarUrl: 'https://yt.example/stable-row.jpg',
+            subscriberText: '123K subscribers',
+            description: 'Hydrated YouTube preview text',
+            subscribed: false,
+        });
+        internals.updateRenderedChannelPreview(firstChannel);
+        filter.refresh();
+        await vi.advanceTimersByTimeAsync(0);
+        await settlePromises();
+
+        const hydratedFirstRow = list.querySelector<HTMLElement>('.jpdb-youtube-channel-row')!;
+        expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')).toBe(shelf);
+        expect(shelf.querySelector<HTMLElement>('[data-role="channel-list"]')).toBe(list);
+        expect(shelf.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf-actions')).toBe(actions);
+        expect(shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-visible"]')).toBe(subscribeVisible);
+        expect(hydratedFirstRow).not.toBe(firstRow);
+        expect(hydratedFirstRow.textContent).toContain('Hydrated Stable Row');
+        expect(list.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row')[1]).toBe(secondRow);
+
+        filter.destroy();
+    });
+
+    it('does not render channel suggestion rows from failed preview checks', async () => {
+        vi.stubGlobal('ytcfg', {
+            get: (key: string) => ({
+                INNERTUBE_API_KEY: 'test-key',
+                INNERTUBE_CONTEXT: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
+                INNERTUBE_CLIENT_NAME: '1',
+                INNERTUBE_CLIENT_VERSION: 'test-version',
+                VISITOR_DATA: 'visitor',
+            } as Record<string, unknown>)[key],
+        });
+        vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request) => {
+            const url = input instanceof Request ? input.url : String(input);
+            if (url.includes('/oembed')) {
+                const watchUrl = new URL(new URL(url).searchParams.get('url') ?? 'https://www.youtube.com/watch');
+                const videoId = watchUrl.searchParams.get('v') ?? '';
+                return jsonFetchResponse({ title: videoId === 'jp' || videoId === 'modern' ? '東京カフェで朝ごはん' : 'Desk setup tour' });
+            }
+            if (url.includes('/youtubei/v1/navigation/resolve_url')) {
+                return jsonFetchResponse({ endpoint: { browseEndpoint: { browseId: 'UC12345678901234567890' } } });
+            }
+            return jsonFetchResponse({}, 503);
+        }));
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({ location: YOUTUBE_RESULTS_LOCATION, wait: 'flush-work' });
+        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
+
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
+        expect(document.body.textContent).not.toContain('Subscribe visible');
+
+        filter.destroy();
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
     it('keeps channel suggestion descriptions shortened after preview hydration', async () => {
         const longPreviewDescription = 'Actual YouTube channel bio with several lines of profile copy that should never replace the compact recommendation summary.';
@@ -991,7 +1116,7 @@ describe('YouTube immersion filter', () => {
         }));
 
         renderYouTubeCards();
-        const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+        const { filter } = await startYoutubeFilter({ location: YOUTUBE_RESULTS_LOCATION, wait: 'flush-work' });
         for (let i = 0; i < 30 && !document.querySelector('.jpdb-youtube-channel-name')?.textContent?.includes('Hydrated Preview Channel'); i += 1) {
             await flushPendingFilterWork();
         }
@@ -1012,13 +1137,7 @@ describe('YouTube immersion filter', () => {
 
     it('removes channels already subscribed in YouTube current subscribeButtonViewModel payloads', async () => {
         stubYouTubeChannelPreviewFetch(new Set(['@SuitTravel']));
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/',
-            search: '',
-        });
+        vi.stubGlobal('location', YOUTUBE_RESULTS_LOCATION);
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
         await waitForChannelShelfCondition(shelf => Boolean(shelf?.querySelector('.jpdb-youtube-channel-row')));
@@ -1041,13 +1160,7 @@ describe('YouTube immersion filter', () => {
     it('keeps removing subscribed channels past the first expanded preview batch', async () => {
         const subscribedHandle = '@meicari';
         stubYouTubeChannelPreviewFetch(new Set([subscribedHandle]));
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/',
-            search: '',
-        });
+        vi.stubGlobal('location', YOUTUBE_RESULTS_LOCATION);
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
         await waitForChannelShelfCondition(shelf => Boolean(shelf?.querySelector('.jpdb-youtube-channel-row')));
@@ -1073,13 +1186,7 @@ describe('YouTube immersion filter', () => {
 
     it('keeps the channel shelf hidden when live previews show all curated channels are already subscribed', async () => {
         stubYouTubeChannelPreviewFetch(new Set(allYouTubeChannelRecommendations().map(channel => channel.handle)));
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/',
-            search: '',
-        });
+        vi.stubGlobal('location', YOUTUBE_RESULTS_LOCATION);
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
 
@@ -1127,6 +1234,7 @@ describe('YouTube immersion filter', () => {
         const settings = youtubeFilterSettings();
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
+            location: YOUTUBE_RESULTS_LOCATION,
             settings,
             filterOptions: {
                 setShowChannelRecommendations: visible => {
@@ -1156,11 +1264,11 @@ describe('YouTube immersion filter', () => {
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
 
         vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/results?search_query=nihongo',
+            href: 'https://www.youtube.com/feed/subscriptions',
             origin: 'https://www.youtube.com',
             hostname: 'www.youtube.com',
-            pathname: '/results',
-            search: '?search_query=nihongo',
+            pathname: '/feed/subscriptions',
+            search: '',
         });
         filter.refresh();
         await waitForChannelShelfCondition(shelf => Boolean(shelf));
@@ -1185,13 +1293,7 @@ describe('YouTube immersion filter', () => {
         const subscriptionBodies: unknown[] = [];
         const subscriptionHeaders: Array<Record<string, string>> = [];
         document.cookie = 'SAPISID=test-sapisid';
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/',
-            search: '',
-        });
+        vi.stubGlobal('location', YOUTUBE_RESULTS_LOCATION);
         vi.stubGlobal('ytcfg', {
             get: (key: string) => ({
                 INNERTUBE_API_KEY: 'test-key',
@@ -1354,13 +1456,7 @@ describe('YouTube immersion filter', () => {
 
     it('refuses to fake a subscription when no signed-in YouTube session cookie exists', async () => {
         document.cookie = 'SAPISID=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/',
-            search: '',
-        });
+        vi.stubGlobal('location', YOUTUBE_RESULTS_LOCATION);
         stubYouTubeChannelPreviewFetch(new Set());
         const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
         renderYouTubeCards();

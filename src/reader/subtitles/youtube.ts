@@ -248,6 +248,7 @@ export class YoutubeImmersionFilter {
     private channelSubscriptionProbeQueue: YouTubeChannelRecommendation[] = [];
     private channelSubscriptionProbeTimer?: number;
     private channelShelfRefreshTimer?: number;
+    private channelShelfRenderSignature = '';
     private lastShelfBackfillAt = 0;
     private lastAdvancedShortKey = '';
     private lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
@@ -872,7 +873,8 @@ export class YoutubeImmersionFilter {
         if (!settings.youtubeShowChannelRecommendations) return false;
         if (this.revealed) return false;
         if (!shouldShowChannelRecommendationsForRoute()) return false;
-        return filteredCount > 0 || isYouTubeHomePage();
+        if (isYouTubeHomePage()) return false;
+        return filteredCount > 0;
     }
 
     private ensureChannelShelf(): HTMLElement {
@@ -949,8 +951,30 @@ export class YoutubeImmersionFilter {
 
     private renderChannelShelf(elements: YouTubeChannelShelfElements, recommendations = this.renderableChannelRecommendations(this.currentChannelRecommendations())): void {
         const renderedRecommendations = recommendations.slice(0, this.channelShelfExpanded ? YOUTUBE_CHANNEL_RECOMMENDATION_COUNT : YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+        const signature = this.channelShelfStructuralSignature(recommendations, renderedRecommendations);
+        this.updateChannelShelfChrome(elements, recommendations, renderedRecommendations);
+        if (signature === this.channelShelfRenderSignature) {
+            this.setChannelShelfBusy(this.subscriptionBusy);
+            this.syncChannelShelfTheme();
+            this.hydrateRenderedChannelPreviews(renderedRecommendations);
+            return;
+        }
+        this.channelShelfRenderSignature = signature;
 
         this.channelShelf?.classList.toggle('is-expanded', this.channelShelfExpanded);
+        this.renderChannelFilters(elements.filters);
+        elements.list.replaceChildren(...renderedRecommendations.map(channel => this.renderChannelRow(channel)));
+        this.setChannelShelfBusy(this.subscriptionBusy);
+        this.syncChannelShelfTheme();
+        if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
+        this.hydrateRenderedChannelPreviews(renderedRecommendations);
+    }
+
+    private updateChannelShelfChrome(
+        elements: YouTubeChannelShelfElements,
+        recommendations: YouTubeChannelRecommendation[],
+        renderedRecommendations: YouTubeChannelRecommendation[],
+    ): void {
         elements.title.textContent = 'Start your Japanese YouTube feed';
         elements.copy.textContent = this.channelShelfExpanded
             ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`
@@ -965,16 +989,16 @@ export class YoutubeImmersionFilter {
         elements.never.textContent = 'Hide';
         elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
-        if (!this.subscriptionBusy) {
-            elements.status.textContent = this.channelShelfStatusOverride;
-        }
+        if (!this.subscriptionBusy) elements.status.textContent = this.channelShelfStatusOverride;
+    }
 
-        this.renderChannelFilters(elements.filters);
-        elements.list.replaceChildren(...renderedRecommendations.map(channel => this.renderChannelRow(channel)));
-        this.setChannelShelfBusy(this.subscriptionBusy);
-        this.syncChannelShelfTheme();
-        if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
-        this.hydrateRenderedChannelPreviews(renderedRecommendations);
+    private channelShelfStructuralSignature(recommendations: YouTubeChannelRecommendation[], renderedRecommendations: YouTubeChannelRecommendation[]): string {
+        return [
+            this.channelShelfExpanded ? 'expanded' : 'compact',
+            this.channelShelfFilter,
+            recommendations.map(channel => channel.handle).join('\u0001'),
+            renderedRecommendations.map(channel => channel.handle).join('\u0001'),
+        ].join('\u0003');
     }
 
     // m.youtube.com does not use the desktop html[dark] attribute, so detect
@@ -998,7 +1022,7 @@ export class YoutubeImmersionFilter {
     private isKnownUnsubscribedChannel(channel: YouTubeChannelRecommendation): boolean {
         if (this.subscribedChannelHandles.has(channel.handle) || this.unresolvableChannelHandles.has(channel.handle)) return false;
         if (!this.channelPreviewCache.has(channel.handle)) return false;
-        return this.channelPreviewCache.get(channel.handle)?.subscribed !== true;
+        return this.channelPreviewCache.get(channel.handle)?.subscribed === false;
     }
 
     private renderChannelFilters(filters: HTMLElement): void {
@@ -1404,6 +1428,7 @@ export class YoutubeImmersionFilter {
         this.clearChannelShelfRefresh();
         this.channelShelf?.remove();
         this.channelShelf = undefined;
+        this.channelShelfRenderSignature = '';
         this.channelShelfStatusOverride = '';
         this.clearChannelPreviewBackfill();
     }

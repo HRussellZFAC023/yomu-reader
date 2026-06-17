@@ -23,6 +23,10 @@ function storage(): Storage | null {
     }
 }
 
+function isPersistableOcrCacheKey(key: string): boolean {
+    return !key.startsWith('data:') && !key.startsWith('blob:');
+}
+
 /** Hydrate the controller's in-memory cache from a previous session. */
 export function loadPersistedOcrCache(): Map<string, OcrResult | null> {
     const map = new Map<string, OcrResult | null>();
@@ -35,7 +39,7 @@ export function loadPersistedOcrCache(): Map<string, OcrResult | null> {
         // Oldest first so Map insertion order tracks recency (newest last) — the
         // controller's own eviction keeps the freshest entries.
         for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-            if (key.startsWith('data:')) continue;
+            if (!isPersistableOcrCacheKey(key)) continue;
             map.set(key, entry?.r ?? null);
         }
     } catch {
@@ -46,15 +50,50 @@ export function loadPersistedOcrCache(): Map<string, OcrResult | null> {
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
+let pendingCache: Map<string, OcrResult | null> | undefined;
+let pendingNow = 0;
+let flushListenersInstalled = false;
 
 /** Schedule a write of the cache to storage; coalesces bursts of remember() calls. */
 export function persistOcrCacheSoon(cache: Map<string, OcrResult | null>, now: number): void {
     if (!storage()) return;
+    installFlushListeners();
+    pendingCache = cache;
+    pendingNow = now;
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = setTimeout(() => {
-        persistTimer = undefined;
-        writeOcrCache(cache, now);
+        flushPersistedOcrCache();
     }, PERSIST_DELAY_MS);
+}
+
+export function flushPersistedOcrCache(): void {
+    if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = undefined;
+    }
+    const cache = pendingCache;
+    if (!cache) return;
+    const now = pendingNow || Date.now();
+    pendingCache = undefined;
+    pendingNow = 0;
+    writeOcrCache(cache, now);
+}
+
+function installFlushListeners(): void {
+    if (flushListenersInstalled) return;
+    flushListenersInstalled = true;
+    try {
+        if (typeof window !== 'undefined') {
+            window.addEventListener('pagehide', flushPersistedOcrCache, { capture: true });
+        }
+        if (typeof document !== 'undefined') {
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') flushPersistedOcrCache();
+            }, { capture: true });
+        }
+    } catch {
+        // Event listener setup is best-effort; the debounce timer still persists.
+    }
 }
 
 function writeOcrCache(cache: Map<string, OcrResult | null>, now: number): void {
@@ -63,7 +102,7 @@ function writeOcrCache(cache: Map<string, OcrResult | null>, now: number): void 
     try {
         // Newest entries first (Map preserves insertion order), capped by count and
         // total bytes so the cache stays small even after long reading sessions.
-        const keys = [...cache.keys()].filter(key => !key.startsWith('data:')).reverse().slice(0, MAX_ENTRIES);
+        const keys = [...cache.keys()].filter(isPersistableOcrCacheKey).reverse().slice(0, MAX_ENTRIES);
         const out: Record<string, StoredEntry> = {};
         let bytes = 0;
         for (const key of keys) {

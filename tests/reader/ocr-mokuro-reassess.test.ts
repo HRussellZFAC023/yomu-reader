@@ -27,9 +27,16 @@ function token(sentence: string): JPDBToken {
 function makeImage(src: string): HTMLImageElement {
     const image = document.createElement('img');
     image.src = src;
+    image.width = 500;
+    image.height = 300;
+    image.style.display = 'block';
+    image.style.width = '500px';
+    image.style.height = '300px';
     Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
     Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
     Object.defineProperty(image, 'complete', { configurable: true, value: true });
+    Object.defineProperty(image, 'offsetWidth', { configurable: true, value: 500 });
+    Object.defineProperty(image, 'offsetHeight', { configurable: true, value: 300 });
     image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
     return image;
 }
@@ -54,7 +61,7 @@ function makeController(shouldAutoScan: () => boolean, settings: Partial<ReaderS
             ocrShowTextOverlay: false,
             ocrMinImageArea: 1,
             ocrMaxImagesPerPage: 30,
-            ocrPrefetchMargin: 0,
+            ocrPrefetchMargin: 1000,
             ...settings,
         }),
         parseJapanese: vi.fn(async (text: string) => [token(text)]),

@@ -161,7 +161,13 @@ function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[]
 function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement[] {
     if (canvases.length < 2) return canvases;
     const current = canvases.filter(canvas => canvas.closest(CURRENT_SCREEN_SELECTOR));
-    return current.length ? current : canvases;
+    if (!current.length) return canvases;
+    const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
+    if (renderedCurrent.length) return renderedCurrent;
+    const renderedFallback = canvases
+        .filter(canvas => !current.includes(canvas))
+        .filter(looksLikeRenderedCanvasImage);
+    return renderedFallback.length ? renderedFallback : current;
 }
 
 function hasBackgroundReaderSignal(element: HTMLElement): boolean {

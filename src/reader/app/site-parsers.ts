@@ -319,6 +319,34 @@ const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
     '#view-count[aria-label]',
     '#date-text[aria-label]',
 ].join(',');
+const YOUTUBE_COMPACT_RUBY_SUPPRESS_SELECTOR = [
+    'yt-lockup-view-model',
+    'ytd-rich-grid-renderer',
+    'ytd-rich-item-renderer',
+    'ytd-video-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-watch-next-secondary-results-renderer',
+    'ytm-rich-grid-renderer',
+    'ytm-video-with-context-renderer',
+    'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
+    'ytm-item-section-renderer',
+].join(',');
+const YOUTUBE_RICH_TEXT_SAFE_SELECTOR = [
+    'ytd-watch-metadata',
+    'ytm-watch-metadata',
+    'ytm-slim-video-metadata-section-renderer',
+    'ytm-expandable-video-description-body-renderer',
+    'ytm-structured-description-content-renderer',
+    'ytd-comment-view-model',
+    'ytd-comments',
+    'ytd-transcript-segment-renderer',
+    'ytm-transcript-segment-renderer',
+    'yt-live-chat-renderer',
+    'yt-live-chat-text-message-renderer',
+    'yt-live-chat-paid-message-renderer',
+    'yt-live-chat-membership-item-renderer',
+].join(',');
 const GOOGLE_SEARCH_ROOTS = [
     '#search',
     '#rso',
@@ -991,7 +1019,13 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
 function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
     if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
     if (profile.id === 'jiten-parser') return isJitenStudyPromptTarget(target.parent, target.text);
+    if (profile.id === 'youtube-comments-parser') return isYouTubeCompactFeedTarget(target.parent);
     return false;
+}
+
+function isYouTubeCompactFeedTarget(parent: HTMLElement): boolean {
+    if (!parent.closest(YOUTUBE_COMPACT_RUBY_SUPPRESS_SELECTOR)) return false;
+    return !parent.closest(YOUTUBE_RICH_TEXT_SAFE_SELECTOR);
 }
 
 function isJpdbReviewPromptTarget(parent: HTMLElement, text: string): boolean {

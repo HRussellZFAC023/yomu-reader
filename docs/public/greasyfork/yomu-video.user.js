@@ -1581,14 +1581,17 @@
       furi.setAttribute("aria-hidden", "true");
       const base = document.createElement("span");
       base.className = "jpdb-ocr-ruby-base";
+      const baseText = document.createElement("span");
+      baseText.className = "jpdb-ocr-ruby-base-text";
       for (const child of Array.from(ruby.childNodes)) {
         if (child instanceof HTMLElement && child.tagName === "RT") {
           furi.textContent += child.textContent ?? "";
         } else if (!(child instanceof HTMLElement && child.tagName === "RP")) {
-          base.append(child.cloneNode(true));
+          baseText.append(child.cloneNode(true));
         }
       }
-      replacement.append(furi, base);
+      base.append(furi, baseText);
+      replacement.append(base);
       ruby.replaceWith(replacement);
     });
   }
@@ -1624,6 +1627,9 @@
       return null;
     }
   }
+  function isPersistableOcrCacheKey(key) {
+    return !key.startsWith("data:") && !key.startsWith("blob:");
+  }
   function loadPersistedOcrCache() {
     const map = /* @__PURE__ */ new Map();
     const store = storage();
@@ -1633,7 +1639,7 @@
       if (!raw) return map;
       const parsed = JSON.parse(raw);
       for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
-        if (key.startsWith("data:")) continue;
+        if (!isPersistableOcrCacheKey(key)) continue;
         map.set(key, entry?.r ?? null);
       }
     } catch {
@@ -1645,19 +1651,51 @@
     return map;
   }
   let persistTimer;
+  let pendingCache;
+  let pendingNow = 0;
+  let flushListenersInstalled = false;
   function persistOcrCacheSoon(cache, now) {
     if (!storage()) return;
+    installFlushListeners();
+    pendingCache = cache;
+    pendingNow = now;
     if (persistTimer) clearTimeout(persistTimer);
     persistTimer = setTimeout(() => {
-      persistTimer = void 0;
-      writeOcrCache(cache, now);
+      flushPersistedOcrCache();
     }, PERSIST_DELAY_MS);
+  }
+  function flushPersistedOcrCache() {
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+      persistTimer = void 0;
+    }
+    const cache = pendingCache;
+    if (!cache) return;
+    const now = pendingNow || Date.now();
+    pendingCache = void 0;
+    pendingNow = 0;
+    writeOcrCache(cache, now);
+  }
+  function installFlushListeners() {
+    if (flushListenersInstalled) return;
+    flushListenersInstalled = true;
+    try {
+      if (typeof window !== "undefined") {
+        window.addEventListener("pagehide", flushPersistedOcrCache, { capture: true });
+      }
+      if (typeof document !== "undefined") {
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "hidden") flushPersistedOcrCache();
+        }, { capture: true });
+      }
+    } catch {
+    }
   }
   function writeOcrCache(cache, now) {
     const store = storage();
     if (!store) return;
     try {
-      const keys = [...cache.keys()].filter((key) => !key.startsWith("data:")).reverse().slice(0, MAX_ENTRIES);
+      const keys = [...cache.keys()].filter(isPersistableOcrCacheKey).reverse().slice(0, MAX_ENTRIES);
       const out = {};
       let bytes = 0;
       for (const key of keys) {
@@ -1764,7 +1802,11 @@
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
     const current = canvases.filter((canvas) => canvas.closest(CURRENT_SCREEN_SELECTOR));
-    return current.length ? current : canvases;
+    if (!current.length) return canvases;
+    const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
+    if (renderedCurrent.length) return renderedCurrent;
+    const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
+    return renderedFallback.length ? renderedFallback : current;
   }
   function hasBackgroundReaderSignal(element) {
     return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
@@ -6521,7 +6563,7 @@ ${candidate.depth}`;
       this.inFlightKeys.add(key);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
       const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
-      const delay = this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
+      const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
       void waitForIdle(delay, delay).then(() => this.scanImage(image)).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         this.inFlightKeys.delete(key);
@@ -13697,14 +13739,14 @@ ${spelling}`);
       if (!tokens.length || !this.options.beforeRenderTokens) return;
       await this.options.beforeRenderTokens(tokens);
     }
-    async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache) {
+    async resolveParsedHtmlBatch(ready, batch, parsedHtml, pendingCache2) {
       const pendingHtml = parsedHtml.map((promise) => promise.then((result) => result.html));
-      batch.forEach((item, index) => pendingCache.set(item.key, pendingHtml[index]));
+      batch.forEach((item, index) => pendingCache2.set(item.key, pendingHtml[index]));
       try {
         return await Promise.all([...ready, ...parsedHtml]);
       } finally {
         batch.forEach((item, index) => {
-          if (pendingCache.get(item.key) === pendingHtml[index]) pendingCache.delete(item.key);
+          if (pendingCache2.get(item.key) === pendingHtml[index]) pendingCache2.delete(item.key);
         });
       }
     }
@@ -16480,6 +16522,7 @@ ${spelling}`);
     channelSubscriptionProbeQueue = [];
     channelSubscriptionProbeTimer;
     channelShelfRefreshTimer;
+    channelShelfRenderSignature = "";
     lastShelfBackfillAt = 0;
     lastAdvancedShortKey = "";
     lastShortAdvanceAt = Number.NEGATIVE_INFINITY;
@@ -16978,7 +17021,8 @@ ${spelling}`);
       if (!settings.youtubeShowChannelRecommendations) return false;
       if (this.revealed) return false;
       if (!shouldShowChannelRecommendationsForRoute()) return false;
-      return filteredCount > 0 || isYouTubeHomePage();
+      if (isYouTubeHomePage()) return false;
+      return filteredCount > 0;
     }
     ensureChannelShelf() {
       if (!this.channelShelf) this.channelShelf = this.createChannelShelf();
@@ -17045,7 +17089,24 @@ ${spelling}`);
     }
     renderChannelShelf(elements, recommendations = this.renderableChannelRecommendations(this.currentChannelRecommendations())) {
       const renderedRecommendations = recommendations.slice(0, this.channelShelfExpanded ? YOUTUBE_CHANNEL_RECOMMENDATION_COUNT : YOUTUBE_CHANNEL_SHELF_COMPACT_LIMIT);
+      const signature = this.channelShelfStructuralSignature(recommendations, renderedRecommendations);
+      this.updateChannelShelfChrome(elements, recommendations, renderedRecommendations);
+      if (signature === this.channelShelfRenderSignature) {
+        this.setChannelShelfBusy(this.subscriptionBusy);
+        this.syncChannelShelfTheme();
+        this.hydrateRenderedChannelPreviews(renderedRecommendations);
+        return;
+      }
+      this.channelShelfRenderSignature = signature;
       this.channelShelf?.classList.toggle("is-expanded", this.channelShelfExpanded);
+      this.renderChannelFilters(elements.filters);
+      elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));
+      this.setChannelShelfBusy(this.subscriptionBusy);
+      this.syncChannelShelfTheme();
+      if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
+      this.hydrateRenderedChannelPreviews(renderedRecommendations);
+    }
+    updateChannelShelfChrome(elements, recommendations, renderedRecommendations) {
       elements.title.textContent = "Start your Japanese YouTube feed";
       elements.copy.textContent = this.channelShelfExpanded ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.` : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
       const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
@@ -17056,15 +17117,15 @@ ${spelling}`);
       elements.never.textContent = "Hide";
       elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
-      if (!this.subscriptionBusy) {
-        elements.status.textContent = this.channelShelfStatusOverride;
-      }
-      this.renderChannelFilters(elements.filters);
-      elements.list.replaceChildren(...renderedRecommendations.map((channel) => this.renderChannelRow(channel)));
-      this.setChannelShelfBusy(this.subscriptionBusy);
-      this.syncChannelShelfTheme();
-      if (this.channelShelf) this.options.parseShelfJapanese?.(this.channelShelf);
-      this.hydrateRenderedChannelPreviews(renderedRecommendations);
+      if (!this.subscriptionBusy) elements.status.textContent = this.channelShelfStatusOverride;
+    }
+    channelShelfStructuralSignature(recommendations, renderedRecommendations) {
+      return [
+        this.channelShelfExpanded ? "expanded" : "compact",
+        this.channelShelfFilter,
+        recommendations.map((channel) => channel.handle).join(""),
+        renderedRecommendations.map((channel) => channel.handle).join("")
+      ].join("");
     }
     // m.youtube.com does not use the desktop html[dark] attribute, so detect
     // the page theme from the rendered background and mirror it on the shelf.
@@ -17082,7 +17143,7 @@ ${spelling}`);
     isKnownUnsubscribedChannel(channel) {
       if (this.subscribedChannelHandles.has(channel.handle) || this.unresolvableChannelHandles.has(channel.handle)) return false;
       if (!this.channelPreviewCache.has(channel.handle)) return false;
-      return this.channelPreviewCache.get(channel.handle)?.subscribed !== true;
+      return this.channelPreviewCache.get(channel.handle)?.subscribed === false;
     }
     renderChannelFilters(filters) {
       filters.hidden = !this.channelShelfExpanded;
@@ -17427,6 +17488,7 @@ ${spelling}`);
       this.clearChannelShelfRefresh();
       this.channelShelf?.remove();
       this.channelShelf = void 0;
+      this.channelShelfRenderSignature = "";
       this.channelShelfStatusOverride = "";
       this.clearChannelPreviewBackfill();
     }

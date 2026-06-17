@@ -14,16 +14,19 @@ function normalizeOcrRuby(root: HTMLElement): void {
         furi.setAttribute('aria-hidden', 'true');
         const base = document.createElement('span');
         base.className = 'jpdb-ocr-ruby-base';
+        const baseText = document.createElement('span');
+        baseText.className = 'jpdb-ocr-ruby-base-text';
 
         for (const child of Array.from(ruby.childNodes)) {
             if (child instanceof HTMLElement && child.tagName === 'RT') {
                 furi.textContent += child.textContent ?? '';
             } else if (!(child instanceof HTMLElement && child.tagName === 'RP')) {
-                base.append(child.cloneNode(true));
+                baseText.append(child.cloneNode(true));
             }
         }
 
-        replacement.append(furi, base);
+        base.append(furi, baseText);
+        replacement.append(base);
         ruby.replaceWith(replacement);
     });
 }

@@ -6236,13 +6236,19 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   vertical-align: baseline;
 }
 .jpdb-ocr-ruby-base {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  line-height: 1;
+}
+.jpdb-ocr-ruby-base-text {
   display: inline-flex;
   align-items: flex-end;
   line-height: 1;
 }
 .jpdb-ocr-furi {
   position: absolute;
-  top: 0;
+  top: -1.18em;
   left: 50%;
   color: currentColor;
   font-size: 0.42em;

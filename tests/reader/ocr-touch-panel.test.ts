@@ -594,10 +594,28 @@ describe('OCR sentence focus', () => {
         expect(word.querySelector('ruby')).toBeNull();
         expect(word.querySelector('.jpdb-ocr-furi')?.textContent).toBe('にほんご');
         expect(word.querySelector('.jpdb-ocr-furi')?.getAttribute('aria-hidden')).toBe('true');
-        expect(word.querySelector('.jpdb-ocr-ruby-base')?.textContent).toBe('日本語');
+        expect(word.querySelector('.jpdb-ocr-ruby-base-text')?.textContent).toBe('日本語');
         const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
-        expect(normalizedCss).toContain('.jpdb-ocr-furi { position: absolute; top: 0; left: 50%; color: currentColor; font-size: 0.42em; line-height: 1; opacity: 0;');
+        expect(normalizedCss).toContain('.jpdb-ocr-ruby-base { position: relative; display: inline-flex; align-items: flex-end; line-height: 1; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-ruby-base-text { display: inline-flex; align-items: flex-end; line-height: 1; }');
+        expect(normalizedCss).toContain('.jpdb-ocr-furi { position: absolute; top: -1.18em; left: 50%; color: currentColor; font-size: 0.42em; line-height: 1; opacity: 0;');
         expect(normalizedCss).toContain('.jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi');
+    });
+
+    it('anchors OCR furigana to the specific normalized base span', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-reader-has-furi';
+        word.innerHTML = 'の<ruby><span class="jpdb-reader-ruby-base">居場所</span><rt class="jpdb-reader-furi">いばしょ</rt></ruby>へ';
+
+        normalizeOcrRenderedText(word);
+
+        const ruby = word.querySelector<HTMLElement>('.jpdb-ocr-ruby')!;
+        const base = ruby.querySelector<HTMLElement>('.jpdb-ocr-ruby-base')!;
+        const furi = ruby.querySelector<HTMLElement>('.jpdb-ocr-furi')!;
+        expect(furi.parentElement).toBe(base);
+        expect(base.querySelector('.jpdb-ocr-ruby-base-text')?.textContent).toBe('居場所');
+        expect([...word.children].map(child => child.className)).toEqual(['jpdb-ocr-plain', 'jpdb-ocr-ruby', 'jpdb-ocr-plain']);
+        expect(word.querySelector(':scope > .jpdb-ocr-furi')).toBeNull();
     });
 
     it('keeps multi-ruby OCR words inside one stylable reader word span', () => {
@@ -608,7 +626,7 @@ describe('OCR sentence focus', () => {
         normalizeOcrRenderedText(word);
 
         expect(word.querySelectorAll('.jpdb-ocr-ruby-base')).toHaveLength(3);
-        expect([...word.querySelectorAll('.jpdb-ocr-ruby-base')].map(base => base.textContent)).toEqual(['日', '本', '語']);
+        expect([...word.querySelectorAll('.jpdb-ocr-ruby-base-text')].map(base => base.textContent)).toEqual(['日', '本', '語']);
         expect([...word.querySelectorAll('.jpdb-ocr-furi')].map(furi => furi.textContent)).toEqual(['に', 'ほん', 'ご']);
         expect([...word.querySelectorAll('.jpdb-ocr-ruby')].every(ruby => ruby.closest('.jpdb-reader-word') === word)).toBe(true);
     });

@@ -195,6 +195,34 @@ const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = [
     PASSIVE_INTERACTION_SELECTOR,
     COMPACT_PASSIVE_INTERACTION_SELECTOR,
 ].join(',');
+const COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR = [
+    'yt-lockup-view-model',
+    'ytd-rich-grid-renderer',
+    'ytd-rich-item-renderer',
+    'ytd-video-renderer',
+    'ytd-compact-video-renderer',
+    'ytd-watch-next-secondary-results-renderer',
+    'ytm-rich-grid-renderer',
+    'ytm-video-with-context-renderer',
+    'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
+    'ytm-item-section-renderer',
+].join(',');
+const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = [
+    'ytd-watch-metadata',
+    'ytm-watch-metadata',
+    'ytm-slim-video-metadata-section-renderer',
+    'ytm-expandable-video-description-body-renderer',
+    'ytm-structured-description-content-renderer',
+    'ytd-comment-view-model',
+    'ytd-comments',
+    'ytd-transcript-segment-renderer',
+    'ytm-transcript-segment-renderer',
+    'yt-live-chat-renderer',
+    'yt-live-chat-text-message-renderer',
+    'yt-live-chat-paid-message-renderer',
+    'yt-live-chat-membership-item-renderer',
+].join(',');
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
@@ -1067,6 +1095,8 @@ function renderTokenizedScanText(
     target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; passiveInteraction?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(target.parent);
+    const passiveInteraction = target.passiveInteraction || suppressRuby;
     let offset = 0;
     const tokenPlans = tokens.map(token => ({
         token,
@@ -1077,10 +1107,10 @@ function renderTokenizedScanText(
         const { token, tokenWithSentence } = plan;
         appendPlainTextBeforeToken(fragment, text, offset, token.start);
         fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, settings, {
-            allowRuby: !target.hasNativeRuby && !target.suppressRuby,
+            allowRuby: !target.hasNativeRuby && !suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
-            passiveInteraction: target.passiveInteraction,
+            passiveInteraction,
             preserveTokenRubies: true,
             miningInsightKeys,
         }));
@@ -1096,6 +1126,14 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(host);
+    const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
+    const existing = currentTextMirror(host);
+    if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) {
+        const state = textMirrorHosts.get(host);
+        if (state) reassertTextMirrorHostStyles(host, state);
+        return;
+    }
     removeTextMirror(host);
     if (!safeTokens.length) return;
 
@@ -1103,16 +1141,47 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     mirror.className = 'jpdb-reader-text-mirror';
     mirror.dataset.jpdbReaderTextMirror = 'true';
     mirror.dataset.sourceText = text;
+    mirror.dataset.renderSignature = signature;
     styleTextMirrorHost(host);
     styleTextMirror(mirror, host);
     mirror.append(renderTokenizedScanText(text, safeTokens, settings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
-        suppressRuby: target.suppressRuby,
-        passiveInteraction: target.passiveInteraction,
+        suppressRuby,
+        passiveInteraction: target.passiveInteraction || suppressRuby,
     }));
     host.append(mirror);
     observeTextMirrorHost(host, text);
+}
+
+function currentTextMirror(host: HTMLElement): HTMLElement | null {
+    return Array.from(host.children)
+        .find((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR))
+        ?? null;
+}
+
+function nonDestructiveScanSignature(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings, suppressRuby = Boolean(target.suppressRuby)): string {
+    return JSON.stringify({
+        ruby: !suppressRuby,
+        mode: settings.furiganaMode,
+        hidden: settings.furiganaHiddenStateGroups,
+        colors: settings.wordColorStates,
+        tokens: tokens.map(token => ({
+            s: token.start,
+            e: token.end,
+            v: token.card.vid,
+            r: token.card.rid,
+            source: token.card.source,
+            state: token.card.cardState,
+            pitch: token.pitchClass,
+            ruby: token.rubies,
+        })),
+    });
+}
+
+function shouldSuppressCompactYouTubeRuby(parent: HTMLElement): boolean {
+    if (!parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) return false;
+    return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
 }
 
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {

@@ -64,6 +64,35 @@ function mountMokuroFixture(): HTMLElement {
 afterEach(() => { document.body.innerHTML = ''; });
 
 describe('canvas readers (BookWalker)', () => {
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+
+    afterEach(() => {
+        HTMLCanvasElement.prototype.getContext = originalGetContext;
+    });
+
+    function stubBookWalkerCanvasContent(): void {
+        let source: HTMLCanvasElement | undefined;
+        const rich = canvasPixels(p => {
+            const value = (p * 7) % 256;
+            return [value, value, value, 255];
+        });
+        const blank = canvasPixels(() => [0, 0, 0, 255]);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({
+            drawImage(canvas: HTMLCanvasElement) { source = canvas; },
+            getImageData: () => ({ data: source?.dataset.buffer === 'painted' ? rich : blank }),
+        });
+    }
+
+    function canvasPixels(fill: (p: number) => [number, number, number, number]): Uint8ClampedArray {
+        const data = new Uint8ClampedArray(20 * 20 * 4);
+        for (let p = 0; p < 400; p += 1) {
+            const [r, g, b, a] = fill(p);
+            data[p * 4] = r; data[p * 4 + 1] = g; data[p * 4 + 2] = b; data[p * 4 + 3] = a;
+        }
+        return data;
+    }
+
     it('recognises BookWalker viewer hosts', () => {
         expect(isBookwalkerViewerHost('viewer.bookwalker.jp')).toBe(true);
         expect(isBookwalkerViewerHost('viewer-trial.bookwalker.jp')).toBe(true);
@@ -80,6 +109,7 @@ describe('canvas readers (BookWalker)', () => {
     });
 
     it('collects only the on-screen (.currentScreen) live viewer page canvas, skipping decoys + the off-screen buffer', () => {
+        stubBookWalkerCanvasContent();
         mountLiveViewerFixture();
         expect(isCanvasReaderPage('viewer.bookwalker.jp')).toBe(true);
         const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
@@ -92,6 +122,21 @@ describe('canvas readers (BookWalker)', () => {
         expect(surfaces[0]?.closest('#viewport1')).not.toBeNull();
         expect(surfaces.some(c => c.classList.contains('dummy'))).toBe(false);
         expect(surfaces.every(c => c.width >= 600 && c.height >= 600)).toBe(true);
+    });
+
+    it('falls back to a painted sibling when the current live viewer buffer is blank', () => {
+        stubBookWalkerCanvasContent();
+        document.body.innerHTML = `
+            <div id="renderer">
+                <div id="viewport0"><canvas data-buffer="painted" width="2400" height="1794"></canvas></div>
+                <div id="viewport1" class="currentScreen"><canvas data-buffer="blank" width="2400" height="1794"></canvas></div>
+            </div>
+            <span id="pageSliderCounter">2/13</span>`;
+
+        const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+
+        expect(surfaces).toHaveLength(1);
+        expect(surfaces[0]?.dataset.buffer).toBe('painted');
     });
 
     it('keeps every live viewer page canvas before a buffer is marked current (e.g. the cover)', () => {
