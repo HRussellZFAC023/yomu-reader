@@ -248,6 +248,7 @@ export interface TextTarget {
     text: string;
     parent: HTMLElement;
     hasNativeRuby?: boolean;
+    suppressRuby?: boolean;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
@@ -268,6 +269,7 @@ export interface FragmentTextTarget {
     parent: HTMLElement;
     fragments: TextFragment[];
     parserId?: string;
+    suppressRuby?: boolean;
     layoutSensitive?: boolean;
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
@@ -1050,6 +1052,7 @@ function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], se
     return renderTokenizedScanText(target.text, tokens, settings, {
         parent: target.parent,
         hasNativeRuby: target.hasNativeRuby,
+        suppressRuby: target.suppressRuby,
         passiveInteraction: target.passiveInteraction,
     });
 }
@@ -1058,7 +1061,7 @@ function renderTokenizedScanText(
     text: string,
     tokens: JPDBToken[],
     settings: ReaderSettings,
-    target: { parent: HTMLElement; hasNativeRuby?: boolean; passiveInteraction?: boolean },
+    target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; passiveInteraction?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
     let offset = 0;
@@ -1071,7 +1074,7 @@ function renderTokenizedScanText(
         const { token, tokenWithSentence } = plan;
         appendPlainTextBeforeToken(fragment, text, offset, token.start);
         fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, settings, {
-            allowRuby: !target.hasNativeRuby,
+            allowRuby: !target.hasNativeRuby && !target.suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction: target.passiveInteraction,
@@ -1102,6 +1105,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     mirror.append(renderTokenizedScanText(text, safeTokens, settings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
+        suppressRuby: target.suppressRuby,
         passiveInteraction: target.passiveInteraction,
     }));
     host.append(mirror);
@@ -1523,7 +1527,7 @@ function renderSingleFragmentToken(
     settings: ReaderSettings,
     miningInsightKeys: ReadonlySet<string>,
 ): HTMLElement {
-    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
         allowRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -1565,7 +1569,7 @@ function applyTokenToIndexedFragments(
         return;
     }
 
-    if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+    if (!target.suppressRuby && fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
         const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
         if (nativeRubyRange) {
             insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
@@ -1602,7 +1606,7 @@ function applyTokenToIndexedFragments(
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         scanWord: true,
         passiveInteraction,
-        allowRuby: true,
+        allowRuby: !target.suppressRuby,
         preserveTokenRubies: true,
         miningInsightKeys,
     });
@@ -1623,7 +1627,7 @@ function insertSplitFragmentTokenPieces(
         if (!surface) continue;
         const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
         const rendered = renderToken(surface, pieceToken, settings, {
-            allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+            allowRuby: !target.suppressRuby && scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
             passiveInteraction,
@@ -1845,7 +1849,7 @@ function insertSingleFragmentToken(
     miningInsightKeys: ReadonlySet<string>,
     passiveInteraction: boolean,
 ): void {
-    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
         allowRuby,

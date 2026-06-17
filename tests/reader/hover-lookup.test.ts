@@ -30,6 +30,7 @@ interface HoverLookupInternals {
     canBeginPrimaryPressLookup(event: PointerEvent): boolean;
     handleHoverPointer(event: PointerEvent): void;
     handleHoverPointerOut(event: PointerEvent): void;
+    handleDocumentClick(event: MouseEvent): void;
     scheduleHoverLookup(word: HTMLElement, event: PointerEvent): void;
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
@@ -162,6 +163,28 @@ function passiveButtonWordFixture(): { button: HTMLButtonElement; overlay: HTMLE
     });
     document.body.append(button);
     return { button, overlay, word };
+}
+
+function passiveJpdbLinkWordFixture(): { link: HTMLAnchorElement; word: HTMLElement } {
+    const link = document.createElement('a');
+    link.className = 'plain';
+    link.href = '/kanji/一#a';
+    link.innerHTML = `
+        <span class="jpdb-reader-word jpdb-reader-passive-word" data-vid="1" data-sid="2" data-expression="一" data-reading="いち" data-sentence="一" data-jpdb-reader-passive="true">一</span>
+    `;
+    const word = link.querySelector<HTMLElement>('.jpdb-reader-word')!;
+    Object.defineProperties(word, {
+        getClientRects: {
+            configurable: true,
+            value: () => [new DOMRect(20, 10, 32, 28)],
+        },
+        getBoundingClientRect: {
+            configurable: true,
+            value: () => new DOMRect(20, 10, 32, 28),
+        },
+    });
+    document.body.append(link);
+    return { link, word };
 }
 
 function subtitleRowHitStackFixture(): { row: HTMLElement; surface: HTMLElement; word: HTMLElement } {
@@ -549,6 +572,80 @@ describe('hover lookup', () => {
         } finally {
             restoreElementFromPoint();
             restoreElementsFromPoint();
+            cleanupReaderApp(app);
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('hovers passive JPDB link words when hit testing only returns the host link', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/kanji/%E4%B8%80#a',
+            origin: 'https://jpdb.io',
+            hostname: 'jpdb.io',
+        });
+        const app = new ReaderApp();
+        const { link, word } = passiveJpdbLinkWordFixture();
+        const internals = app as unknown as HoverLookupInternals;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const restoreElementFromPoint = stubElementFromPoint(link);
+        const restoreElementsFromPoint = stubElementsFromPoint([link]);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            hoverOpenDelayMs: 0,
+            lookupOnHover: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.showWord = showWord;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(link));
+
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
+        } finally {
+            restoreElementFromPoint();
+            restoreElementsFromPoint();
+            cleanupReaderApp(app);
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('lets native JPDB data-audio links receive clicks beside passive parsed text', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/review?c=v%2C1%2C2&r=1#a',
+            origin: 'https://jpdb.io',
+            hostname: 'jpdb.io',
+            pathname: '/review',
+        });
+        document.body.innerHTML = `
+            <div class="example">
+                <a class="icon-link example-audio" href="#" data-audio="m1/example-audio"><i class="ti ti-volume"></i></a>
+                <span class="sentence"><span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true">一</span></span>
+            </div>
+        `;
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const icon = document.querySelector<HTMLElement>('.example-audio i')!;
+        const link = document.querySelector<HTMLAnchorElement>('.example-audio')!;
+        const nativeClick = vi.fn((event: MouseEvent) => event.preventDefault());
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const controller = new AbortController();
+        internals.showWord = showWord;
+        document.addEventListener('click', event => internals.handleDocumentClick(event), { capture: true, signal: controller.signal });
+        link.addEventListener('click', nativeClick);
+
+        try {
+            icon.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 24,
+                clientY: 24,
+            }));
+
+            expect(nativeClick).toHaveBeenCalledTimes(1);
+            expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            controller.abort();
             cleanupReaderApp(app);
             vi.unstubAllGlobals();
         }

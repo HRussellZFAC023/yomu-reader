@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.5] - 2026-06-17
+
+### Fixed
+
+- JPDB review and search page enhancements now keep Immersion Kit examples stable, position example subtitles over the image correctly, show kanji doodle practice on unrevealed kanji fronts with the trace hidden by default, remember the native examples toggle state, and preserve native JPDB audio links.
+- JPDB passive link-style words now open Yomu hover dictionaries reliably, while JPDB and Jiten study prompts suppress Yomu-added furigana for the word being quizzed.
+- JPDB word-card backs now render the full local/JPDB/Jiten definition information, matching kanji cards and Jiten word pages.
+
 ## [1.0.4] - 2026-06-17
 
 ### Fixed

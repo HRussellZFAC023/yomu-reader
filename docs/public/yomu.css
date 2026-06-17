@@ -4144,7 +4144,10 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   left: clamp(8px, 3%, 16px);
   right: clamp(8px, 3%, 16px);
   bottom: clamp(10px, 4%, 16px);
+  width: auto;
+  max-width: none;
   padding: 0;
+  transform: none;
   background: transparent;
   box-shadow: none;
 }

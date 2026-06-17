@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.0.4
+// @version      1.0.5
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -4265,6 +4265,7 @@
     return renderTokenizedScanText(target.text, tokens, settings, {
       parent: target.parent,
       hasNativeRuby: target.hasNativeRuby,
+      suppressRuby: target.suppressRuby,
       passiveInteraction: target.passiveInteraction
     });
   }
@@ -4280,7 +4281,7 @@
       const { token, tokenWithSentence } = plan;
       appendPlainTextBeforeToken(fragment, text2, offset, token.start);
       fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, settings, {
-        allowRuby: !target.hasNativeRuby,
+        allowRuby: !target.hasNativeRuby && !target.suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction: target.passiveInteraction,
@@ -4308,6 +4309,7 @@
     mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
       parent: host,
       hasNativeRuby: targetHasNativeRuby(target),
+      suppressRuby: target.suppressRuby,
       passiveInteraction: target.passiveInteraction
     }));
     host.append(mirror);
@@ -4631,7 +4633,7 @@
     replaceTextNodeRange(fragment.node, fragment.start, fragment.end, replacement);
   }
   function renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys) {
-    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
     return renderToken(fragment.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
       allowRuby,
       kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -4662,7 +4664,7 @@
       );
       return;
     }
-    if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+    if (!target.suppressRuby && fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
       const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
       if (nativeRubyRange) {
         insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
@@ -4697,7 +4699,7 @@
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       scanWord: true,
       passiveInteraction,
-      allowRuby: true,
+      allowRuby: !target.suppressRuby,
       preserveTokenRubies: true,
       miningInsightKeys
     });
@@ -4709,7 +4711,7 @@
       if (!surface) continue;
       const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
       const rendered = renderToken(surface, pieceToken, settings, {
-        allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+        allowRuby: !target.suppressRuby && scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction,
@@ -4858,7 +4860,7 @@
     return boundary;
   }
   function insertSingleFragmentToken(target, fragment, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
-    const allowRuby = scanFragmentAllowsRuby(fragment.hasNativeRuby);
+    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);
     const surface = fragment.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       allowRuby,
@@ -28252,6 +28254,10 @@ ${normalizedReading}`;
   function isKanjiPage() {
     return location.pathname.startsWith("/kanji/");
   }
+  function isKanjiReviewFront() {
+    const state = currentReviewCardState();
+    return state.isKanji && state.phase === "before" && !hasReviewAnswerContent();
+  }
   function isKanjiReviewBack() {
     const state = currentReviewCardState();
     return state.isKanji && (state.phase === "after" || hasReviewAnswerContent());
@@ -28305,7 +28311,7 @@ ${normalizedReading}`;
     return { term: kanji, reading: kanji, queries: queries.length ? queries : [kanji], examples: extractPageExamples(document), anchor: anchor ?? document.body };
   }
   function canReadCurrentKanjiTarget(kanji) {
-    return Boolean(kanji && (isKanjiPage() || isKanjiReviewBack()));
+    return Boolean(kanji && (isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack()));
   }
   function currentVocabularyTermTarget() {
     const pageTerm = extractCurrentTermTarget();
@@ -28784,7 +28790,7 @@ ${glossaryKey}`;
   }
   function isCurrentKanjiSurface() {
     if (isJitenHost()) return isJitenKanjiPage();
-    return isKanjiPage() || isKanjiReviewBack();
+    return isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack();
   }
   function currentPageKanji() {
     return isJitenHost() ? extractCurrentJitenKanji() : extractCurrentKanji();
@@ -31217,13 +31223,46 @@ ${glossaryKey}`;
     return true;
   }
   function siteScanTargetWithProfileOptions(profile, target) {
+    const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
     const baseTarget = {
       ...target,
       parserId: profile.id,
+      suppressRuby: target.suppressRuby || suppressRuby || void 0,
+      passiveInteraction: target.passiveInteraction || suppressRuby || void 0,
       singlePassScan: profile.singlePassScan || void 0,
       nonDestructive: profile.nonDestructive || void 0
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
+  }
+  function shouldSuppressSiteScanRuby(profile, target) {
+    if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
+    if (profile.id === "jiten-parser") return isJitenStudyPromptTarget(target.parent, target.text);
+    return false;
+  }
+  function isJpdbReviewPromptTarget(parent, text2) {
+    if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return false;
+    if (compactTextLength(text2) > 18) return false;
+    const prompt = parent.closest(".review-card, .answer-box, .prompt, .spelling, .kanji, .vocabulary-spelling");
+    if (!prompt) return false;
+    return !parent.closest(".subsection-examples, .subsection-meanings, .subsection-usages, .subsection-immersion-kit");
+  }
+  function isJitenStudyPromptTarget(parent, text2) {
+    if (!isJitenStudyPath() || compactTextLength(text2) > 18) return false;
+    const prompt = parent.closest('[lang="ja"]');
+    if (!prompt || !prompt.classList.contains("font-noto-sans")) return false;
+    if (!hasPromptTextSizeClass(prompt)) return false;
+    return Boolean(prompt.closest(".flex.items-center.justify-center"));
+  }
+  function isJitenStudyPath() {
+    return (location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe")) && location.pathname.startsWith("/srs/study");
+  }
+  function hasPromptTextSizeClass(element2) {
+    return Array.from(element2.classList).some(
+      (className) => className === "text-4xl" || className === "text-5xl" || className === "text-6xl" || className.endsWith(":text-4xl") || className.endsWith(":text-5xl") || className.endsWith(":text-6xl")
+    );
+  }
+  function compactTextLength(text2) {
+    return text2.replace(/\s+/g, "").length;
   }
   function plainScanTarget(target) {
     return {
@@ -32330,7 +32369,7 @@ ${glossaryKey}`;
     if (isOcrLineFrameWord(word)) return false;
     if (word.closest(".jpdb-reader-popover")) return false;
     if (isSettingsNativeControlWord(word)) return false;
-    if (isNativePageLookupBlocked(word)) return false;
+    if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== "true") return false;
     if (!word.closest("[data-jpdb-reader-root]")) return true;
     if (word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon")) return true;
     return hasHoverLookupShortcut && Boolean(word.closest(".jpdb-reader-newtab, .jpdb-reader-settings"));
@@ -35368,13 +35407,13 @@ ${glossaryKey}`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
             <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
-            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(options.kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true"><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
+            <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
             </div>
             <div class="jpdb-reader-doodle-tools">
                 <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "hideTrace"))}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "showTrace"))}</button>
                 <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
             </div>
             <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
@@ -36451,12 +36490,15 @@ ${glossaryKey}`;
     "article",
     "main",
     "[data-jpdb-reader-root]",
+    "a[href]",
     "button",
     "summary",
+    '[role="link"]',
     '[role="button"]',
     '[role="tab"]',
     '[role="menuitem"]'
   ].join(",");
+  const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = "yomu:jpdb-review-examples-visible:v1";
   const READER_POINTER_SURFACE_SELECTOR = [
     ".jpdb-reader-popover",
     ".jpdb-reader-settings",
@@ -37175,6 +37217,7 @@ ${glossaryKey}`;
     initJpdbPageEnhancements() {
       if (!isPageEnhancementHost()) return;
       this.scheduleJpdbPageEnhancements(0);
+      this.installJpdbReviewExamplesToggleMemory();
       addWindowEventListener("popstate", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
       addWindowEventListener("hashchange", () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
     }
@@ -37189,16 +37232,29 @@ ${glossaryKey}`;
     async refreshJpdbPageEnhancements() {
       const generation = ++this.jpdbPageEnhancementGeneration;
       this.lastEnhancedHref = location.href;
-      this.pauseAutoScanObserver(() => this.removeJpdbPageEnhancements());
-      if (!this.settings.jpdbPageEnhancementsEnabled || !isPageEnhancementReady()) return;
+      this.installJpdbReviewExamplesToggleMemory();
+      if (!this.settings.jpdbPageEnhancementsEnabled || !isPageEnhancementReady()) {
+        this.pauseAutoScanObserver(() => this.removeJpdbPageEnhancements());
+        return;
+      }
       if (isCurrentKanjiSurface()) {
         if (this.settings.jpdbPageKanjiEnhancementsEnabled) this.installJpdbKanjiPageEnhancement(generation);
+        this.removeStaleJpdbPageEnhancements(generation);
         return;
       }
       if (this.settings.jpdbPageWordEnhancementsEnabled) await this.installJpdbWordPageEnhancements(generation);
+      this.removeStaleJpdbPageEnhancements(generation);
     }
     removeJpdbPageEnhancements() {
       document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element2) => element2.remove());
+    }
+    removeStaleJpdbPageEnhancements(generation) {
+      const generationKey = String(generation);
+      this.pauseAutoScanObserver(() => {
+        document.querySelectorAll("[data-yomu-jpdb-addon]").forEach((element2) => {
+          if (element2.dataset.yomuGeneration !== generationKey) element2.remove();
+        });
+      });
     }
     jitenEnhancementsNeedRefresh() {
       if (location.href !== this.lastEnhancedHref) return true;
@@ -37211,21 +37267,67 @@ ${glossaryKey}`;
       const anchor = currentPageTermTarget()?.anchor;
       return Boolean(anchor && anchor !== document.body && anchor.tagName !== "MAIN");
     }
+    installJpdbReviewExamplesToggleMemory() {
+      if (!this.isJpdbReviewPage()) return;
+      const checkbox = document.querySelector("#show-checkbox-examples");
+      if (!checkbox) return;
+      if (checkbox.dataset.yomuExamplesMemoryInstalled === "true") return;
+      checkbox.dataset.yomuExamplesMemoryInstalled = "true";
+      const storedVisible = this.storedJpdbReviewExamplesVisible();
+      if (storedVisible !== null && checkbox.checked !== storedVisible) {
+        checkbox.checked = storedVisible;
+        checkbox.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      checkbox.addEventListener("change", () => {
+        this.storeJpdbReviewExamplesVisible(checkbox.checked);
+      }, { signal: this.abortController.signal });
+    }
+    isJpdbReviewPage() {
+      return location.hostname === "jpdb.io" && location.pathname.startsWith("/review");
+    }
+    storedJpdbReviewExamplesVisible() {
+      try {
+        const value = localStorage.getItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY);
+        return value === "true" ? true : value === "false" ? false : null;
+      } catch {
+        return null;
+      }
+    }
+    storeJpdbReviewExamplesVisible(visible) {
+      try {
+        localStorage.setItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY, String(visible));
+      } catch {
+      }
+    }
     async installJpdbWordPageEnhancements(generation) {
       const targets = currentPageLocalDictionaryTargets();
       await Promise.all(targets.map((target) => this.installJpdbWordPageEnhancement(target, generation)));
     }
     async installJpdbWordPageEnhancement(target, generation) {
-      const card = jpdbAudioCard(target.term, target.reading);
-      const entries = await this.lookupJpdbPageLocalEntries(target);
+      const card = this.jpdbPageWordCard(target);
+      const renderData = this.cardRenderData.load(card);
+      const [data, variantEntries] = await Promise.all([
+        renderData.all.catch(() => null),
+        this.lookupJpdbPageLocalEntries(target)
+      ]);
+      const entries = uniqueLocalDictionaryEntries([
+        ...data?.localEntries ?? [],
+        ...variantEntries
+      ]).sort(
+        (first, second) => dictionaryPreferencePriority(first.dictionary, this.settings) - dictionaryPreferencePriority(second.dictionary, this.settings)
+      ).slice(0, this.settings.localDictionaryMaxResults);
       if (!this.isCurrentJpdbPageEnhancement(generation)) return;
-      if (!entries.length && !this.settings.immersionKitEnabled) return;
-      const root = this.createJpdbPageAddonRoot("word", target.anchor);
+      if (!this.hasJpdbPageWordContent(entries, data)) return;
+      const root = this.createJpdbPageAddonRoot("word", this.jpdbPageWordAddonKey(target), target.anchor, generation);
       if (!root) return;
-      setInnerHtml(root, this.renderDefinitionSources(card, entries, target.examples[0]?.sentence, null, null, {
-        includeJpdbSource: false,
-        includeStudySources: false
-      }));
+      const html = this.renderDefinitionSources(
+        card,
+        entries,
+        target.examples[0]?.sentence,
+        data?.jpdbVocabularyInfo ?? null,
+        data?.jitenVocabularyInfo ?? null
+      );
+      if (!this.updateJpdbPageAddonHtml(root, html)) return;
       this.installJpdbPageAddonHandlers(root, card);
       this.dictionarySourceState.installTracking(root);
       this.installJpdbPageImmersionExamples(root, card, [
@@ -37234,6 +37336,25 @@ ${glossaryKey}`;
         ...target.examples.map((example) => example.sentence)
       ]);
       void this.parseJpdbPageAddonJapanese(root);
+    }
+    hasJpdbPageWordContent(entries, data) {
+      return Boolean(
+        entries.length || data?.jpdbVocabularyInfo || data?.jitenVocabularyInfo || this.settings.immersionKitEnabled
+      );
+    }
+    jpdbPageWordCard(target) {
+      const card = jpdbAudioCard(target.term, target.reading);
+      card.source = isJitenHost() ? "jiten" : "jpdb";
+      return card;
+    }
+    jpdbPageWordAddonKey(target) {
+      return `word:${target.term}:${target.reading}`;
+    }
+    updateJpdbPageAddonHtml(root, html) {
+      if (root.dataset.yomuRenderedHtml === html) return false;
+      root.dataset.yomuRenderedHtml = html;
+      setInnerHtml(root, html);
+      return true;
     }
     async lookupJpdbPageLocalEntries(target) {
       if (!this.settings.localDictionariesEnabled) return [];
@@ -37254,7 +37375,7 @@ ${glossaryKey}`;
       const kanji = currentPageKanji();
       if (!isKanjiCharacter(kanji) || !this.isCurrentJpdbPageEnhancement(generation)) return;
       const target = currentPageTermTarget();
-      const root = this.createJpdbPageAddonRoot("kanji", target?.anchor ?? document.body);
+      const root = this.createJpdbPageAddonRoot("kanji", `kanji:${kanji}`, target?.anchor ?? document.body, generation);
       if (!root) return;
       const language = this.settings.interfaceLanguage;
       const mounts = this.renderKanjiSourceMounts(kanji, language);
@@ -37263,17 +37384,25 @@ ${glossaryKey}`;
         return;
       }
       const card = jpdbAudioCard(kanji, kanji);
-      setInnerHtml(root, `<div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">${mounts}</div>`);
+      this.updateJpdbPageAddonHtml(root, `<div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">${mounts}</div>`);
       this.installJpdbPageAddonHandlers(root, card);
       this.dictionarySourceState.installTracking(root);
       this.startKanjiProgressiveRender(root, this.kanjiDetailPromises(kanji), card, kanji, language, target ?? void 0);
       void this.parseJpdbPageAddonJapanese(root);
     }
-    createJpdbPageAddonRoot(kind, anchor) {
+    createJpdbPageAddonRoot(kind, key, anchor, generation) {
       if (!anchor.isConnected) return null;
+      const existing = Array.from(document.querySelectorAll(`[data-yomu-jpdb-addon="${kind}"]`)).find((element2) => element2.dataset.yomuAddonKey === key);
+      if (existing) {
+        existing.dataset.yomuGeneration = String(generation);
+        existing.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === "MAIN");
+        return existing;
+      }
       const root = document.createElement("div");
       root.dataset.jpdbReaderRoot = "true";
       root.dataset.yomuJpdbAddon = kind;
+      root.dataset.yomuAddonKey = key;
+      root.dataset.yomuGeneration = String(generation);
       root.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === "MAIN");
       root.className = `yomu-jpdb-page-addon yomu-jpdb-${kind}-addon`;
       this.pauseAutoScanObserver(() => {
@@ -37283,6 +37412,8 @@ ${glossaryKey}`;
       return root;
     }
     installJpdbPageAddonHandlers(root, fallbackCard) {
+      if (root.dataset.yomuHandlersInstalled === "true") return;
+      root.dataset.yomuHandlersInstalled = "true";
       root.addEventListener("click", (event) => this.handleJpdbPageAddonClick(event, root, fallbackCard));
     }
     handleJpdbPageAddonClick(event, root, fallbackCard) {
@@ -38006,10 +38137,11 @@ ${glossaryKey}`;
       const word = element2?.closest?.(".jpdb-reader-word");
       return word && this.canLookupReaderWord(word) ? word : null;
     }
-    wordFromPoint(x, y) {
+    wordFromPoint(x, y, surface = null) {
+      if (typeof document.elementsFromPoint !== "function") return null;
       for (const element2 of document.elementsFromPoint(x, y)) {
         const word = element2.closest?.(".jpdb-reader-word");
-        if (word && this.canLookupReaderWord(word)) return word;
+        if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canLookupReaderWord(word)) return word;
       }
       return null;
     }
@@ -38234,15 +38366,16 @@ ${glossaryKey}`;
       return Boolean(word && this.isInsideActivePopover(word));
     }
     hoverReaderWordForEvent(event) {
-      const word = this.readerWordForPointerEvent(event);
+      const word = this.readerWordForPointerEvent(event, { hoverLookup: true });
       return word && this.canHoverLookupReaderWord(word) ? word : null;
     }
-    readerWordForPointerEvent(event) {
+    readerWordForPointerEvent(event, options = {}) {
       const target = event.target instanceof Element ? event.target : null;
       const surface = this.readerPointerSurfaceForTarget(target);
       const direct = target?.closest?.(".jpdb-reader-word");
-      if (direct && this.readerWordBelongsToPointerSurface(direct, surface)) return direct;
-      return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
+      const canUseWord = (word) => options.hoverLookup ? this.canHoverLookupReaderWord(word) : this.canLookupReaderWord(word);
+      if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct)) return direct;
+      return this.ocrLineWordForPointer(target, event.clientX, event.clientY) ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface)) ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY, canUseWord);
     }
     readerPointerSurfaceForTarget(target) {
       return target?.closest(READER_POINTER_SURFACE_SELECTOR) ?? null;
@@ -38277,9 +38410,9 @@ ${glossaryKey}`;
       const line = target?.closest?.(".jpdb-ocr-line");
       return line ? ocrLineWordAtPoint(line, x, y) : null;
     }
-    readerWordFromRenderedGeometry(target, x, y) {
+    readerWordFromRenderedGeometry(target, x, y, canUseWord = (word) => this.canLookupReaderWord(word)) {
       const scope = this.readerWordGeometryScope(target);
-      return scope ? readerWordAtPointInScope(scope, x, y, (word) => this.canLookupReaderWord(word)) : null;
+      return scope ? readerWordAtPointInScope(scope, x, y, canUseWord) : null;
     }
     readerWordGeometryScope(target) {
       if (!target) return null;
@@ -38641,7 +38774,7 @@ ${glossaryKey}`;
       if (target instanceof Element) {
         if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
         if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
-        if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+        if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, (item) => this.canHoverLookupReaderWord(item)) === word) return true;
       }
       return this.isInsideNode(target, word);
     }
@@ -40433,9 +40566,10 @@ ${glossaryKey}`;
       const { stage, ghost, help } = elements;
       setInnerHtml(ghost, info.svg);
       help.textContent = `${info.strokeCount} ${uiText(language, "strokes")}`;
-      stage.classList.remove("trace-hidden");
       const trace = stage.closest(".jpdb-reader-kanjivg")?.querySelector("[data-doodle-trace]");
-      if (trace) trace.textContent = uiText(language, "hideTrace");
+      const traceVisible = !stage.classList.contains("trace-hidden");
+      ghost.hidden = !traceVisible;
+      if (trace) trace.textContent = uiText(language, traceVisible ? "hideTrace" : "showTrace");
     }
     kanjiVGStageElements(popover, kanji) {
       const stage = Array.from(popover.querySelectorAll(".jpdb-reader-doodle-stage")).find((candidate) => candidate.dataset.kanji === kanji);

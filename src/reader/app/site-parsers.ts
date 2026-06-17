@@ -976,13 +976,58 @@ function addUniqueSiteScanTarget(
 }
 
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
+    const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
     const baseTarget = {
         ...target,
         parserId: profile.id,
+        suppressRuby: target.suppressRuby || suppressRuby || undefined,
+        passiveInteraction: target.passiveInteraction || suppressRuby || undefined,
         singlePassScan: profile.singlePassScan || undefined,
         nonDestructive: profile.nonDestructive || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
+}
+
+function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
+    if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
+    if (profile.id === 'jiten-parser') return isJitenStudyPromptTarget(target.parent, target.text);
+    return false;
+}
+
+function isJpdbReviewPromptTarget(parent: HTMLElement, text: string): boolean {
+    if (location.hostname !== 'jpdb.io' || !location.pathname.startsWith('/review')) return false;
+    if (compactTextLength(text) > 18) return false;
+    const prompt = parent.closest<HTMLElement>('.review-card, .answer-box, .prompt, .spelling, .kanji, .vocabulary-spelling');
+    if (!prompt) return false;
+    return !parent.closest('.subsection-examples, .subsection-meanings, .subsection-usages, .subsection-immersion-kit');
+}
+
+function isJitenStudyPromptTarget(parent: HTMLElement, text: string): boolean {
+    if (!isJitenStudyPath() || compactTextLength(text) > 18) return false;
+    const prompt = parent.closest<HTMLElement>('[lang="ja"]');
+    if (!prompt || !prompt.classList.contains('font-noto-sans')) return false;
+    if (!hasPromptTextSizeClass(prompt)) return false;
+    return Boolean(prompt.closest('.flex.items-center.justify-center'));
+}
+
+function isJitenStudyPath(): boolean {
+    return (location.hostname === 'jiten.moe' || location.hostname.endsWith('.jiten.moe'))
+        && location.pathname.startsWith('/srs/study');
+}
+
+function hasPromptTextSizeClass(element: HTMLElement): boolean {
+    return Array.from(element.classList).some(className =>
+        className === 'text-4xl'
+        || className === 'text-5xl'
+        || className === 'text-6xl'
+        || className.endsWith(':text-4xl')
+        || className.endsWith(':text-5xl')
+        || className.endsWith(':text-6xl'),
+    );
+}
+
+function compactTextLength(text: string): number {
+    return text.replace(/\s+/g, '').length;
 }
 
 function plainScanTarget(target: FragmentTextTarget): FragmentTextTarget {

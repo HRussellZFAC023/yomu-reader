@@ -5,6 +5,7 @@ import {
     isJpdbHost,
     isKanjiPage,
     isKanjiReviewBack,
+    isKanjiReviewFront,
     type JpdbTermTarget,
     type LocalDictionaryTarget,
 } from '../jpdb/jpdb-page-targets';
@@ -30,7 +31,7 @@ export function isPageEnhancementReady(): boolean {
 
 export function isCurrentKanjiSurface(): boolean {
     if (isJitenHost()) return isJitenKanjiPage();
-    return isKanjiPage() || isKanjiReviewBack();
+    return isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack();
 }
 
 export function currentPageKanji(): string {

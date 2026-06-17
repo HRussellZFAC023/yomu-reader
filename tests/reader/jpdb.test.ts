@@ -23,7 +23,7 @@ import type { MiningContext } from '../../src/reader/study/mining-context';
 import { ImmersionPopoverController } from '../../src/reader/immersion/popover-controller';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb/jpdb';
 import { jpdbParseResultToTokens, jpdbVocabularyToCards } from '../../src/reader/jpdb/jpdb-parser';
-import { currentLocalDictionaryTargets, isKanjiReviewBack, isKanjiReviewFront, localDictionaryLookupVariants, parseJpdbReviewCardValue } from '../../src/reader/jpdb/jpdb-page-targets';
+import { currentLocalDictionaryTargets, isKanjiReviewBack, isKanjiReviewFront, localDictionaryLookupVariants, parseJpdbReviewCardValue, type LocalDictionaryTarget } from '../../src/reader/jpdb/jpdb-page-targets';
 import { JpdbKanjiClient, parseJpdbKanjiHtml, visibleJpdbKanjiActions } from '../../src/reader/jpdb/jpdb-kanji';
 import { JpdbVocabularyClient, parseJpdbAudioData, parseJpdbSearchHtml, parseJpdbVocabularyHtml } from '../../src/reader/jpdb/jpdb-vocabulary';
 import { JpdbPublicPitchClient, parseJpdbPublicPitchHtml } from '../../src/reader/jpdb/jpdb-public-pitch';
@@ -32,6 +32,7 @@ import { parseKanjiVGSvg } from '../../src/reader/kanji/vg';
 import { formatMetaFrequency, groupTermEntriesByHeadword, mergeSimilarKanjiWords, summarizeLearnerGlossary } from '../../src/reader/dictionaries/groups';
 import { Logger } from '../../src/reader/app/logger';
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText } from '../../src/reader/app/mutation-scan';
+import { currentPageTermTarget, isCurrentKanjiSurface } from '../../src/reader/app/page-enhancement-targets';
 import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '../../src/reader/newtab/index';
 import { ObjectUrlCache } from '../../src/reader/core/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/app/page-media-url';
@@ -68,7 +69,8 @@ import { DEFAULT_AUDIO_SOURCES, DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, SETTI
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { installSourceRowDrag, localizeSettingsForm, readDictionaryLookupLinks, readFormSettings, renderAudioSourceEditor, renderDictionaryLookupLinkEditor, renderDictionarySourceRows, renderKanjiSourceRows, renderRecommendedDictionaries, renderSettingsForm, syncStickyBottomSheetAvailability, updateDictionaryLookupLinkEditor } from '../../src/reader/settings/form';
 import { SITE_PARSER_PROFILES, collectScanTargets, collectSiteScanTargets, getMatchingSiteParsers } from '../../src/reader/app/site-parsers';
-import { KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
+import { KANJI_STROKE_SOURCE_ID, KANJI_UCHISEN_SOURCE_ID, definitionSourceRows, kanjiSourceRows, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
+import { renderKanjiSourceMounts } from '../../src/reader/runtime/kanji-source-mounts';
 import { StudySourceController } from '../../src/reader/study/sources';
 import { detectGrammarHints, renderGrammarHints, translateJapaneseSentence } from '../../src/reader/study/tools';
 import { READER_CSS, readerCssNeedsFallback } from '../../src/reader/styles/index';
@@ -3729,6 +3731,7 @@ describe('reader helpers', () => {
         expect(normalizedImmersionCss).toContain('.jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; margin: 0 0 6px; }');
         expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-media { width: min(100%, 720px); overflow: visible; }');
+        expect(normalizedImmersionCss).toContain('.yomu-jpdb-page-addon .jpdb-reader-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { left: clamp(8px, 3%, 16px); right: clamp(8px, 3%, 16px); bottom: clamp(10px, 4%, 16px); width: auto; max-width: none; padding: 0; transform: none; background: transparent; box-shadow: none; }');
     });
 
     it('resizes sheet popovers continuously when dragging the handle', () => {
@@ -24373,6 +24376,150 @@ describe('reader helpers', () => {
         expect(isKanjiReviewBack()).toBe(true);
     });
 
+    it('treats unrevealed JPDB kanji review fronts as kanji enhancement surfaces', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/review?c=kb,%E5%AD%90#a',
+            hostname: 'jpdb.io',
+            pathname: '/review',
+            search: '?c=kb,%E5%AD%90',
+        });
+        document.body.innerHTML = `
+            <main>
+                <input name="c" value="kb,子">
+                <div class="prompt">Kanji</div>
+                <div class="answer-box">child</div>
+            </main>
+        `;
+
+        try {
+            expect(isKanjiReviewFront()).toBe(true);
+            expect(isCurrentKanjiSurface()).toBe(true);
+            expect(currentPageTermTarget()).toMatchObject({
+                term: '子',
+                reading: '子',
+                queries: ['子'],
+            });
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('remembers the JPDB review examples toggle state', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/review?c=v%2C1%2C2&r=1#a',
+            hostname: 'jpdb.io',
+            pathname: '/review',
+            search: '?c=v%2C1%2C2&r=1',
+        });
+        const key = 'yomu:jpdb-review-examples-visible:v1';
+        localStorage.setItem(key, 'true');
+        document.body.innerHTML = `
+            <input id="show-checkbox-examples" type="checkbox">
+            <label id="show-checkbox-examples-label" for="show-checkbox-examples">
+                <div>Click to toggle examples...</div>
+            </label>
+        `;
+        const checkbox = document.querySelector<HTMLInputElement>('#show-checkbox-examples')!;
+        const changes: boolean[] = [];
+        checkbox.addEventListener('change', () => changes.push(checkbox.checked));
+        const app = new ReaderApp();
+        const internals = app as unknown as { installJpdbReviewExamplesToggleMemory(): void };
+
+        try {
+            internals.installJpdbReviewExamplesToggleMemory();
+            expect(checkbox.checked).toBe(true);
+            expect(changes).toEqual([true]);
+
+            checkbox.checked = false;
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+            expect(localStorage.getItem(key)).toBe('false');
+        } finally {
+            app.destroy();
+            localStorage.removeItem(key);
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('renders JPDB word page addons with local, JPDB, and Jiten definition data', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/review?c=v%2C1391940%2C864903531&r=1#a',
+            origin: 'https://jpdb.io',
+            hostname: 'jpdb.io',
+            pathname: '/review',
+            search: '?c=v%2C1391940%2C864903531&r=1',
+        });
+        document.body.innerHTML = '<main><div class="answer-box"><div class="subsection-meanings">meaning</div></div></main>';
+        const anchor = document.querySelector<HTMLElement>('.subsection-meanings')!;
+        const renderEntry: YomitanTermEntry = {
+            expression: '時間',
+            reading: 'じかん',
+            glossary: ['time'],
+            dictionary: 'Jitendex',
+        };
+        const variantEntry: YomitanTermEntry = {
+            expression: '時',
+            reading: 'とき',
+            glossary: ['time'],
+            dictionary: 'AltDict',
+        };
+        const jpdbVocabularyInfo = { examples: [{ sentence: '時間です。', translation: 'It is time.', audioIds: [] }] } as never;
+        const jitenVocabularyInfo = { senses: [{ glosses: ['time'] }] } as never;
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbPageEnhancementGeneration: number;
+            cardRenderData: { load(card: JPDBCard): { all: Promise<CardRenderData> } };
+            lookupJpdbPageLocalEntries(target: LocalDictionaryTarget): Promise<YomitanTermEntry[]>;
+            renderDefinitionSources(
+                card: JPDBCard,
+                entries: YomitanTermEntry[],
+                sentence?: string,
+                jpdbInfo?: unknown,
+                jitenInfo?: unknown,
+            ): string;
+            parseJpdbPageAddonJapanese(root: HTMLElement): Promise<void>;
+            installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): Promise<void>;
+        };
+        const renderDefinitionSources = vi.fn(() => '<div class="full-word-info">full-info</div>');
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true, immersionKitEnabled: false };
+        internals.jpdbPageEnhancementGeneration = 1;
+        internals.cardRenderData = {
+            load: () => ({
+                all: Promise.resolve(emptyCardRenderData({
+                    localEntries: [renderEntry],
+                    jpdbVocabularyInfo,
+                    jitenVocabularyInfo,
+                })),
+            }),
+        };
+        internals.lookupJpdbPageLocalEntries = vi.fn(async () => [variantEntry]);
+        internals.renderDefinitionSources = renderDefinitionSources;
+        internals.parseJpdbPageAddonJapanese = vi.fn(async () => undefined);
+
+        try {
+            await internals.installJpdbWordPageEnhancement({
+                term: '時間',
+                reading: 'じかん',
+                alternates: ['時'],
+                compounds: [],
+                examples: [{ sentence: '時間です。', translation: 'It is time.' }],
+                anchor,
+            }, 1);
+
+            expect(renderDefinitionSources).toHaveBeenCalledWith(
+                expect.objectContaining({ spelling: '時間', reading: 'じかん', source: 'jpdb' }),
+                expect.arrayContaining([renderEntry, variantEntry]),
+                '時間です。',
+                jpdbVocabularyInfo,
+                jitenVocabularyInfo,
+            );
+            expect(document.querySelector('.yomu-jpdb-word-addon .full-word-info')?.textContent).toBe('full-info');
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('sanitizes stroke-order SVGs before embedding them', () => {
         const info = parseKanjiVGSvg(`
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:kvg="http://kanjivg.tagaini.net" viewBox="0 0 109 109">
@@ -24403,6 +24550,36 @@ describe('reader helpers', () => {
         const result = root.querySelector<HTMLElement>('.jpdb-reader-kanjivg [data-newtab-doodle-result]');
         expect(result).not.toBeNull();
         expect(result?.classList.contains('jpdb-reader-newtab-doodle-result')).toBe(true);
+    });
+
+    it('renders JPDB page kanji practice doodles with the trace hidden by default', () => {
+        const root = document.createElement('div');
+        root.innerHTML = renderKanjiSourceMounts({
+            settings: {
+                ...DEFAULT_SETTINGS,
+                kanjivgEnabled: true,
+                kanjivgPriority: 0,
+                jpdbKanjiEnabled: false,
+                localDictionaryShowKanji: false,
+                rtkEnabled: false,
+                kanjiOriginsEnabled: false,
+                uchisenEnabled: false,
+                immersionKitEnabled: false,
+            },
+            kanji: '子',
+            language: 'en',
+            isSourceOpen: () => true,
+            sourceAttributes: () => 'open',
+            sourceTitle: sourceId => sourceId === KANJI_STROKE_SOURCE_ID ? 'Stroke practice' : sourceId,
+        });
+
+        const stage = root.querySelector<HTMLElement>('.jpdb-reader-doodle-stage');
+        const ghost = root.querySelector<HTMLElement>('.jpdb-reader-doodle-ghost');
+        const trace = root.querySelector<HTMLButtonElement>('[data-doodle-trace]');
+
+        expect(stage?.classList.contains('trace-hidden')).toBe(true);
+        expect(ghost?.hidden).toBe(true);
+        expect(trace?.textContent).toBe('Show trace');
     });
 
     it('uses KanjiVG component positions for straight origin graph arrows', () => {
@@ -30291,6 +30468,92 @@ describe('reader helpers', () => {
             expect(event.defaultPrevented).toBe(false);
         } finally {
             app.destroy();
+        }
+    });
+
+    it('keeps Yomu furigana off JPDB review prompt words', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/review?c=v%2C1391940%2C864903531&r=1#a',
+            origin: 'https://jpdb.io',
+            hostname: 'jpdb.io',
+            pathname: '/review',
+            search: '?c=v%2C1391940%2C864903531&r=1',
+        });
+        const rectSpy = mockElementBoundingClientRect({ width: 320, height: 64 });
+        document.body.innerHTML = `
+            <main>
+                <div class="review-card">
+                    <div class="answer-box">
+                        <div class="spelling">時間</div>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        try {
+            const targets = collectScanTargets(10, 'https://jpdb.io/review?c=v%2C1391940%2C864903531&r=1#a');
+            const target = targets.find(candidate => candidate.text === '時間')!;
+            expect(target).toMatchObject({ parserId: 'jpdb-parser', suppressRuby: true });
+
+            applyTokensToScanTarget(target, [{
+                card: { ...card, cardState: ['known'], spelling: '時間', reading: 'じかん' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'じかん', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '時間',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+            const word = document.querySelector<HTMLElement>('.review-card .jpdb-reader-word')!;
+            expect(readerWordSurfaceText(word)).toBe('時間');
+            expect(word.querySelector('rt')).toBeNull();
+        } finally {
+            rectSpy.mockRestore();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps Yomu furigana off Jiten study prompt words while preserving passive lookup', () => {
+        vi.stubGlobal('location', {
+            href: 'https://jiten.moe/srs/study',
+            origin: 'https://jiten.moe',
+            hostname: 'jiten.moe',
+            pathname: '/srs/study',
+            search: '',
+        });
+        const rectSpy = mockElementBoundingClientRect({ width: 420, height: 72 });
+        document.body.innerHTML = `
+            <main>
+                <div class="flex items-center justify-center gap-3 mb-2">
+                    <div class="text-4xl md:text-5xl text-center font-noto-sans" lang="ja">時間</div>
+                    <button type="button" title="Play audio"><i class="pi pi-volume-up text-base"></i></button>
+                </div>
+            </main>
+        `;
+
+        try {
+            const targets = collectScanTargets(10, 'https://jiten.moe/srs/study');
+            const target = targets.find(candidate => candidate.text === '時間')!;
+            expect(target).toMatchObject({ parserId: 'jiten-parser', passiveInteraction: true, suppressRuby: true });
+
+            applyTokensToScanTarget(target, [{
+                card: { ...card, cardState: ['known'], spelling: '時間', reading: 'じかん', source: 'jiten' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'じかん', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '時間',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+            const word = document.querySelector<HTMLElement>('[lang="ja"] .jpdb-reader-word')!;
+            expect(readerWordSurfaceText(word)).toBe('時間');
+            expect(word.dataset.jpdbReaderPassive).toBe('true');
+            expect(word.querySelector('rt')).toBeNull();
+        } finally {
+            rectSpy.mockRestore();
+            vi.unstubAllGlobals();
         }
     });
 

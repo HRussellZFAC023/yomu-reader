@@ -337,12 +337,15 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     'article',
     'main',
     '[data-jpdb-reader-root]',
+    'a[href]',
     'button',
     'summary',
+    '[role="link"]',
     '[role="button"]',
     '[role="tab"]',
     '[role="menuitem"]',
 ].join(',');
+const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = 'yomu:jpdb-review-examples-visible:v1';
 const READER_POINTER_SURFACE_SELECTOR = [
     '.jpdb-reader-popover',
     '.jpdb-reader-settings',
@@ -1128,6 +1131,7 @@ export class ReaderApp {
     private initJpdbPageEnhancements(): void {
         if (!isPageEnhancementHost()) return;
         this.scheduleJpdbPageEnhancements(0);
+        this.installJpdbReviewExamplesToggleMemory();
         addWindowEventListener('popstate', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
         addWindowEventListener('hashchange', () => this.scheduleJpdbPageEnhancements(120), { signal: this.abortController.signal });
     }
@@ -1144,17 +1148,31 @@ export class ReaderApp {
     private async refreshJpdbPageEnhancements(): Promise<void> {
         const generation = ++this.jpdbPageEnhancementGeneration;
         this.lastEnhancedHref = location.href;
-        this.pauseAutoScanObserver(() => this.removeJpdbPageEnhancements());
-        if (!this.settings.jpdbPageEnhancementsEnabled || !isPageEnhancementReady()) return;
+        this.installJpdbReviewExamplesToggleMemory();
+        if (!this.settings.jpdbPageEnhancementsEnabled || !isPageEnhancementReady()) {
+            this.pauseAutoScanObserver(() => this.removeJpdbPageEnhancements());
+            return;
+        }
         if (isCurrentKanjiSurface()) {
             if (this.settings.jpdbPageKanjiEnhancementsEnabled) this.installJpdbKanjiPageEnhancement(generation);
+            this.removeStaleJpdbPageEnhancements(generation);
             return;
         }
         if (this.settings.jpdbPageWordEnhancementsEnabled) await this.installJpdbWordPageEnhancements(generation);
+        this.removeStaleJpdbPageEnhancements(generation);
     }
 
     private removeJpdbPageEnhancements(): void {
         document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]').forEach(element => element.remove());
+    }
+
+    private removeStaleJpdbPageEnhancements(generation: number): void {
+        const generationKey = String(generation);
+        this.pauseAutoScanObserver(() => {
+            document.querySelectorAll<HTMLElement>('[data-yomu-jpdb-addon]').forEach(element => {
+                if (element.dataset.yomuGeneration !== generationKey) element.remove();
+            });
+        });
     }
 
     private jitenEnhancementsNeedRefresh(): boolean {
@@ -1170,23 +1188,79 @@ export class ReaderApp {
         return Boolean(anchor && anchor !== document.body && anchor.tagName !== 'MAIN');
     }
 
+    private installJpdbReviewExamplesToggleMemory(): void {
+        if (!this.isJpdbReviewPage()) return;
+        const checkbox = document.querySelector<HTMLInputElement>('#show-checkbox-examples');
+        if (!checkbox) return;
+        if (checkbox.dataset.yomuExamplesMemoryInstalled === 'true') return;
+        checkbox.dataset.yomuExamplesMemoryInstalled = 'true';
+
+        const storedVisible = this.storedJpdbReviewExamplesVisible();
+        if (storedVisible !== null && checkbox.checked !== storedVisible) {
+            checkbox.checked = storedVisible;
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+
+        checkbox.addEventListener('change', () => {
+            this.storeJpdbReviewExamplesVisible(checkbox.checked);
+        }, { signal: this.abortController.signal });
+    }
+
+    private isJpdbReviewPage(): boolean {
+        return location.hostname === 'jpdb.io' && location.pathname.startsWith('/review');
+    }
+
+    private storedJpdbReviewExamplesVisible(): boolean | null {
+        try {
+            const value = localStorage.getItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY);
+            return value === 'true' ? true : value === 'false' ? false : null;
+        } catch {
+            return null;
+        }
+    }
+
+    private storeJpdbReviewExamplesVisible(visible: boolean): void {
+        try {
+            localStorage.setItem(JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY, String(visible));
+        } catch {
+            // Ignore storage failures; the native checkbox should still work.
+        }
+    }
+
     private async installJpdbWordPageEnhancements(generation: number): Promise<void> {
         const targets = currentPageLocalDictionaryTargets();
         await Promise.all(targets.map(target => this.installJpdbWordPageEnhancement(target, generation)));
     }
 
     private async installJpdbWordPageEnhancement(target: LocalDictionaryTarget, generation: number): Promise<void> {
-        const card = jpdbAudioCard(target.term, target.reading);
-        const entries = await this.lookupJpdbPageLocalEntries(target);
+        const card = this.jpdbPageWordCard(target);
+        const renderData = this.cardRenderData.load(card);
+        const [data, variantEntries] = await Promise.all([
+            renderData.all.catch(() => null),
+            this.lookupJpdbPageLocalEntries(target),
+        ]);
+        const entries = uniqueLocalDictionaryEntries([
+            ...(data?.localEntries ?? []),
+            ...variantEntries,
+        ])
+            .sort((first, second) =>
+                jpdbPageDictionaryPreferencePriority(first.dictionary, this.settings)
+                    - jpdbPageDictionaryPreferencePriority(second.dictionary, this.settings),
+            )
+            .slice(0, this.settings.localDictionaryMaxResults);
         if (!this.isCurrentJpdbPageEnhancement(generation)) return;
-        if (!entries.length && !this.settings.immersionKitEnabled) return;
+        if (!this.hasJpdbPageWordContent(entries, data)) return;
 
-        const root = this.createJpdbPageAddonRoot('word', target.anchor);
+        const root = this.createJpdbPageAddonRoot('word', this.jpdbPageWordAddonKey(target), target.anchor, generation);
         if (!root) return;
-        setInnerHtml(root, this.renderDefinitionSources(card, entries, target.examples[0]?.sentence, null, null, {
-            includeJpdbSource: false,
-            includeStudySources: false,
-        }));
+        const html = this.renderDefinitionSources(
+            card,
+            entries,
+            target.examples[0]?.sentence,
+            data?.jpdbVocabularyInfo ?? null,
+            data?.jitenVocabularyInfo ?? null,
+        );
+        if (!this.updateJpdbPageAddonHtml(root, html)) return;
         this.installJpdbPageAddonHandlers(root, card);
         this.dictionarySourceState.installTracking(root);
         this.installJpdbPageImmersionExamples(root, card, [
@@ -1195,6 +1269,32 @@ export class ReaderApp {
             ...target.examples.map(example => example.sentence),
         ]);
         void this.parseJpdbPageAddonJapanese(root);
+    }
+
+    private hasJpdbPageWordContent(entries: YomitanTermEntry[], data: CardRenderData | null): boolean {
+        return Boolean(
+            entries.length
+            || data?.jpdbVocabularyInfo
+            || data?.jitenVocabularyInfo
+            || this.settings.immersionKitEnabled,
+        );
+    }
+
+    private jpdbPageWordCard(target: LocalDictionaryTarget): JPDBCard {
+        const card = jpdbAudioCard(target.term, target.reading);
+        card.source = isJitenHost() ? 'jiten' : 'jpdb';
+        return card;
+    }
+
+    private jpdbPageWordAddonKey(target: LocalDictionaryTarget): string {
+        return `word:${target.term}:${target.reading}`;
+    }
+
+    private updateJpdbPageAddonHtml(root: HTMLElement, html: string): boolean {
+        if (root.dataset.yomuRenderedHtml === html) return false;
+        root.dataset.yomuRenderedHtml = html;
+        setInnerHtml(root, html);
+        return true;
     }
 
     private async lookupJpdbPageLocalEntries(target: LocalDictionaryTarget): Promise<YomitanTermEntry[]> {
@@ -1220,7 +1320,7 @@ export class ReaderApp {
         const kanji = currentPageKanji();
         if (!isKanjiCharacter(kanji) || !this.isCurrentJpdbPageEnhancement(generation)) return;
         const target = currentPageTermTarget();
-        const root = this.createJpdbPageAddonRoot('kanji', target?.anchor ?? document.body);
+        const root = this.createJpdbPageAddonRoot('kanji', `kanji:${kanji}`, target?.anchor ?? document.body, generation);
         if (!root) return;
         const language = this.settings.interfaceLanguage;
         const mounts = this.renderKanjiSourceMounts(kanji, language);
@@ -1230,18 +1330,27 @@ export class ReaderApp {
         }
 
         const card = jpdbAudioCard(kanji, kanji);
-        setInnerHtml(root, `<div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">${mounts}</div>`);
+        this.updateJpdbPageAddonHtml(root, `<div class="jpdb-reader-definition-stack jpdb-reader-kanji-section-stack">${mounts}</div>`);
         this.installJpdbPageAddonHandlers(root, card);
         this.dictionarySourceState.installTracking(root);
         this.startKanjiProgressiveRender(root, this.kanjiDetailPromises(kanji), card, kanji, language, target ?? undefined);
         void this.parseJpdbPageAddonJapanese(root);
     }
 
-    private createJpdbPageAddonRoot(kind: 'word' | 'kanji', anchor: HTMLElement): HTMLElement | null {
+    private createJpdbPageAddonRoot(kind: 'word' | 'kanji', key: string, anchor: HTMLElement, generation: number): HTMLElement | null {
         if (!anchor.isConnected) return null;
+        const existing = Array.from(document.querySelectorAll<HTMLElement>(`[data-yomu-jpdb-addon="${kind}"]`))
+            .find(element => element.dataset.yomuAddonKey === key);
+        if (existing) {
+            existing.dataset.yomuGeneration = String(generation);
+            existing.dataset.yomuAnchorFallback = String(anchor === document.body || anchor.tagName === 'MAIN');
+            return existing;
+        }
         const root = document.createElement('div');
         root.dataset.jpdbReaderRoot = 'true';
         root.dataset.yomuJpdbAddon = kind;
+        root.dataset.yomuAddonKey = key;
+        root.dataset.yomuGeneration = String(generation);
         // SPA pages (Nuxt on jiten.moe) can hand us only a coarse fallback
         // anchor before hydration; mark it so the enhancement re-mounts once
         // the real anchor exists instead of staying stranded.
@@ -1255,6 +1364,8 @@ export class ReaderApp {
     }
 
     private installJpdbPageAddonHandlers(root: HTMLElement, fallbackCard: JPDBCard): void {
+        if (root.dataset.yomuHandlersInstalled === 'true') return;
+        root.dataset.yomuHandlersInstalled = 'true';
         root.addEventListener('click', event => this.handleJpdbPageAddonClick(event, root, fallbackCard));
     }
 
@@ -2111,10 +2222,11 @@ export class ReaderApp {
         return word && this.canLookupReaderWord(word) ? word : null;
     }
 
-    private wordFromPoint(x: number, y: number): HTMLElement | null {
+    private wordFromPoint(x: number, y: number, surface: HTMLElement | null = null): HTMLElement | null {
+        if (typeof document.elementsFromPoint !== 'function') return null;
         for (const element of document.elementsFromPoint(x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (word && this.canLookupReaderWord(word)) return word;
+            if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canLookupReaderWord(word)) return word;
         }
         return null;
     }
@@ -2385,18 +2497,19 @@ export class ReaderApp {
     }
 
     private hoverReaderWordForEvent(event: PointerEvent): HTMLElement | null {
-        const word = this.readerWordForPointerEvent(event);
+        const word = this.readerWordForPointerEvent(event, { hoverLookup: true });
         return word && this.canHoverLookupReaderWord(word) ? word : null;
     }
 
-    private readerWordForPointerEvent(event: MouseEvent): HTMLElement | null {
+    private readerWordForPointerEvent(event: MouseEvent, options: { hoverLookup?: boolean } = {}): HTMLElement | null {
         const target = event.target instanceof Element ? event.target : null;
         const surface = this.readerPointerSurfaceForTarget(target);
         const direct = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
-        if (direct && this.readerWordBelongsToPointerSurface(direct, surface)) return direct;
+        const canUseWord = (word: HTMLElement): boolean => options.hoverLookup ? this.canHoverLookupReaderWord(word) : this.canLookupReaderWord(word);
+        if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct)) return direct;
         return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
-            ?? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface)
-            ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY);
+            ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface))
+            ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY, canUseWord);
     }
 
     private readerPointerSurfaceForTarget(target: Element | null): HTMLElement | null {
@@ -2443,9 +2556,14 @@ export class ReaderApp {
         return line ? ocrLineWordAtPoint(line, x, y) : null;
     }
 
-    private readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null {
+    private readerWordFromRenderedGeometry(
+        target: Element | null,
+        x: number,
+        y: number,
+        canUseWord: (word: HTMLElement) => boolean = word => this.canLookupReaderWord(word),
+    ): HTMLElement | null {
         const scope = this.readerWordGeometryScope(target);
-        return scope ? readerWordAtPointInScope(scope, x, y, word => this.canLookupReaderWord(word)) : null;
+        return scope ? readerWordAtPointInScope(scope, x, y, canUseWord) : null;
     }
 
     private readerWordGeometryScope(target: Element | null): ParentNode | null {
@@ -2885,7 +3003,7 @@ export class ReaderApp {
         if (target instanceof Element) {
             if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
             if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
-            if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
+            if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, item => this.canHoverLookupReaderWord(item)) === word) return true;
         }
         return this.isInsideNode(target, word);
     }
@@ -5260,9 +5378,10 @@ export class ReaderApp {
         const { stage, ghost, help } = elements;
         setInnerHtml(ghost, info.svg);
         help.textContent = `${info.strokeCount} ${uiText(language, 'strokes')}`;
-        stage.classList.remove('trace-hidden');
         const trace = stage.closest('.jpdb-reader-kanjivg')?.querySelector<HTMLButtonElement>('[data-doodle-trace]');
-        if (trace) trace.textContent = uiText(language, 'hideTrace');
+        const traceVisible = !stage.classList.contains('trace-hidden');
+        ghost.hidden = !traceVisible;
+        if (trace) trace.textContent = uiText(language, traceVisible ? 'hideTrace' : 'showTrace');
     }
 
     private kanjiVGStageElements(popover: HTMLElement, kanji: string): { stage: HTMLElement; ghost: HTMLElement; help: HTMLElement } | null {

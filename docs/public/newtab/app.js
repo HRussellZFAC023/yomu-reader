@@ -3863,6 +3863,7 @@
     return renderTokenizedScanText(target.text, tokens, settings, {
       parent: target.parent,
       hasNativeRuby: target.hasNativeRuby,
+      suppressRuby: target.suppressRuby,
       passiveInteraction: target.passiveInteraction
     });
   }
@@ -3878,7 +3879,7 @@
       const { token, tokenWithSentence } = plan;
       appendPlainTextBeforeToken(fragment2, text2, offset, token.start);
       fragment2.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, settings, {
-        allowRuby: !target.hasNativeRuby,
+        allowRuby: !target.hasNativeRuby && !target.suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction: target.passiveInteraction,
@@ -3906,6 +3907,7 @@
     mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
       parent: host,
       hasNativeRuby: targetHasNativeRuby(target),
+      suppressRuby: target.suppressRuby,
       passiveInteraction: target.passiveInteraction
     }));
     host.append(mirror);
@@ -4120,7 +4122,7 @@
     replaceTextNodeRange(fragment2.node, fragment2.start, fragment2.end, replacement);
   }
   function renderSingleFragmentToken(target, fragment2, plan, settings, miningInsightKeys) {
-    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
+    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment2.hasNativeRuby);
     return renderToken(fragment2.node.data.slice(plan.localStart, plan.localEnd), plan.tokenWithSentence, settings, {
       allowRuby,
       kanjiNavigation: kanjiNavigationForElement(target.parent),
@@ -4151,7 +4153,7 @@
       );
       return;
     }
-    if (fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
+    if (!target.suppressRuby && fragmentRangeHasNativeRuby(indexedFragments, token.start, token.end)) {
       const nativeRubyRange = nativeRubyPreservingTokenRange(indexedFragments, bounds, token.start, token.end);
       if (nativeRubyRange) {
         insertMultiFragmentToken(nativeRubyRange, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
@@ -4186,7 +4188,7 @@
     insertMultiFragmentToken(range, target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       scanWord: true,
       passiveInteraction,
-      allowRuby: true,
+      allowRuby: !target.suppressRuby,
       preserveTokenRubies: true,
       miningInsightKeys
     });
@@ -4198,7 +4200,7 @@
       if (!surface) continue;
       const pieceToken = splitFragmentPieceToken(piece, token, tokenWithSentence);
       const rendered = renderToken(surface, pieceToken, settings, {
-        allowRuby: scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
+        allowRuby: !target.suppressRuby && scanFragmentAllowsRuby(piece.fragment.hasNativeRuby),
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
         passiveInteraction,
@@ -4347,7 +4349,7 @@
     return boundary;
   }
   function insertSingleFragmentToken(target, fragment2, start, end, token, tokenWithSentence, settings, miningInsightKeys, passiveInteraction) {
-    const allowRuby = scanFragmentAllowsRuby(fragment2.hasNativeRuby);
+    const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment2.hasNativeRuby);
     const surface = fragment2.node.data.slice(start, end);
     const rendered = renderToken(surface || target.text.slice(token.start, token.end), tokenWithSentence, settings, {
       allowRuby,
@@ -67298,13 +67300,13 @@ ${entry.url}`),
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
             <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
-            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml$1(options.kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true"><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
+            <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
             </div>
             <div class="jpdb-reader-doodle-tools">
                 <span class="jpdb-reader-help">${escapeHtml$1(uiText(options.language, "textTrace"))}</span>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "hideTrace"))}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml$1(uiText(options.language, "showTrace"))}</button>
                 <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml$1(uiText(options.language, "clear"))}</button>
             </div>
             <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>

@@ -124,7 +124,7 @@ function currentKanjiTermTarget(): JpdbTermTarget | null {
 }
 
 function canReadCurrentKanjiTarget(kanji: string): boolean {
-    return Boolean(kanji && (isKanjiPage() || isKanjiReviewBack()));
+    return Boolean(kanji && (isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack()));
 }
 
 function currentVocabularyTermTarget(): JpdbTermTarget | null {

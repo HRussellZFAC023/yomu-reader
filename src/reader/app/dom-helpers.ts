@@ -47,7 +47,7 @@ export function canHoverLookupReaderWordElement(word: HTMLElement, hasHoverLooku
     if (isOcrLineFrameWord(word)) return false;
     if (word.closest('.jpdb-reader-popover')) return false;
     if (isSettingsNativeControlWord(word)) return false;
-    if (isNativePageLookupBlocked(word)) return false;
+    if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== 'true') return false;
     if (!word.closest('[data-jpdb-reader-root]')) return true;
     if (word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon')) return true;
     return hasHoverLookupShortcut

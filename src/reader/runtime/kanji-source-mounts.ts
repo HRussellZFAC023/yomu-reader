@@ -74,13 +74,13 @@ function renderKanjiPracticeShell(options: KanjiSourceMountRendererOptions, sour
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
             <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
-            <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(options.kanji)}">
-                <div class="jpdb-reader-doodle-ghost" aria-hidden="true"><div class="jpdb-reader-doodle-text-ghost">${escapeHtml(options.kanji)}</div></div>
+            <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml(options.kanji)}">
+                <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml(options.kanji)}</div></div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(options.language, 'practiceDrawing')} ${options.kanji}`)}"></canvas>
             </div>
             <div class="jpdb-reader-doodle-tools">
                 <span class="jpdb-reader-help">${escapeHtml(uiText(options.language, 'textTrace'))}</span>
-                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml(uiText(options.language, 'hideTrace'))}</button>
+                <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-trace>${escapeHtml(uiText(options.language, 'showTrace'))}</button>
                 <button class="jpdb-reader-btn jpdb-reader-doodle-control" type="button" data-doodle-clear>${escapeHtml(uiText(options.language, 'clear'))}</button>
             </div>
             <div class="jpdb-reader-newtab-doodle-result" data-newtab-doodle-result></div>
