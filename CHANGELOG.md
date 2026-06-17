@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.8] - 2026-06-17
+
+### Fixed
+
+- BookWalker OCR on Firefox/iPad (1.3.7's canvas mirror) did nothing because the document-start recorder ships in the main userscript bundle while the capture path ships in the OCR companion bundle — separate module instances, so the reader queried an empty op map. The recorder state now lives on a shared global, so the companion sees the recorded descramble ops. Added an opt-in diagnostic (`localStorage['yomu.canvasMirrorDebug'] = '1'`) that logs `[Yomu][canvas-mirror]` capture metrics.
+- Favicons (`apple-touch-icon`, `favicon-32x32`, `favicon-16x16`) are now rasterized from the canonical `yomu-icon.svg` via a new `scripts/generate-favicons.mjs`, replacing stale art that no longer matched the logo.
+
+### Verified
+
+- canvas-mirror unit tests plus the full typecheck/test/build/verify suite.
+
 ## [1.3.7] - 2026-06-17
 
 ### Fixed

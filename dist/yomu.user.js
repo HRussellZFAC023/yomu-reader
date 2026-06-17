@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.7
+// @version      1.3.8
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2bB7kg7nlBXNQXEF3poKFISWpoeOkpOtQcDOoL11IFA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-cuYx8CTxJ2Y7jxFT4oMzrRA97/sXtZ2eMj3b3RZ/ycE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-37VmdgbGgq/5QKSjMqTUHj+hjF081JA2J2pXCf5t34M=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -18613,7 +18613,7 @@ ${entry.reading}`;
   }
   function normalizeZipTermRow(row, dictionary) {
     if (!Array.isArray(row)) return null;
-    const [expression, reading, definitionTags, rules, score, glossary, sequence2, termTags] = row;
+    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
     if (typeof expression !== "string") return null;
     return {
       expression,
@@ -18622,7 +18622,7 @@ ${entry.reading}`;
       rules: zipStringField(rules),
       score: zipNumberField(score, 0),
       glossary: zipGlossaryField(glossary),
-      sequence: zipOptionalNumberField(sequence2),
+      sequence: zipOptionalNumberField(sequence),
       termTags: zipStringField(termTags),
       dictionary
     };
@@ -43030,11 +43030,9 @@ ${span.end}`;
     const marker = document.getElementById(RUNTIME_MARKER_ID);
     if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
   }
-  const RECORDS = /* @__PURE__ */ new WeakMap();
   const MAX_OPS_PER_CANVAS = 6e3;
   const PRUNE_KEEP = 3e3;
-  let sequence = 0;
-  let installed = false;
+  const STATE = globalThis.__yomuCanvasMirror ??= { seq: 0, installed: false, debug: false, records: /* @__PURE__ */ new WeakMap() };
   function isBookwalkerHost(hostname) {
     return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
   }
@@ -43047,10 +43045,10 @@ ${span.end}`;
     return typeof image.currentSrc === "string" && image.currentSrc || typeof image.src === "string" && image.src || "";
   }
   function recordFor(canvas) {
-    let record = RECORDS.get(canvas);
+    let record = STATE.records.get(canvas);
     if (!record) {
       record = { ops: [] };
-      RECORDS.set(canvas, record);
+      STATE.records.set(canvas, record);
     }
     return record;
   }
@@ -43058,7 +43056,7 @@ ${span.end}`;
     const record = recordFor(canvas);
     if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
     const op = {
-      seq: sequence++,
+      seq: STATE.seq++,
       canvasSrc: isCanvasSource(source) ? source : null,
       url: isCanvasSource(source) ? "" : imageSourceUrl(source),
       sx: 0,
@@ -43094,7 +43092,7 @@ ${span.end}`;
   function recordClear(canvas) {
     const record = recordFor(canvas);
     if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
-    record.ops.push({ seq: sequence++, canvasSrc: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+    record.ops.push({ seq: STATE.seq++, canvasSrc: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
   }
   function patchContextPrototype(prototype) {
     if (!prototype || prototype.__yomuMirrorPatched) return false;
@@ -43122,11 +43120,15 @@ ${span.end}`;
     return true;
   }
   function installCanvasMirrorRecorder(hostname = location.hostname) {
-    if (installed || !isBookwalkerHost(hostname)) return;
+    if (STATE.installed || !isBookwalkerHost(hostname)) return;
+    try {
+      STATE.debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
+    } catch {
+    }
     const global = globalThis;
     patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
     patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
-    installed = true;
+    STATE.installed = true;
   }
   installPreferredJapaneseSiteLanguageFromStoredSettings();
   installCanvasMirrorRecorder();

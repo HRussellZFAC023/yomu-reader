@@ -29910,8 +29910,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
   }
-  const RECORDS = /* @__PURE__ */ new WeakMap();
   const MAX_REBUILD_DEPTH = 6;
+  const STATE = globalThis.__yomuCanvasMirror ??= { seq: 0, installed: false, debug: false, records: /* @__PURE__ */ new WeakMap() };
   const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
   function selectLatestContentOps(ops, beforeSeq) {
     const byDest = /* @__PURE__ */ new Map();
@@ -29946,7 +29946,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function rebuildCanvas(canvas, beforeSeq, images, seen, depth) {
     if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return null;
-    const record = RECORDS.get(canvas);
+    const record = STATE.records.get(canvas);
     if (!record) return null;
     const ops = selectLatestContentOps(record.ops, beforeSeq);
     const width = canvas.width, height = canvas.height;
@@ -29957,6 +29957,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
     if (!ctx) return null;
     const nextSeen = new Set(seen).add(canvas);
+    let drew = 0;
     for (const op of ops) {
       let source = null;
       if (op.canvasSrc) source = rebuildCanvas(op.canvasSrc, op.seq, images, nextSeen, depth + 1);
@@ -29966,27 +29967,34 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
         else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
         else ctx.drawImage(source, op.dx, op.dy);
+        drew++;
       } catch {
       }
     }
-    return out;
+    return drew ? out : null;
+  }
+  function canvasMirrorHasOps(canvas) {
+    return (STATE.records.get(canvas)?.ops.length ?? 0) > 0;
   }
   async function captureCanvasMirror(canvas, loadCleanImage) {
-    if (!RECORDS.has(canvas)) return void 0;
-    const urls = collectLeafUrls(canvas, Number.POSITIVE_INFINITY, (c) => RECORDS.get(c));
-    if (!urls.size) return void 0;
+    const recorded = STATE.records.has(canvas);
+    const urls = recorded ? collectLeafUrls(canvas, Number.POSITIVE_INFINITY, (c) => STATE.records.get(c)) : /* @__PURE__ */ new Set();
     const images = /* @__PURE__ */ new Map();
-    await Promise.all([...urls].map(async (url) => {
-      try {
-        const image = await loadCleanImage(url);
-        if (image) images.set(url, image);
-      } catch {
-      }
-    }));
-    if (!images.size) return void 0;
-    const rebuilt = rebuildCanvas(canvas, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0);
-    if (!rebuilt || !isReadable(rebuilt)) return void 0;
-    return rebuilt;
+    if (urls.size) {
+      await Promise.all([...urls].map(async (url) => {
+        try {
+          const image = await loadCleanImage(url);
+          if (image) images.set(url, image);
+        } catch {
+        }
+      }));
+    }
+    const rebuilt = images.size ? rebuildCanvas(canvas, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
+    const ok = !!rebuilt && isReadable(rebuilt);
+    if (STATE.debug) {
+      console.log("[Yomu][canvas-mirror]", { recorded, tracked: canvasMirrorHasOps(canvas), leafUrls: urls.size, fetched: images.size, rebuilt: !!rebuilt, readable: ok });
+    }
+    return ok ? rebuilt : void 0;
   }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();

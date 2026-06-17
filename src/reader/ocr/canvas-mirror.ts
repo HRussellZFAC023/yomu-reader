@@ -1,17 +1,17 @@
 // Rebuilds a cross-origin "tainted" DRM page canvas onto an UNTAINTED canvas so
-// OCR can read it. On Firefox and iPad the BookWalker/NFBR viewer composites each
-// page into a <canvas> from a scrambled cross-origin <img> (the CDN sends no
+// OCR can read it. On Firefox and iPad/Safari the BookWalker/NFBR viewer composites
+// each page into a <canvas> from a scrambled cross-origin <img> (the CDN sends no
 // CORS), so getImageData/toDataURL throw "The operation is insecure." and OCR gets
 // nothing. Chrome happens not to taint, so it reads the canvas directly.
 //
 // The engine descrambles by replaying tile `drawImage(<img>, sx,sy,w,h, dx,dy,w,h)`
 // copies from the scrambled image into a 2D buffer, then composites the buffers
 // onto the on-screen canvas. We record those drawImage/clearRect calls at
-// document-start, then REPLAY them onto a fresh canvas we own — but sourcing each
-// leaf <img> from an origin-clean copy fetched via GM_xmlhttpRequest. The engine
-// still computes the descramble permutation; we just feed it clean pixels. No
-// crypto, no keys, and it survives engine updates because it mirrors exactly what
-// the engine actually drew.
+// document-start, then REPLAY them onto a fresh canvas we own — sourcing each leaf
+// <img> from an origin-clean copy fetched via GM_xmlhttpRequest, and never drawing
+// a tainted original. The engine still computes the descramble permutation; we just
+// feed it clean pixels. No crypto, no keys, and it survives engine updates because
+// it mirrors exactly what the engine actually drew.
 //
 // A global op sequence lets each composite rebuild its source buffer as it was AT
 // THAT moment, so a two-page spread sharing one reused buffer reconstructs both
@@ -26,15 +26,19 @@ export interface MirrorOp {
     clear: boolean;
 }
 interface MirrorRecord { ops: MirrorOp[]; }
-
 type CanvasLike = HTMLCanvasElement | OffscreenCanvas;
 
-const RECORDS = new WeakMap<object, MirrorRecord>();
 const MAX_OPS_PER_CANVAS = 6000;
 const PRUNE_KEEP = 3000;
 const MAX_REBUILD_DEPTH = 6;
-let sequence = 0;
-let installed = false;
+
+// CRITICAL: the document-start recorder ships in the MAIN userscript bundle while
+// the capture path ships in the OCR COMPANION bundle. Those are separate bundles
+// with separate module instances, so the recorded ops MUST live on a shared global
+// or the reader would query an empty map and OCR would never fire.
+interface MirrorGlobalState { seq: number; installed: boolean; debug: boolean; records: WeakMap<object, MirrorRecord>; }
+const STATE: MirrorGlobalState = ((globalThis as unknown as { __yomuCanvasMirror?: MirrorGlobalState }).__yomuCanvasMirror
+    ??= { seq: 0, installed: false, debug: false, records: new WeakMap<object, MirrorRecord>() });
 
 function isBookwalkerHost(hostname: string): boolean {
     return hostname === 'viewer.bookwalker.jp'
@@ -58,8 +62,8 @@ function imageSourceUrl(value: unknown): string {
 }
 
 function recordFor(canvas: object): MirrorRecord {
-    let record = RECORDS.get(canvas);
-    if (!record) { record = { ops: [] }; RECORDS.set(canvas, record); }
+    let record = STATE.records.get(canvas);
+    if (!record) { record = { ops: [] }; STATE.records.set(canvas, record); }
     return record;
 }
 
@@ -68,7 +72,7 @@ export function recordDrawImage(canvas: object, source: unknown, args: ArrayLike
     const record = recordFor(canvas);
     if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
     const op: MirrorOp = {
-        seq: sequence++,
+        seq: STATE.seq++,
         canvasSrc: isCanvasSource(source) ? source : null,
         url: isCanvasSource(source) ? '' : imageSourceUrl(source),
         sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false,
@@ -82,7 +86,7 @@ export function recordDrawImage(canvas: object, source: unknown, args: ArrayLike
 export function recordClear(canvas: object): void {
     const record = recordFor(canvas);
     if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
-    record.ops.push({ seq: sequence++, canvasSrc: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+    record.ops.push({ seq: STATE.seq++, canvasSrc: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
 }
 
 const destKey = (op: MirrorOp): string => `${op.dx},${op.dy},${op.dw},${op.dh}`;
@@ -132,6 +136,9 @@ function isReadable(canvas: HTMLCanvasElement): boolean {
     } catch { return false; }
 }
 
+// Rebuild `canvas` onto a fresh canvas, drawing ONLY origin-clean sources (fetched
+// images or recursively-rebuilt buffers) — never a tainted original — so the result
+// is always untainted.
 function rebuildCanvas(
     canvas: CanvasLike,
     beforeSeq: number,
@@ -140,7 +147,7 @@ function rebuildCanvas(
     depth: number,
 ): HTMLCanvasElement | null {
     if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return null;
-    const record = RECORDS.get(canvas);
+    const record = STATE.records.get(canvas);
     if (!record) return null;
     const ops = selectLatestContentOps(record.ops, beforeSeq);
     const width = canvas.width, height = canvas.height;
@@ -150,6 +157,7 @@ function rebuildCanvas(
     const ctx = markSkip(out.getContext('2d', { willReadFrequently: true }));
     if (!ctx) return null;
     const nextSeen = new Set(seen).add(canvas);
+    let drew = 0;
     for (const op of ops) {
         let source: CanvasImageSource | null = null;
         if (op.canvasSrc) source = rebuildCanvas(op.canvasSrc as CanvasLike, op.seq, images, nextSeen, depth + 1);
@@ -159,35 +167,44 @@ function rebuildCanvas(
             if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
             else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
             else ctx.drawImage(source, op.dx, op.dy);
+            drew++;
         } catch { /* a stale/neutered source — skip this tile */ }
     }
-    return out;
+    return drew ? out : null;
+}
+
+export function canvasMirrorHasOps(canvas: object): boolean {
+    return (STATE.records.get(canvas)?.ops.length ?? 0) > 0;
 }
 
 // Read-only view of a canvas's recorded ops (tests + the capture traversal).
 export function recordedOpsFor(canvas: object): readonly MirrorOp[] {
-    return RECORDS.get(canvas)?.ops ?? [];
+    return STATE.records.get(canvas)?.ops ?? [];
 }
 
-// Rebuild `canvas` onto an untainted canvas by replaying the engine's recorded
-// draw ops from origin-clean (GM-fetched) copies of the source images. Returns
-// undefined when there's nothing recorded, no fetchable source, or the rebuild is
-// still unreadable (so the caller can fall back to another capture path).
+// Rebuild `canvas` onto an untainted canvas by replaying the engine's recorded draw
+// ops from origin-clean (GM-fetched) copies of the source images. Returns undefined
+// when there's nothing recorded, no fetchable source, or the rebuild is still
+// unreadable (so the caller can fall back to another capture path).
 export async function captureCanvasMirror(
     canvas: HTMLCanvasElement,
     loadCleanImage: (url: string) => Promise<CanvasImageSource | undefined>,
 ): Promise<HTMLCanvasElement | undefined> {
-    if (!RECORDS.has(canvas)) return undefined;
-    const urls = collectLeafUrls(canvas, Number.POSITIVE_INFINITY, c => RECORDS.get(c));
-    if (!urls.size) return undefined;
+    const recorded = STATE.records.has(canvas);
+    const urls = recorded ? collectLeafUrls(canvas, Number.POSITIVE_INFINITY, c => STATE.records.get(c)) : new Set<string>();
     const images = new Map<string, CanvasImageSource>();
-    await Promise.all([...urls].map(async url => {
-        try { const image = await loadCleanImage(url); if (image) images.set(url, image); } catch { /* skip */ }
-    }));
-    if (!images.size) return undefined;
-    const rebuilt = rebuildCanvas(canvas, Number.POSITIVE_INFINITY, images, new Set(), 0);
-    if (!rebuilt || !isReadable(rebuilt)) return undefined;
-    return rebuilt;
+    if (urls.size) {
+        await Promise.all([...urls].map(async url => {
+            try { const image = await loadCleanImage(url); if (image) images.set(url, image); } catch { /* skip */ }
+        }));
+    }
+    const rebuilt = images.size ? rebuildCanvas(canvas, Number.POSITIVE_INFINITY, images, new Set(), 0) : null;
+    const ok = !!rebuilt && isReadable(rebuilt);
+    if (STATE.debug) {
+        // eslint-disable-next-line no-console
+        console.log('[Yomu][canvas-mirror]', { recorded, tracked: canvasMirrorHasOps(canvas), leafUrls: urls.size, fetched: images.size, rebuilt: !!rebuilt, readable: ok });
+    }
+    return ok ? rebuilt! : undefined;
 }
 
 interface Context2DPrototype {
@@ -219,14 +236,16 @@ export function patchContextPrototype(prototype: Context2DPrototype | undefined)
 }
 
 // Install the document-start recorder. No-op off BookWalker hosts (the hook would
-// otherwise add overhead to every canvas draw on every site) and idempotent.
+// otherwise add overhead to every canvas draw on every site) and idempotent across
+// bundles via the shared global state.
 export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
-    if (installed || !isBookwalkerHost(hostname)) return;
+    if (STATE.installed || !isBookwalkerHost(hostname)) return;
+    try { STATE.debug = localStorage.getItem('yomu.canvasMirrorDebug') === '1'; } catch { /* */ }
     const global = globalThis as unknown as {
         CanvasRenderingContext2D?: { prototype: Context2DPrototype };
         OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype };
     };
     patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
     patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
-    installed = true;
+    STATE.installed = true;
 }
