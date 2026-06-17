@@ -7176,12 +7176,13 @@ ${candidate.depth}`;
       if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface) return;
       if (event.type === "pointermove") this.lastPointerMoveReaderSurface = surface;
       else this.lastPointerMoveReaderSurface = void 0;
-      const frame = this.snapshotReaderSurface(surface, settings);
-      if (frame) this.enqueue(frame, true);
+      void this.snapshotReaderSurface(surface, settings).then((frame) => {
+        if (frame) this.enqueue(frame, true);
+      });
     }
-    snapshotReaderSurface(surface, settings) {
+    async snapshotReaderSurface(surface, settings) {
       if (surface instanceof HTMLCanvasElement) {
-        this.snapshotCanvasSurface(surface, settings, true);
+        await this.snapshotCanvasSurface(surface, settings, true);
         return this.canvasFrames.get(surface);
       }
       this.snapshotBackgroundImageSurface(surface, settings, true);
@@ -7710,7 +7711,8 @@ ${candidate.depth}`;
           if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
           frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
         } else if (isBookwalkerViewerHost()) {
-          const mirror = await captureCanvasMirror(canvas, loadCleanMirrorImage);
+          const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
+          const mirror = await captureMirror(canvas, loadCleanMirrorImage);
           if (mirror) {
             frameSrc = captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
           } else {

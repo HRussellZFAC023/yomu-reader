@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.18] - 2026-06-17
+
+### Fixed
+
+- BookWalker Firefox/iPad clean-source mirror replay is now used when clicking or tapping a tainted viewer canvas: the manual pointer path waits for the async mirror snapshot before enqueuing OCR, so the hidden OCR frame can be created and the loading spinner can start instead of the click returning before any frame exists. Added focused coverage for clean-source mirror replay and manual tainted-canvas activation.
+
 ## [1.3.17] - 2026-06-17
 
 ### Fixed

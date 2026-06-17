@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
+import { collectCanvasReaderSurfaces, isBookwalkerViewerHost } from '../../src/reader/ocr/canvas-readers';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { waitForExpect } from './test-utils';
@@ -183,6 +184,8 @@ describe('reader raster OCR surfaces', () => {
         const canvas = pageCanvas(32, 40, 400, 520);
         canvas.toDataURL = tainted;
         document.body.append(canvas);
+        expect(isBookwalkerViewerHost()).toBe(true);
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([canvas]);
 
         const controller = createController({}, captureReaderSurface, captureCanvasMirror);
         try {
@@ -220,16 +223,20 @@ describe('reader raster OCR surfaces', () => {
         const canvas = pageCanvas(32, 40, 400, 520);
         canvas.toDataURL = tainted;
         document.body.append(canvas);
-        vi.spyOn(document, 'elementFromPoint').mockReturnValue(canvas);
+        Object.defineProperty(document, 'elementFromPoint', {
+            configurable: true,
+            value: vi.fn(() => canvas),
+        });
 
         try {
-            canvas.dispatchEvent(new PointerEvent('pointerdown', {
-                bubbles: true,
-                clientX: 40,
-                clientY: 48,
-                button: 0,
-                pointerType: 'mouse',
-            }));
+            const event = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(event, {
+                clientX: { value: 40 },
+                clientY: { value: 48 },
+                button: { value: 0 },
+                pointerType: { value: 'mouse' },
+            });
+            canvas.dispatchEvent(event);
             expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBeNull();
             resolveMirror(mirrored);
             await waitForExpect(() => {

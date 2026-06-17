@@ -78,6 +78,8 @@ interface OcrControllerOptions {
     captureVideoFrame?: (video: HTMLVideoElement) => string | undefined;
     /** Test seam: overrides trusted screenshot capture for tainted reader canvases. */
     captureReaderSurface?: typeof captureReaderSurfaceViaExtensionScreenshot;
+    /** Test seam: overrides clean-source replay for tainted BookWalker canvases. */
+    captureCanvasMirror?: typeof captureCanvasMirror;
 }
 
 interface OcrWordRenderState {
@@ -586,13 +588,14 @@ export class ImageOcrController {
         if (event.type === 'pointermove' && surface === this.lastPointerMoveReaderSurface) return;
         if (event.type === 'pointermove') this.lastPointerMoveReaderSurface = surface;
         else this.lastPointerMoveReaderSurface = undefined;
-        const frame = this.snapshotReaderSurface(surface, settings);
-        if (frame) this.enqueue(frame, true);
+        void this.snapshotReaderSurface(surface, settings).then(frame => {
+            if (frame) this.enqueue(frame, true);
+        });
     }
 
-    private snapshotReaderSurface(surface: HTMLCanvasElement | HTMLElement, settings: ReaderSettings): HTMLImageElement | undefined {
+    private async snapshotReaderSurface(surface: HTMLCanvasElement | HTMLElement, settings: ReaderSettings): Promise<HTMLImageElement | undefined> {
         if (surface instanceof HTMLCanvasElement) {
-            this.snapshotCanvasSurface(surface, settings, true);
+            await this.snapshotCanvasSurface(surface, settings, true);
             return this.canvasFrames.get(surface);
         }
         this.snapshotBackgroundImageSurface(surface, settings, true);
@@ -1260,7 +1263,8 @@ export class ImageOcrController {
                 // source images (works in any userscript manager, including iPad). Fall
                 // back to the extension screenshot bridge when nothing was recorded
                 // (e.g. the Yomu extension, where the canvas is read directly anyway).
-                const mirror = await captureCanvasMirror(canvas, loadCleanMirrorImage);
+                const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
+                const mirror = await captureMirror(canvas, loadCleanMirrorImage);
                 if (mirror) {
                     frameSrc = captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
                 } else {

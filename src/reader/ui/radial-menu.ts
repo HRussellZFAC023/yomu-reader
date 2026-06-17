@@ -45,6 +45,7 @@ export class RadialMenuController {
 
     constructor(private readonly host: RadialMenuHost) {}
 
+    // fallow-ignore-next-line unused-class-member
     isOpen(): boolean {
         return this.state === 'open';
     }

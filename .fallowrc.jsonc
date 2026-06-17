@@ -18,6 +18,7 @@
     "src/reader/styles.css",
     "tests/reader/setup.ts",
     "public/newtab/sw.js",
+    "scripts/generate-favicons.mjs",
     "scripts/fixtures/jiten-fixtures.mjs",
     "scripts/lib/extension-runtime-hardening.mjs",
     "scripts/uchisen-bulk-publish.mjs",

@@ -210,6 +210,7 @@ function rebuildById(
     return drew ? out : null;
 }
 
+// fallow-ignore-next-line unused-export
 export function canvasMirrorHasOps(canvas: object): boolean {
     const id = canvasId(canvas, false);
     return !!id && (state().records[id]?.ops.length ?? 0) > 0;

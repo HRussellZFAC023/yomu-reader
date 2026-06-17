@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.17
+// @version      1.3.18
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-JeEbVY/hyWzQzpZG7YgTt8xfvaKevWACzmIGxmNLnTI=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-MZVWqwkIITDKnrmUo6pVlMMdnMpk9B3yDtd1O8DOwko=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-Fg5ZJI9o7mn3uV7h5aG+4xj8fiFh3Ac/LzP0fNp5mhI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-VFBf2vT8cj31R8HCGgXwpSZsfyHw2UKZTE8zXCc96F8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-eCBv1ONkylMe1SBiske6/wShX/B+XDU01nZH41PXpsk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -24785,7 +24785,7 @@ ${spelling}`);
       while (hAngle - vAngle > PI) hAngle -= 2 * PI;
       while (hAngle - vAngle < -PI) hAngle += 2 * PI;
       const count = actions.length;
-      const radius = Math.min(148, 96 + count * 9);
+      const radius = Math.min(178, 116 + count * 11);
       const pad = 0.12;
       actions.forEach((action, index) => {
         const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
@@ -24989,6 +24989,14 @@ ${spelling}`);
           }
         },
         {
+          id: "audio",
+          label: uiText(language, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
+          icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
+          tone: audioOn ? "on" : "off",
+          keepOpen: true,
+          run: () => actions.toggleAutoPlayAudio()
+        },
+        {
           id: "settings",
           label: uiText(language, "settings"),
           icon: radialSettingsIcon(),
@@ -25000,14 +25008,6 @@ ${spelling}`);
           icon: radialScanIcon(),
           disabled: paused,
           run: () => actions.scanPage()
-        },
-        {
-          id: "audio",
-          label: uiText(language, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
-          icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
-          tone: audioOn ? "on" : "off",
-          keepOpen: true,
-          run: () => actions.toggleAutoPlayAudio()
         },
         {
           id: "study",
