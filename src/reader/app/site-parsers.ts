@@ -775,7 +775,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         id: 'mokuro-parser',
         name: 'Mokuro',
         description: 'Mokuro manga text boxes.',
-        roots: ['.textBox', '#manga-panel .textBox', '#pagesContainer .textBox'],
+        roots: ['.textBox', '#manga-panel .textBox', '#pagesContainer .textBox', '.volume-card__title'],
         allowUiText: true,
         minLength: 1,
         mergeBlockFragments: true,

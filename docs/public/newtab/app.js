@@ -4974,6 +4974,14 @@
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
     if (!surface || !KANJI_RE$2.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+    const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
+    if (inferred.length) {
+      return inferred.map((ruby) => ({
+        ...ruby,
+        start: token.start + ruby.start,
+        end: token.start + ruby.end
+      }));
+    }
     return [{ text: reading, start: token.start, end: token.end, length: token.length }];
   }
   function kanjiOnlyRubySegments(surface, token, ruby) {
