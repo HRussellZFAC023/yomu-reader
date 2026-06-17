@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.14
+// @version      1.3.15
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-Kgpk9kbRtT/U7MfLnlOHx8jywJWKrCJAImZj68tmsW4=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IuGiYI0lTlR6pI1AbVpstQ7rOotSJsALOPX/rKGfeEk=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-phBpjGcA6vInYTVrJ0HAoCFfRyIyFQbi7JIJcHlnYWc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-vIEdyrkU/KLNSJHAj9jmciIChsjZTkZMrW9VNCJLl0s=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-/cNNAJtn8lWSponcjEJctpven9ggIPMekEBXOWG4nvs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -43716,20 +43716,21 @@ ${span.end}`;
   }
   function installCanvasMirrorRecorder(hostname = location.hostname) {
     if (!isBookwalkerHost(hostname)) return;
-    const s = state();
-    if (s.installed) return;
     let debug = false;
     try {
       debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
     } catch {
     }
-    s.debug = debug;
     const uw = globalThis.unsafeWindow;
     const differentRealm = Boolean(uw) && uw !== globalThis;
-    if (differentRealm && injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) {
-      s.installed = true;
-      return;
+    if (differentRealm) {
+      const existing = uw.__yomuCanvasMirror;
+      if (existing?.installed) return;
+      if (injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) return;
     }
+    const s = state();
+    if (s.installed) return;
+    s.debug = debug;
     const global = globalThis;
     patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
     patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);

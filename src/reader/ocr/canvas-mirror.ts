@@ -367,19 +367,26 @@ function createTrustedMirrorScript(code: string): unknown {
 // OCR reader can read it. Idempotent via the shared page-window state.
 export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
     if (!isBookwalkerHost(hostname)) return;
-    const s = state();
-    if (s.installed) return;
     let debug = false;
     try { debug = localStorage.getItem('yomu.canvasMirrorDebug') === '1'; } catch { /* */ }
-    s.debug = debug;
     const uw = (globalThis as unknown as { unsafeWindow?: typeof globalThis }).unsafeWindow;
     const differentRealm = Boolean(uw) && uw !== (globalThis as unknown as typeof globalThis);
-    if (differentRealm && injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) {
-        s.installed = true;
-        return;
+    if (differentRealm) {
+        // Firefox: do NOT call state() here. In the sandbox, state() would create a
+        // sandbox-compartment object on the page window via `??=`; the injected page
+        // recorder would then reuse it (`|| existing`) and the main-world reader
+        // couldn't read it. Let the injected page script create the page-compartment
+        // state itself.
+        const existing = (uw as unknown as { __yomuCanvasMirror?: MirrorGlobalState }).__yomuCanvasMirror;
+        if (existing?.installed) return;
+        if (injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) return;
+        // Injection blocked (CSP / Trusted Types): fall through to a same-realm patch.
     }
-    // Same realm (or injection unavailable): patch directly. The 2D-context prototype
-    // is shared across realms, so this still captures the page's draws.
+    // Same realm (iPad/Chrome, or injection unavailable): patch directly. The
+    // 2D-context prototype is shared across realms, so this still captures draws.
+    const s = state();
+    if (s.installed) return;
+    s.debug = debug;
     const global = globalThis as unknown as {
         CanvasRenderingContext2D?: { prototype: Context2DPrototype };
         OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype };

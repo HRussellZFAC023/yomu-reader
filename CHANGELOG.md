@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.15] - 2026-06-17
+
+### Fixed
+
+- BookWalker OCR never started on Firefox (no spinner): the recorder installer called `state()` before injecting the page-world recorder, which created a sandbox-compartment state object on the page window; the injected page recorder then reused that object, so its recorded ops lived in the sandbox compartment and the main-world reader read an empty map. The Firefox/different-realm path no longer touches `state()` before injection — the injected page script creates the page-compartment state itself, so the reader can read the recorded descramble ops. iPad/Chrome (same realm) are unchanged.
+
 ## [1.3.14] - 2026-06-17
 
 ### Added
