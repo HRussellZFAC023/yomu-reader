@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.20] - 2026-06-17
+
+### Fixed
+
+- Greasy Fork companion `@require` URLs now include the Yomu package version as a query parameter before the SRI hash. This forces userscript managers to refetch the matching companion bundle when the main script updates, avoiding stale-cache SRI failures such as Firefox loading an older `yomu-video.user.js` against a newer `yomu.user.js`.
+
 ## [1.3.19] - 2026-06-17
 
 ### Fixed

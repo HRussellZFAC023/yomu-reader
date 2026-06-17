@@ -1,5 +1,6 @@
 const githubOwner = 'HRussellZFAC023';
 const packageName = 'yomu-reader';
+const packageVersion = require('../../package.json').version;
 const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${packageName}/`;
 const greasyForkLibraryDir = 'greasyfork';
 
@@ -39,7 +40,7 @@ function greasyForkLibraryPath(fileName) {
 }
 
 function greasyForkLibraryUrl(fileName) {
-  return `${docsUrl}${greasyForkLibraryPath(fileName)}`;
+  return `${docsUrl}${greasyForkLibraryPath(fileName)}?v=${encodeURIComponent(packageVersion)}`;
 }
 
 function greasyForkLibraryUrls() {
