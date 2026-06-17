@@ -2411,20 +2411,21 @@
   }
   function installCanvasMirrorRecorder(hostname = location.hostname) {
     if (!isBookwalkerHost(hostname)) return;
-    const s = state();
-    if (s.installed) return;
     let debug = false;
     try {
       debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
     } catch {
     }
-    s.debug = debug;
     const uw = globalThis.unsafeWindow;
     const differentRealm = Boolean(uw) && uw !== globalThis;
-    if (differentRealm && injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) {
-      s.installed = true;
-      return;
+    if (differentRealm) {
+      const existing = uw.__yomuCanvasMirror;
+      if (existing?.installed) return;
+      if (injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) return;
     }
+    const s = state();
+    if (s.installed) return;
+    s.debug = debug;
     const global = globalThis;
     patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
     patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
