@@ -672,6 +672,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('ocrEnabled', 'Read text in images', settings.ocrEnabled)}
                     ${checkbox('ocrShowTextOverlay', 'Show recognized text on images', settings.ocrShowTextOverlay)}
                     ${checkbox('ocrVideoPauseFrames', 'Read paused video frames', settings.ocrVideoPauseFrames)}
+                    ${checkbox('ocrInvertDarkPanels', 'Read light text on dark panels', settings.ocrInvertDarkPanels)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select('ocrProvider', 'Image reading', settings.ocrProvider, [['google-lens', 'Google Lens — free, no setup (recommended)'], ['cloud-vision', 'Google Cloud Vision — needs API key'], ['local-service', 'Local OCR server — advanced'], ['off', 'Off']])}
@@ -688,6 +689,8 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     <label data-cloud-ocr ${cloudOcrHidden}>Google Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
+                    <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
+                    <input type="hidden" name="ocrConcurrency" value="${settings.ocrConcurrency}">
                 </div>
                 <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Reads images near the viewport.</div>
             </fieldset>
@@ -1627,7 +1630,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
     'immersionKitPlayOnHover', 'immersionKitPlayOnImageClick', 'immersionKitCategory', 'immersionKitSort', 'immersionKitLimit',
     'immersionKitMinLength', 'immersionKitMaxLength', 'immersionKitPlaybackRate', 'immersionKitExactMatch', 'ocrEnabled',
-    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
+    'ocrAutoScanImages', 'ocrShowTextOverlay', 'ocrVideoPauseFrames', 'ocrInvertDarkPanels', 'ocrProvider', 'ocrMaxImagesPerPage', 'ocrMinImageArea',
     'ocrMaxImagePixels', 'ocrTextColor', 'ocrOutlineColor', 'ocrBackgroundColor', 'ocrBackgroundOpacity',
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',

@@ -2012,6 +2012,9 @@
     ocrMinImageArea: 45e3,
     ocrMaxImagesPerPage: 3,
     ocrPrefetchMargin: 700,
+    ocrPrefetchPages: 2,
+    ocrConcurrency: 3,
+    ocrInvertDarkPanels: true,
     ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
     ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
     ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
@@ -3186,6 +3189,7 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
+      ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       googleLens: "Google Lens — free, no setup (recommended)",
       cloudVision: "Google Cloud Vision — needs API key",
@@ -4692,6 +4696,7 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
@@ -6010,6 +6015,7 @@ recommendedJiten	jiten.moe頻度データです。
       ocrAutoScanImages: formReaderValuePresent(reader, "ocrAutoScanImages") ? has("ocrAutoScanImages") : current.ocrAutoScanImages,
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
       ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
+      ocrInvertDarkPanels: has("ocrInvertDarkPanels"),
       ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
@@ -6019,6 +6025,8 @@ recommendedJiten	jiten.moe頻度データです。
       ocrMinImageArea: clamped("ocrMinImageArea", 1e4, 8e5, current.ocrMinImageArea),
       ocrMaxImagesPerPage: clamped("ocrMaxImagesPerPage", 1, 30, current.ocrMaxImagesPerPage),
       ocrPrefetchMargin: clamped("ocrPrefetchMargin", 0, 3e3, current.ocrPrefetchMargin),
+      ocrPrefetchPages: clamped("ocrPrefetchPages", 0, 10, current.ocrPrefetchPages),
+      ocrConcurrency: clamped("ocrConcurrency", 1, 8, current.ocrConcurrency),
       ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
       ocrBackgroundColor: sanitizeAccentColor(get("ocrBackgroundColor"), current.ocrBackgroundColor),
@@ -7751,6 +7759,7 @@ recommendedJiten	jiten.moe頻度データです。
                     ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
                     ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
+                    ${checkbox("ocrInvertDarkPanels", "Read light text on dark panels", settings.ocrInvertDarkPanels)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens — free, no setup (recommended)"], ["cloud-vision", "Google Cloud Vision — needs API key"], ["local-service", "Local OCR server — advanced"], ["off", "Off"]])}
@@ -7767,6 +7776,8 @@ recommendedJiten	jiten.moe頻度データです。
                     <label data-cloud-ocr ${cloudOcrHidden}>Google Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
+                    <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
+                    <input type="hidden" name="ocrConcurrency" value="${settings.ocrConcurrency}">
                 </div>
                 <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Reads images near the viewport.</div>
             </fieldset>
@@ -8700,6 +8711,7 @@ recommendedJiten	jiten.moe頻度データです。
     "ocrAutoScanImages",
     "ocrShowTextOverlay",
     "ocrVideoPauseFrames",
+    "ocrInvertDarkPanels",
     "ocrProvider",
     "ocrMaxImagesPerPage",
     "ocrMinImageArea",

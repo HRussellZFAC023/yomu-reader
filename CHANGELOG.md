@@ -1,6 +1,16 @@
 # Changelog
 
-## [1.0.6] - 2026-06-17
+## [1.1.0] - 2026-06-17
+
+### Added
+
+- Image and manga OCR now runs in parallel. A small concurrency pool (new "Parallel OCR requests" setting, default 3) replaces the old strictly one-at-a-time queue, so a reader page full of page images or canvases is read far faster. Work is deduplicated by image content, so a re-snapshotted canvas frame (canvas readers poll for page turns) never fires a redundant OCR call — the cache fills the duplicate in once the first scan resolves.
+- Canvas and CSS-background manga readers (BookWalker, comic-walker / カドコミ, Mokuro, and other viewers) prefetch a sliding window of upcoming pages. A new "Canvas prefetch pages" setting (default 2) snapshots and OCRs the next few spreads in the background — extending the look-ahead to `ocrPrefetchPages` viewport-heights — so a page's text is ready by the time you scroll to it. Combined with parallel OCR, several spreads are read at once.
+- New "Read light text on dark panels" setting (default on): dark panels (white text on a black background) are inverted once before OCR so polarity-sensitive recognizers (a local MangaOCR/PaddleOCR/Apple Vision server, etc.) can read them. The check is conservative — only dark-dominant panels with a minority of bright pixels are inverted, so normal pages are never touched and OCR is never run twice. It is a no-op for Google Lens, which already reads light-on-dark text.
+
+### Verified
+
+- Live on comic-walker.com (カドコミ): canvas-reader detection snapshots only the rendered page canvases (skipping the viewer's not-yet-painted blank placeholders), the sliding-window prefetch captures upcoming spreads while scrolling, and the parallel pool reads them concurrently — 70+ text lines recognized across several pages of a chapter.
 
 ### Fixed
 

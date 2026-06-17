@@ -2441,6 +2441,9 @@
     ocrMinImageArea: 45e3,
     ocrMaxImagesPerPage: 3,
     ocrPrefetchMargin: 700,
+    ocrPrefetchPages: 2,
+    ocrConcurrency: 3,
+    ocrInvertDarkPanels: true,
     ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
     ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
     ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
@@ -6074,6 +6077,7 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
+      ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       googleLens: "Google Lens — free, no setup (recommended)",
       cloudVision: "Google Cloud Vision — needs API key",
@@ -7599,6 +7603,7 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
@@ -24095,6 +24100,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ocrAutoScanImages: formReaderValuePresent(reader, "ocrAutoScanImages") ? has("ocrAutoScanImages") : current.ocrAutoScanImages,
       ocrShowTextOverlay: has("ocrShowTextOverlay"),
       ocrVideoPauseFrames: has("ocrVideoPauseFrames"),
+      ocrInvertDarkPanels: has("ocrInvertDarkPanels"),
       ocrProvider: normalizeOcrProvider(get("ocrProvider")),
       ocrEndpointUrl: get("ocrEndpointUrl").trim(),
       ocrEngine: get("ocrEngine").trim() || "auto",
@@ -24104,6 +24110,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ocrMinImageArea: clamped("ocrMinImageArea", 1e4, 8e5, current.ocrMinImageArea),
       ocrMaxImagesPerPage: clamped("ocrMaxImagesPerPage", 1, 30, current.ocrMaxImagesPerPage),
       ocrPrefetchMargin: clamped("ocrPrefetchMargin", 0, 3e3, current.ocrPrefetchMargin),
+      ocrPrefetchPages: clamped("ocrPrefetchPages", 0, 10, current.ocrPrefetchPages),
+      ocrConcurrency: clamped("ocrConcurrency", 1, 8, current.ocrConcurrency),
       ocrTextColor: sanitizeAccentColor(get("ocrTextColor"), current.ocrTextColor),
       ocrOutlineColor: sanitizeAccentColor(get("ocrOutlineColor"), current.ocrOutlineColor),
       ocrBackgroundColor: sanitizeAccentColor(get("ocrBackgroundColor"), current.ocrBackgroundColor),
@@ -25907,6 +25915,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("ocrEnabled", "Read text in images", settings.ocrEnabled)}
                     ${checkbox("ocrShowTextOverlay", "Show recognized text on images", settings.ocrShowTextOverlay)}
                     ${checkbox("ocrVideoPauseFrames", "Read paused video frames", settings.ocrVideoPauseFrames)}
+                    ${checkbox("ocrInvertDarkPanels", "Read light text on dark panels", settings.ocrInvertDarkPanels)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${select("ocrProvider", "Image reading", settings.ocrProvider, [["google-lens", "Google Lens — free, no setup (recommended)"], ["cloud-vision", "Google Cloud Vision — needs API key"], ["local-service", "Local OCR server — advanced"], ["off", "Off"]])}
@@ -25923,6 +25932,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     <label data-cloud-ocr ${cloudOcrHidden}>Google Cloud Vision API key<input name="ocrCloudVisionApiKey" type="text" class="jpdb-reader-masked-input" value="${escapeHtml$1(settings.ocrCloudVisionApiKey)}" autocomplete="off"${API_KEY_INPUT_ATTRIBUTE_HTML}></label>
                     <input type="hidden" name="ocrLanguage" value="${escapeHtml$1(settings.ocrLanguage)}">
                     <input type="hidden" name="ocrPrefetchMargin" value="${settings.ocrPrefetchMargin}">
+                    <input type="hidden" name="ocrPrefetchPages" value="${settings.ocrPrefetchPages}">
+                    <input type="hidden" name="ocrConcurrency" value="${settings.ocrConcurrency}">
                 </div>
                 <div id="settings-help-ocr" class="jpdb-reader-help" data-help-key="ocrHelp">Reads images near the viewport.</div>
             </fieldset>
@@ -26856,6 +26867,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "ocrAutoScanImages",
     "ocrShowTextOverlay",
     "ocrVideoPauseFrames",
+    "ocrInvertDarkPanels",
     "ocrProvider",
     "ocrMaxImagesPerPage",
     "ocrMinImageArea",
@@ -31376,7 +31388,14 @@ ${spelling}`);
     observerMargin = "";
     mutationObserver;
     queue = [];
-    busy = false;
+    // OCR runs as a small concurrency pool rather than one-at-a-time: manga
+    // readers surface many page images/canvases at once and the serial wait was
+    // the dominant source of "slow OCR". `activeScans` counts in-flight requests
+    // (capped by settings.ocrConcurrency) and `inFlightKeys` deduplicates work
+    // when several queued elements share the same image content (e.g. a canvas
+    // frame re-snapshotted on a page poll).
+    activeScans = 0;
+    inFlightKeys = /* @__PURE__ */ new Set();
     positionFrame = 0;
     refreshTimer = 0;
     lastPointerMoveImage;
@@ -31652,14 +31671,34 @@ ${spelling}`);
       if (!this.queue.includes(image)) this.queue.push(image);
     }
     drainQueue() {
-      if (this.busy) return;
-      const image = this.queue.shift();
-      if (!image) return;
-      this.busy = true;
+      const limit = ocrConcurrencyLimit(this.options.getSettings());
+      while (this.activeScans < limit) {
+        const image = this.takeNextQueuedImage();
+        if (!image) return;
+        this.startScan(image);
+      }
+    }
+    // Pull the next queued image whose content is not already being scanned, so
+    // duplicate enqueues / re-snapshotted canvas frames don't fire redundant OCR
+    // calls (the cache fills them in once the in-flight scan resolves).
+    takeNextQueuedImage() {
+      for (let index = 0; index < this.queue.length; index++) {
+        const candidate = this.queue[index];
+        if (this.inFlightKeys.has(imageCacheKey(candidate))) continue;
+        this.queue.splice(index, 1);
+        return candidate;
+      }
+      return void 0;
+    }
+    startScan(image) {
+      const key = imageCacheKey(image);
+      this.activeScans++;
+      this.inFlightKeys.add(key);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
       const delay2 = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
       void waitForIdle(delay2, delay2).then(() => this.scanImage(image)).finally(() => {
-        this.busy = false;
+        this.activeScans = Math.max(0, this.activeScans - 1);
+        this.inFlightKeys.delete(key);
         this.drainQueue();
       });
     }
@@ -32069,7 +32108,7 @@ ${spelling}`);
       if (this.canvasFrames.has(canvas)) return;
       const rect = canvas.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
-      if (!isNearViewport(canvas, settings.ocrPrefetchMargin) || isHiddenByCss(canvas)) return;
+      if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
       if (!looksLikeRenderedCanvasImage(canvas)) return;
       const dataUrl = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
       if (!dataUrl) return;
@@ -32138,7 +32177,7 @@ ${spelling}`);
       if (!url) return;
       const rect = surface.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
-      if (!isNearViewport(surface, settings.ocrPrefetchMargin) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
+      if (!isNearViewport(surface, canvasPrefetchMargin(settings)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
       const frame = document.createElement("img");
       frame.className = "jpdb-ocr-background-frame";
       frame.dataset.yomuBackgroundFrame = "true";
@@ -32265,6 +32304,7 @@ ${spelling}`);
       this.releaseAllCanvasFrames();
       this.releaseAllBackgroundFrames();
       this.queue = [];
+      this.inFlightKeys.clear();
       for (const state of this.states.values()) {
         state.overlay.remove();
       }
@@ -32631,7 +32671,7 @@ ${spelling}`);
     return Math.min(max2, Math.max(min, value));
   }
   async function recognizeViaLocalService(image, settings) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, settings.ocrInvertDarkPanels);
     const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
     const body = JSON.stringify({
       id: imageCacheKey(image),
@@ -32653,7 +32693,7 @@ ${spelling}`);
   async function recognizeViaCloudVision(image, settings) {
     const apiKey = settings.ocrCloudVisionApiKey.trim();
     if (!apiKey) return null;
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels);
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, settings.ocrInvertDarkPanels);
     const body = JSON.stringify({
       requests: [{
         image: { content: payload.base64 },
@@ -32666,7 +32706,7 @@ ${spelling}`);
     return normalizeOcrResult(response, payload.width, payload.height);
   }
   async function recognizeViaGoogleLens(image, settings) {
-    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88);
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, settings.ocrInvertDarkPanels);
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
     try {
@@ -32684,16 +32724,65 @@ ${spelling}`);
   function isOcrProviderConfigured(settings) {
     return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
   }
-  async function imageToBase64Payload(image, maxPixels) {
-    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86);
+  function invertCanvasIfDarkPanel(canvas) {
+    return isLightOnDarkPanel(canvas) ? invertedCanvas(canvas) : canvas;
+  }
+  function isLightOnDarkPanel(canvas) {
+    try {
+      const sampleWidth = Math.max(1, Math.min(canvas.width, 48));
+      const sampleHeight = Math.max(1, Math.min(canvas.height, 48));
+      const sample = document.createElement("canvas");
+      sample.width = sampleWidth;
+      sample.height = sampleHeight;
+      const context = sample.getContext("2d", { willReadFrequently: true });
+      if (!context) return false;
+      context.drawImage(canvas, 0, 0, sampleWidth, sampleHeight);
+      const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight);
+      let opaque = 0;
+      let dark = 0;
+      let bright = 0;
+      let luminanceSum = 0;
+      for (let i2 = 0; i2 < data.length; i2 += 4) {
+        if (data[i2 + 3] < 8) continue;
+        opaque++;
+        const luminance = data[i2] * 0.299 + data[i2 + 1] * 0.587 + data[i2 + 2] * 0.114;
+        luminanceSum += luminance;
+        if (luminance < 70) dark++;
+        else if (luminance > 170) bright++;
+      }
+      if (!opaque) return false;
+      const meanLuminance = luminanceSum / opaque;
+      const darkFraction = dark / opaque;
+      const brightFraction = bright / opaque;
+      return meanLuminance < 100 && darkFraction >= 0.55 && brightFraction >= 0.012 && brightFraction <= 0.5;
+    } catch {
+      return false;
+    }
+  }
+  function invertedCanvas(canvas) {
+    try {
+      const inverted = document.createElement("canvas");
+      inverted.width = canvas.width;
+      inverted.height = canvas.height;
+      const context = inverted.getContext("2d");
+      if (!context) return canvas;
+      context.filter = "invert(1)";
+      context.drawImage(canvas, 0, 0);
+      return inverted;
+    } catch {
+      return canvas;
+    }
+  }
+  async function imageToBase64Payload(image, maxPixels, invertDark = false) {
+    const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86, invertDark);
     return { base64: (await readBlobAsDataUrl(blob, "Blob read failed.")).split(",")[1] ?? "", width: canvas.width, height: canvas.height };
   }
-  async function imageToBlobPayload(image, maxPixels, type, quality) {
-    const canvas = await imageToCanvas(image, maxPixels);
+  async function imageToBlobPayload(image, maxPixels, type, quality, invertDark = false) {
+    const canvas = await imageToCanvas(image, maxPixels, invertDark);
     try {
       return { canvas, blob: await canvasToBlob(canvas, type, quality) };
     } catch {
-      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels);
+      const fallbackCanvas = await imageBlobToCanvas(image, maxPixels, invertDark);
       return { canvas: fallbackCanvas, blob: await canvasToBlob(fallbackCanvas, type, quality) };
     }
   }
@@ -32703,16 +32792,16 @@ ${spelling}`);
     const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout);
     return parseGoogleLensUploadHtml(response, width, height);
   }
-  async function imageToCanvas(image, maxPixels) {
+  async function imageToCanvas(image, maxPixels, invertDark = false) {
     try {
       const canvas = drawImageToCanvas(image, maxPixels);
       assertCanvasReadable(canvas);
-      return canvas;
+      return invertDark ? invertCanvasIfDarkPanel(canvas) : canvas;
     } catch {
-      return imageBlobToCanvas(image, maxPixels);
+      return imageBlobToCanvas(image, maxPixels, invertDark);
     }
   }
-  async function imageBlobToCanvas(image, maxPixels) {
+  async function imageBlobToCanvas(image, maxPixels, invertDark = false) {
     const url = image.currentSrc || image.src;
     if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
     const blob = await requestBlob$2(url);
@@ -32721,7 +32810,7 @@ ${spelling}`);
       const loaded = await loadImage(objectUrl);
       const canvas = drawImageToCanvas(loaded, maxPixels);
       assertCanvasReadable(canvas);
-      return canvas;
+      return invertDark ? invertCanvasIfDarkPanel(canvas) : canvas;
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
@@ -32986,6 +33075,14 @@ ${spelling}`);
   function isNearViewport(element, margin) {
     const rect = element.getBoundingClientRect();
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+  }
+  function ocrConcurrencyLimit(settings) {
+    return Math.max(1, Math.min(8, Math.round(settings.ocrConcurrency || 1)));
+  }
+  function canvasPrefetchMargin(settings) {
+    const pages = Math.max(0, settings.ocrPrefetchPages || 0);
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    return Math.max(settings.ocrPrefetchMargin, pages * viewportHeight);
   }
   function imageViewportDistance(image) {
     const rect = image.getBoundingClientRect();

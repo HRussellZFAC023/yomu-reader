@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.0.6
+// @version      1.1.0
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ZT0PEUPo27srxYwr8jzONA3dEh8Bn8mDBW6KEy3MkW4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IhOTa62YFgcyjDt3SwV8RQpEp46/jtbKpcDuwiVfxCA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-a9FYuOp6bXnxJs4ltvoPjOsZ5rZ8ACui/cY6QMhN8ZY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-5JXBhH6VKoUrqLkytZrP8InR1c9IedyWOOprdvq8uu4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-XTIHPt4JN8Y3H8H3LgvTf3HDOXkFSMYqJN0DuK5gR8A=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-LsJBGpEv5ph9EbFN2W1to6KW6QvrkBu5wM86nG+ypTA=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2666,6 +2666,9 @@
     ocrMinImageArea: 45e3,
     ocrMaxImagesPerPage: 3,
     ocrPrefetchMargin: 700,
+    ocrPrefetchPages: 2,
+    ocrConcurrency: 3,
+    ocrInvertDarkPanels: true,
     ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
     ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
     ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
@@ -6801,6 +6804,7 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
+      ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       googleLens: "Google Lens — free, no setup (recommended)",
       cloudVision: "Google Cloud Vision — needs API key",
@@ -8326,6 +8330,7 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要

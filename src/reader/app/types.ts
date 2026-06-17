@@ -349,6 +349,15 @@ export interface ReaderSettings {
     ocrMinImageArea: number;
     ocrMaxImagesPerPage: number;
     ocrPrefetchMargin: number;
+    // Read this many viewport-heights / spreads ahead of the viewport so the next
+    // pages of a manga reader are OCR'd in the background before you reach them.
+    ocrPrefetchPages: number;
+    // How many OCR requests may run at once. Manga readers expose many page
+    // images/canvases; processing them in parallel removes the slow serial wait.
+    ocrConcurrency: number;
+    // Invert pages whose text is light-on-dark (white text on a black panel)
+    // before OCR, since recognizers are tuned for dark-on-light.
+    ocrInvertDarkPanels: boolean;
     ocrTextColor: string;
     ocrOutlineColor: string;
     ocrBackgroundColor: string;

@@ -2044,6 +2044,7 @@
       ocrAutoScanImages: "Read images automatically",
       ocrShowTextOverlay: "Show recognized image text areas",
       ocrVideoPauseFrames: "Read paused video frames",
+      ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
       googleLens: "Google Lens — free, no setup (recommended)",
       cloudVision: "Google Cloud Vision — needs API key",
@@ -3569,6 +3570,7 @@ ocrEnabled	画像内テキストを読む
 ocrAutoScanImages	画像を自動で読む
 ocrShowTextOverlay	認識した画像テキスト領域を表示
 ocrVideoPauseFrames	一時停止した動画フレームを読む
+ocrInvertDarkPanels	暗いコマの白い文字を読む
 ocrProvider	画像読み取り
 googleLens	Google Lens — 無料・設定不要（おすすめ）
 cloudVision	Google Cloud Vision — APIキーが必要
