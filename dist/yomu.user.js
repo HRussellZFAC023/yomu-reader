@@ -24710,6 +24710,7 @@ ${spelling}`);
     state = "closed";
     listeners;
     closeTimer;
+    // fallow-ignore-next-line unused-class-member
     isOpen() {
       return this.state === "open";
     }
