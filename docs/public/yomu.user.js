@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.20
+// @version      1.3.21
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.20#sha256-JeEbVY/hyWzQzpZG7YgTt8xfvaKevWACzmIGxmNLnTI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.20#sha256-MZVWqwkIITDKnrmUo6pVlMMdnMpk9B3yDtd1O8DOwko=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.20#sha256-Fg5ZJI9o7mn3uV7h5aG+4xj8fiFh3Ac/LzP0fNp5mhI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.20#sha256-nKCHZxgeiqLPBe7rYGAbHrK7JPLsVhtM9aCEzywOlh0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.21#sha256-JeEbVY/hyWzQzpZG7YgTt8xfvaKevWACzmIGxmNLnTI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.21#sha256-MZVWqwkIITDKnrmUo6pVlMMdnMpk9B3yDtd1O8DOwko=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.21#sha256-Fg5ZJI9o7mn3uV7h5aG+4xj8fiFh3Ac/LzP0fNp5mhI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.21#sha256-nqO1h3cYg0XC8fyBiyEjjZfjQqPw9IUSWbGCCNwbX5M=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -31028,6 +31028,8 @@ ${glossaryKey}`;
   const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(",");
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
+  const MOKURO_SCAN_ROOT_LIMIT = 160;
+  const MOKURO_SCAN_MARGIN_VIEWPORTS = 0.75;
   const GENERIC_PROSE_ROOTS = [
     "main h1",
     '[role="main"] h1',
@@ -31722,6 +31724,9 @@ ${glossaryKey}`;
       minLength: 1,
       mergeBlockFragments: true,
       visibleOnly: false,
+      scanLimit: 80,
+      disableGenericDomScan: true,
+      includePassiveInteractionRoots: false,
       providesTextLayer: true,
       matches: (url) => url.hostname === "reader.mokuro.app" || url.hostname === "mokuro.moe" || url.hostname.endsWith(".mokuro.moe") || url.protocol === "file:" && /mokuro/i.test(decodeURIComponent(url.pathname))
     },
@@ -32231,7 +32236,29 @@ ${glossaryKey}`;
     for (const selector of profile.roots) {
       roots.push(...Array.from(document.querySelectorAll(selector)));
     }
-    return uniqueVisibleRoots(roots);
+    const unique2 = uniqueVisibleRoots(roots);
+    return profile.id === "mokuro-parser" ? nearestMokuroRoots(unique2) : unique2;
+  }
+  function nearestMokuroRoots(roots) {
+    const margin = mokuroScanViewportMargin();
+    return roots.filter((root) => isElementNearViewport(root, margin)).sort((a, b) => elementViewportDistance(a) - elementViewportDistance(b) || documentPositionOrder(a, b)).slice(0, MOKURO_SCAN_ROOT_LIMIT);
+  }
+  function mokuroScanViewportMargin() {
+    const width = window.innerWidth || document.documentElement.clientWidth || 0;
+    const height = window.innerHeight || document.documentElement.clientHeight || 0;
+    return Math.max(width, height) * MOKURO_SCAN_MARGIN_VIEWPORTS;
+  }
+  function isElementNearViewport(element2, margin) {
+    const rect = element2.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
+  }
+  function elementViewportDistance(element2) {
+    const rect = element2.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return Number.POSITIVE_INFINITY;
+    const dx = rect.right < 0 ? -rect.right : rect.left > window.innerWidth ? rect.left - window.innerWidth : 0;
+    const dy = rect.bottom < 0 ? -rect.bottom : rect.top > window.innerHeight ? rect.top - window.innerHeight : 0;
+    return Math.hypot(dx, dy);
   }
   function uniqueVisibleRoots(roots) {
     const unique2 = [];

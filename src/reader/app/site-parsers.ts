@@ -68,6 +68,8 @@ const STRUCTURAL_EXCLUDE_ENTRIES = [
 const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(',');
 const ASBPLAYER_ROOT_SELECTOR = '.asbplayer-offscreen, .asbplayer-subtitles-container-bottom';
 const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
+const MOKURO_SCAN_ROOT_LIMIT = 160;
+const MOKURO_SCAN_MARGIN_VIEWPORTS = 0.75;
 const GENERIC_PROSE_ROOTS = [
     'main h1',
     '[role="main"] h1',
@@ -778,6 +780,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         minLength: 1,
         mergeBlockFragments: true,
         visibleOnly: false,
+        scanLimit: 80,
+        disableGenericDomScan: true,
+        includePassiveInteractionRoots: false,
         providesTextLayer: true,
         matches: url => url.hostname === 'reader.mokuro.app'
             || url.hostname === 'mokuro.moe' || url.hostname.endsWith('.mokuro.moe')
@@ -1447,7 +1452,39 @@ function queryParserRoots(profile: SiteParserProfile): HTMLElement[] {
     for (const selector of profile.roots) {
         roots.push(...Array.from(document.querySelectorAll<HTMLElement>(selector)));
     }
-    return uniqueVisibleRoots(roots);
+    const unique = uniqueVisibleRoots(roots);
+    return profile.id === 'mokuro-parser' ? nearestMokuroRoots(unique) : unique;
+}
+
+function nearestMokuroRoots(roots: HTMLElement[]): HTMLElement[] {
+    const margin = mokuroScanViewportMargin();
+    return roots
+        .filter(root => isElementNearViewport(root, margin))
+        .sort((a, b) => elementViewportDistance(a) - elementViewportDistance(b) || documentPositionOrder(a, b))
+        .slice(0, MOKURO_SCAN_ROOT_LIMIT);
+}
+
+function mokuroScanViewportMargin(): number {
+    const width = window.innerWidth || document.documentElement.clientWidth || 0;
+    const height = window.innerHeight || document.documentElement.clientHeight || 0;
+    return Math.max(width, height) * MOKURO_SCAN_MARGIN_VIEWPORTS;
+}
+
+function isElementNearViewport(element: Element, margin: number): boolean {
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return false;
+    return rect.bottom >= -margin
+        && rect.top <= window.innerHeight + margin
+        && rect.right >= -margin
+        && rect.left <= window.innerWidth + margin;
+}
+
+function elementViewportDistance(element: Element): number {
+    const rect = element.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return Number.POSITIVE_INFINITY;
+    const dx = rect.right < 0 ? -rect.right : rect.left > window.innerWidth ? rect.left - window.innerWidth : 0;
+    const dy = rect.bottom < 0 ? -rect.bottom : rect.top > window.innerHeight ? rect.top - window.innerHeight : 0;
+    return Math.hypot(dx, dy);
 }
 
 function uniqueVisibleRoots(roots: HTMLElement[]): HTMLElement[] {

@@ -18,7 +18,6 @@ import {
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
 import { captureCanvasMirror } from './canvas-mirror';
 import { uiText, type UiCopyKey } from '../app/i18n';
-import { isAppleTouchBrowser } from '../platform/browser';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { Logger } from '../app/logger';
@@ -773,7 +772,7 @@ export class ImageOcrController {
         recognizer: OcrRecognizer,
     ): Promise<OcrResult | null> {
         const normal = await this.runRecognizer(image, settings, recognizer, false);
-        if (!settings.ocrInvertDarkPanels || shouldSkipAutomaticDarkPass()) return normal;
+        if (!settings.ocrInvertDarkPanels) return normal;
         const field = buildLuminanceField(image);
         if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
         if (darkAreaIsRead(field, normal)) return normal;
@@ -1226,7 +1225,7 @@ export class ImageOcrController {
             this.releaseAllCanvasFrames();
             this.canvasReaderSignature = signature;
         }
-        const canvases = collectCanvasReaderSurfaces();
+        const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
         }
@@ -1245,7 +1244,7 @@ export class ImageOcrController {
             if (rect.width * rect.height < settings.ocrMinImageArea) return;
             // Prefetch a sliding window of upcoming pages (canvasPrefetchMargin), but
             // never spend an OCR call on a page the reader hasn't painted yet.
-            if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
+            if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
             // A readable canvas is snapshotted directly. A tainted one can only fall
             // back to a fetched source image on readers where that resource is the
             // same page the user sees; BookWalker source assets may be scrambled, so
@@ -1392,7 +1391,7 @@ export class ImageOcrController {
             return;
         }
         this.startReaderRasterPollingIfNeeded();
-        const surfaces = collectBackgroundImageReaderSurfaces();
+        const surfaces = activeReaderRasterSurfaces(collectBackgroundImageReaderSurfaces(), settings, userRequested);
         for (const surface of [...this.backgroundFrames.keys()]) {
             const key = this.backgroundFrameKeys.get(surface);
             if (!surfaces.includes(surface) || key !== backgroundSurfaceCacheKey(surface)) this.releaseBackgroundFrame(surface);
@@ -1409,7 +1408,7 @@ export class ImageOcrController {
         if (!url) return;
         const rect = surface.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
-        if (!isNearViewport(surface, canvasPrefetchMargin(settings)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
+        if (!isNearViewport(surface, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
         const frame = document.createElement('img');
         frame.className = 'jpdb-ocr-background-frame';
         frame.dataset.yomuBackgroundFrame = 'true';
@@ -2664,7 +2663,6 @@ function isNearViewport(element: Element, margin: number): boolean {
 }
 
 function ocrConcurrencyLimit(settings: ReaderSettings): number {
-    if (isConstrainedTouchOcrDevice()) return 1;
     return Math.max(1, Math.min(8, Math.round(settings.ocrConcurrency || 1)));
 }
 
@@ -2672,7 +2670,6 @@ function ocrConcurrencyLimit(settings: ReaderSettings): number {
 // configured margin, extended to `ocrPrefetchPages` viewport-heights so the next
 // few spreads are snapshotted + OCR'd in the background before you scroll to them.
 function canvasPrefetchMargin(settings: ReaderSettings): number {
-    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     const pages = Math.max(0, settings.ocrPrefetchPages || 0);
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     return Math.max(settings.ocrPrefetchMargin, pages * viewportHeight);
@@ -2703,29 +2700,43 @@ function isLikelyImageReaderPage(settings: ReaderSettings): boolean {
 }
 
 function imagePrefetchMargin(settings: ReaderSettings): number {
-    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings)
         ? canvasPrefetchMargin(settings)
         : settings.ocrPrefetchMargin;
 }
 
 function imageReaderMaxImages(settings: ReaderSettings): number {
-    if (isConstrainedTouchOcrDevice()) return settings.ocrMaxImagesPerPage;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings)
         ? Math.max(settings.ocrMaxImagesPerPage, settings.ocrPrefetchPages * 2 + 1)
         : settings.ocrMaxImagesPerPage;
 }
 
-function isConstrainedTouchOcrDevice(): boolean {
-    return isAppleTouchBrowser();
+function activeReaderRasterSurfaces<T extends Element>(surfaces: T[], settings: ReaderSettings, userRequested: boolean): T[] {
+    const margin = readerRasterCaptureMargin(settings, userRequested);
+    return surfaces
+        .filter(surface => isNearViewport(surface, margin))
+        .sort((a, b) => elementViewportDistance(a) - elementViewportDistance(b))
+        .slice(0, readerRasterMaxSurfaces(settings, userRequested));
 }
 
-function shouldSkipAutomaticDarkPass(): boolean {
-    return isConstrainedTouchOcrDevice();
+function readerRasterCaptureMargin(settings: ReaderSettings, userRequested: boolean): number {
+    if (userRequested) return settings.ocrPrefetchMargin;
+    return Math.min(canvasPrefetchMargin(settings), settings.ocrPrefetchMargin);
+}
+
+function readerRasterMaxSurfaces(settings: ReaderSettings, userRequested: boolean): number {
+    const configured = Math.max(1, Math.round(settings.ocrMaxImagesPerPage || 1));
+    if (userRequested) return configured;
+    return Math.min(configured, 3);
 }
 
 function imageViewportDistance(image: HTMLImageElement): number {
-    const rect = image.getBoundingClientRect();
+    return elementViewportDistance(image);
+}
+
+function elementViewportDistance(element: Element): number {
+    const rect = element.getBoundingClientRect();
+    if (!rect.width || !rect.height) return Number.POSITIVE_INFINITY;
     if (rect.bottom < 0) return -rect.bottom;
     if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
     if (rect.right < 0) return -rect.right;

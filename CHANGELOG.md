@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.21] - 2026-06-17
+
+### Fixed
+
+- Mokuro continuous/autoscroll readers no longer keep OCR frames and overlays for old offscreen CSS-background pages. Yomu now keeps only the active viewport-near raster surfaces, so long manga strips do not accumulate hundreds of hidden frame images while scrolling.
+- Mokuro native `.textBox` scanning is now viewport-near and bounded, with visible boxes prioritized over old offscreen pages. This keeps Yomu responsive even when image OCR is disabled and mokuro has mounted hundreds of text boxes.
+- Reverted the previous iPad-only OCR budget throttle: OCR concurrency, image-reader prefetch, and dark-panel second-pass behavior again follow the user's settings.
+
 ## [1.3.20] - 2026-06-17
 
 ### Fixed

@@ -86,6 +86,18 @@ function mokuroBackgroundPage(): HTMLElement {
     return page;
 }
 
+function mokuroBackgroundPageAt(index: number, rect: () => DOMRect): HTMLElement {
+    const page = document.createElement('div');
+    page.dataset.pageIndex = String(index);
+    page.style.width = '1080px';
+    page.style.height = '1530px';
+    page.style.backgroundImage = `url("blob:https://reader.mokuro.app/page-${index}")`;
+    page.style.backgroundSize = 'contain';
+    page.getBoundingClientRect = rect;
+    document.body.append(page);
+    return page;
+}
+
 describe('reader raster OCR surfaces', () => {
     it('refreshes when a BookWalker canvas mounts after controller startup', async () => {
         stubLocation('viewer.bookwalker.jp');
@@ -311,6 +323,32 @@ describe('reader raster OCR surfaces', () => {
 
             await waitForExpect(() => {
                 expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('releases Mokuro background OCR frames after their page leaves the capture window', async () => {
+        stubLocation('reader.mokuro.app');
+        let firstLeft = 24;
+        let secondLeft = 6000;
+        mokuroBackgroundPageAt(1, () => new DOMRect(firstLeft, 18, 681, 965));
+        mokuroBackgroundPageAt(2, () => new DOMRect(secondLeft, 18, 681, 965));
+        const controller = createController({ ocrPrefetchMargin: 0, ocrPrefetchPages: 2 });
+        try {
+            await waitForExpect(() => {
+                const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-background-frame')];
+                expect(frames.map(frame => frame.src)).toEqual(['blob:https://reader.mokuro.app/page-1']);
+            });
+
+            firstLeft = -6000;
+            secondLeft = 24;
+            controller.refresh();
+
+            await waitForExpect(() => {
+                const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-background-frame')];
+                expect(frames.map(frame => frame.src)).toEqual(['blob:https://reader.mokuro.app/page-2']);
             });
         } finally {
             controller.destroy();

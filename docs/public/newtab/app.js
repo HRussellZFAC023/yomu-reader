@@ -32843,7 +32843,7 @@ ${spelling}`);
     // panel pays for the extra pass, and its lines are merged in over the dark area.
     async recognizeWithDarkPass(image, settings, recognizer) {
       const normal = await this.runRecognizer(image, settings, recognizer, false);
-      if (!settings.ocrInvertDarkPanels || shouldSkipAutomaticDarkPass()) return normal;
+      if (!settings.ocrInvertDarkPanels) return normal;
       const field = buildLuminanceField(image);
       if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
       if (darkAreaIsRead(field, normal)) return normal;
@@ -33212,7 +33212,7 @@ ${spelling}`);
         this.releaseAllCanvasFrames();
         this.canvasReaderSignature = signature;
       }
-      const canvases = collectCanvasReaderSurfaces();
+      const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
       }
@@ -33228,7 +33228,7 @@ ${spelling}`);
       try {
         const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
-        if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
+        if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
         let frameSrc;
         let frameRect = rect;
         if (isCanvasReadable(canvas)) {
@@ -33355,7 +33355,7 @@ ${spelling}`);
         return;
       }
       this.startReaderRasterPollingIfNeeded();
-      const surfaces = collectBackgroundImageReaderSurfaces();
+      const surfaces = activeReaderRasterSurfaces(collectBackgroundImageReaderSurfaces(), settings, userRequested);
       for (const surface of [...this.backgroundFrames.keys()]) {
         const key = this.backgroundFrameKeys.get(surface);
         if (!surfaces.includes(surface) || key !== backgroundSurfaceCacheKey(surface)) this.releaseBackgroundFrame(surface);
@@ -33371,7 +33371,7 @@ ${spelling}`);
       if (!url) return;
       const rect = surface.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
-      if (!isNearViewport(surface, canvasPrefetchMargin(settings)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
+      if (!isNearViewport(surface, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(surface) || isInsideHiddenAncestor(surface)) return;
       const frame = document.createElement("img");
       frame.className = "jpdb-ocr-background-frame";
       frame.dataset.yomuBackgroundFrame = "true";
@@ -34383,11 +34383,9 @@ ${spelling}`);
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
   }
   function ocrConcurrencyLimit(settings) {
-    if (isConstrainedTouchOcrDevice()) return 1;
     return Math.max(1, Math.min(8, Math.round(settings.ocrConcurrency || 1)));
   }
   function canvasPrefetchMargin(settings) {
-    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     const pages = Math.max(0, settings.ocrPrefetchPages || 0);
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     return Math.max(settings.ocrPrefetchMargin, pages * viewportHeight);
@@ -34410,21 +34408,30 @@ ${spelling}`);
     return value;
   }
   function imagePrefetchMargin(settings) {
-    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? canvasPrefetchMargin(settings) : settings.ocrPrefetchMargin;
   }
   function imageReaderMaxImages(settings) {
-    if (isConstrainedTouchOcrDevice()) return settings.ocrMaxImagesPerPage;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? Math.max(settings.ocrMaxImagesPerPage, settings.ocrPrefetchPages * 2 + 1) : settings.ocrMaxImagesPerPage;
   }
-  function isConstrainedTouchOcrDevice() {
-    return isAppleTouchBrowser();
+  function activeReaderRasterSurfaces(surfaces, settings, userRequested) {
+    const margin = readerRasterCaptureMargin(settings, userRequested);
+    return surfaces.filter((surface) => isNearViewport(surface, margin)).sort((a, b) => elementViewportDistance(a) - elementViewportDistance(b)).slice(0, readerRasterMaxSurfaces(settings, userRequested));
   }
-  function shouldSkipAutomaticDarkPass() {
-    return isConstrainedTouchOcrDevice();
+  function readerRasterCaptureMargin(settings, userRequested) {
+    if (userRequested) return settings.ocrPrefetchMargin;
+    return Math.min(canvasPrefetchMargin(settings), settings.ocrPrefetchMargin);
+  }
+  function readerRasterMaxSurfaces(settings, userRequested) {
+    const configured = Math.max(1, Math.round(settings.ocrMaxImagesPerPage || 1));
+    if (userRequested) return configured;
+    return Math.min(configured, 3);
   }
   function imageViewportDistance(image) {
-    const rect = image.getBoundingClientRect();
+    return elementViewportDistance(image);
+  }
+  function elementViewportDistance(element) {
+    const rect = element.getBoundingClientRect();
+    if (!rect.width || !rect.height) return Number.POSITIVE_INFINITY;
     if (rect.bottom < 0) return -rect.bottom;
     if (rect.top > window.innerHeight) return rect.top - window.innerHeight;
     if (rect.right < 0) return -rect.right;

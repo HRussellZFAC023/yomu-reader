@@ -30476,12 +30476,13 @@ describe('reader helpers', () => {
     it('collects each Mokuro text box as one automatic scan target', () => {
         document.body.innerHTML = `
             <div id="manga-panel">
-                <div class="textBox" style="position:absolute;width:120px;height:80px">
+                <div class="textBox" data-testid="mokuro-box" style="position:absolute;width:120px;height:80px">
                     <p>ぴっ</p>
                     <p>たりよね</p>
                 </div>
             </div>
         `;
+        document.querySelector<HTMLElement>('[data-testid="mokuro-box"]')!.getBoundingClientRect = () => new DOMRect(24, 80, 120, 80);
 
         const targets = collectScanTargets(10, 'https://reader.mokuro.app/reader/example');
         expect(targets.map(target => target.text)).toEqual(['ぴったりよね']);
@@ -30489,15 +30490,38 @@ describe('reader helpers', () => {
         expect(target && 'layoutSensitive' in target ? target.layoutSensitive : false).toBe(true);
     });
 
+    it('prioritizes viewport-near Mokuro text boxes instead of old offscreen pages', () => {
+        const panel = document.createElement('div');
+        panel.id = 'manga-panel';
+        document.body.replaceChildren(panel);
+        const boxes: HTMLElement[] = [];
+        for (let index = 0; index < 220; index++) {
+            const box = document.createElement('div');
+            box.className = 'textBox';
+            box.textContent = index === 120 ? '今ここを読む' : `古いページ${index}`;
+            box.getBoundingClientRect = () => index === 120
+                ? new DOMRect(32, 80, 160, 72)
+                : new DOMRect(-20000 - index * 180, 80, 160, 72);
+            boxes.push(box);
+            panel.append(box);
+        }
+
+        const targets = collectScanTargets(120, 'https://reader.mokuro.app/reader/example');
+
+        expect(targets.map(target => target.text)).toContain('今ここを読む');
+        expect(targets.some(target => target.text.startsWith('古いページ'))).toBe(false);
+    });
+
     it('keeps Mokuro words clickable when JPDB tokens cross OCR line fragments', () => {
         document.body.innerHTML = `
             <div id="manga-panel">
-                <div class="textBox" style="position:absolute;width:120px;height:80px">
+                <div class="textBox" data-testid="mokuro-box" style="position:absolute;width:120px;height:80px">
                     <p>ぴっ</p>
                     <p>たりよね</p>
                 </div>
             </div>
         `;
+        document.querySelector<HTMLElement>('[data-testid="mokuro-box"]')!.getBoundingClientRect = () => new DOMRect(24, 80, 120, 80);
         const [target] = collectScanTargets(10, 'https://reader.mokuro.app/reader/example');
 
         applyTokensToScanTarget(target!, [
