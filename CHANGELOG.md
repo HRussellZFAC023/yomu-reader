@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.15] - 2026-06-17
+
+### Fixed
+
+- Closing the selection popover now keeps your text selection. Pressing the close shortcut (Escape) no longer immediately re-opens the popover for the same selection — the trailing keyup used to re-trigger the lookup on the still-highlighted text; the dismissed selection is now remembered until it actually changes. Clicking the backdrop to dismiss also preserves the highlight (the overlay no longer collapses the page selection on mousedown) instead of clearing everything.
+
 ## [1.3.14] - 2026-06-17
 
 ### Added

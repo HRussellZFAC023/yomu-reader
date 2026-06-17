@@ -338,6 +338,10 @@ export function createReaderBackdrop(onDismiss: () => void): HTMLElement {
     const backdrop = document.createElement('div');
     backdrop.className = 'jpdb-reader-backdrop';
     backdrop.dataset.jpdbReaderRoot = 'true';
+    // Preserve the user's text selection when they click away to dismiss:
+    // a mousedown on the overlay would otherwise collapse the page selection.
+    // preventDefault on mousedown keeps the highlight while still firing click.
+    backdrop.addEventListener('mousedown', event => event.preventDefault());
     backdrop.addEventListener('click', onDismiss);
     return backdrop;
 }

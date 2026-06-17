@@ -23197,6 +23197,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const backdrop = document.createElement("div");
     backdrop.className = "jpdb-reader-backdrop";
     backdrop.dataset.jpdbReaderRoot = "true";
+    backdrop.addEventListener("mousedown", (event) => event.preventDefault());
     backdrop.addEventListener("click", onDismiss);
     return backdrop;
   }

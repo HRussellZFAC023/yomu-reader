@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.14
+// @version      1.3.15
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -12061,6 +12061,7 @@ recommendedJiten	jiten.moe頻度データです。
     const backdrop = document.createElement("div");
     backdrop.className = "jpdb-reader-backdrop";
     backdrop.dataset.jpdbReaderRoot = "true";
+    backdrop.addEventListener("mousedown", (event) => event.preventDefault());
     backdrop.addEventListener("click", onDismiss);
     return backdrop;
   }
@@ -37694,6 +37695,7 @@ ${glossaryKey}`;
     hoverAnchorIds = /* @__PURE__ */ new WeakMap();
     nextHoverAnchorId = 1;
     suppressSelectionLookupUntil = 0;
+    dismissedSelectionText = "";
     suppressWordClickUntil = 0;
     suppressPenHoverUntil = 0;
     pageHasJapaneseText = false;
@@ -38788,6 +38790,7 @@ ${glossaryKey}`;
       if (!this.hasOpenReaderDialog()) return false;
       if (!escapeClose && !matchesShortcut(event, this.settings.shortcuts.closePopup)) return false;
       event.preventDefault();
+      this.rememberDismissedSelection();
       this.dismiss({ suppressHoverTarget: true });
       return true;
     }
@@ -39867,9 +39870,17 @@ ${glossaryKey}`;
       if (this.isDestroyed) return;
       if (Date.now() < this.suppressSelectionLookupUntil) return;
       const selected = this.selectionLookupText();
-      if (!selected) return;
+      if (!selected) {
+        this.dismissedSelectionText = "";
+        return;
+      }
+      if (selected === this.dismissedSelectionText) return;
+      this.dismissedSelectionText = "";
       if (await this.lookupRenderedSelection(selected)) return;
       await this.lookupText(selected, getSelectionSentence(), { source: "selection" });
+    }
+    rememberDismissedSelection() {
+      this.dismissedSelectionText = getSelectionText();
     }
     selectionLookupText() {
       const selected = getSelectionText();
@@ -42791,7 +42802,10 @@ ${glossaryKey}`;
     }
     popoverMountState(anchor, options) {
       const mode = options.mode ?? "modal";
-      const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled ? void 0 : createReaderBackdrop(() => this.dismiss());
+      const backdrop = options.stackOverSettings || mode === "hover" || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled ? void 0 : createReaderBackdrop(() => {
+        this.rememberDismissedSelection();
+        this.dismiss();
+      });
       const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
       const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
       const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : void 0;
