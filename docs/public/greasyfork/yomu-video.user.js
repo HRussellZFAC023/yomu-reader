@@ -1423,42 +1423,6 @@
     html += renderKanjiNavigationText(surface.slice(localOffset));
     return html;
   }
-  function inferredInflectedSurfaceRubies(surface, spelling, reading) {
-    const visibleSurface = surface.trim();
-    const baseSpelling = spelling.trim();
-    const baseReading = reading.trim();
-    if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE.test(visibleSurface) || !KANA_RE.test(baseReading) || baseReading === baseSpelling) return [];
-    for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
-      if (!baseReading.endsWith(spellingSuffix)) continue;
-      const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
-      if (!spellingStem || !visibleSurface.startsWith(spellingStem)) continue;
-      const surfaceSuffix = visibleSurface.slice(spellingStem.length);
-      if (!surfaceSuffix || !KANA_RE.test(surfaceSuffix)) continue;
-      const rubies = stemRubiesForInflectedSurface(spellingStem, baseReading.slice(0, -spellingSuffix.length));
-      if (rubies.length) return rubies;
-    }
-    return [];
-  }
-  function trailingKanaSuffixes(value) {
-    const suffixes = [];
-    for (let index = 0; index < value.length; index += 1) {
-      const suffix = value.slice(index);
-      if (suffix && KANA_RE.test(suffix)) suffixes.push(suffix);
-    }
-    return suffixes.sort((first, second) => second.length - first.length);
-  }
-  function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
-    const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
-    if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE.test(trimmed.surface) || !KANA_RE.test(trimmed.reading)) return [];
-    return [{
-      text: trimmed.reading,
-      start: trimmed.offset,
-      end: trimmed.offset + trimmed.surface.length,
-      length: trimmed.surface.length
-    }];
-  }
   function trimSharedKanaAffixes(surface, reading) {
     let trimmedSurface = surface;
     let trimmedReading = reading;
@@ -1499,14 +1463,6 @@
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
     if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
-    const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
-    if (inferred.length) {
-      return inferred.map((ruby) => ({
-        ...ruby,
-        start: token.start + ruby.start,
-        end: token.start + ruby.end
-      }));
-    }
     return [{ text: reading, start: token.start, end: token.end, length: token.length }];
   }
   function kanjiOnlyRubySegments(surface, token, ruby) {
