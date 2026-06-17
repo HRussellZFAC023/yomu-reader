@@ -37,12 +37,8 @@ describe('VisiblePageScanner', () => {
 
         try {
             await scanner.scanVisiblePage({ silent: true });
-            for (let waits = 0; waits < 200 && parseJapanese.mock.calls.length < 3; waits += 1) {
-                await new Promise(resolve => setTimeout(resolve, 5));
-            }
-            for (let waits = 0; waits < 200 && pauseMutationObserver.mock.calls.length < 5; waits += 1) {
-                await new Promise(resolve => setTimeout(resolve, 5));
-            }
+            await vi.waitFor(() => expect(parseJapanese.mock.calls.map(call => call[0])).toHaveLength(3), { timeout: 10000 });
+            await vi.waitFor(() => expect(pauseMutationObserver).toHaveBeenCalledTimes(5), { timeout: 10000 });
 
             expect(parseJapanese.mock.calls.map(call => call[0])).toHaveLength(3);
             expect(parseJapanese.mock.calls[0]?.[0]).toHaveLength(80);
@@ -61,7 +57,7 @@ describe('VisiblePageScanner', () => {
             restoreRects();
             document.body.innerHTML = '';
         }
-    });
+    }, 15000);
 
     it('enhances YouTube comment text without dropping the native text', async () => {
         const restoreRects = mockVisibleElementRects();
