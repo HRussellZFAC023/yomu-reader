@@ -151,9 +151,12 @@ export function collectLeafUrls(
     if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
     const record = lookup(id);
     if (!record) return out;
-    seen.add(id);
+    // Per-path `seen` copy (NOT shared): a spread reuses ONE buffer for both pages,
+    // visiting it twice at different seq bounds. A shared set would skip the second
+    // visit, so the left page's source image is never fetched and renders blank.
+    const next = new Set(seen).add(id);
     for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-        if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, seen, depth + 1);
+        if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
         else if (op.url) out.add(op.url);
     }
     return out;

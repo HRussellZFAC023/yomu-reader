@@ -57,6 +57,24 @@ describe('collectLeafUrls', () => {
         expect([...urls].sort()).toEqual(['urlL', 'urlR']);
     });
 
+    it('collects BOTH page URLs when a spread reuses one buffer (interleaved render/composite)', () => {
+        // The engine renders page R into the buffer, composites it right, then renders
+        // page L into the SAME buffer and composites it left. Each composite must
+        // recurse the buffer at its own seq bound, so both source URLs are fetched.
+        const records: Record<string, MirrorRecord> = {
+            buf: { w: 1024, h: 1024, ops: [
+                op({ seq: 1, url: 'urlR', dx: 0, dy: 0, dw: 1024, dh: 1024 }),
+                op({ seq: 4, url: 'urlL', dx: 0, dy: 0, dw: 1024, dh: 1024 }), // same dest, later
+            ] },
+            spread: { w: 2048, h: 1024, ops: [
+                op({ seq: 2, srcId: 'buf', dx: 1024, dy: 0, dw: 1024, dh: 1024 }), // composite R → right
+                op({ seq: 5, srcId: 'buf', dx: 0, dy: 0, dw: 1024, dh: 1024 }),    // composite L → left
+            ] },
+        };
+        const urls = collectLeafUrls('spread', Number.POSITIVE_INFINITY, id => records[id]);
+        expect([...urls].sort()).toEqual(['urlL', 'urlR']); // both halves, not just the right
+    });
+
     it('does not loop on cyclic canvas references', () => {
         const records: Record<string, MirrorRecord> = {
             a: { w: 8, h: 8, ops: [op({ seq: 1, srcId: 'a', dx: 0, dy: 0, dw: 8, dh: 8 }), op({ seq: 2, url: 'leaf', dx: 8, dy: 0, dw: 8, dh: 8 })] },

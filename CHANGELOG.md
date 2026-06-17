@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.11] - 2026-06-17
+
+### Fixed
+
+- BookWalker two-page spreads only OCR'd the right page on Firefox/iPad. A spread is composited from one reused buffer (render right → composite right → render left → composite left), so the rebuild visits that buffer twice at different sequence bounds. The source-image URL collector used a shared "seen" set and skipped the second visit, so the left page's image was never fetched and rendered blank. The collector now uses per-path "seen" copies (matching the rebuild), so both pages' source images are fetched and both halves OCR.
+
 ## [1.3.10] - 2026-06-17
 
 ### Fixed
