@@ -8,7 +8,9 @@
     "src/reader/userscript/entry.ts",
     "src/reader/newtab/entrypoint.ts",
     "scripts/qa-audit.mjs",
+    "scripts/bookwalker-canvas-probe.mjs",
     "scripts/youtube-fullscreen-smoke.mjs",
+    "scripts/yt-live-harness.mjs",
     "tests/reader/**/*.test.ts"
   ],
   "dynamicallyLoaded": [

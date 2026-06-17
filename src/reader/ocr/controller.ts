@@ -89,6 +89,7 @@ const LENS_PLATFORM_WEB = 3;
 const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 const log = Logger.scope('OCR');
+const STALE_OCR_STATE = Symbol('stale-ocr-state');
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
     'google-lens': recognizeViaGoogleLens,
     'cloud-vision': recognizeViaCloudVision,
@@ -238,6 +239,7 @@ export class ImageOcrController {
     private readonly inFlightKeys = new Set<string>();
     private positionFrame = 0;
     private refreshTimer = 0;
+    private destroyed = false;
     private lastPointerMoveImage?: HTMLImageElement;
     private lastPointerMoveReaderSurface?: Element;
     private videoFrames = new Map<HTMLVideoElement, HTMLImageElement>();
@@ -284,6 +286,7 @@ export class ImageOcrController {
     }
 
     init(): void {
+        this.destroyed = false;
         this.refresh();
         document.addEventListener('pointerdown', this.handleDocumentPointerDown, true);
         document.addEventListener('pointerover', this.handleDocumentPointerOver, true);
@@ -320,6 +323,7 @@ export class ImageOcrController {
     }
 
     destroy(): void {
+        this.destroyed = true;
         document.removeEventListener('pointerdown', this.handleDocumentPointerDown, true);
         document.removeEventListener('pointerover', this.handleDocumentPointerOver, true);
         document.removeEventListener('pointermove', this.handleDocumentPointerMove, true);
@@ -344,6 +348,7 @@ export class ImageOcrController {
     }
 
     refresh(options: { userRequested?: boolean } = {}): void {
+        if (this.destroyed) return;
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) {
             this.clear();
@@ -379,6 +384,7 @@ export class ImageOcrController {
      * it no longer does, a normal refresh starts the reader's own scan.
      */
     reassessAutoScan(): void {
+        if (this.destroyed) return;
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) return;
         if (this.options.shouldAutoScan?.() === false) {
@@ -583,6 +589,7 @@ export class ImageOcrController {
     }
 
     private drainQueue(): void {
+        if (this.destroyed) return;
         const limit = ocrConcurrencyLimit(this.options.getSettings());
         while (this.activeScans < limit) {
             const image = this.takeNextQueuedImage();
@@ -605,6 +612,7 @@ export class ImageOcrController {
     }
 
     private startScan(image: HTMLImageElement): void {
+        if (this.destroyed) return;
         const key = imageCacheKey(image);
         this.activeScans++;
         this.inFlightKeys.add(key);
@@ -619,17 +627,24 @@ export class ImageOcrController {
             .finally(() => {
                 this.activeScans = Math.max(0, this.activeScans - 1);
                 this.inFlightKeys.delete(key);
-                this.drainQueue();
+                if (!this.destroyed) this.drainQueue();
             });
     }
 
     private async scanImage(image: HTMLImageElement): Promise<void> {
+        if (this.destroyed) return;
         const state = this.states.get(image) ?? this.ensureState(image);
         const settings = this.options.getSettings();
         const key = imageCacheKey(image);
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
-        if (await this.renderCachedOcrResult(state, key)) return;
+        try {
+            if (await this.renderCachedOcrResult(state, key)) return;
+        } catch (error) {
+            if (isStaleOcrState(error)) return;
+            throw error;
+        }
+        this.requireCurrentState(state);
 
         this.updateOcrStatus(image, 'loading');
         const scan = beginOcrScan(state, image, settings, manualRequested);
@@ -637,6 +652,7 @@ export class ImageOcrController {
         try {
             await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
         } catch (error) {
+            if (isStaleOcrState(error)) return;
             await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
         } finally {
             finishOcrScan(state);
@@ -647,6 +663,7 @@ export class ImageOcrController {
     private async renderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
         if (!this.cache.has(key)) return false;
         const cached = this.cache.get(key);
+        this.requireCurrentState(state);
         if (!cached) {
             renderNoOcrLines(state);
             this.updateOcrStatus(state.image, 'empty');
@@ -668,6 +685,7 @@ export class ImageOcrController {
     ): Promise<void> {
         const inlineFallback = readFallbackOcrResult(image, false);
         const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
+        this.requireCurrentState(state);
         const result = inlineFallback ?? providerResult;
         if (!result?.lines.length) {
             this.remember(key, null);
@@ -697,6 +715,7 @@ export class ImageOcrController {
         manualRequested: boolean,
         error: unknown,
     ): Promise<void> {
+        this.requireCurrentState(state);
         const fallback = readFallbackOcrResult(image, false);
         if (fallback?.lines.length) {
             log.warn('OCR provider failed', { provider }, error);
@@ -778,6 +797,7 @@ export class ImageOcrController {
     }
 
     private async renderResult(state: ImageState, result: OcrResult, forceOverlay = false): Promise<void> {
+        this.requireCurrentState(state);
         state.result = result;
         state.overlay.querySelectorAll('.jpdb-ocr-line').forEach(node => node.remove());
 
@@ -785,6 +805,7 @@ export class ImageOcrController {
         const showText = settings.ocrShowTextOverlay || forceOverlay;
 
         const initialParsed = await this.parseOcrLines(result.lines);
+        this.requireCurrentState(state);
         const lines = cleanOcrLookupLines(result.lines, initialParsed);
         if (!lines.length) {
             renderNoOcrLines(state);
@@ -794,6 +815,7 @@ export class ImageOcrController {
         const parsed = ocrLinesChanged(result.lines, lines)
             ? await this.parseOcrLines(lines)
             : initialParsed;
+        this.requireCurrentState(state);
         const sentence = lines.map(line => line.text).join('\n');
         const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
             line.text,
@@ -802,6 +824,7 @@ export class ImageOcrController {
         ));
         const flatTokens = renderedTokens.flat();
         await this.options.enrichTokensBeforeRender?.(flatTokens);
+        this.requireCurrentState(state);
         applyOcrOverlayStyle(state.overlay, settings);
 
         for (const [index, line] of lines.entries()) {
@@ -943,9 +966,11 @@ export class ImageOcrController {
     }
 
     private schedulePosition(): void {
+        if (this.destroyed) return;
         if (this.positionFrame) return;
         this.positionFrame = requestAnimationFrame(() => {
             this.positionFrame = 0;
+            if (this.destroyed) return;
             this.positionVideoFrames();
             this.positionCanvasFrames();
             this.positionBackgroundFrames();
@@ -1322,8 +1347,11 @@ export class ImageOcrController {
     }
 
     private scheduleRefresh(delay: number): void {
+        if (this.destroyed) return;
         window.clearTimeout(this.refreshTimer);
-        this.refreshTimer = window.setTimeout(() => this.refresh(), delay);
+        this.refreshTimer = window.setTimeout(() => {
+            if (!this.destroyed) this.refresh();
+        }, delay);
     }
 
     private positionState(image: HTMLImageElement): void {
@@ -1507,6 +1535,18 @@ export class ImageOcrController {
             this.removeImageStatusCard(image);
         }
     }
+
+    private isCurrentState(state: ImageState): boolean {
+        return !this.destroyed && this.states.get(state.image) === state;
+    }
+
+    private requireCurrentState(state: ImageState): void {
+        if (!this.isCurrentState(state)) throw STALE_OCR_STATE;
+    }
+}
+
+function isStaleOcrState(error: unknown): error is typeof STALE_OCR_STATE {
+    return error === STALE_OCR_STATE;
 }
 
 function applyOcrOverlayStyle(overlay: HTMLElement, settings: ReaderSettings): void {
