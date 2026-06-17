@@ -24784,7 +24784,7 @@ ${spelling}`);
       while (hAngle - vAngle > PI) hAngle -= 2 * PI;
       while (hAngle - vAngle < -PI) hAngle += 2 * PI;
       const count = actions.length;
-      const radius = Math.min(178, 116 + count * 11);
+      const radius = Math.min(148, 96 + count * 9);
       const pad = 0.12;
       actions.forEach((action, index) => {
         const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
@@ -24988,14 +24988,6 @@ ${spelling}`);
           }
         },
         {
-          id: "audio",
-          label: uiText(language, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
-          icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
-          tone: audioOn ? "on" : "off",
-          keepOpen: true,
-          run: () => actions.toggleAutoPlayAudio()
-        },
-        {
           id: "settings",
           label: uiText(language, "settings"),
           icon: radialSettingsIcon(),
@@ -25007,6 +24999,14 @@ ${spelling}`);
           icon: radialScanIcon(),
           disabled: paused,
           run: () => actions.scanPage()
+        },
+        {
+          id: "audio",
+          label: uiText(language, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
+          icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
+          tone: audioOn ? "on" : "off",
+          keepOpen: true,
+          run: () => actions.toggleAutoPlayAudio()
         },
         {
           id: "study",
