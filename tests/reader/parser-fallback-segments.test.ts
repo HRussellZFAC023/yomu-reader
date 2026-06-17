@@ -1,5 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { fallbackJapaneseSegments, fallbackLookupTermsForText } from '../../src/reader/lookup/parser';
+import { describe, expect, it, vi } from 'vitest';
+import {
+    fallbackJapaneseSegments,
+    fallbackLookupTermAtOffset,
+    fallbackLookupTermsForText,
+    ReaderParser,
+} from '../../src/reader/lookup/parser';
+import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 /**
  * Regression coverage for the keyless local segmenter that drives parsing when
@@ -52,5 +58,95 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
 
     it('segments compound nouns like 管理拡張を追加 without fragmenting kanji words', () => {
         expect(surfaces('管理拡張を追加')).toEqual(['管理', '拡張', 'を', '追加']);
+    });
+
+    it('does not glue episode counters into the following title words', () => {
+        const text = 'ぼっちの先輩にサークル勧誘された 1〜5話おまとめ版';
+        const segs = surfaces(text);
+
+        expect(segs).toContain('話');
+        expect(segs).toContain('お');
+        expect(segs).toContain('まとめ');
+        expect(segs).toContain('版');
+        expect(segs).not.toContain('話おまとめ');
+        expect(segs).not.toContain('話おまとめ版');
+        expect(fallbackLookupTermAtOffset(text, text.indexOf('話'))).toBe('話');
+        expect(fallbackLookupTermAtOffset(text, text.indexOf('おまとめ'))).not.toMatch(/^話/u);
+    });
+
+    it('keeps numeric counters separate after 第-prefixed numbers too', () => {
+        const text = '第12話おまけ';
+
+        expect(surfaces(text)).not.toContain('話おまけ');
+        expect(fallbackLookupTermAtOffset(text, text.indexOf('話'))).toBe('話');
+    });
+
+    // Names like 紫音 (read しおん / しいん / しのん / むらさき depending on the
+    // person) must be resolved by a name dictionary, never by a hand-coded
+    // reading table. The parser only emits a reading the dictionary actually
+    // returns; it must never invent one. See https://jpdb.io/search?q=紫音 for
+    // why a single hard-coded reading is wrong.
+    function nameAwareParser(matches: unknown[]): ReaderParser {
+        return new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: true,
+                showPitchAccent: false,
+            }),
+            jpdb: {} as never,
+            dictionaries: { findTermMatches: vi.fn(async () => matches) } as never,
+        });
+    }
+
+    it('resolves 紫音 as one token using the reading a name dictionary supplies', async () => {
+        // When a name dictionary (e.g. JMnedict) is loaded, findTermMatches /
+        // nonOverlappingMatches surface the whole compound, so the parser keeps
+        // it together with the dictionary's verified reading.
+        const parser = nameAwareParser([
+            {
+                entry: { expression: '紫音', reading: 'しおん', glossary: ['Shion (name)'], dictionary: 'JMnedict' },
+                start: 0,
+                end: 2,
+                surface: '紫音',
+                deinflected: false,
+            },
+        ]);
+
+        const [tokens] = await parser.parse(['紫音'], { allowSegmentedFallback: true });
+
+        expect(tokens).toHaveLength(1);
+        expect(tokens[0]?.card.spelling).toBe('紫音');
+        expect(tokens[0]?.card.reading).toBe('しおん');
+        expect(tokens[0]?.rubies).toEqual([{ text: 'しおん', start: 0, end: 2, length: 2 }]);
+    });
+
+    it('never fabricates a name reading the dictionaries do not provide', async () => {
+        // Without a name dictionary the lookups only know the single kanji, so
+        // the parser must faithfully reflect them — it must NOT invent 紫音→しおん.
+        const parser = nameAwareParser([
+            {
+                entry: { expression: '紫', reading: 'むらさき', glossary: ['purple'], dictionary: 'JMdict' },
+                start: 0,
+                end: 1,
+                surface: '紫',
+                deinflected: false,
+            },
+            {
+                entry: { expression: '音', reading: 'おと', glossary: ['sound'], dictionary: 'JMdict' },
+                start: 1,
+                end: 2,
+                surface: '音',
+                deinflected: false,
+            },
+        ]);
+
+        const [tokens] = await parser.parse(['紫音'], { allowSegmentedFallback: true });
+
+        expect(tokens.map(token => token.card.spelling)).toEqual(['紫', '音']);
+        expect(tokens.map(token => token.card.reading)).toEqual(['むらさき', 'おと']);
+        expect(tokens.some(token => token.card.spelling === '紫音')).toBe(false);
+        expect(tokens.some(token => token.card.reading === 'しおん')).toBe(false);
     });
 });

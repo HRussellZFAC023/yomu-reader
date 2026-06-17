@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.1.0
+// @version      1.1.1
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-XTIHPt4JN8Y3H8H3LgvTf3HDOXkFSMYqJN0DuK5gR8A=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-LsJBGpEv5ph9EbFN2W1to6KW6QvrkBu5wM86nG+ypTA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-8q7UkBwkmAcj+jyw7QXCu+mqDN/uq+G8VtBnpD1ynrk=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -22658,6 +22658,8 @@ ${entry.reading || ""}`;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
+  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
   const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
@@ -23165,22 +23167,42 @@ ${spelling}`);
     if (!segmenter) {
       return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
         const start = match.index ?? 0;
-        return fallbackJapaneseRunSegment(match[0], start);
+        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
       });
     }
     return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
       const start = match.index ?? 0;
-      return segmentJapaneseRun(match[0], start, segmenter);
+      return segmentJapaneseRun(match[0], start, segmenter, text2);
     });
   }
-  function segmentJapaneseRun(text2, offset, segmenter) {
+  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
     const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
       surface: segment.segment,
       start: offset + segment.index,
       end: offset + segment.index + segment.segment.length
     }));
-    if (segments.at(-1)?.end !== offset + text2.length) return fallbackJapaneseRunSegment(text2, offset);
-    return mergeInflectedFallbackSegments(splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(segments)));
+    if (segments.at(-1)?.end !== offset + text2.length) {
+      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
+    }
+    return finalizeJapaneseRunSegments(segments, sourceText);
+  }
+  function finalizeJapaneseRunSegments(segments, sourceText) {
+    return mergeInflectedFallbackSegments(
+      splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))),
+      sourceText
+    );
+  }
+  function splitNumericCounterPrefixSegments(segments, sourceText) {
+    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
+  }
+  function splitNumericCounterPrefixSegment(segment, sourceText) {
+    const first = Array.from(segment.surface)[0] ?? "";
+    if (!first || first === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first)) return [segment];
+    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    return [
+      { surface: first, start: segment.start, end: segment.start + first.length },
+      { surface: segment.surface.slice(first.length), start: segment.start + first.length, end: segment.end }
+    ];
   }
   function splitLeadingParticleSegments(segments) {
     return segments.flatMap(splitLeadingParticleSegment);
@@ -23229,10 +23251,10 @@ ${spelling}`);
     }
     return best;
   }
-  function mergeInflectedFallbackSegments(segments) {
+  function mergeInflectedFallbackSegments(segments, sourceText) {
     const merged = [];
     for (let index = 0; index < segments.length; ) {
-      const span = inflectedFallbackSpanAt(segments, index);
+      const span = inflectedFallbackSpanAt(segments, index, sourceText);
       if (span) {
         merged.push(span.segment);
         index = span.nextIndex;
@@ -23243,13 +23265,13 @@ ${spelling}`);
     }
     return merged;
   }
-  function inflectedFallbackSpanAt(segments, startIndex) {
+  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
     const first = segments[startIndex];
     if (!first || isInflectionBoundarySegment(first.surface)) return null;
     let surface = "";
     let best = null;
     for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-      const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface);
+      const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText);
       if (!current) break;
       surface += current.surface;
       if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
@@ -23260,9 +23282,10 @@ ${spelling}`);
   function fallbackInflectionScanEnd(segments, startIndex) {
     return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
   }
-  function nextInflectedFallbackSegment(segments, index, startIndex, first, surface) {
+  function nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText) {
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
+    if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
     if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
     if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
@@ -23289,6 +23312,13 @@ ${spelling}`);
   }
   function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
     return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function isNumericCounterFallbackStem(segment, sourceText) {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
+  }
+  function numericRangeImmediatelyBefore(sourceText, start) {
+    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
+    return NUMERIC_RANGE_BEFORE_RE.test(before);
   }
   function hasUsefulFallbackDeinflection(surface) {
     return fallbackLookupTermsForText(surface).length > 1;

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1] - 2026-06-17
+
+### Fixed
+
+- Keyless parser no longer glues numeric episode/volume counters onto the following title words: a run like `1〜5話おまとめ版` now keeps `話` as its own counter token instead of merging into `話おまとめ` / `話おまとめ版`. The split is driven by the number-then-counter boundary, not a per-title list.
+- Names such as `紫音` are no longer split into kanji component readings (`紫`=むらさき + `音`=おと) by a hand-coded reading table. Readings now come only from a dictionary the user has loaded: when a name dictionary (e.g. JMnedict) supplies `紫音`, the whole compound is kept with the dictionary's verified reading; when no dictionary knows the name, the parser faithfully reflects the single-kanji lookups instead of inventing a reading. (A single baked-in reading is wrong as often as right — `紫音` alone reads しおん / しいん / しのん / むらさき depending on the person.) Regression tests pin both behaviours.
+
 ## [1.1.0] - 2026-06-17
 
 ### Added

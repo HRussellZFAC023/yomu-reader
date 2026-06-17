@@ -35,6 +35,8 @@ const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
 const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
 const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+const NUMERIC_COUNTER_SUFFIX_SEGMENTS = new Set(['話', '巻', '回', '章', '部', '番', '号', '版', '人', '名', '匹', '頭', '羽', '枚', '本', '冊', '個', '台', '件', '分', '秒', '時', '日', '月', '年', '泊', '円']);
+const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
 const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const SEGMENTER_COMPOUND_OVERRIDES = new Set(['巨乳']);
@@ -665,16 +667,16 @@ function segmentJapaneseText(text: string): JapaneseTextSegment[] {
     if (!segmenter) {
         return Array.from(text.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap(match => {
             const start = match.index ?? 0;
-            return fallbackJapaneseRunSegment(match[0], start);
+            return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text);
         });
     }
     return Array.from(text.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap(match => {
         const start = match.index ?? 0;
-        return segmentJapaneseRun(match[0], start, segmenter);
+        return segmentJapaneseRun(match[0], start, segmenter, text);
     });
 }
 
-function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegmenter): JapaneseTextSegment[] {
+function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegmenter, sourceText: string): JapaneseTextSegment[] {
     const segments = Array.from(segmenter.segment(text))
         .filter(isUsefulJapaneseSegment)
         .map(segment => ({
@@ -682,8 +684,31 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
             start: offset + segment.index,
             end: offset + segment.index + segment.segment.length,
     }));
-    if (segments.at(-1)?.end !== offset + text.length) return fallbackJapaneseRunSegment(text, offset);
-    return mergeInflectedFallbackSegments(splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(segments)));
+    if (segments.at(-1)?.end !== offset + text.length) {
+        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text, offset), sourceText);
+    }
+    return finalizeJapaneseRunSegments(segments, sourceText);
+}
+
+function finalizeJapaneseRunSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {
+    return mergeInflectedFallbackSegments(
+        splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))),
+        sourceText,
+    );
+}
+
+function splitNumericCounterPrefixSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {
+    return segments.flatMap(segment => splitNumericCounterPrefixSegment(segment, sourceText));
+}
+
+function splitNumericCounterPrefixSegment(segment: JapaneseTextSegment, sourceText: string): JapaneseTextSegment[] {
+    const first = Array.from(segment.surface)[0] ?? '';
+    if (!first || first === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first)) return [segment];
+    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    return [
+        { surface: first, start: segment.start, end: segment.start + first.length },
+        { surface: segment.surface.slice(first.length), start: segment.start + first.length, end: segment.end },
+    ];
 }
 
 function splitLeadingParticleSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
@@ -740,10 +765,10 @@ function segmenterCompoundOverrideSpanAt(
     return best;
 }
 
-function mergeInflectedFallbackSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+function mergeInflectedFallbackSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {
     const merged: JapaneseTextSegment[] = [];
     for (let index = 0; index < segments.length;) {
-        const span = inflectedFallbackSpanAt(segments, index);
+        const span = inflectedFallbackSpanAt(segments, index, sourceText);
         if (span) {
             merged.push(span.segment);
             index = span.nextIndex;
@@ -758,13 +783,14 @@ function mergeInflectedFallbackSegments(segments: JapaneseTextSegment[]): Japane
 function inflectedFallbackSpanAt(
     segments: JapaneseTextSegment[],
     startIndex: number,
+    sourceText: string,
 ): { segment: JapaneseTextSegment; nextIndex: number } | null {
     const first = segments[startIndex];
     if (!first || isInflectionBoundarySegment(first.surface)) return null;
     let surface = '';
     let best: { segment: JapaneseTextSegment; nextIndex: number } | null = null;
     for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-        const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface);
+        const current = nextInflectedFallbackSegment(segments, index, startIndex, first, surface, sourceText);
         if (!current) break;
         surface += current.surface;
         if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
@@ -783,9 +809,11 @@ function nextInflectedFallbackSegment(
     startIndex: number,
     first: JapaneseTextSegment,
     surface: string,
+    sourceText: string,
 ): JapaneseTextSegment | null {
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
+    if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
     if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
     if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
@@ -832,6 +860,16 @@ function canContinueInflectedFallbackSpan(currentSurface: string, nextSurface: s
         || (HIRAGANA_SEGMENT_RE.test(nextSurface)
             && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface)
             && !hasUsefulFallbackDeinflection(currentSurface));
+}
+
+function isNumericCounterFallbackStem(segment: JapaneseTextSegment, sourceText: string): boolean {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface)
+        && numericRangeImmediatelyBefore(sourceText, segment.start);
+}
+
+function numericRangeImmediatelyBefore(sourceText: string, start: number): boolean {
+    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, '');
+    return NUMERIC_RANGE_BEFORE_RE.test(before);
 }
 
 function hasUsefulFallbackDeinflection(surface: string): boolean {

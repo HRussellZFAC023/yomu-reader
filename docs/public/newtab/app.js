@@ -30574,6 +30574,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
+  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
   const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
@@ -31063,22 +31065,42 @@ ${spelling}`);
     if (!segmenter) {
       return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
         const start = match.index ?? 0;
-        return fallbackJapaneseRunSegment(match[0], start);
+        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
       });
     }
     return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
       const start = match.index ?? 0;
-      return segmentJapaneseRun(match[0], start, segmenter);
+      return segmentJapaneseRun(match[0], start, segmenter, text2);
     });
   }
-  function segmentJapaneseRun(text2, offset, segmenter) {
+  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
     const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
       surface: segment.segment,
       start: offset + segment.index,
       end: offset + segment.index + segment.segment.length
     }));
-    if (segments.at(-1)?.end !== offset + text2.length) return fallbackJapaneseRunSegment(text2, offset);
-    return mergeInflectedFallbackSegments(splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(segments)));
+    if (segments.at(-1)?.end !== offset + text2.length) {
+      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
+    }
+    return finalizeJapaneseRunSegments(segments, sourceText);
+  }
+  function finalizeJapaneseRunSegments(segments, sourceText) {
+    return mergeInflectedFallbackSegments(
+      splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))),
+      sourceText
+    );
+  }
+  function splitNumericCounterPrefixSegments(segments, sourceText) {
+    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
+  }
+  function splitNumericCounterPrefixSegment(segment, sourceText) {
+    const first2 = Array.from(segment.surface)[0] ?? "";
+    if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
+    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    return [
+      { surface: first2, start: segment.start, end: segment.start + first2.length },
+      { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
+    ];
   }
   function splitLeadingParticleSegments(segments) {
     return segments.flatMap(splitLeadingParticleSegment);
@@ -31127,10 +31149,10 @@ ${spelling}`);
     }
     return best;
   }
-  function mergeInflectedFallbackSegments(segments) {
+  function mergeInflectedFallbackSegments(segments, sourceText) {
     const merged = [];
     for (let index = 0; index < segments.length; ) {
-      const span = inflectedFallbackSpanAt(segments, index);
+      const span = inflectedFallbackSpanAt(segments, index, sourceText);
       if (span) {
         merged.push(span.segment);
         index = span.nextIndex;
@@ -31141,13 +31163,13 @@ ${spelling}`);
     }
     return merged;
   }
-  function inflectedFallbackSpanAt(segments, startIndex) {
+  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
     const first2 = segments[startIndex];
     if (!first2 || isInflectionBoundarySegment(first2.surface)) return null;
     let surface = "";
     let best = null;
     for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface);
+      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
       if (!current) break;
       surface += current.surface;
       if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
@@ -31158,9 +31180,10 @@ ${spelling}`);
   function fallbackInflectionScanEnd(segments, startIndex) {
     return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
   }
-  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface) {
+  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
+    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
     if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
     if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
@@ -31187,6 +31210,13 @@ ${spelling}`);
   }
   function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
     return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function isNumericCounterFallbackStem(segment, sourceText) {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
+  }
+  function numericRangeImmediatelyBefore(sourceText, start) {
+    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
+    return NUMERIC_RANGE_BEFORE_RE.test(before);
   }
   function hasUsefulFallbackDeinflection(surface) {
     return fallbackLookupTermsForText(surface).length > 1;
