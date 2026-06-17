@@ -6077,6 +6077,7 @@ ${candidate.depth}`;
   const LENS_SURFACE_CHROMIUM = 4;
   const LENS_AUTO_FILTER = 7;
   const log$2 = Logger.scope("OCR");
+  const STALE_OCR_STATE = Symbol("stale-ocr-state");
   const OCR_RECOGNIZERS = {
     "google-lens": recognizeViaGoogleLens,
     "cloud-vision": recognizeViaCloudVision,
@@ -6194,6 +6195,7 @@ ${candidate.depth}`;
     inFlightKeys = /* @__PURE__ */ new Set();
     positionFrame = 0;
     refreshTimer = 0;
+    destroyed = false;
     lastPointerMoveImage;
     lastPointerMoveReaderSurface;
     videoFrames = /* @__PURE__ */ new Map();
@@ -6233,6 +6235,7 @@ ${candidate.depth}`;
     handleWindowResize = () => this.handleOcrViewportShift(300);
     handleSpaNavigation = () => this.teardownForNavigation();
     init() {
+      this.destroyed = false;
       this.refresh();
       document.addEventListener("pointerdown", this.handleDocumentPointerDown, true);
       document.addEventListener("pointerover", this.handleDocumentPointerOver, true);
@@ -6258,6 +6261,7 @@ ${candidate.depth}`;
       this.startReaderRasterPollingIfNeeded();
     }
     destroy() {
+      this.destroyed = true;
       document.removeEventListener("pointerdown", this.handleDocumentPointerDown, true);
       document.removeEventListener("pointerover", this.handleDocumentPointerOver, true);
       document.removeEventListener("pointermove", this.handleDocumentPointerMove, true);
@@ -6284,6 +6288,7 @@ ${candidate.depth}`;
       this.clear();
     }
     refresh(options = {}) {
+      if (this.destroyed) return;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled) {
         this.clear();
@@ -6314,6 +6319,7 @@ ${candidate.depth}`;
      * it no longer does, a normal refresh starts the reader's own scan.
      */
     reassessAutoScan() {
+      if (this.destroyed) return;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled) return;
       if (this.options.shouldAutoScan?.() === false) {
@@ -6487,6 +6493,7 @@ ${candidate.depth}`;
       if (!this.queue.includes(image)) this.queue.push(image);
     }
     drainQueue() {
+      if (this.destroyed) return;
       const limit = ocrConcurrencyLimit(this.options.getSettings());
       while (this.activeScans < limit) {
         const image = this.takeNextQueuedImage();
@@ -6507,6 +6514,7 @@ ${candidate.depth}`;
       return void 0;
     }
     startScan(image) {
+      if (this.destroyed) return;
       const key = imageCacheKey(image);
       this.activeScans++;
       this.inFlightKeys.add(key);
@@ -6516,21 +6524,29 @@ ${candidate.depth}`;
       void waitForIdle(delay, delay).then(() => this.scanImage(image)).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         this.inFlightKeys.delete(key);
-        this.drainQueue();
+        if (!this.destroyed) this.drainQueue();
       });
     }
     async scanImage(image) {
+      if (this.destroyed) return;
       const state = this.states.get(image) ?? this.ensureState(image);
       const settings = this.options.getSettings();
       const key = imageCacheKey(image);
       const manualRequested = state.manualRequested;
       this.resetStateIfImageChanged(state);
-      if (await this.renderCachedOcrResult(state, key)) return;
+      try {
+        if (await this.renderCachedOcrResult(state, key)) return;
+      } catch (error) {
+        if (isStaleOcrState(error)) return;
+        throw error;
+      }
+      this.requireCurrentState(state);
       this.updateOcrStatus(image, "loading");
       const scan = beginOcrScan(state, image, settings, manualRequested);
       try {
         await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
       } catch (error) {
+        if (isStaleOcrState(error)) return;
         await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
       } finally {
         finishOcrScan(state);
@@ -6540,6 +6556,7 @@ ${candidate.depth}`;
     async renderCachedOcrResult(state, key) {
       if (!this.cache.has(key)) return false;
       const cached = this.cache.get(key);
+      this.requireCurrentState(state);
       if (!cached) {
         renderNoOcrLines(state);
         this.updateOcrStatus(state.image, "empty");
@@ -6553,6 +6570,7 @@ ${candidate.depth}`;
     async scanUncachedImage(state, image, key, settings, provider, manualRequested) {
       const inlineFallback = readFallbackOcrResult(image, false);
       const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
+      this.requireCurrentState(state);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
         this.remember(key, null);
@@ -6570,6 +6588,7 @@ ${candidate.depth}`;
       log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
     async renderOcrFailure(state, image, provider, manualRequested, error) {
+      this.requireCurrentState(state);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
         log$2.warn("OCR provider failed", { provider }, error);
@@ -6629,11 +6648,13 @@ ${candidate.depth}`;
       if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = void 0;
     }
     async renderResult(state, result, forceOverlay = false) {
+      this.requireCurrentState(state);
       state.result = result;
       state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       const settings = this.options.getSettings();
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const initialParsed = await this.parseOcrLines(result.lines);
+      this.requireCurrentState(state);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
       if (!lines.length) {
         renderNoOcrLines(state);
@@ -6641,6 +6662,7 @@ ${candidate.depth}`;
         return;
       }
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
+      this.requireCurrentState(state);
       const sentence = lines.map((line) => line.text).join("\n");
       const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
         line.text,
@@ -6649,6 +6671,7 @@ ${candidate.depth}`;
       ));
       const flatTokens = renderedTokens.flat();
       await this.options.enrichTokensBeforeRender?.(flatTokens);
+      this.requireCurrentState(state);
       applyOcrOverlayStyle(state.overlay, settings);
       for (const [index, line] of lines.entries()) {
         state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
@@ -6757,9 +6780,11 @@ ${candidate.depth}`;
       persistOcrCacheSoon(this.cache, Date.now());
     }
     schedulePosition() {
+      if (this.destroyed) return;
       if (this.positionFrame) return;
       this.positionFrame = requestAnimationFrame(() => {
         this.positionFrame = 0;
+        if (this.destroyed) return;
         this.positionVideoFrames();
         this.positionCanvasFrames();
         this.positionBackgroundFrames();
@@ -7092,8 +7117,11 @@ ${candidate.depth}`;
       }
     }
     scheduleRefresh(delay) {
+      if (this.destroyed) return;
       window.clearTimeout(this.refreshTimer);
-      this.refreshTimer = window.setTimeout(() => this.refresh(), delay);
+      this.refreshTimer = window.setTimeout(() => {
+        if (!this.destroyed) this.refresh();
+      }, delay);
     }
     positionState(image) {
       const state = this.states.get(image);
@@ -7250,6 +7278,15 @@ ${candidate.depth}`;
         this.removeImageStatusCard(image);
       }
     }
+    isCurrentState(state) {
+      return !this.destroyed && this.states.get(state.image) === state;
+    }
+    requireCurrentState(state) {
+      if (!this.isCurrentState(state)) throw STALE_OCR_STATE;
+    }
+  }
+  function isStaleOcrState(error) {
+    return error === STALE_OCR_STATE;
   }
   function applyOcrOverlayStyle(overlay, settings) {
     overlay.style.setProperty("--jpdb-ocr-text-color", settings.ocrTextColor);
