@@ -5767,7 +5767,10 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function writeYomuCompanions(value) {
     sandboxCompanions = value;
-    if (writeYomuCompanionsTarget(globalThis, value)) return;
+    writeYomuCompanionsTarget(globalThis, value);
+    if (typeof window !== "undefined" && window !== globalThis) {
+      writeYomuCompanionsTarget(window, value);
+    }
   }
   function writeYomuCompanionsTarget(target, value) {
     if (!target || typeof target !== "object" && typeof target !== "function") return false;

@@ -133,7 +133,10 @@ function yomuCompanions(): YomuCompanionRegistry {
 
 function writeYomuCompanions(value: YomuCompanionRegistry): void {
     sandboxCompanions = value;
-    if (writeYomuCompanionsTarget(globalThis, value)) return;
+    writeYomuCompanionsTarget(globalThis, value);
+    if (typeof window !== 'undefined' && window !== globalThis) {
+        writeYomuCompanionsTarget(window, value);
+    }
 }
 
 function writeYomuCompanionsTarget(target: unknown, value: YomuCompanionRegistry): boolean {
