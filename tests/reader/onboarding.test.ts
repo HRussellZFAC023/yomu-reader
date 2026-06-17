@@ -27,6 +27,7 @@ describe('OnboardingController', () => {
             getSettings: () => settings,
             setSettings,
             showSettings,
+            parseJapanese: vi.fn(),
         });
 
         await expect(controller.showIfNeeded()).resolves.toBe(true);

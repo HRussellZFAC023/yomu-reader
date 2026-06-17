@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.3] - 2026-06-17
+
+### Added
+
+- Welcome/onboarding panel: its Japanese (eyebrow, intro copy, the five feature descriptions, option labels, and action buttons) is now annotated with furigana and pitch-accent colouring through the same nested-parse path used for popovers and the settings dialog. The panel is a reader root (excluded from page scanning), so it now opts in explicitly via `jpdb-reader-parseable` and re-annotates after a settings-language switch. Only runs when the interface language resolves to Japanese; English copy is left untouched.
+
 ## [1.3.2] - 2026-06-17
 
 ### Fixed

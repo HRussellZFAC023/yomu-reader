@@ -12,6 +12,9 @@ interface OnboardingOptions {
     getSettings: () => ReaderSettings;
     setSettings: (settings: ReaderSettings) => void;
     showSettings: (panel?: string) => void;
+    // Annotates the welcome panel's Japanese with furigana + pitch through the
+    // same nested-parse path that handles popovers/settings chrome.
+    parseJapanese: (panel: HTMLElement) => void;
 }
 
 function selectedOnboardingLanguage(value: string | undefined, fallback: InterfaceLanguage): InterfaceLanguage {
@@ -47,7 +50,9 @@ export class OnboardingController {
         this.backdrop.dataset.jpdbReaderRoot = 'true';
 
         this.panel = document.createElement('section');
-        this.panel.className = 'jpdb-reader-onboarding';
+        // jpdb-reader-parseable opts the welcome panel into the nested furigana
+        // + pitch parse (it is otherwise excluded from scanning as reader root).
+        this.panel.className = 'jpdb-reader-onboarding jpdb-reader-parseable';
         this.panel.dataset.jpdbReaderRoot = 'true';
         this.panel.setAttribute('role', 'dialog');
         this.panel.setAttribute('aria-modal', 'true');
@@ -180,6 +185,11 @@ export class OnboardingController {
         this.syncAccentPicker(this.accentColorInput.value);
         document.body.append(this.backdrop, this.panel);
         this.panel.focus();
+        this.annotateJapanese();
+    }
+
+    private annotateJapanese(): void {
+        if (this.panel) this.options.parseJapanese(this.panel);
     }
 
     private localize(language: InterfaceLanguage): void {
@@ -232,6 +242,8 @@ export class OnboardingController {
         closeButton?.setAttribute('aria-label', uiText(language, 'closeOnboarding'));
         closeButton?.setAttribute('title', uiText(language, 'closeOnboarding'));
         this.syncThemeSwitch();
+        // Re-annotate: replaceChildren above reset every label to plain text.
+        this.annotateJapanese();
     }
 
     private async complete(openSettings: boolean | 'dictionaries'): Promise<void> {

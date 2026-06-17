@@ -557,6 +557,7 @@ export class ReaderApp {
             this.applyPreferredJapaneseSiteLanguage();
         },
         showSettings: panel => this.showSettings(panel),
+        parseJapanese: panel => void this.parseOnboardingJapanese(panel),
     });
     private subtitles = this.createSubtitlePlayer();
     private ocr: ImageOcrController = this.createImageOcrController();
@@ -5574,6 +5575,21 @@ export class ReaderApp {
         const plan = nestedTextParsePlan(root, 120);
         if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
         await this.parseNestedJapaneseContent(root, plan, () => this.isJpdbPageAddonRoot(root));
+    }
+
+    // Welcome panel: furigana + pitch on its Japanese, through the same chrome
+    // parse path as the settings dialog (local/segmented, no remote parse spend).
+    private async parseOnboardingJapanese(panel: HTMLElement): Promise<void> {
+        if (!panel.isConnected) return;
+        clearNestedParseState(panel);
+        if (resolveUiLanguage(this.settings.interfaceLanguage) !== 'ja' || !this.canParseJapanese()) return;
+        const plan = nestedTextParsePlan(panel, 120);
+        if (!plan || nestedParseAlreadyScheduled(panel, plan.parseKey)) return;
+        await this.parseNestedJapaneseContent(panel, plan, () => panel.isConnected, {
+            allowJpdbTimeoutFallback: true,
+            allowSegmentedFallback: true,
+            skipJpdb: true,
+        });
     }
 
     private enrichJpdbRelatedWords(root: ParentNode): void {

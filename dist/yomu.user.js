@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.2
+// @version      1.3.3
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -33750,7 +33750,7 @@ ${glossaryKey}`;
       this.backdrop.className = "jpdb-reader-backdrop jpdb-reader-onboarding-backdrop";
       this.backdrop.dataset.jpdbReaderRoot = "true";
       this.panel = document.createElement("section");
-      this.panel.className = "jpdb-reader-onboarding";
+      this.panel.className = "jpdb-reader-onboarding jpdb-reader-parseable";
       this.panel.dataset.jpdbReaderRoot = "true";
       this.panel.setAttribute("role", "dialog");
       this.panel.setAttribute("aria-modal", "true");
@@ -33873,6 +33873,10 @@ ${glossaryKey}`;
       this.syncAccentPicker(this.accentColorInput.value);
       document.body.append(this.backdrop, this.panel);
       this.panel.focus();
+      this.annotateJapanese();
+    }
+    annotateJapanese() {
+      if (this.panel) this.options.parseJapanese(this.panel);
     }
     localize(language) {
       const panel = this.panel;
@@ -33924,6 +33928,7 @@ ${glossaryKey}`;
       closeButton?.setAttribute("aria-label", uiText(language, "closeOnboarding"));
       closeButton?.setAttribute("title", uiText(language, "closeOnboarding"));
       this.syncThemeSwitch();
+      this.annotateJapanese();
     }
     async complete(openSettings) {
       const done = log$4.time("Onboarding complete", { openSettings });
@@ -37034,7 +37039,8 @@ ${glossaryKey}`;
         this.applyTheme();
         this.applyPreferredJapaneseSiteLanguage();
       },
-      showSettings: (panel) => this.showSettings(panel)
+      showSettings: (panel) => this.showSettings(panel),
+      parseJapanese: (panel) => void this.parseOnboardingJapanese(panel)
     });
     subtitles = this.createSubtitlePlayer();
     ocr = this.createImageOcrController();
@@ -41055,6 +41061,20 @@ ${glossaryKey}`;
       const plan = nestedTextParsePlan(root, 120);
       if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
       await this.parseNestedJapaneseContent(root, plan, () => this.isJpdbPageAddonRoot(root));
+    }
+    // Welcome panel: furigana + pitch on its Japanese, through the same chrome
+    // parse path as the settings dialog (local/segmented, no remote parse spend).
+    async parseOnboardingJapanese(panel) {
+      if (!panel.isConnected) return;
+      clearNestedParseState(panel);
+      if (resolveUiLanguage(this.settings.interfaceLanguage) !== "ja" || !this.canParseJapanese()) return;
+      const plan = nestedTextParsePlan(panel, 120);
+      if (!plan || nestedParseAlreadyScheduled(panel, plan.parseKey)) return;
+      await this.parseNestedJapaneseContent(panel, plan, () => panel.isConnected, {
+        allowJpdbTimeoutFallback: true,
+        allowSegmentedFallback: true,
+        skipJpdb: true
+      });
     }
     enrichJpdbRelatedWords(root) {
       const related = renderedJpdbRelatedWords(root).filter(({ word }) => word.dataset.jpdbReaderRelatedEnqueued !== "true");
