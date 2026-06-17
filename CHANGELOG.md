@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.5] - 2026-06-17
+
+### Fixed
+
+- BookWalker Firefox/iPad extension OCR now captures protected rendered canvases through a visible-tab screenshot bridge instead of falling back to fetched NFBR source images, because those source assets can be scrambled before the viewer composites the real page. Readable rendered canvases still wait for stable page pixels before OCR, avoiding stale transition captures.
+- Compact media tiles outside YouTube now suppress furigana only through generic layout/media heuristics, not custom site parsers or URL/class-name allowlists, so clipped grids keep pitch colouring and dictionary lookup without ruby breaking the card height.
+- Yomu floating controls, settings tabs, and settings buttons now keep their own colours and layout against aggressive host-page CSS.
+
+### Verified
+
+- Focused canvas-reader, OCR raster, extension hardening, settings CSS, and compact media/YouTube target tests.
+
 ## [1.3.4] - 2026-06-17
 
 ### Fixed

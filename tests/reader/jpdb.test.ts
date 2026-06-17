@@ -33150,6 +33150,42 @@ describe('reader helpers', () => {
         expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
     });
 
+    it('suppresses ruby in compact non-YouTube media tile titles so grids keep their height', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 220, height: 36 });
+        document.body.innerHTML = `
+            <main>
+                <section style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));">
+                    <a href="/items/nihongo-lesson">
+                        <img alt="" src="/thumb.jpg">
+                        <span data-card-title style="display: -webkit-box; -webkit-line-clamp: 2; overflow: hidden; line-height: 18px; max-height: 36px;">日本語の動画タイトル</span>
+                    </a>
+                </section>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://video.example.jp/');
+        rectSpy.mockRestore();
+        const target = targets.find(candidate => candidate.text === '日本語の動画タイトル')!;
+
+        expect(target).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語の動画タイトル',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('[data-card-title] .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('日本語');
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expectRenderedPitchWord(word, 'heiban');
+    });
+
     it('ignores aria-hidden feedback chrome while wrapping YouTube feed titles', () => {
         const targets = collectYouTubeTargets(`
             <ytd-rich-grid-renderer>

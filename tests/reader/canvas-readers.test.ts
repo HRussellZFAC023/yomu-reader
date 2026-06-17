@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
     backgroundImageReaderUrl,
+    canvasRenderedContentSignature,
     looksLikeRenderedCanvasImage,
     canvasReaderPageSignature,
     captureCanvasDataUrl,
@@ -155,6 +156,7 @@ describe('canvas readers (BookWalker)', () => {
     });
 
     it('follows .currentScreen across a page turn and refreshes the page signature', () => {
+        stubBookWalkerCanvasContent();
         mountLiveViewerFixture('6/13');
         const before = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
         expect(before).toHaveLength(1);
@@ -329,6 +331,19 @@ describe('canvas readers (generic, unknown host)', () => {
     it('treats a painted page canvas as rendered content', () => {
         stubContextPixels(richImage());
         expect(looksLikeRenderedCanvasImage(mountCanvas(1200, 1680, 900, 1260))).toBe(true);
+    });
+
+    it('fingerprints rendered canvas content so transition frames can wait for stability', () => {
+        const canvas = mountCanvas(1200, 1680, 900, 1260);
+        stubContextPixels(richImage());
+        const first = canvasRenderedContentSignature(canvas);
+        stubContextPixels(pixels(p => {
+            const v = (255 - (p * 5)) % 256;
+            return [v, v, v, 255];
+        }));
+
+        expect(first).toBeTruthy();
+        expect(canvasRenderedContentSignature(canvas)).not.toBe(first);
     });
 
     it('treats a blank/un-painted page canvas as having no content (skip prefetch)', () => {

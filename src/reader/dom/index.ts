@@ -223,6 +223,30 @@ const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = [
     'yt-live-chat-paid-message-renderer',
     'yt-live-chat-membership-item-renderer',
 ].join(',');
+const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = [
+    '[class*="card" i]',
+    '[class*="grid" i]',
+    '[class*="item" i]',
+    '[class*="lockup" i]',
+    '[class*="movie" i]',
+    '[class*="poster" i]',
+    '[class*="thumb" i]',
+    '[class*="tile" i]',
+    '[class*="video" i]',
+].join(',');
+const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
+    'canvas',
+    'img',
+    'picture',
+    'svg',
+    'video',
+    '[class*="cover" i]',
+    '[class*="image" i]',
+    '[class*="poster" i]',
+    '[class*="thumb" i]',
+].join(',');
+const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
+const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
@@ -560,13 +584,15 @@ function shouldRejectInvisibleTextTarget(parent: HTMLElement, visibleOnly: boole
 function textTargetFromAcceptedNode(node: Node): TextTarget | null {
     const parent = node.parentElement;
     if (!parent) return null;
-    const passiveInteraction = isPassiveInteractionElement(parent);
+    const suppressRuby = shouldSuppressCompactMediaRuby(parent);
+    const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
     const text = nodeTextContent(node).trim();
     return {
         node: node as Text,
         text,
         parent,
         hasNativeRuby: Boolean(parent.closest('ruby')),
+        suppressRuby,
         layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text),
         passiveInteraction,
     };
@@ -619,13 +645,23 @@ function fragmentTextTargetFrom(
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
     if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text)) return null;
+    const suppressRuby = fragmentTargetSuppressesCompactMediaRuby(parent, trimmedFragments);
     return {
         text,
         parent,
         fragments: trimmedFragments,
+        suppressRuby,
         layoutSensitive: trimmedFragments.some(fragment => fragment.layoutSensitive),
-        passiveInteraction: trimmedFragments.every(fragment => fragment.passiveInteraction),
+        passiveInteraction: suppressRuby || trimmedFragments.every(fragment => fragment.passiveInteraction),
     };
+}
+
+function fragmentTargetSuppressesCompactMediaRuby(parent: HTMLElement, fragments: TextFragment[]): boolean {
+    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    return fragments.some(fragment => {
+        const element = fragment.node.parentElement;
+        return Boolean(element && shouldSuppressCompactMediaRuby(element));
+    });
 }
 
 function isCollectableFragmentText(
@@ -1103,7 +1139,7 @@ function renderTokenizedScanText(
     target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; passiveInteraction?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(target.parent);
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(target.parent);
     const passiveInteraction = target.passiveInteraction || suppressRuby;
     let offset = 0;
     const tokenPlans = tokens.map(token => ({
@@ -1134,7 +1170,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(host);
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(host);
     const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) {
@@ -1197,9 +1233,68 @@ function nonDestructiveScanSignature(target: ScanTextTarget, tokens: JPDBToken[]
     });
 }
 
-function shouldSuppressCompactYouTubeRuby(parent: HTMLElement): boolean {
-    if (!parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) return false;
-    return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
+function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
+    if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
+        return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
+    }
+    return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
+}
+
+function isCompactMediaCardLinkText(parent: HTMLElement): boolean {
+    const link = parent.closest<HTMLElement>('a[href]');
+    if (!link || parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
+    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
+    if (!link.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
+
+    const textLength = compactLength(parent.textContent ?? '');
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    return compactLength(link.textContent ?? '') <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
+}
+
+function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
+    if (isLikelyProseElement(parent) && parent.closest('article, [role="article"]')) return false;
+    if (!hasCompactMediaRubyRisk(parent)) return false;
+    return Boolean(closestCompactMediaContext(parent));
+}
+
+function hasCompactMediaRubyRisk(parent: HTMLElement): boolean {
+    if (isLayoutSensitiveScanElement(parent)) return true;
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 4; depth++) {
+        const style = safeComputedStyle(current);
+        if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+        current = current.parentElement;
+    }
+    return false;
+}
+
+function closestCompactMediaContext(parent: HTMLElement): HTMLElement | null {
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+        if (isLikelyProseElement(current) && current.closest('article, [role="article"]')) return null;
+        if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function hasMediaPeer(container: HTMLElement, textElement: HTMLElement): boolean {
+    return Array.from(container.querySelectorAll('img, picture, video, canvas')).some(media => {
+        if (!(media instanceof HTMLElement)) return false;
+        if (media.closest(READER_ROOT_SELECTOR)) return false;
+        return media !== textElement && !textElement.contains(media);
+    });
+}
+
+function isCompactMediaContext(element: HTMLElement): boolean {
+    const style = safeComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    if (element.matches('a[href], button, [role="link"], [role="button"]')) return true;
+    if (safeQuerySelector(element, 'a[href], button, [role="link"], [role="button"]')) return true;
+    const display = style.display;
+    const structured = display.includes('grid') || display.includes('flex') || display === 'block';
+    const compact = rect.width === 0 || rect.width <= 560;
+    return structured && compact;
 }
 
 function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {

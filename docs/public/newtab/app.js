@@ -1124,7 +1124,7 @@
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike(value)) return { kind: "fallback" };
+      if (isPromiseLike$1(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -1151,7 +1151,7 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike(result)) {
+        if (!isPromiseLike$1(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -1177,7 +1177,7 @@
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -1448,7 +1448,7 @@
       }
     });
   }
-  function isPromiseLike(value) {
+  function isPromiseLike$1(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmGetValue() {
@@ -3499,6 +3499,30 @@
     "yt-live-chat-paid-message-renderer",
     "yt-live-chat-membership-item-renderer"
   ].join(",");
+  const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = [
+    '[class*="card" i]',
+    '[class*="grid" i]',
+    '[class*="item" i]',
+    '[class*="lockup" i]',
+    '[class*="movie" i]',
+    '[class*="poster" i]',
+    '[class*="thumb" i]',
+    '[class*="tile" i]',
+    '[class*="video" i]'
+  ].join(",");
+  const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
+    "canvas",
+    "img",
+    "picture",
+    "svg",
+    "video",
+    '[class*="cover" i]',
+    '[class*="image" i]',
+    '[class*="poster" i]',
+    '[class*="thumb" i]'
+  ].join(",");
+  const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
+  const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const READER_RENDERED_TEXT_BLOCK_TAGS = /* @__PURE__ */ new Set([
@@ -3605,13 +3629,22 @@
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
     if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
+    const suppressRuby = fragmentTargetSuppressesCompactMediaRuby(parent, trimmedFragments);
     return {
       text: text2,
       parent,
       fragments: trimmedFragments,
+      suppressRuby,
       layoutSensitive: trimmedFragments.some((fragment2) => fragment2.layoutSensitive),
-      passiveInteraction: trimmedFragments.every((fragment2) => fragment2.passiveInteraction)
+      passiveInteraction: suppressRuby || trimmedFragments.every((fragment2) => fragment2.passiveInteraction)
     };
+  }
+  function fragmentTargetSuppressesCompactMediaRuby(parent, fragments) {
+    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    return fragments.some((fragment2) => {
+      const element = fragment2.node.parentElement;
+      return Boolean(element && shouldSuppressCompactMediaRuby(element));
+    });
   }
   function isCollectableFragmentText(text2, fragments, options) {
     if (!HAS_JAPANESE.test(text2)) return false;
@@ -3907,7 +3940,7 @@
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment2 = document.createDocumentFragment();
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(target.parent);
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(target.parent);
     const passiveInteraction = target.passiveInteraction || suppressRuby;
     let offset = 0;
     const tokenPlans = tokens.map((token) => ({
@@ -3936,7 +3969,7 @@
     if (!host.isConnected) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(host);
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(host);
     const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
@@ -3993,9 +4026,61 @@
       }))
     });
   }
-  function shouldSuppressCompactYouTubeRuby(parent) {
-    if (!parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) return false;
-    return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
+  function shouldSuppressCompactMediaRuby(parent) {
+    if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
+      return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
+    }
+    return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
+  }
+  function isCompactMediaCardLinkText(parent) {
+    const link = parent.closest("a[href]");
+    if (!link || parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
+    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
+    if (!link.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
+  }
+  function isLayoutFragileMediaTileText(parent) {
+    if (isLikelyProseElement(parent) && parent.closest('article, [role="article"]')) return false;
+    if (!hasCompactMediaRubyRisk(parent)) return false;
+    return Boolean(closestCompactMediaContext(parent));
+  }
+  function hasCompactMediaRubyRisk(parent) {
+    if (isLayoutSensitiveScanElement(parent)) return true;
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 4; depth++) {
+      const style = safeComputedStyle(current);
+      if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function closestCompactMediaContext(parent) {
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+      if (isLikelyProseElement(current) && current.closest('article, [role="article"]')) return null;
+      if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function hasMediaPeer(container, textElement) {
+    return Array.from(container.querySelectorAll("img, picture, video, canvas")).some((media) => {
+      if (!(media instanceof HTMLElement)) return false;
+      if (media.closest(READER_ROOT_SELECTOR)) return false;
+      return media !== textElement && !textElement.contains(media);
+    });
+  }
+  function isCompactMediaContext(element) {
+    const style = safeComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    if (element.matches('a[href], button, [role="link"], [role="button"]')) return true;
+    if (safeQuerySelector(element, 'a[href], button, [role="link"], [role="button"]')) return true;
+    const display = style.display;
+    const structured = display.includes("grid") || display.includes("flex") || display === "block";
+    const compact = rect.width === 0 || rect.width <= 560;
+    return structured && compact;
   }
   function nonDestructiveScanHost(target) {
     if (!isFragmentTextTarget(target)) return target.parent;
@@ -29524,18 +29609,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
     return coversAxis && coversArea;
   }
-  function looksLikeRenderedCanvasImage(canvas) {
+  function sampleCanvasContent(canvas) {
     try {
       const sample = document.createElement("canvas");
       sample.width = CONTENT_SAMPLE_SIZE;
       sample.height = CONTENT_SAMPLE_SIZE;
       const context = sample.getContext("2d", { willReadFrequently: true });
-      if (!context) return false;
+      if (!context) return null;
       context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
       const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
       const buckets = /* @__PURE__ */ new Set();
       let min = 255;
       let max2 = 0;
+      let hash = 2166136261;
       let opaque = 0;
       for (let i2 = 0; i2 < data.length; i2 += 4) {
         if (data[i2 + 3] < 8) continue;
@@ -29544,12 +29630,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (luminance < min) min = luminance;
         if (luminance > max2) max2 = luminance;
         buckets.add(luminance >> 4);
+        hash ^= luminance;
+        hash = Math.imul(hash, 16777619) >>> 0;
       }
-      if (opaque < data.length / 4 * MIN_OPAQUE_FRACTION) return false;
-      return max2 - min >= MIN_CONTENT_CONTRAST && buckets.size >= MIN_CONTENT_BUCKETS;
+      return { buckets: buckets.size, contrast: max2 - min, hash, opaque };
     } catch {
-      return false;
+      return null;
     }
+  }
+  function looksLikeRenderedCanvasImage(canvas) {
+    return Boolean(canvasRenderedContentSignature(canvas));
+  }
+  function canvasRenderedContentSignature(canvas) {
+    const sample = sampleCanvasContent(canvas);
+    if (!sample) return void 0;
+    if (sample.opaque < CONTENT_SAMPLE_SIZE * CONTENT_SAMPLE_SIZE * MIN_OPAQUE_FRACTION) return void 0;
+    if (sample.contrast < MIN_CONTENT_CONTRAST || sample.buckets < MIN_CONTENT_BUCKETS) return void 0;
+    return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
   }
   function isLikelyPageCanvas(canvas, lenient) {
     if (!hasPageShape(canvas)) return false;
@@ -29660,6 +29757,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     return void 0;
   }
+  function canUseReaderCanvasSourceImageFallback(hostname = location.hostname) {
+    return !isBookwalkerViewerHost(hostname);
+  }
   function positionCanvasFrameImage(frame, rect) {
     frame.style.left = `${rect.left}px`;
     frame.style.top = `${rect.top}px`;
@@ -29674,6 +29774,141 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const match = value.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/iu);
     const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
     return raw.trim() || void 0;
+  }
+  const CAPTURE_VISIBLE_TAB_MESSAGE = "yomu.captureVisibleTab";
+  const SCREENSHOT_HIDE_STYLE_ID = "yomu-extension-screenshot-hide-style";
+  async function captureReaderSurfaceViaExtensionScreenshot(surface, maxPixels) {
+    const rect = surface.getBoundingClientRect();
+    const clip = visibleViewportIntersection(rect);
+    if (!clip || clip.width < 2 || clip.height < 2) return void 0;
+    const screenshot = await withReaderUiHidden(requestVisibleTabScreenshot);
+    if (!screenshot) return void 0;
+    const cropped = await cropVisibleTabScreenshot(screenshot, clip, maxPixels);
+    return cropped ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) } : void 0;
+  }
+  async function requestVisibleTabScreenshot() {
+    const extension = extensionRuntime();
+    if (!extension?.runtime.id || typeof extension.runtime.sendMessage !== "function") return void 0;
+    const response = await sendExtensionMessage(extension, { type: CAPTURE_VISIBLE_TAB_MESSAGE, format: "jpeg", quality: 88 });
+    return screenshotResponseDataUrl(response);
+  }
+  function sendExtensionMessage(extension, message) {
+    if (extension.promiseBased) {
+      try {
+        return Promise.resolve(extension.runtime.sendMessage?.(message)).catch(() => void 0);
+      } catch {
+        return Promise.resolve(void 0);
+      }
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (response) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(response);
+      };
+      const timer = window.setTimeout(() => finish(void 0), 6e3);
+      try {
+        const maybePromise = extension.runtime.sendMessage?.(message, (response) => {
+          if (extension.runtime.lastError) finish(void 0);
+          else finish(response);
+        });
+        if (isPromiseLike(maybePromise)) {
+          void maybePromise.then(finish, () => finish(void 0));
+        }
+      } catch {
+        finish(void 0);
+      }
+    });
+  }
+  function extensionRuntime() {
+    const global = globalThis;
+    if (global.browser?.runtime) return { promiseBased: true, runtime: global.browser.runtime };
+    if (global.chrome?.runtime) return { promiseBased: false, runtime: global.chrome.runtime };
+    return void 0;
+  }
+  function screenshotResponseDataUrl(response) {
+    const detail = response;
+    return detail?.ok && typeof detail.dataUrl === "string" && detail.dataUrl.startsWith("data:image/") ? detail.dataUrl : void 0;
+  }
+  async function withReaderUiHidden(task) {
+    const style = ensureScreenshotHideStyle();
+    document.documentElement.dataset.yomuExtensionScreenshotCapture = "true";
+    await animationFrame();
+    try {
+      return await task();
+    } finally {
+      delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
+      style.remove();
+    }
+  }
+  function ensureScreenshotHideStyle() {
+    document.getElementById(SCREENSHOT_HIDE_STYLE_ID)?.remove();
+    const style = document.createElement("style");
+    style.id = SCREENSHOT_HIDE_STYLE_ID;
+    const selectors = [
+      'html[data-yomu-extension-screenshot-capture="true"] [data-jpdb-reader-root]',
+      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-canvas-frame',
+      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-background-frame',
+      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-layer'
+    ];
+    style.textContent = `${selectors.join(",")} { visibility: hidden !important; }`;
+    document.documentElement.append(style);
+    return style;
+  }
+  function animationFrame() {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  function visibleViewportIntersection(rect) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return null;
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(viewportWidth, rect.right);
+    const bottom = Math.min(viewportHeight, rect.bottom);
+    const width = right - left;
+    const height = bottom - top;
+    return width > 0 && height > 0 ? { left, top, width, height } : null;
+  }
+  async function cropVisibleTabScreenshot(dataUrl, rect, maxPixels) {
+    try {
+      const image = await loadScreenshotImage(dataUrl);
+      const scaleX = image.naturalWidth / Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1);
+      const scaleY = image.naturalHeight / Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
+      const source = {
+        left: Math.max(0, Math.round(rect.left * scaleX)),
+        top: Math.max(0, Math.round(rect.top * scaleY)),
+        width: Math.max(1, Math.round(rect.width * scaleX)),
+        height: Math.max(1, Math.round(rect.height * scaleY))
+      };
+      source.width = Math.min(source.width, image.naturalWidth - source.left);
+      source.height = Math.min(source.height, image.naturalHeight - source.top);
+      if (source.width <= 0 || source.height <= 0) return void 0;
+      const pixels = source.width * source.height;
+      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(source.width * scale));
+      canvas.height = Math.max(1, Math.round(source.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return void 0;
+      context.drawImage(image, source.left, source.top, source.width, source.height, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.86);
+    } catch {
+      return void 0;
+    }
+  }
+  function loadScreenshotImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Screenshot decode failed."));
+      image.src = dataUrl;
+    });
+  }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
   }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -31779,11 +32014,15 @@ ${spelling}`);
     // its place, plus the page fingerprint and the page-turn poll.
     canvasFrames = /* @__PURE__ */ new Map();
     canvasFrameSources = /* @__PURE__ */ new Map();
+    canvasFrameStaticRects = /* @__PURE__ */ new Map();
     backgroundFrames = /* @__PURE__ */ new Map();
     backgroundFrameSources = /* @__PURE__ */ new Map();
     backgroundFrameKeys = /* @__PURE__ */ new Map();
     canvasReaderSignature;
     readerRasterPoll = 0;
+    readerRasterRetryTimer = 0;
+    pendingCanvasSnapshots = /* @__PURE__ */ new WeakSet();
+    canvasContentReadiness = /* @__PURE__ */ new WeakMap();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
@@ -31850,6 +32089,10 @@ ${spelling}`);
       if (this.readerRasterPoll) {
         window.clearInterval(this.readerRasterPoll);
         this.readerRasterPoll = 0;
+      }
+      if (this.readerRasterRetryTimer) {
+        window.clearTimeout(this.readerRasterRetryTimer);
+        this.readerRasterRetryTimer = 0;
       }
       this.mutationObserver?.disconnect();
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -32565,32 +32808,69 @@ ${spelling}`);
         this.snapshotCanvasSurface(canvas, settings, userRequested);
       }
     }
-    snapshotCanvasSurface(canvas, settings, userRequested = false) {
+    async snapshotCanvasSurface(canvas, settings, userRequested = false) {
       if (this.canvasFrames.has(canvas)) return;
-      const rect = canvas.getBoundingClientRect();
-      if (rect.width * rect.height < settings.ocrMinImageArea) return;
-      if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
-      let frameSrc;
-      if (isCanvasReadable(canvas)) {
-        if (!looksLikeRenderedCanvasImage(canvas)) return;
-        frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-      } else {
-        frameSrc = readerCanvasSourceImageUrl();
+      if (this.pendingCanvasSnapshots.has(canvas)) return;
+      this.pendingCanvasSnapshots.add(canvas);
+      try {
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width * rect.height < settings.ocrMinImageArea) return;
+        if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
+        let frameSrc;
+        let frameRect = rect;
+        if (isCanvasReadable(canvas)) {
+          const contentSignature = canvasRenderedContentSignature(canvas);
+          if (!contentSignature) return;
+          if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
+          frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+        } else if (isBookwalkerViewerHost()) {
+          const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
+          const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
+          frameSrc = screenshot?.dataUrl;
+          frameRect = screenshot?.rect ?? rect;
+        } else if (canUseReaderCanvasSourceImageFallback()) {
+          frameSrc = readerCanvasSourceImageUrl();
+        }
+        if (!frameSrc) return;
+        if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+        const frame = document.createElement("img");
+        frame.className = "jpdb-ocr-canvas-frame";
+        frame.dataset.yomuCanvasFrame = "true";
+        frame.alt = "";
+        positionCanvasFrameImage(frame, frameRect);
+        frame.addEventListener("load", () => {
+          if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
+        }, { once: true });
+        frame.src = frameSrc;
+        document.body.append(frame);
+        this.canvasFrames.set(canvas, frame);
+        this.canvasFrameSources.set(frame, canvas);
+        if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
+        this.schedulePosition();
+      } finally {
+        this.pendingCanvasSnapshots.delete(canvas);
       }
-      if (!frameSrc) return;
-      const frame = document.createElement("img");
-      frame.className = "jpdb-ocr-canvas-frame";
-      frame.dataset.yomuCanvasFrame = "true";
-      frame.alt = "";
-      positionCanvasFrameImage(frame, rect);
-      frame.addEventListener("load", () => {
-        if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
-      }, { once: true });
-      frame.src = frameSrc;
-      document.body.append(frame);
-      this.canvasFrames.set(canvas, frame);
-      this.canvasFrameSources.set(frame, canvas);
-      this.schedulePosition();
+    }
+    canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested) {
+      if (userRequested) {
+        this.canvasContentReadiness.set(canvas, contentSignature);
+        return true;
+      }
+      const previous = this.canvasContentReadiness.get(canvas);
+      this.canvasContentReadiness.set(canvas, contentSignature);
+      if (previous === contentSignature) return true;
+      this.scheduleReaderRasterRefresh(140);
+      return false;
+    }
+    scheduleReaderRasterRefresh(delayMs) {
+      if (this.readerRasterRetryTimer || this.destroyed) return;
+      this.readerRasterRetryTimer = window.setTimeout(() => {
+        this.readerRasterRetryTimer = 0;
+        if (this.destroyed) return;
+        const settings = this.options.getSettings();
+        this.refreshCanvasReaderSurfaces(settings);
+        this.refreshBackgroundImageReaderSurfaces(settings);
+      }, delayMs);
     }
     releaseCanvasFrame(canvas) {
       const frame = this.canvasFrames.get(canvas);
@@ -32604,6 +32884,7 @@ ${spelling}`);
       }
       this.removeImageStatusCard(frame);
       this.canvasFrameSources.delete(frame);
+      this.canvasFrameStaticRects.delete(frame);
       this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
     }
@@ -32617,8 +32898,31 @@ ${spelling}`);
           this.releaseCanvasFrame(canvas);
           continue;
         }
+        const staticRect = this.canvasFrameStaticRects.get(frame);
+        if (staticRect) {
+          const currentRect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+          if (!currentRect || !rectsNearlyEqual(staticRect, currentRect)) {
+            this.releaseCanvasFrame(canvas);
+            this.scheduleReaderRasterRefresh(40);
+            continue;
+          }
+          positionCanvasFrameImage(frame, staticRect);
+          continue;
+        }
         positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
       }
+    }
+    visibleViewportIntersection(rect) {
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!viewportWidth || !viewportHeight) return void 0;
+      const left = Math.max(0, rect.left);
+      const top = Math.max(0, rect.top);
+      const right = Math.min(viewportWidth, rect.right);
+      const bottom = Math.min(viewportHeight, rect.bottom);
+      const width = right - left;
+      const height = bottom - top;
+      return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
     }
     refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
@@ -33645,6 +33949,9 @@ ${spelling}`);
     const right = Math.min(a.right, b.right);
     const bottom = Math.min(a.bottom, b.bottom);
     return Math.max(0, right - left) * Math.max(0, bottom - top);
+  }
+  function rectsNearlyEqual(a, b) {
+    return Math.abs(a.left - b.left) <= 1 && Math.abs(a.top - b.top) <= 1 && Math.abs(a.width - b.width) <= 1 && Math.abs(a.height - b.height) <= 1;
   }
   function shouldObserveImage(image, settings) {
     return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));
@@ -61061,6 +61368,7 @@ ${entry.url}`),
       const quiet = options.quiet === true;
       try {
         const usedCachedWords = useOfflineCache ? await this.applyOfflineCacheWhileLoading(root, preferStoredWord, loadGeneration) : false;
+        this.scheduleAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration, usedCachedWords, quiet);
         const result = await this.loadWordsWithProgress(root, loadGeneration, usedCachedWords, quiet);
         if (!this.isCurrentLoad(loadGeneration)) return;
         await this.applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache, usedCachedWords, navigationGeneration, {
@@ -61078,6 +61386,36 @@ ${entry.url}`),
       };
       if (!usedCachedWords && !quiet) onProgress(this.text("loading"));
       return this.loadWords(onProgress);
+    }
+    scheduleAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration, usedCachedWords, quiet) {
+      if (!this.shouldScheduleAutoStudyFallbackPreview(usedCachedWords, quiet)) return;
+      window.setTimeout(() => {
+        void this.applyAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration);
+      }, NEW_TAB_PUBLIC_FALLBACK_GRACE_MS);
+    }
+    shouldScheduleAutoStudyFallbackPreview(usedCachedWords, quiet) {
+      return !quiet && !usedCachedWords && !this.allWords.length && this.state.source === "auto" && this.state.mode !== "search" && this.state.mode !== "stats";
+    }
+    async applyAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration) {
+      if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration)) return;
+      const result = await this.loadLocalOrBuiltInFreshStudyWords();
+      if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration) || !this.currentModeStudyCardCount(result.cards)) return;
+      await this.applyLoadedWords(
+        root,
+        preferStoredWord,
+        loadGeneration,
+        {
+          ...result,
+          fallbackNotice: this.hasConfiguredReviewSources()
+        },
+        false,
+        false,
+        this.navigationGeneration,
+        { preserveVisibleOrder: true }
+      );
+    }
+    shouldApplyAutoStudyFallbackPreview(loadGeneration) {
+      return this.isCurrentLoad(loadGeneration) && !this.allWords.length && this.state.source === "auto" && this.state.mode !== "search" && this.state.mode !== "stats";
     }
     async applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache, usedCachedWords, navigationGeneration, options = {}) {
       const preferredCardKey = this.currentVisibleWordKey();
@@ -67635,10 +67973,10 @@ ${entry.url}`),
   }
   function applyReaderAccentColor(color, root = document.documentElement) {
     const accentColor = sanitizeAccentColor(color);
-    root.style.setProperty("--jpdb-reader-accent", accentColor);
-    root.style.setProperty("--jpdb-reader-accent-soft", accentToRgba(accentColor, 0.18));
-    root.style.setProperty("--jpdb-reader-accent-readable", readableAccentOnSurface(accentColor, root));
-    root.style.setProperty("--jpdb-reader-accent-text", readableTextOnAccent(accentColor));
+    root.style.setProperty("--jpdb-reader-accent", accentColor, "important");
+    root.style.setProperty("--jpdb-reader-accent-soft", accentToRgba(accentColor, 0.18), "important");
+    root.style.setProperty("--jpdb-reader-accent-readable", readableAccentOnSurface(accentColor, root), "important");
+    root.style.setProperty("--jpdb-reader-accent-text", readableTextOnAccent(accentColor), "important");
   }
   function applyReaderWordColors(settings, root = document.documentElement) {
     Object.entries(readerStateColors(settings)).forEach(([state, color]) => {

@@ -753,7 +753,7 @@
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike(value)) return { kind: "fallback" };
+      if (isPromiseLike$1(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -780,7 +780,7 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike(result)) {
+        if (!isPromiseLike$1(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -794,7 +794,7 @@
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -845,7 +845,7 @@
       return false;
     }
   }
-  function isPromiseLike(value) {
+  function isPromiseLike$1(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmSetValue() {
@@ -1764,18 +1764,19 @@
     const coversArea = rect.width * rect.height >= viewportWidth * viewportHeight * VIEWPORT_AREA_FRACTION;
     return coversAxis && coversArea;
   }
-  function looksLikeRenderedCanvasImage(canvas) {
+  function sampleCanvasContent(canvas) {
     try {
       const sample = document.createElement("canvas");
       sample.width = CONTENT_SAMPLE_SIZE;
       sample.height = CONTENT_SAMPLE_SIZE;
       const context = sample.getContext("2d", { willReadFrequently: true });
-      if (!context) return false;
+      if (!context) return null;
       context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
       const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
       const buckets = /* @__PURE__ */ new Set();
       let min = 255;
       let max = 0;
+      let hash = 2166136261;
       let opaque = 0;
       for (let i = 0; i < data.length; i += 4) {
         if (data[i + 3] < 8) continue;
@@ -1784,12 +1785,23 @@
         if (luminance < min) min = luminance;
         if (luminance > max) max = luminance;
         buckets.add(luminance >> 4);
+        hash ^= luminance;
+        hash = Math.imul(hash, 16777619) >>> 0;
       }
-      if (opaque < data.length / 4 * MIN_OPAQUE_FRACTION) return false;
-      return max - min >= MIN_CONTENT_CONTRAST && buckets.size >= MIN_CONTENT_BUCKETS;
+      return { buckets: buckets.size, contrast: max - min, hash, opaque };
     } catch {
-      return false;
+      return null;
     }
+  }
+  function looksLikeRenderedCanvasImage(canvas) {
+    return Boolean(canvasRenderedContentSignature(canvas));
+  }
+  function canvasRenderedContentSignature(canvas) {
+    const sample = sampleCanvasContent(canvas);
+    if (!sample) return void 0;
+    if (sample.opaque < CONTENT_SAMPLE_SIZE * CONTENT_SAMPLE_SIZE * MIN_OPAQUE_FRACTION) return void 0;
+    if (sample.contrast < MIN_CONTENT_CONTRAST || sample.buckets < MIN_CONTENT_BUCKETS) return void 0;
+    return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
   }
   function isLikelyPageCanvas(canvas, lenient) {
     if (!hasPageShape(canvas)) return false;
@@ -1900,6 +1912,9 @@
     }
     return void 0;
   }
+  function canUseReaderCanvasSourceImageFallback(hostname = location.hostname) {
+    return !isBookwalkerViewerHost(hostname);
+  }
   function positionCanvasFrameImage(frame, rect) {
     frame.style.left = `${rect.left}px`;
     frame.style.top = `${rect.top}px`;
@@ -1914,6 +1929,141 @@
     const match = value.match(/url\((?:"([^"]+)"|'([^']+)'|([^)]*))\)/iu);
     const raw = match?.[1] ?? match?.[2] ?? match?.[3] ?? "";
     return raw.trim() || void 0;
+  }
+  const CAPTURE_VISIBLE_TAB_MESSAGE = "yomu.captureVisibleTab";
+  const SCREENSHOT_HIDE_STYLE_ID = "yomu-extension-screenshot-hide-style";
+  async function captureReaderSurfaceViaExtensionScreenshot(surface, maxPixels) {
+    const rect = surface.getBoundingClientRect();
+    const clip = visibleViewportIntersection(rect);
+    if (!clip || clip.width < 2 || clip.height < 2) return void 0;
+    const screenshot = await withReaderUiHidden(requestVisibleTabScreenshot);
+    if (!screenshot) return void 0;
+    const cropped = await cropVisibleTabScreenshot(screenshot, clip, maxPixels);
+    return cropped ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) } : void 0;
+  }
+  async function requestVisibleTabScreenshot() {
+    const extension = extensionRuntime();
+    if (!extension?.runtime.id || typeof extension.runtime.sendMessage !== "function") return void 0;
+    const response = await sendExtensionMessage(extension, { type: CAPTURE_VISIBLE_TAB_MESSAGE, format: "jpeg", quality: 88 });
+    return screenshotResponseDataUrl(response);
+  }
+  function sendExtensionMessage(extension, message) {
+    if (extension.promiseBased) {
+      try {
+        return Promise.resolve(extension.runtime.sendMessage?.(message)).catch(() => void 0);
+      } catch {
+        return Promise.resolve(void 0);
+      }
+    }
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (response) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(response);
+      };
+      const timer = window.setTimeout(() => finish(void 0), 6e3);
+      try {
+        const maybePromise = extension.runtime.sendMessage?.(message, (response) => {
+          if (extension.runtime.lastError) finish(void 0);
+          else finish(response);
+        });
+        if (isPromiseLike(maybePromise)) {
+          void maybePromise.then(finish, () => finish(void 0));
+        }
+      } catch {
+        finish(void 0);
+      }
+    });
+  }
+  function extensionRuntime() {
+    const global = globalThis;
+    if (global.browser?.runtime) return { promiseBased: true, runtime: global.browser.runtime };
+    if (global.chrome?.runtime) return { promiseBased: false, runtime: global.chrome.runtime };
+    return void 0;
+  }
+  function screenshotResponseDataUrl(response) {
+    const detail = response;
+    return detail?.ok && typeof detail.dataUrl === "string" && detail.dataUrl.startsWith("data:image/") ? detail.dataUrl : void 0;
+  }
+  async function withReaderUiHidden(task) {
+    const style = ensureScreenshotHideStyle();
+    document.documentElement.dataset.yomuExtensionScreenshotCapture = "true";
+    await animationFrame();
+    try {
+      return await task();
+    } finally {
+      delete document.documentElement.dataset.yomuExtensionScreenshotCapture;
+      style.remove();
+    }
+  }
+  function ensureScreenshotHideStyle() {
+    document.getElementById(SCREENSHOT_HIDE_STYLE_ID)?.remove();
+    const style = document.createElement("style");
+    style.id = SCREENSHOT_HIDE_STYLE_ID;
+    const selectors = [
+      'html[data-yomu-extension-screenshot-capture="true"] [data-jpdb-reader-root]',
+      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-canvas-frame',
+      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-background-frame',
+      'html[data-yomu-extension-screenshot-capture="true"] .jpdb-ocr-layer'
+    ];
+    style.textContent = `${selectors.join(",")} { visibility: hidden !important; }`;
+    document.documentElement.append(style);
+    return style;
+  }
+  function animationFrame() {
+    return new Promise((resolve) => requestAnimationFrame(() => resolve()));
+  }
+  function visibleViewportIntersection(rect) {
+    const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!viewportWidth || !viewportHeight) return null;
+    const left = Math.max(0, rect.left);
+    const top = Math.max(0, rect.top);
+    const right = Math.min(viewportWidth, rect.right);
+    const bottom = Math.min(viewportHeight, rect.bottom);
+    const width = right - left;
+    const height = bottom - top;
+    return width > 0 && height > 0 ? { left, top, width, height } : null;
+  }
+  async function cropVisibleTabScreenshot(dataUrl, rect, maxPixels) {
+    try {
+      const image = await loadScreenshotImage(dataUrl);
+      const scaleX = image.naturalWidth / Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1);
+      const scaleY = image.naturalHeight / Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1);
+      const source = {
+        left: Math.max(0, Math.round(rect.left * scaleX)),
+        top: Math.max(0, Math.round(rect.top * scaleY)),
+        width: Math.max(1, Math.round(rect.width * scaleX)),
+        height: Math.max(1, Math.round(rect.height * scaleY))
+      };
+      source.width = Math.min(source.width, image.naturalWidth - source.left);
+      source.height = Math.min(source.height, image.naturalHeight - source.top);
+      if (source.width <= 0 || source.height <= 0) return void 0;
+      const pixels = source.width * source.height;
+      const scale = maxPixels > 0 && pixels > maxPixels ? Math.sqrt(maxPixels / pixels) : 1;
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(source.width * scale));
+      canvas.height = Math.max(1, Math.round(source.height * scale));
+      const context = canvas.getContext("2d");
+      if (!context) return void 0;
+      context.drawImage(image, source.left, source.top, source.width, source.height, 0, 0, canvas.width, canvas.height);
+      return canvas.toDataURL("image/jpeg", 0.86);
+    } catch {
+      return void 0;
+    }
+  }
+  function loadScreenshotImage(dataUrl) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Screenshot decode failed."));
+      image.src = dataUrl;
+    });
+  }
+  function isPromiseLike(value) {
+    return Boolean(value && typeof value.then === "function");
   }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
@@ -6362,11 +6512,15 @@ ${candidate.depth}`;
     // its place, plus the page fingerprint and the page-turn poll.
     canvasFrames = /* @__PURE__ */ new Map();
     canvasFrameSources = /* @__PURE__ */ new Map();
+    canvasFrameStaticRects = /* @__PURE__ */ new Map();
     backgroundFrames = /* @__PURE__ */ new Map();
     backgroundFrameSources = /* @__PURE__ */ new Map();
     backgroundFrameKeys = /* @__PURE__ */ new Map();
     canvasReaderSignature;
     readerRasterPoll = 0;
+    readerRasterRetryTimer = 0;
+    pendingCanvasSnapshots = /* @__PURE__ */ new WeakSet();
+    canvasContentReadiness = /* @__PURE__ */ new WeakMap();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
@@ -6433,6 +6587,10 @@ ${candidate.depth}`;
       if (this.readerRasterPoll) {
         window.clearInterval(this.readerRasterPoll);
         this.readerRasterPoll = 0;
+      }
+      if (this.readerRasterRetryTimer) {
+        window.clearTimeout(this.readerRasterRetryTimer);
+        this.readerRasterRetryTimer = 0;
       }
       this.mutationObserver?.disconnect();
       if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
@@ -7148,32 +7306,69 @@ ${candidate.depth}`;
         this.snapshotCanvasSurface(canvas, settings, userRequested);
       }
     }
-    snapshotCanvasSurface(canvas, settings, userRequested = false) {
+    async snapshotCanvasSurface(canvas, settings, userRequested = false) {
       if (this.canvasFrames.has(canvas)) return;
-      const rect = canvas.getBoundingClientRect();
-      if (rect.width * rect.height < settings.ocrMinImageArea) return;
-      if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
-      let frameSrc;
-      if (isCanvasReadable(canvas)) {
-        if (!looksLikeRenderedCanvasImage(canvas)) return;
-        frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-      } else {
-        frameSrc = readerCanvasSourceImageUrl();
+      if (this.pendingCanvasSnapshots.has(canvas)) return;
+      this.pendingCanvasSnapshots.add(canvas);
+      try {
+        const rect = canvas.getBoundingClientRect();
+        if (rect.width * rect.height < settings.ocrMinImageArea) return;
+        if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
+        let frameSrc;
+        let frameRect = rect;
+        if (isCanvasReadable(canvas)) {
+          const contentSignature = canvasRenderedContentSignature(canvas);
+          if (!contentSignature) return;
+          if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
+          frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+        } else if (isBookwalkerViewerHost()) {
+          const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
+          const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
+          frameSrc = screenshot?.dataUrl;
+          frameRect = screenshot?.rect ?? rect;
+        } else if (canUseReaderCanvasSourceImageFallback()) {
+          frameSrc = readerCanvasSourceImageUrl();
+        }
+        if (!frameSrc) return;
+        if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+        const frame = document.createElement("img");
+        frame.className = "jpdb-ocr-canvas-frame";
+        frame.dataset.yomuCanvasFrame = "true";
+        frame.alt = "";
+        positionCanvasFrameImage(frame, frameRect);
+        frame.addEventListener("load", () => {
+          if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
+        }, { once: true });
+        frame.src = frameSrc;
+        document.body.append(frame);
+        this.canvasFrames.set(canvas, frame);
+        this.canvasFrameSources.set(frame, canvas);
+        if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
+        this.schedulePosition();
+      } finally {
+        this.pendingCanvasSnapshots.delete(canvas);
       }
-      if (!frameSrc) return;
-      const frame = document.createElement("img");
-      frame.className = "jpdb-ocr-canvas-frame";
-      frame.dataset.yomuCanvasFrame = "true";
-      frame.alt = "";
-      positionCanvasFrameImage(frame, rect);
-      frame.addEventListener("load", () => {
-        if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
-      }, { once: true });
-      frame.src = frameSrc;
-      document.body.append(frame);
-      this.canvasFrames.set(canvas, frame);
-      this.canvasFrameSources.set(frame, canvas);
-      this.schedulePosition();
+    }
+    canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested) {
+      if (userRequested) {
+        this.canvasContentReadiness.set(canvas, contentSignature);
+        return true;
+      }
+      const previous = this.canvasContentReadiness.get(canvas);
+      this.canvasContentReadiness.set(canvas, contentSignature);
+      if (previous === contentSignature) return true;
+      this.scheduleReaderRasterRefresh(140);
+      return false;
+    }
+    scheduleReaderRasterRefresh(delayMs) {
+      if (this.readerRasterRetryTimer || this.destroyed) return;
+      this.readerRasterRetryTimer = window.setTimeout(() => {
+        this.readerRasterRetryTimer = 0;
+        if (this.destroyed) return;
+        const settings = this.options.getSettings();
+        this.refreshCanvasReaderSurfaces(settings);
+        this.refreshBackgroundImageReaderSurfaces(settings);
+      }, delayMs);
     }
     releaseCanvasFrame(canvas) {
       const frame = this.canvasFrames.get(canvas);
@@ -7187,6 +7382,7 @@ ${candidate.depth}`;
       }
       this.removeImageStatusCard(frame);
       this.canvasFrameSources.delete(frame);
+      this.canvasFrameStaticRects.delete(frame);
       this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
     }
@@ -7200,8 +7396,31 @@ ${candidate.depth}`;
           this.releaseCanvasFrame(canvas);
           continue;
         }
+        const staticRect = this.canvasFrameStaticRects.get(frame);
+        if (staticRect) {
+          const currentRect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+          if (!currentRect || !rectsNearlyEqual(staticRect, currentRect)) {
+            this.releaseCanvasFrame(canvas);
+            this.scheduleReaderRasterRefresh(40);
+            continue;
+          }
+          positionCanvasFrameImage(frame, staticRect);
+          continue;
+        }
         positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
       }
+    }
+    visibleViewportIntersection(rect) {
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+      if (!viewportWidth || !viewportHeight) return void 0;
+      const left = Math.max(0, rect.left);
+      const top = Math.max(0, rect.top);
+      const right = Math.min(viewportWidth, rect.right);
+      const bottom = Math.min(viewportHeight, rect.bottom);
+      const width = right - left;
+      const height = bottom - top;
+      return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : void 0;
     }
     refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
@@ -8228,6 +8447,9 @@ ${spelling}`);
     const right = Math.min(a.right, b.right);
     const bottom = Math.min(a.bottom, b.bottom);
     return Math.max(0, right - left) * Math.max(0, bottom - top);
+  }
+  function rectsNearlyEqual(a, b) {
+    return Math.abs(a.left - b.left) <= 1 && Math.abs(a.top - b.top) <= 1 && Math.abs(a.width - b.width) <= 1 && Math.abs(a.height - b.height) <= 1;
   }
   function shouldObserveImage(image, settings) {
     return settings.ocrProvider !== "off" && (hasInlineOcrFallback(image) || isOcrProviderConfigured(settings));

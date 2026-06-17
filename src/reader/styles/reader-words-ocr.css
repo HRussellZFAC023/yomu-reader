@@ -1175,38 +1175,38 @@
   color: inherit !important;
 }
 .jpdb-reader-fab {
-  position: fixed;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  right: max(14px, env(safe-area-inset-right));
-  bottom: max(14px, env(safe-area-inset-bottom));
-  z-index: 2147483645;
-  min-width: 52px;
-  width: auto;
-  height: 52px;
-  padding: 0 13px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 50%;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  box-shadow: 0 10px 28px var(--jpdb-reader-shadow);
-  opacity: 0.78;
-  font: 700 14px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-  touch-action: none;
-  transform: translate3d(0, 0, 0);
+  position: fixed !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  right: max(14px, env(safe-area-inset-right)) !important;
+  bottom: max(14px, env(safe-area-inset-bottom)) !important;
+  z-index: 2147483645 !important;
+  min-width: 52px !important;
+  width: auto !important;
+  height: 52px !important;
+  padding: 0 13px !important;
+  border: 1px solid var(--jpdb-reader-border) !important;
+  border-radius: 50% !important;
+  background: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  box-shadow: 0 10px 28px var(--jpdb-reader-shadow) !important;
+  opacity: 0.78 !important;
+  font: 700 14px/1 var(--jpdb-reader-font) !important;
+  cursor: pointer !important;
+  touch-action: none !important;
+  transform: translate3d(0, 0, 0) !important;
 }
 .jpdb-reader-fab:hover,
 .jpdb-reader-fab:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-readable);
-  opacity: 1;
-  outline: none;
+  border-color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+  opacity: 1 !important;
+  outline: none !important;
 }
 .jpdb-reader-fab-over-video:not(:hover):not(:focus-visible) {
-  opacity: 0.28;
-  transform: translate3d(0, 6px, 0) scale(0.92);
+  opacity: 0.28 !important;
+  transform: translate3d(0, 6px, 0) scale(0.92) !important;
 }
 
 /* Jiten Reader parity: with "Hide styling on JPDB-redundant words" enabled,
@@ -1226,7 +1226,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
 /* Hosts with their own bottom action dock (e.g. jiten.moe study): keep the
    puck clear of native controls. */
 .jpdb-reader-fab.jpdb-reader-fab-raised {
-  bottom: max(150px, calc(env(safe-area-inset-bottom) + 136px));
+  bottom: max(150px, calc(env(safe-area-inset-bottom) + 136px)) !important;
 }
 
 /* Note appended to mokuro's "OCR enabled" toggle label, clarifying that off uses

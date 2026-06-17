@@ -3,16 +3,19 @@ import { normalizeOcrRenderedText } from './rendered-text';
 import { loadPersistedOcrCache, persistOcrCacheSoon } from './ocr-cache-store';
 import {
     backgroundImageReaderUrl,
+    canUseReaderCanvasSourceImageFallback,
+    canvasRenderedContentSignature,
     canvasReaderPageSignature,
     captureCanvasDataUrl,
     collectBackgroundImageReaderSurfaces,
     collectCanvasReaderSurfaces,
+    isBookwalkerViewerHost,
     isCanvasReadable,
     isReaderRasterPage,
-    looksLikeRenderedCanvasImage,
     positionCanvasFrameImage,
     readerCanvasSourceImageUrl,
 } from './canvas-readers';
+import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
@@ -71,6 +74,8 @@ interface OcrControllerOptions {
     fallbackCardFromText?: (text: string) => JPDBCard;
     /** Test seam: overrides the canvas capture of a paused video frame. */
     captureVideoFrame?: (video: HTMLVideoElement) => string | undefined;
+    /** Test seam: overrides trusted screenshot capture for tainted reader canvases. */
+    captureReaderSurface?: typeof captureReaderSurfaceViaExtensionScreenshot;
 }
 
 interface OcrWordRenderState {
@@ -257,11 +262,15 @@ export class ImageOcrController {
     // its place, plus the page fingerprint and the page-turn poll.
     private canvasFrames = new Map<HTMLCanvasElement, HTMLImageElement>();
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
+    private canvasFrameStaticRects = new Map<HTMLImageElement, DOMRect>();
     private backgroundFrames = new Map<HTMLElement, HTMLImageElement>();
     private backgroundFrameSources = new Map<HTMLImageElement, HTMLElement>();
     private backgroundFrameKeys = new Map<HTMLElement, string>();
     private canvasReaderSignature?: string;
     private readerRasterPoll = 0;
+    private readerRasterRetryTimer = 0;
+    private readonly pendingCanvasSnapshots = new WeakSet<HTMLCanvasElement>();
+    private readonly canvasContentReadiness = new WeakMap<HTMLCanvasElement, string>();
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
@@ -344,6 +353,7 @@ export class ImageOcrController {
         this.releaseAllCanvasFrames();
         this.releaseAllBackgroundFrames();
         if (this.readerRasterPoll) { window.clearInterval(this.readerRasterPoll); this.readerRasterPoll = 0; }
+        if (this.readerRasterRetryTimer) { window.clearTimeout(this.readerRasterRetryTimer); this.readerRasterRetryTimer = 0; }
         this.mutationObserver?.disconnect();
         if (this.positionFrame) cancelAnimationFrame(this.positionFrame);
         this.clear();
@@ -1221,39 +1231,81 @@ export class ImageOcrController {
         }
     }
 
-    private snapshotCanvasSurface(canvas: HTMLCanvasElement, settings: ReaderSettings, userRequested = false): void {
+    private async snapshotCanvasSurface(canvas: HTMLCanvasElement, settings: ReaderSettings, userRequested = false): Promise<void> {
         if (this.canvasFrames.has(canvas)) return;
-        const rect = canvas.getBoundingClientRect();
-        if (rect.width * rect.height < settings.ocrMinImageArea) return;
-        // Prefetch a sliding window of upcoming pages (canvasPrefetchMargin), but
-        // never spend an OCR call on a page the reader hasn't painted yet.
-        if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
-        // A readable canvas is snapshotted directly. A TAINTED one (cross-origin
-        // page image drawn without CORS — Firefox/WebKit/iPad on BookWalker, where
-        // Chrome happens not to taint) can't be read, so OCR the page's source
-        // image instead: the OCR pipeline GM-fetches a frame's src, which bypasses
-        // the taint + missing CORS. Blank readable canvases are still skipped.
-        let frameSrc: string | undefined;
-        if (isCanvasReadable(canvas)) {
-            if (!looksLikeRenderedCanvasImage(canvas)) return;
-            frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-        } else {
-            frameSrc = readerCanvasSourceImageUrl();
+        if (this.pendingCanvasSnapshots.has(canvas)) return;
+        this.pendingCanvasSnapshots.add(canvas);
+        try {
+            const rect = canvas.getBoundingClientRect();
+            if (rect.width * rect.height < settings.ocrMinImageArea) return;
+            // Prefetch a sliding window of upcoming pages (canvasPrefetchMargin), but
+            // never spend an OCR call on a page the reader hasn't painted yet.
+            if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
+            // A readable canvas is snapshotted directly. A tainted one can only fall
+            // back to a fetched source image on readers where that resource is the
+            // same page the user sees; BookWalker source assets may be scrambled, so
+            // those must wait for a readable rendered buffer/screenshot instead.
+            let frameSrc: string | undefined;
+            let frameRect = rect;
+            if (isCanvasReadable(canvas)) {
+                const contentSignature = canvasRenderedContentSignature(canvas);
+                if (!contentSignature) return;
+                if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
+                frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+            } else if (isBookwalkerViewerHost()) {
+                const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
+                const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
+                frameSrc = screenshot?.dataUrl;
+                frameRect = screenshot?.rect ?? rect;
+            } else if (canUseReaderCanvasSourceImageFallback()) {
+                frameSrc = readerCanvasSourceImageUrl();
+            }
+            if (!frameSrc) return;
+            if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
+            const frame = document.createElement('img');
+            frame.className = 'jpdb-ocr-canvas-frame';
+            frame.dataset.yomuCanvasFrame = 'true';
+            frame.alt = '';
+            positionCanvasFrameImage(frame, frameRect);
+            frame.addEventListener('load', () => {
+                if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
+            }, { once: true });
+            frame.src = frameSrc;
+            document.body.append(frame);
+            this.canvasFrames.set(canvas, frame);
+            this.canvasFrameSources.set(frame, canvas);
+            if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
+            this.schedulePosition();
+        } finally {
+            this.pendingCanvasSnapshots.delete(canvas);
         }
-        if (!frameSrc) return;
-        const frame = document.createElement('img');
-        frame.className = 'jpdb-ocr-canvas-frame';
-        frame.dataset.yomuCanvasFrame = 'true';
-        frame.alt = '';
-        positionCanvasFrameImage(frame, rect);
-        frame.addEventListener('load', () => {
-            if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
-        }, { once: true });
-        frame.src = frameSrc;
-        document.body.append(frame);
-        this.canvasFrames.set(canvas, frame);
-        this.canvasFrameSources.set(frame, canvas);
-        this.schedulePosition();
+    }
+
+    private canvasContentIsReadyToSnapshot(
+        canvas: HTMLCanvasElement,
+        contentSignature: string,
+        userRequested: boolean,
+    ): boolean {
+        if (userRequested) {
+            this.canvasContentReadiness.set(canvas, contentSignature);
+            return true;
+        }
+        const previous = this.canvasContentReadiness.get(canvas);
+        this.canvasContentReadiness.set(canvas, contentSignature);
+        if (previous === contentSignature) return true;
+        this.scheduleReaderRasterRefresh(140);
+        return false;
+    }
+
+    private scheduleReaderRasterRefresh(delayMs: number): void {
+        if (this.readerRasterRetryTimer || this.destroyed) return;
+        this.readerRasterRetryTimer = window.setTimeout(() => {
+            this.readerRasterRetryTimer = 0;
+            if (this.destroyed) return;
+            const settings = this.options.getSettings();
+            this.refreshCanvasReaderSurfaces(settings);
+            this.refreshBackgroundImageReaderSurfaces(settings);
+        }, delayMs);
     }
 
     private releaseCanvasFrame(canvas: HTMLCanvasElement): void {
@@ -1268,6 +1320,7 @@ export class ImageOcrController {
         }
         this.removeImageStatusCard(frame);
         this.canvasFrameSources.delete(frame);
+        this.canvasFrameStaticRects.delete(frame);
         this.queue = this.queue.filter(queued => queued !== frame);
         frame.remove();
     }
@@ -1283,8 +1336,32 @@ export class ImageOcrController {
                 this.releaseCanvasFrame(canvas);
                 continue;
             }
+            const staticRect = this.canvasFrameStaticRects.get(frame);
+            if (staticRect) {
+                const currentRect = this.visibleViewportIntersection(canvas.getBoundingClientRect());
+                if (!currentRect || !rectsNearlyEqual(staticRect, currentRect)) {
+                    this.releaseCanvasFrame(canvas);
+                    this.scheduleReaderRasterRefresh(40);
+                    continue;
+                }
+                positionCanvasFrameImage(frame, staticRect);
+                continue;
+            }
             positionCanvasFrameImage(frame, canvas.getBoundingClientRect());
         }
+    }
+
+    private visibleViewportIntersection(rect: DOMRect): DOMRect | undefined {
+        const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+        const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (!viewportWidth || !viewportHeight) return undefined;
+        const left = Math.max(0, rect.left);
+        const top = Math.max(0, rect.top);
+        const right = Math.min(viewportWidth, rect.right);
+        const bottom = Math.min(viewportHeight, rect.bottom);
+        const width = right - left;
+        const height = bottom - top;
+        return width > 0 && height > 0 ? new DOMRect(left, top, width, height) : undefined;
     }
 
     private refreshBackgroundImageReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
@@ -2547,6 +2624,13 @@ function intersectionArea(a: DOMRect, b: DOMRect): number {
     const right = Math.min(a.right, b.right);
     const bottom = Math.min(a.bottom, b.bottom);
     return Math.max(0, right - left) * Math.max(0, bottom - top);
+}
+
+function rectsNearlyEqual(a: DOMRect, b: DOMRect): boolean {
+    return Math.abs(a.left - b.left) <= 1
+        && Math.abs(a.top - b.top) <= 1
+        && Math.abs(a.width - b.width) <= 1
+        && Math.abs(a.height - b.height) <= 1;
 }
 
 function shouldObserveImage(image: HTMLImageElement, settings: ReaderSettings): boolean {

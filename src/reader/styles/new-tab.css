@@ -3871,7 +3871,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
    tablets, split the study surface — prompt left, revealed answer right —
    while the session/status/control rows keep spanning the full width. */
 @media (pointer: coarse) and (orientation: landscape) and (min-width: 1000px) {
-  .jpdb-reader-newtab:not(.jpdb-reader-newtab-search-mode):not(.jpdb-reader-newtab-stats-mode)
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
     .jpdb-reader-newtab-study {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -3879,20 +3879,26 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     align-items: start;
   }
 
-  .jpdb-reader-newtab-study > .jpdb-reader-newtab-count,
-  .jpdb-reader-newtab-study > .jpdb-reader-newtab-status,
-  .jpdb-reader-newtab-study > .jpdb-reader-newtab-deck,
-  .jpdb-reader-newtab-study > .jpdb-reader-newtab-search,
-  .jpdb-reader-newtab-study > [data-newtab-controls] {
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
+    .jpdb-reader-newtab-study
+    > :is(
+      .jpdb-reader-newtab-count,
+      .jpdb-reader-newtab-status,
+      .jpdb-reader-newtab-deck,
+      .jpdb-reader-newtab-search,
+      [data-newtab-controls]
+    ) {
     grid-column: 1 / -1;
   }
 
-  .jpdb-reader-newtab-study > .jpdb-reader-newtab-prompt {
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
+    .jpdb-reader-newtab-study > .jpdb-reader-newtab-prompt {
     grid-column: 1;
     align-self: center;
   }
 
-  .jpdb-reader-newtab-study > .jpdb-reader-newtab-answer {
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
+    .jpdb-reader-newtab-study > .jpdb-reader-newtab-answer {
     grid-column: 2;
     text-align: left;
   }

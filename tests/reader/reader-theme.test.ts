@@ -671,6 +671,19 @@ describe('reader theme', () => {
         expect(applied.subtitleColorSources.highlight).toBe('anki');
     });
 
+    it('keeps configured accent variables above host page custom properties', () => {
+        const root = document.createElement('div');
+        const setProperty = vi.spyOn(root.style, 'setProperty');
+
+        applyReaderTheme({ ...DEFAULT_SETTINGS, accentColor: '#336699' }, root as unknown as HTMLElement);
+
+        expect(root.style.getPropertyValue('--jpdb-reader-accent')).toBe('#336699');
+        expect(setProperty).toHaveBeenCalledWith('--jpdb-reader-accent', '#336699', 'important');
+        expect(setProperty).toHaveBeenCalledWith('--jpdb-reader-accent-soft', expect.any(String), 'important');
+        expect(setProperty).toHaveBeenCalledWith('--jpdb-reader-accent-readable', expect.any(String), 'important');
+        expect(setProperty).toHaveBeenCalledWith('--jpdb-reader-accent-text', expect.any(String), 'important');
+    });
+
     it('keeps state and pitch text colors readable on light surfaces', () => {
         applyReaderTheme({ ...DEFAULT_SETTINGS, theme: 'light' });
         const root = document.documentElement;

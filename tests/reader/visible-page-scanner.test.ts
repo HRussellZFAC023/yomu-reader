@@ -263,6 +263,55 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('keeps generic compact media-card annotations from adding ruby height', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://example.test/videos') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <main>
+                <section class="video-grid">
+                    <article class="video-card">
+                        <a class="video-card-link" href="/watch/sample-title/">
+                            <img src="/thumb.jpg" alt="">
+                            <span class="video-title">人妻温泉旅行</span>
+                        </a>
+                    </article>
+                </section>
+                <p class="profile-copy">プロフィール紹介文です。</p>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForCompactMediaGridText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('人妻温泉旅行'))).toBe(true);
+
+            const title = document.querySelector<HTMLElement>('.video-title')!;
+            const word = title.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="温泉"]')!;
+            expect(word).not.toBeNull();
+            expect(word.dataset.jpdbReaderPassive).toBe('true');
+            expect(word.querySelector('rt')).toBeNull();
+            expect(title.textContent).toContain('人妻温泉旅行');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('enhances mobile YouTube comment text on narrow no-key viewports', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
@@ -1794,6 +1843,23 @@ function tokensForBloomeeLandingText(text: string): JPDBToken[] {
         ['お花', 'おはな'],
         ['飾れる', 'かざれる'],
         ['利用', 'りよう'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForCompactMediaGridText(text: string): JPDBToken[] {
+    const targets = [
+        ['人妻', 'ひとづま'],
+        ['温泉', 'おんせん'],
+        ['旅行', 'りょこう'],
     ] as const;
     const tokens: JPDBToken[] = [];
     for (const [surface, reading] of targets) {

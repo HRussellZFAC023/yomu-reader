@@ -6,6 +6,7 @@ import { cardKey } from '../../src/reader/cards/utils';
 import { APP_NAME } from '../../src/reader/app/constants';
 import type { ImmersionKitExample } from '../../src/reader/immersion/kit';
 import { NewTabController, selectNewTabStudyPool } from '../../src/reader/newtab/controller';
+import { NEW_TAB_PUBLIC_FALLBACK_GRACE_MS, NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS } from '../../src/reader/newtab/controller-config';
 import { renderSearchWordResults, searchWordDetailHtml, searchWordMetaItems, searchWordSummaryMeta, type NewTabSearchDetailViewContext, type NewTabSearchWordDetailData } from '../../src/reader/newtab/search-view';
 import { newTabSourceLoadPlan } from '../../src/reader/newtab/source';
 import { NewTabRuntime } from '../../src/reader/newtab/runtime';
@@ -14450,6 +14451,83 @@ describe('new tab review helpers', () => {
             expect(result.reviewCountMode).toBe(false);
             expect(listRandomTopTerms).toHaveBeenCalled();
         } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('previews practice words while slow auto review sources are still loading', async () => {
+        vi.useFakeTimers();
+        resetNewTabReviewStorage();
+        const localCard = newTabTestCard({ spelling: '書く', reading: 'かく', source: 'local' });
+        const listRandomTopTerms = vi.fn(async () => [{
+            expression: '書く',
+            reading: 'かく',
+            glossary: ['to write'],
+            score: 1,
+            dictionary: 'Local',
+        }]);
+        const controller = new NewTabController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'api-key',
+                ankiEnabled: true,
+                newTabAnkiEnabled: true,
+                newTabSource: 'auto',
+            }),
+            anki: {
+                listNewTabCards: vi.fn(() => new Promise(() => undefined)),
+            } as never,
+            jpdb: {
+                listDeckCards: vi.fn(() => new Promise(() => undefined)),
+            } as never,
+            jpdbKanji: {} as never,
+            kanjiVG: {} as never,
+            rtk: {} as never,
+            immersionKit: {} as never,
+            jpdbReviewBridge: {
+                onUpdate: () => () => {},
+                latestStatus: () => ({ connected: false }),
+                requestCurrent: vi.fn(),
+            } as never,
+            parser: {
+                localCardFromEntry: vi.fn(() => localCard),
+            } as never,
+            dictionaries: {
+                summary: vi.fn(async () => newTabLocalDictionarySummary()),
+                listRandomTopTerms,
+            } as never,
+            onSettingsChange: vi.fn(),
+            applyTheme: vi.fn(),
+            showSettings: vi.fn(),
+            dismiss: vi.fn(),
+        });
+        const root = renderEnabledNewTabRoot(controller, { appendToDocument: true });
+
+        try {
+            const loadPromise = (controller as unknown as {
+                loadWordsInto(root: HTMLElement, preferStoredWord: boolean): Promise<void>;
+            }).loadWordsInto(root, true);
+            await Promise.resolve();
+
+            expect(root.querySelector('[data-newtab-status]')?.textContent).toBe('Loading...');
+
+            await vi.advanceTimersByTimeAsync(NEW_TAB_PUBLIC_FALLBACK_GRACE_MS - 1);
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe(APP_NAME);
+
+            await vi.advanceTimersByTimeAsync(1);
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+            expect(root.querySelector('[data-newtab-count]')?.textContent)
+                .toContain('No reviews ready — showing practice words');
+
+            await vi.advanceTimersByTimeAsync(NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS * 3);
+            await loadPromise;
+
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toBe('書く');
+            expect(root.querySelector('[data-newtab-count]')?.textContent)
+                .toContain('No reviews ready — showing practice words');
+            expect(listRandomTopTerms).toHaveBeenCalled();
+        } finally {
+            resetNewTabReviewStorage();
             vi.useRealTimers();
         }
     });

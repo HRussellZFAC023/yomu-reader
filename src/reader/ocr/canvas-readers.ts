@@ -10,7 +10,7 @@
 //   3. carrying a RENDERED RASTER IMAGE — the decoded page. Test 3 is what tells
 //      a wrapped page image apart from WebGL games, vector/UI canvases, charts
 //      and blank buffers; it also rejects cross-origin-tainted canvases, which
-//      throw on read and which we could not OCR anyway.
+//      throw on read and need a trusted rendered-frame source before OCR.
 // Known reader hosts (or a reader page-counter) take a LENIENT path — size+shape
 // only — because the context already disambiguates them and we want maximum
 // reliability there; every other site must additionally clear the prominence +
@@ -26,11 +26,13 @@
 // (both 1280x1600, stacked at the SAME screen rect); the on-screen one's
 // container carries `.currentScreen`, plus 300x150 #renderer/#frontScreen dummy
 // canvases. comic-walker.com (カドコミ): vertical scroll, one persistent canvas
-// per page, no counter. Page canvases are NOT tainted (the viewer composites
-// decrypted pages itself), so toDataURL / getImageData succeed. The size floor
-// drops the dummies; preferCurrentScreenCanvases() then keeps only the visible
-// buffer so we never spend a (shared-quota) OCR call on the off-screen page or
-// paint a second overlay for a different page at the same coordinates.
+// per page, no counter. When readable, the rendered page buffer is authoritative.
+// Do not OCR BookWalker's fetched source image resources as a tainted-canvas
+// fallback: the viewer may scramble those assets before compositing, while the
+// on-screen canvas contains the real readable page. The size floor drops the
+// dummies; preferCurrentScreenCanvases() then keeps only the visible buffer so we
+// never spend a (shared-quota) OCR call on the off-screen page or paint a second
+// overlay for a different page at the same coordinates.
 // See references/bookwalker-viewer + references/BookWalker-Screenshot-Simulator.
 
 const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
@@ -112,20 +114,29 @@ function isViewportProminent(element: Element): boolean {
 // spread across several bands (manga is high-contrast B&W with screentone/anti-
 // aliasing greys; colour pages span many bands too). Flat UI/solid canvases and
 // near-blank buffers fail the contrast/bucket test; WebGL/vector canvases tend to
-// as well; tainted canvases throw on read and are rejected here — the controller
-// then OCRs the page's source image instead (see readerCanvasSourceImageUrl).
-export function looksLikeRenderedCanvasImage(canvas: HTMLCanvasElement): boolean {
+// as well; tainted canvases throw on read and are rejected here. Some readers can
+// fall back to a fetched source image, but BookWalker cannot because those source
+// resources can be scrambled before the viewer composites the real page.
+interface CanvasContentSample {
+    buckets: number;
+    contrast: number;
+    hash: number;
+    opaque: number;
+}
+
+function sampleCanvasContent(canvas: HTMLCanvasElement): CanvasContentSample | null {
     try {
         const sample = document.createElement('canvas');
         sample.width = CONTENT_SAMPLE_SIZE;
         sample.height = CONTENT_SAMPLE_SIZE;
         const context = sample.getContext('2d', { willReadFrequently: true });
-        if (!context) return false;
+        if (!context) return null;
         context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
         const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
         const buckets = new Set<number>();
         let min = 255;
         let max = 0;
+        let hash = 2166136261;
         let opaque = 0;
         for (let i = 0; i < data.length; i += 4) {
             if (data[i + 3] < 8) continue;
@@ -134,12 +145,25 @@ export function looksLikeRenderedCanvasImage(canvas: HTMLCanvasElement): boolean
             if (luminance < min) min = luminance;
             if (luminance > max) max = luminance;
             buckets.add(luminance >> 4);
+            hash ^= luminance;
+            hash = Math.imul(hash, 16777619) >>> 0;
         }
-        if (opaque < (data.length / 4) * MIN_OPAQUE_FRACTION) return false;
-        return max - min >= MIN_CONTENT_CONTRAST && buckets.size >= MIN_CONTENT_BUCKETS;
+        return { buckets: buckets.size, contrast: max - min, hash, opaque };
     } catch {
-        return false;
+        return null;
     }
+}
+
+export function looksLikeRenderedCanvasImage(canvas: HTMLCanvasElement): boolean {
+    return Boolean(canvasRenderedContentSignature(canvas));
+}
+
+export function canvasRenderedContentSignature(canvas: HTMLCanvasElement): string | undefined {
+    const sample = sampleCanvasContent(canvas);
+    if (!sample) return undefined;
+    if (sample.opaque < (CONTENT_SAMPLE_SIZE * CONTENT_SAMPLE_SIZE) * MIN_OPAQUE_FRACTION) return undefined;
+    if (sample.contrast < MIN_CONTENT_CONTRAST || sample.buckets < MIN_CONTENT_BUCKETS) return undefined;
+    return `${sample.hash.toString(36)}:${sample.contrast}:${sample.buckets}`;
 }
 
 function isLikelyPageCanvas(canvas: HTMLCanvasElement, lenient: boolean): boolean {
@@ -280,10 +304,8 @@ export function captureCanvasDataUrl(canvas: HTMLCanvasElement, maxPixels: numbe
 
 // True when a 2D canvas's pixels can actually be read. A canvas drawn from a
 // cross-origin image without CORS is "tainted": getImageData/toDataURL throw
-// "The operation is insecure." Firefox & WebKit (incl. iPad Safari) taint the
-// BookWalker page canvas this way — Chrome happens not to — so reads fail there
-// and the OCR snapshot silently bailed. We probe readability so the controller
-// can fall back to OCR'ing the page's source image instead (see below).
+// "The operation is insecure." We probe readability before snapshotting so a
+// tainted canvas never becomes a broken or garbage OCR frame.
 export function isCanvasReadable(canvas: HTMLCanvasElement): boolean {
     const context = canvas.getContext('2d', { willReadFrequently: true });
     if (!context) return false;
@@ -295,12 +317,13 @@ export function isCanvasReadable(canvas: HTMLCanvasElement): boolean {
     }
 }
 
-// The cross-origin page image a canvas reader composited is reachable by
-// GM_xmlhttpRequest even when the canvas itself is tainted and the CDN sends no
-// CORS headers. When a reader canvas can't be read, we OCR that source image
-// instead. This finds the most recent page image the viewer fetched — preferring
-// the SpeedBinB/NFBR per-page tile URL (BookWalker, BookLive, ebookjapan, …),
-// then any large content image — so it generalises beyond one host.
+// Some canvas readers fetch a normal page image that remains usable through
+// GM_xmlhttpRequest even when the rendered canvas is tainted and the CDN sends no
+// CORS headers. BookWalker/NFBR is deliberately excluded: its fetched resources
+// can be scrambled, and only the rendered canvas/screenshot is trustworthy.
+// This finds the most recent page image the viewer fetched — preferring common
+// per-page tile URLs, then any large content image — so it generalises beyond one
+// host when source-image fallback is safe.
 const READER_PAGE_IMAGE_PATTERNS: RegExp[] = [
     /\/item\/xhtml\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i, // SpeedBinB / NFBR page tile
     /\/(?:page|img|image|content)s?\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i,
@@ -324,6 +347,10 @@ export function readerCanvasSourceImageUrl(): string | undefined {
         }
     }
     return undefined;
+}
+
+export function canUseReaderCanvasSourceImageFallback(hostname: string = location.hostname): boolean {
+    return !isBookwalkerViewerHost(hostname);
 }
 
 export function positionCanvasFrameImage(frame: HTMLImageElement, rect: DOMRect): void {

@@ -84,10 +84,10 @@ function applyReaderSubtitleSettings(settings: ReaderSettings, root: HTMLElement
 
 export function applyReaderAccentColor(color: string, root = document.documentElement): void {
     const accentColor = sanitizeAccentColor(color);
-    root.style.setProperty('--jpdb-reader-accent', accentColor);
-    root.style.setProperty('--jpdb-reader-accent-soft', accentToRgba(accentColor, 0.18));
-    root.style.setProperty('--jpdb-reader-accent-readable', readableAccentOnSurface(accentColor, root));
-    root.style.setProperty('--jpdb-reader-accent-text', readableTextOnAccent(accentColor));
+    root.style.setProperty('--jpdb-reader-accent', accentColor, 'important');
+    root.style.setProperty('--jpdb-reader-accent-soft', accentToRgba(accentColor, 0.18), 'important');
+    root.style.setProperty('--jpdb-reader-accent-readable', readableAccentOnSurface(accentColor, root), 'important');
+    root.style.setProperty('--jpdb-reader-accent-text', readableTextOnAccent(accentColor), 'important');
 }
 
 export function applyReaderWordColors(settings: ReaderSettings, root = document.documentElement): void {

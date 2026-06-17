@@ -153,47 +153,47 @@
   padding: 0 18px 8px;
 }
 .jpdb-reader-settings-tab {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 999px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-muted);
-  font: 800 12px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-  white-space: nowrap;
-  transform: translateY(-0.01rem);
+  min-height: 34px !important;
+  padding: 0 11px !important;
+  border: 1px solid var(--jpdb-reader-border) !important;
+  border-radius: 999px !important;
+  background: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-muted) !important;
+  font: 800 12px/1 var(--jpdb-reader-font) !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transform: translateY(-0.01rem) !important;
 }
 .jpdb-reader-settings-tab[aria-selected="true"] {
-  border-color: var(--jpdb-reader-accent);
-  color: var(--jpdb-reader-accent-readable);
-  background: var(--jpdb-reader-accent-soft);
+  border-color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+  background: var(--jpdb-reader-accent-soft) !important;
 }
 .jpdb-reader-settings-tab:focus-visible {
-  border-color: var(--jpdb-reader-accent);
-  outline: 2px solid var(--jpdb-reader-accent-soft);
-  outline-offset: 2px;
+  border-color: var(--jpdb-reader-accent) !important;
+  outline: 2px solid var(--jpdb-reader-accent-soft) !important;
+  outline-offset: 2px !important;
 }
 @media (hover: hover) and (pointer: fine) {
   .jpdb-reader-settings-tab:hover {
-    border-color: var(--jpdb-reader-accent);
+    border-color: var(--jpdb-reader-accent) !important;
     box-shadow: 0 8px 18px
-      color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
-    color: var(--jpdb-reader-accent-readable);
-    transform: translateY(-0.16rem);
+      color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent) !important;
+    color: var(--jpdb-reader-accent-readable) !important;
+    transform: translateY(-0.16rem) !important;
   }
 }
 @media (hover: none), (pointer: coarse) {
   .jpdb-reader-settings-tab:not([aria-selected="true"]):hover {
-    border-color: var(--jpdb-reader-border);
-    background: var(--jpdb-reader-surface);
-    color: var(--jpdb-reader-muted);
-    box-shadow: none;
-    transform: none;
+    border-color: var(--jpdb-reader-border) !important;
+    background: var(--jpdb-reader-surface) !important;
+    color: var(--jpdb-reader-muted) !important;
+    box-shadow: none !important;
+    transform: none !important;
   }
 }
 .jpdb-reader-settings-tab:active {
-  transform: scale(0.98);
+  transform: scale(0.98) !important;
 }
 .jpdb-reader-settings-search {
   flex: 0 0 auto;
@@ -394,20 +394,20 @@
   }
 }
 .jpdb-reader-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  box-sizing: border-box;
-  min-height: 38px;
-  padding: 0 16px;
-  border: 1px solid var(--jpdb-reader-border);
-  border-radius: 8px;
-  background: var(--jpdb-reader-surface);
-  color: var(--jpdb-reader-text);
-  font: 800 12px/1 var(--jpdb-reader-font);
-  cursor: pointer;
-  text-align: center;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  box-sizing: border-box !important;
+  min-height: 38px !important;
+  padding: 0 16px !important;
+  border: 1px solid var(--jpdb-reader-border) !important;
+  border-radius: 8px !important;
+  background: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  font: 800 12px/1 var(--jpdb-reader-font) !important;
+  cursor: pointer !important;
+  text-align: center !important;
   text-decoration: none !important;
 }
 .jpdb-reader-btn:where(:link, :visited) {
@@ -415,31 +415,31 @@
 }
 .jpdb-reader-btn:hover,
 .jpdb-reader-btn:focus-visible {
-  border-color: var(--button-accent, var(--jpdb-reader-accent));
+  border-color: var(--button-accent, var(--jpdb-reader-accent)) !important;
   background: color-mix(
     in srgb,
     var(--jpdb-reader-surface) 82%,
     var(--button-accent, var(--jpdb-reader-accent)) 18%
-  );
-  outline: none;
+  ) !important;
+  outline: none !important;
 }
 .jpdb-reader-btn:active {
-  transform: scale(0.98);
+  transform: scale(0.98) !important;
 }
 .jpdb-reader-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.62;
+  cursor: not-allowed !important;
+  opacity: 0.62 !important;
 }
 .jpdb-reader-btn[data-save-blocked] {
-  cursor: wait;
-  color: var(--jpdb-reader-accent-readable);
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border));
-  background: var(--jpdb-reader-accent-soft);
+  cursor: wait !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 55%, var(--jpdb-reader-border)) !important;
+  background: var(--jpdb-reader-accent-soft) !important;
 }
 .jpdb-reader-btn[data-import-state] {
-  gap: 7px;
-  cursor: progress;
-  opacity: 1;
+  gap: 7px !important;
+  cursor: progress !important;
+  opacity: 1 !important;
 }
 .jpdb-reader-btn[data-import-state]::before {
   content: "";

@@ -1947,6 +1947,7 @@ export class NewTabController {
             const usedCachedWords = useOfflineCache
                 ? await this.applyOfflineCacheWhileLoading(root, preferStoredWord, loadGeneration)
                 : false;
+            this.scheduleAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration, usedCachedWords, quiet);
             const result = await this.loadWordsWithProgress(root, loadGeneration, usedCachedWords, quiet);
             if (!this.isCurrentLoad(loadGeneration)) return;
             await this.applyLoadedWords(root, preferStoredWord, loadGeneration, result, useOfflineCache, usedCachedWords, navigationGeneration, {
@@ -1965,6 +1966,55 @@ export class NewTabController {
         };
         if (!usedCachedWords && !quiet) onProgress(this.text('loading'));
         return this.loadWords(onProgress);
+    }
+
+    private scheduleAutoStudyFallbackPreview(
+        root: HTMLElement,
+        preferStoredWord: boolean,
+        loadGeneration: number,
+        usedCachedWords: boolean,
+        quiet: boolean,
+    ): void {
+        if (!this.shouldScheduleAutoStudyFallbackPreview(usedCachedWords, quiet)) return;
+        window.setTimeout(() => {
+            void this.applyAutoStudyFallbackPreview(root, preferStoredWord, loadGeneration);
+        }, NEW_TAB_PUBLIC_FALLBACK_GRACE_MS);
+    }
+
+    private shouldScheduleAutoStudyFallbackPreview(usedCachedWords: boolean, quiet: boolean): boolean {
+        return !quiet
+            && !usedCachedWords
+            && !this.allWords.length
+            && this.state.source === 'auto'
+            && this.state.mode !== 'search'
+            && this.state.mode !== 'stats';
+    }
+
+    private async applyAutoStudyFallbackPreview(root: HTMLElement, preferStoredWord: boolean, loadGeneration: number): Promise<void> {
+        if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration)) return;
+        const result = await this.loadLocalOrBuiltInFreshStudyWords();
+        if (!this.shouldApplyAutoStudyFallbackPreview(loadGeneration) || !this.currentModeStudyCardCount(result.cards)) return;
+        await this.applyLoadedWords(
+            root,
+            preferStoredWord,
+            loadGeneration,
+            {
+                ...result,
+                fallbackNotice: this.hasConfiguredReviewSources(),
+            },
+            false,
+            false,
+            this.navigationGeneration,
+            { preserveVisibleOrder: true },
+        );
+    }
+
+    private shouldApplyAutoStudyFallbackPreview(loadGeneration: number): boolean {
+        return this.isCurrentLoad(loadGeneration)
+            && !this.allWords.length
+            && this.state.source === 'auto'
+            && this.state.mode !== 'search'
+            && this.state.mode !== 'stats';
     }
 
     private async applyLoadedWords(

@@ -13,7 +13,10 @@ afterEach(() => {
     vi.unstubAllGlobals();
 });
 
-function createController(overrides: Partial<ReaderSettings> = {}): ImageOcrController {
+function createController(
+    overrides: Partial<ReaderSettings> = {},
+    captureReaderSurface?: (surface: Element, maxPixels: number) => Promise<{ dataUrl: string; rect: DOMRect } | undefined>,
+): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
             ...DEFAULT_SETTINGS,
@@ -28,6 +31,7 @@ function createController(overrides: Partial<ReaderSettings> = {}): ImageOcrCont
         parseJapanese: vi.fn(async () => []),
         onToast: vi.fn(),
         shouldAutoScan: () => true,
+        captureReaderSurface,
     });
     controller.init();
     return controller;
@@ -97,17 +101,14 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
-    it('OCRs the page source image when the reader canvas is tainted (Firefox/WebKit)', async () => {
-        // BookWalker draws cross-origin page images without CORS, so Firefox/WebKit
-        // (incl. iPad) taint the canvas: getImageData/toDataURL throw and the snapshot
-        // can't be read. We must fall back to the GM-fetchable page image instead.
+    it('does not OCR scrambled BookWalker source images when the rendered canvas is tainted', async () => {
         stubLocation('viewer.bookwalker.jp');
         const tainted = () => { throw new Error('The operation is insecure.'); };
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
         const pageImageUrl = 'https://bw-bv-epubs.bookwalker.jp/a_product/cid/1/9/item/xhtml/p-007.xhtml/deadbeef.jpeg?Policy=x&Signature=y';
         const originalGetEntries = performance.getEntriesByType.bind(performance);
-        vi.spyOn(performance, 'getEntriesByType').mockImplementation((type: string) =>
+        const entriesSpy = vi.spyOn(performance, 'getEntriesByType').mockImplementation((type: string) =>
             type === 'resource' ? ([{ name: pageImageUrl }] as unknown as PerformanceEntryList) : originalGetEntries(type));
 
         const controller = createController();
@@ -115,14 +116,71 @@ describe('reader raster OCR surfaces', () => {
             const canvas = pageCanvas(20, 20);
             canvas.toDataURL = tainted; // tainted canvas: even toDataURL throws
             document.body.append(canvas);
+            await new Promise(resolve => setTimeout(resolve, 250));
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).toBeNull();
+        } finally {
+            entriesSpy.mockRestore();
+            controller.destroy();
+        }
+    });
+
+    it('can OCR a tainted BookWalker canvas through the extension screenshot bridge', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        document.body.append(Object.assign(document.createElement('span'), {
+            id: 'pageSliderCounter',
+            textContent: '1 / 12',
+        }));
+        const tainted = () => { throw new Error('The operation is insecure.'); };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+        const captureReaderSurface = vi.fn(async () => ({
+            dataUrl: 'data:image/jpeg;base64,BBBB',
+            rect: new DOMRect(32, 40, 400, 520),
+        }));
+
+        const canvas = pageCanvas(20, 20);
+        canvas.toDataURL = tainted;
+        document.body.append(canvas);
+
+        const controller = createController({}, captureReaderSurface);
+        try {
+            await waitForExpect(() => {
+                expect(captureReaderSurface).toHaveBeenCalledWith(canvas, 10_000_000);
+            });
             await waitForExpect(() => {
                 const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(frame).not.toBeNull();
-                // Frame points at the page's source image (GM-fetched by the OCR
-                // pipeline), NOT a data: snapshot of the unreadable canvas.
+                expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,BBBB');
+                expect(frame!.style.left).toBe('32px');
+                expect(frame!.style.top).toBe('40px');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('can OCR the page source image for non-BookWalker tainted canvas readers', async () => {
+        stubLocation('comic-walker.com');
+        const tainted = () => { throw new Error('The operation is insecure.'); };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+        const pageImageUrl = 'https://reader.example.test/pages/page-1.jpg?token=ok';
+        const originalGetEntries = performance.getEntriesByType.bind(performance);
+        const entriesSpy = vi.spyOn(performance, 'getEntriesByType').mockImplementation((type: string) =>
+            type === 'resource' ? ([{ name: pageImageUrl }] as unknown as PerformanceEntryList) : originalGetEntries(type));
+
+        const controller = createController();
+        try {
+            const canvas = pageCanvas(20, 20);
+            canvas.toDataURL = tainted;
+            document.body.append(canvas);
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
                 expect(frame!.getAttribute('src')).toBe(pageImageUrl);
             });
         } finally {
+            entriesSpy.mockRestore();
             controller.destroy();
         }
     });

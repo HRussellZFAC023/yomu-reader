@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.4
+// @version      1.3.5
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2bB7kg7nlBXNQXEF3poKFISWpoeOkpOtQcDOoL11IFA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-OFrAy62A+0QN1LgK6jTaSSutA8tvXT/C3WYdPFdsDCs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-4a7dvmaE62BBnlr/dzrK+xRz8wRlPwGyerzLD3U6D84=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3762,6 +3762,30 @@
     "yt-live-chat-paid-message-renderer",
     "yt-live-chat-membership-item-renderer"
   ].join(",");
+  const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = [
+    '[class*="card" i]',
+    '[class*="grid" i]',
+    '[class*="item" i]',
+    '[class*="lockup" i]',
+    '[class*="movie" i]',
+    '[class*="poster" i]',
+    '[class*="thumb" i]',
+    '[class*="tile" i]',
+    '[class*="video" i]'
+  ].join(",");
+  const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
+    "canvas",
+    "img",
+    "picture",
+    "svg",
+    "video",
+    '[class*="cover" i]',
+    '[class*="image" i]',
+    '[class*="poster" i]',
+    '[class*="thumb" i]'
+  ].join(",");
+  const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
+  const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
   const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
   const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
   const READER_RENDERED_TEXT_BLOCK_TAGS = /* @__PURE__ */ new Set([
@@ -3964,13 +3988,15 @@
   function textTargetFromAcceptedNode(node) {
     const parent = node.parentElement;
     if (!parent) return null;
-    const passiveInteraction = isPassiveInteractionElement(parent);
+    const suppressRuby = shouldSuppressCompactMediaRuby(parent);
+    const passiveInteraction = isPassiveInteractionElement(parent) || suppressRuby;
     const text2 = nodeTextContent(node).trim();
     return {
       node,
       text: text2,
       parent,
       hasNativeRuby: Boolean(parent.closest("ruby")),
+      suppressRuby,
       layoutSensitive: isLayoutSensitiveScanElement(parent) || isGeometryFragileText(parent, text2),
       passiveInteraction
     };
@@ -4007,13 +4033,22 @@
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
     if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
+    const suppressRuby = fragmentTargetSuppressesCompactMediaRuby(parent, trimmedFragments);
     return {
       text: text2,
       parent,
       fragments: trimmedFragments,
+      suppressRuby,
       layoutSensitive: trimmedFragments.some((fragment) => fragment.layoutSensitive),
-      passiveInteraction: trimmedFragments.every((fragment) => fragment.passiveInteraction)
+      passiveInteraction: suppressRuby || trimmedFragments.every((fragment) => fragment.passiveInteraction)
     };
+  }
+  function fragmentTargetSuppressesCompactMediaRuby(parent, fragments) {
+    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    return fragments.some((fragment) => {
+      const element2 = fragment.node.parentElement;
+      return Boolean(element2 && shouldSuppressCompactMediaRuby(element2));
+    });
   }
   function isCollectableFragmentText(text2, fragments, options) {
     if (!HAS_JAPANESE$1.test(text2)) return false;
@@ -4309,7 +4344,7 @@
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment = document.createDocumentFragment();
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(target.parent);
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(target.parent);
     const passiveInteraction = target.passiveInteraction || suppressRuby;
     let offset = 0;
     const tokenPlans = tokens.map((token) => ({
@@ -4338,7 +4373,7 @@
     if (!host.isConnected) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactYouTubeRuby(host);
+    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(host);
     const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
@@ -4395,9 +4430,61 @@
       }))
     });
   }
-  function shouldSuppressCompactYouTubeRuby(parent) {
-    if (!parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) return false;
-    return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
+  function shouldSuppressCompactMediaRuby(parent) {
+    if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
+      return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
+    }
+    return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
+  }
+  function isCompactMediaCardLinkText(parent) {
+    const link = parent.closest("a[href]");
+    if (!link || parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
+    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
+    if (!link.closest(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
+  }
+  function isLayoutFragileMediaTileText(parent) {
+    if (isLikelyProseElement(parent) && parent.closest('article, [role="article"]')) return false;
+    if (!hasCompactMediaRubyRisk(parent)) return false;
+    return Boolean(closestCompactMediaContext(parent));
+  }
+  function hasCompactMediaRubyRisk(parent) {
+    if (isLayoutSensitiveScanElement(parent)) return true;
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 4; depth++) {
+      const style = safeComputedStyle(current);
+      if (hasLineClamp(style) || isEllipsisTextRow(style) || hasClippedTextConstraint(style)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function closestCompactMediaContext(parent) {
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
+      if (isLikelyProseElement(current) && current.closest('article, [role="article"]')) return null;
+      if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function hasMediaPeer(container, textElement) {
+    return Array.from(container.querySelectorAll("img, picture, video, canvas")).some((media) => {
+      if (!(media instanceof HTMLElement)) return false;
+      if (media.closest(READER_ROOT_SELECTOR$2)) return false;
+      return media !== textElement && !textElement.contains(media);
+    });
+  }
+  function isCompactMediaContext(element2) {
+    const style = safeComputedStyle(element2);
+    const rect = element2.getBoundingClientRect();
+    if (element2.matches('a[href], button, [role="link"], [role="button"]')) return true;
+    if (safeQuerySelector(element2, 'a[href], button, [role="link"], [role="button"]')) return true;
+    const display = style.display;
+    const structured = display.includes("grid") || display.includes("flex") || display === "block";
+    const compact = rect.width === 0 || rect.width <= 560;
+    return structured && compact;
   }
   function nonDestructiveScanHost(target) {
     if (!isFragmentTextTarget$1(target)) return target.parent;
@@ -35574,10 +35661,10 @@ ${glossaryKey}`;
   }
   function applyReaderAccentColor(color, root = document.documentElement) {
     const accentColor = sanitizeAccentColor(color);
-    root.style.setProperty("--jpdb-reader-accent", accentColor);
-    root.style.setProperty("--jpdb-reader-accent-soft", accentToRgba(accentColor, 0.18));
-    root.style.setProperty("--jpdb-reader-accent-readable", readableAccentOnSurface(accentColor, root));
-    root.style.setProperty("--jpdb-reader-accent-text", readableTextOnAccent(accentColor));
+    root.style.setProperty("--jpdb-reader-accent", accentColor, "important");
+    root.style.setProperty("--jpdb-reader-accent-soft", accentToRgba(accentColor, 0.18), "important");
+    root.style.setProperty("--jpdb-reader-accent-readable", readableAccentOnSurface(accentColor, root), "important");
+    root.style.setProperty("--jpdb-reader-accent-text", readableTextOnAccent(accentColor), "important");
   }
   function applyReaderWordColors(settings, root = document.documentElement) {
     Object.entries(readerStateColors(settings)).forEach(([state, color]) => {

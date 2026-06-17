@@ -41,6 +41,17 @@ describe('settings CSS', () => {
         expect(normalizedBaseCss).toContain('[data-jpdb-reader-root]:where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6), [data-jpdb-reader-root] :where(fieldset, legend, p, ul, ol, li, dl, dt, dd, blockquote, figure, form, table, th, td, hr, h1, h2, h3, h4, h5, h6) { background: transparent; color: inherit;');
     });
 
+    it('pins Yomu control colors over host page button CSS', () => {
+        const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
+        const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
+
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab { position: fixed !important; display: inline-flex !important;');
+        expect(normalizedReaderWordsOcrCss).toContain('border: 1px solid var(--jpdb-reader-border) !important; border-radius: 50% !important; background: var(--jpdb-reader-surface) !important; color: var(--jpdb-reader-text) !important;');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab:hover, .jpdb-reader-fab:focus-visible { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab { min-height: 34px !important; padding: 0 11px !important; border: 1px solid var(--jpdb-reader-border) !important;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab[aria-selected="true"] { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important; background: var(--jpdb-reader-accent-soft) !important; }');
+    });
+
     it('keeps host page button widths out of shared popover controls', () => {
         const normalizedKanjiCss = normalizeCss(KANJI_CSS);
 
@@ -56,7 +67,7 @@ describe('settings CSS', () => {
         const normalizedSubtitlesCss = normalizeCss(SUBTITLES_YOUTUBE_CSS);
 
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-ocr-layer { position: fixed; display: block;');
-        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab { position: fixed; display: inline-flex; align-items: center; justify-content: center;');
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab { position: fixed !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-backdrop { position: fixed; display: block;');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover, .jpdb-reader-settings { position: fixed; display: block;');
         expect(normalizedPopoverCss).toContain('pointer-events: auto !important;');
@@ -65,6 +76,8 @@ describe('settings CSS', () => {
         expect(normalizedPopoverCss).toContain('.jpdb-reader-onboarding h2 { margin: 0 0 8px -0.06em; padding: 0; border: 0 !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings { left: 50%; top: 50%; transform: translate(-50%, -50%);');
         expect(normalizedSettingsCss).toContain('padding: 0; display: flex; flex-direction: column;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab { min-height: 34px !important; padding: 0 11px !important; border: 1px solid var(--jpdb-reader-border) !important; border-radius: 999px !important; background: var(--jpdb-reader-surface) !important; color: var(--jpdb-reader-muted) !important;');
+        expect(normalizedSettingsCss).toContain('.jpdb-reader-btn { display: inline-flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important; box-sizing: border-box !important; min-height: 38px !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings input, .jpdb-reader-settings select, .jpdb-reader-settings textarea, .jpdb-reader-field-display { width: 100%; box-sizing: border-box; min-height: 38px; border-radius: 7px; border: 1px solid var(--jpdb-reader-border) !important; background-color: var(--jpdb-reader-surface) !important; color: var(--jpdb-reader-text) !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings fieldset { border: 1px solid var(--jpdb-reader-border); border-radius: 8px; background: transparent;');
         expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-player { position: fixed; display: block;');
