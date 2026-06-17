@@ -2984,10 +2984,21 @@ export class ReaderApp {
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
         const current = this.lookupCandidateFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
         const active = this.activePointerTextLookup;
-        return Boolean(active
-            && current
-            && samePointerTextLookupTarget(active, current)
-            && pointerOffsetInsideLiveLookup(active, current.offset));
+        if (!active || !current) return false;
+        // Mirror rebuild on reactive SPAs replaces the text anchor, breaking the node-identity
+        // check in samePointerTextLookupTarget. When the original anchor is detached, accept a
+        // freshly-resolved candidate with the same surface text + overlapping offset and
+        // re-anchor instead of closing. Connected anchors keep the strict identity check.
+        if (!active.anchor.isConnected) return this.reanchorDisconnectedPointerText(active, current);
+        return samePointerTextLookupTarget(active, current)
+            && pointerOffsetInsideLiveLookup(active, current.offset);
+    }
+
+    private reanchorDisconnectedPointerText(active: ActivePointerTextLookup, current: PointerTextLookup): boolean {
+        if (active.text !== current.text || !pointerOffsetInsideLiveLookup(active, current.offset)) return false;
+        this.activePointerTextLookup = { ...active, anchor: current.anchor };
+        this.refreshActiveHoverAnchor(current.anchor);
+        return true;
     }
 
     private isPopoverCssHoverActive(options: { ignoreCssHover?: boolean }): boolean {
@@ -3005,6 +3016,13 @@ export class ReaderApp {
     }
 
     private isWordHoverActive(word: HTMLElement, options: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean } = {}): boolean {
+        // Reactive SPAs (YouTube) reconcile and REPLACE rendered word nodes underneath a
+        // stationary cursor. The stored anchor becomes detached, so the usual `:hover` /
+        // geometry checks all fail even though the same logical word still sits under the
+        // pointer. Re-resolve the live word at the last pointer position and re-anchor when
+        // it is the SAME vid:sid; only do this for a disconnected node so the connected path
+        // stays byte-for-byte unchanged.
+        if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
         if (!options.ignoreCssHover && word.matches(':hover')) return true;
         if (options.ignorePointerPosition) return false;
         if (!this.lastPointerPosition) return false;
@@ -3015,6 +3033,22 @@ export class ReaderApp {
             if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, item => this.canHoverLookupReaderWord(item)) === word) return true;
         }
         return this.isInsideNode(target, word);
+    }
+
+    private reanchorDisconnectedHoverWord(word: HTMLElement, options: { ignorePointerPosition?: boolean }): boolean {
+        if (!this.lastPointerPosition) return false;
+        const replacement = this.liveReaderWordAtPointer(this.lastPointerPosition.x, this.lastPointerPosition.y);
+        if (!replacement || replacement === word || renderedWordElementKey(replacement) !== renderedWordElementKey(word)) return false;
+        this.refreshActiveHoverAnchor(replacement);
+        void options;
+        return true;
+    }
+
+    private liveReaderWordAtPointer(x: number, y: number): HTMLElement | null {
+        const target = document.elementFromPoint(x, y);
+        return this.hoverReaderWordFromPointStack(x, y)
+            ?? this.ocrLineWordForPointer(target, x, y)
+            ?? (target instanceof Element ? this.readerWordFromRenderedGeometry(target, x, y, item => this.canHoverLookupReaderWord(item)) : null);
     }
 
     private hoverLookupKeyForWord(word: HTMLElement): string {

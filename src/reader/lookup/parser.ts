@@ -42,6 +42,18 @@ const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
 const SEGMENTER_COMPOUND_OVERRIDES = new Set(['巨乳']);
 const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES)
     .reduce((max, value) => Math.max(max, value.length), 0);
+// A pure-kana span only looks like an inflectable verb/adjective base when it
+// ends in an i-adjective い or a godan dictionary end (う-row) and carries no
+// geminate っ — geminate-bearing kana spans (がっこう, きっぷ) are nouns, never
+// verb/adjective dictionary forms, so excluding っ keeps real adjectives like
+// やさしい off the merge path while still collapsing kana nouns.
+const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
+const KANA_I_ADJECTIVE_END_RE = /い$/u;
+const SMALL_TSU_RE = /っ/u;
+const KANA_CONTENT_WORD_MIN_LENGTH = 3;
+// Any kanji or katakana — its presence means a segment is NOT pure hiragana, so
+// the kana-merge pass leaves the surrounding (real, mixed-script) sentence alone.
+const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
 const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserParseOptions {
@@ -692,9 +704,107 @@ function segmentJapaneseRun(text: string, offset: number, segmenter: IntlSegment
 
 function finalizeJapaneseRunSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {
     return mergeInflectedFallbackSegments(
-        splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))),
+        splitLeadingParticleSegments(mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
         sourceText,
     );
+}
+
+// ICU's `Intl.Segmenter('ja',{granularity:'word'})` has no kana dictionary, so
+// it over-splits hiragana-only words on phonetic guesses (にほんご→に|ほん|ご,
+// がっこう→が|っ|こう). Those intra-kana boundaries are noise, so a maximal run
+// of adjacent, contiguous, pure-hiragana segments is collapsed back into one
+// token. This is scoped to runs with NO kanji segment — i.e. hiragana-only
+// titles/names (the YouTube case). Mixed kanji+kana sentences are left alone
+// because there ICU's kana boundaries are grammatically real (好き|な|もの).
+// Within a kana run a boundary is only kept where it is linguistically real: a
+// standalone particle segment, or a point where the trailing kana span is
+// independently a content word (verb/adjective base or deinflects to one) —
+// that preserves genuine splits like ややさしい => や|やさしい and にほんご|の|じかん.
+function mergeContiguousKanaSegments(segments: JapaneseTextSegment[]): JapaneseTextSegment[] {
+    if (segments.some(segment => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
+    const merged: JapaneseTextSegment[] = [];
+    for (let index = 0; index < segments.length;) {
+        const span = contiguousKanaMergeSpanAt(segments, index);
+        if (span) {
+            merged.push(span.segment);
+            index = span.nextIndex;
+            continue;
+        }
+        merged.push(segments[index]);
+        index += 1;
+    }
+    return merged;
+}
+
+function contiguousKanaMergeSpanAt(
+    segments: JapaneseTextSegment[],
+    startIndex: number,
+): { segment: JapaneseTextSegment; nextIndex: number } | null {
+    const first = segments[startIndex];
+    if (!first || !isPureKanaSegment(first.surface)) return null;
+    // A particle-shaped first segment is only word-internal (にほんご, がっこう) at
+    // the true start of a contiguous kana run. Mid-run — i.e. right after another
+    // kana segment that a previous merge already consumed (the standalone の in
+    // にほんご|の|じかん) — it is a real boundary, so leave it on its own.
+    const previous = segments[startIndex - 1];
+    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
+    if (isInflectionBoundarySegment(first.surface) && !atKanaRunStart) return null;
+    const runEnd = contiguousKanaRunEnd(segments, startIndex);
+    if (runEnd - startIndex < 2) return null;
+    let surface = first.surface;
+    let lastIndex = startIndex;
+    for (let index = startIndex + 1; index < runEnd; index += 1) {
+        const current = segments[index];
+        const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
+        // Stop merging at a real boundary: a standalone particle, or a point
+        // where the rest of the run stands on its own as a content word.
+        if (isInflectionBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+        surface += current.surface;
+        lastIndex = index;
+    }
+    if (lastIndex === startIndex) return null;
+    return {
+        segment: { surface, start: first.start, end: segments[lastIndex].end },
+        nextIndex: lastIndex + 1,
+    };
+}
+
+function contiguousKanaRunEnd(segments: JapaneseTextSegment[], startIndex: number): number {
+    let index = startIndex + 1;
+    while (index < segments.length
+        && isPureKanaSegment(segments[index].surface)
+        && segments[index].start === segments[index - 1].end) {
+        index += 1;
+    }
+    return index;
+}
+
+function sliceKanaSpanSurface(segments: JapaneseTextSegment[], startIndex: number, endIndex: number): string {
+    let surface = '';
+    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
+    return surface;
+}
+
+function isPureKanaSegment(surface: string): boolean {
+    return HIRAGANA_SEGMENT_RE.test(surface);
+}
+
+// A kana span is treated as a standalone content word (so the boundary before it
+// is kept) when it is a plausible verb/adjective dictionary form, or it
+// deinflects to one. The geminate っ guard keeps kana nouns (がっこう) — whose
+// pseudo-deinflections (がっく/がっい) are bogus — on the merge path.
+function isKanaContentWordSpan(span: string): boolean {
+    if (isKanaInflectableBaseShape(span)) return true;
+    return deinflectJapaneseTerm(span).some(candidate =>
+        candidate.depth > 0
+        && Array.from(candidate.term).length >= 2
+        && !SMALL_TSU_RE.test(candidate.term)
+        && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
+}
+
+function isKanaInflectableBaseShape(span: string): boolean {
+    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
+    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
 }
 
 function splitNumericCounterPrefixSegments(segments: JapaneseTextSegment[], sourceText: string): JapaneseTextSegment[] {

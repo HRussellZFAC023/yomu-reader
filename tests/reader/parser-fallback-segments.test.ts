@@ -32,6 +32,27 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         expect(surfaces('読み取る')).toEqual(['読み取る']);
     });
 
+    // ICU's keyless 'ja' word segmenter has no kana dictionary, so it
+    // over-fragments hiragana-only words on phonetic guesses (にほんご→に|ほん|ご).
+    // mergeContiguousKanaSegments collapses those bogus intra-kana boundaries
+    // while preserving real particle / content-word splits.
+    it('collapses over-segmented kana-only nouns into one token', () => {
+        expect(surfaces('にほんご')).toEqual(['にほんご']);
+        expect(surfaces('じかん')).toEqual(['じかん']);
+        expect(surfaces('がっこう')).toEqual(['がっこう']);
+        expect(surfaces('たべもの')).toEqual(['たべもの']);
+    });
+
+    it('keeps a real particle boundary when merging kana-only runs', () => {
+        expect(surfaces('にほんごのじかん')).toEqual(['にほんご', 'の', 'じかん']);
+    });
+
+    it('does not over-merge a kana adjective behind a leading particle', () => {
+        // やさしい independently deinflects to a content word, so its boundary
+        // survives the kana merge (regression guard against gluing や+やさしい).
+        expect(surfaces('ややさしい')).toEqual(['や', 'やさしい']);
+    });
+
     it('parses a long mixed sentence into coherent words, not isolated tiles', () => {
         const segs = surfaces('好きなものを読んで日本語を学ぶ');
         expect(segs).toEqual(['好き', 'な', 'もの', 'を', '読んで', '日本語', 'を', '学ぶ']);

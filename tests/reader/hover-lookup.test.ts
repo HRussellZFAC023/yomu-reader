@@ -16,6 +16,9 @@ interface HoverLookupInternals {
     activePopover?: HTMLElement;
     activePopoverMode?: 'modal' | 'hover';
     activeHoverWord?: HTMLElement;
+    activePopoverAnchor?: HTMLElement;
+    activePointerTextLookup?: { text: string; start: number; end: number; anchor: HTMLElement };
+    lastPointerPosition?: { x: number; y: number };
     parser: { cacheCards?(cards: JPDBCard[]): void };
     stackedSettingsDialog?: { form: HTMLElement; backdrop?: HTMLElement };
     pressLookup?: {
@@ -35,6 +38,7 @@ interface HoverLookupInternals {
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
     handlePointerTextHover(event: PointerEvent): void;
+    lookupCandidateFromPoint(x: number, y: number, eventTarget: EventTarget | null, options?: unknown): { text: string; offset: number; start: number; end: number; anchor: HTMLElement } | null;
     readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null;
     isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
@@ -983,5 +987,178 @@ describe('hover lookup', () => {
             selection.removeAllRanges();
             cleanupReaderApp(app);
         }
+    });
+
+    describe('reactive node replacement re-anchor', () => {
+        function setupHoverWordContext(word: HTMLElement): { app: ReaderApp; internals: HoverLookupInternals } {
+            const app = new ReaderApp();
+            const internals = app as unknown as HoverLookupInternals;
+            const popover = appendActivePopoverBody().popover;
+            internals.settings = { ...DEFAULT_SETTINGS, lookupOnHover: true };
+            internals.activePopover = popover;
+            internals.activePopoverMode = 'hover';
+            internals.activeHoverWord = word;
+            internals.activePopoverAnchor = word;
+            internals.lastPointerPosition = { x: 40, y: 24 };
+            return { app, internals };
+        }
+
+        function replacementWord(vid: string, sid: string): HTMLElement {
+            const replacement = readerWordFixture('今日は読む', '読む');
+            replacement.dataset.vid = vid;
+            replacement.dataset.sid = sid;
+            return replacement;
+        }
+
+        it('re-anchors when the hovered word node is replaced with the same vid:sid', () => {
+            const word = readerWordFixture('今日は読む', '読む');
+            const { app, internals } = setupHoverWordContext(word);
+            const replacement = replacementWord('1', '2');
+            word.remove(); // YouTube reconcile detaches the original node under a stationary cursor
+            const restoreStack = stubElementsFromPoint([replacement]);
+            const restorePoint = stubElementFromPoint(replacement);
+
+            try {
+                expect(word.isConnected).toBe(false);
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(true);
+                expect(internals.activeHoverWord).toBe(replacement);
+                expect(internals.activePopoverAnchor).toBe(replacement);
+            } finally {
+                restorePoint();
+                restoreStack();
+                cleanupReaderApp(app);
+            }
+        });
+
+        it('closes when the replacement node has a different vid:sid', () => {
+            const word = readerWordFixture('今日は読む', '読む');
+            const { app, internals } = setupHoverWordContext(word);
+            const replacement = replacementWord('9', '9');
+            word.remove();
+            const restoreStack = stubElementsFromPoint([replacement]);
+            const restorePoint = stubElementFromPoint(replacement);
+
+            try {
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(false);
+                expect(internals.activeHoverWord).toBe(word);
+            } finally {
+                restorePoint();
+                restoreStack();
+                cleanupReaderApp(app);
+            }
+        });
+
+        it('closes when no rendered word sits under the pointer after replacement', () => {
+            const word = readerWordFixture('今日は読む', '読む');
+            const { app, internals } = setupHoverWordContext(word);
+            word.remove();
+            const plain = document.createElement('div');
+            document.body.append(plain);
+            const restoreStack = stubElementsFromPoint([plain]);
+            const restorePoint = stubElementFromPoint(plain);
+
+            try {
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(false);
+            } finally {
+                restorePoint();
+                restoreStack();
+                cleanupReaderApp(app);
+            }
+        });
+
+        it('keeps the connected-node path unchanged (still hovering true, moved-away false)', () => {
+            // The connected path resolves the live word via geometry (jsdom has no layout, so
+            // `:hover` is always false and ignorePointerPosition short-circuits — that pre-existing
+            // behavior must be preserved). Exercise it without ignorePointerPosition so the
+            // geometry resolver runs, proving the connected branch is unchanged.
+            const word = readerWordFixture('今日は読む', '読む');
+            const { app, internals } = setupHoverWordContext(word);
+            const restoreStack = stubElementsFromPoint([word]);
+            const restorePoint = stubElementFromPoint(word);
+
+            try {
+                expect(word.isConnected).toBe(true);
+                expect(internals.isHoverContextActive({})).toBe(true);
+                expect(internals.activeHoverWord).toBe(word);
+            } finally {
+                restorePoint();
+                restoreStack();
+            }
+
+            // Pointer moved away: nothing under the point, connected node not hovered.
+            const elsewhere = document.createElement('div');
+            document.body.append(elsewhere);
+            const restoreStackAway = stubElementsFromPoint([elsewhere]);
+            const restorePointAway = stubElementFromPoint(elsewhere);
+
+            try {
+                expect(internals.isHoverContextActive({})).toBe(false);
+                expect(internals.activeHoverWord).toBe(word);
+            } finally {
+                restorePointAway();
+                restoreStackAway();
+                cleanupReaderApp(app);
+            }
+        });
+    });
+
+    describe('reactive mirror text-lookup re-anchor', () => {
+        function setupPointerTextContext(anchor: HTMLElement): { app: ReaderApp; internals: HoverLookupInternals } {
+            const app = new ReaderApp();
+            const internals = app as unknown as HoverLookupInternals;
+            const popover = appendActivePopoverBody().popover;
+            internals.settings = { ...DEFAULT_SETTINGS, lookupOnHover: true };
+            internals.activePopover = popover;
+            internals.activePopoverMode = 'hover';
+            internals.activePopoverAnchor = anchor;
+            internals.activePointerTextLookup = { text: '今日は読む', start: 3, end: 5, anchor };
+            internals.lastPointerPosition = { x: 40, y: 24 };
+            return { app, internals };
+        }
+
+        function mirrorAnchor(): HTMLElement {
+            const anchor = document.createElement('span');
+            anchor.className = 'jpdb-reader-text-mirror';
+            anchor.textContent = '今日は読む';
+            document.body.append(anchor);
+            return anchor;
+        }
+
+        it('re-anchors the pointer-text lookup when the mirror anchor is rebuilt', () => {
+            const oldAnchor = mirrorAnchor();
+            const { app, internals } = setupPointerTextContext(oldAnchor);
+            const freshAnchor = mirrorAnchor();
+            oldAnchor.remove(); // mirror rebuild: identity gone, same surface text under the cursor
+            internals.lookupCandidateFromPoint = vi.fn(() => ({ text: '今日は読む', offset: 4, start: 3, end: 5, anchor: freshAnchor }));
+            const restorePoint = stubElementFromPoint(freshAnchor);
+
+            try {
+                expect(oldAnchor.isConnected).toBe(false);
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(true);
+                expect(internals.activePointerTextLookup?.anchor).toBe(freshAnchor);
+                expect(internals.activePopoverAnchor).toBe(freshAnchor);
+            } finally {
+                restorePoint();
+                cleanupReaderApp(app);
+            }
+        });
+
+        it('closes when the rebuilt mirror exposes different surface text', () => {
+            const oldAnchor = mirrorAnchor();
+            const { app, internals } = setupPointerTextContext(oldAnchor);
+            const freshAnchor = mirrorAnchor();
+            freshAnchor.textContent = '別の文';
+            oldAnchor.remove();
+            internals.lookupCandidateFromPoint = vi.fn(() => ({ text: '別の文', offset: 1, start: 0, end: 3, anchor: freshAnchor }));
+            const restorePoint = stubElementFromPoint(freshAnchor);
+
+            try {
+                expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(false);
+                expect(internals.activePointerTextLookup?.anchor).toBe(oldAnchor);
+            } finally {
+                restorePoint();
+                cleanupReaderApp(app);
+            }
+        });
     });
 });
