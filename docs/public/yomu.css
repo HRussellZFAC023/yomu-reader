@@ -1019,6 +1019,19 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+/* User feedback: the word contrast shadow (a white glow + a 2px dark drop) bleeds
+   into the thin furigana strokes and makes the reading harder to read. Furigana
+   takes a single tight outline instead — enough contrast on busy manga
+   backgrounds without the muddy glow. Tunable via --jpdb-reader-furigana-shadow. */
+.jpdb-reader-word rt {
+  text-shadow: var(
+    --jpdb-reader-furigana-shadow,
+    0 0 1px color-mix(in srgb, var(--jpdb-reader-black) 55%, transparent)
+  );
+}
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-word rt {
+  text-shadow: var(--jpdb-reader-furigana-shadow, none);
+}
 /* UT-47: per-group furigana hiding (settings: furiganaHiddenStateGroups).
    The classes apply on the page root AND on the settings preview container,
    so the preview restyles live. Example targets keep their ruby. */

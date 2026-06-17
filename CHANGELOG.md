@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.2.0] - 2026-06-17
+
+### Added
+
+- Light-on-dark manga text is now read on mixed pages. A page often mixes black-on-white speech bubbles with white-on-black caption boxes/panels; inverting the whole page would just swap which half fails. Instead, when a page has a dark region that the normal recognition pass left unread, a second inverted pass runs and only its lines that fall over genuinely dark areas are merged in. So a dark caption box (e.g. 「嘘だろ……！！」) is recognized alongside the normal bubbles, with no extra request or latency on ordinary pages or dark panels the recognizer already read, and no spurious lines on light pages. Toggle: "Read light text on dark panels".
+- Persistent OCR cache: recognized text for stable-`src` reader/article images is mirrored to `localStorage` (bounded by entry count and total size) so a page refresh re-renders recognized text instantly instead of re-running every recognizer request. Volatile `data:` frames (paused-video / canvas snapshots) are excluded.
+- Image-based manga readers (Mokuro, MangaDex, etc.) now prefetch a sliding window of upcoming pages and raise the per-page image budget on reader-like pages — the same look-ahead canvas readers already get — so the next pages are recognized in the background before you reach them. Ordinary pages, where auto-OCR stays near the viewport, are unaffected.
+
+### Changed
+
+- Google Lens recognition falls through to the cookie-authenticated `lens.google.com` upload endpoint (per-user quota, sent with the Lens web client's `Origin`/`Referer`) when the shared keyless endpoint is throttled or returns nothing — reducing rate-limiting and recovering more text. The extra request only fires when the primary endpoint comes back empty, so request volume on pages that already read is unchanged.
+- Furigana now uses a single tight outline instead of the word contrast glow, which was bleeding into the thin reading strokes and hurting legibility on busy manga backgrounds (tunable via `--jpdb-reader-furigana-shadow`).
+
+### Fixed
+
+- The YouTube channel shelf now clears its pending refresh when every channel is confirmed subscribed, so it doesn't keep re-testing/re-rendering after the shelf is removed.
+
 ## [1.1.2] - 2026-06-17
 
 ### Fixed

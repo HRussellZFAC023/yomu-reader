@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
     backgroundImageReaderUrl,
+    looksLikeRenderedCanvasImage,
     canvasReaderPageSignature,
     captureCanvasDataUrl,
     collectBackgroundImageReaderSurfaces,
@@ -221,5 +222,20 @@ describe('canvas readers (generic, unknown host)', () => {
         stubContextPixels(richImage());
         mountCanvas(400, 560, 400, 560);
         expect(isCanvasReaderPage('example.com')).toBe(false);
+    });
+
+    // looksLikeRenderedCanvasImage powers the prefetch skip-blank gate: ComicWalker
+    // pre-creates one <canvas> per page but only paints the ones near the
+    // viewport, leaving the rest blank. Snapshotting a blank page wastes an OCR
+    // call, so the controller skips canvases that have not rendered yet.
+    it('treats a painted page canvas as rendered content', () => {
+        stubContextPixels(richImage());
+        expect(looksLikeRenderedCanvasImage(mountCanvas(1200, 1680, 900, 1260))).toBe(true);
+    });
+
+    it('treats a blank/un-painted page canvas as having no content (skip prefetch)', () => {
+        const blank = () => pixels(() => [0, 0, 0, 255]); // ComicWalker's not-yet-decoded page
+        stubContextPixels(blank());
+        expect(looksLikeRenderedCanvasImage(mountCanvas(1200, 1680, 900, 1260))).toBe(false);
     });
 });

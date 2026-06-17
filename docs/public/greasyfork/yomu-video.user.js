@@ -1613,6 +1613,64 @@
       textNode.replaceWith(replacement);
     }
   }
+  const STORE_KEY = "yomu-ocr-cache-v1";
+  const MAX_ENTRIES = 300;
+  const MAX_BYTES = 15e5;
+  const PERSIST_DELAY_MS = 1200;
+  function storage() {
+    try {
+      return typeof localStorage !== "undefined" ? localStorage : null;
+    } catch {
+      return null;
+    }
+  }
+  function loadPersistedOcrCache() {
+    const map = /* @__PURE__ */ new Map();
+    const store = storage();
+    if (!store) return map;
+    try {
+      const raw = store.getItem(STORE_KEY);
+      if (!raw) return map;
+      const parsed = JSON.parse(raw);
+      for (const [key, entry] of Object.entries(parsed).sort((a, b) => (a[1]?.at ?? 0) - (b[1]?.at ?? 0))) {
+        if (key.startsWith("data:")) continue;
+        map.set(key, entry?.r ?? null);
+      }
+    } catch {
+      try {
+        store.removeItem(STORE_KEY);
+      } catch {
+      }
+    }
+    return map;
+  }
+  let persistTimer;
+  function persistOcrCacheSoon(cache, now) {
+    if (!storage()) return;
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(() => {
+      persistTimer = void 0;
+      writeOcrCache(cache, now);
+    }, PERSIST_DELAY_MS);
+  }
+  function writeOcrCache(cache, now) {
+    const store = storage();
+    if (!store) return;
+    try {
+      const keys = [...cache.keys()].filter((key) => !key.startsWith("data:")).reverse().slice(0, MAX_ENTRIES);
+      const out = {};
+      let bytes = 0;
+      for (const key of keys) {
+        const result = cache.get(key) ?? null;
+        const serialized = JSON.stringify(result);
+        bytes += key.length + serialized.length + 24;
+        if (bytes > MAX_BYTES) break;
+        out[key] = { r: result, at: now };
+      }
+      store.setItem(STORE_KEY, JSON.stringify(out));
+    } catch {
+    }
+  }
   const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
   const CANVAS_READER_HOST_PATTERNS = [
     /(^|\.)bookwalker\.jp$/i,
@@ -6103,6 +6161,7 @@ ${candidate.depth}`;
   class ImageOcrController {
     constructor(options) {
       this.options = options;
+      for (const [key, result] of loadPersistedOcrCache()) this.cache.set(key, result);
     }
     states = /* @__PURE__ */ new Map();
     cache = /* @__PURE__ */ new Map();
@@ -6256,7 +6315,7 @@ ${candidate.depth}`;
       });
     }
     refreshImages(settings) {
-      return Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => this.compareRefreshImages(a, b)).slice(0, settings.ocrMaxImagesPerPage);
+      return Array.from(document.images).filter((image) => isCandidateImage(image, settings) && shouldObserveImage(image, settings)).sort((a, b) => this.compareRefreshImages(a, b)).slice(0, imageReaderMaxImages(settings));
     }
     compareRefreshImages(a, b) {
       const priorityDelta = this.observePriority(a) - this.observePriority(b);
@@ -6268,7 +6327,7 @@ ${candidate.depth}`;
       if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
     }
     shouldAutoEnqueueImage(image, state, settings) {
-      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state) && isNearViewport(image, settings.ocrPrefetchMargin);
+      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state) && isNearViewport(image, imagePrefetchMargin(settings));
     }
     canAutoScanImage(settings) {
       return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
@@ -6302,7 +6361,7 @@ ${candidate.depth}`;
       this.unpinAllLines();
     }
     ensureObserver(settings) {
-      const rootMargin = `${settings.ocrPrefetchMargin}px 0px`;
+      const rootMargin = `${imagePrefetchMargin(settings)}px 0px`;
       if (this.observer && this.observerMargin === rootMargin) return;
       this.observer?.disconnect();
       this.observerMargin = rootMargin;
@@ -6484,14 +6543,32 @@ ${candidate.depth}`;
     recognizeImage(image, settings) {
       const recognizer = ocrRecognizer(settings);
       if (!recognizer) return Promise.resolve(null);
-      if (settings.ocrProvider !== "local-service") return recognizer(image, settings);
-      return this.recognizeViaLocalServiceWithBackoff(image, settings, recognizer);
+      return this.recognizeWithDarkPass(image, settings, recognizer);
     }
-    async recognizeViaLocalServiceWithBackoff(image, settings, recognizer) {
+    // Normal recognition always runs. A second, inverted pass is spent only when
+    // the page has a dark region (where white-on-black text could hide) AND that
+    // region came back UNREAD by the normal pass — i.e. genuinely missed text. So
+    // ordinary pages (and dark panels the recognizer already read) cost exactly one
+    // request, keeping speed and Lens volume unchanged; only a real missed dark
+    // panel pays for the extra pass, and its lines are merged in over the dark area.
+    async recognizeWithDarkPass(image, settings, recognizer) {
+      const normal = await this.runRecognizer(image, settings, recognizer, false);
+      if (!settings.ocrInvertDarkPanels) return normal;
+      const field = buildLuminanceField(image);
+      if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
+      if (darkAreaIsRead(field, normal)) return normal;
+      const inverted = await this.runRecognizer(image, settings, recognizer, true).catch(() => null);
+      return mergeDarkPassResult(normal, inverted, field);
+    }
+    runRecognizer(image, settings, recognizer, invert) {
+      if (settings.ocrProvider !== "local-service") return recognizer(image, settings, invert);
+      return this.recognizeViaLocalServiceWithBackoff(image, settings, recognizer, invert);
+    }
+    async recognizeViaLocalServiceWithBackoff(image, settings, recognizer, invert) {
       const endpointUrl = localOcrEndpointUrl(settings);
       if (this.isLocalOcrUnavailable(endpointUrl)) throw new LocalOcrUnavailableError(endpointUrl);
       try {
-        const result = await recognizer(image, settings);
+        const result = await recognizer(image, settings, invert);
         this.clearLocalOcrUnavailable(endpointUrl);
         return result;
       } catch (error) {
@@ -6638,6 +6715,7 @@ ${candidate.depth}`;
         if (!oldest) break;
         this.cache.delete(oldest);
       }
+      persistOcrCacheSoon(this.cache, Date.now());
     }
     schedulePosition() {
       if (this.positionFrame) return;
@@ -7393,8 +7471,8 @@ ${spelling}`);
   function clampNumber$1(value, min, max) {
     return Math.min(max, Math.max(min, value));
   }
-  async function recognizeViaLocalService(image, settings) {
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, settings.ocrInvertDarkPanels);
+  async function recognizeViaLocalService(image, settings, invert = false) {
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
     const engine = settings.ocrEngine === "auto" ? "" : settings.ocrEngine;
     const body = JSON.stringify({
       id: imageCacheKey(image),
@@ -7413,10 +7491,10 @@ ${spelling}`);
     const response = await requestJson(localOcrEndpointUrl(settings), body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
   }
-  async function recognizeViaCloudVision(image, settings) {
+  async function recognizeViaCloudVision(image, settings, invert = false) {
     const apiKey = settings.ocrCloudVisionApiKey.trim();
     if (!apiKey) return null;
-    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, settings.ocrInvertDarkPanels);
+    const payload = await imageToBase64Payload(image, settings.ocrMaxImagePixels, invert);
     const body = JSON.stringify({
       requests: [{
         image: { content: payload.base64 },
@@ -7428,17 +7506,24 @@ ${spelling}`);
     const response = await requestJson(url, body, settings.audioTimeoutMs);
     return normalizeOcrResult(response, payload.width, payload.height);
   }
-  async function recognizeViaGoogleLens(image, settings) {
-    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, settings.ocrInvertDarkPanels);
+  async function recognizeViaGoogleLens(image, settings, invert = false) {
+    const { canvas, blob } = await imageToBlobPayload(image, settings.ocrMaxImagePixels, "image/jpeg", 0.88, invert);
+    const protobuf = await recognizeViaGoogleLensProtobuf(blob, canvas, settings).catch((error) => {
+      log$2.warn("Google Lens protobuf failed", error);
+      return null;
+    });
+    if (protobuf?.lines.length) return protobuf;
+    const upload = await recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs).catch((error) => {
+      log$2.warn("Google Lens upload failed", error);
+      return null;
+    });
+    return upload?.lines.length ? upload : upload ?? protobuf;
+  }
+  async function recognizeViaGoogleLensProtobuf(blob, canvas, settings) {
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const body = createGoogleLensRequest(bytes, canvas.width, canvas.height, settings.ocrLanguage);
-    try {
-      const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
-      return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
-    } catch (error) {
-      log$2.warn("Google Lens protobuf failed", error);
-      return recognizeViaGoogleLensUpload(blob, canvas.width, canvas.height, settings.audioTimeoutMs);
-    }
+    const response = await requestArrayBuffer(GOOGLE_LENS_ENDPOINT, body, settings.audioTimeoutMs);
+    return parseGoogleLensResponse(new Uint8Array(response), canvas.width, canvas.height);
   }
   function ocrRecognizer(settings) {
     const recognizer = OCR_RECOGNIZERS[settings.ocrProvider] ?? null;
@@ -7446,55 +7531,6 @@ ${spelling}`);
   }
   function isOcrProviderConfigured(settings) {
     return OCR_PROVIDER_CONFIGURED[settings.ocrProvider]?.(settings) ?? false;
-  }
-  function invertCanvasIfDarkPanel(canvas) {
-    return isLightOnDarkPanel(canvas) ? invertedCanvas(canvas) : canvas;
-  }
-  function isLightOnDarkPanel(canvas) {
-    try {
-      const sampleWidth = Math.max(1, Math.min(canvas.width, 48));
-      const sampleHeight = Math.max(1, Math.min(canvas.height, 48));
-      const sample = document.createElement("canvas");
-      sample.width = sampleWidth;
-      sample.height = sampleHeight;
-      const context = sample.getContext("2d", { willReadFrequently: true });
-      if (!context) return false;
-      context.drawImage(canvas, 0, 0, sampleWidth, sampleHeight);
-      const { data } = context.getImageData(0, 0, sampleWidth, sampleHeight);
-      let opaque = 0;
-      let dark = 0;
-      let bright = 0;
-      let luminanceSum = 0;
-      for (let i = 0; i < data.length; i += 4) {
-        if (data[i + 3] < 8) continue;
-        opaque++;
-        const luminance = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        luminanceSum += luminance;
-        if (luminance < 70) dark++;
-        else if (luminance > 170) bright++;
-      }
-      if (!opaque) return false;
-      const meanLuminance = luminanceSum / opaque;
-      const darkFraction = dark / opaque;
-      const brightFraction = bright / opaque;
-      return meanLuminance < 100 && darkFraction >= 0.55 && brightFraction >= 0.012 && brightFraction <= 0.5;
-    } catch {
-      return false;
-    }
-  }
-  function invertedCanvas(canvas) {
-    try {
-      const inverted = document.createElement("canvas");
-      inverted.width = canvas.width;
-      inverted.height = canvas.height;
-      const context = inverted.getContext("2d");
-      if (!context) return canvas;
-      context.filter = "invert(1)";
-      context.drawImage(canvas, 0, 0);
-      return inverted;
-    } catch {
-      return canvas;
-    }
   }
   async function imageToBase64Payload(image, maxPixels, invertDark = false) {
     const { canvas, blob } = await imageToBlobPayload(image, maxPixels, "image/jpeg", 0.86, invertDark);
@@ -7512,19 +7548,22 @@ ${spelling}`);
   async function recognizeViaGoogleLensUpload(blob, width, height, timeout) {
     const data = new FormData();
     data.append("encoded_image", blob, "image.jpg");
-    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout);
+    const response = await requestTextForm(`https://lens.google.com/v3/upload?stcs=${Date.now().toString().slice(0, 10)}`, data, timeout, {
+      Origin: "https://lens.google.com",
+      Referer: "https://lens.google.com/"
+    });
     return parseGoogleLensUploadHtml(response, width, height);
   }
-  async function imageToCanvas(image, maxPixels, invertDark = false) {
+  async function imageToCanvas(image, maxPixels, invert = false) {
     try {
       const canvas = drawImageToCanvas(image, maxPixels);
       assertCanvasReadable(canvas);
-      return invertDark ? invertCanvasIfDarkPanel(canvas) : canvas;
+      return invert ? invertedCanvas(canvas) : canvas;
     } catch {
-      return imageBlobToCanvas(image, maxPixels, invertDark);
+      return imageBlobToCanvas(image, maxPixels, invert);
     }
   }
-  async function imageBlobToCanvas(image, maxPixels, invertDark = false) {
+  async function imageBlobToCanvas(image, maxPixels, invert = false) {
     const url = image.currentSrc || image.src;
     if (!url || url.startsWith("data:")) throw new Error("Image cannot be read by OCR.");
     const blob = await requestBlob(url);
@@ -7533,10 +7572,117 @@ ${spelling}`);
       const loaded = await loadImage(objectUrl);
       const canvas = drawImageToCanvas(loaded, maxPixels);
       assertCanvasReadable(canvas);
-      return invertDark ? invertCanvasIfDarkPanel(canvas) : canvas;
+      return invert ? invertedCanvas(canvas) : canvas;
     } finally {
       URL.revokeObjectURL(objectUrl);
     }
+  }
+  function invertedCanvas(canvas) {
+    try {
+      const inverted = document.createElement("canvas");
+      inverted.width = canvas.width;
+      inverted.height = canvas.height;
+      const context = inverted.getContext("2d");
+      if (!context) return canvas;
+      context.filter = "invert(1)";
+      context.drawImage(canvas, 0, 0);
+      return inverted;
+    } catch {
+      return canvas;
+    }
+  }
+  const DARK_FIELD_SIZE = 48;
+  const DARK_LUMINANCE = 90;
+  const DARK_REGION_TRIGGER = 0.1;
+  const DARK_LINE_MEAN_LUMINANCE = 110;
+  function buildLuminanceField(image) {
+    try {
+      if (!image.naturalWidth || !image.naturalHeight) return null;
+      const size = DARK_FIELD_SIZE;
+      const sample = document.createElement("canvas");
+      sample.width = size;
+      sample.height = size;
+      const context = sample.getContext("2d", { willReadFrequently: true });
+      if (!context) return null;
+      context.drawImage(image, 0, 0, size, size);
+      const { data } = context.getImageData(0, 0, size, size);
+      const lum = new Uint8Array(size * size);
+      let opaque = 0;
+      for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+        if (data[i + 3] >= 8) opaque++;
+        lum[p] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 | 0;
+      }
+      if (opaque < lum.length * 0.5) return null;
+      return { size, lum };
+    } catch {
+      return null;
+    }
+  }
+  function luminanceFieldDarkFraction(field) {
+    let dark = 0;
+    for (const value of field.lum) if (value < DARK_LUMINANCE) dark++;
+    return dark / field.lum.length;
+  }
+  function regionMeanLuminance(field, box, width, height) {
+    if (width <= 0 || height <= 0) return 255;
+    const x0 = Math.max(0, Math.floor(box.left / width * field.size));
+    const x1 = Math.min(field.size, Math.ceil((box.left + box.width) / width * field.size));
+    const y0 = Math.max(0, Math.floor(box.top / height * field.size));
+    const y1 = Math.min(field.size, Math.ceil((box.top + box.height) / height * field.size));
+    let sum = 0;
+    let count = 0;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        sum += field.lum[y * field.size + x];
+        count++;
+      }
+    }
+    return count ? sum / count : 255;
+  }
+  function darkAreaIsRead(field, normal) {
+    const size = field.size;
+    let darkTotal = 0;
+    let darkCovered = 0;
+    const lines = normal?.lines ?? [];
+    const width = normal?.width || 1;
+    const height = normal?.height || 1;
+    const cellRects = lines.map((line) => ({
+      x0: Math.floor(line.box.left / width * size),
+      x1: Math.ceil((line.box.left + line.box.width) / width * size),
+      y0: Math.floor(line.box.top / height * size),
+      y1: Math.ceil((line.box.top + line.box.height) / height * size)
+    }));
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        if (field.lum[y * size + x] >= DARK_LUMINANCE) continue;
+        darkTotal++;
+        if (cellRects.some((r) => x >= r.x0 && x < r.x1 && y >= r.y0 && y < r.y1)) darkCovered++;
+      }
+    }
+    if (!darkTotal) return true;
+    return darkCovered / darkTotal >= 0.5;
+  }
+  function boxesOverlapSignificantly(a, b) {
+    const ix = Math.max(0, Math.min(a.left + a.width, b.left + b.width) - Math.max(a.left, b.left));
+    const iy = Math.max(0, Math.min(a.top + a.height, b.top + b.height) - Math.max(a.top, b.top));
+    const intersection = ix * iy;
+    if (intersection <= 0) return false;
+    const minArea = Math.min(a.width * a.height, b.width * b.height) || 1;
+    return intersection / minArea >= 0.5;
+  }
+  function mergeDarkPassResult(normal, inverted, field) {
+    if (!inverted?.lines.length) return normal;
+    if (!normal) {
+      const darkOnly = field ? inverted.lines.filter((line) => regionMeanLuminance(field, line.box, inverted.width, inverted.height) < DARK_LINE_MEAN_LUMINANCE) : inverted.lines;
+      return darkOnly.length ? { width: inverted.width, height: inverted.height, lines: darkOnly } : null;
+    }
+    const lines = [...normal.lines];
+    for (const line of inverted.lines) {
+      if (field && regionMeanLuminance(field, line.box, inverted.width, inverted.height) >= DARK_LINE_MEAN_LUMINANCE) continue;
+      if (lines.some((existing) => boxesOverlapSignificantly(existing.box, line.box))) continue;
+      lines.push(line);
+    }
+    return { width: normal.width, height: normal.height, lines };
   }
   function drawImageToCanvas(image, maxPixels) {
     const size = loadedImageSize(image);
@@ -7604,7 +7750,7 @@ ${spelling}`);
     const rect = image.getBoundingClientRect();
     const area = rect.width * rect.height;
     if (area < settings.ocrMinImageArea) return false;
-    if (!isNearViewport(image, settings.ocrPrefetchMargin)) return false;
+    if (!isNearViewport(image, imagePrefetchMargin(settings))) return false;
     if (isImageOccludedByVideo(image, rect)) return false;
     return isVisibleOcrImage(image);
   }
@@ -7806,6 +7952,29 @@ ${spelling}`);
     const pages = Math.max(0, settings.ocrPrefetchPages || 0);
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     return Math.max(settings.ocrPrefetchMargin, pages * viewportHeight);
+  }
+  let imageReaderPageCache = { at: -Infinity, value: false };
+  function isLikelyImageReaderPage(settings) {
+    if (isReaderRasterPage()) return true;
+    const now = Date.now();
+    if (now - imageReaderPageCache.at < 1e3) return imageReaderPageCache.value;
+    let large = 0;
+    let value = false;
+    for (const image of Array.from(document.images)) {
+      const rect = image.getBoundingClientRect();
+      if (rect.width >= 300 && rect.width * rect.height >= settings.ocrMinImageArea && ++large >= 3) {
+        value = true;
+        break;
+      }
+    }
+    imageReaderPageCache = { at: now, value };
+    return value;
+  }
+  function imagePrefetchMargin(settings) {
+    return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? canvasPrefetchMargin(settings) : settings.ocrPrefetchMargin;
+  }
+  function imageReaderMaxImages(settings) {
+    return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? Math.max(settings.ocrMaxImagesPerPage, settings.ocrPrefetchPages * 2 + 1) : settings.ocrMaxImagesPerPage;
   }
   function imageViewportDistance(image) {
     const rect = image.getBoundingClientRect();
@@ -8041,10 +8210,11 @@ ${spelling}`);
       body: body.buffer
     }).then((response) => response.ok ? response.arrayBuffer() : Promise.reject(new Error(`Google Lens returned ${response.status}.`)));
   }
-  function requestTextForm(url, data, timeout) {
+  function requestTextForm(url, data, timeout, headers) {
     const userscriptRequest = requestViaUserscript({
       method: "POST",
       url,
+      ...headers ? { headers } : {},
       data,
       responseType: "text",
       timeout
@@ -16201,7 +16371,10 @@ ${spelling}`);
       if (this.channelsAllSubscribed) {
         this.channelSubscriptionProbeComplete = true;
         this.clearChannelSubscriptionProbe();
-        if (!options.keepShelf) this.removeChannelShelf();
+        if (!options.keepShelf) {
+          this.clearChannelShelfRefresh();
+          this.removeChannelShelf();
+        }
         return;
       }
       const settled = (handle) => this.subscribedChannelHandles.has(handle) || this.unresolvableChannelHandles.has(handle);
@@ -16210,7 +16383,10 @@ ${spelling}`);
       this.channelSubscriptionProbeComplete = true;
       this.clearChannelSubscriptionProbe();
       gmStorageSetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, { signature: youTubeChannelListSignature() });
-      if (!options.keepShelf) this.removeChannelShelf();
+      if (!options.keepShelf) {
+        this.clearChannelShelfRefresh();
+        this.removeChannelShelf();
+      }
     }
     init() {
       this.destroy();

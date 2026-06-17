@@ -282,7 +282,10 @@ export class YoutubeImmersionFilter {
         if (this.channelsAllSubscribed) {
             this.channelSubscriptionProbeComplete = true;
             this.clearChannelSubscriptionProbe();
-            if (!options.keepShelf) this.removeChannelShelf();
+            if (!options.keepShelf) {
+                this.clearChannelShelfRefresh();
+                this.removeChannelShelf();
+            }
             return;
         }
         const settled = (handle: string): boolean =>
@@ -292,7 +295,10 @@ export class YoutubeImmersionFilter {
         this.channelSubscriptionProbeComplete = true;
         this.clearChannelSubscriptionProbe();
         gmStorageSetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, { signature: youTubeChannelListSignature() });
-        if (!options.keepShelf) this.removeChannelShelf();
+        if (!options.keepShelf) {
+            this.clearChannelShelfRefresh();
+            this.removeChannelShelf();
+        }
     }
 
     constructor(private readonly options: {
@@ -842,6 +848,7 @@ export class YoutubeImmersionFilter {
             this.removeChannelShelf();
             return;
         }
+
         const renderableRecommendations = this.renderableChannelRecommendations(recommendations);
         // In compact mode, hide the shelf entirely when every shown channel is
         // already subscribed or when their live subscription checks are still

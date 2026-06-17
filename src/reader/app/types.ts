@@ -355,8 +355,10 @@ export interface ReaderSettings {
     // How many OCR requests may run at once. Manga readers expose many page
     // images/canvases; processing them in parallel removes the slow serial wait.
     ocrConcurrency: number;
-    // Invert pages whose text is light-on-dark (white text on a black panel)
-    // before OCR, since recognizers are tuned for dark-on-light.
+    // When a page contains dark regions, run a second, inverted OCR pass and
+    // merge the text found over those dark areas — so white text on a black panel
+    // is read alongside the normal black-on-white bubbles on the same page
+    // (recognizers are tuned for dark-on-light).
     ocrInvertDarkPanels: boolean;
     ocrTextColor: string;
     ocrOutlineColor: string;
