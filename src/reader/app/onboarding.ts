@@ -31,6 +31,7 @@ export class OnboardingController {
     private accentPreviewFrame?: number;
     private youtubeImmersionInput?: HTMLInputElement;
     private preferJapaneseSiteLanguageInput?: HTMLInputElement;
+    private manualScanInput?: HTMLInputElement;
 
     constructor(private readonly options: OnboardingOptions) {}
 
@@ -155,10 +156,12 @@ export class OnboardingController {
         immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, 'onboardingImmersionOptions');
         this.youtubeImmersionInput = checkboxInput('youtubeImmersionEnabled', this.options.getSettings().youtubeImmersionEnabled);
         this.preferJapaneseSiteLanguageInput = checkboxInput('preferJapaneseSiteLanguage', this.options.getSettings().preferJapaneseSiteLanguage);
+        this.manualScanInput = checkboxInput('manualScanEnabled', this.options.getSettings().manualScanEnabled);
         immersionOptions.append(
             immersionLegend,
             checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, 'youtubeImmersionEnabled')),
             checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, 'preferJapaneseSiteLanguage')),
+            checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, 'manualScanEnabled')),
         );
 
         const actions = document.createElement('div');
@@ -204,6 +207,7 @@ export class OnboardingController {
         panel.querySelector('.jpdb-reader-onboarding-options legend')?.replaceChildren(uiText(language, 'onboardingImmersionOptions'));
         panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, 'youtubeImmersionEnabled'));
         panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, 'preferJapaneseSiteLanguage'));
+        panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, 'manualScanEnabled'));
         panel.querySelector('.jpdb-reader-onboarding-accent legend')?.replaceChildren(uiText(language, 'onboardingAccentColor'));
         panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, 'customAccentColor'));
         this.accentColorInput?.setAttribute('aria-label', uiText(language, 'onboardingAccentColor'));
@@ -272,6 +276,7 @@ export class OnboardingController {
             localDictionariesEnabled: openSettings !== true,
             youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
             preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
+            manualScanEnabled: this.manualScanInput?.checked ?? current.manualScanEnabled,
             dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? 'jpdb' : 'local'),
             interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
             accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor),
@@ -294,6 +299,7 @@ export class OnboardingController {
         this.accentColorInput = undefined;
         this.youtubeImmersionInput = undefined;
         this.preferJapaneseSiteLanguageInput = undefined;
+        this.manualScanInput = undefined;
     }
 
     private createThemeToggle(): HTMLElement {
@@ -403,7 +409,7 @@ function button(text: string): HTMLButtonElement {
     return node;
 }
 
-function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled'>, checked: boolean): HTMLInputElement {
+function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLanguage' | 'youtubeImmersionEnabled' | 'manualScanEnabled'>, checked: boolean): HTMLInputElement {
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.name = name;

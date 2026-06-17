@@ -6389,6 +6389,205 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   bottom: max(150px, calc(env(safe-area-inset-bottom) + 136px)) !important;
 }
 
+/* ── Puck radial menu ──────────────────────────────────────────────────────
+   A context menu that blooms out of the puck. Visual language mirrors the
+   kanji origin-graph: accent-haloed circular nodes, soft elevation, springy
+   scale-in, color-mix tints. */
+
+/* Puck states while the menu is engaged. */
+.jpdb-reader-fab.jpdb-reader-fab--menu-open {
+  z-index: 2147483647 !important; /* above the backdrop so it stays a bright hub */
+  opacity: 1 !important;
+  border-color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+  box-shadow: 0 12px 34px var(--jpdb-reader-shadow), 0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 32%, transparent) !important;
+  transform: translate3d(0, 0, 0) scale(1.06) !important;
+}
+/* Annotations paused → drain the colour so on/off reads at a glance. */
+.jpdb-reader-fab.jpdb-reader-fab--paused {
+  filter: grayscale(1) !important;
+  opacity: 0.55 !important;
+  border-style: dashed !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab--paused:hover,
+.jpdb-reader-fab.jpdb-reader-fab--paused:focus-visible {
+  filter: grayscale(0.7) !important;
+  opacity: 0.85 !important;
+}
+
+.jpdb-reader-fab-radial {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483646 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  pointer-events: auto !important;
+}
+/* Independent scrim so the items keep full opacity while the page dims. */
+.jpdb-reader-fab-radial::before {
+  content: '' !important;
+  position: fixed !important;
+  inset: 0 !important;
+  background: color-mix(in srgb, var(--jpdb-reader-background, #15171c) 34%, transparent) !important;
+  -webkit-backdrop-filter: blur(2px) saturate(0.92) !important;
+  backdrop-filter: blur(2px) saturate(0.92) !important;
+  opacity: 0 !important;
+  transition: opacity 220ms ease !important;
+  pointer-events: none !important;
+}
+.jpdb-reader-fab-radial.is-open::before {
+  opacity: 1 !important;
+}
+.jpdb-reader-fab-radial.is-closing::before {
+  opacity: 0 !important;
+}
+
+.jpdb-reader-fab-radial-item {
+  position: absolute !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  inline-size: 46px !important;
+  block-size: 46px !important;
+  min-width: 46px !important;
+  width: 46px !important;
+  height: 46px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 1px solid var(--jpdb-reader-border) !important;
+  border-radius: 50% !important;
+  background: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  box-shadow: 0 9px 24px color-mix(in srgb, var(--jpdb-reader-shadow) 78%, transparent) !important;
+  font: 700 13px/1 var(--jpdb-reader-font) !important;
+  cursor: pointer !important;
+  /* Start collapsed at the hub; the .is-open parent springs each item out. */
+  transform: translate(-50%, -50%) scale(0.2) !important;
+  opacity: 0 !important;
+  transition:
+    transform 280ms cubic-bezier(0.34, 1.42, 0.5, 1),
+    opacity 200ms ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    color 0.16s ease !important;
+  transition-delay: 0ms !important;
+}
+.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item {
+  transform: translate(calc(-50% + var(--radial-x, 0px)), calc(-50% + var(--radial-y, 0px))) scale(1) !important;
+  opacity: 1 !important;
+  transition-delay: calc(var(--radial-i, 0) * 28ms) !important;
+}
+.jpdb-reader-fab-radial.is-closing .jpdb-reader-fab-radial-item {
+  transform: translate(-50%, -50%) scale(0.2) !important;
+  opacity: 0 !important;
+  transition:
+    transform 170ms cubic-bezier(0.4, 0, 1, 1),
+    opacity 150ms ease !important;
+  transition-delay: 0ms !important;
+}
+
+.jpdb-reader-fab-radial-item:hover,
+.jpdb-reader-fab-radial-item:focus-visible {
+  outline: none !important;
+  border-color: var(--jpdb-reader-accent) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+  box-shadow:
+    0 14px 32px color-mix(in srgb, var(--jpdb-reader-shadow) 88%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--jpdb-reader-accent) 26%, transparent) !important;
+}
+.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item:hover,
+.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item:focus-visible {
+  transform: translate(calc(-50% + var(--radial-x, 0px)), calc(-50% + var(--radial-y, 0px))) scale(1.1) !important;
+}
+
+/* Primary action (the on/off power toggle): a touch larger with an accent ring. */
+.jpdb-reader-fab-radial-item.is-primary {
+  inline-size: 50px !important;
+  block-size: 50px !important;
+  min-width: 50px !important;
+  width: 50px !important;
+  height: 50px !important;
+}
+
+/* Toggle state colouring. */
+.jpdb-reader-fab-radial-item.is-on {
+  border-color: var(--jpdb-reader-accent) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 24%, var(--jpdb-reader-surface)) !important;
+  color: var(--jpdb-reader-accent-readable) !important;
+}
+.jpdb-reader-fab-radial-item.is-off {
+  filter: grayscale(1) !important;
+  color: color-mix(in srgb, var(--jpdb-reader-text) 62%, transparent) !important;
+}
+.jpdb-reader-fab-radial-item.is-disabled {
+  opacity: 0.4 !important;
+  filter: grayscale(1) !important;
+  cursor: default !important;
+  pointer-events: none !important;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 60%, transparent) !important;
+}
+
+.jpdb-reader-fab-radial-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  pointer-events: none !important;
+}
+.jpdb-reader-fab-radial-icon svg {
+  inline-size: 22px !important;
+  width: 22px !important;
+  height: 22px !important;
+  display: block !important;
+}
+.jpdb-reader-fab-radial-icon.is-glyph {
+  font: 700 22px/1 var(--jpdb-reader-font) !important;
+}
+
+/* Per-item label — a pill above the node, revealed only for the focused/hovered
+   item so the ring of icons stays uncluttered and labels never collide with the
+   node beneath them. */
+.jpdb-reader-fab-radial-label {
+  position: absolute !important;
+  bottom: calc(100% + 8px) !important;
+  top: auto !important;
+  left: 50% !important;
+  transform: translate(-50%, 4px) !important;
+  padding: 3px 8px !important;
+  border-radius: 7px !important;
+  background: var(--jpdb-reader-surface) !important;
+  color: var(--jpdb-reader-text) !important;
+  border: 1px solid var(--jpdb-reader-border) !important;
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--jpdb-reader-shadow) 70%, transparent) !important;
+  font: 600 12px/1.2 var(--jpdb-reader-font) !important;
+  white-space: nowrap !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 0.14s ease, transform 0.14s ease !important;
+}
+/* Lift the hovered node (and its label) above the surrounding ring. */
+.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item:hover,
+.jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item:focus-visible {
+  z-index: 2 !important;
+}
+.jpdb-reader-fab-radial-item:hover .jpdb-reader-fab-radial-label,
+.jpdb-reader-fab-radial-item:focus-visible .jpdb-reader-fab-radial-label {
+  opacity: 1 !important;
+  transform: translate(-50%, 0) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-fab-radial-item,
+  .jpdb-reader-fab-radial.is-open .jpdb-reader-fab-radial-item,
+  .jpdb-reader-fab-radial.is-closing .jpdb-reader-fab-radial-item,
+  .jpdb-reader-fab-radial::before {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
 /* Note appended to mokuro's "OCR enabled" toggle label, clarifying that off uses
    Yomu's OCR and on uses mokuro's built-in OCR. */
 .yomu-mokuro-ocr-note {

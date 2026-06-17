@@ -2420,6 +2420,8 @@
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
     puckPositionY: void 0,
+    manualScanEnabled: false,
+    annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
@@ -6125,6 +6127,13 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
+      manualScanEnabled: "Manual scan only (tap the puck to scan)",
+      puckMenuLabel: `${APP_NAME} menu`,
+      puckStudyPage: "Study page",
+      puckPauseAnnotations: "Pause annotations",
+      puckResumeAnnotations: "Resume annotations",
+      annotationsPausedToast: "Annotations paused.",
+      annotationsResumedToast: "Annotations resumed.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
@@ -7677,6 +7686,13 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
+manualScanEnabled	手動スキャンのみ（パックをタップしてスキャン）
+puckMenuLabel	よむ メニュー
+puckStudyPage	学習ページ
+puckPauseAnnotations	注釈を一時停止
+puckResumeAnnotations	注釈を再開
+annotationsPausedToast	注釈を一時停止しました。
+annotationsResumedToast	注釈を再開しました。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
@@ -24139,7 +24155,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       hoverCloseDelayMs: clamped("hoverCloseDelayMs", 0, 3e3, current.hoverCloseDelayMs),
       popupActivationMode: current.popupActivationMode,
       scanModifierKey: current.scanModifierKey,
-      showFloatingButton: has("showFloatingButton")
+      showFloatingButton: has("showFloatingButton"),
+      manualScanEnabled: has("manualScanEnabled")
     };
   }
   function readNewTabFormSettings(reader, current) {
@@ -26049,6 +26066,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("lookupOnHover", "Look up on hover", settings.lookupOnHover)}
                     ${checkbox("lookupOnMiddleMouse", "Look up with middle-mouse hold", settings.lookupOnMiddleMouse)}
                     ${checkbox("showFloatingButton", uiText(settings.interfaceLanguage, "showFloatingButton"), settings.showFloatingButton)}
+                    ${checkbox("manualScanEnabled", uiText(settings.interfaceLanguage, "manualScanEnabled"), settings.manualScanEnabled)}
                     ${select("appearancePreset", "Quick setup", "", APPEARANCE_PRESET_OPTIONS)}
                     ${select("furiganaMode", "Furigana", effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
@@ -27025,6 +27043,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "lookupOnHover",
     "lookupOnMiddleMouse",
     "showFloatingButton",
+    "manualScanEnabled",
     "furiganaMode",
     "wordColorStates",
     "showPitchAccent",

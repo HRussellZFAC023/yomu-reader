@@ -1,35 +1,93 @@
 import { APP_NAME, APP_PUCK } from '../app/constants';
+import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
+import {
+    RadialMenuController,
+    radialPowerIcon,
+    radialScanIcon,
+    radialSettingsIcon,
+    radialYoutubeIcon,
+    type RadialAction,
+} from './radial-menu';
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
 }
 
+/** Context actions surfaced by the puck's radial menu. */
+export interface FloatingButtonActions {
+    openSettings(): void;
+    scanPage(): void;
+    openStudyPage(): void;
+    togglePause(): void;
+    isPaused(): boolean;
+    isYouTube(): boolean;
+    toggleYoutubeFilter(): void;
+    isYoutubeFilterEnabled(): boolean;
+}
+
 export class FloatingButtonController {
     private button?: HTMLButtonElement;
     private abortController?: AbortController;
+    private radial?: RadialMenuController;
+    // Live references, refreshed on every install. Reusing the existing puck
+    // element (instead of rebuilding it) lets an open radial menu survive the
+    // settings-save echo that fires whenever a menu toggle persists state —
+    // the menu just re-derives its item state in place, so toggling stays
+    // seamless rather than tearing the menu down mid-interaction.
+    private settings?: ReaderSettings;
+    private actions?: FloatingButtonActions;
+    private save: () => void = () => {};
 
     install(
         settings: ReaderSettings,
         saveSettings: () => void,
-        openSettings: () => void,
+        actions: FloatingButtonActions,
     ): void {
-        this.destroy();
-        document.querySelectorAll<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-fab').forEach(element => element.remove());
-        if (!shouldShowFloatingButton(settings)) return;
+        this.settings = settings;
+        this.actions = actions;
+        this.save = saveSettings;
+        if (!shouldShowFloatingButton(settings)) {
+            this.destroy();
+            return;
+        }
+        // Drop stray pucks left by other runtimes, but never our own — removing
+        // ours would also discard the live radial menu.
+        document.querySelectorAll<HTMLElement>('[data-jpdb-reader-root].jpdb-reader-fab')
+            .forEach(element => { if (element !== this.button) element.remove(); });
+        if (this.button?.isConnected) {
+            this.syncButtonState();
+            return;
+        }
+        this.build(settings);
+    }
 
+    destroy(): void {
+        this.radial?.destroy();
+        this.radial = undefined;
+        this.abortController?.abort();
+        this.abortController = undefined;
+        this.button?.remove();
+        this.button = undefined;
+    }
+
+    private build(settings: ReaderSettings): void {
         const button = document.createElement('button');
         button.className = 'jpdb-reader-fab';
-        // Sites with their own bottom action dock (Jiten's study grade bar +
-        // Blacklist/Master row) collide with the default bottom-right spot;
-        // raise the FAB above them (mobile UX finding, 2026-06-11).
-        if (hostHasBottomActionDock()) button.classList.add('jpdb-reader-fab-raised');
         button.type = 'button';
         button.textContent = APP_PUCK;
         button.title = APP_NAME;
+        button.setAttribute('aria-haspopup', 'menu');
         button.dataset.jpdbReaderRoot = 'true';
         restoreButtonPosition(button, settings);
-        this.installDragHandlers(button, settings, saveSettings);
+        this.button = button;
+        this.syncButtonState();
+        this.radial = new RadialMenuController({
+            getButton: () => this.button,
+            buildActions: () => this.buildRadialActions(),
+            menuLabel: () => uiText(this.settings?.interfaceLanguage ?? 'en', 'puckMenuLabel'),
+        });
+        this.installDragHandlers(button);
         button.addEventListener('click', event => {
             if (button.dataset.jpdbReaderMoved === 'true') {
                 event.preventDefault();
@@ -37,33 +95,94 @@ export class FloatingButtonController {
                 button.dataset.jpdbReaderMoved = 'false';
                 return;
             }
-            openSettings();
+            event.preventDefault();
+            event.stopPropagation();
+            this.radial?.toggle();
         });
         document.body.appendChild(button);
-        this.button = button;
         clampRestoredButtonPosition(button, settings);
-        this.installVideoAvoidance(button, settings, saveSettings);
+        this.installVideoAvoidance(button);
     }
 
-    destroy(): void {
-        this.abortController?.abort();
-        this.abortController = undefined;
-        this.button?.remove();
-        this.button = undefined;
+    // Reflect current state on the persistent puck element without rebuilding it.
+    private syncButtonState(): void {
+        const button = this.button;
+        if (!button) return;
+        // Sites with their own bottom action dock (Jiten's study grade bar +
+        // Blacklist/Master row) collide with the default bottom-right spot;
+        // raise the FAB above them (mobile UX finding, 2026-06-11).
+        button.classList.toggle('jpdb-reader-fab-raised', hostHasBottomActionDock());
+        button.classList.toggle('jpdb-reader-fab--paused', Boolean(this.actions?.isPaused()));
     }
 
-    private installVideoAvoidance(button: HTMLButtonElement, settings: ReaderSettings, saveSettings: () => void): void {
+    private buildRadialActions(): RadialAction[] {
+        const settings = this.settings;
+        const actions = this.actions;
+        if (!settings || !actions) return [];
+        const language = settings.interfaceLanguage;
+        const paused = actions.isPaused();
+        const items: RadialAction[] = [
+            {
+                id: 'power',
+                label: uiText(language, paused ? 'puckResumeAnnotations' : 'puckPauseAnnotations'),
+                icon: radialPowerIcon(),
+                tone: paused ? 'off' : 'on',
+                primary: true,
+                keepOpen: true,
+                run: () => {
+                    actions.togglePause();
+                    this.button?.classList.toggle('jpdb-reader-fab--paused', actions.isPaused());
+                },
+            },
+            {
+                id: 'settings',
+                label: uiText(language, 'settings'),
+                icon: radialSettingsIcon(),
+                run: () => actions.openSettings(),
+            },
+            {
+                id: 'scan',
+                label: uiText(language, 'scanPage'),
+                icon: radialScanIcon(),
+                disabled: paused,
+                run: () => actions.scanPage(),
+            },
+            {
+                id: 'study',
+                label: uiText(language, 'puckStudyPage'),
+                icon: 'よ',
+                glyph: true,
+                run: () => actions.openStudyPage(),
+            },
+        ];
+        if (actions.isYouTube()) {
+            const enabled = actions.isYoutubeFilterEnabled();
+            items.push({
+                id: 'youtube',
+                label: uiText(language, 'toggleYoutubeImmersion'),
+                icon: radialYoutubeIcon(),
+                tone: enabled ? 'on' : 'off',
+                keepOpen: true,
+                run: () => actions.toggleYoutubeFilter(),
+            });
+        }
+        return items;
+    }
+
+    private installVideoAvoidance(button: HTMLButtonElement): void {
         this.abortController?.abort();
         const controller = new AbortController();
         this.abortController = controller;
-        const schedule = () => requestAnimationFrame(() => avoidVideoOverlap(button, settings, saveSettings));
+        const schedule = () => requestAnimationFrame(() => {
+            if (this.settings) avoidVideoOverlap(button, this.settings, this.save);
+        });
         window.addEventListener('resize', schedule, { passive: true, signal: controller.signal });
         window.addEventListener('scroll', schedule, { passive: true, signal: controller.signal });
         document.addEventListener('fullscreenchange', schedule, { signal: controller.signal });
         schedule();
     }
 
-    private installDragHandlers(button: HTMLButtonElement, settings: ReaderSettings, saveSettings: () => void): void {
+    private installDragHandlers(button: HTMLButtonElement): void {
         let dragging = false;
         let moved = false;
         let startX = 0;
@@ -102,9 +221,11 @@ export class FloatingButtonController {
             const rect = button.getBoundingClientRect();
             const position = clampPuck(button, rect.left, rect.top);
             if (!position) return;
-            settings.puckPositionX = Math.round(position.x);
-            settings.puckPositionY = Math.round(position.y);
-            saveSettings();
+            if (this.settings) {
+                this.settings.puckPositionX = Math.round(position.x);
+                this.settings.puckPositionY = Math.round(position.y);
+            }
+            this.save();
         };
         button.addEventListener('pointerup', finishDrag);
         button.addEventListener('pointercancel', finishDrag);

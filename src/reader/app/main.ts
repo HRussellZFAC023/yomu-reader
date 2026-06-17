@@ -19,7 +19,7 @@ import {
     type SubtitlePlayerControllerInstance,
     type YoutubeImmersionFilterInstance,
 } from '../companions/registry';
-import { APP_NAME, SETTINGS_CHANGE_EVENT } from './constants';
+import { APP_NAME, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT } from './constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { DictionarySourceStateController } from '../sources/state';
 import { DictionaryStyleController } from '../sources/styles';
@@ -825,12 +825,14 @@ export class ReaderApp {
     }
 
     private async applyRemoteSettings(settings: ReaderSettings): Promise<void> {
+        const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
         this.settings = settings;
         configureLogger({ forceEnabled: settings.enableLogging });
         this.applyPreferredJapaneseSiteLanguage(settings);
         this.applyTheme(settings);
         this.applyWordColors(settings);
         if (!this.embeddedFrame) this.installFab();
+        if (pauseChanged) this.applyAnnotationsPausedState();
         this.subtitles.refresh();
         this.ocr.refresh();
         this.youtube.refresh();
@@ -883,6 +885,7 @@ export class ReaderApp {
     }
 
     private shouldScanInitialPage(): boolean {
+        if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
         return this.canParseJapanese()
             && (this.pageHasJapaneseText || hasVisibleSiteScanTargets());
     }
@@ -1121,6 +1124,9 @@ export class ReaderApp {
     }
 
     private async reparseVisiblePage(): Promise<void> {
+        // While annotations are paused, a settings/language change must not
+        // silently re-annotate the page behind the user's back.
+        if (this.settings.annotationsPaused) return;
         this.jpdb.clear();
         this.jitenPublicVocabulary.clear();
         this.parser.clearLocalCache();
@@ -1433,8 +1439,69 @@ export class ReaderApp {
         this.floatingButton.install(
             this.settings,
             () => void saveSettings(this.settings),
-            () => this.showSettings(),
+            {
+                openSettings: () => this.showSettings(),
+                scanPage: () => this.scanPageNow(),
+                openStudyPage: () => this.openStudyPage(),
+                togglePause: () => void this.toggleAnnotationsPaused(),
+                isPaused: () => this.settings.annotationsPaused,
+                isYouTube: () => isYouTubeHostname(),
+                toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
+                isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,
+            },
         );
+    }
+
+    private async toggleAnnotationsPaused(): Promise<void> {
+        await this.setAnnotationsPaused(!this.settings.annotationsPaused);
+    }
+
+    private async setAnnotationsPaused(paused: boolean): Promise<void> {
+        if (this.settings.annotationsPaused === paused) return;
+        this.settings.annotationsPaused = paused;
+        this.applyAnnotationsPausedState();
+        await saveSettings(this.settings);
+        log.info('Annotations paused toggled', { paused });
+        this.toast(uiText(this.settings.interfaceLanguage, paused ? 'annotationsPausedToast' : 'annotationsResumedToast'));
+    }
+
+    // Paused: drop any in-flight hover lookup and strip existing annotations so
+    // the page reads natively. Resumed: re-scan (unless the user opted into
+    // manual scanning, in which case the puck's Scan action drives it).
+    private applyAnnotationsPausedState(): void {
+        if (this.settings.annotationsPaused) {
+            this.cancelPendingHoverLookup();
+            this.clearAllAnnotations();
+        } else if (!this.settings.manualScanEnabled) {
+            this.scheduleAutoScan(0, { force: true });
+        }
+    }
+
+    private scanPageNow(): void {
+        if (this.settings.annotationsPaused) return;
+        log.info('On-demand scan');
+        void this.pageScanner.scanVisiblePage({ silent: false });
+    }
+
+    private openStudyPage(): void {
+        const opened = window.open(NEW_TAB_PAGE_URL, '_blank');
+        if (opened) opened.opener = null;
+        else location.href = NEW_TAB_PAGE_URL;
+        log.info('Study page opened', { url: NEW_TAB_PAGE_URL });
+    }
+
+    private clearAllAnnotations(): void {
+        removeNonDestructiveScanMirrors(document);
+        document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
+            if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
+                const text = document.createTextNode(el.classList.contains('jpdb-reader-word')
+                    ? readerWordSurfaceText(el)
+                    : el.textContent || '');
+                el.replaceWith(text);
+            } else {
+                el.remove();
+            }
+        });
     }
 
     destroy(options: ReaderAppDestroyOptions = {}): void {
@@ -1500,17 +1567,7 @@ export class ReaderApp {
         this.activeBackdrop?.remove();
         this.removeJpdbPageEnhancements();
         if (!options.preservePageWords) {
-            removeNonDestructiveScanMirrors(document);
-            document.querySelectorAll('.jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby').forEach(el => {
-                if (el.classList.contains('jpdb-reader-word') || el.classList.contains('jpdb-reader-ruby')) {
-                    const text = document.createTextNode(el.classList.contains('jpdb-reader-word')
-                        ? readerWordSurfaceText(el)
-                        : el.textContent || '');
-                    el.replaceWith(text);
-                } else {
-                    el.remove();
-                }
-            });
+            this.clearAllAnnotations();
         }
         
         this.dictionaryStyles.remove();
@@ -1608,6 +1665,10 @@ export class ReaderApp {
     }
 
     private canScheduleAutoScan(force = false): boolean {
+        // Both the master pause and manual-scan mode suppress every scheduled
+        // scan. The explicit puck/shortcut scan bypasses this entirely via a
+        // direct scanVisiblePage call, so on-demand scanning still works.
+        if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
         return !this.isDestroyed
             && this.canParseJapanese()
             && (force || this.hasVisibleAutoScanWork());
@@ -1894,8 +1955,7 @@ export class ReaderApp {
     private handleReaderUtilityShortcut(event: KeyboardEvent): boolean {
         if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
             event.preventDefault();
-            log.info('Shortcut scan');
-            void this.pageScanner.scanVisiblePage({ silent: false });
+            this.scanPageNow();
             return true;
         }
         if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
@@ -2054,7 +2114,8 @@ export class ReaderApp {
     }
 
     private shouldLookupOnHover(event: MouseEvent | KeyboardEvent): boolean {
-        return !this.hasStickyModalPopover()
+        return !this.settings.annotationsPaused
+            && !this.hasStickyModalPopover()
             && this.settings.lookupOnHover
             && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
     }

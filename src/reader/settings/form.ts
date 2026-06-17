@@ -609,6 +609,7 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('lookupOnHover', 'Look up on hover', settings.lookupOnHover)}
                     ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
                     ${checkbox('showFloatingButton', uiText(settings.interfaceLanguage, 'showFloatingButton'), settings.showFloatingButton)}
+                    ${checkbox('manualScanEnabled', uiText(settings.interfaceLanguage, 'manualScanEnabled'), settings.manualScanEnabled)}
                     ${select('appearancePreset', 'Quick setup', '', APPEARANCE_PRESET_OPTIONS)}
                     ${select('furiganaMode', 'Furigana', effectiveFuriganaMode(settings), FURIGANA_MODE_OPTIONS)}
                     ${renderFuriganaHiddenStateGroupControls(settings)}
@@ -1624,7 +1625,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
-    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
+    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'manualScanEnabled', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',

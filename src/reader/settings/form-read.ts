@@ -281,6 +281,7 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
         popupActivationMode: current.popupActivationMode,
         scanModifierKey: current.scanModifierKey,
         showFloatingButton: has('showFloatingButton'),
+        manualScanEnabled: has('manualScanEnabled'),
     };
 }
 

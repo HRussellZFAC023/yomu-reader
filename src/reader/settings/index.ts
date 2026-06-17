@@ -299,6 +299,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabKanjiAutoSubmit: false,
     puckPositionX: undefined,
     puckPositionY: undefined,
+    manualScanEnabled: false,
+    annotationsPaused: false,
     showFurigana: true,
     furiganaMode: 'difficult-kanji',
     furiganaHiddenStateGroups: ['known', 'due', 'failed'],

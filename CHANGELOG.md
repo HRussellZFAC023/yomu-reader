@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.9] - 2026-06-17
+
+### Added
+
+- The settings puck now opens a radial menu of context actions instead of jumping straight to settings. It blooms out of the puck with the kanji-map visual language — accent-haloed circular nodes, soft elevation, a springy staggered reveal, and a faint page scrim — and always fans into the open screen quadrant so a corner puck never throws nodes off-screen. Actions: a power toggle that pauses/resumes all annotations (the puck colour goes grey when paused and the page reads natively until resumed), open settings, scan the page, open the study page, and — only on YouTube — toggle the immersion filter. Each node shows its label as a pill above it on hover/focus.
+- A new "Manual scan only" option (Settings → Reader, and the welcome page) stops automatic scanning so a page is read only when you tap the puck's Scan action or press the scan shortcut.
+
+### Verified
+
+- Full typecheck/test/build suite, plus a live browser check on the docs runtime: open, pause (annotations stripped, puck greyed, scan disabled), resume (page re-scanned), and the tooltip-above-node layout.
+
 ## [1.3.8] - 2026-06-17
 
 ### Fixed

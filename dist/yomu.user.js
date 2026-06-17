@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.8
+// @version      1.3.9
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2bB7kg7nlBXNQXEF3poKFISWpoeOkpOtQcDOoL11IFA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-37VmdgbGgq/5QKSjMqTUHj+hjF081JA2J2pXCf5t34M=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ga6517FvITR1mQ/3PngvghlrF0WulrBEFX3K5uHBwXk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-85mdOuet3UD/7LYtURgvhQSJE8JKKdD8d3/cCgjPk6g=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-GtflZA77ysokyzjpXa8SnueOYs8tkW4YUIRO6Mh7Kh8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-TiVHma18IQc3h2XsNzJyNFa5JNiwWXGZCIvdCgakz0g=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2645,6 +2645,8 @@
     newTabKanjiAutoSubmit: false,
     puckPositionX: void 0,
     puckPositionY: void 0,
+    manualScanEnabled: false,
+    annotationsPaused: false,
     showFurigana: true,
     furiganaMode: "difficult-kanji",
     furiganaHiddenStateGroups: ["known", "due", "failed"],
@@ -6854,6 +6856,13 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
+      manualScanEnabled: "Manual scan only (tap the puck to scan)",
+      puckMenuLabel: `${APP_NAME} menu`,
+      puckStudyPage: "Study page",
+      puckPauseAnnotations: "Pause annotations",
+      puckResumeAnnotations: "Resume annotations",
+      annotationsPausedToast: "Annotations paused.",
+      annotationsResumedToast: "Annotations resumed.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
@@ -8406,6 +8415,13 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
+manualScanEnabled	手動スキャンのみ（パックをタップしてスキャン）
+puckMenuLabel	よむ メニュー
+puckStudyPage	学習ページ
+puckPauseAnnotations	注釈を一時停止
+puckResumeAnnotations	注釈を再開
+annotationsPausedToast	注釈を一時停止しました。
+annotationsResumedToast	注釈を再開しました。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
@@ -24659,25 +24675,247 @@ ${spelling}`);
     requestIdleCallback.call(window, callback, { timeout: timeoutMs });
     return true;
   }
+  const ITEM_EXIT_MS = 180;
+  const PI = Math.PI;
+  class RadialMenuController {
+    constructor(host) {
+      this.host = host;
+    }
+    backdrop;
+    items = /* @__PURE__ */ new Map();
+    state = "closed";
+    listeners;
+    closeTimer;
+    isOpen() {
+      return this.state === "open";
+    }
+    toggle() {
+      if (this.state === "open") this.close();
+      else this.show();
+    }
+    show() {
+      const button2 = this.host.getButton();
+      if (!button2 || this.state === "open") return;
+      window.clearTimeout(this.closeTimer);
+      this.teardownDom();
+      const actions = this.host.buildActions();
+      if (!actions.length) return;
+      const backdrop = document.createElement("div");
+      backdrop.className = "jpdb-reader-fab-radial";
+      backdrop.dataset.jpdbReaderRoot = "true";
+      backdrop.setAttribute("role", "menu");
+      backdrop.setAttribute("aria-label", this.host.menuLabel());
+      document.body.appendChild(backdrop);
+      this.backdrop = backdrop;
+      this.layout(button2, backdrop, actions);
+      button2.classList.add("jpdb-reader-fab--menu-open");
+      this.listeners = new AbortController();
+      const { signal } = this.listeners;
+      backdrop.addEventListener("pointerdown", (event) => {
+        if (event.target === backdrop) this.close();
+      }, { signal });
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          event.stopPropagation();
+          this.close();
+        }
+      }, { signal, capture: true });
+      window.addEventListener("scroll", this.close, { signal, passive: true });
+      window.addEventListener("resize", this.close, { signal, passive: true });
+      this.state = "open";
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (this.state === "open") backdrop.classList.add("is-open");
+      }));
+    }
+    close = () => {
+      if (this.state !== "open") return;
+      this.state = "closing";
+      this.host.getButton()?.classList.remove("jpdb-reader-fab--menu-open");
+      this.listeners?.abort();
+      this.listeners = void 0;
+      this.backdrop?.classList.remove("is-open");
+      this.backdrop?.classList.add("is-closing");
+      this.closeTimer = window.setTimeout(() => this.teardownDom(), ITEM_EXIT_MS + 40);
+    };
+    destroy() {
+      window.clearTimeout(this.closeTimer);
+      this.listeners?.abort();
+      this.listeners = void 0;
+      this.host.getButton()?.classList.remove("jpdb-reader-fab--menu-open");
+      this.teardownDom();
+    }
+    teardownDom() {
+      this.backdrop?.remove();
+      this.backdrop = void 0;
+      this.items.clear();
+      this.state = "closed";
+    }
+    layout(button2, backdrop, actions) {
+      const rect = button2.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const vAngle = cy > vh / 2 ? -PI / 2 : PI / 2;
+      let hAngle = cx > vw / 2 ? PI : 0;
+      while (hAngle - vAngle > PI) hAngle -= 2 * PI;
+      while (hAngle - vAngle < -PI) hAngle += 2 * PI;
+      const count = actions.length;
+      const radius = Math.min(148, 96 + count * 9);
+      const pad = 0.12;
+      actions.forEach((action, index) => {
+        const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
+        const angle = vAngle + (hAngle - vAngle) * t;
+        const x = Math.cos(angle) * radius;
+        const y = Math.sin(angle) * radius;
+        const item = this.createItem(action, index);
+        item.style.left = `${cx}px`;
+        item.style.top = `${cy}px`;
+        item.style.setProperty("--radial-x", `${x.toFixed(1)}px`);
+        item.style.setProperty("--radial-y", `${y.toFixed(1)}px`);
+        item.style.setProperty("--radial-i", String(index));
+        backdrop.appendChild(item);
+        this.items.set(action.id, item);
+      });
+    }
+    createItem(action, index) {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.dataset.radialId = action.id;
+      item.setAttribute("role", "menuitem");
+      item.tabIndex = action.disabled ? -1 : 0;
+      this.applyActionState(item, action);
+      item.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (action.disabled) return;
+        action.run();
+        if (action.keepOpen) this.refresh();
+        else this.close();
+      });
+      item.addEventListener("keydown", (event) => this.handleItemKeydown(event, index));
+      return item;
+    }
+    applyActionState(item, action) {
+      item.className = "jpdb-reader-fab-radial-item";
+      if (action.primary) item.classList.add("is-primary");
+      if (action.disabled) item.classList.add("is-disabled");
+      const tone = action.disabled ? "neutral" : action.tone ?? "neutral";
+      if (tone === "on") item.classList.add("is-on");
+      else if (tone === "off") item.classList.add("is-off");
+      item.title = action.label;
+      item.setAttribute("aria-label", action.label);
+      item.setAttribute("aria-disabled", String(Boolean(action.disabled)));
+      const iconClass = action.glyph ? "jpdb-reader-fab-radial-icon is-glyph" : "jpdb-reader-fab-radial-icon";
+      const label = `<span class="jpdb-reader-fab-radial-label">${escapeHtml$1(action.label)}</span>`;
+      if (action.glyph) {
+        setInnerHtml(item, `<span class="${iconClass}">${escapeHtml$1(action.icon)}</span>${label}`);
+      } else {
+        setInnerHtml(item, `<span class="${iconClass}">${action.icon}</span>${label}`);
+      }
+    }
+    /** Re-derive tone/label/icon for toggles that kept the menu open. */
+    refresh() {
+      if (this.state !== "open") return;
+      const actions = this.host.buildActions();
+      for (const action of actions) {
+        const item = this.items.get(action.id);
+        if (item) this.applyActionState(item, action);
+      }
+    }
+    handleItemKeydown(event, index) {
+      const order = Array.from(this.items.values());
+      if (event.key === "ArrowDown" || event.key === "ArrowRight") {
+        event.preventDefault();
+        this.focusItem(order, index + 1);
+      } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        this.focusItem(order, index - 1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        this.focusItem(order, 0);
+      } else if (event.key === "End") {
+        event.preventDefault();
+        this.focusItem(order, order.length - 1);
+      }
+    }
+    focusItem(order, index) {
+      if (!order.length) return;
+      const wrapped = (index + order.length) % order.length;
+      order[wrapped]?.focus();
+    }
+  }
+  const SVG_OPEN = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">';
+  function radialPowerIcon() {
+    return `${SVG_OPEN}<path d="M12 4v8"></path><path d="M7.5 7.5a7 7 0 1 0 9 0"></path></svg>`;
+  }
+  function radialSettingsIcon() {
+    return `${SVG_OPEN}<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
+  }
+  function radialScanIcon() {
+    return `${SVG_OPEN}<path d="M4 8V6a2 2 0 0 1 2-2h2"></path><path d="M16 4h2a2 2 0 0 1 2 2v2"></path><path d="M20 16v2a2 2 0 0 1-2 2h-2"></path><path d="M8 20H6a2 2 0 0 1-2-2v-2"></path><path d="M4 12h16"></path></svg>`;
+  }
+  function radialYoutubeIcon() {
+    return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
+  }
   function hostHasBottomActionDock() {
     return location.hostname === "jiten.moe" && location.pathname.startsWith("/srs/");
   }
   class FloatingButtonController {
     button;
     abortController;
-    install(settings, saveSettings2, openSettings) {
-      this.destroy();
-      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element2) => element2.remove());
-      if (!shouldShowFloatingButton(settings)) return;
+    radial;
+    // Live references, refreshed on every install. Reusing the existing puck
+    // element (instead of rebuilding it) lets an open radial menu survive the
+    // settings-save echo that fires whenever a menu toggle persists state —
+    // the menu just re-derives its item state in place, so toggling stays
+    // seamless rather than tearing the menu down mid-interaction.
+    settings;
+    actions;
+    save = () => {
+    };
+    install(settings, saveSettings2, actions) {
+      this.settings = settings;
+      this.actions = actions;
+      this.save = saveSettings2;
+      if (!shouldShowFloatingButton(settings)) {
+        this.destroy();
+        return;
+      }
+      document.querySelectorAll("[data-jpdb-reader-root].jpdb-reader-fab").forEach((element2) => {
+        if (element2 !== this.button) element2.remove();
+      });
+      if (this.button?.isConnected) {
+        this.syncButtonState();
+        return;
+      }
+      this.build(settings);
+    }
+    destroy() {
+      this.radial?.destroy();
+      this.radial = void 0;
+      this.abortController?.abort();
+      this.abortController = void 0;
+      this.button?.remove();
+      this.button = void 0;
+    }
+    build(settings) {
       const button2 = document.createElement("button");
       button2.className = "jpdb-reader-fab";
-      if (hostHasBottomActionDock()) button2.classList.add("jpdb-reader-fab-raised");
       button2.type = "button";
       button2.textContent = APP_PUCK;
       button2.title = APP_NAME;
+      button2.setAttribute("aria-haspopup", "menu");
       button2.dataset.jpdbReaderRoot = "true";
       restoreButtonPosition(button2, settings);
-      this.installDragHandlers(button2, settings, saveSettings2);
+      this.button = button2;
+      this.syncButtonState();
+      this.radial = new RadialMenuController({
+        getButton: () => this.button,
+        buildActions: () => this.buildRadialActions(),
+        menuLabel: () => uiText(this.settings?.interfaceLanguage ?? "en", "puckMenuLabel")
+      });
+      this.installDragHandlers(button2);
       button2.addEventListener("click", (event) => {
         if (button2.dataset.jpdbReaderMoved === "true") {
           event.preventDefault();
@@ -24685,30 +24923,87 @@ ${spelling}`);
           button2.dataset.jpdbReaderMoved = "false";
           return;
         }
-        openSettings();
+        event.preventDefault();
+        event.stopPropagation();
+        this.radial?.toggle();
       });
       document.body.appendChild(button2);
-      this.button = button2;
       clampRestoredButtonPosition(button2, settings);
-      this.installVideoAvoidance(button2, settings, saveSettings2);
+      this.installVideoAvoidance(button2);
     }
-    destroy() {
-      this.abortController?.abort();
-      this.abortController = void 0;
-      this.button?.remove();
-      this.button = void 0;
+    // Reflect current state on the persistent puck element without rebuilding it.
+    syncButtonState() {
+      const button2 = this.button;
+      if (!button2) return;
+      button2.classList.toggle("jpdb-reader-fab-raised", hostHasBottomActionDock());
+      button2.classList.toggle("jpdb-reader-fab--paused", Boolean(this.actions?.isPaused()));
     }
-    installVideoAvoidance(button2, settings, saveSettings2) {
+    buildRadialActions() {
+      const settings = this.settings;
+      const actions = this.actions;
+      if (!settings || !actions) return [];
+      const language = settings.interfaceLanguage;
+      const paused = actions.isPaused();
+      const items = [
+        {
+          id: "power",
+          label: uiText(language, paused ? "puckResumeAnnotations" : "puckPauseAnnotations"),
+          icon: radialPowerIcon(),
+          tone: paused ? "off" : "on",
+          primary: true,
+          keepOpen: true,
+          run: () => {
+            actions.togglePause();
+            this.button?.classList.toggle("jpdb-reader-fab--paused", actions.isPaused());
+          }
+        },
+        {
+          id: "settings",
+          label: uiText(language, "settings"),
+          icon: radialSettingsIcon(),
+          run: () => actions.openSettings()
+        },
+        {
+          id: "scan",
+          label: uiText(language, "scanPage"),
+          icon: radialScanIcon(),
+          disabled: paused,
+          run: () => actions.scanPage()
+        },
+        {
+          id: "study",
+          label: uiText(language, "puckStudyPage"),
+          icon: "よ",
+          glyph: true,
+          run: () => actions.openStudyPage()
+        }
+      ];
+      if (actions.isYouTube()) {
+        const enabled = actions.isYoutubeFilterEnabled();
+        items.push({
+          id: "youtube",
+          label: uiText(language, "toggleYoutubeImmersion"),
+          icon: radialYoutubeIcon(),
+          tone: enabled ? "on" : "off",
+          keepOpen: true,
+          run: () => actions.toggleYoutubeFilter()
+        });
+      }
+      return items;
+    }
+    installVideoAvoidance(button2) {
       this.abortController?.abort();
       const controller = new AbortController();
       this.abortController = controller;
-      const schedule = () => requestAnimationFrame(() => avoidVideoOverlap(button2, settings, saveSettings2));
+      const schedule = () => requestAnimationFrame(() => {
+        if (this.settings) avoidVideoOverlap(button2, this.settings, this.save);
+      });
       window.addEventListener("resize", schedule, { passive: true, signal: controller.signal });
       window.addEventListener("scroll", schedule, { passive: true, signal: controller.signal });
       document.addEventListener("fullscreenchange", schedule, { signal: controller.signal });
       schedule();
     }
-    installDragHandlers(button2, settings, saveSettings2) {
+    installDragHandlers(button2) {
       let dragging = false;
       let moved = false;
       let startX = 0;
@@ -24747,9 +25042,11 @@ ${spelling}`);
         const rect = button2.getBoundingClientRect();
         const position = clampPuck(button2, rect.left, rect.top);
         if (!position) return;
-        settings.puckPositionX = Math.round(position.x);
-        settings.puckPositionY = Math.round(position.y);
-        saveSettings2();
+        if (this.settings) {
+          this.settings.puckPositionX = Math.round(position.x);
+          this.settings.puckPositionY = Math.round(position.y);
+        }
+        this.save();
       };
       button2.addEventListener("pointerup", finishDrag);
       button2.addEventListener("pointercancel", finishDrag);
@@ -33917,6 +34214,7 @@ ${glossaryKey}`;
     accentPreviewFrame;
     youtubeImmersionInput;
     preferJapaneseSiteLanguageInput;
+    manualScanInput;
     async showIfNeeded() {
       if (this.options.getSettings().onboardingSeen) {
         return false;
@@ -34027,10 +34325,12 @@ ${glossaryKey}`;
       immersionLegend.textContent = uiText(this.options.getSettings().interfaceLanguage, "onboardingImmersionOptions");
       this.youtubeImmersionInput = checkboxInput("youtubeImmersionEnabled", this.options.getSettings().youtubeImmersionEnabled);
       this.preferJapaneseSiteLanguageInput = checkboxInput("preferJapaneseSiteLanguage", this.options.getSettings().preferJapaneseSiteLanguage);
+      this.manualScanInput = checkboxInput("manualScanEnabled", this.options.getSettings().manualScanEnabled);
       immersionOptions.append(
         immersionLegend,
         checkboxLabel(this.youtubeImmersionInput, uiText(this.options.getSettings().interfaceLanguage, "youtubeImmersionEnabled")),
-        checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage"))
+        checkboxLabel(this.preferJapaneseSiteLanguageInput, uiText(this.options.getSettings().interfaceLanguage, "preferJapaneseSiteLanguage")),
+        checkboxLabel(this.manualScanInput, uiText(this.options.getSettings().interfaceLanguage, "manualScanEnabled"))
       );
       const actions = document.createElement("div");
       actions.className = "jpdb-reader-onboarding-actions";
@@ -34071,6 +34371,7 @@ ${glossaryKey}`;
       panel.querySelector(".jpdb-reader-onboarding-options legend")?.replaceChildren(uiText(language, "onboardingImmersionOptions"));
       panel.querySelector('[data-onboarding-copy="youtubeImmersionEnabled"]')?.replaceChildren(uiText(language, "youtubeImmersionEnabled"));
       panel.querySelector('[data-onboarding-copy="preferJapaneseSiteLanguage"]')?.replaceChildren(uiText(language, "preferJapaneseSiteLanguage"));
+      panel.querySelector('[data-onboarding-copy="manualScanEnabled"]')?.replaceChildren(uiText(language, "manualScanEnabled"));
       panel.querySelector(".jpdb-reader-onboarding-accent legend")?.replaceChildren(uiText(language, "onboardingAccentColor"));
       panel.querySelector('[data-onboarding-copy="customAccentColor"]')?.replaceChildren(uiText(language, "customAccentColor"));
       this.accentColorInput?.setAttribute("aria-label", uiText(language, "onboardingAccentColor"));
@@ -34136,6 +34437,7 @@ ${glossaryKey}`;
         localDictionariesEnabled: openSettings !== true,
         youtubeImmersionEnabled: this.youtubeImmersionInput?.checked ?? current.youtubeImmersionEnabled,
         preferJapaneseSiteLanguage: this.preferJapaneseSiteLanguageInput?.checked ?? current.preferJapaneseSiteLanguage,
+        manualScanEnabled: this.manualScanInput?.checked ?? current.manualScanEnabled,
         dictionaryLookupLinks: defaultDictionaryLookupLinks(openSettings === true ? "jpdb" : "local"),
         interfaceLanguage: selectedOnboardingLanguage(this.languageSelect?.value, current.interfaceLanguage),
         accentColor: sanitizeAccentColor(this.accentColorInput?.value, current.accentColor)
@@ -34156,6 +34458,7 @@ ${glossaryKey}`;
       this.accentColorInput = void 0;
       this.youtubeImmersionInput = void 0;
       this.preferJapaneseSiteLanguageInput = void 0;
+      this.manualScanInput = void 0;
     }
     createThemeToggle() {
       const wrapper = document.createElement("div");
@@ -37471,12 +37774,14 @@ ${glossaryKey}`;
       });
     }
     async applyRemoteSettings(settings) {
+      const pauseChanged = settings.annotationsPaused !== this.settings.annotationsPaused;
       this.settings = settings;
       configureLogger({ forceEnabled: settings.enableLogging });
       this.applyPreferredJapaneseSiteLanguage(settings);
       this.applyTheme(settings);
       this.applyWordColors(settings);
       if (!this.embeddedFrame) this.installFab();
+      if (pauseChanged) this.applyAnnotationsPausedState();
       this.subtitles.refresh();
       this.ocr.refresh();
       this.youtube.refresh();
@@ -37523,6 +37828,7 @@ ${glossaryKey}`;
       }
     }
     shouldScanInitialPage() {
+      if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
       return this.canParseJapanese() && (this.pageHasJapaneseText || hasVisibleSiteScanTargets());
     }
     registerMenuCommands() {
@@ -37735,6 +38041,7 @@ ${glossaryKey}`;
       }, Math.max(0, delay2));
     }
     async reparseVisiblePage() {
+      if (this.settings.annotationsPaused) return;
       this.jpdb.clear();
       this.jitenPublicVocabulary.clear();
       this.parser.clearLocalCache();
@@ -37996,8 +38303,61 @@ ${glossaryKey}`;
       this.floatingButton.install(
         this.settings,
         () => void saveSettings(this.settings),
-        () => this.showSettings()
+        {
+          openSettings: () => this.showSettings(),
+          scanPage: () => this.scanPageNow(),
+          openStudyPage: () => this.openStudyPage(),
+          togglePause: () => void this.toggleAnnotationsPaused(),
+          isPaused: () => this.settings.annotationsPaused,
+          isYouTube: () => isYouTubeHostname(),
+          toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
+          isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled
+        }
       );
+    }
+    async toggleAnnotationsPaused() {
+      await this.setAnnotationsPaused(!this.settings.annotationsPaused);
+    }
+    async setAnnotationsPaused(paused) {
+      if (this.settings.annotationsPaused === paused) return;
+      this.settings.annotationsPaused = paused;
+      this.applyAnnotationsPausedState();
+      await saveSettings(this.settings);
+      log.info("Annotations paused toggled", { paused });
+      this.toast(uiText(this.settings.interfaceLanguage, paused ? "annotationsPausedToast" : "annotationsResumedToast"));
+    }
+    // Paused: drop any in-flight hover lookup and strip existing annotations so
+    // the page reads natively. Resumed: re-scan (unless the user opted into
+    // manual scanning, in which case the puck's Scan action drives it).
+    applyAnnotationsPausedState() {
+      if (this.settings.annotationsPaused) {
+        this.cancelPendingHoverLookup();
+        this.clearAllAnnotations();
+      } else if (!this.settings.manualScanEnabled) {
+        this.scheduleAutoScan(0, { force: true });
+      }
+    }
+    scanPageNow() {
+      if (this.settings.annotationsPaused) return;
+      log.info("On-demand scan");
+      void this.pageScanner.scanVisiblePage({ silent: false });
+    }
+    openStudyPage() {
+      const opened = window.open(NEW_TAB_PAGE_URL, "_blank");
+      if (opened) opened.opener = null;
+      else location.href = NEW_TAB_PAGE_URL;
+      log.info("Study page opened", { url: NEW_TAB_PAGE_URL });
+    }
+    clearAllAnnotations() {
+      removeNonDestructiveScanMirrors(document);
+      document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
+        if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
+          const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
+          el.replaceWith(text2);
+        } else {
+          el.remove();
+        }
+      });
     }
     destroy(options = {}) {
       this.isDestroyed = true;
@@ -38059,15 +38419,7 @@ ${glossaryKey}`;
       this.activeBackdrop?.remove();
       this.removeJpdbPageEnhancements();
       if (!options.preservePageWords) {
-        removeNonDestructiveScanMirrors(document);
-        document.querySelectorAll(".jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby").forEach((el) => {
-          if (el.classList.contains("jpdb-reader-word") || el.classList.contains("jpdb-reader-ruby")) {
-            const text2 = document.createTextNode(el.classList.contains("jpdb-reader-word") ? readerWordSurfaceText(el) : el.textContent || "");
-            el.replaceWith(text2);
-          } else {
-            el.remove();
-          }
-        });
+        this.clearAllAnnotations();
       }
       this.dictionaryStyles.remove();
       document.querySelectorAll("[data-jpdb-reader-root]").forEach((el) => el.remove());
@@ -38155,6 +38507,7 @@ ${glossaryKey}`;
       }, delay2);
     }
     canScheduleAutoScan(force = false) {
+      if (this.settings.annotationsPaused || this.settings.manualScanEnabled) return false;
       return !this.isDestroyed && this.canParseJapanese() && (force || this.hasVisibleAutoScanWork());
     }
     runScheduledAutoScan() {
@@ -38383,8 +38736,7 @@ ${glossaryKey}`;
     handleReaderUtilityShortcut(event) {
       if (matchesShortcut(event, this.settings.shortcuts.scanPage)) {
         event.preventDefault();
-        log.info("Shortcut scan");
-        void this.pageScanner.scanVisiblePage({ silent: false });
+        this.scanPageNow();
         return true;
       }
       if (matchesShortcut(event, this.settings.shortcuts.openSettings)) {
@@ -38526,7 +38878,7 @@ ${glossaryKey}`;
       return matchedReviewShortcutGrade(event, this.settings.shortcuts, shortcuts);
     }
     shouldLookupOnHover(event) {
-      return !this.hasStickyModalPopover() && this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
+      return !this.settings.annotationsPaused && !this.hasStickyModalPopover() && this.settings.lookupOnHover && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? "", event, this.pressedKeys);
     }
     clickForcesReaderWordLookup(event) {
       const hasModifier = event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;

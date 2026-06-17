@@ -16,7 +16,7 @@ import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefini
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
 import { DictionarySourceStateController } from '../../src/reader/sources/state';
 import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords, type ScanTextTarget } from '../../src/reader/dom/index';
-import { FloatingButtonController } from '../../src/reader/ui/floating-button';
+import { FloatingButtonController, type FloatingButtonActions } from '../../src/reader/ui/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion/kit';
 import type { JitenApiClient, JitenKanjiInfo } from '../../src/reader/dictionaries/jiten';
 import type { MiningContext } from '../../src/reader/study/mining-context';
@@ -2577,6 +2577,20 @@ function mockFloatingButtonRects(left = 700, top = 500, width = 52, height = 52)
         // HTMLElement.prototype rect spies later tests rely on (making every <button>
         // report a 0x0 rect), so remove it to fully restore the inherited lookup.
         restoreInheritedButtonRectLookup();
+    };
+}
+
+function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {}): FloatingButtonActions {
+    return {
+        openSettings: vi.fn(),
+        scanPage: vi.fn(),
+        openStudyPage: vi.fn(),
+        togglePause: vi.fn(),
+        isPaused: () => false,
+        isYouTube: () => false,
+        toggleYoutubeFilter: vi.fn(),
+        isYoutubeFilterEnabled: () => false,
+        ...overrides,
     };
 }
 
@@ -9044,7 +9058,7 @@ describe('reader helpers', () => {
 
         try {
             withViewport(0, 0, () => withImmediateAnimationFrame(() => {
-                controller.install(settings, save, vi.fn());
+                controller.install(settings, save, stubFloatingButtonActions());
             }));
 
             const button = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
@@ -9084,7 +9098,7 @@ describe('reader helpers', () => {
 
         try {
             withViewport(390, 844, () => withImmediateAnimationFrame(() => {
-                controller.install(settings, vi.fn(), vi.fn());
+                controller.install(settings, vi.fn(), stubFloatingButtonActions());
             }));
 
             expect(document.querySelector('.jpdb-reader-fab')).not.toBeNull();
@@ -9109,7 +9123,7 @@ describe('reader helpers', () => {
 
         try {
             withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
-                controller.install(settings, () => void saveSettings(settings), vi.fn());
+                controller.install(settings, () => void saveSettings(settings), stubFloatingButtonActions());
             }));
             const button = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
             expect(button).not.toBeNull();

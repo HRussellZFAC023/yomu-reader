@@ -308,6 +308,9 @@ export interface ReaderSettings {
     popupActivationMode: PopupActivationMode;
     scanModifierKey: ScanModifierKey;
     showFloatingButton: boolean;
+    // When true, the page is only scanned on demand (puck radial "Scan page" or
+    // the scan shortcut) instead of automatically as content streams in.
+    manualScanEnabled: boolean;
     newTabEnabled: boolean;
     newTabAnkiEnabled: boolean;
     newTabAnkiDisabledDecks: string[];
@@ -328,6 +331,10 @@ export interface ReaderSettings {
     newTabKanjiAutoSubmit: boolean;
     puckPositionX?: number;
     puckPositionY?: number;
+    // Master pause toggled from the puck radial. While paused, Yomu adds no new
+    // annotations, removes existing ones, and suppresses hover lookups until
+    // resumed. The puck colour reflects this state.
+    annotationsPaused: boolean;
     showFurigana: boolean;
     furiganaMode: FuriganaMode;
     furiganaHiddenStateGroups: FuriganaStateGroup[];
