@@ -16081,17 +16081,19 @@ ${spelling}`);
     // unresolvable (deleted/moved/renamed), so the shelf stops re-testing
     // subscription status on every render. A dead channel never blocks this.
     markChannelSubscriptionCompleteIfReady(options = {}) {
-      if (this.channelsAllSubscribed) return;
+      if (this.channelsAllSubscribed) {
+        this.channelSubscriptionProbeComplete = true;
+        this.clearChannelSubscriptionProbe();
+        if (!options.keepShelf) this.removeChannelShelf();
+        return;
+      }
       const settled = (handle) => this.subscribedChannelHandles.has(handle) || this.unresolvableChannelHandles.has(handle);
       if (!allYouTubeChannelRecommendations().every((channel) => settled(channel.handle))) return;
       this.channelsAllSubscribed = true;
       this.channelSubscriptionProbeComplete = true;
       this.clearChannelSubscriptionProbe();
       gmStorageSetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, { signature: youTubeChannelListSignature() });
-      if (!options.keepShelf) {
-        this.clearChannelShelfRefresh();
-        this.removeChannelShelf();
-      }
+      if (!options.keepShelf) this.removeChannelShelf();
     }
     init() {
       this.destroy();
@@ -16912,6 +16914,8 @@ ${spelling}`);
         return;
       }
       this.channelShelfStatusOverride = "";
+      this.clearChannelPreviewBackfill();
+      this.clearChannelSubscriptionProbe();
       this.subscriptionBusy = true;
       this.setChannelShelfBusy(true);
       let subscribed = 0;
@@ -16989,6 +16993,7 @@ ${spelling}`);
       this.channelShelf?.setAttribute("aria-busy", String(busy));
     }
     removeChannelShelf() {
+      this.clearChannelShelfRefresh();
       this.channelShelf?.remove();
       this.channelShelf = void 0;
       this.channelShelfStatusOverride = "";

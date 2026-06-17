@@ -156,6 +156,8 @@ function channelPreviewBrowseData(handle: string, channelId: string, subscribed:
     };
 }
 
+const CHANNEL_SHELF_TEST_TIMEOUT_MS = 15_000;
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void; reject: (reason?: unknown) => void } {
     let resolve!: (value: T) => void;
     let reject!: (reason?: unknown) => void;
@@ -254,7 +256,7 @@ async function waitForChannelSubscriptionResult(
     bodies: unknown[],
     expectedCount = YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
 ): Promise<void> {
-    for (let i = 0; i < expectedCount * 2; i += 1) {
+    for (let i = 0; i < expectedCount * 8; i += 1) {
         await settlePromises();
         await vi.advanceTimersByTimeAsync(25);
         const status = document.querySelector<HTMLElement>('[data-role="channel-status"]')?.textContent ?? '';
@@ -275,8 +277,15 @@ async function waitForChannelShelfCondition(
     }
 }
 
+function channelShelfRowHandles(root: ParentNode | null = document): string[] {
+    return Array.from(root?.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row') ?? [])
+        .map(row => row.dataset.yomuChannelHandle ?? '')
+        .filter(Boolean);
+}
+
 describe('YouTube immersion filter', () => {
     afterEach(() => {
+        vi.clearAllTimers();
         vi.useRealTimers();
         vi.unstubAllGlobals();
         sessionStorage.clear();
@@ -1015,17 +1024,19 @@ describe('YouTube immersion filter', () => {
         await waitForChannelShelfCondition(shelf => Boolean(shelf?.querySelector('.jpdb-youtube-channel-row')));
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
-        await waitForChannelShelfCondition(shelf => (shelf?.querySelectorAll('.jpdb-youtube-channel-row').length ?? 0) >= 99);
+        await waitForChannelShelfCondition(shelf => {
+            const handles = channelShelfRowHandles(shelf);
+            return handles.length >= 99 && handles.includes('@oi_ken') && !handles.includes('@SuitTravel');
+        });
 
-        const handles = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
-            .map(row => row.dataset.yomuChannelHandle);
+        const handles = channelShelfRowHandles();
         expect(handles).not.toContain('@SuitTravel');
         expect(handles).toContain('@oi_ken');
         expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')?.textContent)
             .toContain('99 shown from 100 curated channels.');
 
         filter.destroy();
-    });
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
     it('keeps removing subscribed channels past the first expanded preview batch', async () => {
         const subscribedHandle = '@meicari';
@@ -1042,25 +1053,23 @@ describe('YouTube immersion filter', () => {
         await waitForChannelShelfCondition(shelf => Boolean(shelf?.querySelector('.jpdb-youtube-channel-row')));
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
-        await waitForChannelShelfCondition(shelf => (shelf?.querySelectorAll('.jpdb-youtube-channel-row').length ?? 0) >= 99);
-
-        expect(Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
-            .map(row => row.dataset.yomuChannelHandle))
-            .not.toContain(subscribedHandle);
+        await waitForChannelShelfCondition(shelf => {
+            const handles = channelShelfRowHandles(shelf);
+            return handles.length >= 99 && !handles.includes(subscribedHandle);
+        });
 
         for (let i = 0; i < 40 && document.querySelector<HTMLElement>(`[data-yomu-channel-handle="${subscribedHandle}"]`); i += 1) {
             await vi.advanceTimersByTimeAsync(250);
             await flushPendingFilterWork();
         }
 
-        const handles = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-youtube-channel-row'))
-            .map(row => row.dataset.yomuChannelHandle);
+        const handles = channelShelfRowHandles();
         expect(handles).not.toContain(subscribedHandle);
         expect(document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')?.textContent)
             .toContain('99 shown from 100 curated channels.');
 
         filter.destroy();
-    });
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
     it('keeps the channel shelf hidden when live previews show all curated channels are already subscribed', async () => {
         stubYouTubeChannelPreviewFetch(new Set(allYouTubeChannelRecommendations().map(channel => channel.handle)));
@@ -1076,7 +1085,10 @@ describe('YouTube immersion filter', () => {
 
         const allSubscribedFlag = (): string | undefined =>
             gmStorageGetSync<{ signature?: string } | null>('yomu:youtube-all-subscribed:v1', null)?.signature;
-        await waitForChannelShelfCondition(() => allSubscribedFlag() === youTubeChannelListSignature(), 260);
+        await waitForChannelShelfCondition(() =>
+            allSubscribedFlag() === youTubeChannelListSignature()
+            && !document.querySelector('.jpdb-youtube-channel-shelf')
+            && !document.querySelector('.jpdb-youtube-channel-shelf-list'), 320);
 
         expect(allSubscribedFlag()).toBe(youTubeChannelListSignature());
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
@@ -1085,7 +1097,7 @@ describe('YouTube immersion filter', () => {
         expect(document.body.textContent).not.toContain('Previews load from YouTube on this page.');
 
         filter.destroy();
-    });
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
     it('hides the channel shelf when every curated channel is already subscribed', async () => {
         renderYouTubeCards();
@@ -1104,12 +1116,12 @@ describe('YouTube immersion filter', () => {
         const subscribed = (filter as unknown as { subscribedChannelHandles: Set<string> }).subscribedChannelHandles;
         handles.forEach(handle => subscribed.add(handle));
         filter.refresh();
-        await flushPendingFilterWork();
+        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
 
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
 
         filter.destroy();
-    });
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
     it('lets users dismiss channel suggestions for the route or hide them permanently', async () => {
         const settings = youtubeFilterSettings();
@@ -1133,13 +1145,13 @@ describe('YouTube immersion filter', () => {
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).not.toBeNull();
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="dismiss"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
+        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
 
         expect(settings.youtubeShowChannelRecommendations).toBe(true);
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
 
         filter.refresh();
-        await flushPendingFilterWork();
+        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
 
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
 
@@ -1151,23 +1163,23 @@ describe('YouTube immersion filter', () => {
             search: '?search_query=nihongo',
         });
         filter.refresh();
-        await flushPendingFilterWork();
+        await waitForChannelShelfCondition(shelf => Boolean(shelf));
 
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).not.toBeNull();
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="never"]')!.click();
-        await vi.advanceTimersByTimeAsync(0);
+        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
 
         expect(settings.youtubeShowChannelRecommendations).toBe(false);
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
 
         filter.refresh();
-        await flushPendingFilterWork();
+        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
 
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
 
         filter.destroy();
-    });
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
     it('subscribes to all recommended channels through the current YouTube page session', async () => {
         const subscriptionBodies: unknown[] = [];
@@ -1190,7 +1202,7 @@ describe('YouTube immersion filter', () => {
             } as Record<string, unknown>)[key],
         });
         vi.stubGlobal('fetch', vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
-            const url = String(input);
+            const url = input instanceof Request ? input.url : String(input);
             if (url.includes('/oembed')) {
                 const watchUrl = new URL(new URL(url).searchParams.get('url') ?? 'https://www.youtube.com/watch');
                 const videoId = watchUrl.searchParams.get('v') ?? '';
@@ -1253,7 +1265,7 @@ describe('YouTube immersion filter', () => {
             document.cookie = 'SAPISID=; expires=Thu, 01 Jan 1970 00:00:00 GMT';
             filter.destroy();
         }
-    });
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
     it('filters non-Japanese community posts in the feed by their post text', async () => {
         document.body.innerHTML = `

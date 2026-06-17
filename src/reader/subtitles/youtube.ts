@@ -279,7 +279,12 @@ export class YoutubeImmersionFilter {
     // unresolvable (deleted/moved/renamed), so the shelf stops re-testing
     // subscription status on every render. A dead channel never blocks this.
     private markChannelSubscriptionCompleteIfReady(options: { keepShelf?: boolean } = {}): void {
-        if (this.channelsAllSubscribed) return;
+        if (this.channelsAllSubscribed) {
+            this.channelSubscriptionProbeComplete = true;
+            this.clearChannelSubscriptionProbe();
+            if (!options.keepShelf) this.removeChannelShelf();
+            return;
+        }
         const settled = (handle: string): boolean =>
             this.subscribedChannelHandles.has(handle) || this.unresolvableChannelHandles.has(handle);
         if (!allYouTubeChannelRecommendations().every(channel => settled(channel.handle))) return;
@@ -287,10 +292,7 @@ export class YoutubeImmersionFilter {
         this.channelSubscriptionProbeComplete = true;
         this.clearChannelSubscriptionProbe();
         gmStorageSetSync(YOUTUBE_ALL_SUBSCRIBED_STORAGE_KEY, { signature: youTubeChannelListSignature() });
-        if (!options.keepShelf) {
-            this.clearChannelShelfRefresh();
-            this.removeChannelShelf();
-        }
+        if (!options.keepShelf) this.removeChannelShelf();
     }
 
     constructor(private readonly options: {
@@ -1299,6 +1301,8 @@ export class YoutubeImmersionFilter {
         }
 
         this.channelShelfStatusOverride = '';
+        this.clearChannelPreviewBackfill();
+        this.clearChannelSubscriptionProbe();
         this.subscriptionBusy = true;
         this.setChannelShelfBusy(true);
         let subscribed = 0;
@@ -1390,6 +1394,7 @@ export class YoutubeImmersionFilter {
     }
 
     private removeChannelShelf(): void {
+        this.clearChannelShelfRefresh();
         this.channelShelf?.remove();
         this.channelShelf = undefined;
         this.channelShelfStatusOverride = '';

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.6] - 2026-06-17
+
+### Fixed
+
+- YouTube channel recommendations now cancel queued shelf refreshes when the shelf is removed and pause background preview probes during subscribe-all writes, preventing all-subscribed or dismissed shelves from briefly reappearing while YouTube subscription checks are still settling.
+- YouTube channel shelf tests now wait for stable row/subscription states, keeping the release gate deterministic under GitHub's Node 24 runners.
+
 ## [1.0.5] - 2026-06-17
 
 ### Fixed
