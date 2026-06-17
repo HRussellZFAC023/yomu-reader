@@ -21,13 +21,22 @@
 // isHiddenByCss / isNearViewport then narrow capture to the page(s) on screen, so
 // off-screen buffers and transition canvases drop out on their own.
 //
-// Verified canvas viewers (2026-06-16): bookwalker.jp (viewer.html, #viewport
-// canvases under #renderer, page counter), comic-walker.com (カドコミ, vertical
-// scroll, one persistent canvas per page, no counter). Page canvases are NOT
-// tainted (the viewer composites decrypted pages itself), so toDataURL /
-// getImageData succeed. See references/BookWalker-Screenshot-Simulator.
+// Verified canvas viewers (live trial probe 2026-06-17): bookwalker.jp / its
+// NetFront (NFBR) viewer double-buffers each page across #viewport0 + #viewport1
+// (both 1280x1600, stacked at the SAME screen rect); the on-screen one's
+// container carries `.currentScreen`, plus 300x150 #renderer/#frontScreen dummy
+// canvases. comic-walker.com (カドコミ): vertical scroll, one persistent canvas
+// per page, no counter. Page canvases are NOT tainted (the viewer composites
+// decrypted pages itself), so toDataURL / getImageData succeed. The size floor
+// drops the dummies; preferCurrentScreenCanvases() then keeps only the visible
+// buffer so we never spend a (shared-quota) OCR call on the off-screen page or
+// paint a second overlay for a different page at the same coordinates.
+// See references/bookwalker-viewer + references/BookWalker-Screenshot-Simulator.
 
 const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
+
+// NFBR marks the on-screen page buffer's container with this class.
+const CURRENT_SCREEN_SELECTOR = '.currentScreen';
 
 // Hosts known to render manga pages onto <canvas>. They skip the prominence +
 // rendered-image heuristics (the host already disambiguates them); the generic
@@ -138,8 +147,21 @@ function isLikelyPageCanvas(canvas: HTMLCanvasElement, lenient: boolean): boolea
 
 function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[] {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
-    return Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
+    const canvases = Array.from(document.querySelectorAll<HTMLCanvasElement>('canvas'))
         .filter(canvas => isLikelyPageCanvas(canvas, lenient));
+    return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+}
+
+// BookWalker's NFBR viewer keeps the previous/next page painted in an off-screen
+// sibling buffer at the same screen rect as the visible page. When the on-screen
+// buffer is identifiable (its container has `.currentScreen`), restrict OCR to it
+// so the off-screen buffer never costs a Lens call or stacks a stale overlay over
+// the current page. Falls back to all candidates (e.g. the cover, painted before
+// any buffer is marked current) so a page is never dropped.
+function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement[] {
+    if (canvases.length < 2) return canvases;
+    const current = canvases.filter(canvas => canvas.closest(CURRENT_SCREEN_SELECTOR));
+    return current.length ? current : canvases;
 }
 
 function hasBackgroundReaderSignal(element: HTMLElement): boolean {

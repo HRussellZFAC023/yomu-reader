@@ -78,6 +78,10 @@ interface OcrWordRenderState {
 
 const MAX_CACHE_ITEMS = 36;
 const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15000;
+// Flash the "ready" dot briefly so the user sees the scan finished, then fade
+// it away rather than leaving a solid dot lingering on a finished page.
+const OCR_STATUS_READY_DWELL_MS = 1000;
+const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -243,6 +247,7 @@ export class ImageOcrController {
     // Compact loading/ready indicators for every OCR'd image (not just
     // paused-video frames), so slow image OCR shows progress without a card.
     private imageStatuses = new Map<HTMLImageElement, HTMLElement>();
+    private imageStatusTimers = new Map<HTMLImageElement, number>();
     // Reader raster snapshots (BookWalker/ComicWalker canvases and Mokuro CSS
     // background pages): map each page surface to the invisible <img> we OCR in
     // its place, plus the page fingerprint and the page-turn poll.
@@ -362,6 +367,26 @@ export class ImageOcrController {
             this.observeRefreshImage(image, settings);
         }
         this.schedulePosition();
+    }
+
+    /**
+     * Re-evaluate auto-scan after something *outside* the reader's own settings
+     * changes the answer at runtime — currently mokuro's own "OCR enabled"
+     * (displayOCR) toggle, which the reader cannot see through its settings
+     * subscription. When the page now supplies its native text layer we drop the
+     * overlays the reader auto-painted before the flip, so the reader's OCR stops
+     * competing with mokuro's text boxes; manually-scanned panels are kept. When
+     * it no longer does, a normal refresh starts the reader's own scan.
+     */
+    reassessAutoScan(): void {
+        const settings = this.options.getSettings();
+        if (!settings.ocrEnabled) return;
+        if (this.options.shouldAutoScan?.() === false) {
+            this.clearAutoScannedOverlays();
+            this.schedulePosition();
+            return;
+        }
+        this.refresh();
     }
 
     private shouldSkipRefresh(settings: ReaderSettings, options: { userRequested?: boolean }): boolean {
@@ -584,7 +609,11 @@ export class ImageOcrController {
         this.activeScans++;
         this.inFlightKeys.add(key);
         const hasFastText = Boolean(readFallbackOcrResult(image, false));
-        const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
+        // Canvas / background reader frames are dedicated manga pages where OCR is
+        // the entire point, so skip the 900ms batching idle that only earns its
+        // keep on incidental page images — the page is already on screen and waiting.
+        const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+        const delay = this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
         void waitForIdle(delay, delay)
             .then(() => this.scanImage(image))
             .finally(() => {
@@ -649,6 +678,14 @@ export class ImageOcrController {
 
         this.remember(key, result);
         state.key = key;
+        // The page may have started providing its own native text layer while
+        // this auto scan was in flight (e.g. mokuro OCR toggled on). Keep the
+        // cached result but don't paint — the reader now defers to that layer.
+        // Manual scans and page-baked inline fallbacks always render regardless.
+        if (!manualRequested && !inlineFallback && this.options.shouldAutoScan?.() === false) {
+            this.clearAutoScannedOverlays();
+            return;
+        }
         await this.renderResult(state, result);
         log.info('OCR result rendered', { provider, lines: result.lines.length, manualRequested });
     }
@@ -1023,6 +1060,8 @@ export class ImageOcrController {
         if (this.videoFrameVideos.has(image)) return; // already shown over its video
         if (!this.options.getSettings().ocrEnabled) return;
         const existing = this.imageStatuses.get(image);
+        // Status changed — cancel any pending "ready" fade so a re-scan starts clean.
+        this.clearImageStatusTimer(image);
         // No recognizable text — drop the loader rather than linger on the image.
         if (status === 'empty') {
             existing?.remove();
@@ -1030,9 +1069,27 @@ export class ImageOcrController {
             return;
         }
         const card = existing ?? this.createVideoFrameStatus(status);
+        // setVideoFrameStatus rewrites the class list, clearing any fade-out class.
         if (existing) this.setVideoFrameStatus(card, status);
         else this.imageStatuses.set(image, card);
         this.positionImageStatusCard(image, card);
+        // "ready" is terminal: flash the green dot, then fade it out and remove it.
+        if (status === 'ready') this.scheduleImageStatusFade(image, card);
+    }
+
+    private scheduleImageStatusFade(image: HTMLImageElement, card: HTMLElement): void {
+        const dwell = window.setTimeout(() => {
+            card.classList.add('jpdb-ocr-video-frame-status-fade-out');
+            const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
+            this.imageStatusTimers.set(image, remove);
+        }, OCR_STATUS_READY_DWELL_MS);
+        this.imageStatusTimers.set(image, dwell);
+    }
+
+    private clearImageStatusTimer(image: HTMLImageElement): void {
+        const timer = this.imageStatusTimers.get(image);
+        if (timer !== undefined) window.clearTimeout(timer);
+        this.imageStatusTimers.delete(image);
     }
 
     private positionImageStatusCard(image: HTMLImageElement, card: HTMLElement): void {
@@ -1043,6 +1100,7 @@ export class ImageOcrController {
     }
 
     private removeImageStatusCard(image: HTMLImageElement): void {
+        this.clearImageStatusTimer(image);
         const card = this.imageStatuses.get(image);
         if (!card) return;
         card.remove();
@@ -1321,7 +1379,13 @@ export class ImageOcrController {
         const contentWidth = Math.max(1, contentRect.width);
         const contentHeight = Math.max(1, contentRect.height);
         const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
+        // Vertical furigana sits in a strip to the RIGHT of the column (real
+        // vertical ruby). Reserve a symmetric gutter so the centered column plus
+        // its reading both stay inside the frame — otherwise the rightmost
+        // column (the first one read in vertical Japanese) projects its reading
+        // past the image edge, where .jpdb-ocr-layer{overflow:hidden} clips it.
+        const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
+        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2));
         const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
         const minLeft = frame.imageLeft;
         const minTop = frame.imageTop;
@@ -1351,8 +1415,26 @@ export class ImageOcrController {
             state.overlay.remove();
         }
         this.states.clear();
+        for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
+        this.imageStatusTimers.clear();
         for (const card of this.imageStatuses.values()) card.remove();
         this.imageStatuses.clear();
+    }
+
+    // Drop only the overlays the reader auto-painted, keeping panels the user
+    // scanned by hand (those carry overlayRequested/manualRequested). Used when
+    // we start deferring to a page's native text layer mid-session. The cached
+    // results stay in `this.cache`, so flipping back re-renders them instantly
+    // without re-OCRing.
+    private clearAutoScannedOverlays(): void {
+        for (const [image, state] of [...this.states]) {
+            if (state.manualRequested || state.overlayRequested) continue;
+            this.queue = this.queue.filter(queued => queued !== image);
+            this.inFlightKeys.delete(state.key);
+            state.overlay.remove();
+            this.states.delete(image);
+            this.removeImageStatusCard(image);
+        }
     }
 
     private rememberOcrWordRenderStates(line: HTMLElement, tokens: JPDBToken[]): void {

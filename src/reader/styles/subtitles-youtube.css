@@ -411,7 +411,13 @@
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
 }
-.jpdb-subtitle-primary .jpdb-reader-furi {
+/* Second selector matches the same element in light mode at higher specificity
+   than the on-page furigana reset (`:is(.theme-light) .jpdb-reader-word rt` in
+   reader-words-ocr.css), which would otherwise strip the outline. That reset
+   avoids a muddy glow on light pages; player subtitles sit on dark footage and
+   want the outline in both themes. Listed together so the shadow is declared once. */
+.jpdb-subtitle-primary .jpdb-reader-furi,
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-subtitle-primary .jpdb-reader-furi {
   color: currentColor;
   opacity: .82;
   text-shadow:

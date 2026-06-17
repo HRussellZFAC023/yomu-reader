@@ -11,6 +11,8 @@
 //   • We annotate the "OCR enabled" label so it is obvious the toggle now picks
 //     between Yomu OCR (off) and mokuro OCR (on).
 
+import { mokuroDisplayOcrEnabled } from './site-parsers';
+
 const MOKURO_OCR_DEFAULT_MARKER = 'yomu_mokuro_ocr_default_applied';
 const MOKURO_TOGGLE_LABEL = 'OCR enabled';
 const MOKURO_TOGGLE_NOTE = 'off = Yomu OCR · on = mokuro OCR';
@@ -79,6 +81,68 @@ function elementOwnText(el: Element): string {
     let text = '';
     el.childNodes.forEach(node => { if (node.nodeType === 3) text += node.textContent ?? ''; });
     return text.trim();
+}
+
+function findMokuroOcrToggleInputs(root: ParentNode): HTMLInputElement[] {
+    const inputs: HTMLInputElement[] = [];
+    for (const el of root.querySelectorAll<HTMLElement>('label, span, p, div')) {
+        if (elementOwnText(el) !== MOKURO_TOGGLE_LABEL) continue;
+        const input = el.querySelector<HTMLInputElement>('input[type="checkbox"]');
+        if (input) inputs.push(input);
+    }
+    return inputs;
+}
+
+/**
+ * React when mokuro's own "OCR enabled" (displayOCR) toggle flips at runtime.
+ * That toggle lives outside the reader's settings, so without this the reader
+ * never re-evaluates whether to defer to mokuro: turning mokuro OCR on would
+ * leave the reader's own OCR overlay on screen (the reported bug), and turning
+ * it off would not start a reader scan. The toggle only exists in the DOM while
+ * mokuro's settings drawer is open, and mokuro persists the change to
+ * localStorage during its reactive flush — so we (a) (re)bind a change listener
+ * whenever drawer nodes appear, (b) also watch cross-tab `storage` events, and
+ * (c) defer the check to the next frame (past mokuro's microtask flush) and only
+ * fire when the effective value actually changed. Returns a disposer.
+ */
+export function watchMokuroOcrToggle(onChange: (displayOcrEnabled: boolean) => void): () => void {
+    if (typeof document === 'undefined' || typeof window === 'undefined' || !isMokuroReaderHost()) return () => undefined;
+    let last = mokuroDisplayOcrEnabled();
+    let scheduled = false;
+    const fireIfChanged = () => {
+        scheduled = false;
+        const next = mokuroDisplayOcrEnabled();
+        if (next === last) return;
+        last = next;
+        onChange(next);
+    };
+    const schedule = () => {
+        if (scheduled) return;
+        scheduled = true;
+        (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: () => void) => setTimeout(cb, 16))(fireIfChanged);
+    };
+    const bindToggleInputs = () => {
+        for (const input of findMokuroOcrToggleInputs(document)) {
+            if (input.dataset.yomuMokuroToggleWatched) continue;
+            input.dataset.yomuMokuroToggleWatched = 'true';
+            input.addEventListener('change', schedule);
+        }
+    };
+    bindToggleInputs();
+    const observer = new MutationObserver(records => {
+        for (const record of records) {
+            if (record.addedNodes.length) { bindToggleInputs(); return; }
+        }
+    });
+    observer.observe(document.body ?? document.documentElement, { childList: true, subtree: true });
+    const onStorage = (event: StorageEvent) => {
+        if (event.key === 'profiles' || event.key === 'currentProfile' || event.key === null) schedule();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => {
+        observer.disconnect();
+        window.removeEventListener('storage', onStorage);
+    };
 }
 
 /**

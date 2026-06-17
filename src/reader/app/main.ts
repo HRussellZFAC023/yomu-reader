@@ -222,6 +222,7 @@ import {
     type TokenListSource,
 } from './main-helpers';
 import { siteProvidesNativeTextLayer } from './site-parsers';
+import { watchMokuroOcrToggle } from './mokuro-integration';
 import {
     inferMiningSourceKind,
     resolveMiningContext as resolveStoredMiningContext,
@@ -575,6 +576,7 @@ export class ReaderApp {
     });
     private unsubscribeCardStateSignals?: () => void;
     private unsubscribeSettingsStorageChanges?: () => void;
+    private disposeMokuroOcrToggleWatch?: () => void;
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({
         dictionaries: this.dictionaries,
         isDestroyed: () => this.isDestroyed,
@@ -784,6 +786,11 @@ export class ReaderApp {
         this.installFab();
         this.subtitles.init();
         this.ocr.init();
+        // mokuro's own "OCR enabled" toggle lives outside the reader's settings;
+        // when the user flips it, re-evaluate whether to defer to mokuro's text
+        // layer or run the reader's own OCR (no-op off mokuro hosts).
+        this.disposeMokuroOcrToggleWatch?.();
+        this.disposeMokuroOcrToggleWatch = watchMokuroOcrToggle(() => this.ocr.reassessAutoScan());
         this.youtube.init();
         this.setupAutoScan();
         this.initJpdbPageEnhancements();
@@ -1431,6 +1438,8 @@ export class ReaderApp {
 
     destroy(options: ReaderAppDestroyOptions = {}): void {
         this.isDestroyed = true;
+        this.disposeMokuroOcrToggleWatch?.();
+        this.disposeMokuroOcrToggleWatch = undefined;
         this.unsubscribeCardStateSignals?.();
         this.unsubscribeCardStateSignals = undefined;
         this.unsubscribeSettingsStorageChanges?.();
