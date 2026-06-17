@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.0.2
+// @version      1.0.3
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -21034,14 +21034,16 @@ ${entry.reading || ""}`;
   function renderJitenDefinitionHeadword(card, info) {
     const reference = jitenDefinitionHeadwordReference(card, info);
     if (!reference) return "";
-    return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: "jpdb-reader-jiten-headword-target" })}</div>`;
+    const annotatedReading = info?.mainReading?.text.trim() ?? "";
+    return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: "jpdb-reader-jiten-headword-target", annotatedReading })}</div>`;
   }
   function jitenDefinitionHeadwordReference(card, info) {
-    const text2 = (info?.mainReading?.text || card.spelling || card.reading).trim();
+    const rawText = (info?.mainReading?.text || card.spelling || card.reading).trim();
+    const text2 = cleanJitenAnnotatedText$1(rawText);
     if (!text2 || !hasJapaneseText$1(text2)) return null;
     return {
       text: text2,
-      reading: card.reading || text2,
+      reading: jitenAnnotatedKana$1(rawText) || card.reading || text2,
       wordId: info?.wordId ?? card.jitenWordId,
       readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex
     };

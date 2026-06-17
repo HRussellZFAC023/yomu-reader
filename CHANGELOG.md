@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.3] - 2026-06-17
+
+### Fixed
+
+- Jiten definition headwords no longer render the bracketed furigana annotation (e.g. `以[い]前[ぜん]`) as base text under the reading. The annotated `mainReading` is now stripped to clean base text and distributed as per-kanji ruby, matching the related-words rendering.
+
 ## [1.0.2] - 2026-06-17
 
 ### Fixed

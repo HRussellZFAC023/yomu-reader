@@ -52,15 +52,20 @@ export function renderJitenDefinitionSource(
 function renderJitenDefinitionHeadword(card: JPDBCard, info: JitenVocabularyInfo | null): string {
     const reference = jitenDefinitionHeadwordReference(card, info);
     if (!reference) return '';
-    return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: 'jpdb-reader-jiten-headword-target' })}</div>`;
+    // mainReading.text is furigana-annotated (e.g. "以[い]前[ぜん]"); pass it so
+    // the ruby is distributed per kanji instead of the bracket form leaking
+    // into the base text under the reading.
+    const annotatedReading = info?.mainReading?.text.trim() ?? '';
+    return `<div class="jpdb-reader-jiten-headword">${renderPassiveJitenReference(reference, { className: 'jpdb-reader-jiten-headword-target', annotatedReading })}</div>`;
 }
 
 function jitenDefinitionHeadwordReference(card: JPDBCard, info: JitenVocabularyInfo | null): JitenTextReference | null {
-    const text = (info?.mainReading?.text || card.spelling || card.reading).trim();
+    const rawText = (info?.mainReading?.text || card.spelling || card.reading).trim();
+    const text = cleanJitenAnnotatedText(rawText);
     if (!text || !hasJapaneseText(text)) return null;
     return {
         text,
-        reading: card.reading || text,
+        reading: jitenAnnotatedKana(rawText) || card.reading || text,
         wordId: info?.wordId ?? card.jitenWordId,
         readingIndex: info?.mainReading?.readingIndex ?? card.jitenReadingIndex,
     };

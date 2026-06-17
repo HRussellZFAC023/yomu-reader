@@ -1001,6 +1001,31 @@ describe('JitenApiClient', () => {
         expect(headword?.querySelector('rt')?.textContent).toBe('だいがく');
     });
 
+    it('renders the headword with per-kanji furigana from the annotated mainReading instead of leaking bracketed kana', () => {
+        const card = jitenCard({ spelling: '以前', reading: 'いぜん' });
+        const info = jitenVocabularyInfo({
+            wordId: 849,
+            mainReading: { text: '以[い]前[ぜん]', readingIndex: 0, frequencyRank: 100, usedInMediaAmount: null },
+            definitions: [jitenDefinition({ meanings: ['before; prior to; ago'], partsOfSpeech: ['n-suf', 'noun', 'adverb'] })],
+        });
+
+        const rendered = renderJitenDefinitionSource(card, () => '', info, 'en');
+        const mount = document.createElement('div');
+        mount.innerHTML = rendered;
+
+        const headword = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-headword .jpdb-reader-word');
+        expect(headword).not.toBeNull();
+        // Base text must be the clean spelling, never the bracketed annotation.
+        expect(headword?.dataset.expression).toBe('以前');
+        expect(headword?.textContent ?? '').not.toContain('[');
+        expect(headword?.dataset.reading).toBe('いぜん');
+        // Per-kanji ruby: two <ruby> nodes, one rt per kanji.
+        const rubies = headword?.querySelectorAll('ruby') ?? [];
+        expect(rubies.length).toBe(2);
+        expect(Array.from(headword?.querySelectorAll('rt') ?? []).map(rt => rt.textContent)).toEqual(['い', 'ぜん']);
+        expect(Array.from(headword?.querySelectorAll('.jpdb-reader-ruby-base') ?? []).map(node => node.textContent)).toEqual(['以', '前']);
+    });
+
     it('allows keyless requests to public endpoints and throws for auth-required ones', async () => {
         const fetchMock = createFetchMock({ success: true });
         const client = new JitenApiClient(() => '', { fetchImpl: fetchMock });
