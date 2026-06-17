@@ -5008,7 +5008,7 @@ export class ReaderApp {
     }
 
     private isJitenApiActive(): boolean {
-        return Boolean(hasJitenApiCredential(this.settings) && !hasJpdbApiCredential(this.settings));
+        return hasJitenApiCredential(this.settings);
     }
 
     private localKanjiEntriesPromise(kanji: string): Promise<YomitanKanjiEntry[]> {
@@ -5251,8 +5251,8 @@ export class ReaderApp {
             if (jpdbMount?.isConnected) {
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID))
-                    : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)) ?? '');
+                    ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten', language))
+                    : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb', language)) ?? '');
             }
             renderRtk();
         });
@@ -5263,8 +5263,8 @@ export class ReaderApp {
             if (jpdbMount?.isConnected) {
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID))
-                    : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)) ?? '');
+                    ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten', language))
+                    : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb', language)) ?? '');
             }
         });
         const kanjiEntriesPromise = detailsPromises.kanjiEntries.then(entries => {
@@ -6414,11 +6414,17 @@ export class ReaderApp {
 
     private kanjiSourceTitle(sourceId: string): string {
         if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'strokePractice');
-        if (sourceId === KANJI_JPDB_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'readingsComponents');
+        if (sourceId === KANJI_JPDB_SOURCE_ID) return kanjiSourceLabel(this.settings, sourceId) || uiText(this.settings.interfaceLanguage, 'readingsComponents');
         if (sourceId === KANJI_RTK_SOURCE_ID) return 'RTK';
         if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'kanjiDictionaries');
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'originStructure');
         return kanjiSourceLabel(this.settings, sourceId);
+    }
+
+    private kanjiFactSourceTitle(source: 'jpdb' | 'jiten', language = this.settings.interfaceLanguage): string {
+        return source === 'jiten'
+            ? uiText(language, 'sourceNameJitenKanjiFacts')
+            : uiText(language, 'readingsComponents');
     }
 
     private applyAnkiLookupToRenderedWords(

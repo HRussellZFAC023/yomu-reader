@@ -2018,7 +2018,7 @@
     ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
     ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
     ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-    ocrBackgroundOpacity: 0.36,
+    ocrBackgroundOpacity: 0.32,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
@@ -7178,7 +7178,7 @@ recommendedJiten	jiten.moe頻度データです。
     ].sort(compareSourceRows);
   }
   function activeKanjiFactSource(settings) {
-    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings) ? { name: "Jiten" } : { name: "JPDB" };
+    return hasJitenApiCredential(settings) ? { name: "Jiten" } : { name: "JPDB" };
   }
   function kanjiDictionarySourceId(name) {
     return `${KANJI_DICTIONARY_SOURCE_PREFIX}${name}`;

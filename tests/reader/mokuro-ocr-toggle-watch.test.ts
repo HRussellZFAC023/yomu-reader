@@ -100,4 +100,23 @@ describe('watchMokuroOcrToggle', () => {
             dispose();
         }
     });
+
+    it('does not fire a queued next-frame change after dispose', () => {
+        setDisplayOcr(false);
+        document.body.innerHTML = TOGGLE_HTML;
+        let queued: FrameRequestCallback | undefined;
+        const cancelAnimationFrame = vi.fn((handle: number) => {
+            if (handle === 7) queued = undefined;
+        });
+        vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => { queued = cb; return 7; });
+        vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrame);
+        const onChange = vi.fn();
+        const dispose = watchMokuroOcrToggle(onChange);
+        setDisplayOcr(true);
+        document.querySelector<HTMLInputElement>('input')!.dispatchEvent(new Event('change', { bubbles: true }));
+        dispose();
+        queued?.(0);
+        expect(cancelAnimationFrame).toHaveBeenCalledWith(7);
+        expect(onChange).not.toHaveBeenCalled();
+    });
 });

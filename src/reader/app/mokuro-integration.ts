@@ -109,17 +109,21 @@ export function watchMokuroOcrToggle(onChange: (displayOcrEnabled: boolean) => v
     if (typeof document === 'undefined' || typeof window === 'undefined' || !isMokuroReaderHost()) return () => undefined;
     let last = mokuroDisplayOcrEnabled();
     let scheduled = false;
+    let disposed = false;
+    let scheduledFrame = 0;
     const fireIfChanged = () => {
+        if (disposed) return;
         scheduled = false;
+        scheduledFrame = 0;
         const next = mokuroDisplayOcrEnabled();
         if (next === last) return;
         last = next;
         onChange(next);
     };
     const schedule = () => {
-        if (scheduled) return;
+        if (disposed || scheduled) return;
         scheduled = true;
-        (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: () => void) => setTimeout(cb, 16))(fireIfChanged);
+        scheduledFrame = (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (cb: () => void) => window.setTimeout(cb, 16))(fireIfChanged);
     };
     const bindToggleInputs = () => {
         for (const input of findMokuroOcrToggleInputs(document)) {
@@ -140,6 +144,11 @@ export function watchMokuroOcrToggle(onChange: (displayOcrEnabled: boolean) => v
     };
     window.addEventListener('storage', onStorage);
     return () => {
+        disposed = true;
+        if (scheduledFrame) {
+            (typeof cancelAnimationFrame === 'function' ? cancelAnimationFrame : window.clearTimeout)(scheduledFrame);
+            scheduledFrame = 0;
+        }
         observer.disconnect();
         window.removeEventListener('storage', onStorage);
     };

@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0] - 2026-06-17
+
+### Fixed
+
+- YouTube attributed-string UI text no longer collapses mirrored furigana/underline rendering into narrow vertical stacks after YouTube re-renders feed titles, watch metadata, buttons, or comments. Inline hosts are promoted to a stable inline-block mirror container, then restored when the mirror is removed.
+- Mokuro native OCR toggle changes are now handled at runtime: when Mokuro OCR/text boxes turn on, Yomu clears auto-painted image/canvas/background OCR overlays and suppresses cached or in-flight auto OCR results from repainting stale layers; when Mokuro OCR turns off, Yomu auto OCR resumes.
+- Mokuro canvas/background reader frames now preserve the difference between automatic scans and user-requested scans, so automatic raster OCR is cleared when the native text layer takes over while manual scans remain visible.
+- OCR async cleanup now quietly ignores stale scan state after toggle/destroy timing gaps instead of surfacing stale-state errors during cleanup.
+- Image OCR highlight panels are a little more transparent by default, letting the page artwork show through more while keeping the active line readable.
+- Jiten kanji facts now load in kanji dictionary popovers even when a JPDB key is configured alongside the Jiten key, so the Jiten frequency/readings/vocabulary panel appears on kanji drilldowns.
+- Release/CI stability: the generated probe scripts are registered as fallow entry points, and the previously failing OCR stale-state test shard is covered by focused regressions.
+
+### Verified
+
+- Re-checked the bundled release against live signed-in YouTube home/search/watch/comment surfaces, ComicWalker canvas OCR, blank-canvas controls, status-dot/subtitle behavior, vertical OCR/pitch fixtures, and mobile docs hero breakpoints.
+
 ## [1.2.3] - 2026-06-17
 
 ### Fixed

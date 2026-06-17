@@ -1,6 +1,6 @@
 import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
 import { uiText, type UiCopyKey } from '../app/i18n';
-import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { hasJitenApiCredential } from '../settings/api-credential';
 import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 
 export const KANJI_STROKE_SOURCE_ID = '__kanji_stroke__';
@@ -231,7 +231,7 @@ export function kanjiSourceRows(settings: ReaderSettings): SettingsSourceRow[] {
 }
 
 function activeKanjiFactSource(settings: ReaderSettings): { name: 'JPDB' | 'Jiten' } {
-    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings)
+    return hasJitenApiCredential(settings)
         ? { name: 'Jiten' }
         : { name: 'JPDB' };
 }

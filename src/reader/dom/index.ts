@@ -338,6 +338,9 @@ interface TextMirrorHostState {
     position: string;
     positionPriority: string;
     positioned: boolean;
+    display: string;
+    displayPriority: string;
+    displayAdjusted: boolean;
 }
 
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
@@ -1147,18 +1150,20 @@ function styleTextMirrorHost(host: HTMLElement): void {
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
+        display: host.style.getPropertyValue('display'),
+        displayPriority: host.style.getPropertyPriority('display'),
+        displayAdjusted: computed.display === 'inline',
     };
     textMirrorHosts.set(host, state);
     host.style.setProperty('visibility', 'hidden', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
+    if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
 }
 
 function styleTextMirror(mirror: HTMLElement, host: HTMLElement): void {
     const style = safeComputedStyle(host);
     mirror.style.setProperty('position', 'absolute');
-    mirror.style.setProperty('inset', '0 auto auto 0');
-    mirror.style.setProperty('width', '100%');
-    mirror.style.setProperty('min-width', '100%');
+    mirror.style.setProperty('inset', '0 0 auto 0');
     mirror.style.setProperty('height', 'auto');
     mirror.style.setProperty('overflow', 'visible');
     mirror.style.setProperty('visibility', 'visible', 'important');
@@ -1250,11 +1255,15 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
     if (state.positioned && host.style.getPropertyValue('position') !== 'relative') {
         host.style.setProperty('position', 'relative', 'important');
     }
+    if (state.displayAdjusted && host.style.getPropertyValue('display') !== 'inline-block') {
+        host.style.setProperty('display', 'inline-block', 'important');
+    }
 }
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     restoreStyleProperty(host, 'visibility', state.visibility, state.visibilityPriority);
     if (state.positioned) restoreStyleProperty(host, 'position', state.position, state.positionPriority);
+    if (state.displayAdjusted) restoreStyleProperty(host, 'display', state.display, state.displayPriority);
 }
 
 function restoreStyleProperty(host: HTMLElement, property: string, value: string, priority: string): void {

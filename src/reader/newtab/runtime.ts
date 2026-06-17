@@ -94,7 +94,7 @@ import {
     shouldLookupAnkiStatus,
     subscribeToSettingsStorageChanges,
 } from '../settings';
-import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential } from '../settings/api-credential';
 import { clearRenderedWordAnkiState, setRenderedWordCardIdentity, setRenderedWordPitchClass } from '../dom/rendered-word-state';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
 import { applyReaderAccentColor, applyReaderTheme, applyReaderWordColors } from '../theme/reader-theme';
@@ -1196,8 +1196,8 @@ export class NewTabRuntime {
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
                 if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID))
-                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)));
+                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten'))
+                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb')));
                 updateKanjiLookupMiningControls(
                     popover,
                     renderJpdbKanjiMiningControls(jpdbInfo, this.settings.interfaceLanguage),
@@ -1212,8 +1212,8 @@ export class NewTabRuntime {
                 const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
                 if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID))
-                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)));
+                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten'))
+                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb')));
             }),
             detailPromises.kanjiEntries.then(entries => {
                 kanjiEntries = entries;
@@ -1267,7 +1267,7 @@ export class NewTabRuntime {
     }
 
     private isJitenApiActive(): boolean {
-        return Boolean(hasJitenApiCredential(this.settings) && !hasJpdbApiCredential(this.settings));
+        return hasJitenApiCredential(this.settings);
     }
 
     private shouldLoadKanjiVGInfo(): boolean {
@@ -1937,6 +1937,12 @@ export class NewTabRuntime {
 
     private kanjiSourceTitle(sourceId: string): string {
         return newTabKanjiSourceTitle(this.settings, sourceId);
+    }
+
+    private kanjiFactSourceTitle(source: 'jpdb' | 'jiten'): string {
+        return source === 'jiten'
+            ? uiText(this.settings.interfaceLanguage, 'sourceNameJitenKanjiFacts')
+            : uiText(this.settings.interfaceLanguage, 'readingsComponents');
     }
 
     private isCurrentPopoverRoot(root: HTMLElement): boolean {

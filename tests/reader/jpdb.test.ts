@@ -18,7 +18,7 @@ import { DictionarySourceStateController } from '../../src/reader/sources/state'
 import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords, type ScanTextTarget } from '../../src/reader/dom/index';
 import { FloatingButtonController } from '../../src/reader/ui/floating-button';
 import { ImmersionKitClient, type ImmersionKitExample } from '../../src/reader/immersion/kit';
-import type { JitenApiClient } from '../../src/reader/dictionaries/jiten';
+import type { JitenApiClient, JitenKanjiInfo } from '../../src/reader/dictionaries/jiten';
 import type { MiningContext } from '../../src/reader/study/mining-context';
 import { ImmersionPopoverController } from '../../src/reader/immersion/popover-controller';
 import { JpdbClient, splitJapaneseSentences } from '../../src/reader/jpdb/jpdb';
@@ -15568,6 +15568,66 @@ describe('reader helpers', () => {
                 document.body.replaceChildren();
             }
         });
+    });
+
+    it('renders Jiten kanji facts in page-reader kanji drilldown popovers when JPDB is also configured', async () => {
+        const { app, restoreAnimationFrame } = testSynchronousReaderApp();
+        const jitenInfo: JitenKanjiInfo = {
+            character: '寄',
+            onReadings: ['キ'],
+            kunReadings: ['よ.る'],
+            meanings: ['draw near', 'contribute'],
+            strokeCount: 11,
+            jlptLevel: 3,
+            grade: 5,
+            frequencyRank: 1234,
+            groupingTags: { kanken: '4級', wanikani: null, rtk: 'draw near', klc: null, tmw: null },
+            topWords: [],
+            wordsByReading: [],
+        };
+        const lookupKanji = vi.fn(async () => jitenInfo);
+
+        try {
+            const internals = app as unknown as {
+                settings: typeof DEFAULT_SETTINGS;
+                jiten: Partial<JitenApiClient>;
+                jpdbKanji: { lookup: (kanji: string) => Promise<null> };
+                showKanjiCard(card: JPDBCard, kanji: string, sentence?: string): Promise<void>;
+                parsePopoverJapanese(popover: HTMLElement): Promise<void>;
+            };
+            internals.settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jitenApiKey: 'ak_jiten-key',
+                jpdbKanjiEnabled: true,
+                localDictionariesEnabled: false,
+                localDictionaryShowKanji: false,
+                uchisenEnabled: false,
+                rtkEnabled: false,
+                kanjivgEnabled: false,
+                kanjiOriginsEnabled: false,
+                similarKanjiWords: false,
+                immersionKitEnabled: false,
+            };
+            internals.jiten = { lookupKanji };
+            internals.jpdbKanji = { lookup: vi.fn(async () => null) };
+            internals.parsePopoverJapanese = vi.fn(async () => undefined);
+
+            await internals.showKanjiCard({ ...card, spelling: '寄付', reading: 'きふ' }, '寄', '寄付です。');
+
+            await waitForExpect(() => {
+                const section = document.querySelector<HTMLElement>('.jpdb-reader-jiten-kanji');
+                expect(lookupKanji).toHaveBeenCalledWith('寄');
+                expect(section?.textContent).toContain('Jiten kanji facts');
+                expect(section?.textContent).toContain('draw near, contribute');
+                expect(section?.textContent).toContain('Jiten #1234');
+            });
+        } finally {
+            restoreAnimationFrame();
+            vi.unstubAllGlobals();
+            app.destroy();
+            document.body.replaceChildren();
+        }
     });
 
     it('renders enabled Uchisen in page-reader kanji drilldown popovers', async () => {

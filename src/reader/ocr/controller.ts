@@ -499,7 +499,8 @@ export class ImageOcrController {
                 const image = entry.target as HTMLImageElement;
                 this.positionState(image);
                 const current = this.options.getSettings();
-                if (current.ocrAutoScanImages && isCandidateImage(image, current) && shouldObserveImage(image, current)) this.enqueue(image);
+                const state = this.states.get(image);
+                if (state && this.shouldAutoEnqueueImage(image, state, current)) this.enqueue(image);
             }
         }, { rootMargin });
     }
@@ -577,10 +578,10 @@ export class ImageOcrController {
 
     private snapshotReaderSurface(surface: HTMLCanvasElement | HTMLElement, settings: ReaderSettings): HTMLImageElement | undefined {
         if (surface instanceof HTMLCanvasElement) {
-            this.snapshotCanvasSurface(surface, settings);
+            this.snapshotCanvasSurface(surface, settings, true);
             return this.canvasFrames.get(surface);
         }
-        this.snapshotBackgroundImageSurface(surface, settings);
+        this.snapshotBackgroundImageSurface(surface, settings, true);
         return this.backgroundFrames.get(surface);
     }
 
@@ -644,7 +645,7 @@ export class ImageOcrController {
             if (isStaleOcrState(error)) return;
             throw error;
         }
-        this.requireCurrentState(state);
+        if (!this.isCurrentState(state)) return;
 
         this.updateOcrStatus(image, 'loading');
         const scan = beginOcrScan(state, image, settings, manualRequested);
@@ -662,6 +663,10 @@ export class ImageOcrController {
 
     private async renderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
         if (!this.cache.has(key)) return false;
+        if (this.shouldSuppressAutoRenderedResult(state, false)) {
+            this.clearAutoScannedOverlays();
+            return true;
+        }
         const cached = this.cache.get(key);
         this.requireCurrentState(state);
         if (!cached) {
@@ -700,12 +705,19 @@ export class ImageOcrController {
         // this auto scan was in flight (e.g. mokuro OCR toggled on). Keep the
         // cached result but don't paint — the reader now defers to that layer.
         // Manual scans and page-baked inline fallbacks always render regardless.
-        if (!manualRequested && !inlineFallback && this.options.shouldAutoScan?.() === false) {
+        if (this.shouldSuppressAutoRenderedResult(state, Boolean(inlineFallback), manualRequested)) {
             this.clearAutoScannedOverlays();
             return;
         }
         await this.renderResult(state, result);
         log.info('OCR result rendered', { provider, lines: result.lines.length, manualRequested });
+    }
+
+    private shouldSuppressAutoRenderedResult(state: ImageState, inlineFallback: boolean, manualRequested = state.manualRequested): boolean {
+        return !manualRequested
+            && !state.overlayRequested
+            && !inlineFallback
+            && this.options.shouldAutoScan?.() === false;
     }
 
     private async renderOcrFailure(
@@ -1183,6 +1195,10 @@ export class ImageOcrController {
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
         if (!settings.ocrAutoScanImages && !userRequested) return;
+        if (this.options.shouldAutoScan?.() === false && !userRequested) {
+            this.releaseAllCanvasFrames();
+            return;
+        }
         if (!isReaderRasterPage()) {
             this.releaseAllCanvasFrames();
             return;
@@ -1199,11 +1215,11 @@ export class ImageOcrController {
         }
         for (const canvas of canvases) {
             if (this.canvasFrames.has(canvas)) continue;
-            this.snapshotCanvasSurface(canvas, settings);
+            this.snapshotCanvasSurface(canvas, settings, userRequested);
         }
     }
 
-    private snapshotCanvasSurface(canvas: HTMLCanvasElement, settings: ReaderSettings): void {
+    private snapshotCanvasSurface(canvas: HTMLCanvasElement, settings: ReaderSettings, userRequested = false): void {
         if (this.canvasFrames.has(canvas)) return;
         const rect = canvas.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -1219,7 +1235,7 @@ export class ImageOcrController {
         frame.alt = '';
         positionCanvasFrameImage(frame, rect);
         frame.addEventListener('load', () => {
-            if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, true);
+            if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
         }, { once: true });
         frame.src = dataUrl;
         document.body.append(frame);
@@ -1238,6 +1254,7 @@ export class ImageOcrController {
             state.overlay.remove();
             this.states.delete(frame);
         }
+        this.removeImageStatusCard(frame);
         this.canvasFrameSources.delete(frame);
         this.queue = this.queue.filter(queued => queued !== frame);
         frame.remove();
@@ -1261,6 +1278,10 @@ export class ImageOcrController {
     private refreshBackgroundImageReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
         if (!settings.ocrAutoScanImages && !userRequested) return;
+        if (this.options.shouldAutoScan?.() === false && !userRequested) {
+            this.releaseAllBackgroundFrames();
+            return;
+        }
         if (!isReaderRasterPage()) {
             this.releaseAllBackgroundFrames();
             return;
@@ -1273,11 +1294,11 @@ export class ImageOcrController {
         }
         for (const surface of surfaces) {
             if (this.backgroundFrames.has(surface)) continue;
-            this.snapshotBackgroundImageSurface(surface, settings);
+            this.snapshotBackgroundImageSurface(surface, settings, userRequested);
         }
     }
 
-    private snapshotBackgroundImageSurface(surface: HTMLElement, settings: ReaderSettings): void {
+    private snapshotBackgroundImageSurface(surface: HTMLElement, settings: ReaderSettings, userRequested = false): void {
         if (this.backgroundFrames.has(surface)) return;
         const url = backgroundImageReaderUrl(surface);
         if (!url) return;
@@ -1291,7 +1312,7 @@ export class ImageOcrController {
         frame.decoding = 'async';
         positionCanvasFrameImage(frame, rect);
         frame.addEventListener('load', () => {
-            if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, true);
+            if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, userRequested);
         }, { once: true });
         frame.src = url;
         document.body.append(frame);
@@ -1312,6 +1333,7 @@ export class ImageOcrController {
             state.overlay.remove();
             this.states.delete(frame);
         }
+        this.removeImageStatusCard(frame);
         this.backgroundFrameSources.delete(frame);
         this.queue = this.queue.filter(queued => queued !== frame);
         frame.remove();
@@ -1457,6 +1479,16 @@ export class ImageOcrController {
     private clearAutoScannedOverlays(): void {
         for (const [image, state] of [...this.states]) {
             if (state.manualRequested || state.overlayRequested) continue;
+            const canvas = this.canvasFrameSources.get(image);
+            if (canvas) {
+                this.releaseCanvasFrame(canvas);
+                continue;
+            }
+            const background = this.backgroundFrameSources.get(image);
+            if (background) {
+                this.releaseBackgroundFrame(background);
+                continue;
+            }
             this.queue = this.queue.filter(queued => queued !== image);
             this.inFlightKeys.delete(state.key);
             state.overlay.remove();

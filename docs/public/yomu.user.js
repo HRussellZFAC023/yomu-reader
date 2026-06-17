@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.2.3
+// @version      1.3.0
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -15,8 +15,8 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-XTIHPt4JN8Y3H8H3LgvTf3HDOXkFSMYqJN0DuK5gR8A=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-cp7DdyYfScCjRTB3a0DFCVLaG/xPuxBnPMocdeCFlRA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ek4ewWwfqRokKeJJuVJ2VY57bG6B1eJt/9YPNmhcW7k=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-6RYUoMWmYo6ZjtrH+2Nc/0AZhcldoqfjPMKP1xUqOfw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2672,7 +2672,7 @@
     ocrTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
     ocrOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
     ocrBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
-    ocrBackgroundOpacity: 0.36,
+    ocrBackgroundOpacity: 0.32,
     ocrFontScale: 1,
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
@@ -4345,18 +4345,20 @@
       visibilityPriority: host.style.getPropertyPriority("visibility"),
       position: host.style.getPropertyValue("position"),
       positionPriority: host.style.getPropertyPriority("position"),
-      positioned: computed.position === "static"
+      positioned: computed.position === "static",
+      display: host.style.getPropertyValue("display"),
+      displayPriority: host.style.getPropertyPriority("display"),
+      displayAdjusted: computed.display === "inline"
     };
     textMirrorHosts.set(host, state);
     host.style.setProperty("visibility", "hidden", "important");
     if (state.positioned) host.style.setProperty("position", "relative", "important");
+    if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
   function styleTextMirror(mirror, host) {
     const style = safeComputedStyle(host);
     mirror.style.setProperty("position", "absolute");
-    mirror.style.setProperty("inset", "0 auto auto 0");
-    mirror.style.setProperty("width", "100%");
-    mirror.style.setProperty("min-width", "100%");
+    mirror.style.setProperty("inset", "0 0 auto 0");
     mirror.style.setProperty("height", "auto");
     mirror.style.setProperty("overflow", "visible");
     mirror.style.setProperty("visibility", "visible", "important");
@@ -4429,10 +4431,14 @@
     if (state.positioned && host.style.getPropertyValue("position") !== "relative") {
       host.style.setProperty("position", "relative", "important");
     }
+    if (state.displayAdjusted && host.style.getPropertyValue("display") !== "inline-block") {
+      host.style.setProperty("display", "inline-block", "important");
+    }
   }
   function restoreTextMirrorHost(host, state) {
     restoreStyleProperty(host, "visibility", state.visibility, state.visibilityPriority);
     if (state.positioned) restoreStyleProperty(host, "position", state.position, state.positionPriority);
+    if (state.displayAdjusted) restoreStyleProperty(host, "display", state.display, state.displayPriority);
   }
   function restoreStyleProperty(host, property, value, priority2) {
     if (value) host.style.setProperty(property, value, priority2);
@@ -14511,7 +14517,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     ].sort(compareSourceRows);
   }
   function activeKanjiFactSource(settings) {
-    return hasJitenApiCredential(settings) && !hasJpdbApiCredential(settings) ? { name: "Jiten" } : { name: "JPDB" };
+    return hasJitenApiCredential(settings) ? { name: "Jiten" } : { name: "JPDB" };
   }
   function orderedDefinitionSourceIds(settings, dictionaryNames) {
     const preferences = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
@@ -32999,17 +33005,21 @@ ${glossaryKey}`;
     if (typeof document === "undefined" || typeof window === "undefined" || !isMokuroReaderHost()) return () => void 0;
     let last = mokuroDisplayOcrEnabled();
     let scheduled = false;
+    let disposed = false;
+    let scheduledFrame = 0;
     const fireIfChanged = () => {
+      if (disposed) return;
       scheduled = false;
+      scheduledFrame = 0;
       const next = mokuroDisplayOcrEnabled();
       if (next === last) return;
       last = next;
       onChange(next);
     };
     const schedule = () => {
-      if (scheduled) return;
+      if (disposed || scheduled) return;
       scheduled = true;
-      (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16))(fireIfChanged);
+      scheduledFrame = (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => window.setTimeout(cb, 16))(fireIfChanged);
     };
     const bindToggleInputs = () => {
       for (const input of findMokuroOcrToggleInputs(document)) {
@@ -33033,6 +33043,11 @@ ${glossaryKey}`;
     };
     window.addEventListener("storage", onStorage);
     return () => {
+      disposed = true;
+      if (scheduledFrame) {
+        (typeof cancelAnimationFrame === "function" ? cancelAnimationFrame : window.clearTimeout)(scheduledFrame);
+        scheduledFrame = 0;
+      }
       observer.disconnect();
       window.removeEventListener("storage", onStorage);
     };
@@ -40404,7 +40419,7 @@ ${glossaryKey}`;
       return this.settings.jpdbKanjiEnabled && this.isJitenApiActive() ? this.jiten.lookupKanji(kanji).catch(() => null) : Promise.resolve(null);
     }
     isJitenApiActive() {
-      return Boolean(hasJitenApiCredential(this.settings) && !hasJpdbApiCredential(this.settings));
+      return hasJitenApiCredential(this.settings);
     }
     localKanjiEntriesPromise(kanji) {
       return this.settings.localDictionariesEnabled && this.settings.localDictionaryShowKanji ? this.dictionaries.lookupKanji(kanji, this.settings.localDictionaryMaxResults, this.settings.dictionaryPreferences).catch(() => []) : Promise.resolve([]);
@@ -40612,7 +40627,7 @@ ${glossaryKey}`;
         if (miningMount?.isConnected && this.kanjiCompanion) this.updateKanjiMiningControls(popover, this.kanjiCompanion.renderJpdbKanjiMiningControls(jpdbInfo, language));
         if (jpdbMount?.isConnected) {
           const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
-          setInnerHtml(jpdbMount, jitenInfo ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)) : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)) ?? "");
+          setInnerHtml(jpdbMount, jitenInfo ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jiten", language)) : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jpdb", language)) ?? "");
         }
         renderRtk();
       });
@@ -40622,7 +40637,7 @@ ${glossaryKey}`;
         renderKeyword();
         if (jpdbMount?.isConnected) {
           const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
-          setInnerHtml(jpdbMount, jitenInfo ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)) : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiSourceTitle(KANJI_JPDB_SOURCE_ID)) ?? "");
+          setInnerHtml(jpdbMount, jitenInfo ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jiten", language)) : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jpdb", language)) ?? "");
         }
       });
       const kanjiEntriesPromise = detailsPromises.kanjiEntries.then((entries) => {
@@ -41597,11 +41612,14 @@ ${glossaryKey}`;
     }
     kanjiSourceTitle(sourceId) {
       if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "strokePractice");
-      if (sourceId === KANJI_JPDB_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "readingsComponents");
+      if (sourceId === KANJI_JPDB_SOURCE_ID) return kanjiSourceLabel(this.settings, sourceId) || uiText(this.settings.interfaceLanguage, "readingsComponents");
       if (sourceId === KANJI_RTK_SOURCE_ID) return "RTK";
       if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "kanjiDictionaries");
       if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "originStructure");
       return kanjiSourceLabel(this.settings, sourceId);
+    }
+    kanjiFactSourceTitle(source, language = this.settings.interfaceLanguage) {
+      return source === "jiten" ? uiText(language, "sourceNameJitenKanjiFacts") : uiText(language, "readingsComponents");
     }
     applyAnkiLookupToRenderedWords(card, ankiLookup, options = {}) {
       this.applyAnkiLookupMapToRenderedWords(/* @__PURE__ */ new Map([[renderedWordCardKey(card.vid, card.sid), ankiLookup]]), options.roots ?? [document], options);

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { applyTokensToScanTarget, collectTextTargetsIn } from '../../src/reader/dom';
+import { applyTokensToScanTarget, collectTextTargetsIn, removeNonDestructiveScanMirrors } from '../../src/reader/dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 import type { JPDBCard, JPDBToken } from '../../src/reader/app/types';
 
@@ -44,5 +44,28 @@ describe('repaint-loop mirror fallback', () => {
         paint(host);
         expect(host.querySelector('.jpdb-reader-word')).toBeTruthy();
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
+    });
+
+    it('stretches text mirrors across inline attributed-string hosts without width collapse', () => {
+        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost" style="display:inline">${TEXT}</span>`;
+        const host = document.getElementById('title')!;
+
+        for (let i = 0; i < 6 && !host.querySelector('.jpdb-reader-text-mirror'); i++) {
+            host.textContent = TEXT;
+            paint(host);
+        }
+
+        const mirror = host.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        expect(mirror).toBeTruthy();
+        expect(host.style.getPropertyValue('display')).toBe('inline-block');
+        expect(host.style.getPropertyPriority('display')).toBe('important');
+        expect(mirror.style.inset).toBe('0 0 auto 0');
+        expect(mirror.style.width).toBe('');
+        expect(mirror.style.minWidth).toBe('');
+
+        expect(removeNonDestructiveScanMirrors(document)).toBe(1);
+        expect(host.style.display).toBe('inline');
+        expect(host.style.visibility).toBe('');
+        expect(host.style.position).toBe('');
     });
 });

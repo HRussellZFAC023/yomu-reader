@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ImageOcrController } from '../../src/reader/ocr/controller';
 import type { OcrResult } from '../../src/reader/ocr/response-shared';
@@ -40,6 +40,11 @@ const RESULT: OcrResult = {
     lines: [{ text: '日本語を読む', box: { left: 100, top: 120, width: 300, height: 80 }, vertical: false }],
 };
 
+afterEach(() => {
+    vi.unstubAllGlobals();
+    document.body.replaceChildren();
+});
+
 function makeController(shouldAutoScan: () => boolean, settings: Partial<ReaderSettings> = {}): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
@@ -61,15 +66,49 @@ function makeController(shouldAutoScan: () => boolean, settings: Partial<ReaderS
     return controller;
 }
 
+function controlledResult(): { promise: Promise<OcrResult>; resolve: () => void } {
+    let resolvePromise!: (result: OcrResult) => void;
+    return {
+        promise: new Promise<OcrResult>(resolve => { resolvePromise = resolve; }),
+        resolve: () => resolvePromise(RESULT),
+    };
+}
+
+function scanImage(controller: ImageOcrController, image: HTMLImageElement): Promise<void> {
+    return (controller as unknown as { scanImage: (target: HTMLImageElement) => Promise<void> }).scanImage(image);
+}
+
+function stubMokuroLocation(): void {
+    vi.stubGlobal('location', {
+        hostname: 'reader.mokuro.app',
+        href: 'https://reader.mokuro.app/reader/example',
+        origin: 'https://reader.mokuro.app',
+        pathname: '/reader/example',
+        protocol: 'https:',
+    });
+}
+
+function makeMokuroBackgroundPage(): HTMLElement {
+    const page = document.createElement('div');
+    page.dataset.pageIndex = '1';
+    page.style.width = '1080px';
+    page.style.height = '1530px';
+    page.style.backgroundImage = 'url("blob:https://reader.mokuro.app/page-1")';
+    page.style.backgroundSize = 'contain';
+    page.getBoundingClientRect = () => new DOMRect(24, 18, 681, 965);
+    document.body.append(page);
+    return page;
+}
+
 describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
     it('drops auto-painted overlays when the page starts providing its own text layer', async () => {
-        stubInstantIntersectionObserver();
         let defer = false; // mokuro OCR off → reader scans
         const controller = makeController(() => !defer);
-        document.body.replaceChildren(makeImage('/page-1.png'));
+        const image = makeImage('/page-1.png');
+        document.body.replaceChildren(image);
         try {
-            controller.init();
-            await waitForExpect(() => expect(document.querySelectorAll('.jpdb-ocr-line').length).toBeGreaterThan(0));
+            await scanImage(controller, image);
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBeGreaterThan(0);
             // user turns mokuro OCR on → reader must stop competing with mokuro's text
             defer = true;
             controller.reassessAutoScan();
@@ -77,8 +116,6 @@ describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
             expect(document.querySelectorAll('.jpdb-ocr-line').length).toBe(0);
         } finally {
             controller.destroy();
-            vi.unstubAllGlobals();
-            document.body.replaceChildren();
         }
     });
 
@@ -116,6 +153,68 @@ describe('OCR reassessAutoScan (mokuro OCR toggle)', () => {
             controller.destroy();
             vi.unstubAllGlobals();
             document.body.replaceChildren();
+        }
+    });
+
+    it('does not paint an auto OCR result that completes after mokuro OCR turns on', async () => {
+        let defer = false; // mokuro OCR off → reader scans
+        const controller = makeController(() => !defer);
+        const pending = controlledResult();
+        (controller as unknown as { recognizeImage: () => Promise<OcrResult> }).recognizeImage = vi.fn(() => pending.promise);
+        const image = makeImage('/page-1.png');
+        document.body.replaceChildren(image);
+        try {
+            const scan = scanImage(controller, image);
+            expect(document.querySelectorAll('.jpdb-ocr-layer').length).toBe(1);
+            defer = true;
+            controller.reassessAutoScan();
+            expect(document.querySelectorAll('.jpdb-ocr-layer').length).toBe(0);
+            pending.resolve();
+            await scan;
+            expect(document.querySelectorAll('.jpdb-ocr-layer').length).toBe(0);
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBe(0);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not repaint a cached auto OCR result while mokuro OCR is on', async () => {
+        let defer = false; // mokuro OCR off → reader scans
+        const controller = makeController(() => !defer);
+        const image = makeImage('/page-1.png');
+        document.body.replaceChildren(image);
+        try {
+            await scanImage(controller, image);
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBeGreaterThan(0);
+            defer = true;
+            controller.reassessAutoScan();
+            expect(document.querySelectorAll('.jpdb-ocr-layer').length).toBe(0);
+            await scanImage(controller, image);
+            expect(document.querySelectorAll('.jpdb-ocr-layer').length).toBe(0);
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBe(0);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('drops auto-painted Mokuro CSS background OCR frames when mokuro OCR turns on', async () => {
+        stubMokuroLocation();
+        let defer = false; // mokuro OCR off → reader scans background pages
+        makeMokuroBackgroundPage();
+        const controller = makeController(() => !defer, { ocrProvider: 'local-service' });
+        try {
+            controller.init();
+            await waitForExpect(() => expect(document.querySelector('.jpdb-ocr-background-frame')).not.toBeNull());
+            await scanImage(controller, document.querySelector<HTMLImageElement>('.jpdb-ocr-background-frame')!);
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBeGreaterThan(0);
+
+            defer = true;
+            controller.reassessAutoScan();
+            expect(document.querySelectorAll('.jpdb-ocr-background-frame').length).toBe(0);
+            expect(document.querySelectorAll('.jpdb-ocr-layer').length).toBe(0);
+            expect(document.querySelectorAll('.jpdb-ocr-line').length).toBe(0);
+        } finally {
+            controller.destroy();
         }
     });
 });

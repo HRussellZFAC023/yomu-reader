@@ -6415,7 +6415,8 @@ ${candidate.depth}`;
           const image = entry.target;
           this.positionState(image);
           const current = this.options.getSettings();
-          if (current.ocrAutoScanImages && isCandidateImage(image, current) && shouldObserveImage(image, current)) this.enqueue(image);
+          const state = this.states.get(image);
+          if (state && this.shouldAutoEnqueueImage(image, state, current)) this.enqueue(image);
         }
       }, { rootMargin });
     }
@@ -6483,10 +6484,10 @@ ${candidate.depth}`;
     }
     snapshotReaderSurface(surface, settings) {
       if (surface instanceof HTMLCanvasElement) {
-        this.snapshotCanvasSurface(surface, settings);
+        this.snapshotCanvasSurface(surface, settings, true);
         return this.canvasFrames.get(surface);
       }
-      this.snapshotBackgroundImageSurface(surface, settings);
+      this.snapshotBackgroundImageSurface(surface, settings, true);
       return this.backgroundFrames.get(surface);
     }
     queueImageForOcr(image) {
@@ -6540,7 +6541,7 @@ ${candidate.depth}`;
         if (isStaleOcrState(error)) return;
         throw error;
       }
-      this.requireCurrentState(state);
+      if (!this.isCurrentState(state)) return;
       this.updateOcrStatus(image, "loading");
       const scan = beginOcrScan(state, image, settings, manualRequested);
       try {
@@ -6555,6 +6556,10 @@ ${candidate.depth}`;
     }
     async renderCachedOcrResult(state, key) {
       if (!this.cache.has(key)) return false;
+      if (this.shouldSuppressAutoRenderedResult(state, false)) {
+        this.clearAutoScannedOverlays();
+        return true;
+      }
       const cached = this.cache.get(key);
       this.requireCurrentState(state);
       if (!cached) {
@@ -6580,12 +6585,15 @@ ${candidate.depth}`;
       }
       this.remember(key, result);
       state.key = key;
-      if (!manualRequested && !inlineFallback && this.options.shouldAutoScan?.() === false) {
+      if (this.shouldSuppressAutoRenderedResult(state, Boolean(inlineFallback), manualRequested)) {
         this.clearAutoScannedOverlays();
         return;
       }
       await this.renderResult(state, result);
       log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
+    }
+    shouldSuppressAutoRenderedResult(state, inlineFallback, manualRequested = state.manualRequested) {
+      return !manualRequested && !state.overlayRequested && !inlineFallback && this.options.shouldAutoScan?.() === false;
     }
     async renderOcrFailure(state, image, provider, manualRequested, error) {
       this.requireCurrentState(state);
@@ -6966,6 +6974,10 @@ ${candidate.depth}`;
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
       if (!settings.ocrAutoScanImages && !userRequested) return;
+      if (this.options.shouldAutoScan?.() === false && !userRequested) {
+        this.releaseAllCanvasFrames();
+        return;
+      }
       if (!isReaderRasterPage()) {
         this.releaseAllCanvasFrames();
         return;
@@ -6982,10 +6994,10 @@ ${candidate.depth}`;
       }
       for (const canvas of canvases) {
         if (this.canvasFrames.has(canvas)) continue;
-        this.snapshotCanvasSurface(canvas, settings);
+        this.snapshotCanvasSurface(canvas, settings, userRequested);
       }
     }
-    snapshotCanvasSurface(canvas, settings) {
+    snapshotCanvasSurface(canvas, settings, userRequested = false) {
       if (this.canvasFrames.has(canvas)) return;
       const rect = canvas.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -6999,7 +7011,7 @@ ${candidate.depth}`;
       frame.alt = "";
       positionCanvasFrameImage(frame, rect);
       frame.addEventListener("load", () => {
-        if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, true);
+        if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
       }, { once: true });
       frame.src = dataUrl;
       document.body.append(frame);
@@ -7017,6 +7029,7 @@ ${candidate.depth}`;
         state.overlay.remove();
         this.states.delete(frame);
       }
+      this.removeImageStatusCard(frame);
       this.canvasFrameSources.delete(frame);
       this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
@@ -7037,6 +7050,10 @@ ${candidate.depth}`;
     refreshBackgroundImageReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
       if (!settings.ocrAutoScanImages && !userRequested) return;
+      if (this.options.shouldAutoScan?.() === false && !userRequested) {
+        this.releaseAllBackgroundFrames();
+        return;
+      }
       if (!isReaderRasterPage()) {
         this.releaseAllBackgroundFrames();
         return;
@@ -7049,10 +7066,10 @@ ${candidate.depth}`;
       }
       for (const surface of surfaces) {
         if (this.backgroundFrames.has(surface)) continue;
-        this.snapshotBackgroundImageSurface(surface, settings);
+        this.snapshotBackgroundImageSurface(surface, settings, userRequested);
       }
     }
-    snapshotBackgroundImageSurface(surface, settings) {
+    snapshotBackgroundImageSurface(surface, settings, userRequested = false) {
       if (this.backgroundFrames.has(surface)) return;
       const url = backgroundImageReaderUrl(surface);
       if (!url) return;
@@ -7066,7 +7083,7 @@ ${candidate.depth}`;
       frame.decoding = "async";
       positionCanvasFrameImage(frame, rect);
       frame.addEventListener("load", () => {
-        if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, true);
+        if (this.backgroundFrames.get(surface) === frame) this.enqueue(frame, userRequested);
       }, { once: true });
       frame.src = url;
       document.body.append(frame);
@@ -7086,6 +7103,7 @@ ${candidate.depth}`;
         state.overlay.remove();
         this.states.delete(frame);
       }
+      this.removeImageStatusCard(frame);
       this.backgroundFrameSources.delete(frame);
       this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
@@ -7207,6 +7225,16 @@ ${candidate.depth}`;
     clearAutoScannedOverlays() {
       for (const [image, state] of [...this.states]) {
         if (state.manualRequested || state.overlayRequested) continue;
+        const canvas = this.canvasFrameSources.get(image);
+        if (canvas) {
+          this.releaseCanvasFrame(canvas);
+          continue;
+        }
+        const background = this.backgroundFrameSources.get(image);
+        if (background) {
+          this.releaseBackgroundFrame(background);
+          continue;
+        }
         this.queue = this.queue.filter((queued) => queued !== image);
         this.inFlightKeys.delete(state.key);
         state.overlay.remove();

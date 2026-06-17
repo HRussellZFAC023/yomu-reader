@@ -5676,10 +5676,10 @@ export class NewTabController {
                     context.jitenInfo,
                     context.settings.interfaceLanguage,
                     (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
-                    this.kanjiSourceTitle(sourceId),
+                    this.kanjiFactSourceTitle('jiten'),
                 ));
             }
-            return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, key => this.sourceAttributes(key), this.kanjiSourceTitle(sourceId), context.settings.interfaceLanguage) : null;
+            return context.fullInfo ? renderNewTabKanjiInfoSection(context.card, context.facts, context.readings, context.localMeanings, context.fullInfo, key => this.sourceAttributes(key), this.kanjiFactSourceTitle('jpdb'), context.settings.interfaceLanguage) : null;
         }
         if (sourceId === KANJI_RTK_SOURCE_ID) return this.renderNewTabRtkSection(context.rtk, context.fullInfo, context.localEntries, context.settings);
         if (sourceId === KANJI_ORIGINS_SOURCE_ID) return this.renderNewTabKanjiOriginGraph(context.kanji, context.fullInfo, context.rtk, context.vg, context.localEntries, context.settings, context.excludeFactLabels);
@@ -5837,6 +5837,13 @@ export class NewTabController {
 
     private kanjiSourceTitle(sourceId: string): string {
         return newTabKanjiSourceTitle(this.dependencies.getSettings(), sourceId);
+    }
+
+    private kanjiFactSourceTitle(source: 'jpdb' | 'jiten'): string {
+        const settings = this.dependencies.getSettings();
+        return source === 'jiten'
+            ? uiText(settings.interfaceLanguage, 'sourceNameJitenKanjiFacts')
+            : uiText(settings.interfaceLanguage, 'readingsComponents');
     }
 
     private renderKanjiMiningControls(info: JpdbKanjiInfo | null): HTMLElement | null {
