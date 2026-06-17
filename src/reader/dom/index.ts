@@ -338,6 +338,7 @@ interface FragmentTextTargetCollectionOptions {
     includeTabChrome?: boolean;
     includePassiveInteractions?: boolean;
     heading?: boolean;
+    allowShortCenteredHeadings?: boolean;
     mergeBlockFragments?: boolean;
     readerRootPassiveInteractions?: boolean;
 }
@@ -373,6 +374,13 @@ interface TextMirrorHostState {
 
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
+const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
+    'yt-formatted-string',
+    'yt-attributed-string',
+    '.ytAttributedStringHost',
+    '.yt-core-attributed-string',
+    '.yt-core-attributed-string--white-space-pre-wrap',
+].join(',');
 const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
     READER_TEXT_MIRROR_SELECTOR,
     'script',
@@ -610,7 +618,7 @@ function fragmentTextTargetFrom(
 
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
-    if (!options.includeReaderRoot && isShortCenteredDisplayHeading(parent, text)) return null;
+    if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text)) return null;
     return {
         text,
         parent,
@@ -757,7 +765,7 @@ function shouldSkipFragmentHeading(
     text: string,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
-    return Boolean(!options.heading && text && isShortCenteredDisplayHeading(element, text));
+    return Boolean(!options.heading && !options.allowShortCenteredHeadings && text && isShortCenteredDisplayHeading(element, text));
 }
 
 function shouldSkipFragmentUiText(
@@ -1142,16 +1150,26 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     mirror.dataset.jpdbReaderTextMirror = 'true';
     mirror.dataset.sourceText = text;
     mirror.dataset.renderSignature = signature;
-    styleTextMirrorHost(host);
-    styleTextMirror(mirror, host);
-    mirror.append(renderTokenizedScanText(text, safeTokens, settings, {
-        parent: host,
-        hasNativeRuby: targetHasNativeRuby(target),
-        suppressRuby,
-        passiveInteraction: target.passiveInteraction || suppressRuby,
-    }));
-    host.append(mirror);
-    observeTextMirrorHost(host, text);
+    const state = styleTextMirrorHost(host);
+    try {
+        styleTextMirror(mirror, host);
+        mirror.append(renderTokenizedScanText(text, safeTokens, settings, {
+            parent: host,
+            hasNativeRuby: targetHasNativeRuby(target),
+            suppressRuby,
+            passiveInteraction: target.passiveInteraction || suppressRuby,
+        }));
+        if (!mirror.textContent?.trim()) {
+            removeTextMirror(host);
+            return;
+        }
+        host.append(mirror);
+        hideTextMirrorHost(host, state);
+        observeTextMirrorHost(host, text);
+    } catch (error) {
+        removeTextMirror(host);
+        throw error;
+    }
 }
 
 function currentTextMirror(host: HTMLElement): HTMLElement | null {
@@ -1189,7 +1207,14 @@ function nonDestructiveScanHost(target: ScanTextTarget): HTMLElement {
     const parents = target.fragments
         .map(fragment => fragment.node.parentElement)
         .filter((parent): parent is HTMLElement => Boolean(parent));
-    return commonFragmentTextHost(parents) ?? target.parent;
+    return preferredNonDestructiveTextHost(parents) ?? commonFragmentTextHost(parents) ?? target.parent;
+}
+
+function preferredNonDestructiveTextHost(elements: HTMLElement[]): HTMLElement | null {
+    if (!elements.length) return null;
+    const preferred = elements[0]?.closest<HTMLElement>(NON_DESTRUCTIVE_TEXT_HOST_SELECTOR);
+    if (!preferred || !elements.every(element => preferred.contains(element))) return null;
+    return preferred;
 }
 
 function commonFragmentTextHost(elements: HTMLElement[]): HTMLElement | null {
@@ -1209,7 +1234,7 @@ function targetHasNativeRuby(target: ScanTextTarget): boolean {
         : Boolean(target.hasNativeRuby);
 }
 
-function styleTextMirrorHost(host: HTMLElement): void {
+function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
     const computed = safeComputedStyle(host);
     const state: TextMirrorHostState = {
         observer: new MutationObserver(() => undefined),
@@ -1223,6 +1248,13 @@ function styleTextMirrorHost(host: HTMLElement): void {
         displayPriority: host.style.getPropertyPriority('display'),
         displayAdjusted: computed.display === 'inline',
     };
+    textMirrorHosts.set(host, state);
+    if (state.positioned) host.style.setProperty('position', 'relative', 'important');
+    if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
+    return state;
+}
+
+function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     textMirrorHosts.set(host, state);
     host.style.setProperty('visibility', 'hidden', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
@@ -1254,6 +1286,10 @@ function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
     state.sourceText = normalizedMirrorHostText(sourceText);
     state.observer = new MutationObserver(mutations => {
         if (mutations.every(mutationInsideTextMirror)) return;
+        if (!currentTextMirror(host)) {
+            removeTextMirror(host);
+            return;
+        }
         const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
         if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
             removeTextMirror(host);
@@ -1318,6 +1354,10 @@ function removeTextMirror(host: HTMLElement): void {
 // text changes, before refreshing the mirror. The host-text observer does not
 // watch attributes, so re-setting styles here cannot re-trigger it.
 function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostState): void {
+    if (!currentTextMirror(host)) {
+        removeTextMirror(host);
+        return;
+    }
     if (host.style.getPropertyValue('visibility') !== 'hidden') {
         host.style.setProperty('visibility', 'hidden', 'important');
     }

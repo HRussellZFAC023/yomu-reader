@@ -23,8 +23,10 @@ export interface SiteParserProfile {
     plainScan?: boolean;
     scanLimit?: number;
     heading?: boolean;
+    allowShortCenteredHeadings?: boolean;
     singlePassScan?: boolean;
     nonDestructive?: boolean;
+    disableGenericDomScan?: boolean;
     includePassiveInteractionRoots?: boolean;
     /**
      * The site renders its own accurate, selectable Japanese text layer over the
@@ -361,6 +363,22 @@ const GOOGLE_SEARCH_EXCLUDE = [
     'g-img',
     'img',
 ].join(',');
+const BLOOMEE_LANDING_HOSTS = new Set(['bloomeelife.com', 'www.bloomeelife.com']);
+const BLOOMEE_LANDING_PARSER_ID = 'bloomee-landing-parser';
+const BLOOMEE_LANDING_ROOTS = [
+    '.point__itembox-headline',
+    '.point__itembox-txt',
+    '.cv-step__ttlbox-title',
+    '.cv-step__catch',
+    '.cv-step__itembox-title',
+    '.life-lp-faq h2',
+    '.life-lp-faq dt h3',
+    '.lp-gift__headline',
+    '.lp-gift__txt',
+    '.ctaarea p',
+].join(',');
+const BOOKWALKER_STOREFRONT_HOSTS = new Set(['bookwalker.jp', 'www.bookwalker.jp']);
+const BOOKWALKER_STOREFRONT_PARSER_ID = 'bookwalker-storefront-no-dom-parser';
 export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: YOMU_HOSTED_DOCS_PARSER_ID,
@@ -400,6 +418,27 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includeUiChrome: true,
         plainScan: true,
         matches: url => /(^|\.)google\./i.test(url.hostname) && url.pathname === '/search',
+    },
+    {
+        id: BLOOMEE_LANDING_PARSER_ID,
+        name: 'Bloomee landing page',
+        description: 'Bloomee landing page point headings and supporting Japanese copy.',
+        roots: [BLOOMEE_LANDING_ROOTS],
+        exclude: COMMON_EXCLUDE,
+        allowUiText: true,
+        minLength: 1,
+        heading: true,
+        allowShortCenteredHeadings: true,
+        matches: url => isBloomeeLandingUrl(url),
+    },
+    {
+        id: BOOKWALKER_STOREFRONT_PARSER_ID,
+        name: 'BookWalker storefront',
+        description: 'BookWalker storefront chrome and carousels opt out of generic DOM scans.',
+        roots: [],
+        disableGenericDomScan: true,
+        includePassiveInteractionRoots: false,
+        matches: url => isBookWalkerStorefrontUrl(url),
     },
     {
         id: JPDB_PARSER_ID,
@@ -827,6 +866,20 @@ export function getMatchingSiteParsers(href = window.location.href): SiteParserP
     return SITE_PARSER_PROFILES.filter(profile => profile.matches(url));
 }
 
+export function isBookWalkerStorefrontPage(href = location.href): boolean {
+    return isBookWalkerStorefrontUrl(new URL(href, window.location.href));
+}
+
+function isBloomeeLandingUrl(url: URL): boolean {
+    return BLOOMEE_LANDING_HOSTS.has(url.hostname.toLowerCase())
+        && (url.pathname === '/' || url.pathname === '')
+        && Boolean(document.querySelector('.life-top-page-wrap,.home-index,.point__itembox-headline,.cv-step,.ctaarea'));
+}
+
+function isBookWalkerStorefrontUrl(url: URL): boolean {
+    return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase());
+}
+
 /**
  * True when a matching site parser already supplies an accurate native Japanese
  * text layer that the reader should use instead of running image OCR. For most
@@ -957,6 +1010,7 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         includePassiveInteractions: true,
         mergeBlockFragments: profile.mergeBlockFragments,
         heading: profile.heading,
+        allowShortCenteredHeadings: profile.allowShortCenteredHeadings,
     });
     for (const target of collected) {
         if (!addUniqueSiteScanTarget(profile, target, context)) continue;
@@ -1093,6 +1147,7 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
+    if (matchingProfiles.some(profile => profile.disableGenericDomScan)) return baseTargets;
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return [...baseTargets, ...profileUiChromeTargets];
     const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);

@@ -38,7 +38,7 @@ const VISIBLE_SCAN_PARSE_TIMEOUT_MS = 450;
 const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1_200;
 const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
 const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
-const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 3;
+const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
 const ASB_SCAN_BATCH_LIMIT = 12;
 const ASB_SCAN_DRAIN_DELAY_MS = 80;
 interface VisibleScanParseOptions {
@@ -465,7 +465,7 @@ function visibleScanApplyBatchSize(settings: ReaderSettings): number {
 }
 
 function visibleScanParsePrefetchConcurrency(settings: ReaderSettings): number {
-    if (isYouTubeVisibleScanHost()) return YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH;
+    if (isYouTubeVisibleScanHost()) return hasRemoteParseApiKey(settings) ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : 1;
     return hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
 }
 

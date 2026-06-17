@@ -4059,6 +4059,35 @@ describe('reader helpers', () => {
         }
     });
 
+    it('can mount selection popovers without taking focus from page text', () => {
+        const app = new ReaderApp();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            popupMode: 'popover' as const,
+        };
+        const pageButton = document.createElement('button');
+        pageButton.textContent = '本文';
+        document.body.append(pageButton);
+        pageButton.focus();
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover'; focusOnMount?: boolean }): void;
+        };
+        internals.settings = settings;
+
+        try {
+            const popover = createReaderPopover('よむ', settings);
+            const focus = vi.spyOn(popover, 'focus');
+            internals.mountPopover(popover, undefined, { mode: 'modal', focusOnMount: false });
+
+            expect(focus).not.toHaveBeenCalled();
+            expect(document.activeElement).toBe(pageButton);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('mounts anchored popovers inside the active fullscreen player tree', () => {
         const descriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
         let fullscreenElement: Element | null = null;
@@ -6514,6 +6543,24 @@ describe('reader helpers', () => {
             expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 2], [2, 7]]);
             expect(tokens[2]?.card.fallbackLookupTerms).toContain('読む');
             expect(tokens.map(token => token.card.spelling)).not.toContain('した');
+        });
+    });
+
+    it('keeps single-kanji godan-s fallback verbs together before OCR lookup', async () => {
+        await withFakeSegmenter([
+            { segment: '騙', index: 0, isWordLike: true },
+            { segment: 'した', index: 1, isWordLike: true },
+            { segment: 'みたい', index: 3, isWordLike: true },
+            { segment: 'で', index: 6, isWordLike: true },
+            { segment: 'ごめん', index: 7, isWordLike: true },
+            { segment: 'ね', index: 10, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse(['騙したみたいでごめんね'], { allowSegmentedFallback: true });
+
+            expect(tokens.map(token => token.card.spelling)).toEqual(['騙した', 'みたい', 'で', 'ごめん', 'ね']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 3], [3, 6], [6, 7], [7, 10], [10, 11]]);
+            expect(tokens[0]?.card.fallbackLookupTerms).toContain('騙す');
+            expect(tokens.map(token => token.card.spelling)).not.toContain('騙');
         });
     });
 
@@ -18156,7 +18203,49 @@ describe('reader helpers', () => {
                 tokens,
                 '今日は静かです',
                 undefined,
-                expect.objectContaining({ source: 'selection' }),
+                expect.objectContaining({ source: 'selection', focusOnMount: false }),
+            );
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('marks exact selection card popovers to preserve page selection focus', async () => {
+        const app = new ReaderApp();
+        const sentence = '日本語';
+        const exactCard: JPDBCard = { ...card, vid: 603, sid: 603, spelling: '日本語', reading: 'にほんご', cardState: ['not-in-deck'], source: 'jpdb' };
+        const token: JPDBToken = {
+            card: exactCard,
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence,
+        };
+        const parse = vi.fn(async () => [[token]]);
+        const showCard = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean };
+            showCard: typeof showCard;
+            lookupText(text: string, sentence?: string, options?: { source?: 'lookup' | 'selection' }): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'api-key',
+        };
+        internals.parser = { parse, isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0 };
+        internals.showCard = showCard;
+
+        try {
+            await internals.lookupText('日本語', sentence, { source: 'selection' });
+
+            expect(showCard).toHaveBeenCalledWith(
+                exactCard,
+                sentence,
+                undefined,
+                expect.objectContaining({ focusOnMount: false }),
             );
         } finally {
             app.destroy();
@@ -18782,6 +18871,54 @@ describe('reader helpers', () => {
             expect(up.defaultPrevented).toBe(false);
             expect(buttonClick).toHaveBeenCalledTimes(1);
             expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('opens OCR words on touch pointerdown and consumes the synthetic click', () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <div class="jpdb-ocr-line">
+                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-sentence="日本語">日本語</span>
+            </div>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const pinLineForElement = vi.fn();
+        const destroyOcr = vi.fn();
+        const prepareModalLookupFromPointer = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
+            prepareModalLookupFromPointer: typeof prepareModalLookupFromPointer;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.ocr = { pinLineForElement, destroy: destroyOcr };
+        internals.prepareModalLookupFromPointer = prepareModalLookupFromPointer;
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            const down = createPointerEvent('pointerdown', { pointerType: 'touch', clientX: 24, clientY: 24, button: 0 });
+            word.dispatchEvent(down);
+
+            expect(down.defaultPrevented).toBe(true);
+            expect(pinLineForElement).toHaveBeenCalledWith(word);
+            expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(down);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenCalledTimes(1);
         } finally {
             app.destroy();
             document.body.replaceChildren();

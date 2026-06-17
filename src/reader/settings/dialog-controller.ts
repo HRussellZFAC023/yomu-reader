@@ -101,6 +101,10 @@ interface DictionaryStatusElements {
     recommended: HTMLElement | null;
 }
 
+function isSettingsCommandWord(word: HTMLElement): boolean {
+    return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
+}
+
 type RecommendedDictionary = (typeof RECOMMENDED_JAPANESE_DICTIONARIES)[number];
 type RecommendedDictionaryInstallState = 'queued' | 'installing';
 type ModalSiblingState = Array<{ element: HTMLElement; ariaHidden: string | null; inert: boolean }>;
@@ -917,8 +921,12 @@ export class SettingsDialogController {
         const target = event.target instanceof HTMLElement ? event.target : null;
         const word = target?.closest<HTMLElement>('[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word');
         if (!word || !this.dependencies.lookupText) return false;
-        if (!word.dataset.settingsPreviewLookup && word.dataset.jpdbReaderPassive === 'true') return false;
-        const expression = word.dataset.settingsPreviewLookup?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || '';
+        if (!word.dataset.settingsPreviewLookup && isSettingsCommandWord(word)) return false;
+        const expression = word.dataset.settingsPreviewLookup?.trim()
+            || word.dataset.expression?.trim()
+            || readerWordSurfaceText(word).trim()
+            || word.textContent?.trim()
+            || '';
         if (!expression) return false;
         event.preventDefault();
         event.stopPropagation();

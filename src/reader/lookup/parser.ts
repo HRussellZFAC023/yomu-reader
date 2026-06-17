@@ -32,6 +32,7 @@ const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first, 
 const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
 const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
 const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
 const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
 const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
 const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
@@ -995,8 +996,14 @@ function shouldKeepSuruAuxiliaryBoundary(
     const first = segments[startIndex]?.surface ?? '';
     if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
     const suffix = surface.slice(first.length);
-    return SURU_AUXILIARY_SUFFIX_RE.test(suffix)
-        && lookupTerms.some(term => term.endsWith('する'));
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
+    return lookupTerms.some(term => term.endsWith('する'));
+}
+
+function hasSingleKanjiGodanSAlternative(first: string, lookupTerms: string[]): boolean {
+    return SINGLE_KANJI_SEGMENT_RE.test(first)
+        && lookupTerms.some(term => term === `${first}す`);
 }
 
 function japaneseWordSegmenter(): IntlSegmenter | null {

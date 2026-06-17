@@ -45,12 +45,17 @@ export function canLookupReaderWordElement(word: HTMLElement): boolean {
 export function canHoverLookupReaderWordElement(word: HTMLElement, hasHoverLookupShortcut: boolean): boolean {
     if (isOcrLineFrameWord(word)) return false;
     if (word.closest('.jpdb-reader-popover')) return false;
+    if (isSettingsReaderWord(word)) return hasHoverLookupShortcut;
     if (isSettingsNativeControlWord(word)) return false;
     if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== 'true') return false;
     if (!word.closest('[data-jpdb-reader-root]')) return true;
     if (word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon')) return true;
     return hasHoverLookupShortcut
         && Boolean(word.closest('.jpdb-reader-newtab, .jpdb-reader-settings'));
+}
+
+function isSettingsReaderWord(word: HTMLElement): boolean {
+    return Boolean(word.closest('.jpdb-reader-settings'));
 }
 
 function isSettingsNativeControlWord(word: HTMLElement): boolean {

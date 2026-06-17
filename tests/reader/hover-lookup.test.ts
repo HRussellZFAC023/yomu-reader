@@ -549,6 +549,39 @@ describe('hover lookup', () => {
         }
     });
 
+    it('keeps an OCR hover card alive while moving over non-Japanese text in the same OCR line', () => {
+        const app = new ReaderApp();
+        const line = document.createElement('div');
+        line.className = 'jpdb-ocr-line jpdb-ocr-line-active';
+        line.dataset.ocrText = '黒猫 VS 白猫';
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.vid = '1';
+        word.dataset.sid = '2';
+        word.dataset.sentence = '黒猫 VS 白猫';
+        word.textContent = '黒猫';
+        const latin = document.createElement('span');
+        latin.textContent = ' VS ';
+        line.append(word, latin);
+        document.body.append(line);
+        const { popover } = appendActivePopoverBody();
+        const internals = app as unknown as HoverLookupInternals;
+        const restoreElementFromPoint = stubElementFromPoint(latin);
+
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnHover: true };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activeHoverWord = word;
+        internals.lastPointerPosition = { x: 40, y: 24 };
+
+        try {
+            expect(internals.isHoverContextActive({ ignoreCssHover: true })).toBe(true);
+        } finally {
+            restoreElementFromPoint();
+            cleanupReaderApp(app);
+        }
+    });
+
     it('hovers passive words inside button feedback overlays without stealing button clicks', () => {
         vi.stubGlobal('location', {
             href: 'https://example.com/',

@@ -11,7 +11,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { chromium } from 'playwright';
+import { chromium, firefox, webkit } from 'playwright';
 import { createYomuPaths } from './lib/paths.mjs';
 import { addGmStorageBridgeInitScript, gmRequestFetchBody } from './lib/smoke-harness.mjs';
 
@@ -28,6 +28,10 @@ const URL_ARG = process.argv[2] || 'https://viewer.bookwalker.jp/03/30/viewer.ht
 const PROFILE = process.env.YOMU_PROFILE || '';
 const HEADED = process.env.YOMU_HEADED === '1' || Boolean(PROFILE);
 const WAIT_MS = Number(process.env.YOMU_WAIT_MS) || 22000;
+const [VW, VH] = (process.env.YOMU_VIEWPORT || '1280x1600').split('x').map(Number);
+const VIEWPORT = { width: VW || 1280, height: VH || 1600 };
+const BROWSER = process.env.YOMU_BROWSER || 'chromium'; // chromium | firefox | webkit
+const ENGINES = { chromium, firefox, webkit };
 
 const SETTINGS = {
     onboardingSeen: true,
@@ -95,6 +99,32 @@ function probeDom() {
         canvasCount: canvases.length,
         canvases,
         pageCounter: document.querySelector('#pageSliderCounter')?.textContent?.trim() || null,
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        // Screen-layout inventory: every NFBR screen/viewport container, its class,
+        // and how many page-shaped (>=600) canvases it holds — reveals single vs
+        // double-page-spread structure and which container is .currentScreen.
+        screens: [...document.querySelectorAll('[id^="viewport"], [id$="Screen"], #renderer')].map(el => {
+            const r = el.getBoundingClientRect();
+            const pageCanvases = [...el.querySelectorAll('canvas')].filter(c => c.width >= 600 && c.height >= 600);
+            return {
+                id: el.id, cls: el.className,
+                currentScreen: el.classList.contains('currentScreen'),
+                rect: { w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.left) },
+                pageCanvasCount: pageCanvases.length,
+            };
+        }),
+        // Mirror of the shipped fix: page-shaped canvases the .currentScreen filter
+        // selects (anchored to the #viewport container), vs total page canvases.
+        totalPageCanvases: [...document.querySelectorAll('canvas')].filter(c => c.width >= 600 && c.height >= 600).length,
+        fixSelectedCanvases: (() => {
+            const page = [...document.querySelectorAll('canvas')].filter(c => c.width >= 600 && c.height >= 600);
+            if (page.length < 2) return page.length;
+            const onScreen = page.filter(c => {
+                const vp = c.closest('[id^="viewport"]');
+                return vp ? vp.classList.contains('currentScreen') : Boolean(c.closest('.currentScreen'));
+            });
+            return onScreen.length || page.length;
+        })(),
         iframes: [...document.querySelectorAll('iframe')].map(f => ({ src: f.src, w: f.clientWidth, h: f.clientHeight })),
         ocrCanvasFrames: document.querySelectorAll('.jpdb-ocr-canvas-frame').length,
         ocrBackgroundFrames: document.querySelectorAll('.jpdb-ocr-background-frame').length,
@@ -128,15 +158,21 @@ async function main() {
     const css = readFileSync(CSS_PATH, 'utf8');
     const companions = COMPANION_SCRIPT_PATHS.map(p => readFileSync(p, 'utf8'));
 
-    const launchOpts = { headless: !HEADED, channel: 'chrome', args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'] };
+    const engine = ENGINES[BROWSER] || chromium;
+    // channel:'chrome' + chromium flags are chromium-only; firefox/webkit use the
+    // bundled build. Persistent (signed) profile is only wired for chromium.
+    const launchOpts = BROWSER === 'chromium'
+        ? { headless: !HEADED, channel: 'chrome', args: ['--no-sandbox', '--disable-blink-features=AutomationControlled'] }
+        : { headless: !HEADED };
     const bridgeLog = [];
     let browser = null;
     let context;
-    if (PROFILE) {
-        context = await chromium.launchPersistentContext(PROFILE, { ...launchOpts, bypassCSP: true, viewport: { width: 1280, height: 1600 } });
+    console.log(`[probe] engine=${BROWSER} viewport=${VIEWPORT.width}x${VIEWPORT.height}`);
+    if (PROFILE && BROWSER === 'chromium') {
+        context = await chromium.launchPersistentContext(PROFILE, { ...launchOpts, bypassCSP: true, viewport: VIEWPORT });
     } else {
-        browser = await chromium.launch(launchOpts);
-        context = await browser.newContext({ bypassCSP: true, viewport: { width: 1280, height: 1600 } });
+        browser = await engine.launch(launchOpts);
+        context = await browser.newContext({ bypassCSP: true, viewport: VIEWPORT });
     }
 
     // GM_xmlhttpRequest -> real node fetch (so live Google Lens OCR works).
@@ -161,13 +197,16 @@ async function main() {
     for (const lib of companions) await context.addInitScript({ content: lib });
     await context.addInitScript({ content: userscript });
 
-    const page = (PROFILE && context.pages()[0]) ? context.pages()[0] : await context.newPage();
+    let page = (PROFILE && context.pages()[0]) ? context.pages()[0] : await context.newPage();
     const consoleMsgs = [];
-    page.on('console', m => {
-        const t = m.text();
-        if (['error', 'warning'].includes(m.type()) || /ocr|lens|recogni|canvas/i.test(t)) consoleMsgs.push(`${m.type()}: ${t}`.slice(0, 400));
-    });
-    page.on('pageerror', e => consoleMsgs.push(`pageerror: ${String(e).slice(0, 300)}`));
+    const attachListeners = p => {
+        p.on('console', m => {
+            const t = m.text();
+            if (['error', 'warning'].includes(m.type()) || /ocr|lens|recogni|canvas/i.test(t)) consoleMsgs.push(`${m.type()}: ${t}`.slice(0, 400));
+        });
+        p.on('pageerror', e => consoleMsgs.push(`pageerror: ${String(e).slice(0, 300)}`));
+    };
+    attachListeners(page);
 
     console.log(`[probe] navigating ${URL_ARG} (headed=${HEADED}, profile=${PROFILE || 'none'})`);
     try {
@@ -175,20 +214,93 @@ async function main() {
     } catch (e) {
         console.log('[probe] goto warning:', String(e).split('\n')[0]);
     }
+
+    // If we landed on a BookWalker product/store page (not viewer.html), open the
+    // full viewer via its free "試し読み" control so we get a real viewer session
+    // (deep-linking viewer.html for a purchased book 401s; the product flow doesn't).
+    const isViewer = u => /viewer(-trial)?\.bookwalker\.jp\/.*viewer\.html/.test(u || '');
+    if (!isViewer(page.url())) {
+        await page.waitForTimeout(4000);
+        const popupPromise = context.waitForEvent('page', { timeout: 25000 }).catch(() => null);
+        const clicked = await page.evaluate(() => {
+            const re = /(試し読み|ためし|立ち読み|無料で読む|無料で試す|今すぐ読む|read|trial)/i;
+            const els = [...document.querySelectorAll('a, button, [role="button"]')];
+            const hit = els.find(e => re.test((e.textContent || '').trim()) || /viewer/i.test(e.getAttribute?.('href') || ''))
+                || els.find(e => /viewer-trial|viewer\.bookwalker/i.test(e.getAttribute?.('href') || ''));
+            if (!hit) return null;
+            hit.scrollIntoView({ block: 'center' });
+            hit.click();
+            return ((hit.textContent || '').trim() || hit.getAttribute('href') || '').slice(0, 80);
+        }).catch(() => null);
+        console.log('[probe] product page; clicked trial control:', clicked);
+        const popup = await popupPromise;
+        if (popup) {
+            page = popup;
+            attachListeners(page);
+            await page.waitForLoadState('commit').catch(() => {});
+            console.log('[probe] switched to viewer tab:', page.url());
+        } else {
+            await page.waitForTimeout(3000);
+            console.log('[probe] no popup; current url:', page.url());
+        }
+    }
+    // page.evaluate has no built-in timeout; a frozen/again page context (seen in
+    // headless Firefox on this viewer) hangs it forever. Race every poll evaluate.
+    const evalSafe = (fn, fb, ms = 8000) => Promise.race([
+        page.evaluate(fn).catch(() => fb),
+        new Promise(resolve => setTimeout(() => resolve(fb), ms)),
+    ]);
+
+    // Optionally advance pages (RTL manga: Left = next) to reach a 2-page story
+    // spread, so we can verify the on-screen canvas captures both pages.
+    const advance = Number(process.env.YOMU_ADVANCE) || 0;
+    if (advance > 0) {
+        // Wait for the viewer to be interactive first.
+        const vdl = Date.now() + 20000;
+        while (Date.now() < vdl) {
+            const ok = await evalSafe(() => Boolean(document.querySelector("#pageSliderCounter")), false);
+            if (ok) break;
+            await page.waitForTimeout(1000);
+        }
+        for (let n = 0; n < advance; n++) {
+            await page.keyboard.press('ArrowLeft').catch(() => {});
+            await page.waitForTimeout(1400);
+        }
+        console.log(`[probe] advanced ${advance} pages; counter now`, await page.evaluate(() => document.querySelector('#pageSliderCounter')?.textContent?.trim() || '?').catch(() => '?'));
+    }
     // Poll for the viewer to paint a page canvas, then settle so the reader can
     // poll a few cycles + OCR. Never block forever.
     const deadline = Date.now() + WAIT_MS;
     while (Date.now() < deadline) {
-        const ready = await page.evaluate(() => document.querySelectorAll('canvas').length > 0 || Boolean(document.querySelector('#pageSliderCounter'))).catch(() => false);
+        const ready = await evalSafe(() => document.querySelectorAll("canvas").length > 0 || Boolean(document.querySelector("#pageSliderCounter")), false);
         if (ready) break;
         await page.waitForTimeout(1000);
     }
-    // Wait until a Lens OCR request has come back, then settle for render.
-    const lensDeadline = Date.now() + WAIT_MS;
-    while (Date.now() < lensDeadline && bridgeLog.filter(b => /crupload|lens/i.test(b.url)).length === 0) {
-        await page.waitForTimeout(1000);
+    // Wait until OCR words actually render into the overlay (deterministic), not a
+    // fixed sleep — the viewer's boot buffer-swaps make first-render time variable.
+    let firstWordMs = -1;
+    const statusSamples = [];
+    const renderStart = Date.now();
+    const renderDeadline = renderStart + WAIT_MS + 25000;
+    while (Date.now() < renderDeadline) {
+        const tick = await page.evaluate(() => {
+            const cards = [...document.querySelectorAll('[class*="jpdb-ocr-video-frame-status"]')].map(el => {
+                const r = el.getBoundingClientRect();
+                const cs = getComputedStyle(el);
+                return {
+                    cls: el.className, status: el.dataset.status || '', hidden: el.hidden,
+                    rect: { w: Math.round(r.width), h: Math.round(r.height), x: Math.round(r.left), y: Math.round(r.top) },
+                    display: cs.display, visibility: cs.visibility, opacity: cs.opacity,
+                };
+            });
+            return { words: document.querySelectorAll('.jpdb-ocr-layer .jpdb-reader-word').length, cards };
+        }).catch(() => ({ words: 0, cards: [] }));
+        if (tick.cards.length) statusSamples.push({ t: Date.now() - renderStart, cards: tick.cards });
+        if (tick.words > 0) { firstWordMs = Date.now() - renderStart; break; }
+        await page.waitForTimeout(300);
     }
-    await page.waitForTimeout(10000);
+    // Let enrichment/positioning settle once words exist.
+    await page.waitForTimeout(3000);
 
     const report = await Promise.race([
         page.evaluate(probeDom),
@@ -223,6 +335,9 @@ async function main() {
     } catch (e) {
         report.interaction.error = String(e).split('\n')[0];
     }
+    report.firstWordMs = firstWordMs;
+    report.statusSamples = statusSamples.slice(0, 24);
+    report.sawSpinner = statusSamples.some(s => s.cards.some(c => /loading/.test(c.cls) && !c.hidden && c.visibility === 'visible' && c.opacity !== '0' && c.rect.w > 0));
     report.consoleMsgs = consoleMsgs.slice(0, 40);
     report.bridgeLog = bridgeLog.slice(0, 40);
     report.lensRequests = bridgeLog.filter(b => /lens\.google|google\.com\/.*lens|crupload/i.test(b.url)).length;

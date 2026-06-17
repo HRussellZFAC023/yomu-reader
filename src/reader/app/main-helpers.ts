@@ -10,7 +10,7 @@ import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigati
 import type { RtkInfo } from '../kanji/rtk';
 import { matchesShortcut } from '../settings/index';
 import { openUrlInNewTab } from '../ui/browser';
-import { collectSiteScanTargets } from './site-parsers';
+import { collectSiteScanTargets, isBookWalkerStorefrontPage } from './site-parsers';
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from './types';
 import type { YomitanKanjiEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -153,7 +153,7 @@ export function hasVisibleSiteScanTargets(): boolean {
 }
 
 export function allowsGenericVisibleAutoScan(): boolean {
-    return !isYouTubeHostForAutoScan();
+    return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage();
 }
 
 export function allowsFrequentVisibleAutoScan(): boolean {
@@ -306,6 +306,7 @@ export interface CardDisplayOptions {
     trigger?: 'modal' | 'hover';
     navigation?: CardNavigationMode;
     preservePosition?: boolean;
+    focusOnMount?: boolean;
     previousNavigationEntry?: PopupNavigationEntry;
     hoverLookupKey?: string;
     hoverLookupGeneration?: number;
@@ -355,6 +356,7 @@ export interface RenderedWordLookupOptions {
 export interface TextLookupOptions {
     navigation?: CardNavigationMode;
     preservePosition?: boolean;
+    focusOnMount?: boolean;
     previousNavigationEntry?: PopupNavigationEntry;
     anchor?: HTMLElement;
     insideReaderPopup?: boolean;
@@ -373,6 +375,7 @@ export interface TextLookupDisplayContext {
     trigger: 'modal' | 'hover';
     navigation: CardNavigationMode;
     preservePosition: boolean;
+    focusOnMount: boolean;
     previousNavigationEntry?: PopupNavigationEntry;
     insideReaderPopup?: boolean;
     userGesture?: boolean;
@@ -382,7 +385,7 @@ export interface TextLookupDisplayContext {
 }
 
 export type TokenListSource = 'lookup' | 'selection';
-export type TokenListOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'stackOverSettings'> & {
+export type TokenListOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'focusOnMount' | 'previousNavigationEntry' | 'stackOverSettings'> & {
     source?: TokenListSource;
 };
 
@@ -418,6 +421,7 @@ export interface MountedCardShell {
 export interface MountPopoverOptions {
     mode?: 'modal' | 'hover';
     preservePosition?: boolean;
+    focusOnMount?: boolean;
     hoverLookupKey?: string;
     pointerTextLookup?: ActivePointerTextLookup;
     stackOverSettings?: boolean;

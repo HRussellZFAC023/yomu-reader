@@ -9806,6 +9806,9 @@ recommendedJiten	jiten.moe頻度データです。
     return Number.isFinite(number) ? Math.max(min, Math.min(max, number)) : min;
   }
   Logger.scope("Yomitan");
+  function isSettingsCommandWord(word) {
+    return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
+  }
   const log = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
@@ -10502,8 +10505,8 @@ recommendedJiten	jiten.moe頻度データです。
       const target = event.target instanceof HTMLElement ? event.target : null;
       const word = target?.closest("[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word");
       if (!word || !this.dependencies.lookupText) return false;
-      if (!word.dataset.settingsPreviewLookup && word.dataset.jpdbReaderPassive === "true") return false;
-      const expression = word.dataset.settingsPreviewLookup?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
+      if (!word.dataset.settingsPreviewLookup && isSettingsCommandWord(word)) return false;
+      const expression = word.dataset.settingsPreviewLookup?.trim() || word.dataset.expression?.trim() || readerWordSurfaceText(word).trim() || word.textContent?.trim() || "";
       if (!expression) return false;
       event.preventDefault();
       event.stopPropagation();

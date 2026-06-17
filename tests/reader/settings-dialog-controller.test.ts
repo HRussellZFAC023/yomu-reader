@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
-import { SettingsDialogController } from '../../src/reader/settings/dialog-controller';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import type { SettingsDialogController as SettingsDialogControllerInstance } from '../../src/reader/settings/dialog-controller';
 
 // These tests assert English UI copy; pin the interface language since the
 // shipped default is now 'ja'.
@@ -11,6 +11,14 @@ const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTING
 import type { AnkiFieldSuggestion, AnkiLibraryScanResult } from '../../src/reader/anki/types';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import type { ImportSummary } from '../../src/reader/dictionaries/yomitan';
+
+vi.mock('../../src/reader/anki/transport', async importOriginal => {
+    const actual = await importOriginal<typeof import('../../src/reader/anki/transport')>();
+    return {
+        ...actual,
+        diagnoseAnkiConnectFailure: vi.fn(async () => 'unreachable' as const),
+    };
+});
 
 vi.mock('../../src/reader/settings/form', async importOriginal => {
     const actual = await importOriginal<typeof import('../../src/reader/settings/form')>();
@@ -24,7 +32,12 @@ vi.mock('../../src/reader/settings/form', async importOriginal => {
     };
 });
 
-type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogController;
+// tests/reader/setup imports build companions, which pulls in the controller
+// before this file's mocks. Reload it here so the form seams above are active.
+vi.resetModules();
+const { SettingsDialogController } = await import('../../src/reader/settings/dialog-controller');
+
+type SettingsDialogControllerConstructor = new (dependencies: Record<string, unknown>) => SettingsDialogControllerInstance;
 type RefreshableSettingsDialogController = {
     refreshDeckControls: (form: HTMLFormElement) => Promise<void>;
     refreshDictionaryStatus: (form: HTMLFormElement) => Promise<void>;
@@ -32,7 +45,7 @@ type RefreshableSettingsDialogController = {
 
 function createSettingsDialog(overrides: Record<string, unknown> = {}): {
     dependencies: Record<string, any>;
-    controller: SettingsDialogController;
+    controller: SettingsDialogControllerInstance;
     dismiss: ReturnType<typeof vi.fn>;
     form: HTMLFormElement;
 } {
@@ -453,6 +466,26 @@ describe('settings dialog keyboard dismissal', () => {
         preview.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
         expect(lookupText).toHaveBeenCalledWith('読む', '読む', preview);
+    });
+
+    it('opens lookup for passive parsed settings copy without falling through to selection lookup', () => {
+        const lookupText = vi.fn();
+        const { form } = createSettingsDialog({ lookupText });
+        const help = document.createElement('div');
+        help.className = 'jpdb-reader-help';
+        help.innerHTML = '<span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-expression="開ける" data-sentence="リーダーツールをここから開けます。">開けます</span>';
+        form.append(help);
+        const word = help.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(word);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+
+        word.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+        expect(lookupText).toHaveBeenCalledWith('開ける', 'リーダーツールをここから開けます。', word);
+        expect(window.getSelection()?.toString()).toBe('開けます');
     });
 
     it('publishes and consumes shared theme changes', () => {

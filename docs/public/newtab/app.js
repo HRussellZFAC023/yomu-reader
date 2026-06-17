@@ -3547,6 +3547,13 @@
     "UL"
   ]);
   const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
+  const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
+    "yt-formatted-string",
+    "yt-attributed-string",
+    ".ytAttributedStringHost",
+    ".yt-core-attributed-string",
+    ".yt-core-attributed-string--white-space-pre-wrap"
+  ].join(",");
   const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
     READER_TEXT_MIRROR_SELECTOR,
     "script",
@@ -3597,7 +3604,7 @@
     if (!isCollectableFragmentText(text2, trimmedFragments, options)) return null;
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
-    if (!options.includeReaderRoot && isShortCenteredDisplayHeading(parent, text2)) return null;
+    if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
     return {
       text: text2,
       parent,
@@ -3681,7 +3688,7 @@
     return isReaderRenderedTextBlock(element);
   }
   function shouldSkipFragmentHeading(element, text2, options) {
-    return Boolean(!options.heading && text2 && isShortCenteredDisplayHeading(element, text2));
+    return Boolean(!options.heading && !options.allowShortCenteredHeadings && text2 && isShortCenteredDisplayHeading(element, text2));
   }
   function shouldSkipFragmentUiText(element, text2, options) {
     return Boolean(!options.allowUiText && text2 && isFragileUiText(element, text2));
@@ -3933,8 +3940,8 @@
     const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
-      const state = textMirrorHosts.get(host);
-      if (state) reassertTextMirrorHostStyles(host, state);
+      const state2 = textMirrorHosts.get(host);
+      if (state2) reassertTextMirrorHostStyles(host, state2);
       return;
     }
     removeTextMirror(host);
@@ -3944,16 +3951,26 @@
     mirror.dataset.jpdbReaderTextMirror = "true";
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
-    styleTextMirrorHost(host);
-    styleTextMirror(mirror, host);
-    mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
-      parent: host,
-      hasNativeRuby: targetHasNativeRuby(target),
-      suppressRuby,
-      passiveInteraction: target.passiveInteraction || suppressRuby
-    }));
-    host.append(mirror);
-    observeTextMirrorHost(host, text2);
+    const state = styleTextMirrorHost(host);
+    try {
+      styleTextMirror(mirror, host);
+      mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
+        parent: host,
+        hasNativeRuby: targetHasNativeRuby(target),
+        suppressRuby,
+        passiveInteraction: target.passiveInteraction || suppressRuby
+      }));
+      if (!mirror.textContent?.trim()) {
+        removeTextMirror(host);
+        return;
+      }
+      host.append(mirror);
+      hideTextMirrorHost(host, state);
+      observeTextMirrorHost(host, text2);
+    } catch (error) {
+      removeTextMirror(host);
+      throw error;
+    }
   }
   function currentTextMirror(host) {
     return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
@@ -3983,7 +4000,13 @@
   function nonDestructiveScanHost(target) {
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
-    return commonFragmentTextHost(parents) ?? target.parent;
+    return preferredNonDestructiveTextHost(parents) ?? commonFragmentTextHost(parents) ?? target.parent;
+  }
+  function preferredNonDestructiveTextHost(elements) {
+    if (!elements.length) return null;
+    const preferred = elements[0]?.closest(NON_DESTRUCTIVE_TEXT_HOST_SELECTOR);
+    if (!preferred || !elements.every((element) => preferred.contains(element))) return null;
+    return preferred;
   }
   function commonFragmentTextHost(elements) {
     if (!elements.length) return null;
@@ -4013,6 +4036,12 @@
       displayAdjusted: computed.display === "inline"
     };
     textMirrorHosts.set(host, state);
+    if (state.positioned) host.style.setProperty("position", "relative", "important");
+    if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
+    return state;
+  }
+  function hideTextMirrorHost(host, state) {
+    textMirrorHosts.set(host, state);
     host.style.setProperty("visibility", "hidden", "important");
     if (state.positioned) host.style.setProperty("position", "relative", "important");
     if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
@@ -4041,6 +4070,10 @@
     state.sourceText = normalizedMirrorHostText(sourceText);
     state.observer = new MutationObserver((mutations) => {
       if (mutations.every(mutationInsideTextMirror)) return;
+      if (!currentTextMirror(host)) {
+        removeTextMirror(host);
+        return;
+      }
       const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
       if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
         removeTextMirror(host);
@@ -4087,6 +4120,10 @@
     textMirrorHosts.delete(host);
   }
   function reassertTextMirrorHostStyles(host, state) {
+    if (!currentTextMirror(host)) {
+      removeTextMirror(host);
+      return;
+    }
     if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
@@ -27555,6 +27592,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function dateStamp() {
     return (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-");
   }
+  function isSettingsCommandWord(word) {
+    return Boolean(word.closest('a[href],button,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[data-action]'));
+  }
   const log$o = Logger.scope("SettingsDialog");
   const JPDB_SETTINGS_URL = "https://jpdb.io/settings";
   const JITEN_SETTINGS_URL = "https://jiten.moe/settings";
@@ -28251,8 +28291,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const target = event.target instanceof HTMLElement ? event.target : null;
       const word = target?.closest("[data-settings-preview-lookup], .jpdb-reader-settings .jpdb-reader-word");
       if (!word || !this.dependencies.lookupText) return false;
-      if (!word.dataset.settingsPreviewLookup && word.dataset.jpdbReaderPassive === "true") return false;
-      const expression = word.dataset.settingsPreviewLookup?.trim() || readerWordSurfaceText$1(word).trim() || word.textContent?.trim() || "";
+      if (!word.dataset.settingsPreviewLookup && isSettingsCommandWord(word)) return false;
+      const expression = word.dataset.settingsPreviewLookup?.trim() || word.dataset.expression?.trim() || readerWordSurfaceText$1(word).trim() || word.textContent?.trim() || "";
       if (!expression) return false;
       event.preventDefault();
       event.stopPropagation();
@@ -29589,6 +29629,37 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return void 0;
     }
   }
+  function isCanvasReadable(canvas) {
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return false;
+    try {
+      context.getImageData(0, 0, 1, 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const READER_PAGE_IMAGE_PATTERNS = [
+    /\/item\/xhtml\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i,
+    // SpeedBinB / NFBR page tile
+    /\/(?:page|img|image|content)s?\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i
+  ];
+  const READER_PAGE_IMAGE_EXCLUDE = /(?:icon|logo|avatar|banner|thumb(?:nail)?|sprite|favicon|cover|ad[\b_-])/i;
+  function readerCanvasSourceImageUrl() {
+    let entries;
+    try {
+      entries = performance.getEntriesByType("resource");
+    } catch {
+      return void 0;
+    }
+    const urls = entries.map((entry) => entry.name).filter((url) => typeof url === "string" && !READER_PAGE_IMAGE_EXCLUDE.test(url));
+    for (const pattern of READER_PAGE_IMAGE_PATTERNS) {
+      for (let index = urls.length - 1; index >= 0; index--) {
+        if (pattern.test(urls[index])) return urls[index];
+      }
+    }
+    return void 0;
+  }
   function positionCanvasFrameImage(frame, rect) {
     frame.style.left = `${rect.left}px`;
     frame.style.top = `${rect.top}px`;
@@ -30759,6 +30830,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
@@ -31479,7 +31551,12 @@ ${spelling}`);
     const first2 = segments[startIndex]?.surface ?? "";
     if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
     const suffix = surface.slice(first2.length);
-    return SURU_AUXILIARY_SUFFIX_RE.test(suffix) && lookupTerms.some((term) => term.endsWith("する"));
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
+    return lookupTerms.some((term) => term.endsWith("する"));
+  }
+  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
+    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
   }
   function japaneseWordSegmenter() {
     const Segmenter = intlSegmenter();
@@ -32493,9 +32570,14 @@ ${spelling}`);
       const rect = canvas.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
       if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
-      if (!looksLikeRenderedCanvasImage(canvas)) return;
-      const dataUrl = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-      if (!dataUrl) return;
+      let frameSrc;
+      if (isCanvasReadable(canvas)) {
+        if (!looksLikeRenderedCanvasImage(canvas)) return;
+        frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+      } else {
+        frameSrc = readerCanvasSourceImageUrl();
+      }
+      if (!frameSrc) return;
       const frame = document.createElement("img");
       frame.className = "jpdb-ocr-canvas-frame";
       frame.dataset.yomuCanvasFrame = "true";
@@ -32504,7 +32586,7 @@ ${spelling}`);
       frame.addEventListener("load", () => {
         if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
       }, { once: true });
-      frame.src = dataUrl;
+      frame.src = frameSrc;
       document.body.append(frame);
       this.canvasFrames.set(canvas, frame);
       this.canvasFrameSources.set(frame, canvas);

@@ -97,7 +97,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('prefetches parse batches for large YouTube-owned comment DOM', async () => {
+    it('scans large no-key YouTube comment DOM sequentially to avoid live-page contention', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=abc123',
@@ -113,15 +113,64 @@ describe('VisiblePageScanner', () => {
                 `).join('')}
             </ytd-comments>
         `;
-        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        const firstBatch = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn((paragraphs: string[]): Promise<JPDBToken[][]> => {
+            if (parseJapanese.mock.calls.length === 1) return firstBatch.promise;
+            return Promise.resolve(paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        });
         const scanner = createVisiblePageScanner({ parseJapanese });
 
         try {
-            await scanner.scanVisiblePage({ silent: true });
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(1));
+            await new Promise(resolve => setTimeout(resolve, 20));
+            expect(parseJapanese).toHaveBeenCalledTimes(1);
 
-            await vi.waitFor(() => expect(parseJapanese.mock.calls.length).toBeGreaterThan(1));
+            firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
+            await scan;
+            expect(parseJapanese.mock.calls.length).toBeGreaterThan(1);
             expect(document.querySelector('ytd-comments .jpdb-reader-word')).not.toBeNull();
             expect(document.querySelector('yt-attributed-string')?.textContent).toContain('日本語コメント0です');
+        } finally {
+            scanner.destroy();
+            vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('prefetches keyed parse batches for large YouTube-owned comment DOM', async () => {
+        const restoreRects = mockVisibleElementRects();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <ytd-comments>
+                ${Array.from({ length: 170 }, (_, index) => `
+                    <ytd-comment-view-model>
+                        <yt-attributed-string id="content-text">日本語コメント${index}です。${'長いコメント本文です。'.repeat(25)}</yt-attributed-string>
+                    </ytd-comment-view-model>
+                `).join('')}
+            </ytd-comments>
+        `;
+        const firstBatch = deferred<JPDBToken[][]>();
+        const parseJapanese = vi.fn((paragraphs: string[]): Promise<JPDBToken[][]> => {
+            if (parseJapanese.mock.calls.length === 1) return firstBatch.promise;
+            return Promise.resolve(paragraphs.map(text => [testToken(text, text, 0, text.length)]));
+        });
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'mock-jpdb-token' }),
+            parseJapanese,
+        });
+
+        try {
+            const scan = scanner.scanVisiblePage({ silent: true });
+            await vi.waitFor(() => expect(parseJapanese).toHaveBeenCalledTimes(2));
+
+            firstBatch.resolve((parseJapanese.mock.calls[0]?.[0] ?? []).map(text => [testToken(text, text, 0, text.length)]));
+            await scan;
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -155,6 +204,60 @@ describe('VisiblePageScanner', () => {
             await scan;
         } finally {
             scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('enhances Bloomee styled landing-page headings and lower visible copy', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://bloomeelife.com/') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <header>
+                <nav><a href="/users/sign_up">新規登録</a><a href="/contacts/question">よくある質問</a></nav>
+            </header>
+            <main class="js-main">
+                <section class="point">
+                    <div class="point__itembox">
+                        <h2 class="point__itembox-headline" style="text-align:center;font-size:22px;line-height:1.1">
+                            <span>point3</span>
+                            季節のお花を、かんたんに飾れる
+                        </h2>
+                        <p class="point__itembox-txt">食卓やリビングなど、おうちのちょっとしたところに飾れる。</p>
+                    </div>
+                </section>
+                <div class="ctaarea">
+                    <p class="amazon-pay-copy">amazon pay ご利用いただけます</p>
+                </div>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForBloomeeLandingText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('季節のお花を、かんたんに飾れる'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('ご利用いただけます'))).toBe(true);
+
+            const heading = document.querySelector<HTMLElement>('.point__itembox-headline')!;
+            expect(heading.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="季節"]')?.querySelector('rt')?.textContent).toBe('きせつ');
+            expect(heading.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="お花"]')?.querySelector('rt')?.textContent).toBe('はな');
+            expect(document.querySelector<HTMLElement>('.ctaarea .jpdb-reader-word[data-expression="利用"]')?.querySelector('rt')?.textContent).toBe('りよう');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
             restoreRects();
             document.body.innerHTML = '';
         }
@@ -1683,6 +1786,24 @@ function rubyToken(sentence: string, spelling: string, reading: string, start: n
 
 function readingForText(text: string): string {
     return text === '青空' ? 'あおぞら' : 'にほんご';
+}
+
+function tokensForBloomeeLandingText(text: string): JPDBToken[] {
+    const targets = [
+        ['季節', 'きせつ'],
+        ['お花', 'おはな'],
+        ['飾れる', 'かざれる'],
+        ['利用', 'りよう'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
 }
 
 function tokensForHostedDocsText(text: string): JPDBToken[] {

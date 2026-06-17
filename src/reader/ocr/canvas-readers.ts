@@ -112,7 +112,8 @@ function isViewportProminent(element: Element): boolean {
 // spread across several bands (manga is high-contrast B&W with screentone/anti-
 // aliasing greys; colour pages span many bands too). Flat UI/solid canvases and
 // near-blank buffers fail the contrast/bucket test; WebGL/vector canvases tend to
-// as well; tainted canvases throw on read and are rejected (un-OCR-able anyway).
+// as well; tainted canvases throw on read and are rejected here — the controller
+// then OCRs the page's source image instead (see readerCanvasSourceImageUrl).
 export function looksLikeRenderedCanvasImage(canvas: HTMLCanvasElement): boolean {
     try {
         const sample = document.createElement('canvas');
@@ -156,10 +157,14 @@ function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[]
 
 // BookWalker's NFBR viewer keeps the previous/next page painted in an off-screen
 // sibling buffer at the same screen rect as the visible page. When the on-screen
-// buffer is identifiable (its container has `.currentScreen`), restrict OCR to it
-// so the off-screen buffer never costs a Lens call or stacks a stale overlay over
-// the current page. Falls back to all candidates (e.g. the cover, painted before
-// any buffer is marked current) so a page is never dropped.
+// buffer is identifiable (its #viewportN container carries `.currentScreen`),
+// restrict OCR to it so the off-screen buffer never costs a Lens call or stacks a
+// stale overlay over the current page. We anchor the match to the page's own
+// #viewport container (not any ancestor) so a shared ancestor that ever gained
+// `.currentScreen` (e.g. #renderer) could not select BOTH buffers; only when a
+// canvas has no #viewport container do we fall back to a generic ancestor match.
+// Falls back to all candidates (e.g. the cover, painted before any buffer is
+// marked current) so a page is never dropped.
 function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement[] {
     if (canvases.length < 2) return canvases;
     const current = canvases.filter(isOnScreenViewportCanvas);
@@ -271,6 +276,54 @@ export function captureCanvasDataUrl(canvas: HTMLCanvasElement, maxPixels: numbe
         // Tainted canvas (cross-origin DRM drawn without CORS) — skip silently.
         return undefined;
     }
+}
+
+// True when a 2D canvas's pixels can actually be read. A canvas drawn from a
+// cross-origin image without CORS is "tainted": getImageData/toDataURL throw
+// "The operation is insecure." Firefox & WebKit (incl. iPad Safari) taint the
+// BookWalker page canvas this way — Chrome happens not to — so reads fail there
+// and the OCR snapshot silently bailed. We probe readability so the controller
+// can fall back to OCR'ing the page's source image instead (see below).
+export function isCanvasReadable(canvas: HTMLCanvasElement): boolean {
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return false;
+    try {
+        context.getImageData(0, 0, 1, 1);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+// The cross-origin page image a canvas reader composited is reachable by
+// GM_xmlhttpRequest even when the canvas itself is tainted and the CDN sends no
+// CORS headers. When a reader canvas can't be read, we OCR that source image
+// instead. This finds the most recent page image the viewer fetched — preferring
+// the SpeedBinB/NFBR per-page tile URL (BookWalker, BookLive, ebookjapan, …),
+// then any large content image — so it generalises beyond one host.
+const READER_PAGE_IMAGE_PATTERNS: RegExp[] = [
+    /\/item\/xhtml\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i, // SpeedBinB / NFBR page tile
+    /\/(?:page|img|image|content)s?\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i,
+];
+const READER_PAGE_IMAGE_EXCLUDE = /(?:icon|logo|avatar|banner|thumb(?:nail)?|sprite|favicon|cover|ad[\b_-])/i;
+
+export function readerCanvasSourceImageUrl(): string | undefined {
+    let entries: PerformanceEntry[];
+    try {
+        entries = performance.getEntriesByType('resource');
+    } catch {
+        return undefined;
+    }
+    const urls = entries
+        .map(entry => (entry as PerformanceResourceTiming).name)
+        .filter(url => typeof url === 'string' && !READER_PAGE_IMAGE_EXCLUDE.test(url));
+    for (const pattern of READER_PAGE_IMAGE_PATTERNS) {
+        // Most recent match wins: navigating to a page loads its image last.
+        for (let index = urls.length - 1; index >= 0; index--) {
+            if (pattern.test(urls[index])) return urls[index];
+        }
+    }
+    return undefined;
 }
 
 export function positionCanvasFrameImage(frame: HTMLImageElement, rect: DOMRect): void {

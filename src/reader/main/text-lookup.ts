@@ -17,7 +17,7 @@ import type { JPDBCard, JPDBToken } from '../app/types';
 import { renderedWordLookupText } from './rendered-word-lookup';
 
 type TextLookupTrigger = 'modal' | 'hover';
-type TextLookupCardOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'previousNavigationEntry' | 'insideReaderPopup' | 'userGesture' | 'hoverLookupGeneration' | 'stackOverSettings'>;
+type TextLookupCardOptions = Pick<CardDisplayOptions, 'trigger' | 'navigation' | 'preservePosition' | 'focusOnMount' | 'previousNavigationEntry' | 'insideReaderPopup' | 'userGesture' | 'hoverLookupGeneration' | 'stackOverSettings'>;
 
 export interface TextLookupDisplayState {
     activePopoverAnchor?: HTMLElement;
@@ -62,6 +62,7 @@ export function createTextLookupDisplayContext(
         trigger,
         navigation,
         preservePosition: options.preservePosition ?? textLookupPreservePosition(navigation, state),
+        focusOnMount: options.focusOnMount ?? textLookupFocusOnMount(options.source),
         previousNavigationEntry: options.previousNavigationEntry ?? state.previousNavigationEntry(trigger, navigation),
         insideReaderPopup: options.insideReaderPopup,
         userGesture: options.userGesture,
@@ -147,6 +148,7 @@ export function textLookupCardOptions(context: TextLookupDisplayContext): TextLo
         trigger: context.trigger,
         navigation: context.navigation,
         preservePosition: context.preservePosition,
+        focusOnMount: context.focusOnMount,
         previousNavigationEntry: context.previousNavigationEntry,
         insideReaderPopup: context.insideReaderPopup,
         userGesture: context.userGesture,
@@ -164,6 +166,10 @@ function textLookupTokenListOptions(context: TextLookupDisplayContext): TokenLis
 
 function textLookupPreservePosition(navigation: CardNavigationMode, state: TextLookupDisplayState): boolean {
     return navigation !== 'reset' && state.hasActivePopover;
+}
+
+function textLookupFocusOnMount(source: TextLookupOptions['source']): boolean {
+    return source !== 'selection';
 }
 
 function selectionLookupRenderedWords(selection: Selection, words: HTMLElement[]): HTMLElement[] {

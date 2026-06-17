@@ -7,9 +7,11 @@ import {
     captureCanvasDataUrl,
     collectBackgroundImageReaderSurfaces,
     collectCanvasReaderSurfaces,
+    isCanvasReadable,
     isReaderRasterPage,
     looksLikeRenderedCanvasImage,
     positionCanvasFrameImage,
+    readerCanvasSourceImageUrl,
 } from './canvas-readers';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
@@ -1226,9 +1228,19 @@ export class ImageOcrController {
         // Prefetch a sliding window of upcoming pages (canvasPrefetchMargin), but
         // never spend an OCR call on a page the reader hasn't painted yet.
         if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
-        if (!looksLikeRenderedCanvasImage(canvas)) return;
-        const dataUrl = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-        if (!dataUrl) return;
+        // A readable canvas is snapshotted directly. A TAINTED one (cross-origin
+        // page image drawn without CORS — Firefox/WebKit/iPad on BookWalker, where
+        // Chrome happens not to taint) can't be read, so OCR the page's source
+        // image instead: the OCR pipeline GM-fetches a frame's src, which bypasses
+        // the taint + missing CORS. Blank readable canvases are still skipped.
+        let frameSrc: string | undefined;
+        if (isCanvasReadable(canvas)) {
+            if (!looksLikeRenderedCanvasImage(canvas)) return;
+            frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+        } else {
+            frameSrc = readerCanvasSourceImageUrl();
+        }
+        if (!frameSrc) return;
         const frame = document.createElement('img');
         frame.className = 'jpdb-ocr-canvas-frame';
         frame.dataset.yomuCanvasFrame = 'true';
@@ -1237,7 +1249,7 @@ export class ImageOcrController {
         frame.addEventListener('load', () => {
             if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
         }, { once: true });
-        frame.src = dataUrl;
+        frame.src = frameSrc;
         document.body.append(frame);
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);

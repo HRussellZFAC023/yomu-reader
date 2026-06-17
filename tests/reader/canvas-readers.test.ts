@@ -154,20 +154,39 @@ describe('canvas readers (BookWalker)', () => {
         expect(surfaces.every(c => c.width >= 600 && c.height >= 600)).toBe(true);
     });
 
-    it('does not pick a buffer via a .currentScreen on a shared ancestor (#renderer)', () => {
-        // Hardening: the on-screen marker is anchored to the page's own #viewport
-        // container, not any ancestor — so a .currentScreen that ever lands on the
-        // shared #renderer must NOT select both buffers; we fall back to all
-        // page-shaped canvases (the controller's per-canvas visibility narrows later).
+    it('follows .currentScreen across a page turn and refreshes the page signature', () => {
+        mountLiveViewerFixture('6/13');
+        const before = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+        expect(before).toHaveLength(1);
+        expect(before[0]?.closest('#viewport1')).not.toBeNull();
+        const beforeSignature = canvasReaderPageSignature();
+
+        // NFBR turns the page by swapping which #viewport carries .currentScreen
+        // and advancing the counter; the on-screen canvas must move with it.
+        document.querySelector('#viewport1')!.classList.remove('currentScreen');
+        document.querySelector('#viewport0')!.classList.add('currentScreen');
+        document.querySelector('#pageSliderCounter')!.textContent = '7/13';
+
+        const after = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+        expect(after).toHaveLength(1);
+        expect(after[0]?.closest('#viewport0')).not.toBeNull();
+        expect(after[0]).not.toBe(before[0]);
+        // Signature must change so the controller releases stale frames + re-OCRs.
+        expect(canvasReaderPageSignature()).not.toBe(beforeSignature);
+    });
+
+    it('does not select both buffers if .currentScreen sits on a shared ancestor (#renderer)', () => {
+        // Hardening: a future DOM that marked the shared #renderer ancestor with
+        // .currentScreen must NOT match both viewport canvases via closest().
         document.body.innerHTML = `
             <div id="renderer" class="currentScreen">
-                <canvas class="dummy" width="300" height="150"></canvas>
                 <div id="viewport0"><canvas width="2400" height="1794"></canvas></div>
                 <div id="viewport1"><canvas width="2400" height="1794"></canvas></div>
             </div>
             <span id="pageSliderCounter">1/13</span>`;
-        const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
-        expect(surfaces).toHaveLength(2);
+        // Neither #viewport carries .currentScreen, so we fall back to all page
+        // canvases (safe) rather than OCR'ing both because of the ancestor match.
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toHaveLength(2);
     });
 
     it('recognises known canvas-reader hosts', () => {

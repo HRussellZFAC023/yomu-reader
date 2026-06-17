@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.4] - 2026-06-17
+
+### Fixed
+
+- BookWalker/iPad OCR: tainted canvas readers now fall back to the GM-fetchable source page image when Firefox/WebKit cannot read canvas pixels, page turns release stale OCR frames, and storefront pages opt out of generic DOM scanning so Yomu no longer breaks the carousel/navigation layout.
+- OCR interactions: tapping an OCR word on iPad opens the lookup immediately, OCR hover popovers no longer flicker when the pointer crosses non-Japanese text inside the same OCR line, and fallback parsing keeps single-kanji godan-s verbs such as `騙した` in dictionary form with pitch/furigana.
+- YouTube stability: non-destructive mirrors wait until replacement text is ready before hiding native text, reuse stable attributed-string hosts, restore hidden titles if YouTube rerenders the host, and reduce no-key parsing contention on live/comment-heavy pages.
+- Settings dialog Japanese: passive parsed settings copy can open dictionary popovers without stealing or clearing the user's selection, command/tab labels still activate the settings UI, and the settings-dialog tests now mock the slow form/deck seams correctly.
+- Site scanning: Bloomee landing-page headings such as `季節のお花を、かんたんに飾れる` are now eligible for furigana/pitch annotation, while image-only copy still requires OCR.
+
+### Added
+
+- Release probes/tests for BookWalker live canvas diagnostics, source-image fallback OCR, BookWalker storefront scan suppression, repeated mirror rescans, YouTube no-key/keyed parsing behavior, Bloomee styled headings, and settings passive lookup/selection preservation.
+
 ## [1.3.3] - 2026-06-17
 
 ### Added

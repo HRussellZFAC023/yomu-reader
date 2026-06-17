@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.3
+// @version      1.3.4
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -15,8 +15,8 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ek4ewWwfqRokKeJJuVJ2VY57bG6B1eJt/9YPNmhcW7k=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Id01ksULBKftbQKgX+sP9c+GmwaMKFkuIg8m3bp/zW8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2bB7kg7nlBXNQXEF3poKFISWpoeOkpOtQcDOoL11IFA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-OFrAy62A+0QN1LgK6jTaSSutA8tvXT/C3WYdPFdsDCs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3811,6 +3811,13 @@
   ]);
   const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
   const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
+  const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
+    "yt-formatted-string",
+    "yt-attributed-string",
+    ".ytAttributedStringHost",
+    ".yt-core-attributed-string",
+    ".yt-core-attributed-string--white-space-pre-wrap"
+  ].join(",");
   const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
     READER_TEXT_MIRROR_SELECTOR,
     "script",
@@ -3999,7 +4006,7 @@
     if (!isCollectableFragmentText(text2, trimmedFragments, options)) return null;
     const parent = trimmedFragments[0]?.node.parentElement;
     if (!parent) return null;
-    if (!options.includeReaderRoot && isShortCenteredDisplayHeading(parent, text2)) return null;
+    if (!options.includeReaderRoot && !options.allowShortCenteredHeadings && isShortCenteredDisplayHeading(parent, text2)) return null;
     return {
       text: text2,
       parent,
@@ -4083,7 +4090,7 @@
     return isReaderRenderedTextBlock(element2);
   }
   function shouldSkipFragmentHeading(element2, text2, options) {
-    return Boolean(!options.heading && text2 && isShortCenteredDisplayHeading(element2, text2));
+    return Boolean(!options.heading && !options.allowShortCenteredHeadings && text2 && isShortCenteredDisplayHeading(element2, text2));
   }
   function shouldSkipFragmentUiText(element2, text2, options) {
     return Boolean(!options.allowUiText && text2 && isFragileUiText(element2, text2));
@@ -4335,8 +4342,8 @@
     const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
-      const state = textMirrorHosts.get(host);
-      if (state) reassertTextMirrorHostStyles(host, state);
+      const state2 = textMirrorHosts.get(host);
+      if (state2) reassertTextMirrorHostStyles(host, state2);
       return;
     }
     removeTextMirror(host);
@@ -4346,16 +4353,26 @@
     mirror.dataset.jpdbReaderTextMirror = "true";
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
-    styleTextMirrorHost(host);
-    styleTextMirror(mirror, host);
-    mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
-      parent: host,
-      hasNativeRuby: targetHasNativeRuby(target),
-      suppressRuby,
-      passiveInteraction: target.passiveInteraction || suppressRuby
-    }));
-    host.append(mirror);
-    observeTextMirrorHost(host, text2);
+    const state = styleTextMirrorHost(host);
+    try {
+      styleTextMirror(mirror, host);
+      mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
+        parent: host,
+        hasNativeRuby: targetHasNativeRuby(target),
+        suppressRuby,
+        passiveInteraction: target.passiveInteraction || suppressRuby
+      }));
+      if (!mirror.textContent?.trim()) {
+        removeTextMirror(host);
+        return;
+      }
+      host.append(mirror);
+      hideTextMirrorHost(host, state);
+      observeTextMirrorHost(host, text2);
+    } catch (error) {
+      removeTextMirror(host);
+      throw error;
+    }
   }
   function currentTextMirror(host) {
     return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
@@ -4385,7 +4402,13 @@
   function nonDestructiveScanHost(target) {
     if (!isFragmentTextTarget$1(target)) return target.parent;
     const parents = target.fragments.map((fragment) => fragment.node.parentElement).filter((parent) => Boolean(parent));
-    return commonFragmentTextHost(parents) ?? target.parent;
+    return preferredNonDestructiveTextHost(parents) ?? commonFragmentTextHost(parents) ?? target.parent;
+  }
+  function preferredNonDestructiveTextHost(elements) {
+    if (!elements.length) return null;
+    const preferred = elements[0]?.closest(NON_DESTRUCTIVE_TEXT_HOST_SELECTOR);
+    if (!preferred || !elements.every((element2) => preferred.contains(element2))) return null;
+    return preferred;
   }
   function commonFragmentTextHost(elements) {
     if (!elements.length) return null;
@@ -4415,6 +4438,12 @@
       displayAdjusted: computed.display === "inline"
     };
     textMirrorHosts.set(host, state);
+    if (state.positioned) host.style.setProperty("position", "relative", "important");
+    if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
+    return state;
+  }
+  function hideTextMirrorHost(host, state) {
+    textMirrorHosts.set(host, state);
     host.style.setProperty("visibility", "hidden", "important");
     if (state.positioned) host.style.setProperty("position", "relative", "important");
     if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
@@ -4443,6 +4472,10 @@
     state.sourceText = normalizedMirrorHostText(sourceText);
     state.observer = new MutationObserver((mutations) => {
       if (mutations.every(mutationInsideTextMirror)) return;
+      if (!currentTextMirror(host)) {
+        removeTextMirror(host);
+        return;
+      }
       const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
       if (!host.isConnected || !HAS_JAPANESE$1.test(currentText)) {
         removeTextMirror(host);
@@ -4489,6 +4522,10 @@
     textMirrorHosts.delete(host);
   }
   function reassertTextMirrorHostStyles(host, state) {
+    if (!currentTextMirror(host)) {
+      removeTextMirror(host);
+      return;
+    }
     if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
@@ -22725,6 +22762,7 @@ ${entry.reading || ""}`;
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
@@ -23463,7 +23501,12 @@ ${spelling}`);
     const first = segments[startIndex]?.surface ?? "";
     if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
     const suffix = surface.slice(first.length);
-    return SURU_AUXILIARY_SUFFIX_RE.test(suffix) && lookupTerms.some((term) => term.endsWith("する"));
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
+    return lookupTerms.some((term) => term.endsWith("する"));
+  }
+  function hasSingleKanjiGodanSAlternative(first, lookupTerms) {
+    return SINGLE_KANJI_SEGMENT_RE.test(first) && lookupTerms.some((term) => term === `${first}す`);
   }
   function japaneseWordSegmenter() {
     const Segmenter = intlSegmenter();
@@ -30839,6 +30882,22 @@ ${glossaryKey}`;
     "g-img",
     "img"
   ].join(",");
+  const BLOOMEE_LANDING_HOSTS = /* @__PURE__ */ new Set(["bloomeelife.com", "www.bloomeelife.com"]);
+  const BLOOMEE_LANDING_PARSER_ID = "bloomee-landing-parser";
+  const BLOOMEE_LANDING_ROOTS = [
+    ".point__itembox-headline",
+    ".point__itembox-txt",
+    ".cv-step__ttlbox-title",
+    ".cv-step__catch",
+    ".cv-step__itembox-title",
+    ".life-lp-faq h2",
+    ".life-lp-faq dt h3",
+    ".lp-gift__headline",
+    ".lp-gift__txt",
+    ".ctaarea p"
+  ].join(",");
+  const BOOKWALKER_STOREFRONT_HOSTS = /* @__PURE__ */ new Set(["bookwalker.jp", "www.bookwalker.jp"]);
+  const BOOKWALKER_STOREFRONT_PARSER_ID = "bookwalker-storefront-no-dom-parser";
   const SITE_PARSER_PROFILES = [
     {
       id: YOMU_HOSTED_DOCS_PARSER_ID,
@@ -30878,6 +30937,27 @@ ${glossaryKey}`;
       includeUiChrome: true,
       plainScan: true,
       matches: (url) => /(^|\.)google\./i.test(url.hostname) && url.pathname === "/search"
+    },
+    {
+      id: BLOOMEE_LANDING_PARSER_ID,
+      name: "Bloomee landing page",
+      description: "Bloomee landing page point headings and supporting Japanese copy.",
+      roots: [BLOOMEE_LANDING_ROOTS],
+      exclude: COMMON_EXCLUDE,
+      allowUiText: true,
+      minLength: 1,
+      heading: true,
+      allowShortCenteredHeadings: true,
+      matches: (url) => isBloomeeLandingUrl(url)
+    },
+    {
+      id: BOOKWALKER_STOREFRONT_PARSER_ID,
+      name: "BookWalker storefront",
+      description: "BookWalker storefront chrome and carousels opt out of generic DOM scans.",
+      roots: [],
+      disableGenericDomScan: true,
+      includePassiveInteractionRoots: false,
+      matches: (url) => isBookWalkerStorefrontUrl(url)
     },
     {
       id: JPDB_PARSER_ID,
@@ -31287,6 +31367,15 @@ ${glossaryKey}`;
     const url = new URL(href, window.location.href);
     return SITE_PARSER_PROFILES.filter((profile) => profile.matches(url));
   }
+  function isBookWalkerStorefrontPage(href = location.href) {
+    return isBookWalkerStorefrontUrl(new URL(href, window.location.href));
+  }
+  function isBloomeeLandingUrl(url) {
+    return BLOOMEE_LANDING_HOSTS.has(url.hostname.toLowerCase()) && (url.pathname === "/" || url.pathname === "") && Boolean(document.querySelector(".life-top-page-wrap,.home-index,.point__itembox-headline,.cv-step,.ctaarea"));
+  }
+  function isBookWalkerStorefrontUrl(url) {
+    return BOOKWALKER_STOREFRONT_HOSTS.has(url.hostname.toLowerCase());
+  }
   function siteProvidesNativeTextLayer(href = window.location.href) {
     return getMatchingSiteParsers(href).some((profile) => {
       if (!profile.providesTextLayer) return false;
@@ -31386,7 +31475,8 @@ ${glossaryKey}`;
       includeTabChrome: true,
       includePassiveInteractions: true,
       mergeBlockFragments: profile.mergeBlockFragments,
-      heading: profile.heading
+      heading: profile.heading,
+      allowShortCenteredHeadings: profile.allowShortCenteredHeadings
     });
     for (const target of collected) {
       if (!addUniqueSiteScanTarget(profile, target, context)) continue;
@@ -31493,6 +31583,7 @@ ${glossaryKey}`;
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
+    if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) return baseTargets;
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return [...baseTargets, ...profileUiChromeTargets];
     const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
@@ -31841,7 +31932,7 @@ ${glossaryKey}`;
     return (collectSiteScanTargets(1)?.length ?? 0) > 0;
   }
   function allowsGenericVisibleAutoScan() {
-    return !isYouTubeHostForAutoScan();
+    return !isYouTubeHostForAutoScan() && !isBookWalkerStorefrontPage();
   }
   function allowsFrequentVisibleAutoScan() {
     return true;
@@ -32574,11 +32665,15 @@ ${glossaryKey}`;
   function canHoverLookupReaderWordElement(word, hasHoverLookupShortcut) {
     if (isOcrLineFrameWord(word)) return false;
     if (word.closest(".jpdb-reader-popover")) return false;
+    if (isSettingsReaderWord(word)) return hasHoverLookupShortcut;
     if (isSettingsNativeControlWord(word)) return false;
     if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== "true") return false;
     if (!word.closest("[data-jpdb-reader-root]")) return true;
     if (word.closest(".jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-newtab-immersion, .yomu-jpdb-page-addon")) return true;
     return hasHoverLookupShortcut && Boolean(word.closest(".jpdb-reader-newtab, .jpdb-reader-settings"));
+  }
+  function isSettingsReaderWord(word) {
+    return Boolean(word.closest(".jpdb-reader-settings"));
   }
   function isSettingsNativeControlWord(word) {
     return Boolean(word.closest(".jpdb-reader-settings") && word.closest('a[href],button,input,label,select,textarea,[role="button"],[role="checkbox"],[role="link"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]'));
@@ -32898,6 +32993,7 @@ ${glossaryKey}`;
       trigger,
       navigation,
       preservePosition: options.preservePosition ?? textLookupPreservePosition(navigation, state),
+      focusOnMount: options.focusOnMount ?? textLookupFocusOnMount(options.source),
       previousNavigationEntry: options.previousNavigationEntry ?? state.previousNavigationEntry(trigger, navigation),
       insideReaderPopup: options.insideReaderPopup,
       userGesture: options.userGesture,
@@ -32970,6 +33066,7 @@ ${glossaryKey}`;
       trigger: context.trigger,
       navigation: context.navigation,
       preservePosition: context.preservePosition,
+      focusOnMount: context.focusOnMount,
       previousNavigationEntry: context.previousNavigationEntry,
       insideReaderPopup: context.insideReaderPopup,
       userGesture: context.userGesture,
@@ -32985,6 +33082,9 @@ ${glossaryKey}`;
   }
   function textLookupPreservePosition(navigation, state) {
     return navigation !== "reset" && state.hasActivePopover;
+  }
+  function textLookupFocusOnMount(source) {
+    return source !== "selection";
   }
   function selectionLookupRenderedWords(selection, words) {
     return words.filter((word) => selectionIntersectsElement(selection, word));
@@ -36277,7 +36377,7 @@ ${glossaryKey}`;
   const VISIBLE_SCAN_REMOTE_PARSE_TIMEOUT_MS = 1200;
   const VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS = 1500;
   const VISIBLE_SCAN_REMOTE_PARSE_PREFETCH = 2;
-  const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 3;
+  const YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH = 2;
   const ASB_SCAN_BATCH_LIMIT = 12;
   const ASB_SCAN_DRAIN_DELAY_MS = 80;
   class VisiblePageScanner {
@@ -36612,7 +36712,7 @@ ${glossaryKey}`;
     return hasJpdbParseApiKey(settings) ? VISIBLE_SCAN_MOBILE_APPLY_BATCH_SIZE : VISIBLE_SCAN_MOBILE_FALLBACK_APPLY_BATCH_SIZE;
   }
   function visibleScanParsePrefetchConcurrency(settings) {
-    if (isYouTubeVisibleScanHost()) return YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH;
+    if (isYouTubeVisibleScanHost()) return hasRemoteParseApiKey(settings) ? YOUTUBE_VISIBLE_SCAN_PARSE_PREFETCH : 1;
     return hasRemoteParseApiKey(settings) ? VISIBLE_SCAN_REMOTE_PARSE_PREFETCH : 1;
   }
   function isNarrowVisibleScanViewport() {
@@ -38022,6 +38122,7 @@ ${glossaryKey}`;
       document.addEventListener("pointerdown", (event) => {
         if (this.isMiningDrawerHandlePointerEvent(event)) return;
         this.suppressHoverAfterPenContact(event);
+        if (this.handleOcrReaderWordPointerDown(event)) return;
         this.dismissModalPopoverForOutsidePointer(event);
         this.dismissHoverPopoverForOutsidePointer(event);
         this.beginPressLookup(event);
@@ -38116,6 +38217,25 @@ ${glossaryKey}`;
       this.suppressSelectionLookupUntil = Date.now() + 350;
       this.ocr.pinLineForElement(word);
       void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
+    }
+    handleOcrReaderWordPointerDown(event) {
+      const word = this.ocrPointerDownReaderWord(event);
+      if (!word) return false;
+      const surfaces = this.readerWordClickSurfaces(event, word);
+      if (!surfaces) return false;
+      event.preventDefault();
+      this.prepareModalLookupFromPointer(event);
+      const now = Date.now();
+      this.suppressSelectionLookupUntil = now + 350;
+      this.suppressWordClickUntil = now + 700;
+      this.ocr.pinLineForElement(word);
+      void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
+      return true;
+    }
+    ocrPointerDownReaderWord(event) {
+      if (event.button !== 0 || event.pointerType !== "touch" && event.pointerType !== "pen") return null;
+      const target = event.target instanceof Element ? event.target : null;
+      return target?.closest(".jpdb-ocr-line .jpdb-reader-word") ?? this.ocrLineWordForPointer(target, event.clientX, event.clientY);
     }
     readerWordClickSurfaces(event, word) {
       if (!this.canLookupReaderWord(word)) return null;
@@ -39137,11 +39257,16 @@ ${glossaryKey}`;
       if (!this.lastPointerPosition) return false;
       const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
       if (target instanceof Element) {
+        if (this.isPointerInsideActiveOcrWordLine(word, target)) return true;
         if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
         if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
         if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, (item) => this.canHoverLookupReaderWord(item)) === word) return true;
       }
       return this.isInsideNode(target, word);
+    }
+    isPointerInsideActiveOcrWordLine(word, target) {
+      const line = word.closest(".jpdb-ocr-line");
+      return Boolean(line && line.contains(target));
     }
     reanchorDisconnectedHoverWord(word, options) {
       if (!this.lastPointerPosition) return false;
@@ -40038,7 +40163,12 @@ ${glossaryKey}`;
       const popover = this.createPopover();
       setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, source, previousNavigationEntry));
       this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
-      this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition, stackOverSettings: options.stackOverSettings });
+      this.mountPopover(popover, anchor, {
+        mode: trigger,
+        preservePosition: options.preservePosition,
+        focusOnMount: options.focusOnMount,
+        stackOverSettings: options.stackOverSettings
+      });
       void this.parsePopoverJapanese(popover);
     }
     prepareTokenListNavigation(trigger, navigation) {
@@ -40191,6 +40321,7 @@ ${glossaryKey}`;
       this.mountPopover(popover, anchor, {
         mode: context.trigger,
         preservePosition: this.initialCardPreservePosition(context),
+        focusOnMount: context.options.focusOnMount,
         hoverLookupKey: context.options.hoverLookupKey,
         pointerTextLookup: context.options.pointerTextLookup,
         stackOverSettings: context.options.stackOverSettings
@@ -42152,7 +42283,7 @@ ${glossaryKey}`;
       this.activateMountedPopover(popover, state, options);
       this.dictionarySourceState.installTracking(popover);
       this.installMountedPopoverSurface(popover, state);
-      this.finishMountedPopoverLifecycle(popover, state.mode);
+      this.finishMountedPopoverLifecycle(popover, state.mode, options);
     }
     popoverMountState(anchor, options) {
       const mode = options.mode ?? "modal";
@@ -42240,12 +42371,13 @@ ${glossaryKey}`;
     isStickyMountedSheet(popover, state) {
       return state.mode === "modal" && this.settings.stickyBottomSheet && popover.classList.contains("jpdb-reader-sheet");
     }
-    finishMountedPopoverLifecycle(popover, mode) {
+    finishMountedPopoverLifecycle(popover, mode, options) {
       if (mode === "hover") {
         this.installHoverPopoverLifecycle(popover);
         this.startHoverWatch();
         return;
       }
+      if (options.focusOnMount === false) return;
       popover.focus();
     }
     repositionActivePopover() {

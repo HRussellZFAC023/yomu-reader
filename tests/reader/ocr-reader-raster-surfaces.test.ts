@@ -97,6 +97,36 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('OCRs the page source image when the reader canvas is tainted (Firefox/WebKit)', async () => {
+        // BookWalker draws cross-origin page images without CORS, so Firefox/WebKit
+        // (incl. iPad) taint the canvas: getImageData/toDataURL throw and the snapshot
+        // can't be read. We must fall back to the GM-fetchable page image instead.
+        stubLocation('viewer.bookwalker.jp');
+        const tainted = () => { throw new Error('The operation is insecure.'); };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+        const pageImageUrl = 'https://bw-bv-epubs.bookwalker.jp/a_product/cid/1/9/item/xhtml/p-007.xhtml/deadbeef.jpeg?Policy=x&Signature=y';
+        const originalGetEntries = performance.getEntriesByType.bind(performance);
+        vi.spyOn(performance, 'getEntriesByType').mockImplementation((type: string) =>
+            type === 'resource' ? ([{ name: pageImageUrl }] as unknown as PerformanceEntryList) : originalGetEntries(type));
+
+        const controller = createController();
+        try {
+            const canvas = pageCanvas(20, 20);
+            canvas.toDataURL = tainted; // tainted canvas: even toDataURL throws
+            document.body.append(canvas);
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                // Frame points at the page's source image (GM-fetched by the OCR
+                // pipeline), NOT a data: snapshot of the unreadable canvas.
+                expect(frame!.getAttribute('src')).toBe(pageImageUrl);
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('creates one OCR snapshot per visible ComicWalker spread canvas', async () => {
         stubLocation('comic-walker.com');
         stubReadableCanvas();

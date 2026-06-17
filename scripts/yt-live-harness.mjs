@@ -13,8 +13,8 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const APP = '/Users/heru/Documents/Projects/yomu/apps/yomu-reader';
-const PROFILE = '/tmp/yomu-signed-fresh';
-const DIST = path.join(APP, 'dist');
+const PROFILE = process.env.YT_PROFILE || '/tmp/yomu-signed-fresh';
+const DIST = process.env.YT_DIST || path.join(APP, 'dist');
 
 const diagName = process.argv[2] || 'overview';
 const url = process.argv[3] || 'https://www.youtube.com/';
@@ -85,6 +85,35 @@ const DIAGS = {
         const titles = out.filter(o => o.host.w > 120);
         return { count: out.length, overflowingCount: overflowing.length, overflowing: overflowing.slice(0, 8), titles: titles.slice(0, 8) };
     },
+    // Flicker (reactivity thrash) + pitch-accent coverage. Idle churn = thrash
+    // (words/mirrors removed+re-added with no content change); scroll churn is
+    // expected (new videos). hostStyle = mirror-observer re-assert fights.
+    explore: async () => {
+        const c = { wordAdd: 0, wordRemove: 0, mirrorAdd: 0, mirrorRemove: 0, hostStyle: 0 };
+        const isWord = n => n.nodeType === 1 && (n.matches?.('.jpdb-reader-word') || n.querySelector?.('.jpdb-reader-word'));
+        const obs = new MutationObserver(muts => {
+            for (const m of muts) {
+                for (const n of m.addedNodes) { if (isWord(n)) c.wordAdd++; if (n.nodeType === 1 && n.matches?.('.jpdb-reader-text-mirror')) c.mirrorAdd++; }
+                for (const n of m.removedNodes) { if (isWord(n)) c.wordRemove++; if (n.nodeType === 1 && n.matches?.('.jpdb-reader-text-mirror')) c.mirrorRemove++; }
+                if (m.type === 'attributes' && m.attributeName === 'style' && m.target.querySelector?.('.jpdb-reader-text-mirror')) c.hostStyle++;
+            }
+        });
+        const sleep = ms => new Promise(r => setTimeout(r, ms));
+        obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+        await sleep(7000);
+        const idle = { ...c };
+        Object.keys(c).forEach(k => (c[k] = 0));
+        window.scrollBy(0, 1400); await sleep(2000);
+        window.scrollBy(0, 1800); await sleep(2000);
+        window.scrollBy(0, -2000); await sleep(2500);
+        const scroll = { ...c };
+        obs.disconnect();
+        const words = Array.from(document.querySelectorAll('.jpdb-reader-word'));
+        const withPitch = words.filter(w => (w.dataset.pitchClass || '').length > 0);
+        const colored = words.filter(w => Array.from(w.classList).some(x => x.startsWith('jpdb-pitch-') && x !== 'jpdb-pitch-'));
+        const sampleMissing = words.filter(w => !(w.dataset.pitchClass || '')).slice(0, 10).map(w => w.dataset.surface || (w.textContent || '').slice(0, 8));
+        return { idleChurn: idle, scrollChurn: scroll, words: words.length, withPitchClass: withPitch.length, coloredPitch: colored.length, pitchPct: Math.round(100 * withPitch.length / Math.max(1, words.length)), sampleMissingPitch: sampleMissing };
+    },
     // Segmentation of kana words on the page.
     segments: () => {
         const groups = {};
@@ -128,12 +157,14 @@ const DIAGS = {
 
 const probe = DIAGS[diagName] || DIAGS.overview;
 
+const mobileUA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const ctx = await chromium.launchPersistentContext(PROFILE, {
     channel: 'chrome',
     headless,
     viewport: { width, height },
     locale: 'ja-JP',
     bypassCSP: true,
+    ...(process.env.YT_MOBILE === '1' ? { userAgent: mobileUA, isMobile: true, hasTouch: true } : {}),
     args: ['--disable-blink-features=AutomationControlled'],
 });
 
@@ -198,8 +229,50 @@ await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60000 });
 // Let YouTube hydrate + Yomu scan + jpdb parse settle.
 await page.waitForTimeout(9000);
 
+const popoverState = () => page.evaluate(() => {
+    const p = document.querySelector('.jpdb-reader-popover');
+    return { open: Boolean(p) && p.getBoundingClientRect().width > 0, text: p ? (p.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 50) : '' };
+});
+
+// Deterministic live test of the popover re-anchor patch: open the popover by
+// hovering a word, then simulate a YouTube reconcile by replacing the hovered
+// node with a same-vid:sid clone, and confirm the popover survives + re-anchors
+// instead of auto-dismissing. Also flags any flicker during the hover.
+async function runHoverExploration() {
+    const box = await page.evaluate(() => {
+        const words = Array.from(document.querySelectorAll('.jpdb-reader-word'));
+        const w = words.find(el => (el.dataset.surface || '').length >= 2 && /[぀-ヿ㐀-鿿]/.test(el.dataset.surface || el.textContent || '') && el.getBoundingClientRect().width > 0);
+        if (!w) return null;
+        const r = w.getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), surface: w.dataset.surface || w.textContent, vid: w.dataset.vid, sid: w.dataset.sid };
+    });
+    if (!box) return { error: 'no hoverable word found' };
+    await page.mouse.move(box.x - 40, box.y - 40);
+    await page.mouse.move(box.x, box.y);
+    await page.waitForTimeout(1400);
+    const afterOpen = await popoverState();
+    await page.waitForTimeout(3000); // stationary — pre-fix bug would dismiss here on reconcile
+    const afterStationary = await popoverState();
+    // Force the reactive-replacement scenario the fix targets.
+    const replaced = await page.evaluate(pt => {
+        const el = document.elementFromPoint(pt.x, pt.y);
+        const word = el && el.closest && el.closest('.jpdb-reader-word');
+        if (!word || !word.parentNode) return false;
+        word.replaceWith(word.cloneNode(true));
+        return true;
+    }, box);
+    await page.waitForTimeout(1500); // hover-watch tick(s)
+    const afterReconcile = await popoverState();
+    await page.screenshot({ path: path.join(APP, `qa-artifacts/yt-hover-${width}x${height}.png`) }).catch(() => {});
+    return { hovered: box.surface, vidSid: `${box.vid}:${box.sid}`, afterOpen, afterStationary, nodeReplaced: replaced, afterReconcile, reanchorSurvived: afterOpen.open && afterReconcile.open };
+}
+
 let result;
-try { result = await page.evaluate(probe); } catch (e) { result = { evalError: String(e) }; }
+if (diagName === 'hover') {
+    try { result = await runHoverExploration(); } catch (e) { result = { hoverError: String(e) }; }
+} else {
+    try { result = await page.evaluate(probe); } catch (e) { result = { evalError: String(e) }; }
+}
 
 const shot = path.join(APP, `qa-artifacts/yt-${diagName}-${width}x${height}.png`);
 await page.screenshot({ path: shot, fullPage: false }).catch(() => {});

@@ -1666,6 +1666,7 @@ export class ReaderApp {
         document.addEventListener('pointerdown', event => {
             if (this.isMiningDrawerHandlePointerEvent(event)) return;
             this.suppressHoverAfterPenContact(event);
+            if (this.handleOcrReaderWordPointerDown(event)) return;
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
@@ -1793,6 +1794,30 @@ export class ReaderApp {
         void this.showWord(word, surfaces.insideReaderPopup
             ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
             : { trigger: 'click', userGesture: true });
+    }
+
+    private handleOcrReaderWordPointerDown(event: PointerEvent): boolean {
+        const word = this.ocrPointerDownReaderWord(event);
+        if (!word) return false;
+        const surfaces = this.readerWordClickSurfaces(event, word);
+        if (!surfaces) return false;
+        event.preventDefault();
+        this.prepareModalLookupFromPointer(event);
+        const now = Date.now();
+        this.suppressSelectionLookupUntil = now + 350;
+        this.suppressWordClickUntil = now + 700;
+        this.ocr.pinLineForElement(word);
+        void this.showWord(word, surfaces.insideReaderPopup
+            ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
+            : { trigger: 'click', userGesture: true });
+        return true;
+    }
+
+    private ocrPointerDownReaderWord(event: PointerEvent): HTMLElement | null {
+        if (event.button !== 0 || (event.pointerType !== 'touch' && event.pointerType !== 'pen')) return null;
+        const target = event.target instanceof Element ? event.target : null;
+        return target?.closest<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word')
+            ?? this.ocrLineWordForPointer(target, event.clientX, event.clientY);
     }
 
     private readerWordClickSurfaces(event: MouseEvent, word: HTMLElement): { insideReaderPopup: boolean; insideSubtitlePlayer: boolean } | null {
@@ -3029,11 +3054,17 @@ export class ReaderApp {
         if (!this.lastPointerPosition) return false;
         const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
         if (target instanceof Element) {
+            if (this.isPointerInsideActiveOcrWordLine(word, target)) return true;
             if (this.hoverReaderWordFromPointStack(this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
             if (this.ocrLineWordForPointer(target, this.lastPointerPosition.x, this.lastPointerPosition.y) === word) return true;
             if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, item => this.canHoverLookupReaderWord(item)) === word) return true;
         }
         return this.isInsideNode(target, word);
+    }
+
+    private isPointerInsideActiveOcrWordLine(word: HTMLElement, target: Element): boolean {
+        const line = word.closest<HTMLElement>('.jpdb-ocr-line');
+        return Boolean(line && line.contains(target));
     }
 
     private reanchorDisconnectedHoverWord(word: HTMLElement, options: { ignorePointerPosition?: boolean }): boolean {
@@ -4270,7 +4301,12 @@ export class ReaderApp {
         const popover = this.createPopover();
         setInnerHtml(popover, this.renderTokenListHtml(tokens, selected, source, previousNavigationEntry));
         this.installTokenListHandlers(popover, tokens, anchor, { trigger, navigation, previousNavigationEntry, stackOverSettings: options.stackOverSettings });
-        this.mountPopover(popover, anchor, { mode: trigger, preservePosition: options.preservePosition, stackOverSettings: options.stackOverSettings });
+        this.mountPopover(popover, anchor, {
+            mode: trigger,
+            preservePosition: options.preservePosition,
+            focusOnMount: options.focusOnMount,
+            stackOverSettings: options.stackOverSettings,
+        });
         void this.parsePopoverJapanese(popover);
     }
 
@@ -4481,6 +4517,7 @@ export class ReaderApp {
         this.mountPopover(popover, anchor, {
             mode: context.trigger,
             preservePosition: this.initialCardPreservePosition(context),
+            focusOnMount: context.options.focusOnMount,
             hoverLookupKey: context.options.hoverLookupKey,
             pointerTextLookup: context.options.pointerTextLookup,
             stackOverSettings: context.options.stackOverSettings,
@@ -6857,7 +6894,7 @@ export class ReaderApp {
         this.activateMountedPopover(popover, state, options);
         this.dictionarySourceState.installTracking(popover);
         this.installMountedPopoverSurface(popover, state);
-        this.finishMountedPopoverLifecycle(popover, state.mode);
+        this.finishMountedPopoverLifecycle(popover, state.mode, options);
     }
 
     private popoverMountState(anchor: HTMLElement | undefined, options: MountPopoverOptions): PopoverMountState {
@@ -6968,12 +7005,13 @@ export class ReaderApp {
             && popover.classList.contains('jpdb-reader-sheet');
     }
 
-    private finishMountedPopoverLifecycle(popover: HTMLElement, mode: 'modal' | 'hover'): void {
+    private finishMountedPopoverLifecycle(popover: HTMLElement, mode: 'modal' | 'hover', options: MountPopoverOptions): void {
         if (mode === 'hover') {
             this.installHoverPopoverLifecycle(popover);
             this.startHoverWatch();
             return;
         }
+        if (options.focusOnMount === false) return;
         popover.focus();
     }
 

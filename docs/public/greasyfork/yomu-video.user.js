@@ -1869,6 +1869,37 @@
       return void 0;
     }
   }
+  function isCanvasReadable(canvas) {
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return false;
+    try {
+      context.getImageData(0, 0, 1, 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const READER_PAGE_IMAGE_PATTERNS = [
+    /\/item\/xhtml\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i,
+    // SpeedBinB / NFBR page tile
+    /\/(?:page|img|image|content)s?\/.+\.(?:jpe?g|png|webp)(?:\?|$)/i
+  ];
+  const READER_PAGE_IMAGE_EXCLUDE = /(?:icon|logo|avatar|banner|thumb(?:nail)?|sprite|favicon|cover|ad[\b_-])/i;
+  function readerCanvasSourceImageUrl() {
+    let entries;
+    try {
+      entries = performance.getEntriesByType("resource");
+    } catch {
+      return void 0;
+    }
+    const urls = entries.map((entry) => entry.name).filter((url) => typeof url === "string" && !READER_PAGE_IMAGE_EXCLUDE.test(url));
+    for (const pattern of READER_PAGE_IMAGE_PATTERNS) {
+      for (let index = urls.length - 1; index >= 0; index--) {
+        if (pattern.test(urls[index])) return urls[index];
+      }
+    }
+    return void 0;
+  }
   function positionCanvasFrameImage(frame, rect) {
     frame.style.left = `${rect.left}px`;
     frame.style.top = `${rect.top}px`;
@@ -5876,6 +5907,7 @@ ${candidate.depth}`;
   const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
   const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
   const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
   const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
   const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
   const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
@@ -6123,7 +6155,12 @@ ${candidate.depth}`;
     const first = segments[startIndex]?.surface ?? "";
     if (!first || !SURU_STEM_SEGMENT_RE.test(first)) return false;
     const suffix = surface.slice(first.length);
-    return SURU_AUXILIARY_SUFFIX_RE.test(suffix) && lookupTerms.some((term) => term.endsWith("する"));
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first, lookupTerms)) return false;
+    return lookupTerms.some((term) => term.endsWith("する"));
+  }
+  function hasSingleKanjiGodanSAlternative(first, lookupTerms) {
+    return SINGLE_KANJI_SEGMENT_RE.test(first) && lookupTerms.some((term) => term === `${first}す`);
   }
   function japaneseWordSegmenter() {
     const Segmenter = intlSegmenter();
@@ -7116,9 +7153,14 @@ ${candidate.depth}`;
       const rect = canvas.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
       if (!isNearViewport(canvas, canvasPrefetchMargin(settings)) || isHiddenByCss(canvas)) return;
-      if (!looksLikeRenderedCanvasImage(canvas)) return;
-      const dataUrl = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
-      if (!dataUrl) return;
+      let frameSrc;
+      if (isCanvasReadable(canvas)) {
+        if (!looksLikeRenderedCanvasImage(canvas)) return;
+        frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+      } else {
+        frameSrc = readerCanvasSourceImageUrl();
+      }
+      if (!frameSrc) return;
       const frame = document.createElement("img");
       frame.className = "jpdb-ocr-canvas-frame";
       frame.dataset.yomuCanvasFrame = "true";
@@ -7127,7 +7169,7 @@ ${candidate.depth}`;
       frame.addEventListener("load", () => {
         if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
       }, { once: true });
-      frame.src = dataUrl;
+      frame.src = frameSrc;
       document.body.append(frame);
       this.canvasFrames.set(canvas, frame);
       this.canvasFrameSources.set(frame, canvas);
