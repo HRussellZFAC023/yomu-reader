@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.6
+// @version      1.3.7
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2bB7kg7nlBXNQXEF3poKFISWpoeOkpOtQcDOoL11IFA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-JH7zFF8nMDqg8A4QdsFoNwBWgVR+Hl1atU9uMf2o/f4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-cuYx8CTxJ2Y7jxFT4oMzrRA97/sXtZ2eMj3b3RZ/ycE=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -18613,7 +18613,7 @@ ${entry.reading}`;
   }
   function normalizeZipTermRow(row, dictionary) {
     if (!Array.isArray(row)) return null;
-    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
+    const [expression, reading, definitionTags, rules, score, glossary, sequence2, termTags] = row;
     if (typeof expression !== "string") return null;
     return {
       expression,
@@ -18622,7 +18622,7 @@ ${entry.reading}`;
       rules: zipStringField(rules),
       score: zipNumberField(score, 0),
       glossary: zipGlossaryField(glossary),
-      sequence: zipOptionalNumberField(sequence),
+      sequence: zipOptionalNumberField(sequence2),
       termTags: zipStringField(termTags),
       dictionary
     };
@@ -43030,7 +43030,106 @@ ${span.end}`;
     const marker = document.getElementById(RUNTIME_MARKER_ID);
     if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
   }
+  const RECORDS = /* @__PURE__ */ new WeakMap();
+  const MAX_OPS_PER_CANVAS = 6e3;
+  const PRUNE_KEEP = 3e3;
+  let sequence = 0;
+  let installed = false;
+  function isBookwalkerHost(hostname) {
+    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function isCanvasSource(value) {
+    return Boolean(value) && (typeof HTMLCanvasElement !== "undefined" && value instanceof HTMLCanvasElement || typeof OffscreenCanvas !== "undefined" && value instanceof OffscreenCanvas);
+  }
+  function imageSourceUrl(value) {
+    const image = value;
+    if (!image) return "";
+    return typeof image.currentSrc === "string" && image.currentSrc || typeof image.src === "string" && image.src || "";
+  }
+  function recordFor(canvas) {
+    let record = RECORDS.get(canvas);
+    if (!record) {
+      record = { ops: [] };
+      RECORDS.set(canvas, record);
+    }
+    return record;
+  }
+  function recordDrawImage(canvas, source, args) {
+    const record = recordFor(canvas);
+    if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
+    const op = {
+      seq: sequence++,
+      canvasSrc: isCanvasSource(source) ? source : null,
+      url: isCanvasSource(source) ? "" : imageSourceUrl(source),
+      sx: 0,
+      sy: 0,
+      sw: -1,
+      sh: -1,
+      dx: 0,
+      dy: 0,
+      dw: -1,
+      dh: -1,
+      clear: false
+    };
+    if (args.length === 8) {
+      op.sx = args[0];
+      op.sy = args[1];
+      op.sw = args[2];
+      op.sh = args[3];
+      op.dx = args[4];
+      op.dy = args[5];
+      op.dw = args[6];
+      op.dh = args[7];
+    } else if (args.length === 4) {
+      op.dx = args[0];
+      op.dy = args[1];
+      op.dw = args[2];
+      op.dh = args[3];
+    } else if (args.length === 2) {
+      op.dx = args[0];
+      op.dy = args[1];
+    }
+    record.ops.push(op);
+  }
+  function recordClear(canvas) {
+    const record = recordFor(canvas);
+    if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
+    record.ops.push({ seq: sequence++, canvasSrc: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+  }
+  function patchContextPrototype(prototype) {
+    if (!prototype || prototype.__yomuMirrorPatched) return false;
+    prototype.__yomuMirrorPatched = true;
+    const drawImage = prototype.drawImage;
+    prototype.drawImage = function(source, ...args) {
+      if (!this.__yomuMirrorSkip) {
+        try {
+          recordDrawImage(this.canvas, source, args);
+        } catch {
+        }
+      }
+      return drawImage.apply(this, arguments);
+    };
+    const clearRect = prototype.clearRect;
+    prototype.clearRect = function(x, y, w, h) {
+      if (!this.__yomuMirrorSkip) {
+        try {
+          if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) recordClear(this.canvas);
+        } catch {
+        }
+      }
+      return clearRect.apply(this, arguments);
+    };
+    return true;
+  }
+  function installCanvasMirrorRecorder(hostname = location.hostname) {
+    if (installed || !isBookwalkerHost(hostname)) return;
+    const global = globalThis;
+    patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
+    patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
+    installed = true;
+  }
   installPreferredJapaneseSiteLanguageFromStoredSettings();
+  installCanvasMirrorRecorder();
   applyMokuroReaderOcrDefault();
   installUserscriptHttpBridgeWhenReady();
   installUserscriptGmStorageBridgeWhenReady();

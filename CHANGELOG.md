@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.7] - 2026-06-17
+
+### Fixed
+
+- BookWalker OCR now works in userscript managers on Firefox and iPad/Safari, where the DRM page canvas is cross-origin "tainted" and cannot be read. A document-start recorder captures the viewer's own descramble `drawImage` tile-copies, then rebuilds the current page onto a fresh, untainted canvas by replaying those copies from an origin-clean image fetched via `GM_xmlhttpRequest`. No descramble keys or crypto are reimplemented — it mirrors whatever the engine actually draws, so it survives viewer updates and reconstructs two-page spreads correctly. The path is gated to BookWalker hosts and only runs when the canvas is tainted, so Chrome and the Yomu extension are unaffected.
+
+### Verified
+
+- New canvas-mirror unit tests (op selection, recursive buffer reconstruction, recorder hook) plus the full typecheck/test/build/verify suite.
+
 ## [1.3.6] - 2026-06-17
 
 ### Fixed

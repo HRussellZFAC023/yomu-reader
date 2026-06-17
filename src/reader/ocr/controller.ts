@@ -16,6 +16,7 @@ import {
     readerCanvasSourceImageUrl,
 } from './canvas-readers';
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
+import { captureCanvasMirror } from './canvas-mirror';
 import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
@@ -1253,10 +1254,20 @@ export class ImageOcrController {
                 if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
                 frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
             } else if (isBookwalkerViewerHost()) {
-                const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
-                const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
-                frameSrc = screenshot?.dataUrl;
-                frameRect = screenshot?.rect ?? rect;
+                // Firefox/iPad taint the DRM page canvas. Rebuild it from the engine's
+                // own descramble drawImage ops replayed against GM-fetched origin-clean
+                // source images (works in any userscript manager, including iPad). Fall
+                // back to the extension screenshot bridge when nothing was recorded
+                // (e.g. the Yomu extension, where the canvas is read directly anyway).
+                const mirror = await captureCanvasMirror(canvas, loadCleanMirrorImage);
+                if (mirror) {
+                    frameSrc = captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
+                } else {
+                    const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
+                    const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
+                    frameSrc = screenshot?.dataUrl;
+                    frameRect = screenshot?.rect ?? rect;
+                }
             } else if (canUseReaderCanvasSourceImageFallback()) {
                 frameSrc = readerCanvasSourceImageUrl();
             }
@@ -3042,6 +3053,20 @@ function loadImage(url: string): Promise<HTMLImageElement> {
         image.onerror = () => reject(new Error('Image decode failed.'));
         image.src = url;
     });
+}
+
+// Fetch a page's scrambled source image as an origin-clean bitmap (GM_xmlhttpRequest
+// bypasses the CDN's missing CORS), so the canvas mirror can redraw the engine's
+// descramble tiles without tainting. Returns undefined for unfetchable URLs.
+async function loadCleanMirrorImage(url: string): Promise<HTMLImageElement | undefined> {
+    if (!url || url.startsWith('data:') || url.startsWith('blob:')) return undefined;
+    const blob = await requestBlob(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+        return await loadImage(objectUrl);
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob> {

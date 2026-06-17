@@ -29910,6 +29910,84 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
   }
+  const RECORDS = /* @__PURE__ */ new WeakMap();
+  const MAX_REBUILD_DEPTH = 6;
+  const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
+  function selectLatestContentOps(ops, beforeSeq) {
+    const byDest = /* @__PURE__ */ new Map();
+    for (const op of ops) {
+      if (op.clear || op.seq >= beforeSeq) continue;
+      byDest.set(destKey(op), op);
+    }
+    return [...byDest.values()].sort((a, b) => a.seq - b.seq);
+  }
+  function collectLeafUrls(canvas, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
+    if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return out;
+    const record = lookup(canvas);
+    if (!record) return out;
+    const nextSeen = new Set(seen).add(canvas);
+    for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
+      if (op.canvasSrc) collectLeafUrls(op.canvasSrc, op.seq, lookup, out, nextSeen, depth + 1);
+      else if (op.url) out.add(op.url);
+    }
+    return out;
+  }
+  function markSkip(context) {
+    if (context) context.__yomuMirrorSkip = true;
+    return context;
+  }
+  function isReadable(canvas) {
+    try {
+      markSkip(canvas.getContext("2d", { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function rebuildCanvas(canvas, beforeSeq, images, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return null;
+    const record = RECORDS.get(canvas);
+    if (!record) return null;
+    const ops = selectLatestContentOps(record.ops, beforeSeq);
+    const width = canvas.width, height = canvas.height;
+    if (!ops.length || !width || !height) return null;
+    const out = document.createElement("canvas");
+    out.width = width;
+    out.height = height;
+    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
+    if (!ctx) return null;
+    const nextSeen = new Set(seen).add(canvas);
+    for (const op of ops) {
+      let source = null;
+      if (op.canvasSrc) source = rebuildCanvas(op.canvasSrc, op.seq, images, nextSeen, depth + 1);
+      else if (op.url) source = images.get(op.url) ?? null;
+      if (!source) continue;
+      try {
+        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
+        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
+        else ctx.drawImage(source, op.dx, op.dy);
+      } catch {
+      }
+    }
+    return out;
+  }
+  async function captureCanvasMirror(canvas, loadCleanImage) {
+    if (!RECORDS.has(canvas)) return void 0;
+    const urls = collectLeafUrls(canvas, Number.POSITIVE_INFINITY, (c) => RECORDS.get(c));
+    if (!urls.size) return void 0;
+    const images = /* @__PURE__ */ new Map();
+    await Promise.all([...urls].map(async (url) => {
+      try {
+        const image = await loadCleanImage(url);
+        if (image) images.set(url, image);
+      } catch {
+      }
+    }));
+    if (!images.size) return void 0;
+    const rebuilt = rebuildCanvas(canvas, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0);
+    if (!rebuilt || !isReadable(rebuilt)) return void 0;
+    return rebuilt;
+  }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
     return new Promise((resolve) => {
@@ -32824,10 +32902,15 @@ ${spelling}`);
           if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
           frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
         } else if (isBookwalkerViewerHost()) {
-          const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
-          const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
-          frameSrc = screenshot?.dataUrl;
-          frameRect = screenshot?.rect ?? rect;
+          const mirror = await captureCanvasMirror(canvas, loadCleanMirrorImage);
+          if (mirror) {
+            frameSrc = captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
+          } else {
+            const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
+            const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
+            frameSrc = screenshot?.dataUrl;
+            frameRect = screenshot?.rect ?? rect;
+          }
         } else if (canUseReaderCanvasSourceImageFallback()) {
           frameSrc = readerCanvasSourceImageUrl();
         }
@@ -34271,6 +34354,16 @@ ${spelling}`);
       image.onerror = () => reject(new Error("Image decode failed."));
       image.src = url;
     });
+  }
+  async function loadCleanMirrorImage(url) {
+    if (!url || url.startsWith("data:") || url.startsWith("blob:")) return void 0;
+    const blob = await requestBlob$2(url);
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      return await loadImage(objectUrl);
+    } finally {
+      URL.revokeObjectURL(objectUrl);
+    }
   }
   function canvasToBlob(canvas, type, quality) {
     return new Promise((resolve, reject) => {
