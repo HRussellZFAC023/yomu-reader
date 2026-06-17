@@ -2183,9 +2183,9 @@
     if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
     const record = lookup(id);
     if (!record) return out;
-    seen.add(id);
+    const next = new Set(seen).add(id);
     for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, seen, depth + 1);
+      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
       else if (op.url) out.add(op.url);
     }
     return out;
