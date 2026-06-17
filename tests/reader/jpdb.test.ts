@@ -206,6 +206,7 @@ function readingTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
 }
 
 beforeEach(() => {
+    localStorage.clear();
     Object.defineProperty(window, 'innerHeight', { configurable: true, value: 768 });
     Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1024 });
     restoreInheritedButtonRectLookup();

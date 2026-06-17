@@ -1320,8 +1320,12 @@
   text-shadow: none;
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-surface) 92%,
-    var(--jpdb-reader-accent) 8%
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-surface) 92%,
+      var(--jpdb-reader-accent) 8%
+    ) 82%,
+    transparent
   );
   border-color: color-mix(
     in srgb,
@@ -1453,9 +1457,6 @@
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
   opacity: 0.9;
-  text-shadow:
-    0 1px 1px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
-    0 0 5px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
 }
 
 /* Vertical-text OCR (mokuro / vertical manga & light novels): the reading

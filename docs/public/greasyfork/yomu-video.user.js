@@ -1672,6 +1672,7 @@
     }
   }
   const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
+  const CURRENT_SCREEN_SELECTOR = ".currentScreen";
   const CANVAS_READER_HOST_PATTERNS = [
     /(^|\.)bookwalker\.jp$/i,
     /(^|\.)comic-walker\.com$/i
@@ -1757,7 +1758,13 @@
   }
   function pageCanvases(hostname = location.hostname) {
     const lenient = isKnownCanvasReaderHost(hostname) || Boolean(document.querySelector(PAGE_COUNTER_SELECTOR));
-    return Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
+    const canvases = Array.from(document.querySelectorAll("canvas")).filter((canvas) => isLikelyPageCanvas(canvas, lenient));
+    return isBookwalkerViewerHost(hostname) ? preferCurrentScreenCanvases(canvases) : canvases;
+  }
+  function preferCurrentScreenCanvases(canvases) {
+    if (canvases.length < 2) return canvases;
+    const current = canvases.filter((canvas) => canvas.closest(CURRENT_SCREEN_SELECTOR));
+    return current.length ? current : canvases;
   }
   function hasBackgroundReaderSignal(element) {
     return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
@@ -4680,7 +4687,12 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function pushJapaneseOcrLine(lines, text, box) {
     if (!text || !box || !HAS_JAPANESE.test(text)) return;
-    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+    lines.push({ text, box, vertical: isVerticalOcrBox(box, text.length) });
+  }
+  function isVerticalOcrBox(box, textLength) {
+    if (textLength <= 1) return false;
+    const aspect = box.height / Math.max(1, box.width);
+    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
   }
   function clampBox(box, width, height) {
     const left = Math.max(0, Math.min(width, box.left));
@@ -5158,7 +5170,7 @@ recommendedJiten	jiten.moe頻度データです。
     return {
       text,
       box,
-      vertical: paragraphVertical || box.height > box.width * 1.25 && text.length > 1
+      vertical: paragraphVertical || isVerticalOcrBox(box, text.length)
     };
   }
   function googleLensWords(line, width, height) {
@@ -6056,6 +6068,8 @@ ${candidate.depth}`;
   }
   const MAX_CACHE_ITEMS = 36;
   const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
+  const OCR_STATUS_READY_DWELL_MS = 1e3;
+  const OCR_STATUS_FADE_MS = 360;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -6189,6 +6203,7 @@ ${candidate.depth}`;
     // Compact loading/ready indicators for every OCR'd image (not just
     // paused-video frames), so slow image OCR shows progress without a card.
     imageStatuses = /* @__PURE__ */ new Map();
+    imageStatusTimers = /* @__PURE__ */ new Map();
     // Reader raster snapshots (BookWalker/ComicWalker canvases and Mokuro CSS
     // background pages): map each page surface to the invisible <img> we OCR in
     // its place, plus the page fingerprint and the page-turn poll.
@@ -6288,6 +6303,25 @@ ${candidate.depth}`;
         this.observeRefreshImage(image, settings);
       }
       this.schedulePosition();
+    }
+    /**
+     * Re-evaluate auto-scan after something *outside* the reader's own settings
+     * changes the answer at runtime — currently mokuro's own "OCR enabled"
+     * (displayOCR) toggle, which the reader cannot see through its settings
+     * subscription. When the page now supplies its native text layer we drop the
+     * overlays the reader auto-painted before the flip, so the reader's OCR stops
+     * competing with mokuro's text boxes; manually-scanned panels are kept. When
+     * it no longer does, a normal refresh starts the reader's own scan.
+     */
+    reassessAutoScan() {
+      const settings = this.options.getSettings();
+      if (!settings.ocrEnabled) return;
+      if (this.options.shouldAutoScan?.() === false) {
+        this.clearAutoScannedOverlays();
+        this.schedulePosition();
+        return;
+      }
+      this.refresh();
     }
     shouldSkipRefresh(settings, options) {
       if (options.userRequested) return false;
@@ -6477,7 +6511,8 @@ ${candidate.depth}`;
       this.activeScans++;
       this.inFlightKeys.add(key);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
-      const delay = this.states.get(image)?.overlayRequested || hasFastText ? 0 : 900;
+      const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
+      const delay = this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
       void waitForIdle(delay, delay).then(() => this.scanImage(image)).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         this.inFlightKeys.delete(key);
@@ -6527,6 +6562,10 @@ ${candidate.depth}`;
       }
       this.remember(key, result);
       state.key = key;
+      if (!manualRequested && !inlineFallback && this.options.shouldAutoScan?.() === false) {
+        this.clearAutoScannedOverlays();
+        return;
+      }
       await this.renderResult(state, result);
       log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
@@ -6819,6 +6858,7 @@ ${candidate.depth}`;
       if (this.videoFrameVideos.has(image)) return;
       if (!this.options.getSettings().ocrEnabled) return;
       const existing = this.imageStatuses.get(image);
+      this.clearImageStatusTimer(image);
       if (status === "empty") {
         existing?.remove();
         this.imageStatuses.delete(image);
@@ -6828,6 +6868,20 @@ ${candidate.depth}`;
       if (existing) this.setVideoFrameStatus(card, status);
       else this.imageStatuses.set(image, card);
       this.positionImageStatusCard(image, card);
+      if (status === "ready") this.scheduleImageStatusFade(image, card);
+    }
+    scheduleImageStatusFade(image, card) {
+      const dwell = window.setTimeout(() => {
+        card.classList.add("jpdb-ocr-video-frame-status-fade-out");
+        const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
+        this.imageStatusTimers.set(image, remove);
+      }, OCR_STATUS_READY_DWELL_MS);
+      this.imageStatusTimers.set(image, dwell);
+    }
+    clearImageStatusTimer(image) {
+      const timer = this.imageStatusTimers.get(image);
+      if (timer !== void 0) window.clearTimeout(timer);
+      this.imageStatusTimers.delete(image);
     }
     positionImageStatusCard(image, card) {
       const rect = image.getBoundingClientRect();
@@ -6839,6 +6893,7 @@ ${candidate.depth}`;
       positionOcrImageStatus(card, rect);
     }
     removeImageStatusCard(image) {
+      this.clearImageStatusTimer(image);
       const card = this.imageStatuses.get(image);
       if (!card) return;
       card.remove();
@@ -7082,7 +7137,8 @@ ${candidate.depth}`;
       const contentWidth = Math.max(1, contentRect.width);
       const contentHeight = Math.max(1, contentRect.height);
       const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2));
+      const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
+      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2));
       const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
@@ -7110,8 +7166,25 @@ ${candidate.depth}`;
         state.overlay.remove();
       }
       this.states.clear();
+      for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
+      this.imageStatusTimers.clear();
       for (const card of this.imageStatuses.values()) card.remove();
       this.imageStatuses.clear();
+    }
+    // Drop only the overlays the reader auto-painted, keeping panels the user
+    // scanned by hand (those carry overlayRequested/manualRequested). Used when
+    // we start deferring to a page's native text layer mid-session. The cached
+    // results stay in `this.cache`, so flipping back re-renders them instantly
+    // without re-OCRing.
+    clearAutoScannedOverlays() {
+      for (const [image, state] of [...this.states]) {
+        if (state.manualRequested || state.overlayRequested) continue;
+        this.queue = this.queue.filter((queued) => queued !== image);
+        this.inFlightKeys.delete(state.key);
+        state.overlay.remove();
+        this.states.delete(image);
+        this.removeImageStatusCard(image);
+      }
     }
     rememberOcrWordRenderStates(line, tokens) {
       const tokensByKey = new Map(tokens.map((token) => [ocrTokenRenderKey(token), token]));

@@ -1132,6 +1132,13 @@
   background: transparent;
   pointer-events: none;
   overflow: hidden;
+  opacity: 1;
+  transition: opacity 360ms ease;
+}
+
+/* "ready" dot flashes briefly then fades out (see OCR_STATUS_FADE_MS). */
+.jpdb-ocr-video-frame-status-fade-out {
+  opacity: 0;
 }
 
 .jpdb-ocr-video-frame-status::before {
@@ -1178,6 +1185,10 @@
 @media (prefers-reduced-motion: reduce) {
   .jpdb-ocr-video-frame-status-loading::before {
     animation: none;
+  }
+
+  .jpdb-ocr-video-frame-status {
+    transition: none;
   }
 }
 
@@ -1309,8 +1320,12 @@
   text-shadow: none;
   background: color-mix(
     in srgb,
-    var(--jpdb-reader-surface) 92%,
-    var(--jpdb-reader-accent) 8%
+    color-mix(
+      in srgb,
+      var(--jpdb-reader-surface) 92%,
+      var(--jpdb-reader-accent) 8%
+    ) 82%,
+    transparent
   );
   border-color: color-mix(
     in srgb,
@@ -1442,9 +1457,43 @@
 }
 .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-ocr-furi {
   opacity: 0.9;
-  text-shadow:
-    0 1px 1px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline)),
-    0 0 5px var(--jpdb-ocr-outline-color, var(--jpdb-reader-video-outline));
+}
+
+/* Vertical-text OCR (mokuro / vertical manga & light novels): the reading
+   belongs to the RIGHT of the kanji column, running top-to-bottom — real
+   vertical ruby. The shared .jpdb-ocr-furi anchor (top:0; left:50%;
+   translateX) is the horizontal "reading above the word" geometry; in a
+   writing-mode:vertical-rl line that physical top/left drops the reading on top
+   of the first glyph of the column (user feedback: "furigana is covering the
+   characters" / "reading wrong position"). Re-anchor the furigana to the right
+   edge of its own base run, centered along the run and stacking vertically, so
+   each reading sits beside the characters it annotates. Scoped to
+   [data-vertical="true"] so horizontal furigana-above is left untouched. */
+.jpdb-ocr-line[data-vertical="true"] .jpdb-ocr-ruby {
+  padding-top: 0;
+}
+.jpdb-ocr-line[data-vertical="true"] .jpdb-ocr-furi {
+  top: 50%;
+  left: 100%;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  text-align: start;
+  transform: translate(0.06em, -50%);
+}
+
+/* In a vertical column the word's pitch/decoration must stay on ONE side.
+   .jpdb-reader-word::after draws its rule on the block-end edge (physical left
+   in vertical-rl) while the text-decoration underline lands on the opposite
+   physical edge, so an activated vertical word gets marked on BOTH sides of the
+   column (user feedback: "pitch accent is appearing confusingly on both
+   sides"). With the reading now on the right, drop the duplicate pseudo-rule
+   and pin the single remaining underline to the left. Vertical OCR lines only —
+   horizontal words keep both. */
+.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word::after {
+  display: none;
+}
+.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word {
+  text-underline-position: left;
 }
 
 .asbplayer-subtitles-container-bottom {
@@ -2274,6 +2323,16 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   line-height: 1.16;
   text-decoration: none;
   word-break: keep-all;
+}
+/* Pitch is signaled exactly once on the card. The headword carries a jpdb-pitch-*
+   class that (under the pitch-underline display mode) draws a pitch-colored
+   underline, while the card tools also render the canonical mora-labelled pitch
+   graph — so the accent shows up on both the headword (left) and the graph
+   (right) (user feedback: "pitch accent is appearing confusingly on both
+   sides"). When the graph is present it is the single source of truth, so the
+   redundant headword underline is dropped. */
+.jpdb-reader-header:has(.jpdb-reader-pitch) .jpdb-reader-spelling {
+  text-decoration: none !important;
 }
 .jpdb-reader-title-row {
   display: flex;
@@ -9350,7 +9409,13 @@ html.jpdb-reader-doodle-active * {
 .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-pending {
   filter: saturate(.72);
 }
-.jpdb-subtitle-primary .jpdb-reader-furi {
+/* Second selector matches the same element in light mode at higher specificity
+   than the on-page furigana reset (`:is(.theme-light) .jpdb-reader-word rt` in
+   reader-words-ocr.css), which would otherwise strip the outline. That reset
+   avoids a muddy glow on light pages; player subtitles sit on dark footage and
+   want the outline in both themes. Listed together so the shadow is declared once. */
+.jpdb-subtitle-primary .jpdb-reader-furi,
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-subtitle-primary .jpdb-reader-furi {
   color: currentColor;
   opacity: .82;
   text-shadow:

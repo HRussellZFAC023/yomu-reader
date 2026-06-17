@@ -522,6 +522,7 @@ describe('hover lookup', () => {
     it('treats a hovered single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();
+        word.getBoundingClientRect = () => ({ left: 30, top: 20, right: 50, bottom: 30, width: 20, height: 10 } as DOMRect);
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
         const restoreElementFromPoint = stubElementFromPoint(line);
@@ -677,6 +678,7 @@ describe('hover lookup', () => {
     it('treats a clicked single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();
+        word.getBoundingClientRect = () => ({ left: 30, top: 20, right: 50, bottom: 30, width: 20, height: 10 } as DOMRect);
         const internals = app as unknown as HoverLookupInternals;
         const showWord = vi.fn().mockResolvedValue(undefined);
 

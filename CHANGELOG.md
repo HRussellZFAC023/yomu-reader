@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.2.3] - 2026-06-17
+
+### Fixed
+
+- OCR interaction unit tests: mocked `getBoundingClientRect` on word spans in `hover-lookup.test.ts` to cover the hover/click coordinates `(40, 24)` and satisfy the new strict hit-testing.
+- Test state leakage: added `localStorage.clear()` to the global `beforeEach` in `jpdb.test.ts` to prevent cached OCR data from bleeding between tests.
+
+## [1.2.2] - 2026-06-17
+
+### Fixed
+
+- OCR hover interaction: restricted OCR line hover/click popovers to strictly trigger when pointer is over the actual text bounding box, rather than anywhere inside the line frame wrapper.
+- Dark mode background parity: adjusted the light-mode OCR active background to be semi-transparent, aligning with the dark-mode layout.
+- Removed unwanted text-shadow/glow styling from furigana elements inside OCR layers.
+
 ## [1.2.1] - 2026-06-17
 
 ### Fixed

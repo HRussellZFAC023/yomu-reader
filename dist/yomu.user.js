@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.2.1
+// @version      1.2.3
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -32384,7 +32384,6 @@ ${glossaryKey}`;
   function ocrLineWordAtPoint(line, x, y) {
     const words = Array.from(line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]"));
     if (!words.length) return null;
-    if (words.length === 1) return words[0] ?? null;
     return words.find((word) => pointInsideExpandedRect(word.getBoundingClientRect(), x, y, 8)) ?? null;
   }
   function singleKanjiOcrLookupCharacter(word) {
