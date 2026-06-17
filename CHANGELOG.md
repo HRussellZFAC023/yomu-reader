@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.23] - 2026-06-17
+
+### Fixed
+
+- Selection token-choice popovers now show a compact translation by default and no longer show the redundant parsed-source line. Added an Appearance setting to turn selection-popover translations off.
+- Closing a selection popover continues to keep the highlighted text without immediately reopening the same selection lookup.
+
 ## [1.3.22] - 2026-06-17
 
 ### Fixed

@@ -18489,7 +18489,7 @@ describe('reader helpers', () => {
 
     it('renders configured selection action pills on token choice popovers', () => {
         const app = new ReaderApp();
-        const tokenCard: JPDBCard = { ...card, vid: 20, sid: 30, spelling: '日本語', reading: 'にほんご', source: 'jpdb' };
+        const tokenCard: JPDBCard = { ...card, vid: 20, sid: 30, spelling: '日本語', reading: 'にほんご', source: 'jpdb', meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['noun'] }] };
         const token: JPDBToken = {
             card: tokenCard,
             start: 0,
@@ -18521,6 +18521,39 @@ describe('reader helpers', () => {
             const pills = wrapper.querySelector('.jpdb-reader-selection-pills')!;
             const meanings = wrapper.querySelector('.jpdb-reader-meanings')!;
             expect(pills.compareDocumentPosition(meanings) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+            expect(wrapper.querySelector('.jpdb-reader-selection-translation')?.textContent).toBe('Japanese language');
+            expect(wrapper.textContent).not.toContain('Parsed from');
+            expect(wrapper.textContent).not.toContain('解析元');
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('hides token choice translations when selection popover translations are disabled', () => {
+        const app = new ReaderApp();
+        const tokenCard: JPDBCard = { ...card, vid: 20, sid: 30, spelling: '日本語', reading: 'にほんご', source: 'jpdb', meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['noun'] }] };
+        const token: JPDBToken = {
+            card: tokenCard,
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+            sentence: '日本語訳',
+        };
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            renderTokenListHtml(tokens: JPDBToken[], selected: string, source: 'lookup' | 'selection'): string;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, selectionPopoverShowTranslation: false };
+
+        try {
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = internals.renderTokenListHtml([token], '日本語訳', 'selection');
+
+            expect(wrapper.querySelector('.jpdb-reader-selection-translation')).toBeNull();
+            expect(wrapper.textContent).not.toContain('Japanese language');
+            expect(wrapper.textContent).not.toContain('Parsed from');
         } finally {
             app.destroy();
         }

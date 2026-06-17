@@ -270,6 +270,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     immersionKitPlayOnHover: true,
     immersionKitPlayOnImageClick: true,
     immersionKitPlaybackRate: 1,
+    selectionPopoverShowTranslation: true,
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
@@ -632,6 +633,7 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
         lookupOnClick: booleanSettingWithFallback(value, 'lookupOnClick', true),
         lookupOnHover: booleanSettingWithFallback(value, 'lookupOnHover', value?.popupActivationMode !== 'click'),
         lookupOnMiddleMouse: booleanSettingWithFallback(value, 'lookupOnMiddleMouse', true),
+        selectionPopoverShowTranslation: booleanSettingWithFallback(value, 'selectionPopoverShowTranslation', DEFAULT_SETTINGS.selectionPopoverShowTranslation),
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
     };

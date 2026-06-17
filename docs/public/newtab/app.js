@@ -2391,6 +2391,7 @@
     immersionKitPlayOnHover: true,
     immersionKitPlayOnImageClick: true,
     immersionKitPlaybackRate: 1,
+    selectionPopoverShowTranslation: true,
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
@@ -2709,6 +2710,7 @@
       lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
       lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
       lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
+      selectionPopoverShowTranslation: booleanSettingWithFallback(value, "selectionPopoverShowTranslation", DEFAULT_SETTINGS.selectionPopoverShowTranslation),
       hoverOpenDelayMs: clampNumber$3(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
       hoverCloseDelayMs: clampNumber$3(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
     };
@@ -6882,6 +6884,7 @@
       ankiLocalDictionaryStatus: "local dictionary",
       selection: "Selection",
       parsedFrom: "Parsed from",
+      selectionPopoverShowTranslation: "Show translation in selection popovers",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
       subtitleOverlayEnabled: "Subtitle overlay enabled.",
@@ -7490,6 +7493,7 @@ ankiMergeImage	画像
 ankiMergeComplete	YomuデータをAnkiに統合しました ({parts})。
 selection	選択範囲
 parsedFrom	解析元
+selectionPopoverShowTranslation	選択ポップアップに翻訳を表示
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
 subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
@@ -24306,6 +24310,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       popoverWidth: clamped("popoverWidth", 280, 900, current.popoverWidth),
       popoverHeight: clamped("popoverHeight", 220, 900, current.popoverHeight),
       popoverHeightMode: readOption(get("popoverHeightMode"), ["available", "fixed"], current.popoverHeightMode),
+      selectionPopoverShowTranslation: has("selectionPopoverShowTranslation"),
       readerFontFamily: readFontFamilySetting(reader, "readerFontFamily", current.readerFontFamily),
       popupFontFamily: readFontFamilySetting(reader, "popupFontFamily", current.popupFontFamily),
       popupFontWeight: clamped("popupFontWeight", 300, 900, current.popupFontWeight)
@@ -25782,6 +25787,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${input("popoverWidth", "Popover width (px)", String(settings.popoverWidth), "number", { min: 280, max: 900, step: 10 })}
                     ${input("popoverHeight", "Popover height (px)", String(settings.popoverHeight), "number", { min: 220, max: 900, step: 10 })}
                     ${select("popoverHeightMode", "Popover height behavior", settings.popoverHeightMode, [["available", "Grow to available space"], ["fixed", "Use height setting"]])}
+                    ${checkbox("selectionPopoverShowTranslation", "Show translation in selection popovers", settings.selectionPopoverShowTranslation)}
                     ${fontFamilyControl("readerFontFamily", "Reader interface font", settings.readerFontFamily)}
                     ${fontFamilyControl("popupFontFamily", "Popup Japanese font", settings.popupFontFamily)}
                     ${input("popupFontWeight", "Popup Japanese weight", String(settings.popupFontWeight), "number", { min: 300, max: 900, step: 10 })}
@@ -27026,6 +27032,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "popoverWidth",
     "popoverHeight",
     "popoverHeightMode",
+    "selectionPopoverShowTranslation",
     "readerFontFamily",
     "popupFontFamily",
     "popupFontWeight",

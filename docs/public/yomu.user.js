@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.22
+// @version      1.3.23
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.22#sha256-JeEbVY/hyWzQzpZG7YgTt8xfvaKevWACzmIGxmNLnTI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.22#sha256-MZVWqwkIITDKnrmUo6pVlMMdnMpk9B3yDtd1O8DOwko=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.22#sha256-Fg5ZJI9o7mn3uV7h5aG+4xj8fiFh3Ac/LzP0fNp5mhI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.22#sha256-nqO1h3cYg0XC8fyBiyEjjZfjQqPw9IUSWbGCCNwbX5M=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.23#sha256-pYIRGwGABDJjB6gNS1DQpHDtbv2iPWnTSeeHMvLvMFQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.23#sha256-rbxqytIAm6gQ9ph8BDcGMfrtB4q4bienA5S0G98xhdA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.23#sha256-o/g5DEAhYePkT2gujveywfWcfognmKNSaGS4aErTe3Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.23#sha256-IZg83J62QcEQ1LsbKmI+74jDZ+xQGa3B1a6BWkpmJ6Q=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2616,6 +2616,7 @@
     immersionKitPlayOnHover: true,
     immersionKitPlayOnImageClick: true,
     immersionKitPlaybackRate: 1,
+    selectionPopoverShowTranslation: true,
     parseSelection: true,
     lookupOnClick: true,
     lookupOnHover: true,
@@ -2931,6 +2932,7 @@
       lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
       lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
       lookupOnMiddleMouse: booleanSettingWithFallback(value, "lookupOnMiddleMouse", true),
+      selectionPopoverShowTranslation: booleanSettingWithFallback(value, "selectionPopoverShowTranslation", DEFAULT_SETTINGS.selectionPopoverShowTranslation),
       hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
       hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
     };
@@ -7611,6 +7613,7 @@
       ankiLocalDictionaryStatus: "local dictionary",
       selection: "Selection",
       parsedFrom: "Parsed from",
+      selectionPopoverShowTranslation: "Show translation in selection popovers",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
       subtitleOverlayEnabled: "Subtitle overlay enabled.",
@@ -8219,6 +8222,7 @@ ankiMergeImage	画像
 ankiMergeComplete	YomuデータをAnkiに統合しました ({parts})。
 selection	選択範囲
 parsedFrom	解析元
+selectionPopoverShowTranslation	選択ポップアップに翻訳を表示
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
 subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
@@ -33400,7 +33404,7 @@ ${glossaryKey}`;
                 <div class="jpdb-reader-meanings">
                     ${tokens.map((token) => renderTokenListButton(token)).join("")}
                 </div>
-                <div class="jpdb-reader-help">${escapeHtml$1(uiText(language, "parsedFrom"))}: ${escapeHtml$1(selected)}</div>
+                ${source === "selection" ? renderTokenListTranslation(tokens, settings) : ""}
             </div>
         `;
   }
@@ -33445,6 +33449,12 @@ ${glossaryKey}`;
   }
   function renderTokenListReading(token) {
     return token.card.reading !== token.card.spelling ? `<span class="jpdb-reader-reading">${escapeHtml$1(token.card.reading)}</span>` : "";
+  }
+  function renderTokenListTranslation(tokens, settings) {
+    if (!settings.selectionPopoverShowTranslation) return "";
+    const glosses = tokens.map((token) => token.card.meanings.flatMap((meaning) => meaning.glosses).filter(Boolean).slice(0, 2).join(", ")).filter(Boolean);
+    if (!glosses.length) return "";
+    return `<div class="jpdb-reader-help jpdb-reader-selection-translation">${escapeHtml$1(glosses.join(" / "))}</div>`;
   }
   function createTextLookupDisplayContext(text2, options, state2) {
     const selected = normalizedLookupText(text2);

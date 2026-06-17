@@ -36,7 +36,7 @@ export function renderTokenListHtml(
                 <div class="jpdb-reader-meanings">
                     ${tokens.map(token => renderTokenListButton(token)).join('')}
                 </div>
-                <div class="jpdb-reader-help">${escapeHtml(uiText(language, 'parsedFrom'))}: ${escapeHtml(selected)}</div>
+                ${source === 'selection' ? renderTokenListTranslation(tokens, settings) : ''}
             </div>
         `;
 }
@@ -98,4 +98,13 @@ function renderTokenListReading(token: JPDBToken): string {
     return token.card.reading !== token.card.spelling
         ? `<span class="jpdb-reader-reading">${escapeHtml(token.card.reading)}</span>`
         : '';
+}
+
+function renderTokenListTranslation(tokens: JPDBToken[], settings: ReaderSettings): string {
+    if (!settings.selectionPopoverShowTranslation) return '';
+    const glosses = tokens
+        .map(token => token.card.meanings.flatMap(meaning => meaning.glosses).filter(Boolean).slice(0, 2).join(', '))
+        .filter(Boolean);
+    if (!glosses.length) return '';
+    return `<div class="jpdb-reader-help jpdb-reader-selection-translation">${escapeHtml(glosses.join(' / '))}</div>`;
 }

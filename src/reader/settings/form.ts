@@ -248,6 +248,7 @@ function renderInterfaceSettingsPanel(settings: ReaderSettings): string {
                     ${input('popoverWidth', 'Popover width (px)', String(settings.popoverWidth), 'number', { min: 280, max: 900, step: 10 })}
                     ${input('popoverHeight', 'Popover height (px)', String(settings.popoverHeight), 'number', { min: 220, max: 900, step: 10 })}
                     ${select('popoverHeightMode', 'Popover height behavior', settings.popoverHeightMode, [['available', 'Grow to available space'], ['fixed', 'Use height setting']])}
+                    ${checkbox('selectionPopoverShowTranslation', 'Show translation in selection popovers', settings.selectionPopoverShowTranslation)}
                     ${fontFamilyControl('readerFontFamily', 'Reader interface font', settings.readerFontFamily)}
                     ${fontFamilyControl('popupFontFamily', 'Popup Japanese font', settings.popupFontFamily)}
                     ${input('popupFontWeight', 'Popup Japanese weight', String(settings.popupFontWeight), 'number', { min: 300, max: 900, step: 10 })}
@@ -1617,7 +1618,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'apiCredential', 'apiCredentialJpdb', 'apiCredentialJiten', 'miningDeck', 'newTabJpdbDeck', 'neverForgetDeck', 'blacklistDeck',
     'jpdbMiningEnabled', 'addToForq', 'enableReviews', 'jpdbPageEnhancementsEnabled', 'jpdbPageWordEnhancementsEnabled',
     'jpdbPageKanjiEnhancementsEnabled', 'popupMode', 'stickyBottomSheet', 'popoverBackdropEnabled', 'popoverWidth',
-    'popoverHeight', 'popoverHeightMode', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
+    'popoverHeight', 'popoverHeightMode', 'selectionPopoverShowTranslation', 'readerFontFamily', 'popupFontFamily', 'popupFontWeight',
     'enableLogging', 'accentColor', 'newTabAnkiEnabled', 'newTabSource',
     'newTabJpdbReviewMode', 'corsProxyUrl', 'newTabKanjiKeywordSource', 'newTabParsingEnabled', 'newTabFrontSentenceEnabled',
     'newTabKanjiAutogradeEnabled', 'newTabKanjiAutoSubmit', 'newTabOfflineEnabled', 'newTabOfflineLimit', 'newTabDailyGoalMinutes', 'newTabKanjiUnlockEnabled', 'newTabStopAtBatchEnd', 'newTabSwipeReviews', 'newTabUrl',
