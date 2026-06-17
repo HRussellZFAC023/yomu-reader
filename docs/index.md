@@ -96,6 +96,10 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
     <strong>See the tools</strong>
     <span>Free pages for OCR, furigana, kanji stroke order, subtitles, JPDB study, and YouTube.</span>
   </a>
+  <a class="yomu-link-card" href="/yomu-reader/guides/">
+    <strong>Read the guides</strong>
+    <span>Read manga, mine anime &amp; YouTube to Anki, find comprehensible-input channels.</span>
+  </a>
   <a class="yomu-link-card" href="/yomu-reader/newtab/index.html">
     <strong>Open study app</strong>
     <span>Review JPDB, Anki, or imported dictionary cards from the study app.</span>

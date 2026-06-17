@@ -66,3 +66,5 @@ The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader)
   <a class="yomu-cta-button" href="/yomu-reader/features#youtube-immersion-filter">Filter details</a>
   <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
 </div>
+
+**Related guide:** [Comprehensible-input Japanese: best YouTube channels](/guides/comprehensible-input-youtube).

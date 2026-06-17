@@ -64,3 +64,5 @@ The image itself is **not** uploaded anywhere unless you turn on a local OCR end
   <a class="yomu-cta-button" href="/yomu-reader/features#image-and-manga-ocr">OCR details</a>
   <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
 </div>
+
+**Related guide:** [How to read manga in Japanese (free setup)](/guides/read-manga-in-japanese).

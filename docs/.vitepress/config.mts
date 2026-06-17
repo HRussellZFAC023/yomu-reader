@@ -200,6 +200,7 @@ export default defineConfig({
             { text: 'Start', link: '/getting-started' },
             { text: 'Features', link: '/features' },
             { text: 'Tools', link: '/tools/' },
+            { text: 'Guides', link: '/guides/' },
             { text: 'Study', link: newTabLink, target: '_self' },
             { text: 'Support', link: '/support' },
             {
@@ -235,6 +236,17 @@ export default defineConfig({
                     { text: 'Subtitle miner', link: '/tools/japanese-subtitle-reader' },
                     { text: 'JPDB study & review', link: '/tools/jpdb-study' },
                     { text: 'YouTube for Japanese', link: '/tools/youtube-japanese' },
+                ],
+            },
+            {
+                text: 'Guides',
+                items: [
+                    { text: 'All guides', link: '/guides/' },
+                    { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
+                    { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
+                    { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
+                    { text: 'Yomitan vs JPDB vs Anki', link: '/guides/yomitan-jpdb-anki' },
+                    { text: 'Free Migaku alternative', link: '/compare/migaku-alternative' },
                 ],
             },
             {

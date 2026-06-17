@@ -65,3 +65,5 @@ If you've used asbplayer-style sentence mining before, this will feel familiar â
   <a class="yomu-cta-button" href="/yomu-reader/video-player/index.html" target="_self">Open video player</a>
   <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
 </div>
+
+**Related guide:** [How to mine sentences from anime & YouTube to Anki](/guides/mine-sentences-to-anki).

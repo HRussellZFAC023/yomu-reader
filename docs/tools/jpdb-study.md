@@ -61,3 +61,5 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
   <a class="yomu-cta-button" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
   <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
 </div>
+
+**Related guide:** [Yomitan vs JPDB vs Anki: which to use when](/guides/yomitan-jpdb-anki).

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.1] - 2026-06-18
+
+### Added
+
+- Traffic-funnel content for SEO: a new `/guides/` hub plus four how-to guides — read manga in Japanese (free OCR setup), mine sentences from anime & YouTube to Anki, comprehensible-input YouTube (with a levelled N5–N1 channel list drawn from the in-app starter guide), and Yomitan vs JPDB vs Anki — and a `/compare/migaku-alternative` page. Each targets a distinct search intent, ships matching `FAQPage` structured data, and links down to the relevant tool page and install. Added a `Guides` nav entry and sidebar group, plus "Related guide" cross-links from the OCR, subtitle, YouTube, and JPDB tool pages and a guides card on the home page.
+
 ## [1.4.0] - 2026-06-18
 
 ### Added
