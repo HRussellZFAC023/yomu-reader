@@ -107,7 +107,7 @@ describe('OCR concurrency pool', () => {
         }
     });
 
-    it('keeps OCR serial on iPad even when concurrency is configured higher', async () => {
+    it('follows configured OCR concurrency on iPad', async () => {
         stubInstantIntersectionObserver();
         vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15');
         vi.spyOn(navigator, 'platform', 'get').mockReturnValue('iPad');
@@ -125,9 +125,8 @@ describe('OCR concurrency pool', () => {
 
         try {
             controller.init();
-            await waitForExpect(() => expect(active).toBe(1));
-            await new Promise(resolve => setTimeout(resolve, 30));
-            expect(peak).toBe(1);
+            await waitForExpect(() => expect(peak).toBe(3));
+            expect(active).toBe(3);
             releases.forEach(release => release());
         } finally {
             releases.forEach(release => release());

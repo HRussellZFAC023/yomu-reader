@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.25] - 2026-06-17
+
+### Fixed
+
+- Selection token-choice popovers now show a compact translation by default and no longer show the redundant parsed-source line. Added an Appearance setting to turn selection-popover translations off.
+- The OCR concurrency regression test now matches the current behavior restored in 1.3.21: iPad follows the configured OCR concurrency instead of forcing serial scanning.
+
 ## [1.3.24] - 2026-06-17
 
 ### Fixed
