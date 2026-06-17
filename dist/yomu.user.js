@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.12
+// @version      1.3.13
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ga6517FvITR1mQ/3PngvghlrF0WulrBEFX3K5uHBwXk=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-85mdOuet3UD/7LYtURgvhQSJE8JKKdD8d3/cCgjPk6g=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-GtflZA77ysokyzjpXa8SnueOYs8tkW4YUIRO6Mh7Kh8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-XuZHhG94IMkYAFCaki3UaNhD5CA88FS5NIL/rvChVd0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Qr5Q+YOcLkYA0p9YZ1CnZT9ej4OkdOLHcdCHbpPRM+g=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -43546,12 +43546,153 @@ ${span.end}`;
     };
     return true;
   }
-  function installCanvasMirrorRecorder(hostname = location.hostname) {
-    const s = state();
-    if (s.installed || !isBookwalkerHost(hostname)) return;
+  function recorderBootstrap(win, opts) {
+    if (win.__yomuCanvasMirrorRecorder) return;
+    win.__yomuCanvasMirrorRecorder = true;
+    const ATTR = opts.idAttr, MAX = opts.maxOps, KEEP = opts.keep;
+    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, debug: opts.debug, records: /* @__PURE__ */ Object.create(null) };
+    S.installed = true;
+    S.debug = opts.debug;
+    const HC = win.HTMLCanvasElement;
+    const OC = win.OffscreenCanvas;
+    const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
+    const srcUrl = (o) => {
+      const m = o;
+      return m ? typeof m.currentSrc === "string" && m.currentSrc || typeof m.src === "string" && m.src || "" : "";
+    };
+    const idOf = (c, create) => {
+      const el = c;
+      if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
+        let i = el.getAttribute(ATTR);
+        if (!i && create) {
+          i = "m" + S.nextId++;
+          try {
+            el.setAttribute(ATTR, i);
+          } catch {
+            return null;
+          }
+        }
+        return i;
+      }
+      if (el && el.__yomuMid) return el.__yomuMid;
+      if (el && create) {
+        try {
+          return el.__yomuMid = "m" + S.nextId++;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+    const rec = (id, w, h) => {
+      let r = S.records[id];
+      if (!r) {
+        r = { w, h, ops: [] };
+        S.records[id] = r;
+      }
+      if (w) r.w = w;
+      if (h) r.h = h;
+      if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP);
+      return r;
+    };
+    const patch = (p) => {
+      if (!p || p.__yomuMirrorPatched) return;
+      p.__yomuMirrorPatched = true;
+      const draw = p.drawImage;
+      p.drawImage = function(src) {
+        if (!this.__yomuMirrorSkip) {
+          try {
+            const cid = idOf(this.canvas, true);
+            if (cid) {
+              const r = rec(cid, this.canvas.width, this.canvas.height);
+              const a = arguments;
+              const o = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+              if (a.length === 9) {
+                o.sx = a[1];
+                o.sy = a[2];
+                o.sw = a[3];
+                o.sh = a[4];
+                o.dx = a[5];
+                o.dy = a[6];
+                o.dw = a[7];
+                o.dh = a[8];
+              } else if (a.length === 5) {
+                o.dx = a[1];
+                o.dy = a[2];
+                o.dw = a[3];
+                o.dh = a[4];
+              } else if (a.length === 3) {
+                o.dx = a[1];
+                o.dy = a[2];
+              }
+              r.ops.push(o);
+            }
+          } catch {
+          }
+        }
+        return draw.apply(this, arguments);
+      };
+      const clr = p.clearRect;
+      p.clearRect = function(x, y, w, h) {
+        if (!this.__yomuMirrorSkip) {
+          try {
+            if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
+              const cid = idOf(this.canvas, true);
+              if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+            }
+          } catch {
+          }
+        }
+        return clr.apply(this, arguments);
+      };
+    };
+    const w2 = win;
+    patch(w2.CanvasRenderingContext2D?.prototype);
+    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+  }
+  function injectRecorderIntoPage(opts) {
+    const parent = document.head || document.documentElement;
+    if (!parent) return false;
+    const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
     try {
-      s.debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
+      const script = document.createElement("script");
+      const nonce = [...document.querySelectorAll("script[nonce]")].map((el) => el.getAttribute("nonce")).find(Boolean);
+      if (nonce) script.setAttribute("nonce", nonce);
+      const trusted = createTrustedMirrorScript(source);
+      if (trusted) script.textContent = trusted;
+      else script.textContent = source;
+      parent.append(script);
+      script.remove();
     } catch {
+      return false;
+    }
+    return Boolean(pageWindow().__yomuCanvasMirror);
+  }
+  function createTrustedMirrorScript(code) {
+    try {
+      const factory = globalThis.trustedTypes;
+      if (!factory?.createPolicy) return null;
+      const policy = factory.createPolicy("yomu-canvas-mirror", { createScript: (s) => s });
+      return policy?.createScript ? policy.createScript(code) : null;
+    } catch {
+      return null;
+    }
+  }
+  function installCanvasMirrorRecorder(hostname = location.hostname) {
+    if (!isBookwalkerHost(hostname)) return;
+    const s = state();
+    if (s.installed) return;
+    let debug = false;
+    try {
+      debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
+    } catch {
+    }
+    s.debug = debug;
+    const uw = globalThis.unsafeWindow;
+    const differentRealm = Boolean(uw) && uw !== globalThis;
+    if (differentRealm && injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) {
+      s.installed = true;
+      return;
     }
     const global = globalThis;
     patchContextPrototype(global.CanvasRenderingContext2D?.prototype);

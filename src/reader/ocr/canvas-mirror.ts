@@ -279,14 +279,107 @@ export function patchContextPrototype(prototype: Context2DPrototype | undefined)
     return true;
 }
 
-// Install the recorder. No-op off BookWalker hosts (the hook would otherwise add
-// overhead to every canvas draw on every site) and idempotent via the shared
-// page-window state. Patches whichever realm calls it — the page's 2D context
-// prototype is shared across realms, so a single install in either realm captures.
+// Self-contained recorder, serialized and injected into the PAGE main world on
+// Firefox (where the sandbox and the OCR reader are different realms and a
+// sandbox-created state object can't be defined on / read from the page window).
+// Running in the page realm makes the state + ops page-compartment objects the
+// main-world reader can read directly. Must reference ONLY its parameters.
+export function recorderBootstrap(win: PageWindowLike, opts: { idAttr: string; maxOps: number; keep: number; debug: boolean }): void {
+    if (win.__yomuCanvasMirrorRecorder) return;
+    win.__yomuCanvasMirrorRecorder = true;
+    const ATTR = opts.idAttr, MAX = opts.maxOps, KEEP = opts.keep;
+    const S = (win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, debug: opts.debug, records: Object.create(null) }) as MirrorGlobalState;
+    S.installed = true; S.debug = opts.debug;
+    const HC = (win as { HTMLCanvasElement?: unknown }).HTMLCanvasElement as (new () => unknown) | undefined;
+    const OC = (win as { OffscreenCanvas?: unknown }).OffscreenCanvas as (new () => unknown) | undefined;
+    const isCanvas = (o: unknown): boolean => Boolean(o) && ((HC != null && o instanceof HC) || (OC != null && o instanceof OC));
+    const srcUrl = (o: unknown): string => { const m = o as { currentSrc?: string; src?: string } | null; return m ? ((typeof m.currentSrc === 'string' && m.currentSrc) || (typeof m.src === 'string' && m.src) || '') : ''; };
+    const idOf = (c: unknown, create: boolean): string | null => {
+        const el = c as { getAttribute?: (n: string) => string | null; setAttribute?: (n: string, v: string) => void; __yomuMid?: string };
+        if (el && typeof el.getAttribute === 'function' && typeof el.setAttribute === 'function') { let i = el.getAttribute(ATTR); if (!i && create) { i = 'm' + (S.nextId++); try { el.setAttribute(ATTR, i); } catch { return null; } } return i; }
+        if (el && el.__yomuMid) return el.__yomuMid; if (el && create) { try { return (el.__yomuMid = 'm' + (S.nextId++)); } catch { return null; } } return null;
+    };
+    const rec = (id: string, w: number, h: number): MirrorRecord => { let r = S.records[id]; if (!r) { r = { w, h, ops: [] }; S.records[id] = r; } if (w) r.w = w; if (h) r.h = h; if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP); return r; };
+    const patch = (p: Context2DPrototype | undefined): void => {
+        if (!p || p.__yomuMirrorPatched) return; p.__yomuMirrorPatched = true;
+        const draw = p.drawImage;
+        p.drawImage = function (this: Context2DPrototype, src: unknown) {
+            if (!this.__yomuMirrorSkip) { try {
+                const cid = idOf(this.canvas, true);
+                if (cid) {
+                    const r = rec(cid, this.canvas.width, this.canvas.height); const a = arguments as unknown as ArrayLike<number>;
+                    const o: MirrorOp = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? '' : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+                    // `arguments` includes the source image at [0], so the 9/5/3-arg
+                    // drawImage forms put coordinates at a[1..] (unlike the args-only
+                    // array passed to recordDrawImage, which uses 8/4/2).
+                    if (a.length === 9) { o.sx = a[1]; o.sy = a[2]; o.sw = a[3]; o.sh = a[4]; o.dx = a[5]; o.dy = a[6]; o.dw = a[7]; o.dh = a[8]; }
+                    else if (a.length === 5) { o.dx = a[1]; o.dy = a[2]; o.dw = a[3]; o.dh = a[4]; }
+                    else if (a.length === 3) { o.dx = a[1]; o.dy = a[2]; }
+                    r.ops.push(o);
+                }
+            } catch { /* */ } }
+            return draw.apply(this, arguments as unknown as unknown[]);
+        } as typeof p.drawImage;
+        const clr = p.clearRect;
+        p.clearRect = function (this: Context2DPrototype, x: number, y: number, w: number, h: number) {
+            if (!this.__yomuMirrorSkip) { try { if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) { const cid = idOf(this.canvas, true); if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true }); } } catch { /* */ } }
+            return clr.apply(this, arguments as unknown as [number, number, number, number]);
+        } as typeof p.clearRect;
+    };
+    const w2 = win as { CanvasRenderingContext2D?: { prototype: Context2DPrototype }; OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype } };
+    patch(w2.CanvasRenderingContext2D?.prototype);
+    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+}
+
+interface PageWindowLike { __yomuCanvasMirror?: MirrorGlobalState; __yomuCanvasMirrorRecorder?: boolean; }
+
+// Inject the recorder into the page main world (Firefox sandbox → page realm).
+// Returns true if the injection ran (state created in the page compartment).
+function injectRecorderIntoPage(opts: { idAttr: string; maxOps: number; keep: number; debug: boolean }): boolean {
+    const parent = document.head || document.documentElement;
+    if (!parent) return false;
+    const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
+    try {
+        const script = document.createElement('script');
+        const nonce = [...document.querySelectorAll('script[nonce]')].map(el => el.getAttribute('nonce')).find(Boolean);
+        if (nonce) script.setAttribute('nonce', nonce);
+        const trusted = createTrustedMirrorScript(source);
+        if (trusted) (script as unknown as { textContent: unknown }).textContent = trusted;
+        else script.textContent = source;
+        parent.append(script);
+        script.remove();
+    } catch { return false; }
+    return Boolean((pageWindow() as PageWindowLike).__yomuCanvasMirror);
+}
+
+function createTrustedMirrorScript(code: string): unknown {
+    try {
+        const factory = (globalThis as { trustedTypes?: { createPolicy?: (n: string, o: { createScript: (s: string) => string }) => { createScript?: (s: string) => unknown } } }).trustedTypes;
+        if (!factory?.createPolicy) return null;
+        const policy = factory.createPolicy('yomu-canvas-mirror', { createScript: (s: string) => s });
+        return policy?.createScript ? policy.createScript(code) : null;
+    } catch { return null; }
+}
+
+// Install the recorder. No-op off BookWalker hosts. Same-realm (iPad/Chrome): patch
+// this realm's 2D-context prototype directly. Different realm (Firefox sandbox):
+// inject a page-world recorder so its state is page-compartment and the main-world
+// OCR reader can read it. Idempotent via the shared page-window state.
 export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
+    if (!isBookwalkerHost(hostname)) return;
     const s = state();
-    if (s.installed || !isBookwalkerHost(hostname)) return;
-    try { s.debug = localStorage.getItem('yomu.canvasMirrorDebug') === '1'; } catch { /* */ }
+    if (s.installed) return;
+    let debug = false;
+    try { debug = localStorage.getItem('yomu.canvasMirrorDebug') === '1'; } catch { /* */ }
+    s.debug = debug;
+    const uw = (globalThis as unknown as { unsafeWindow?: typeof globalThis }).unsafeWindow;
+    const differentRealm = Boolean(uw) && uw !== (globalThis as unknown as typeof globalThis);
+    if (differentRealm && injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) {
+        s.installed = true;
+        return;
+    }
+    // Same realm (or injection unavailable): patch directly. The 2D-context prototype
+    // is shared across realms, so this still captures the page's draws.
     const global = globalThis as unknown as {
         CanvasRenderingContext2D?: { prototype: Context2DPrototype };
         OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype };

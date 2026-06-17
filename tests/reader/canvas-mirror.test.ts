@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
     collectLeafUrls,
     patchContextPrototype,
+    recorderBootstrap,
     recordClear,
     recordDrawImage,
     recordedOpsFor,
@@ -123,6 +124,41 @@ describe('recorder hook (cross-realm-safe ids)', () => {
         ctx.__yomuMirrorSkip = true;
         ctx.drawImage({ src: 'https://cdn/skip.jpeg' } as never, 0, 0);
         expect(recordedOpsFor(canvas)).toHaveLength(0);
+    });
+});
+
+describe('recorderBootstrap (injected page-world recorder)', () => {
+    // The Firefox path serializes recorderBootstrap and runs it in the page realm.
+    // Exercise it against a mock window to confirm it patches and records correctly.
+    function mockWin() {
+        class CRC2D { canvas: unknown = null; drawImage(): void { /* */ } clearRect(): void { /* */ } }
+        return { HTMLCanvasElement: class HImg {}, CanvasRenderingContext2D: CRC2D } as unknown as Parameters<typeof recorderBootstrap>[0] & { CanvasRenderingContext2D: { prototype: { drawImage: (...a: unknown[]) => void; clearRect: (...a: unknown[]) => void } }; HTMLCanvasElement: new () => unknown; __yomuCanvasMirror?: { records: Record<string, MirrorRecord> } };
+    }
+    function fakeCanvas(w = 1024, h = 1024) {
+        const attrs: Record<string, string> = {};
+        return { width: w, height: h, getAttribute: (n: string) => attrs[n] ?? null, setAttribute: (n: string, v: string) => { attrs[n] = v; } };
+    }
+
+    it('patches the page CanvasRenderingContext2D prototype and records ops into page state', () => {
+        const win = mockWin();
+        recorderBootstrap(win, { idAttr: 'data-yomu-mid', maxOps: 6000, keep: 3000, debug: false });
+        const canvas = fakeCanvas();
+        const ctx = Object.create(win.CanvasRenderingContext2D.prototype) as { drawImage: (...a: unknown[]) => void; canvas: ReturnType<typeof fakeCanvas> };
+        ctx.canvas = canvas;
+        ctx.drawImage({ src: 'https://cdn/page.jpeg' }, 0, 0, 64, 64, 10, 20, 64, 64);
+
+        const id = canvas.getAttribute('data-yomu-mid')!;
+        expect(id).toBeTruthy();
+        const ops = win.__yomuCanvasMirror!.records[id].ops;
+        expect(ops[0]).toMatchObject({ url: 'https://cdn/page.jpeg', sw: 64, sh: 64, dx: 10, dy: 20, dw: 64, dh: 64 });
+    });
+
+    it('is idempotent (does not double-patch)', () => {
+        const win = mockWin();
+        recorderBootstrap(win, { idAttr: 'data-yomu-mid', maxOps: 6000, keep: 3000, debug: false });
+        const first = win.CanvasRenderingContext2D.prototype.drawImage;
+        recorderBootstrap(win, { idAttr: 'data-yomu-mid', maxOps: 6000, keep: 3000, debug: false });
+        expect(win.CanvasRenderingContext2D.prototype.drawImage).toBe(first);
     });
 });
 

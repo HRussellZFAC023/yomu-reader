@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.13] - 2026-06-17
+
+### Fixed
+
+- BookWalker OCR still didn't fire on Firefox (it works on iPad): the canvas-mirror recorder ran in the Tampermonkey content sandbox while the OCR reader runs in the page main world, and Firefox won't let a sandbox-created state object be defined on / read from the page window (Xray compartments). The recorder is now injected into the page main world when the realms differ (via a Trusted-Types-safe `<script>`), so its state and recorded ops are page-compartment objects the reader can read directly; the same-realm direct patch is kept for iPad/Chrome. Fixed an arity bug in the injected recorder (it reads `arguments`, which includes the source image, so the 9/5/3-arg drawImage forms map coordinates from index 1).
+
 ## [1.3.12] - 2026-06-17
 
 ### Fixed
