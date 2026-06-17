@@ -70,9 +70,9 @@
     return states;
   }
   function appendNormalizedCardState(states, rawState) {
-    const state = normalizeCardState(rawState);
-    if (!state || states.includes(state)) return;
-    states.push(state);
+    const state2 = normalizeCardState(rawState);
+    if (!state2 || states.includes(state2)) return;
+    states.push(state2);
   }
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
@@ -1256,7 +1256,7 @@
   function furiganaHiddenStates(settings) {
     const states = /* @__PURE__ */ new Set();
     for (const group of settings.furiganaHiddenStateGroups) {
-      for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
+      for (const state2 of FURIGANA_GROUP_STATES[group] ?? []) states.add(state2);
     }
     return states;
   }
@@ -1342,19 +1342,19 @@
     return readerCardSource(card) === "jiten" ? card.jitenReadingIndex ?? card.sid : card.sid;
   }
   function renderTokenHtml(surface, token, settings, miningInsightKeys) {
-    const state = primaryCardState(token.card.cardState);
+    const state2 = primaryCardState(token.card.cardState);
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const classes = [
-      readerWordClassName(state, token),
+      readerWordClassName(state2, token),
       hasRuby ? "jpdb-reader-has-furi" : "",
       hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
     ].filter(Boolean).join(" ");
     const source = ` data-card-source="${escapeHtml(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-    const cardState = ` data-card-state="${escapeHtml(state)}"`;
+    const cardState = ` data-card-state="${escapeHtml(state2)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const surfaceAttr = ` data-surface="${escapeHtml(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
@@ -1386,16 +1386,16 @@
     }
     return false;
   }
-  function readerWordClassName(state, token) {
+  function readerWordClassName(state2, token) {
     const classes = ["jpdb-reader-word"];
     if (isParticleCard(token.card)) {
       classes.push("jpdb-reader-particle");
       return classes.join(" ");
     }
     if (hasKnownCardState(token.card)) {
-      classes.push(`jpdb-${state}`);
+      classes.push(`jpdb-${state2}`);
       const source = readerCardSource(token.card);
-      if (source !== "jpdb") classes.push(`${source}-${state}`);
+      if (source !== "jpdb") classes.push(`${source}-${state2}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
     classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
@@ -2065,8 +2065,111 @@
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
   }
+  const ID_ATTR = "data-yomu-mid";
+  const MAX_OPS_PER_CANVAS = 6e3;
+  const PRUNE_KEEP = 3e3;
   const MAX_REBUILD_DEPTH = 6;
-  const STATE = globalThis.__yomuCanvasMirror ??= { seq: 0, installed: false, debug: false, records: /* @__PURE__ */ new WeakMap() };
+  function pageWindow() {
+    const uw = globalThis.unsafeWindow;
+    return uw || globalThis;
+  }
+  function state() {
+    const win = pageWindow();
+    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, debug: false, records: /* @__PURE__ */ Object.create(null) };
+  }
+  function isBookwalkerHost(hostname) {
+    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function isCanvasSource(value) {
+    return Boolean(value) && (typeof HTMLCanvasElement !== "undefined" && value instanceof HTMLCanvasElement || typeof OffscreenCanvas !== "undefined" && value instanceof OffscreenCanvas);
+  }
+  function imageSourceUrl(value) {
+    const image = value;
+    if (!image) return "";
+    return typeof image.currentSrc === "string" && image.currentSrc || typeof image.src === "string" && image.src || "";
+  }
+  function canvasId(canvas, create) {
+    const el = canvas;
+    if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
+      let id = el.getAttribute(ID_ATTR);
+      if (!id && create) {
+        id = `m${state().nextId++}`;
+        try {
+          el.setAttribute(ID_ATTR, id);
+        } catch {
+          return null;
+        }
+      }
+      return id;
+    }
+    if (el && el.__yomuMid) return el.__yomuMid;
+    if (el && create) {
+      const id = `m${state().nextId++}`;
+      try {
+        el.__yomuMid = id;
+        return id;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  function recordFor(id, w, h) {
+    const s = state();
+    let record = s.records[id];
+    if (!record) {
+      record = { w, h, ops: [] };
+      s.records[id] = record;
+    }
+    if (w) record.w = w;
+    if (h) record.h = h;
+    if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
+    return record;
+  }
+  function recordDrawImage(canvas, source, args) {
+    const id = canvasId(canvas, true);
+    if (!id) return;
+    const record = recordFor(id, canvas.width, canvas.height);
+    const op = {
+      seq: state().seq++,
+      srcId: isCanvasSource(source) ? canvasId(source, true) : null,
+      url: isCanvasSource(source) ? "" : imageSourceUrl(source),
+      sx: 0,
+      sy: 0,
+      sw: -1,
+      sh: -1,
+      dx: 0,
+      dy: 0,
+      dw: -1,
+      dh: -1,
+      clear: false
+    };
+    if (args.length === 8) {
+      op.sx = args[0];
+      op.sy = args[1];
+      op.sw = args[2];
+      op.sh = args[3];
+      op.dx = args[4];
+      op.dy = args[5];
+      op.dw = args[6];
+      op.dh = args[7];
+    } else if (args.length === 4) {
+      op.dx = args[0];
+      op.dy = args[1];
+      op.dw = args[2];
+      op.dh = args[3];
+    } else if (args.length === 2) {
+      op.dx = args[0];
+      op.dy = args[1];
+    }
+    record.ops.push(op);
+  }
+  function recordClear(canvas) {
+    const id = canvasId(canvas, true);
+    if (!id) return;
+    const record = recordFor(id, canvas.width, canvas.height);
+    record.ops.push({ seq: state().seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+  }
   const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
   function selectLatestContentOps(ops, beforeSeq) {
     const byDest = /* @__PURE__ */ new Map();
@@ -2076,13 +2179,13 @@
     }
     return [...byDest.values()].sort((a, b) => a.seq - b.seq);
   }
-  function collectLeafUrls(canvas, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
-    if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return out;
-    const record = lookup(canvas);
+  function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
+    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
+    const record = lookup(id);
     if (!record) return out;
-    const nextSeen = new Set(seen).add(canvas);
+    seen.add(id);
     for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-      if (op.canvasSrc) collectLeafUrls(op.canvasSrc, op.seq, lookup, out, nextSeen, depth + 1);
+      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, seen, depth + 1);
       else if (op.url) out.add(op.url);
     }
     return out;
@@ -2099,23 +2202,22 @@
       return false;
     }
   }
-  function rebuildCanvas(canvas, beforeSeq, images, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return null;
-    const record = STATE.records.get(canvas);
-    if (!record) return null;
+  function rebuildById(id, beforeSeq, images, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
+    const record = state().records[id];
+    if (!record || !record.w || !record.h) return null;
     const ops = selectLatestContentOps(record.ops, beforeSeq);
-    const width = canvas.width, height = canvas.height;
-    if (!ops.length || !width || !height) return null;
+    if (!ops.length) return null;
     const out = document.createElement("canvas");
-    out.width = width;
-    out.height = height;
+    out.width = record.w;
+    out.height = record.h;
     const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
     if (!ctx) return null;
-    const nextSeen = new Set(seen).add(canvas);
+    seen.add(id);
     let drew = 0;
     for (const op of ops) {
       let source = null;
-      if (op.canvasSrc) source = rebuildCanvas(op.canvasSrc, op.seq, images, nextSeen, depth + 1);
+      if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
       else if (op.url) source = images.get(op.url) ?? null;
       if (!source) continue;
       try {
@@ -2128,12 +2230,11 @@
     }
     return drew ? out : null;
   }
-  function canvasMirrorHasOps(canvas) {
-    return (STATE.records.get(canvas)?.ops.length ?? 0) > 0;
-  }
   async function captureCanvasMirror(canvas, loadCleanImage) {
-    const recorded = STATE.records.has(canvas);
-    const urls = recorded ? collectLeafUrls(canvas, Number.POSITIVE_INFINITY, (c) => STATE.records.get(c)) : /* @__PURE__ */ new Set();
+    installCanvasMirrorRecorder();
+    const s = state();
+    const id = canvasId(canvas, false);
+    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
     const images = /* @__PURE__ */ new Map();
     if (urls.size) {
       await Promise.all([...urls].map(async (url) => {
@@ -2144,12 +2245,49 @@
         }
       }));
     }
-    const rebuilt = images.size ? rebuildCanvas(canvas, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
+    const rebuilt = id && images.size ? rebuildById(id, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
     const ok = !!rebuilt && isReadable(rebuilt);
-    if (STATE.debug) {
-      console.log("[Yomu][canvas-mirror]", { recorded, tracked: canvasMirrorHasOps(canvas), leafUrls: urls.size, fetched: images.size, rebuilt: !!rebuilt, readable: ok });
+    if (s.debug) {
+      console.log("[Yomu][canvas-mirror]", { id, records: Object.keys(s.records).length, leafUrls: urls.size, fetched: images.size, rebuilt: !!rebuilt, readable: ok });
     }
     return ok ? rebuilt : void 0;
+  }
+  function patchContextPrototype(prototype) {
+    if (!prototype || prototype.__yomuMirrorPatched) return false;
+    prototype.__yomuMirrorPatched = true;
+    const drawImage = prototype.drawImage;
+    prototype.drawImage = function(source, ...args) {
+      if (!this.__yomuMirrorSkip) {
+        try {
+          recordDrawImage(this.canvas, source, args);
+        } catch {
+        }
+      }
+      return drawImage.apply(this, arguments);
+    };
+    const clearRect = prototype.clearRect;
+    prototype.clearRect = function(x, y, w, h) {
+      if (!this.__yomuMirrorSkip) {
+        try {
+          if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) recordClear(this.canvas);
+        } catch {
+        }
+      }
+      return clearRect.apply(this, arguments);
+    };
+    return true;
+  }
+  function installCanvasMirrorRecorder(hostname = location.hostname) {
+    const s = state();
+    if (s.installed || !isBookwalkerHost(hostname)) return;
+    try {
+      s.debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
+    } catch {
+    }
+    const global = globalThis;
+    patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
+    patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
+    s.installed = true;
   }
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
@@ -5049,28 +5187,28 @@ recommendedJiten	jiten.moe頻度データです。
     return Number.isFinite(number) ? number : null;
   }
   function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-    const state = { width: fallbackWidth, height: fallbackHeight, lines: [] };
+    const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
     for (const response of cloudVisionResponses(record)) {
-      appendCloudVisionPages(response, state);
-      appendCloudVisionTextAnnotations(response, state);
+      appendCloudVisionPages(response, state2);
+      appendCloudVisionTextAnnotations(response, state2);
     }
-    return state.lines.length ? { width: state.width, height: state.height, lines: state.lines } : null;
+    return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
   }
   function cloudVisionResponses(record) {
     if (Array.isArray(record.responses)) return record.responses;
     return "fullTextAnnotation" in record ? [record] : [];
   }
-  function appendCloudVisionPages(response, state) {
+  function appendCloudVisionPages(response, state2) {
     const annotation = response?.fullTextAnnotation;
     const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-    for (const page of pages) appendCloudVisionPage(page, state);
+    for (const page of pages) appendCloudVisionPage(page, state2);
   }
-  function appendCloudVisionPage(page, state) {
-    state.width = numberFrom(page.width) || state.width;
-    state.height = numberFrom(page.height) || state.height;
+  function appendCloudVisionPage(page, state2) {
+    state2.width = numberFrom(page.width) || state2.width;
+    state2.height = numberFrom(page.height) || state2.height;
     for (const block of cloudVisionPageBlocks(page)) {
       for (const paragraph of cloudVisionBlockParagraphs(block)) {
-        pushCloudVisionParagraphLines(paragraph, state.lines, state.width, state.height);
+        pushCloudVisionParagraphLines(paragraph, state2.lines, state2.width, state2.height);
       }
     }
   }
@@ -5081,14 +5219,14 @@ recommendedJiten	jiten.moe頻度データです。
     const paragraphs = block?.paragraphs;
     return Array.isArray(paragraphs) ? paragraphs : [];
   }
-  function appendCloudVisionTextAnnotations(response, state) {
+  function appendCloudVisionTextAnnotations(response, state2) {
     const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-    if (state.lines.length || annotations.length <= 1) return;
+    if (state2.lines.length || annotations.length <= 1) return;
     for (const annotationItem of annotations.slice(1)) {
       const item = annotationItem;
       const text = cleanOcrText(item.description);
-      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state.width, state.height);
-      pushJapaneseOcrLine(state.lines, text, box);
+      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state2.width, state2.height);
+      pushJapaneseOcrLine(state2.lines, text, box);
     }
   }
   function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
@@ -6531,16 +6669,16 @@ ${candidate.depth}`;
     "yt-image",
     ".yt-core-image"
   ].join(",");
-  function shouldSkipOcrRequest(state, userRequested) {
-    return state.autoSkipped && !userRequested;
+  function shouldSkipOcrRequest(state2, userRequested) {
+    return state2.autoSkipped && !userRequested;
   }
-  function updateOcrRequestFlags(state, image, userRequested) {
-    state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
-    state.manualRequested ||= userRequested;
-    if (userRequested) state.autoSkipped = false;
+  function updateOcrRequestFlags(state2, image, userRequested) {
+    state2.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
+    state2.manualRequested ||= userRequested;
+    if (userRequested) state2.autoSkipped = false;
   }
-  function isOcrImageStateIdle(state) {
-    return !state.result && !state.loading && !state.autoSkipped;
+  function isOcrImageStateIdle(state2) {
+    return !state2.result && !state2.loading && !state2.autoSkipped;
   }
   class LocalOcrUnavailableError extends Error {
     constructor(endpointUrl) {
@@ -6549,24 +6687,24 @@ ${candidate.depth}`;
       this.name = "LocalOcrUnavailableError";
     }
   }
-  function beginOcrScan(state, image, settings, manualRequested) {
-    state.loading = true;
+  function beginOcrScan(state2, image, settings, manualRequested) {
+    state2.loading = true;
     const provider = inlineProviderLabel(settings);
     return {
       provider,
       done: log$2.time("scanImage", { provider, image: imageSummary(image), manualRequested })
     };
   }
-  function finishOcrScan(state) {
-    state.loading = false;
-    state.manualRequested = false;
+  function finishOcrScan(state2) {
+    state2.loading = false;
+    state2.manualRequested = false;
   }
-  function renderNoOcrLines(state) {
-    state.autoSkipped = true;
-    state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+  function renderNoOcrLines(state2) {
+    state2.autoSkipped = true;
+    state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
   }
-  function logOcrFailure(state, provider, manualRequested, error) {
-    state.autoSkipped = !manualRequested;
+  function logOcrFailure(state2, provider, manualRequested, error) {
+    state2.autoSkipped = !manualRequested;
     if (isLocalOcrUnavailableError(error)) {
       log$2.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
       return;
@@ -6771,12 +6909,12 @@ ${candidate.depth}`;
       return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
     }
     observeRefreshImage(image, settings) {
-      const state = this.ensureState(image);
+      const state2 = this.ensureState(image);
       this.observer?.observe(image);
-      if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
+      if (this.shouldAutoEnqueueImage(image, state2, settings)) this.enqueue(image);
     }
-    shouldAutoEnqueueImage(image, state, settings) {
-      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state) && isNearViewport(image, imagePrefetchMargin(settings));
+    shouldAutoEnqueueImage(image, state2, settings) {
+      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state2) && isNearViewport(image, imagePrefetchMargin(settings));
     }
     canAutoScanImage(settings) {
       return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
@@ -6795,16 +6933,16 @@ ${candidate.depth}`;
     captureSourceImageForElement(element) {
       const line = element?.closest?.(".jpdb-ocr-line");
       if (!line) return void 0;
-      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (!state) return void 0;
-      const image = captureImageElement(state.image);
+      const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (!state2) return void 0;
+      const image = captureImageElement(state2.image);
       return image;
     }
     pinLineForElement(element) {
       const line = element?.closest?.(".jpdb-ocr-line");
       if (!line) return;
-      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (state) this.pinLine(state, line);
+      const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (state2) this.pinLine(state2, line);
     }
     clearActiveLines() {
       this.unpinAllLines();
@@ -6824,8 +6962,8 @@ ${candidate.depth}`;
           const image = entry.target;
           this.positionState(image);
           const current = this.options.getSettings();
-          const state = this.states.get(image);
-          if (state && this.shouldAutoEnqueueImage(image, state, current)) this.enqueue(image);
+          const state2 = this.states.get(image);
+          if (state2 && this.shouldAutoEnqueueImage(image, state2, current)) this.enqueue(image);
         }
       }, { rootMargin });
     }
@@ -6836,40 +6974,40 @@ ${candidate.depth}`;
       overlay.className = "jpdb-ocr-layer";
       overlay.dataset.jpdbReaderRoot = "true";
       document.body.append(overlay);
-      const state = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+      const state2 = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
       image.addEventListener("load", () => {
-        this.resetStateIfImageChanged(state);
+        this.resetStateIfImageChanged(state2);
         this.schedulePosition();
         this.scheduleRefresh(0);
       });
-      this.states.set(image, state);
+      this.states.set(image, state2);
       if (image.complete && image.naturalWidth > 0) {
         this.schedulePosition();
         const settings = this.options.getSettings();
         if (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) this.enqueue(image);
       }
-      return state;
+      return state2;
     }
     enqueue(image, userRequested = false) {
       if (isYouTubeThumbnailImage(image)) return;
-      const state = this.states.get(image) ?? this.ensureState(image);
-      if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
+      const state2 = this.states.get(image) ?? this.ensureState(image);
+      if (!this.shouldQueueOcrRequest(state2, image, userRequested)) return;
       this.queueOcrRequest(image);
     }
-    shouldQueueOcrRequest(state, image, userRequested) {
-      if (shouldSkipOcrRequest(state, userRequested)) return false;
-      const forceExistingOverlay = userRequested && !state.overlayRequested;
-      updateOcrRequestFlags(state, image, userRequested);
-      if (this.renderExistingOcrResult(state, forceExistingOverlay)) return false;
-      return !state.loading;
+    shouldQueueOcrRequest(state2, image, userRequested) {
+      if (shouldSkipOcrRequest(state2, userRequested)) return false;
+      const forceExistingOverlay = userRequested && !state2.overlayRequested;
+      updateOcrRequestFlags(state2, image, userRequested);
+      if (this.renderExistingOcrResult(state2, forceExistingOverlay)) return false;
+      return !state2.loading;
     }
     queueOcrRequest(image) {
       this.queueImageForOcr(image);
       this.drainQueue();
     }
-    renderExistingOcrResult(state, userRequested) {
-      if (!state.result) return false;
-      if (userRequested) void this.renderResult(state, state.result, true);
+    renderExistingOcrResult(state2, userRequested) {
+      if (!state2.result) return false;
+      if (userRequested) void this.renderResult(state2, state2.result, true);
       return true;
     }
     requestOcrFromPointerEvent(event) {
@@ -6939,80 +7077,80 @@ ${candidate.depth}`;
     }
     async scanImage(image) {
       if (this.destroyed) return;
-      const state = this.states.get(image) ?? this.ensureState(image);
+      const state2 = this.states.get(image) ?? this.ensureState(image);
       const settings = this.options.getSettings();
       const key = imageCacheKey(image);
-      const manualRequested = state.manualRequested;
-      this.resetStateIfImageChanged(state);
+      const manualRequested = state2.manualRequested;
+      this.resetStateIfImageChanged(state2);
       try {
-        if (await this.renderCachedOcrResult(state, key)) return;
+        if (await this.renderCachedOcrResult(state2, key)) return;
       } catch (error) {
         if (isStaleOcrState(error)) return;
         throw error;
       }
-      if (!this.isCurrentState(state)) return;
+      if (!this.isCurrentState(state2)) return;
       this.updateOcrStatus(image, "loading");
-      const scan = beginOcrScan(state, image, settings, manualRequested);
+      const scan = beginOcrScan(state2, image, settings, manualRequested);
       try {
-        await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
+        await this.scanUncachedImage(state2, image, key, settings, scan.provider, manualRequested);
       } catch (error) {
         if (isStaleOcrState(error)) return;
-        await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
+        await this.renderOcrFailure(state2, image, scan.provider, manualRequested, error);
       } finally {
-        finishOcrScan(state);
+        finishOcrScan(state2);
         scan.done();
       }
     }
-    async renderCachedOcrResult(state, key) {
+    async renderCachedOcrResult(state2, key) {
       if (!this.cache.has(key)) return false;
-      if (this.shouldSuppressAutoRenderedResult(state, false)) {
+      if (this.shouldSuppressAutoRenderedResult(state2, false)) {
         this.clearAutoScannedOverlays();
         return true;
       }
       const cached = this.cache.get(key);
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       if (!cached) {
-        renderNoOcrLines(state);
-        this.updateOcrStatus(state.image, "empty");
-        state.manualRequested = false;
+        renderNoOcrLines(state2);
+        this.updateOcrStatus(state2.image, "empty");
+        state2.manualRequested = false;
         return true;
       }
-      await this.renderResult(state, cached);
-      state.manualRequested = false;
+      await this.renderResult(state2, cached);
+      state2.manualRequested = false;
       return true;
     }
-    async scanUncachedImage(state, image, key, settings, provider, manualRequested) {
+    async scanUncachedImage(state2, image, key, settings, provider, manualRequested) {
       const inlineFallback = readFallbackOcrResult(image, false);
       const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
         this.remember(key, null);
-        renderNoOcrLines(state);
+        renderNoOcrLines(state2);
         this.updateOcrStatus(image, "empty");
         return;
       }
       this.remember(key, result);
-      state.key = key;
-      if (this.shouldSuppressAutoRenderedResult(state, Boolean(inlineFallback), manualRequested)) {
+      state2.key = key;
+      if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
         this.clearAutoScannedOverlays();
         return;
       }
-      await this.renderResult(state, result);
+      await this.renderResult(state2, result);
       log$2.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
-    shouldSuppressAutoRenderedResult(state, inlineFallback, manualRequested = state.manualRequested) {
-      return !manualRequested && !state.overlayRequested && !inlineFallback && this.options.shouldAutoScan?.() === false;
+    shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
+      return !manualRequested && !state2.overlayRequested && !inlineFallback && this.options.shouldAutoScan?.() === false;
     }
-    async renderOcrFailure(state, image, provider, manualRequested, error) {
-      this.requireCurrentState(state);
+    async renderOcrFailure(state2, image, provider, manualRequested, error) {
+      this.requireCurrentState(state2);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
         log$2.warn("OCR provider failed", { provider }, error);
-        await this.renderResult(state, fallback);
+        await this.renderResult(state2, fallback);
         return;
       }
-      logOcrFailure(state, provider, manualRequested, error);
+      logOcrFailure(state2, provider, manualRequested, error);
       this.updateOcrStatus(image, "failed");
     }
     recognizeImage(image, settings) {
@@ -7064,22 +7202,22 @@ ${candidate.depth}`;
     clearLocalOcrUnavailable(endpointUrl) {
       if (this.localOcrUnavailable?.endpointUrl === endpointUrl) this.localOcrUnavailable = void 0;
     }
-    async renderResult(state, result, forceOverlay = false) {
-      this.requireCurrentState(state);
-      state.result = result;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+    async renderResult(state2, result, forceOverlay = false) {
+      this.requireCurrentState(state2);
+      state2.result = result;
+      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       const settings = this.options.getSettings();
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const initialParsed = await this.parseOcrLines(result.lines);
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
       if (!lines.length) {
-        renderNoOcrLines(state);
-        this.updateOcrStatus(state.image, "empty");
+        renderNoOcrLines(state2);
+        this.updateOcrStatus(state2.image, "empty");
         return;
       }
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       const sentence = lines.map((line) => line.text).join("\n");
       const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
         line.text,
@@ -7088,14 +7226,14 @@ ${candidate.depth}`;
       ));
       const flatTokens = renderedTokens.flat();
       await this.options.enrichTokensBeforeRender?.(flatTokens);
-      this.requireCurrentState(state);
-      applyOcrOverlayStyle(state.overlay, settings);
+      this.requireCurrentState(state2);
+      applyOcrOverlayStyle(state2.overlay, settings);
       for (const [index, line] of lines.entries()) {
-        state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
+        state2.overlay.append(this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
       }
-      this.positionState(state.image);
-      this.updateOcrStatus(state.image, "ready");
-      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
+      this.positionState(state2.image);
+      this.updateOcrStatus(state2.image, "ready");
+      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();
@@ -7107,33 +7245,33 @@ ${candidate.depth}`;
         return [];
       })));
     }
-    renderOcrLineElement(state, result, line, tokens, sentence, showText, settings) {
+    renderOcrLineElement(state2, result, line, tokens, sentence, showText, settings) {
       const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
       this.rememberOcrWordRenderStates(element, tokens);
       element.addEventListener("pointerenter", () => this.activateOcrMarkup(element));
       element.addEventListener("focusin", () => this.activateOcrMarkup(element));
-      element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state, element, event), true);
-      element.addEventListener("click", (event) => this.toggleOcrLinePinned(state, element, event));
+      element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state2, element, event), true);
+      element.addEventListener("click", (event) => this.toggleOcrLinePinned(state2, element, event));
       return element;
     }
-    activateOcrLineFromPointer(state, element, event) {
+    activateOcrLineFromPointer(state2, element, event) {
       if (event.button !== 0) return;
       if (element.dataset.pinned === "true") {
         this.activateOcrMarkup(element);
         return;
       }
       element.focus({ preventScroll: true });
-      this.pinLine(state, element);
+      this.pinLine(state2, element);
       this.pointerActivatedOcrLines.set(element, Date.now());
     }
-    toggleOcrLinePinned(state, element, event) {
+    toggleOcrLinePinned(state2, element, event) {
       if (this.wasRecentlyPointerActivated(element)) {
         this.activateOcrMarkup(element);
       } else if (element.dataset.pinned === "true") {
         this.unpinLine(element);
       } else {
         element.focus({ preventScroll: true });
-        this.pinLine(state, element);
+        this.pinLine(state2, element);
       }
       event.preventDefault();
       event.stopPropagation();
@@ -7145,8 +7283,8 @@ ${candidate.depth}`;
       if (!recent) this.pointerActivatedOcrLines.delete(element);
       return recent;
     }
-    pinLine(state, element) {
-      state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
+    pinLine(state2, element) {
+      state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
         if (line !== element) this.unpinLine(line);
       });
       this.activateOcrMarkup(element);
@@ -7165,26 +7303,26 @@ ${candidate.depth}`;
       this.unpinAllLines();
     }
     unpinAllLines() {
-      for (const state of this.states.values()) {
-        state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
+      for (const state2 of this.states.values()) {
+        state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
       }
     }
     observePriority(image) {
-      const state = this.states.get(image);
-      if (!state) return 0;
-      if (!state.result) return state.autoSkipped ? 2 : 0;
+      const state2 = this.states.get(image);
+      if (!state2) return 0;
+      if (!state2.result) return state2.autoSkipped ? 2 : 0;
       return 1;
     }
-    resetStateIfImageChanged(state) {
-      const key = imageCacheKey(state.image);
-      if (key === state.key) return;
-      state.key = key;
-      state.result = void 0;
-      state.loading = false;
-      state.overlayRequested = false;
-      state.manualRequested = false;
-      state.autoSkipped = false;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+    resetStateIfImageChanged(state2) {
+      const key = imageCacheKey(state2.image);
+      if (key === state2.key) return;
+      state2.key = key;
+      state2.result = void 0;
+      state2.loading = false;
+      state2.overlayRequested = false;
+      state2.manualRequested = false;
+      state2.autoSkipped = false;
+      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
     }
     remember(key, result) {
       if (key.startsWith("data:")) return;
@@ -7358,10 +7496,10 @@ ${candidate.depth}`;
       const status = this.videoFrameStatuses.get(target);
       status?.remove();
       this.videoFrameStatuses.delete(target);
-      const state = this.states.get(frame);
-      if (state) {
+      const state2 = this.states.get(frame);
+      if (state2) {
         this.observer?.unobserve(frame);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(frame);
       }
       this.videoFrameVideos.delete(frame);
@@ -7479,10 +7617,10 @@ ${candidate.depth}`;
       const frame = this.canvasFrames.get(canvas);
       if (!frame) return;
       this.canvasFrames.delete(canvas);
-      const state = this.states.get(frame);
-      if (state) {
+      const state2 = this.states.get(frame);
+      if (state2) {
         this.observer?.unobserve(frame);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(frame);
       }
       this.removeImageStatusCard(frame);
@@ -7577,10 +7715,10 @@ ${candidate.depth}`;
       if (!frame) return;
       this.backgroundFrames.delete(surface);
       this.backgroundFrameKeys.delete(surface);
-      const state = this.states.get(frame);
-      if (state) {
+      const state2 = this.states.get(frame);
+      if (state2) {
         this.observer?.unobserve(frame);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(frame);
       }
       this.removeImageStatusCard(frame);
@@ -7622,21 +7760,21 @@ ${candidate.depth}`;
       }, delay);
     }
     positionState(image) {
-      const state = this.states.get(image);
-      if (!state) return;
+      const state2 = this.states.get(image);
+      if (!state2) return;
       const rect = image.getBoundingClientRect();
       const visible = isImageVisibleForOcr(image, rect);
-      state.overlay.hidden = !visible;
+      state2.overlay.hidden = !visible;
       if (!visible) return;
-      state.overlay.style.left = `${rect.left}px`;
-      state.overlay.style.top = `${rect.top}px`;
-      state.overlay.style.width = `${rect.width}px`;
-      state.overlay.style.height = `${rect.height}px`;
-      this.fitLineFonts(state, renderedOcrImageFrame(image, rect, state.result));
+      state2.overlay.style.left = `${rect.left}px`;
+      state2.overlay.style.top = `${rect.top}px`;
+      state2.overlay.style.width = `${rect.width}px`;
+      state2.overlay.style.height = `${rect.height}px`;
+      this.fitLineFonts(state2, renderedOcrImageFrame(image, rect, state2.result));
     }
-    fitLineFonts(state, frame) {
+    fitLineFonts(state2, frame) {
       const scale = this.options.getSettings().ocrFontScale;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element) => {
+      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element) => {
         const boxLeft = frame.imageLeft + Number(element.dataset.boxLeft) * frame.imageWidth;
         const boxTop = frame.imageTop + Number(element.dataset.boxTop) * frame.imageHeight;
         const boxWidth = Number(element.dataset.boxWidth) * frame.imageWidth;
@@ -7688,8 +7826,8 @@ ${candidate.depth}`;
       this.releaseAllBackgroundFrames();
       this.queue = [];
       this.inFlightKeys.clear();
-      for (const state of this.states.values()) {
-        state.overlay.remove();
+      for (const state2 of this.states.values()) {
+        state2.overlay.remove();
       }
       this.states.clear();
       for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
@@ -7703,8 +7841,8 @@ ${candidate.depth}`;
     // results stay in `this.cache`, so flipping back re-renders them instantly
     // without re-OCRing.
     clearAutoScannedOverlays() {
-      for (const [image, state] of [...this.states]) {
-        if (state.manualRequested || state.overlayRequested) continue;
+      for (const [image, state2] of [...this.states]) {
+        if (state2.manualRequested || state2.overlayRequested) continue;
         const canvas = this.canvasFrameSources.get(image);
         if (canvas) {
           this.releaseCanvasFrame(canvas);
@@ -7716,8 +7854,8 @@ ${candidate.depth}`;
           continue;
         }
         this.queue = this.queue.filter((queued) => queued !== image);
-        this.inFlightKeys.delete(state.key);
-        state.overlay.remove();
+        this.inFlightKeys.delete(state2.key);
+        state2.overlay.remove();
         this.states.delete(image);
         this.removeImageStatusCard(image);
       }
@@ -7737,14 +7875,14 @@ ${candidate.depth}`;
       let hasFurigana = false;
       const settings = this.options.getSettings();
       line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
-        const state = this.ocrWordRenderStates.get(word);
-        if (!state) return;
-        this.applyOcrPitchClass(word, state.token);
-        if (!shouldRenderRuby(state.surface, state.token, settings)) {
-          this.setOcrWordPlainText(word, state.surface);
+        const state2 = this.ocrWordRenderStates.get(word);
+        if (!state2) return;
+        this.applyOcrPitchClass(word, state2.token);
+        if (!shouldRenderRuby(state2.surface, state2.token, settings)) {
+          this.setOcrWordPlainText(word, state2.surface);
           return;
         }
-        setInnerHtml(word, renderRuby(state.surface, state.token));
+        setInnerHtml(word, renderRuby(state2.surface, state2.token));
         normalizeOcrRenderedText(word);
         word.classList.add("jpdb-reader-has-furi");
         hasFurigana = true;
@@ -7778,19 +7916,19 @@ ${candidate.depth}`;
       if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
     }
     pruneDisconnectedStates() {
-      for (const [image, state] of this.states) {
+      for (const [image, state2] of this.states) {
         if (image.isConnected) continue;
         this.observer?.unobserve(image);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(image);
         this.removeImageStatusCard(image);
       }
     }
-    isCurrentState(state) {
-      return !this.destroyed && this.states.get(state.image) === state;
+    isCurrentState(state2) {
+      return !this.destroyed && this.states.get(state2.image) === state2;
     }
-    requireCurrentState(state) {
-      if (!this.isCurrentState(state)) throw STALE_OCR_STATE;
+    requireCurrentState(state2) {
+      if (!this.isCurrentState(state2)) throw STALE_OCR_STATE;
     }
   }
   function isStaleOcrState(error) {
@@ -9571,11 +9709,11 @@ ${spelling}`);
     return typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
   }
   function parseAssSubtitleText(text) {
-    const state = createAssParseState();
+    const state2 = createAssParseState();
     for (const rawLine of text.replace(/\r/g, "").split("\n")) {
-      readAssSubtitleLine(rawLine.trim(), state);
+      readAssSubtitleLine(rawLine.trim(), state2);
     }
-    return state.cues.sort((a, b) => a.start - b.start);
+    return state2.cues.sort((a, b) => a.start - b.start);
   }
   function createAssParseState() {
     return {
@@ -9584,37 +9722,37 @@ ${spelling}`);
       format: ["layer", "start", "end", "style", "name", "marginl", "marginr", "marginv", "effect", "text"]
     };
   }
-  function readAssSubtitleLine(line, state) {
-    if (!shouldParseAssCueLine(line, state)) return;
-    const cue = readAssDialogueCue(line, state.format);
-    if (cue) state.cues.push(cue);
+  function readAssSubtitleLine(line, state2) {
+    if (!shouldParseAssCueLine(line, state2)) return;
+    const cue = readAssDialogueCue(line, state2.format);
+    if (cue) state2.cues.push(cue);
   }
-  function shouldParseAssCueLine(line, state) {
+  function shouldParseAssCueLine(line, state2) {
     if (shouldIgnoreAssLine(line)) return false;
-    if (updateAssSectionState(line, state)) return false;
-    if (!shouldReadAssDialogueLine(line, state)) return false;
-    return !readAssFormatLine(line, state);
+    if (updateAssSectionState(line, state2)) return false;
+    if (!shouldReadAssDialogueLine(line, state2)) return false;
+    return !readAssFormatLine(line, state2);
   }
-  function shouldReadAssDialogueLine(line, state) {
-    return state.inEvents || /^Dialogue:/i.test(line);
+  function shouldReadAssDialogueLine(line, state2) {
+    return state2.inEvents || /^Dialogue:/i.test(line);
   }
   function shouldIgnoreAssLine(line) {
     return !line || line.startsWith(";");
   }
-  function updateAssSectionState(line, state) {
+  function updateAssSectionState(line, state2) {
     if (/^\[Events\]/i.test(line)) {
-      state.inEvents = true;
+      state2.inEvents = true;
       return true;
     }
     if (/^\[.+\]/.test(line)) {
-      state.inEvents = false;
+      state2.inEvents = false;
       return true;
     }
     return false;
   }
-  function readAssFormatLine(line, state) {
+  function readAssFormatLine(line, state2) {
     if (!/^Format:/i.test(line)) return false;
-    state.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
+    state2.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
     return true;
   }
   function readAssDialogueCue(line, format) {
@@ -11378,36 +11516,36 @@ ${spelling}`);
   function extractJsonObject(text, start) {
     const objectStart = text.indexOf("{", start);
     if (objectStart < 0) return null;
-    const state = createJsonObjectScanState();
+    const state2 = createJsonObjectScanState();
     for (let index = objectStart; index < text.length; index++) {
-      if (scanJsonObjectCharacter(state, text[index])) return text.slice(objectStart, index + 1);
+      if (scanJsonObjectCharacter(state2, text[index])) return text.slice(objectStart, index + 1);
     }
     return null;
   }
   function createJsonObjectScanState() {
     return { depth: 0, inString: false, escaped: false };
   }
-  function scanJsonObjectCharacter(state, char) {
-    if (state.inString) {
-      scanJsonStringCharacter(state, char);
+  function scanJsonObjectCharacter(state2, char) {
+    if (state2.inString) {
+      scanJsonStringCharacter(state2, char);
       return false;
     }
     if (char === '"') {
-      state.inString = true;
+      state2.inString = true;
       return false;
     }
-    if (char === "{") state.depth += 1;
+    if (char === "{") state2.depth += 1;
     if (char !== "}") return false;
-    state.depth -= 1;
-    return state.depth === 0;
+    state2.depth -= 1;
+    return state2.depth === 0;
   }
-  function scanJsonStringCharacter(state, char) {
-    if (state.escaped) {
-      state.escaped = false;
+  function scanJsonStringCharacter(state2, char) {
+    if (state2.escaped) {
+      state2.escaped = false;
       return;
     }
-    if (char === "\\") state.escaped = true;
-    if (char === '"') state.inString = false;
+    if (char === "\\") state2.escaped = true;
+    if (char === '"') state2.inString = false;
   }
   function youtubeSubtitleRequestUrls(url) {
     return uniqueNonEmptyStrings([
@@ -11724,26 +11862,26 @@ ${spelling}`);
   function isEnglishOrNativeSubtitleTrack(track) {
     return isEnglishSubtitleTrack(track) || track.kind === "native";
   }
-  function renderSubtitleTrackPanel(state) {
-    const language = state.language;
+  function renderSubtitleTrackPanel(state2) {
+    const language = state2.language;
     return `
         <div class="jpdb-subtitle-drawer-head">
             <div class="jpdb-subtitle-drawer-brand">
                 <strong class="jpdb-subtitle-drawer-title">${escapeHtml(uiText(language, "subtitlesTitle"))}</strong>
                 <span class="jpdb-subtitle-drawer-meta">${escapeHtml(subtitleDrawerMetaText({
       mode: "tracks",
-      count: state.tracks.length,
-      tracks: state.tracks,
-      selectedTrackId: state.selectedTrackId,
-      secondaryTrackId: state.secondaryTrackId,
+      count: state2.tracks.length,
+      tracks: state2.tracks,
+      selectedTrackId: state2.selectedTrackId,
+      secondaryTrackId: state2.secondaryTrackId,
       language
     }))}</span>
             </div>
             <div class="jpdb-subtitle-drawer-actions">
-                ${renderPanelModeControls("tracks", state.hasTranscriptSurface, language)}
-                ${state.hasNavigableLines ? renderPanelNavigationControls(true, language) : ""}
-                ${renderPanelPlacementControls(state.placement, language)}
-                ${renderPausePanelToggle(state.pausePanelEnabled, language)}
+                ${renderPanelModeControls("tracks", state2.hasTranscriptSurface, language)}
+                ${state2.hasNavigableLines ? renderPanelNavigationControls(true, language) : ""}
+                ${renderPanelPlacementControls(state2.placement, language)}
+                ${renderPausePanelToggle(state2.pausePanelEnabled, language)}
             </div>
         </div>
         <div class="jpdb-subtitle-list-scroll">
@@ -11751,9 +11889,9 @@ ${spelling}`);
                 <button type="button" data-action="load">${escapeHtml(uiText(language, "loadJapaneseSubtitles"))}</button>
                 <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, "loadNativeSubtitles"))}</button>
             </div>
-            <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
+            <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state2.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml(uiText(language, "subtitleTracksHint"))}</div>
-            ${state.tracks.length ? state.tracks.map((track) => renderSubtitleTrackRow(track, state)).join("") : ""}
+            ${state2.tracks.length ? state2.tracks.map((track) => renderSubtitleTrackRow(track, state2)).join("") : ""}
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeSubtitleTracksPanel"))}"></div>
     `;
@@ -11765,10 +11903,10 @@ ${spelling}`);
     const secondary = secondaryTrack ? localizedSubtitleTrackLabel(secondaryTrack, options.language) : void 0;
     return drawerMetaParts(options.mode, options.count, primary, secondary, options.language).filter(Boolean).join(" · ");
   }
-  function renderSubtitleTrackRow(track, state) {
-    const isPrimary = track.id === state.selectedTrackId;
-    const isSecondary = track.id === state.secondaryTrackId;
-    const language = state.language;
+  function renderSubtitleTrackRow(track, state2) {
+    const isPrimary = track.id === state2.selectedTrackId;
+    const isSecondary = track.id === state2.secondaryTrackId;
+    const language = state2.language;
     return `
         <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? "active" : ""}" data-track-id="${escapeHtml(track.id)}">
             <div class="jpdb-subtitle-track-title">
@@ -11876,42 +12014,42 @@ ${spelling}`);
     return `${trackCount} ${uiText(language, "subtitleTracksDetected")}`;
   }
   const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-native-captions-suppressed";
-  function applySubtitleNativeTrackModes(state) {
+  function applySubtitleNativeTrackModes(state2) {
     const youtubePage = isYouTubePage();
-    const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
-    const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
-    if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
+    const hasYomuCaptionContent = Boolean(state2.hasPrimaryCues || state2.currentCueText);
+    const yomuCaptionsActive = Boolean(state2.suppressNativeCaptions || state2.overlayVisible && (state2.selectedTrackId || hasYomuCaptionContent));
+    if (!youtubePage) return applyGenericNativeTrackModes(state2, yomuCaptionsActive);
     document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
-    return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
+    return applyYouTubeNativeTrackModes(state2, yomuCaptionsActive);
   }
-  function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
-    for (const option of state.tracks) {
+  function applyGenericNativeTrackModes(state2, yomuCaptionsActive) {
+    for (const option of state2.tracks) {
       if (!option.track) continue;
-      if (isSelectedSubtitleTrack(option, state)) {
+      if (isSelectedSubtitleTrack(option, state2)) {
         if (yomuCaptionsActive) option.track.mode = "hidden";
         else ensureTextTrackReadable(option.track);
         continue;
       }
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
-    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state.video);
+    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state2.video);
     document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
   }
-  function applyYouTubeNativeTrackModes(state, yomuCaptionsActive) {
-    applyYouTubeTextTrackModes(state);
+  function applyYouTubeNativeTrackModes(state2, yomuCaptionsActive) {
+    applyYouTubeTextTrackModes(state2);
     const hideYouTubeNativeCaptions = yomuCaptionsActive;
     document.documentElement.classList.toggle("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
     return hideYouTubeNativeCaptions;
   }
-  function applyYouTubeTextTrackModes(state) {
-    for (const option of state.tracks) {
-      if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state) ? "hidden" : "disabled";
+  function applyYouTubeTextTrackModes(state2) {
+    for (const option of state2.tracks) {
+      if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state2) ? "hidden" : "disabled";
     }
   }
-  function isSelectedSubtitleTrack(option, state) {
-    return option.id === state.selectedTrackId || option.id === state.secondaryTrackId;
+  function isSelectedSubtitleTrack(option, state2) {
+    return option.id === state2.selectedTrackId || option.id === state2.secondaryTrackId;
   }
   function suppressGenericCaptionPlayerUi(video) {
     for (const player of genericCaptionPlayersForVideo(video)) {
@@ -14439,11 +14577,11 @@ ${spelling}`);
       });
     }
     applyKaraokeStateToPrimary(cue, time) {
-      const state = this.primaryKaraokeState(cue);
-      if (!state) return;
-      const progress = karaokeCharacterProgress(cue, state.words, time);
+      const state2 = this.primaryKaraokeState(cue);
+      if (!state2) return;
+      const progress = karaokeCharacterProgress(cue, state2.words, time);
       let cursor = 0;
-      for (const element of state.wordElements) {
+      for (const element of state2.wordElements) {
         cursor = applyKaraokeClassToWordElement(element, cursor, progress);
       }
     }
@@ -15313,7 +15451,7 @@ ${spelling}`);
     syncDrawerButtons(hasLines) {
       const panelButton = this.root?.querySelector('[data-action="panel"]');
       if (!panelButton) return;
-      const state = subtitleDrawerButtonState({
+      const state2 = subtitleDrawerButtonState({
         panelOpen: this.isTranscriptPanelOpen(),
         hasLines,
         hasTranscriptSurface: this.hasTranscriptSurface(),
@@ -15321,9 +15459,9 @@ ${spelling}`);
         trackCount: this.tracks.length
       });
       syncSubtitleDrawerButton(panelButton, {
-        disabled: state.disabled,
-        pressed: state.panelOpen,
-        placement: state.panelOpen ? this.effectiveTranscriptPlacement : this.options.getSettings().subtitleTranscriptPlacement,
+        disabled: state2.disabled,
+        pressed: state2.panelOpen,
+        placement: state2.panelOpen ? this.effectiveTranscriptPlacement : this.options.getSettings().subtitleTranscriptPlacement,
         language: this.options.getSettings().interfaceLanguage
       });
     }
@@ -15568,34 +15706,34 @@ ${spelling}`);
       if (!panel) return;
       this.clearDeferredTranscriptPanelRender();
       this.transcriptPreviewPlayerResizeDeferred = false;
-      const state = this.transcriptPanelRenderState();
-      if (this.canRefreshTranscriptPanel(force, state)) return;
-      this.lastTranscriptSignature = state.signature;
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-      this.afterTranscriptPanelRender(state);
+      const state2 = this.transcriptPanelRenderState();
+      if (this.canRefreshTranscriptPanel(force, state2)) return;
+      this.lastTranscriptSignature = state2.signature;
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
+      this.afterTranscriptPanelRender(state2);
     }
     renderTranscriptPanelPreview() {
       const panel = this.renderableTranscriptPanel();
       if (!panel) return;
       const fullState = this.transcriptPanelRenderState();
-      const state = this.transcriptPanelPreviewState(fullState);
+      const state2 = this.transcriptPanelPreviewState(fullState);
       this.transcriptPreviewPlayerResizeDeferred = true;
       this.lastTranscriptSignature = "";
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-      this.afterTranscriptPanelRender(state, { deferPlayerResize: true });
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
+      this.afterTranscriptPanelRender(state2, { deferPlayerResize: true });
     }
-    transcriptPanelPreviewState(state) {
-      const rowCount = state.rows.length;
-      if (!rowCount) return { ...state, signature: `preview:${state.signature}`, totalRowCount: 0 };
-      const activeIndex = state.currentRowIndex >= 0 ? state.currentRowIndex : 0;
+    transcriptPanelPreviewState(state2) {
+      const rowCount = state2.rows.length;
+      if (!rowCount) return { ...state2, signature: `preview:${state2.signature}`, totalRowCount: 0 };
+      const activeIndex = state2.currentRowIndex >= 0 ? state2.currentRowIndex : 0;
       const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
       const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
       const previewEnd = Math.min(rowCount, previewStart + 3);
       return {
-        rows: state.rows.slice(previewStart, previewEnd),
-        warmupRows: state.warmupRows,
-        currentRowIndex: state.currentRowIndex,
-        signature: `preview:${state.signature}:${previewStart}`,
+        rows: state2.rows.slice(previewStart, previewEnd),
+        warmupRows: state2.warmupRows,
+        currentRowIndex: state2.currentRowIndex,
+        signature: `preview:${state2.signature}:${previewStart}`,
         rowIndexOffset: previewStart,
         totalRowCount: rowCount
       };
@@ -15620,9 +15758,9 @@ ${spelling}`);
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
       return this.panelMode === "lines" ? this.transcriptPanel : null;
     }
-    canRefreshTranscriptPanel(force, state) {
+    canRefreshTranscriptPanel(force, state2) {
       if (force) return false;
-      return this.refreshExistingTranscriptPanel(state);
+      return this.refreshExistingTranscriptPanel(state2);
     }
     transcriptPanelRenderState() {
       const rows = this.transcriptRows();
@@ -15685,19 +15823,19 @@ ${spelling}`);
       if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return false;
       return scrollTop <= 1 || currentRowIndex < Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
-    refreshExistingTranscriptPanel(state) {
-      if (this.lastTranscriptSignature !== state.signature) return false;
-      this.updateTranscriptActiveLine(state.currentRowIndex);
-      const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+    refreshExistingTranscriptPanel(state2) {
+      if (this.lastTranscriptSignature !== state2.signature) return false;
+      this.updateTranscriptActiveLine(state2.currentRowIndex);
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state2);
       this.scheduleTranscriptHydration(hydrationIndex);
-      this.scheduleTranscriptCacheWarmup(state.rows, hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(state2.rows, hydrationIndex);
       return true;
     }
-    renderTranscriptPanelHtml(state) {
+    renderTranscriptPanelHtml(state2) {
       const settings = this.options.getSettings();
       const language = settings.interfaceLanguage;
-      const rowCount = state.totalRowCount ?? state.rows.length;
-      const rowIndexOffset = state.rowIndexOffset ?? 0;
+      const rowCount = state2.totalRowCount ?? state2.rows.length;
+      const rowIndexOffset = state2.rowIndexOffset ?? 0;
       return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
@@ -15718,10 +15856,10 @@ ${spelling}`);
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
             </div>
-            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ""}>
-                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.topSpacer) : ""}
-                ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
-                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer) : ""}
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
+                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer) : ""}
+                ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
+                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.bottomSpacer) : ""}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
@@ -15729,26 +15867,26 @@ ${spelling}`);
     renderTranscriptVirtualSpacer(height) {
       return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
     }
-    afterTranscriptPanelRender(state, options = {}) {
+    afterTranscriptPanelRender(state2, options = {}) {
       this.indexTranscriptTextTargets();
       this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? "none" : "immediate" });
-      this.restoreTranscriptVirtualScroll(state);
+      this.restoreTranscriptVirtualScroll(state2);
       this.scrollTranscriptToActive();
-      const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state2);
       this.scheduleTranscriptHydration(hydrationIndex);
-      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.warmupRows ?? state.rows, hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state2.warmupRows ?? state2.rows, hydrationIndex);
       this.syncPanelState();
     }
-    transcriptHydrationPreferredIndex(state) {
-      return state.virtual?.start ?? state.currentRowIndex;
+    transcriptHydrationPreferredIndex(state2) {
+      return state2.virtual?.start ?? state2.currentRowIndex;
     }
-    restoreTranscriptVirtualScroll(state) {
-      if (!state.virtual) return;
+    restoreTranscriptVirtualScroll(state2) {
+      if (!state2.virtual) return;
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
       if (!scroller) return;
-      const scrollTop = Math.max(0, state.virtual.scrollTop);
+      const scrollTop = Math.max(0, state2.virtual.scrollTop);
       if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
       this.transcriptVirtualScrollTop = scrollTop;
     }
@@ -15831,8 +15969,8 @@ ${spelling}`);
       this.transcriptVirtualRenderFrame = requestAnimationFrame(() => {
         this.transcriptVirtualRenderFrame = void 0;
         if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
-        const state = this.transcriptPanelRenderState();
-        if (!state.virtual || state.signature === this.lastTranscriptSignature) return;
+        const state2 = this.transcriptPanelRenderState();
+        if (!state2.virtual || state2.signature === this.lastTranscriptSignature) return;
         this.renderTranscriptPanel(true);
       });
     }
@@ -16246,10 +16384,10 @@ ${spelling}`);
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "tracks") return;
       this.transcriptTextTargetsByParseKey.clear();
-      const state = subtitleTrackPanelState(this.tracks);
+      const state2 = subtitleTrackPanelState(this.tracks);
       const settings = this.options.getSettings();
       setInnerHtml(this.transcriptPanel, renderSubtitleTrackPanel({
-        ...state,
+        ...state2,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         hasTranscriptSurface: this.hasTranscriptSurface(),

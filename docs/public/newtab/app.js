@@ -107,9 +107,9 @@
     return states;
   }
   function appendNormalizedCardState(states, rawState) {
-    const state = normalizeCardState(rawState);
-    if (!state || states.includes(state)) return;
-    states.push(state);
+    const state2 = normalizeCardState(rawState);
+    if (!state2 || states.includes(state2)) return;
+    states.push(state2);
   }
   function primaryCardState(value) {
     return normalizeCardStates(value)[0] ?? "not-in-deck";
@@ -3378,7 +3378,7 @@
   function furiganaHiddenStates(settings) {
     const states = /* @__PURE__ */ new Set();
     for (const group of settings.furiganaHiddenStateGroups) {
-      for (const state of FURIGANA_GROUP_STATES[group] ?? []) states.add(state);
+      for (const state2 of FURIGANA_GROUP_STATES[group] ?? []) states.add(state2);
     }
     return states;
   }
@@ -3600,7 +3600,7 @@
   const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
   function collectFragmentTextTargetsIn(root, limit = 40, visibleOnly = true, excludeSelector = "", options = {}) {
-    const state = {
+    const state2 = {
       targets: [],
       fragments: [],
       limit,
@@ -3608,21 +3608,21 @@
       excludeSelector,
       options
     };
-    visitFragmentNode(root, state, false, true);
-    flushFragmentTextTarget(state);
-    return state.targets;
+    visitFragmentNode(root, state2, false, true);
+    flushFragmentTextTarget(state2);
+    return state2.targets;
   }
   function fragmentText(items) {
     return items.map((fragment2) => fragment2.node.data.slice(fragment2.start, fragment2.end)).join("");
   }
-  function flushFragmentTextTarget(state) {
-    if (!state.fragments.length || fragmentCollectionComplete(state)) {
-      state.fragments.length = 0;
+  function flushFragmentTextTarget(state2) {
+    if (!state2.fragments.length || fragmentCollectionComplete(state2)) {
+      state2.fragments.length = 0;
       return;
     }
-    const target = fragmentTextTargetFrom(state.fragments, state.options);
-    if (target) state.targets.push(target);
-    state.fragments.length = 0;
+    const target = fragmentTextTargetFrom(state2.fragments, state2.options);
+    if (target) state2.targets.push(target);
+    state2.fragments.length = 0;
   }
   function fragmentTextTargetFrom(fragments, options) {
     const trimmedFragments = trimTextFragments(fragments);
@@ -3656,41 +3656,41 @@
   function compactFragmentTextLength(text2) {
     return text2.replace(/\s+/g, "").length;
   }
-  function visitFragmentNode(node, state, hasNativeRuby = false, isRoot = false) {
-    if (fragmentCollectionComplete(state)) return;
+  function visitFragmentNode(node, state2, hasNativeRuby = false, isRoot = false) {
+    if (fragmentCollectionComplete(state2)) return;
     if (node.nodeType === Node.TEXT_NODE) {
-      collectFragmentTextNode(node, state, hasNativeRuby);
+      collectFragmentTextNode(node, state2, hasNativeRuby);
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
-    visitFragmentElement(node, state, hasNativeRuby, isRoot);
+    visitFragmentElement(node, state2, hasNativeRuby, isRoot);
   }
-  function collectFragmentTextNode(node, state, hasNativeRuby) {
+  function collectFragmentTextNode(node, state2, hasNativeRuby) {
     const text2 = node.textContent ?? "";
-    if (shouldIgnoreFragmentTextNode(text2, state.options)) return;
+    if (shouldIgnoreFragmentTextNode(text2, state2.options)) return;
     const parent = node.parentElement;
-    if (text2) state.fragments.push({
+    if (text2) state2.fragments.push({
       node,
       start: 0,
       end: text2.length,
       hasNativeRuby,
       layoutSensitive: parent ? isLayoutSensitiveScanElement(parent) : false,
-      passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, state.options) : false
+      passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, state2.options) : false
     });
   }
   function shouldIgnoreFragmentTextNode(text2, options) {
     return Boolean(options.mergeBlockFragments && !text2.trim());
   }
-  function visitFragmentElement(element, state, hasNativeRuby, isRoot) {
-    if (shouldIgnoreFragmentElement(element, state.options)) return;
-    if (shouldFlushAndSkipFragmentElement(element, state, isRoot)) {
-      flushFragmentTextTarget(state);
+  function visitFragmentElement(element, state2, hasNativeRuby, isRoot) {
+    if (shouldIgnoreFragmentElement(element, state2.options)) return;
+    if (shouldFlushAndSkipFragmentElement(element, state2, isRoot)) {
+      flushFragmentTextTarget(state2);
       return;
     }
-    const isBlock = isBlockFragmentElement(element, state.options);
-    flushFragmentBlockBoundary(isBlock, state);
-    visitFragmentElementChildren(element, state, nextFragmentRubyState(element, hasNativeRuby));
-    flushFragmentBlockBoundary(isBlock, state);
+    const isBlock = isBlockFragmentElement(element, state2.options);
+    flushFragmentBlockBoundary(isBlock, state2);
+    visitFragmentElementChildren(element, state2, nextFragmentRubyState(element, hasNativeRuby));
+    flushFragmentBlockBoundary(isBlock, state2);
   }
   function shouldIgnoreFragmentElement(element, options) {
     return isRubyAnnotationElement(element) || isExcludedReaderRootElement(element, options);
@@ -3701,14 +3701,14 @@
   function isExcludedReaderRootElement(element, options) {
     return !options.includeReaderRoot && Boolean(element.closest(READER_ROOT_SELECTOR));
   }
-  function shouldFlushAndSkipFragmentElement(element, state, isRoot) {
-    if (matchesSkippedFragmentElement(element, state, isRoot)) return true;
-    if (shouldSkipInvisibleFragmentElement(element, state.visibleOnly)) return true;
-    return shouldSkipFragmentTextPresentation(element, state.options);
+  function shouldFlushAndSkipFragmentElement(element, state2, isRoot) {
+    if (matchesSkippedFragmentElement(element, state2, isRoot)) return true;
+    if (shouldSkipInvisibleFragmentElement(element, state2.visibleOnly)) return true;
+    return shouldSkipFragmentTextPresentation(element, state2.options);
   }
-  function matchesSkippedFragmentElement(element, state, isRoot) {
-    if (state.excludeSelector && safeElementMatches(element, state.excludeSelector)) return true;
-    return !isRoot && shouldSkipFragmentElement(element, state.options);
+  function matchesSkippedFragmentElement(element, state2, isRoot) {
+    if (state2.excludeSelector && safeElementMatches(element, state2.excludeSelector)) return true;
+    return !isRoot && shouldSkipFragmentElement(element, state2.options);
   }
   function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
     return visibleOnly && !isVisible(element) && !hasVisibleTextMirror(element);
@@ -3731,20 +3731,20 @@
   function isBlockFragmentElement(element, options) {
     return !options.mergeBlockFragments && isFragmentParagraphBoundary(element, options) && !isInlineSentenceListItem(element);
   }
-  function flushFragmentBlockBoundary(isBlock, state) {
-    if (isBlock) flushFragmentTextTarget(state);
+  function flushFragmentBlockBoundary(isBlock, state2) {
+    if (isBlock) flushFragmentTextTarget(state2);
   }
-  function visitFragmentElementChildren(element, state, hasNativeRuby) {
+  function visitFragmentElementChildren(element, state2, hasNativeRuby) {
     for (const child of Array.from(element.childNodes)) {
-      visitFragmentNode(child, state, hasNativeRuby);
-      if (fragmentCollectionComplete(state)) break;
+      visitFragmentNode(child, state2, hasNativeRuby);
+      if (fragmentCollectionComplete(state2)) break;
     }
   }
   function nextFragmentRubyState(element, hasNativeRuby) {
     return hasNativeRuby || element.tagName === "RUBY" || element.tagName === "RB";
   }
-  function fragmentCollectionComplete(state) {
-    return state.targets.length >= state.limit;
+  function fragmentCollectionComplete(state2) {
+    return state2.targets.length >= state2.limit;
   }
   function shouldSkipFragmentElement(element, options) {
     if (options.includePassiveInteractions) return safeElementMatches(element, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
@@ -3975,8 +3975,8 @@
     const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
-      const state2 = textMirrorHosts.get(host);
-      if (state2) reassertTextMirrorHostStyles(host, state2);
+      const state22 = textMirrorHosts.get(host);
+      if (state22) reassertTextMirrorHostStyles(host, state22);
       return;
     }
     removeTextMirror(host);
@@ -3986,7 +3986,7 @@
     mirror.dataset.jpdbReaderTextMirror = "true";
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
-    const state = styleTextMirrorHost(host);
+    const state2 = styleTextMirrorHost(host);
     try {
       styleTextMirror(mirror, host);
       mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
@@ -4000,7 +4000,7 @@
         return;
       }
       host.append(mirror);
-      hideTextMirrorHost(host, state);
+      hideTextMirrorHost(host, state2);
       observeTextMirrorHost(host, text2);
     } catch (error) {
       removeTextMirror(host);
@@ -4110,7 +4110,7 @@
   }
   function styleTextMirrorHost(host) {
     const computed = safeComputedStyle(host);
-    const state = {
+    const state2 = {
       observer: new MutationObserver(() => void 0),
       sourceText: "",
       visibility: host.style.getPropertyValue("visibility"),
@@ -4122,16 +4122,16 @@
       displayPriority: host.style.getPropertyPriority("display"),
       displayAdjusted: computed.display === "inline"
     };
-    textMirrorHosts.set(host, state);
-    if (state.positioned) host.style.setProperty("position", "relative", "important");
-    if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
-    return state;
+    textMirrorHosts.set(host, state2);
+    if (state2.positioned) host.style.setProperty("position", "relative", "important");
+    if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
+    return state2;
   }
-  function hideTextMirrorHost(host, state) {
-    textMirrorHosts.set(host, state);
+  function hideTextMirrorHost(host, state2) {
+    textMirrorHosts.set(host, state2);
     host.style.setProperty("visibility", "hidden", "important");
-    if (state.positioned) host.style.setProperty("position", "relative", "important");
-    if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
+    if (state2.positioned) host.style.setProperty("position", "relative", "important");
+    if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
   function styleTextMirror(mirror, host) {
     const style = safeComputedStyle(host);
@@ -4152,10 +4152,10 @@
     mirror.style.setProperty("z-index", "1");
   }
   function observeTextMirrorHost(host, sourceText) {
-    const state = textMirrorHosts.get(host);
-    if (!state) return;
-    state.sourceText = normalizedMirrorHostText(sourceText);
-    state.observer = new MutationObserver((mutations) => {
+    const state2 = textMirrorHosts.get(host);
+    if (!state2) return;
+    state2.sourceText = normalizedMirrorHostText(sourceText);
+    state2.observer = new MutationObserver((mutations) => {
       if (mutations.every(mutationInsideTextMirror)) return;
       if (!currentTextMirror(host)) {
         removeTextMirror(host);
@@ -4166,12 +4166,12 @@
         removeTextMirror(host);
         return;
       }
-      if (currentText !== state.sourceText) {
-        reassertTextMirrorHostStyles(host, state);
+      if (currentText !== state2.sourceText) {
+        reassertTextMirrorHostStyles(host, state2);
         dispatchTextMirrorStale(host);
       }
     });
-    state.observer.observe(host, { childList: true, characterData: true, subtree: true });
+    state2.observer.observe(host, { childList: true, characterData: true, subtree: true });
   }
   function dispatchTextMirrorStale(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
@@ -4200,13 +4200,13 @@
     return text2.replace(/\s+/g, " ").trim();
   }
   function removeTextMirror(host) {
-    const state = textMirrorHosts.get(host);
-    state?.observer.disconnect();
+    const state2 = textMirrorHosts.get(host);
+    state2?.observer.disconnect();
     Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)).forEach((mirror) => mirror.remove());
-    if (state) restoreTextMirrorHost(host, state);
+    if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
   }
-  function reassertTextMirrorHostStyles(host, state) {
+  function reassertTextMirrorHostStyles(host, state2) {
     if (!currentTextMirror(host)) {
       removeTextMirror(host);
       return;
@@ -4214,17 +4214,17 @@
     if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
-    if (state.positioned && host.style.getPropertyValue("position") !== "relative") {
+    if (state2.positioned && host.style.getPropertyValue("position") !== "relative") {
       host.style.setProperty("position", "relative", "important");
     }
-    if (state.displayAdjusted && host.style.getPropertyValue("display") !== "inline-block") {
+    if (state2.displayAdjusted && host.style.getPropertyValue("display") !== "inline-block") {
       host.style.setProperty("display", "inline-block", "important");
     }
   }
-  function restoreTextMirrorHost(host, state) {
-    restoreStyleProperty$1(host, "visibility", state.visibility, state.visibilityPriority);
-    if (state.positioned) restoreStyleProperty$1(host, "position", state.position, state.positionPriority);
-    if (state.displayAdjusted) restoreStyleProperty$1(host, "display", state.display, state.displayPriority);
+  function restoreTextMirrorHost(host, state2) {
+    restoreStyleProperty$1(host, "visibility", state2.visibility, state2.visibilityPriority);
+    if (state2.positioned) restoreStyleProperty$1(host, "position", state2.position, state2.positionPriority);
+    if (state2.displayAdjusted) restoreStyleProperty$1(host, "display", state2.display, state2.displayPriority);
   }
   function restoreStyleProperty$1(host, property, value, priority) {
     if (value) host.style.setProperty(property, value, priority);
@@ -4763,14 +4763,14 @@
   }
   function createReaderWordSpan(token, options) {
     const span = document.createElement("span");
-    const state = primaryCardState(token.card.cardState);
-    span.className = readerWordClassName(state, token);
+    const state2 = primaryCardState(token.card.cardState);
+    span.className = readerWordClassName(state2, token);
     span.dataset.vid = String(token.card.vid);
     span.dataset.sid = String(token.card.sid);
     span.dataset.cardSource = readerCardSource(token.card);
     span.dataset.cardId = String(readerCardId(token.card));
     span.dataset.readingIndex = String(readerReadingIndex(token.card));
-    span.dataset.cardState = state;
+    span.dataset.cardState = state2;
     span.dataset.pitchClass = safePitchClass(token.pitchClass);
     span.dataset.tokenStart = String(token.start);
     span.dataset.tokenEnd = String(token.end);
@@ -4800,19 +4800,19 @@
     }
   }
   function renderTokenHtml(surface, token, settings, miningInsightKeys) {
-    const state = primaryCardState(token.card.cardState);
+    const state2 = primaryCardState(token.card.cardState);
     const hasRuby = shouldRenderRuby(surface, token, settings);
     const content = hasRuby ? renderRuby(surface, token) : escapeHtml$1(surface);
     const hasMiningInsight = miningInsightKeys.has(miningInsightTokenKey(token));
     const classes = [
-      readerWordClassName(state, token),
+      readerWordClassName(state2, token),
       hasRuby ? "jpdb-reader-has-furi" : "",
       hasMiningInsight ? "jpdb-reader-i-plus-one" : ""
     ].filter(Boolean).join(" ");
     const source = ` data-card-source="${escapeHtml$1(readerCardSource(token.card))}"`;
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
-    const cardState = ` data-card-state="${escapeHtml$1(state)}"`;
+    const cardState = ` data-card-state="${escapeHtml$1(state2)}"`;
     const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
@@ -4844,16 +4844,16 @@
     }
     return false;
   }
-  function readerWordClassName(state, token) {
+  function readerWordClassName(state2, token) {
     const classes = ["jpdb-reader-word"];
     if (isParticleCard(token.card)) {
       classes.push("jpdb-reader-particle");
       return classes.join(" ");
     }
     if (hasKnownCardState(token.card)) {
-      classes.push(`jpdb-${state}`);
+      classes.push(`jpdb-${state2}`);
       const source = readerCardSource(token.card);
-      if (source !== "jpdb") classes.push(`${source}-${state}`);
+      if (source !== "jpdb") classes.push(`${source}-${state2}`);
     }
     classes.push(...cardDeckMembershipClassNames(token.card));
     classes.push(`jpdb-pitch-${safePitchClass(token.pitchClass)}`);
@@ -8142,8 +8142,8 @@ recommendedJiten	jiten.moe頻度データです。
   function uiText(language, key) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
   }
-  function cardStateLabel(state, language, fallback = state) {
-    const key = CARD_STATE_LABEL_KEYS[state];
+  function cardStateLabel(state2, language, fallback = state2) {
+    const key = CARD_STATE_LABEL_KEYS[state2];
     return key ? uiText(language, key) : fallback;
   }
   function audioSourceLabel(language, type) {
@@ -8596,7 +8596,7 @@ ${candidate.depth}`;
       return;
     }
     const reader = file.stream().pipeThrough(new TextDecoderStream()).getReader();
-    const state = {
+    const state2 = {
       buffer: "",
       mode: "seek-table",
       tableName: "",
@@ -8608,172 +8608,172 @@ ${candidate.depth}`;
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
-      state.buffer += value;
-      await processDexieStreamBuffer(state, handlers, onTable);
+      state2.buffer += value;
+      await processDexieStreamBuffer(state2, handlers, onTable);
     }
   }
   function readBlobText(blob) {
     if (typeof blob.text === "function") return blob.text();
     return readBlobWithFileReader(blob, (reader, value) => reader.readAsText(value), (reader) => String(reader.result ?? ""));
   }
-  async function processDexieStreamBuffer(state, handlers, onTable) {
+  async function processDexieStreamBuffer(state2, handlers, onTable) {
     let progress = true;
     while (progress) {
-      progress = await processDexieStreamStep(state, handlers, onTable);
+      progress = await processDexieStreamStep(state2, handlers, onTable);
     }
   }
-  async function processDexieStreamStep(state, handlers, onTable) {
-    if (state.mode === "seek-table") return seekDexieTable(state);
-    if (state.mode === "seek-rows") return seekDexieRows(state, onTable);
-    if (state.mode === "rows") return await readDexieRows(state, handlers);
+  async function processDexieStreamStep(state2, handlers, onTable) {
+    if (state2.mode === "seek-table") return seekDexieTable(state2);
+    if (state2.mode === "seek-rows") return seekDexieRows(state2, onTable);
+    if (state2.mode === "rows") return await readDexieRows(state2, handlers);
     return false;
   }
-  function seekDexieTable(state) {
-    const tableIndex = state.buffer.indexOf('"tableName"');
+  function seekDexieTable(state2) {
+    const tableIndex = state2.buffer.indexOf('"tableName"');
     if (tableIndex < 0) {
-      state.buffer = state.buffer.slice(-32);
+      state2.buffer = state2.buffer.slice(-32);
       return false;
     }
-    const colon = state.buffer.indexOf(":", tableIndex);
-    const quote = colon >= 0 ? state.buffer.indexOf('"', colon) : -1;
-    const end = quote >= 0 ? findJsonStringEnd(state.buffer, quote) : -1;
+    const colon = state2.buffer.indexOf(":", tableIndex);
+    const quote = colon >= 0 ? state2.buffer.indexOf('"', colon) : -1;
+    const end = quote >= 0 ? findJsonStringEnd(state2.buffer, quote) : -1;
     if (end < 0) return false;
-    state.tableName = JSON.parse(state.buffer.slice(quote, end + 1));
-    state.buffer = state.buffer.slice(end + 1);
-    state.mode = "seek-rows";
+    state2.tableName = JSON.parse(state2.buffer.slice(quote, end + 1));
+    state2.buffer = state2.buffer.slice(end + 1);
+    state2.mode = "seek-rows";
     return true;
   }
-  function seekDexieRows(state, onTable) {
-    const rowsIndex = state.buffer.indexOf('"rows"');
+  function seekDexieRows(state2, onTable) {
+    const rowsIndex = state2.buffer.indexOf('"rows"');
     if (rowsIndex < 0) {
-      state.buffer = state.buffer.slice(-32);
+      state2.buffer = state2.buffer.slice(-32);
       return false;
     }
-    const arrayIndex = state.buffer.indexOf("[", rowsIndex);
+    const arrayIndex = state2.buffer.indexOf("[", rowsIndex);
     if (arrayIndex < 0) return false;
-    state.buffer = state.buffer.slice(arrayIndex + 1);
-    state.mode = "rows";
-    resetDexieRowState(state);
-    onTable?.(state.tableName);
+    state2.buffer = state2.buffer.slice(arrayIndex + 1);
+    state2.mode = "rows";
+    resetDexieRowState(state2);
+    onTable?.(state2.tableName);
     return true;
   }
-  function resetDexieRowState(state) {
-    state.rowStart = -1;
-    state.depth = 0;
-    state.inString = false;
-    state.escaped = false;
+  function resetDexieRowState(state2) {
+    state2.rowStart = -1;
+    state2.depth = 0;
+    state2.inString = false;
+    state2.escaped = false;
   }
-  async function readDexieRows(state, handlers) {
+  async function readDexieRows(state2, handlers) {
     let progress = false;
     let index = 0;
-    while (index < state.buffer.length) {
-      const step = await readDexieRowStep(state, handlers, index, progress);
+    while (index < state2.buffer.length) {
+      const step = await readDexieRowStep(state2, handlers, index, progress);
       if (step.done) return true;
       progress = step.progress;
       index = step.nextIndex;
     }
-    if (!progress) compactDexieRowBuffer(state);
+    if (!progress) compactDexieRowBuffer(state2);
     return progress;
   }
-  async function readDexieRowStep(state, handlers, index, progress) {
-    const action = readDexieRowCharacter(state, index);
+  async function readDexieRowStep(state2, handlers, index, progress) {
+    const action = readDexieRowCharacter(state2, index);
     if (action === "continue") return { done: false, progress, nextIndex: index + 1 };
-    const result = await applyDexieRowReadAction(state, handlers, action, index, progress);
+    const result = await applyDexieRowReadAction(state2, handlers, action, index, progress);
     return {
       done: result.done,
       progress: result.progress,
       nextIndex: result.restart ? 0 : index + 1
     };
   }
-  async function applyDexieRowReadAction(state, handlers, action, index, progress) {
+  async function applyDexieRowReadAction(state2, handlers, action, index, progress) {
     if (action === "close-array") return { done: true, progress, restart: false };
     if (action !== "finish-row") return { done: false, progress, restart: false };
-    const nextProgress = await finishDexieRow(state, handlers, index) || progress;
-    return { done: false, progress: nextProgress, restart: nextProgress && state.rowStart === -1 };
+    const nextProgress = await finishDexieRow(state2, handlers, index) || progress;
+    return { done: false, progress: nextProgress, restart: nextProgress && state2.rowStart === -1 };
   }
-  function readDexieRowCharacter(state, index) {
-    const char = state.buffer[index];
-    if (advanceStringState(state, char)) return "continue";
-    if (openDexieRowObject(state, index, char)) return "continue";
+  function readDexieRowCharacter(state2, index) {
+    const char = state2.buffer[index];
+    if (advanceStringState(state2, char)) return "continue";
+    if (openDexieRowObject(state2, index, char)) return "continue";
     if (char === "}") return "finish-row";
-    return closeDexieRowsArray(state, index, char) ? "close-array" : "scan";
+    return closeDexieRowsArray(state2, index, char) ? "close-array" : "scan";
   }
-  function openDexieRowObject(state, index, char) {
+  function openDexieRowObject(state2, index, char) {
     if (char !== "{") return false;
-    if (state.depth === 0) state.rowStart = index;
-    state.depth++;
+    if (state2.depth === 0) state2.rowStart = index;
+    state2.depth++;
     return true;
   }
-  function closeDexieRowsArray(state, index, char) {
-    if (state.depth !== 0 || char !== "]") return false;
-    state.buffer = state.buffer.slice(index + 1);
-    state.mode = "seek-table";
-    state.tableName = "";
+  function closeDexieRowsArray(state2, index, char) {
+    if (state2.depth !== 0 || char !== "]") return false;
+    state2.buffer = state2.buffer.slice(index + 1);
+    state2.mode = "seek-table";
+    state2.tableName = "";
     return true;
   }
-  async function finishDexieRow(state, handlers, index) {
-    state.depth--;
-    if (state.depth !== 0 || state.rowStart < 0) return false;
-    const handler = handlers[state.tableName];
-    if (handler) await handler(JSON.parse(state.buffer.slice(state.rowStart, index + 1)));
-    state.buffer = state.buffer.slice(index + 1);
-    state.rowStart = -1;
+  async function finishDexieRow(state2, handlers, index) {
+    state2.depth--;
+    if (state2.depth !== 0 || state2.rowStart < 0) return false;
+    const handler = handlers[state2.tableName];
+    if (handler) await handler(JSON.parse(state2.buffer.slice(state2.rowStart, index + 1)));
+    state2.buffer = state2.buffer.slice(index + 1);
+    state2.rowStart = -1;
     return true;
   }
-  function advanceStringState(state, char) {
-    if (state.inString) return advanceOpenStringState(state, char);
-    return enterStringState(state, char);
+  function advanceStringState(state2, char) {
+    if (state2.inString) return advanceOpenStringState(state2, char);
+    return enterStringState(state2, char);
   }
-  function enterStringState(state, char) {
+  function enterStringState(state2, char) {
     if (char !== '"') return false;
-    state.inString = true;
+    state2.inString = true;
     return true;
   }
-  function advanceOpenStringState(state, char) {
-    if (state.escaped) state.escaped = false;
-    else if (char === "\\") state.escaped = true;
-    else if (char === '"') state.inString = false;
+  function advanceOpenStringState(state2, char) {
+    if (state2.escaped) state2.escaped = false;
+    else if (char === "\\") state2.escaped = true;
+    else if (char === '"') state2.inString = false;
     return true;
   }
-  function compactDexieRowBuffer(state) {
-    if (state.rowStart > 0) {
-      state.buffer = state.buffer.slice(state.rowStart);
-      state.rowStart = 0;
-    } else if (state.depth === 0 && state.buffer.length > 4096) {
-      state.buffer = state.buffer.slice(-4096);
+  function compactDexieRowBuffer(state2) {
+    if (state2.rowStart > 0) {
+      state2.buffer = state2.buffer.slice(state2.rowStart);
+      state2.rowStart = 0;
+    } else if (state2.depth === 0 && state2.buffer.length > 4096) {
+      state2.buffer = state2.buffer.slice(-4096);
     }
   }
   function findJsonArrayEnd(text2, start) {
-    const state = createJsonArrayScanState();
+    const state2 = createJsonArrayScanState();
     for (let index = start; index < text2.length; index++) {
-      if (scanJsonArrayCharacter(state, text2[index])) return index;
+      if (scanJsonArrayCharacter(state2, text2[index])) return index;
     }
     return -1;
   }
   function createJsonArrayScanState() {
     return { depth: 0, inString: false, escaped: false };
   }
-  function scanJsonArrayCharacter(state, char) {
-    if (state.inString) {
-      scanJsonArrayStringCharacter(state, char);
+  function scanJsonArrayCharacter(state2, char) {
+    if (state2.inString) {
+      scanJsonArrayStringCharacter(state2, char);
       return false;
     }
     if (char === '"') {
-      state.inString = true;
+      state2.inString = true;
       return false;
     }
-    if (char === "[") state.depth += 1;
+    if (char === "[") state2.depth += 1;
     if (char !== "]") return false;
-    state.depth -= 1;
-    return state.depth === 0;
+    state2.depth -= 1;
+    return state2.depth === 0;
   }
-  function scanJsonArrayStringCharacter(state, char) {
-    if (state.escaped) {
-      state.escaped = false;
+  function scanJsonArrayStringCharacter(state2, char) {
+    if (state2.escaped) {
+      state2.escaped = false;
       return;
     }
-    if (char === "\\") state.escaped = true;
-    if (char === '"') state.inString = false;
+    if (char === "\\") state2.escaped = true;
+    if (char === '"') state2.inString = false;
   }
   async function streamDexieTablesFromText(text2, handlers, onTable) {
     let offset = 0;
@@ -8786,9 +8786,9 @@ ${candidate.depth}`;
   }
   async function streamDexieRowsFromText(text2, arrayStart, tableName, handlers) {
     const handler = handlers[tableName];
-    const state = { depth: 0, rowStart: -1, inString: false, escaped: false };
+    const state2 = { depth: 0, rowStart: -1, inString: false, escaped: false };
     for (let index = arrayStart + 1; index < text2.length; index++) {
-      const endOffset = await scanDexieRowCharacter(text2, state, index, handler);
+      const endOffset = await scanDexieRowCharacter(text2, state2, index, handler);
       if (endOffset !== null) return endOffset;
     }
     return text2.length;
@@ -8812,36 +8812,36 @@ ${candidate.depth}`;
     const rowsIndex = text2.indexOf('"rows"', offset);
     return rowsIndex >= 0 ? text2.indexOf("[", rowsIndex) : -1;
   }
-  async function scanDexieRowCharacter(text2, state, index, handler) {
+  async function scanDexieRowCharacter(text2, state2, index, handler) {
     const char = text2[index];
-    if (consumeDexieStringCharacter(state, char)) return null;
-    if (openDexieString(state, char)) return null;
-    if (char === "{") beginDexieRow(state, index);
-    if (char === "}") await finishDexieArrayRow(text2, state, index, handler);
-    return dexieArrayEndOffset(state, char, index);
+    if (consumeDexieStringCharacter(state2, char)) return null;
+    if (openDexieString(state2, char)) return null;
+    if (char === "{") beginDexieRow(state2, index);
+    if (char === "}") await finishDexieArrayRow(text2, state2, index, handler);
+    return dexieArrayEndOffset(state2, char, index);
   }
-  function dexieArrayEndOffset(state, char, index) {
-    return state.depth === 0 && char === "]" ? index + 1 : null;
+  function dexieArrayEndOffset(state2, char, index) {
+    return state2.depth === 0 && char === "]" ? index + 1 : null;
   }
-  function consumeDexieStringCharacter(state, char) {
-    if (!state.inString) return false;
-    if (state.escaped) state.escaped = false;
-    else if (char === "\\") state.escaped = true;
-    else if (char === '"') state.inString = false;
+  function consumeDexieStringCharacter(state2, char) {
+    if (!state2.inString) return false;
+    if (state2.escaped) state2.escaped = false;
+    else if (char === "\\") state2.escaped = true;
+    else if (char === '"') state2.inString = false;
     return true;
   }
-  function openDexieString(state, char) {
+  function openDexieString(state2, char) {
     if (char !== '"') return false;
-    state.inString = true;
+    state2.inString = true;
     return true;
   }
-  function beginDexieRow(state, index) {
-    if (state.depth === 0) state.rowStart = index;
-    state.depth++;
+  function beginDexieRow(state2, index) {
+    if (state2.depth === 0) state2.rowStart = index;
+    state2.depth++;
   }
-  async function finishDexieArrayRow(text2, state, index, handler) {
-    state.depth--;
-    if (state.depth === 0 && state.rowStart >= 0 && handler) await handler(JSON.parse(text2.slice(state.rowStart, index + 1)));
+  async function finishDexieArrayRow(text2, state2, index, handler) {
+    state2.depth--;
+    if (state2.depth === 0 && state2.rowStart >= 0 && handler) await handler(JSON.parse(text2.slice(state2.rowStart, index + 1)));
   }
   function findJsonStringEnd(value, quoteIndex) {
     let escaped = false;
@@ -9608,63 +9608,63 @@ ${scopedInner}
 }` : `${selector} { ${declarations} }`;
   }
   function splitTopLevelCssBlocks(styles) {
-    const state = { blocks: [], depth: 0, start: 0, inString: null, escaped: false };
+    const state2 = { blocks: [], depth: 0, start: 0, inString: null, escaped: false };
     for (let index = 0; index < styles.length; index++) {
       const character = styles[index];
-      if (consumeStringScanCharacter(state, character)) continue;
-      if (openStringScan(state, character)) continue;
-      if (openCssBlock(state, styles, index, character)) continue;
-      closeCssBlock(state, styles, index, character);
+      if (consumeStringScanCharacter(state2, character)) continue;
+      if (openStringScan(state2, character)) continue;
+      if (openCssBlock(state2, styles, index, character)) continue;
+      closeCssBlock(state2, styles, index, character);
     }
-    return state.blocks;
+    return state2.blocks;
   }
-  function openCssBlock(state, styles, index, character) {
+  function openCssBlock(state2, styles, index, character) {
     if (character !== "{") return false;
-    if (state.depth === 0) state.start = findSelectorStart(styles, index);
-    state.depth++;
+    if (state2.depth === 0) state2.start = findSelectorStart(styles, index);
+    state2.depth++;
     return true;
   }
-  function closeCssBlock(state, styles, index, character) {
-    if (character !== "}" || state.depth === 0) return;
-    state.depth--;
-    if (state.depth > 0) return;
-    state.blocks.push(styles.slice(state.start, index + 1).trim());
-    state.start = index + 1;
+  function closeCssBlock(state2, styles, index, character) {
+    if (character !== "}" || state2.depth === 0) return;
+    state2.depth--;
+    if (state2.depth > 0) return;
+    state2.blocks.push(styles.slice(state2.start, index + 1).trim());
+    state2.start = index + 1;
   }
   function splitSelectorList(selector) {
-    const state = { selectors: [], start: 0, bracketDepth: 0, parenDepth: 0, inString: null, escaped: false };
+    const state2 = { selectors: [], start: 0, bracketDepth: 0, parenDepth: 0, inString: null, escaped: false };
     for (let index = 0; index < selector.length; index++) {
       const character = selector[index];
-      if (consumeStringScanCharacter(state, character)) continue;
-      if (openStringScan(state, character)) continue;
-      updateSelectorDepth(state, character);
-      if (!isSelectorSeparator(state, character)) continue;
-      state.selectors.push(selector.slice(state.start, index).trim());
-      state.start = index + 1;
+      if (consumeStringScanCharacter(state2, character)) continue;
+      if (openStringScan(state2, character)) continue;
+      updateSelectorDepth(state2, character);
+      if (!isSelectorSeparator(state2, character)) continue;
+      state2.selectors.push(selector.slice(state2.start, index).trim());
+      state2.start = index + 1;
     }
-    state.selectors.push(selector.slice(state.start).trim());
-    return state.selectors.filter(Boolean);
+    state2.selectors.push(selector.slice(state2.start).trim());
+    return state2.selectors.filter(Boolean);
   }
-  function consumeStringScanCharacter(state, character) {
-    if (!state.inString) return false;
-    if (state.escaped) state.escaped = false;
-    else if (character === "\\") state.escaped = true;
-    else if (character === state.inString) state.inString = null;
+  function consumeStringScanCharacter(state2, character) {
+    if (!state2.inString) return false;
+    if (state2.escaped) state2.escaped = false;
+    else if (character === "\\") state2.escaped = true;
+    else if (character === state2.inString) state2.inString = null;
     return true;
   }
-  function openStringScan(state, character) {
+  function openStringScan(state2, character) {
     if (character !== '"' && character !== "'") return false;
-    state.inString = character;
+    state2.inString = character;
     return true;
   }
-  function updateSelectorDepth(state, character) {
-    if (character === "[") state.bracketDepth++;
-    if (character === "]") state.bracketDepth = Math.max(0, state.bracketDepth - 1);
-    if (character === "(") state.parenDepth++;
-    if (character === ")") state.parenDepth = Math.max(0, state.parenDepth - 1);
+  function updateSelectorDepth(state2, character) {
+    if (character === "[") state2.bracketDepth++;
+    if (character === "]") state2.bracketDepth = Math.max(0, state2.bracketDepth - 1);
+    if (character === "(") state2.parenDepth++;
+    if (character === ")") state2.parenDepth = Math.max(0, state2.parenDepth - 1);
   }
-  function isSelectorSeparator(state, character) {
-    return character === "," && state.bracketDepth === 0 && state.parenDepth === 0;
+  function isSelectorSeparator(state2, character) {
+    return character === "," && state2.bracketDepth === 0 && state2.parenDepth === 0;
   }
   function findSelectorStart(styles, openIndex) {
     const separators = ["}", ";"];
@@ -13225,7 +13225,7 @@ ${entry.reading || ""}`;
     return "known";
   }
   function stateFromExistingNotes(notes) {
-    return ANKI_CARD_STATE_PRIORITY.slice(0, 6).find((state) => notes.some((note) => note.state === state)) ?? (notes.length ? "known" : "not-in-deck");
+    return ANKI_CARD_STATE_PRIORITY.slice(0, 6).find((state2) => notes.some((note) => note.state === state2)) ?? (notes.length ? "known" : "not-in-deck");
   }
   function pickPrimaryCard(cards) {
     const order = (card) => {
@@ -13314,8 +13314,8 @@ ${entry.reading || ""}`;
   function pickPrimaryExistingNote(notes) {
     return [...notes].sort((a, b) => ankiCardStateRank(a.state) - ankiCardStateRank(b.state))[0] ?? null;
   }
-  function ankiCardStateRank(state) {
-    const index = ANKI_CARD_STATE_PRIORITY.indexOf(state);
+  function ankiCardStateRank(state2) {
+    const index = ANKI_CARD_STATE_PRIORITY.indexOf(state2);
     return index < 0 ? ANKI_CARD_STATE_PRIORITY.length : index;
   }
   function addCardInfoByNoteId(cardsByNote, cardInfo) {
@@ -13751,13 +13751,13 @@ ${entry.reading || ""}`;
   function statusIndexEntryFromStatusSets(note, cardSets) {
     const cardIds = (note.cards ?? []).map(Number).filter(Number.isFinite);
     const primaryCardId = pickPrimaryCardIdFromStatusSets(cardIds, cardSets);
-    const state = stateFromStatusIndexCardIds(cardIds, cardSets);
+    const state2 = stateFromStatusIndexCardIds(cardIds, cardSets);
     return {
       noteId: note.noteId,
       modelName: note.modelName,
       deckNames: [],
       primaryCardId,
-      state,
+      state: state2,
       reps: 0,
       lapses: 0
     };
@@ -15389,7 +15389,7 @@ ${entry.reading || ""}`;
   function renderCardStatus(card, language) {
     if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$1(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
     if (card.source === "anki") return '<span class="yomu-chip">Anki</span>';
-    return card.cardState.map((state) => `<span class="yomu-chip">${escapeHtml$1(state)}</span>`).join(" ");
+    return card.cardState.map((state2) => `<span class="yomu-chip">${escapeHtml$1(state2)}</span>`).join(" ");
   }
   function tagsFromString(value) {
     return value.split(/[,\s]+/).map((tag) => tag.trim()).filter(Boolean);
@@ -18619,8 +18619,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ].filter(Boolean);
     return parts.join(", ");
   }
-  function ankiStateLabel(state, language) {
-    return cardStateLabel(state, language);
+  function ankiStateLabel(state2, language) {
+    return cardStateLabel(state2, language);
   }
   function renderAnkiRenderedCard(note, language) {
     const cards = orderedRenderedCards(note);
@@ -21661,7 +21661,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function forceLayoutOriginGraph(nodes, edges, currentId) {
     const anchors = originGraphAnchors(nodes, edges, currentId);
     const states = createOriginNodeStates(nodes, anchors);
-    const byId = new Map(states.map((state) => [state.node.id, state]));
+    const byId = new Map(states.map((state2) => [state2.node.id, state2]));
     for (let iteration = 0; iteration < 240; iteration++) {
       const alpha = Math.pow(1 - iteration / 240, 1.45);
       applyOriginNodeRepulsion(states, alpha);
@@ -21744,9 +21744,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const source = byId.get(edge.from);
       const target = byId.get(edge.to);
       if (!source || !target) continue;
-      for (const state of states) {
-        if (state === source || state === target) continue;
-        pushOriginNodeAwayFromEdge(state, source, target, alpha);
+      for (const state2 of states) {
+        if (state2 === source || state2 === target) continue;
+        pushOriginNodeAwayFromEdge(state2, source, target, alpha);
       }
     }
   }
@@ -21779,31 +21779,31 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return { x: -dy / length, y: dx / length };
   }
   function applyOriginAnchorPulls(states, currentId, alpha) {
-    for (const state of states) {
-      const anchorStrength = state.node.id === currentId ? 0.32 : state.anchorPinned ? 0.38 : 0.16;
-      state.vx += (state.anchorX - state.x) * anchorStrength * alpha;
-      state.vy += (state.anchorY - state.y) * anchorStrength * alpha;
+    for (const state2 of states) {
+      const anchorStrength = state2.node.id === currentId ? 0.32 : state2.anchorPinned ? 0.38 : 0.16;
+      state2.vx += (state2.anchorX - state2.x) * anchorStrength * alpha;
+      state2.vy += (state2.anchorY - state2.y) * anchorStrength * alpha;
     }
   }
   function integrateOriginNodeStates(states, currentId) {
-    for (const state of states) {
-      integrateOriginNodeState(state, currentId);
-      state.x = clampGraphValue(state.x, 9 + state.rx, 91 - state.rx);
-      state.y = clampGraphValue(state.y, 7 + state.ry, 93 - state.ry);
+    for (const state2 of states) {
+      integrateOriginNodeState(state2, currentId);
+      state2.x = clampGraphValue(state2.x, 9 + state2.rx, 91 - state2.rx);
+      state2.y = clampGraphValue(state2.y, 7 + state2.ry, 93 - state2.ry);
     }
   }
-  function integrateOriginNodeState(state, currentId) {
-    if (state.node.id === currentId) {
-      state.x += (state.anchorX - state.x) * 0.4;
-      state.y += (state.anchorY - state.y) * 0.4;
-      state.vx = 0;
-      state.vy = 0;
+  function integrateOriginNodeState(state2, currentId) {
+    if (state2.node.id === currentId) {
+      state2.x += (state2.anchorX - state2.x) * 0.4;
+      state2.y += (state2.anchorY - state2.y) * 0.4;
+      state2.vx = 0;
+      state2.vy = 0;
       return;
     }
-    state.x += state.vx;
-    state.y += state.vy;
-    state.vx *= 0.58;
-    state.vy *= 0.58;
+    state2.x += state2.vx;
+    state2.y += state2.vy;
+    state2.vx *= 0.58;
+    state2.vy *= 0.58;
   }
   function positionOriginNodes(states) {
     return states.map(({ node, x: x2, y, rx, ry }) => ({
@@ -22955,7 +22955,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return action && scrollBody.contains(action) ? action : null;
   }
   function createHandleDragController(options) {
-    let state = initialDragState();
+    let state2 = initialDragState();
     let pointerId = 0;
     let touchId = 0;
     let dragging = false;
@@ -22965,23 +22965,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     let activeCaptureTarget = null;
     const movementDistance = options.movementDistance ?? ((dragState) => Math.hypot(dragState.deltaX, dragState.deltaY));
     const setLastPoint = (point) => {
-      state = {
-        ...state,
+      state2 = {
+        ...state2,
         lastX: point.x,
         lastY: point.y,
-        deltaX: point.x - state.startX,
-        deltaY: point.y - state.startY
+        deltaX: point.x - state2.startX,
+        deltaY: point.y - state2.startY
       };
     };
     const updateDrag = (point) => {
       if (!activeHandle) return;
       setLastPoint(point);
-      if (movementDistance(state) > options.tapMovementPx) moved = true;
-      options.onUpdate?.(state, activeHandle);
+      if (movementDistance(state2) > options.tapMovementPx) moved = true;
+      options.onUpdate?.(state2, activeHandle);
     };
     const beginDrag = (handle, point, input2) => {
       if (dragging || activeInput) return false;
-      state = {
+      state2 = {
         startX: point.x,
         startY: point.y,
         lastX: point.x,
@@ -22993,7 +22993,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       moved = false;
       activeInput = input2;
       activeHandle = handle;
-      options.onBegin?.(handle, state, input2);
+      options.onBegin?.(handle, state2, input2);
       return true;
     };
     const finishDrag = () => {
@@ -23008,7 +23008,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       activeCaptureTarget = null;
       cleanupListeners();
       releasePointerCapture(captureTarget, pointerId);
-      options.onFinish(state, wasMoved, handle);
+      options.onFinish(state2, wasMoved, handle);
     };
     function cleanupListeners() {
       if (typeof document === "undefined") return;
@@ -23030,7 +23030,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       activeCaptureTarget = null;
       cleanupListeners();
       releasePointerCapture(captureTarget, pointerId);
-      options.onCancel?.(state, handle);
+      options.onCancel?.(state2, handle);
     }
     function handlePointerMove(event) {
       if (!dragging || activeInput !== "pointer" || event.pointerId !== pointerId) return;
@@ -23255,15 +23255,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     };
     const sheetDrag = createHandleDragController({
       tapMovementPx: SHEET_TAP_MOVEMENT_PX,
-      movementDistance: (state) => Math.abs(state.deltaY),
+      movementDistance: (state2) => Math.abs(state2.deltaY),
       onBegin: () => {
         startHeight = sheetHeight || restoredSheetHeight(viewportHeight);
         rawDragHeight = startHeight;
         popover.style.transition = "";
         popover.classList.add("jpdb-reader-sheet-resizing");
       },
-      onUpdate: (state) => {
-        rawDragHeight = startHeight - state.deltaY;
+      onUpdate: (state2) => {
+        rawDragHeight = startHeight - state2.deltaY;
         applySheetHeight(rawDragHeight);
       },
       onFinish: (_state, wasMoved) => {
@@ -23442,15 +23442,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const getHandleFromEvent = (event) => getContainedClosest(event, drawer, ".jpdb-reader-settings-drag-handle", syncHandle);
     const drawerDrag = createHandleDragController({
       tapMovementPx: SETTINGS_DRAWER_TAP_MOVEMENT_PX,
-      movementDistance: (state) => Math.abs(state.deltaY),
+      movementDistance: (state2) => Math.abs(state2.deltaY),
       onBegin: () => {
         startHeight = drawerHeight || restoredSettingsDrawerHeight(viewportHeight);
         rawDragHeight = startHeight;
         drawer.style.transition = "";
         drawer.classList.add("jpdb-reader-settings-drawer-resizing");
       },
-      onUpdate: (state) => {
-        rawDragHeight = startHeight - state.deltaY;
+      onUpdate: (state2) => {
+        rawDragHeight = startHeight - state2.deltaY;
         applyDrawerHeight(rawDragHeight);
       },
       onFinish: (_state, wasMoved) => {
@@ -23559,11 +23559,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       onBegin: (handle) => {
         handle.closest(".jpdb-reader-actions")?.classList.add("jpdb-reader-mining-drawer-dragging");
       },
-      onFinish: (state, wasMoved, handle) => {
+      onFinish: (state2, wasMoved, handle) => {
         handle?.closest(".jpdb-reader-actions")?.classList.remove("jpdb-reader-mining-drawer-dragging");
         if (!wasMoved || !handle) return;
         suppressNextHandleClick = true;
-        const expanded = miningDrawerDragExpandedState(handle, state.deltaX, state.deltaY);
+        const expanded = miningDrawerDragExpandedState(handle, state2.deltaX, state2.deltaY);
         if (expanded !== void 0) setExpanded(handle, expanded);
       },
       onCancel: (_state, handle) => {
@@ -25184,7 +25184,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!actions.length) return summary;
     return `${summary}<ul class="jpdb-reader-status-checklist">${actions.map(renderStatusAction).join("")}</ul>`;
   }
-  function ankiAdapterStateLabelKey(state) {
+  function ankiAdapterStateLabelKey(state2) {
     const keys = {
       disabled: "adapterStateDisabled",
       probing: "adapterStateProbing",
@@ -25195,7 +25195,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       stale: "adapterStateStale",
       ready: "adapterStateReady"
     };
-    return keys[state];
+    return keys[state2];
   }
   function renderStatusAction(action) {
     const label = action.href ? `<a href="${escapeHtml$1(action.href)}" target="_blank" rel="noopener">${escapeHtml$1(action.label)}</a>` : escapeHtml$1(action.label);
@@ -26966,8 +26966,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function localizeRecommendedDictionaryButtons(form, text2) {
     form.querySelectorAll('[data-action="download-recommended-dictionary"]').forEach((button) => {
       const installed = button.dataset.installed === "true";
-      const state = button.dataset.importState;
-      const label = state === "installing" ? text2("installing") : state === "queued" ? text2("queued") : installed ? text2("update") : text2("install");
+      const state2 = button.dataset.importState;
+      const label = state2 === "installing" ? text2("installing") : state2 === "queued" ? text2("queued") : installed ? text2("update") : text2("install");
       button.textContent = label;
       button.title = button.dataset.importMessage || label;
       button.setAttribute("aria-label", button.title);
@@ -28101,14 +28101,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const directRoot = dialogRoot?.parentElement === document.body ? dialogRoot : this.currentForm?.parentElement;
       if (!directRoot) return;
       this.modalSiblingState = Array.from(document.body.children).filter((element) => element instanceof HTMLElement && element !== directRoot && !element.contains(this.currentForm ?? null)).map((element) => {
-        const state = {
+        const state2 = {
           element,
           ariaHidden: element.getAttribute("aria-hidden"),
           inert: element.inert
         };
         element.setAttribute("aria-hidden", "true");
         element.inert = true;
-        return state;
+        return state2;
       });
     }
     restoreBackgroundFromModal() {
@@ -28646,9 +28646,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (!this.shouldApplyAnkiLibraryScan(form, requestId)) return;
         const staleDetails = this.staleAnkiFieldMappingDetails(form, scan, language);
         this.applyAnkiScanToForm(form, scan);
-        const state = staleDetails.length ? "stale" : scan.suggestedModel ? "suggested" : "ready";
+        const state2 = staleDetails.length ? "stale" : scan.suggestedModel ? "suggested" : "ready";
         const tone = staleDetails.length ? "pending" : "success";
-        this.setAnkiStatus(form, this.ankiScanMessage(scan, language), tone, void 0, state, [
+        this.setAnkiStatus(form, this.ankiScanMessage(scan, language), tone, void 0, state2, [
           ...staleDetails,
           ...this.ankiScanDetails(scan, language)
         ]);
@@ -28693,8 +28693,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       else delete status.dataset.ankiAdapterState;
       setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
     }
-    setAnkiStatus(form, message, tone, action, state, details) {
-      this.setAnkiStatusLine(form, { message, tone, action, state, details });
+    setAnkiStatus(form, message, tone, action, state2, details) {
+      this.setAnkiStatusLine(form, { message, tone, action, state: state2, details });
     }
     async refreshDictionaryStatus(form) {
       const elements = dictionaryStatusElements(form);
@@ -28775,8 +28775,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
       this.dependencies.toast(message);
     }
-    setRecommendedDictionaryInstallState(form, dictionaryId, state, message) {
-      this.recommendedDictionaryOperations.set(dictionaryId, { state, message });
+    setRecommendedDictionaryInstallState(form, dictionaryId, state2, message) {
+      this.recommendedDictionaryOperations.set(dictionaryId, { state: state2, message });
       this.syncRecommendedDictionaryInstallControls(form);
     }
     clearRecommendedDictionaryInstallState(form, dictionaryId) {
@@ -29929,8 +29929,111 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
   }
+  const ID_ATTR = "data-yomu-mid";
+  const MAX_OPS_PER_CANVAS = 6e3;
+  const PRUNE_KEEP = 3e3;
   const MAX_REBUILD_DEPTH = 6;
-  const STATE = globalThis.__yomuCanvasMirror ??= { seq: 0, installed: false, debug: false, records: /* @__PURE__ */ new WeakMap() };
+  function pageWindow() {
+    const uw = globalThis.unsafeWindow;
+    return uw || globalThis;
+  }
+  function state() {
+    const win = pageWindow();
+    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, debug: false, records: /* @__PURE__ */ Object.create(null) };
+  }
+  function isBookwalkerHost(hostname) {
+    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function isCanvasSource(value) {
+    return Boolean(value) && (typeof HTMLCanvasElement !== "undefined" && value instanceof HTMLCanvasElement || typeof OffscreenCanvas !== "undefined" && value instanceof OffscreenCanvas);
+  }
+  function imageSourceUrl(value) {
+    const image = value;
+    if (!image) return "";
+    return typeof image.currentSrc === "string" && image.currentSrc || typeof image.src === "string" && image.src || "";
+  }
+  function canvasId(canvas, create) {
+    const el2 = canvas;
+    if (el2 && typeof el2.getAttribute === "function" && typeof el2.setAttribute === "function") {
+      let id = el2.getAttribute(ID_ATTR);
+      if (!id && create) {
+        id = `m${state().nextId++}`;
+        try {
+          el2.setAttribute(ID_ATTR, id);
+        } catch {
+          return null;
+        }
+      }
+      return id;
+    }
+    if (el2 && el2.__yomuMid) return el2.__yomuMid;
+    if (el2 && create) {
+      const id = `m${state().nextId++}`;
+      try {
+        el2.__yomuMid = id;
+        return id;
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+  function recordFor(id, w, h) {
+    const s = state();
+    let record = s.records[id];
+    if (!record) {
+      record = { w, h, ops: [] };
+      s.records[id] = record;
+    }
+    if (w) record.w = w;
+    if (h) record.h = h;
+    if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
+    return record;
+  }
+  function recordDrawImage(canvas, source, args) {
+    const id = canvasId(canvas, true);
+    if (!id) return;
+    const record = recordFor(id, canvas.width, canvas.height);
+    const op = {
+      seq: state().seq++,
+      srcId: isCanvasSource(source) ? canvasId(source, true) : null,
+      url: isCanvasSource(source) ? "" : imageSourceUrl(source),
+      sx: 0,
+      sy: 0,
+      sw: -1,
+      sh: -1,
+      dx: 0,
+      dy: 0,
+      dw: -1,
+      dh: -1,
+      clear: false
+    };
+    if (args.length === 8) {
+      op.sx = args[0];
+      op.sy = args[1];
+      op.sw = args[2];
+      op.sh = args[3];
+      op.dx = args[4];
+      op.dy = args[5];
+      op.dw = args[6];
+      op.dh = args[7];
+    } else if (args.length === 4) {
+      op.dx = args[0];
+      op.dy = args[1];
+      op.dw = args[2];
+      op.dh = args[3];
+    } else if (args.length === 2) {
+      op.dx = args[0];
+      op.dy = args[1];
+    }
+    record.ops.push(op);
+  }
+  function recordClear(canvas) {
+    const id = canvasId(canvas, true);
+    if (!id) return;
+    const record = recordFor(id, canvas.width, canvas.height);
+    record.ops.push({ seq: state().seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+  }
   const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
   function selectLatestContentOps(ops, beforeSeq) {
     const byDest = /* @__PURE__ */ new Map();
@@ -29940,13 +30043,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     return [...byDest.values()].sort((a, b) => a.seq - b.seq);
   }
-  function collectLeafUrls(canvas, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
-    if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return out;
-    const record = lookup(canvas);
+  function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
+    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
+    const record = lookup(id);
     if (!record) return out;
-    const nextSeen = new Set(seen).add(canvas);
+    seen.add(id);
     for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-      if (op.canvasSrc) collectLeafUrls(op.canvasSrc, op.seq, lookup, out, nextSeen, depth + 1);
+      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, seen, depth + 1);
       else if (op.url) out.add(op.url);
     }
     return out;
@@ -29963,23 +30066,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return false;
     }
   }
-  function rebuildCanvas(canvas, beforeSeq, images, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH || seen.has(canvas)) return null;
-    const record = STATE.records.get(canvas);
-    if (!record) return null;
+  function rebuildById(id, beforeSeq, images, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
+    const record = state().records[id];
+    if (!record || !record.w || !record.h) return null;
     const ops = selectLatestContentOps(record.ops, beforeSeq);
-    const width = canvas.width, height = canvas.height;
-    if (!ops.length || !width || !height) return null;
+    if (!ops.length) return null;
     const out = document.createElement("canvas");
-    out.width = width;
-    out.height = height;
+    out.width = record.w;
+    out.height = record.h;
     const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
     if (!ctx) return null;
-    const nextSeen = new Set(seen).add(canvas);
+    seen.add(id);
     let drew = 0;
     for (const op of ops) {
       let source = null;
-      if (op.canvasSrc) source = rebuildCanvas(op.canvasSrc, op.seq, images, nextSeen, depth + 1);
+      if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
       else if (op.url) source = images.get(op.url) ?? null;
       if (!source) continue;
       try {
@@ -29992,12 +30094,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     return drew ? out : null;
   }
-  function canvasMirrorHasOps(canvas) {
-    return (STATE.records.get(canvas)?.ops.length ?? 0) > 0;
-  }
   async function captureCanvasMirror(canvas, loadCleanImage) {
-    const recorded = STATE.records.has(canvas);
-    const urls = recorded ? collectLeafUrls(canvas, Number.POSITIVE_INFINITY, (c) => STATE.records.get(c)) : /* @__PURE__ */ new Set();
+    installCanvasMirrorRecorder();
+    const s = state();
+    const id = canvasId(canvas, false);
+    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
     const images = /* @__PURE__ */ new Map();
     if (urls.size) {
       await Promise.all([...urls].map(async (url) => {
@@ -30008,12 +30109,49 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         }
       }));
     }
-    const rebuilt = images.size ? rebuildCanvas(canvas, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
+    const rebuilt = id && images.size ? rebuildById(id, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
     const ok = !!rebuilt && isReadable(rebuilt);
-    if (STATE.debug) {
-      console.log("[Yomu][canvas-mirror]", { recorded, tracked: canvasMirrorHasOps(canvas), leafUrls: urls.size, fetched: images.size, rebuilt: !!rebuilt, readable: ok });
+    if (s.debug) {
+      console.log("[Yomu][canvas-mirror]", { id, records: Object.keys(s.records).length, leafUrls: urls.size, fetched: images.size, rebuilt: !!rebuilt, readable: ok });
     }
     return ok ? rebuilt : void 0;
+  }
+  function patchContextPrototype(prototype) {
+    if (!prototype || prototype.__yomuMirrorPatched) return false;
+    prototype.__yomuMirrorPatched = true;
+    const drawImage = prototype.drawImage;
+    prototype.drawImage = function(source, ...args) {
+      if (!this.__yomuMirrorSkip) {
+        try {
+          recordDrawImage(this.canvas, source, args);
+        } catch {
+        }
+      }
+      return drawImage.apply(this, arguments);
+    };
+    const clearRect = prototype.clearRect;
+    prototype.clearRect = function(x2, y, w, h) {
+      if (!this.__yomuMirrorSkip) {
+        try {
+          if (x2 <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) recordClear(this.canvas);
+        } catch {
+        }
+      }
+      return clearRect.apply(this, arguments);
+    };
+    return true;
+  }
+  function installCanvasMirrorRecorder(hostname = location.hostname) {
+    const s = state();
+    if (s.installed || !isBookwalkerHost(hostname)) return;
+    try {
+      s.debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
+    } catch {
+    }
+    const global = globalThis;
+    patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
+    patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
+    s.installed = true;
   }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -30063,28 +30201,28 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Number.isFinite(number) ? number : null;
   }
   function normalizeCloudVisionResponse(record, fallbackWidth, fallbackHeight) {
-    const state = { width: fallbackWidth, height: fallbackHeight, lines: [] };
+    const state2 = { width: fallbackWidth, height: fallbackHeight, lines: [] };
     for (const response of cloudVisionResponses(record)) {
-      appendCloudVisionPages(response, state);
-      appendCloudVisionTextAnnotations(response, state);
+      appendCloudVisionPages(response, state2);
+      appendCloudVisionTextAnnotations(response, state2);
     }
-    return state.lines.length ? { width: state.width, height: state.height, lines: state.lines } : null;
+    return state2.lines.length ? { width: state2.width, height: state2.height, lines: state2.lines } : null;
   }
   function cloudVisionResponses(record) {
     if (Array.isArray(record.responses)) return record.responses;
     return "fullTextAnnotation" in record ? [record] : [];
   }
-  function appendCloudVisionPages(response, state) {
+  function appendCloudVisionPages(response, state2) {
     const annotation = response?.fullTextAnnotation;
     const pages = Array.isArray(annotation?.pages) ? annotation.pages : [];
-    for (const page of pages) appendCloudVisionPage(page, state);
+    for (const page of pages) appendCloudVisionPage(page, state2);
   }
-  function appendCloudVisionPage(page, state) {
-    state.width = numberFrom(page.width) || state.width;
-    state.height = numberFrom(page.height) || state.height;
+  function appendCloudVisionPage(page, state2) {
+    state2.width = numberFrom(page.width) || state2.width;
+    state2.height = numberFrom(page.height) || state2.height;
     for (const block of cloudVisionPageBlocks(page)) {
       for (const paragraph of cloudVisionBlockParagraphs(block)) {
-        pushCloudVisionParagraphLines(paragraph, state.lines, state.width, state.height);
+        pushCloudVisionParagraphLines(paragraph, state2.lines, state2.width, state2.height);
       }
     }
   }
@@ -30095,14 +30233,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const paragraphs = block?.paragraphs;
     return Array.isArray(paragraphs) ? paragraphs : [];
   }
-  function appendCloudVisionTextAnnotations(response, state) {
+  function appendCloudVisionTextAnnotations(response, state2) {
     const annotations = Array.isArray(response?.textAnnotations) ? response.textAnnotations : [];
-    if (state.lines.length || annotations.length <= 1) return;
+    if (state2.lines.length || annotations.length <= 1) return;
     for (const annotationItem of annotations.slice(1)) {
       const item = annotationItem;
       const text2 = cleanOcrText(item.description);
-      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state.width, state.height);
-      pushJapaneseOcrLine(state.lines, text2, box);
+      const box = normalizeCloudVisionVertices(item.boundingPoly?.vertices, state2.width, state2.height);
+      pushJapaneseOcrLine(state2.lines, text2, box);
     }
   }
   function pushCloudVisionParagraphLines(paragraph, lines, width, height) {
@@ -30961,31 +31099,31 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function splitJapaneseSentences(text2) {
     const sentences = [];
-    const state = { start: 0, quote: null };
+    const state2 = { start: 0, quote: null };
     for (let index = 0; index < text2.length; index++) {
-      index = advanceSentenceSplitter(sentences, text2, state, index);
+      index = advanceSentenceSplitter(sentences, text2, state2, index);
     }
-    const tail = text2.slice(state.start).trim();
+    const tail = text2.slice(state2.start).trim();
     if (tail) sentences.push(tail);
     const nonEmptySentences = sentences.filter(Boolean);
     const result = nonEmptySentences.length ? nonEmptySentences : [text2];
     return result;
   }
-  function advanceSentenceSplitter(sentences, text2, state, index) {
-    state.quote = closingQuoteFor(text2[index]) ?? state.quote;
-    if (state.quote) return advanceQuotedSentenceSplitter(sentences, text2, state, index);
-    return advancePunctuationSentenceSplitter(sentences, text2, state, index);
+  function advanceSentenceSplitter(sentences, text2, state2, index) {
+    state2.quote = closingQuoteFor(text2[index]) ?? state2.quote;
+    if (state2.quote) return advanceQuotedSentenceSplitter(sentences, text2, state2, index);
+    return advancePunctuationSentenceSplitter(sentences, text2, state2, index);
   }
-  function advanceQuotedSentenceSplitter(sentences, text2, state, index) {
-    if (!state.quote) return index;
-    const boundary = quotedSentenceBoundary(text2, index, state.quote);
-    if (boundary) Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+  function advanceQuotedSentenceSplitter(sentences, text2, state2, index) {
+    if (!state2.quote) return index;
+    const boundary = quotedSentenceBoundary(text2, index, state2.quote);
+    if (boundary) Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
     return index;
   }
-  function advancePunctuationSentenceSplitter(sentences, text2, state, index) {
+  function advancePunctuationSentenceSplitter(sentences, text2, state2, index) {
     const boundary = punctuationSentenceBoundary(text2, index);
     if (!boundary) return index;
-    Object.assign(state, pushSentenceBoundary(sentences, text2, state.start, boundary.end));
+    Object.assign(state2, pushSentenceBoundary(sentences, text2, state2.start, boundary.end));
     return boundary.nextIndex;
   }
   function pushSentenceBoundary(sentences, text2, start, end) {
@@ -32038,16 +32176,16 @@ ${spelling}`);
     "yt-image",
     ".yt-core-image"
   ].join(",");
-  function shouldSkipOcrRequest(state, userRequested) {
-    return state.autoSkipped && !userRequested;
+  function shouldSkipOcrRequest(state2, userRequested) {
+    return state2.autoSkipped && !userRequested;
   }
-  function updateOcrRequestFlags(state, image, userRequested) {
-    state.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
-    state.manualRequested ||= userRequested;
-    if (userRequested) state.autoSkipped = false;
+  function updateOcrRequestFlags(state2, image, userRequested) {
+    state2.overlayRequested ||= userRequested || Boolean(readFallbackOcrResult(image, false));
+    state2.manualRequested ||= userRequested;
+    if (userRequested) state2.autoSkipped = false;
   }
-  function isOcrImageStateIdle(state) {
-    return !state.result && !state.loading && !state.autoSkipped;
+  function isOcrImageStateIdle(state2) {
+    return !state2.result && !state2.loading && !state2.autoSkipped;
   }
   class LocalOcrUnavailableError extends Error {
     constructor(endpointUrl2) {
@@ -32056,24 +32194,24 @@ ${spelling}`);
       this.name = "LocalOcrUnavailableError";
     }
   }
-  function beginOcrScan(state, image, settings, manualRequested) {
-    state.loading = true;
+  function beginOcrScan(state2, image, settings, manualRequested) {
+    state2.loading = true;
     const provider = inlineProviderLabel(settings);
     return {
       provider,
       done: log$m.time("scanImage", { provider, image: imageSummary(image), manualRequested })
     };
   }
-  function finishOcrScan(state) {
-    state.loading = false;
-    state.manualRequested = false;
+  function finishOcrScan(state2) {
+    state2.loading = false;
+    state2.manualRequested = false;
   }
-  function renderNoOcrLines(state) {
-    state.autoSkipped = true;
-    state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+  function renderNoOcrLines(state2) {
+    state2.autoSkipped = true;
+    state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
   }
-  function logOcrFailure(state, provider, manualRequested, error) {
-    state.autoSkipped = !manualRequested;
+  function logOcrFailure(state2, provider, manualRequested, error) {
+    state2.autoSkipped = !manualRequested;
     if (isLocalOcrUnavailableError(error)) {
       log$m.warnOnce(`local-ocr-unavailable:${error.endpointUrl}`, "Local OCR endpoint unavailable; pausing requests", { provider, endpoint: error.endpointUrl });
       return;
@@ -32278,12 +32416,12 @@ ${spelling}`);
       return priorityDelta || imageViewportDistance(a) - imageViewportDistance(b);
     }
     observeRefreshImage(image, settings) {
-      const state = this.ensureState(image);
+      const state2 = this.ensureState(image);
       this.observer?.observe(image);
-      if (this.shouldAutoEnqueueImage(image, state, settings)) this.enqueue(image);
+      if (this.shouldAutoEnqueueImage(image, state2, settings)) this.enqueue(image);
     }
-    shouldAutoEnqueueImage(image, state, settings) {
-      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state) && isNearViewport(image, imagePrefetchMargin(settings));
+    shouldAutoEnqueueImage(image, state2, settings) {
+      return (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) && isOcrImageStateIdle(state2) && isNearViewport(image, imagePrefetchMargin(settings));
     }
     canAutoScanImage(settings) {
       return settings.ocrAutoScanImages && this.options.shouldAutoScan?.() !== false;
@@ -32302,16 +32440,16 @@ ${spelling}`);
     captureSourceImageForElement(element) {
       const line = element?.closest?.(".jpdb-ocr-line");
       if (!line) return void 0;
-      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (!state) return void 0;
-      const image = captureImageElement(state.image);
+      const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (!state2) return void 0;
+      const image = captureImageElement(state2.image);
       return image;
     }
     pinLineForElement(element) {
       const line = element?.closest?.(".jpdb-ocr-line");
       if (!line) return;
-      const state = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
-      if (state) this.pinLine(state, line);
+      const state2 = [...this.states.values()].find((candidate) => candidate.overlay.contains(line));
+      if (state2) this.pinLine(state2, line);
     }
     clearActiveLines() {
       this.unpinAllLines();
@@ -32331,8 +32469,8 @@ ${spelling}`);
           const image = entry.target;
           this.positionState(image);
           const current = this.options.getSettings();
-          const state = this.states.get(image);
-          if (state && this.shouldAutoEnqueueImage(image, state, current)) this.enqueue(image);
+          const state2 = this.states.get(image);
+          if (state2 && this.shouldAutoEnqueueImage(image, state2, current)) this.enqueue(image);
         }
       }, { rootMargin });
     }
@@ -32343,40 +32481,40 @@ ${spelling}`);
       overlay.className = "jpdb-ocr-layer";
       overlay.dataset.jpdbReaderRoot = "true";
       document.body.append(overlay);
-      const state = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
+      const state2 = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
       image.addEventListener("load", () => {
-        this.resetStateIfImageChanged(state);
+        this.resetStateIfImageChanged(state2);
         this.schedulePosition();
         this.scheduleRefresh(0);
       });
-      this.states.set(image, state);
+      this.states.set(image, state2);
       if (image.complete && image.naturalWidth > 0) {
         this.schedulePosition();
         const settings = this.options.getSettings();
         if (this.canAutoScanImage(settings) || settings.ocrAutoScanImages && hasInlineOcrFallback(image)) this.enqueue(image);
       }
-      return state;
+      return state2;
     }
     enqueue(image, userRequested = false) {
       if (isYouTubeThumbnailImage(image)) return;
-      const state = this.states.get(image) ?? this.ensureState(image);
-      if (!this.shouldQueueOcrRequest(state, image, userRequested)) return;
+      const state2 = this.states.get(image) ?? this.ensureState(image);
+      if (!this.shouldQueueOcrRequest(state2, image, userRequested)) return;
       this.queueOcrRequest(image);
     }
-    shouldQueueOcrRequest(state, image, userRequested) {
-      if (shouldSkipOcrRequest(state, userRequested)) return false;
-      const forceExistingOverlay = userRequested && !state.overlayRequested;
-      updateOcrRequestFlags(state, image, userRequested);
-      if (this.renderExistingOcrResult(state, forceExistingOverlay)) return false;
-      return !state.loading;
+    shouldQueueOcrRequest(state2, image, userRequested) {
+      if (shouldSkipOcrRequest(state2, userRequested)) return false;
+      const forceExistingOverlay = userRequested && !state2.overlayRequested;
+      updateOcrRequestFlags(state2, image, userRequested);
+      if (this.renderExistingOcrResult(state2, forceExistingOverlay)) return false;
+      return !state2.loading;
     }
     queueOcrRequest(image) {
       this.queueImageForOcr(image);
       this.drainQueue();
     }
-    renderExistingOcrResult(state, userRequested) {
-      if (!state.result) return false;
-      if (userRequested) void this.renderResult(state, state.result, true);
+    renderExistingOcrResult(state2, userRequested) {
+      if (!state2.result) return false;
+      if (userRequested) void this.renderResult(state2, state2.result, true);
       return true;
     }
     requestOcrFromPointerEvent(event) {
@@ -32446,80 +32584,80 @@ ${spelling}`);
     }
     async scanImage(image) {
       if (this.destroyed) return;
-      const state = this.states.get(image) ?? this.ensureState(image);
+      const state2 = this.states.get(image) ?? this.ensureState(image);
       const settings = this.options.getSettings();
       const key = imageCacheKey(image);
-      const manualRequested = state.manualRequested;
-      this.resetStateIfImageChanged(state);
+      const manualRequested = state2.manualRequested;
+      this.resetStateIfImageChanged(state2);
       try {
-        if (await this.renderCachedOcrResult(state, key)) return;
+        if (await this.renderCachedOcrResult(state2, key)) return;
       } catch (error) {
         if (isStaleOcrState(error)) return;
         throw error;
       }
-      if (!this.isCurrentState(state)) return;
+      if (!this.isCurrentState(state2)) return;
       this.updateOcrStatus(image, "loading");
-      const scan = beginOcrScan(state, image, settings, manualRequested);
+      const scan = beginOcrScan(state2, image, settings, manualRequested);
       try {
-        await this.scanUncachedImage(state, image, key, settings, scan.provider, manualRequested);
+        await this.scanUncachedImage(state2, image, key, settings, scan.provider, manualRequested);
       } catch (error) {
         if (isStaleOcrState(error)) return;
-        await this.renderOcrFailure(state, image, scan.provider, manualRequested, error);
+        await this.renderOcrFailure(state2, image, scan.provider, manualRequested, error);
       } finally {
-        finishOcrScan(state);
+        finishOcrScan(state2);
         scan.done();
       }
     }
-    async renderCachedOcrResult(state, key) {
+    async renderCachedOcrResult(state2, key) {
       if (!this.cache.has(key)) return false;
-      if (this.shouldSuppressAutoRenderedResult(state, false)) {
+      if (this.shouldSuppressAutoRenderedResult(state2, false)) {
         this.clearAutoScannedOverlays();
         return true;
       }
       const cached = this.cache.get(key);
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       if (!cached) {
-        renderNoOcrLines(state);
-        this.updateOcrStatus(state.image, "empty");
-        state.manualRequested = false;
+        renderNoOcrLines(state2);
+        this.updateOcrStatus(state2.image, "empty");
+        state2.manualRequested = false;
         return true;
       }
-      await this.renderResult(state, cached);
-      state.manualRequested = false;
+      await this.renderResult(state2, cached);
+      state2.manualRequested = false;
       return true;
     }
-    async scanUncachedImage(state, image, key, settings, provider, manualRequested) {
+    async scanUncachedImage(state2, image, key, settings, provider, manualRequested) {
       const inlineFallback = readFallbackOcrResult(image, false);
       const providerResult = inlineFallback ? null : await this.recognizeImage(image, settings);
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       const result = inlineFallback ?? providerResult;
       if (!result?.lines.length) {
         this.remember(key, null);
-        renderNoOcrLines(state);
+        renderNoOcrLines(state2);
         this.updateOcrStatus(image, "empty");
         return;
       }
       this.remember(key, result);
-      state.key = key;
-      if (this.shouldSuppressAutoRenderedResult(state, Boolean(inlineFallback), manualRequested)) {
+      state2.key = key;
+      if (this.shouldSuppressAutoRenderedResult(state2, Boolean(inlineFallback), manualRequested)) {
         this.clearAutoScannedOverlays();
         return;
       }
-      await this.renderResult(state, result);
+      await this.renderResult(state2, result);
       log$m.info("OCR result rendered", { provider, lines: result.lines.length, manualRequested });
     }
-    shouldSuppressAutoRenderedResult(state, inlineFallback, manualRequested = state.manualRequested) {
-      return !manualRequested && !state.overlayRequested && !inlineFallback && this.options.shouldAutoScan?.() === false;
+    shouldSuppressAutoRenderedResult(state2, inlineFallback, manualRequested = state2.manualRequested) {
+      return !manualRequested && !state2.overlayRequested && !inlineFallback && this.options.shouldAutoScan?.() === false;
     }
-    async renderOcrFailure(state, image, provider, manualRequested, error) {
-      this.requireCurrentState(state);
+    async renderOcrFailure(state2, image, provider, manualRequested, error) {
+      this.requireCurrentState(state2);
       const fallback = readFallbackOcrResult(image, false);
       if (fallback?.lines.length) {
         log$m.warn("OCR provider failed", { provider }, error);
-        await this.renderResult(state, fallback);
+        await this.renderResult(state2, fallback);
         return;
       }
-      logOcrFailure(state, provider, manualRequested, error);
+      logOcrFailure(state2, provider, manualRequested, error);
       this.updateOcrStatus(image, "failed");
     }
     recognizeImage(image, settings) {
@@ -32571,22 +32709,22 @@ ${spelling}`);
     clearLocalOcrUnavailable(endpointUrl2) {
       if (this.localOcrUnavailable?.endpointUrl === endpointUrl2) this.localOcrUnavailable = void 0;
     }
-    async renderResult(state, result, forceOverlay = false) {
-      this.requireCurrentState(state);
-      state.result = result;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+    async renderResult(state2, result, forceOverlay = false) {
+      this.requireCurrentState(state2);
+      state2.result = result;
+      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
       const settings = this.options.getSettings();
       const showText = settings.ocrShowTextOverlay || forceOverlay;
       const initialParsed = await this.parseOcrLines(result.lines);
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       const lines = cleanOcrLookupLines(result.lines, initialParsed);
       if (!lines.length) {
-        renderNoOcrLines(state);
-        this.updateOcrStatus(state.image, "empty");
+        renderNoOcrLines(state2);
+        this.updateOcrStatus(state2.image, "empty");
         return;
       }
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
-      this.requireCurrentState(state);
+      this.requireCurrentState(state2);
       const sentence = lines.map((line) => line.text).join("\n");
       const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
         line.text,
@@ -32595,14 +32733,14 @@ ${spelling}`);
       ));
       const flatTokens = renderedTokens.flat();
       await this.options.enrichTokensBeforeRender?.(flatTokens);
-      this.requireCurrentState(state);
-      applyOcrOverlayStyle(state.overlay, settings);
+      this.requireCurrentState(state2);
+      applyOcrOverlayStyle(state2.overlay, settings);
       for (const [index, line] of lines.entries()) {
-        state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
+        state2.overlay.append(this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
       }
-      this.positionState(state.image);
-      this.updateOcrStatus(state.image, "ready");
-      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
+      this.positionState(state2.image);
+      this.updateOcrStatus(state2.image, "ready");
+      void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
     }
     async parseOcrLines(lines) {
       const options = ocrParseOptions();
@@ -32614,33 +32752,33 @@ ${spelling}`);
         return [];
       })));
     }
-    renderOcrLineElement(state, result, line, tokens, sentence, showText, settings) {
+    renderOcrLineElement(state2, result, line, tokens, sentence, showText, settings) {
       const element = createOcrLineElement(result, line, tokens, sentence, showText, settings);
       this.rememberOcrWordRenderStates(element, tokens);
       element.addEventListener("pointerenter", () => this.activateOcrMarkup(element));
       element.addEventListener("focusin", () => this.activateOcrMarkup(element));
-      element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state, element, event), true);
-      element.addEventListener("click", (event) => this.toggleOcrLinePinned(state, element, event));
+      element.addEventListener("pointerdown", (event) => this.activateOcrLineFromPointer(state2, element, event), true);
+      element.addEventListener("click", (event) => this.toggleOcrLinePinned(state2, element, event));
       return element;
     }
-    activateOcrLineFromPointer(state, element, event) {
+    activateOcrLineFromPointer(state2, element, event) {
       if (event.button !== 0) return;
       if (element.dataset.pinned === "true") {
         this.activateOcrMarkup(element);
         return;
       }
       element.focus({ preventScroll: true });
-      this.pinLine(state, element);
+      this.pinLine(state2, element);
       this.pointerActivatedOcrLines.set(element, Date.now());
     }
-    toggleOcrLinePinned(state, element, event) {
+    toggleOcrLinePinned(state2, element, event) {
       if (this.wasRecentlyPointerActivated(element)) {
         this.activateOcrMarkup(element);
       } else if (element.dataset.pinned === "true") {
         this.unpinLine(element);
       } else {
         element.focus({ preventScroll: true });
-        this.pinLine(state, element);
+        this.pinLine(state2, element);
       }
       event.preventDefault();
       event.stopPropagation();
@@ -32652,8 +32790,8 @@ ${spelling}`);
       if (!recent) this.pointerActivatedOcrLines.delete(element);
       return recent;
     }
-    pinLine(state, element) {
-      state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
+    pinLine(state2, element) {
+      state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => {
         if (line !== element) this.unpinLine(line);
       });
       this.activateOcrMarkup(element);
@@ -32672,26 +32810,26 @@ ${spelling}`);
       this.unpinAllLines();
     }
     unpinAllLines() {
-      for (const state of this.states.values()) {
-        state.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
+      for (const state2 of this.states.values()) {
+        state2.overlay.querySelectorAll(".jpdb-ocr-line-active").forEach((line) => this.unpinLine(line));
       }
     }
     observePriority(image) {
-      const state = this.states.get(image);
-      if (!state) return 0;
-      if (!state.result) return state.autoSkipped ? 2 : 0;
+      const state2 = this.states.get(image);
+      if (!state2) return 0;
+      if (!state2.result) return state2.autoSkipped ? 2 : 0;
       return 1;
     }
-    resetStateIfImageChanged(state) {
-      const key = imageCacheKey(state.image);
-      if (key === state.key) return;
-      state.key = key;
-      state.result = void 0;
-      state.loading = false;
-      state.overlayRequested = false;
-      state.manualRequested = false;
-      state.autoSkipped = false;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
+    resetStateIfImageChanged(state2) {
+      const key = imageCacheKey(state2.image);
+      if (key === state2.key) return;
+      state2.key = key;
+      state2.result = void 0;
+      state2.loading = false;
+      state2.overlayRequested = false;
+      state2.manualRequested = false;
+      state2.autoSkipped = false;
+      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((node) => node.remove());
     }
     remember(key, result) {
       if (key.startsWith("data:")) return;
@@ -32865,10 +33003,10 @@ ${spelling}`);
       const status = this.videoFrameStatuses.get(target);
       status?.remove();
       this.videoFrameStatuses.delete(target);
-      const state = this.states.get(frame);
-      if (state) {
+      const state2 = this.states.get(frame);
+      if (state2) {
         this.observer?.unobserve(frame);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(frame);
       }
       this.videoFrameVideos.delete(frame);
@@ -32986,10 +33124,10 @@ ${spelling}`);
       const frame = this.canvasFrames.get(canvas);
       if (!frame) return;
       this.canvasFrames.delete(canvas);
-      const state = this.states.get(frame);
-      if (state) {
+      const state2 = this.states.get(frame);
+      if (state2) {
         this.observer?.unobserve(frame);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(frame);
       }
       this.removeImageStatusCard(frame);
@@ -33084,10 +33222,10 @@ ${spelling}`);
       if (!frame) return;
       this.backgroundFrames.delete(surface);
       this.backgroundFrameKeys.delete(surface);
-      const state = this.states.get(frame);
-      if (state) {
+      const state2 = this.states.get(frame);
+      if (state2) {
         this.observer?.unobserve(frame);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(frame);
       }
       this.removeImageStatusCard(frame);
@@ -33129,21 +33267,21 @@ ${spelling}`);
       }, delay2);
     }
     positionState(image) {
-      const state = this.states.get(image);
-      if (!state) return;
+      const state2 = this.states.get(image);
+      if (!state2) return;
       const rect = image.getBoundingClientRect();
       const visible = isImageVisibleForOcr(image, rect);
-      state.overlay.hidden = !visible;
+      state2.overlay.hidden = !visible;
       if (!visible) return;
-      state.overlay.style.left = `${rect.left}px`;
-      state.overlay.style.top = `${rect.top}px`;
-      state.overlay.style.width = `${rect.width}px`;
-      state.overlay.style.height = `${rect.height}px`;
-      this.fitLineFonts(state, renderedOcrImageFrame(image, rect, state.result));
+      state2.overlay.style.left = `${rect.left}px`;
+      state2.overlay.style.top = `${rect.top}px`;
+      state2.overlay.style.width = `${rect.width}px`;
+      state2.overlay.style.height = `${rect.height}px`;
+      this.fitLineFonts(state2, renderedOcrImageFrame(image, rect, state2.result));
     }
-    fitLineFonts(state, frame) {
+    fitLineFonts(state2, frame) {
       const scale = this.options.getSettings().ocrFontScale;
-      state.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element) => {
+      state2.overlay.querySelectorAll(".jpdb-ocr-line").forEach((element) => {
         const boxLeft = frame.imageLeft + Number(element.dataset.boxLeft) * frame.imageWidth;
         const boxTop = frame.imageTop + Number(element.dataset.boxTop) * frame.imageHeight;
         const boxWidth = Number(element.dataset.boxWidth) * frame.imageWidth;
@@ -33195,8 +33333,8 @@ ${spelling}`);
       this.releaseAllBackgroundFrames();
       this.queue = [];
       this.inFlightKeys.clear();
-      for (const state of this.states.values()) {
-        state.overlay.remove();
+      for (const state2 of this.states.values()) {
+        state2.overlay.remove();
       }
       this.states.clear();
       for (const timer of this.imageStatusTimers.values()) window.clearTimeout(timer);
@@ -33210,8 +33348,8 @@ ${spelling}`);
     // results stay in `this.cache`, so flipping back re-renders them instantly
     // without re-OCRing.
     clearAutoScannedOverlays() {
-      for (const [image, state] of [...this.states]) {
-        if (state.manualRequested || state.overlayRequested) continue;
+      for (const [image, state2] of [...this.states]) {
+        if (state2.manualRequested || state2.overlayRequested) continue;
         const canvas = this.canvasFrameSources.get(image);
         if (canvas) {
           this.releaseCanvasFrame(canvas);
@@ -33223,8 +33361,8 @@ ${spelling}`);
           continue;
         }
         this.queue = this.queue.filter((queued) => queued !== image);
-        this.inFlightKeys.delete(state.key);
-        state.overlay.remove();
+        this.inFlightKeys.delete(state2.key);
+        state2.overlay.remove();
         this.states.delete(image);
         this.removeImageStatusCard(image);
       }
@@ -33244,14 +33382,14 @@ ${spelling}`);
       let hasFurigana = false;
       const settings = this.options.getSettings();
       line.querySelectorAll(".jpdb-reader-word[data-vid][data-sid]").forEach((word) => {
-        const state = this.ocrWordRenderStates.get(word);
-        if (!state) return;
-        this.applyOcrPitchClass(word, state.token);
-        if (!shouldRenderRuby(state.surface, state.token, settings)) {
-          this.setOcrWordPlainText(word, state.surface);
+        const state2 = this.ocrWordRenderStates.get(word);
+        if (!state2) return;
+        this.applyOcrPitchClass(word, state2.token);
+        if (!shouldRenderRuby(state2.surface, state2.token, settings)) {
+          this.setOcrWordPlainText(word, state2.surface);
           return;
         }
-        setInnerHtml(word, renderRuby(state.surface, state.token));
+        setInnerHtml(word, renderRuby(state2.surface, state2.token));
         normalizeOcrRenderedText(word);
         word.classList.add("jpdb-reader-has-furi");
         hasFurigana = true;
@@ -33285,19 +33423,19 @@ ${spelling}`);
       if (this.options.getSettings().ocrEnabled) this.scheduleRefresh(0);
     }
     pruneDisconnectedStates() {
-      for (const [image, state] of this.states) {
+      for (const [image, state2] of this.states) {
         if (image.isConnected) continue;
         this.observer?.unobserve(image);
-        state.overlay.remove();
+        state2.overlay.remove();
         this.states.delete(image);
         this.removeImageStatusCard(image);
       }
     }
-    isCurrentState(state) {
-      return !this.destroyed && this.states.get(state.image) === state;
+    isCurrentState(state2) {
+      return !this.destroyed && this.states.get(state2.image) === state2;
     }
-    requireCurrentState(state) {
-      if (!this.isCurrentState(state)) throw STALE_OCR_STATE;
+    requireCurrentState(state2) {
+      if (!this.isCurrentState(state2)) throw STALE_OCR_STATE;
     }
   }
   function isStaleOcrState(error) {
@@ -35078,11 +35216,11 @@ ${spelling}`);
     return typeof nextStart === "number" && Number.isFinite(nextStart) ? nextStart : cueEnd;
   }
   function parseAssSubtitleText(text2) {
-    const state = createAssParseState();
+    const state2 = createAssParseState();
     for (const rawLine of text2.replace(/\r/g, "").split("\n")) {
-      readAssSubtitleLine(rawLine.trim(), state);
+      readAssSubtitleLine(rawLine.trim(), state2);
     }
-    return state.cues.sort((a, b) => a.start - b.start);
+    return state2.cues.sort((a, b) => a.start - b.start);
   }
   function createAssParseState() {
     return {
@@ -35091,37 +35229,37 @@ ${spelling}`);
       format: ["layer", "start", "end", "style", "name", "marginl", "marginr", "marginv", "effect", "text"]
     };
   }
-  function readAssSubtitleLine(line, state) {
-    if (!shouldParseAssCueLine(line, state)) return;
-    const cue = readAssDialogueCue(line, state.format);
-    if (cue) state.cues.push(cue);
+  function readAssSubtitleLine(line, state2) {
+    if (!shouldParseAssCueLine(line, state2)) return;
+    const cue = readAssDialogueCue(line, state2.format);
+    if (cue) state2.cues.push(cue);
   }
-  function shouldParseAssCueLine(line, state) {
+  function shouldParseAssCueLine(line, state2) {
     if (shouldIgnoreAssLine(line)) return false;
-    if (updateAssSectionState(line, state)) return false;
-    if (!shouldReadAssDialogueLine(line, state)) return false;
-    return !readAssFormatLine(line, state);
+    if (updateAssSectionState(line, state2)) return false;
+    if (!shouldReadAssDialogueLine(line, state2)) return false;
+    return !readAssFormatLine(line, state2);
   }
-  function shouldReadAssDialogueLine(line, state) {
-    return state.inEvents || /^Dialogue:/i.test(line);
+  function shouldReadAssDialogueLine(line, state2) {
+    return state2.inEvents || /^Dialogue:/i.test(line);
   }
   function shouldIgnoreAssLine(line) {
     return !line || line.startsWith(";");
   }
-  function updateAssSectionState(line, state) {
+  function updateAssSectionState(line, state2) {
     if (/^\[Events\]/i.test(line)) {
-      state.inEvents = true;
+      state2.inEvents = true;
       return true;
     }
     if (/^\[.+\]/.test(line)) {
-      state.inEvents = false;
+      state2.inEvents = false;
       return true;
     }
     return false;
   }
-  function readAssFormatLine(line, state) {
+  function readAssFormatLine(line, state2) {
     if (!/^Format:/i.test(line)) return false;
-    state.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
+    state2.format = line.slice(line.indexOf(":") + 1).split(",").map((part) => part.trim().toLowerCase());
     return true;
   }
   function readAssDialogueCue(line, format) {
@@ -36869,36 +37007,36 @@ ${spelling}`);
   function extractJsonObject(text2, start) {
     const objectStart = text2.indexOf("{", start);
     if (objectStart < 0) return null;
-    const state = createJsonObjectScanState();
+    const state2 = createJsonObjectScanState();
     for (let index = objectStart; index < text2.length; index++) {
-      if (scanJsonObjectCharacter(state, text2[index])) return text2.slice(objectStart, index + 1);
+      if (scanJsonObjectCharacter(state2, text2[index])) return text2.slice(objectStart, index + 1);
     }
     return null;
   }
   function createJsonObjectScanState() {
     return { depth: 0, inString: false, escaped: false };
   }
-  function scanJsonObjectCharacter(state, char) {
-    if (state.inString) {
-      scanJsonStringCharacter(state, char);
+  function scanJsonObjectCharacter(state2, char) {
+    if (state2.inString) {
+      scanJsonStringCharacter(state2, char);
       return false;
     }
     if (char === '"') {
-      state.inString = true;
+      state2.inString = true;
       return false;
     }
-    if (char === "{") state.depth += 1;
+    if (char === "{") state2.depth += 1;
     if (char !== "}") return false;
-    state.depth -= 1;
-    return state.depth === 0;
+    state2.depth -= 1;
+    return state2.depth === 0;
   }
-  function scanJsonStringCharacter(state, char) {
-    if (state.escaped) {
-      state.escaped = false;
+  function scanJsonStringCharacter(state2, char) {
+    if (state2.escaped) {
+      state2.escaped = false;
       return;
     }
-    if (char === "\\") state.escaped = true;
-    if (char === '"') state.inString = false;
+    if (char === "\\") state2.escaped = true;
+    if (char === '"') state2.inString = false;
   }
   function youtubeSubtitleRequestUrls(url) {
     return uniqueNonEmptyStrings([
@@ -37215,26 +37353,26 @@ ${spelling}`);
   function isEnglishOrNativeSubtitleTrack(track) {
     return isEnglishSubtitleTrack(track) || track.kind === "native";
   }
-  function renderSubtitleTrackPanel(state) {
-    const language = state.language;
+  function renderSubtitleTrackPanel(state2) {
+    const language = state2.language;
     return `
         <div class="jpdb-subtitle-drawer-head">
             <div class="jpdb-subtitle-drawer-brand">
                 <strong class="jpdb-subtitle-drawer-title">${escapeHtml$1(uiText(language, "subtitlesTitle"))}</strong>
                 <span class="jpdb-subtitle-drawer-meta">${escapeHtml$1(subtitleDrawerMetaText({
       mode: "tracks",
-      count: state.tracks.length,
-      tracks: state.tracks,
-      selectedTrackId: state.selectedTrackId,
-      secondaryTrackId: state.secondaryTrackId,
+      count: state2.tracks.length,
+      tracks: state2.tracks,
+      selectedTrackId: state2.selectedTrackId,
+      secondaryTrackId: state2.secondaryTrackId,
       language
     }))}</span>
             </div>
             <div class="jpdb-subtitle-drawer-actions">
-                ${renderPanelModeControls("tracks", state.hasTranscriptSurface, language)}
-                ${state.hasNavigableLines ? renderPanelNavigationControls(true, language) : ""}
-                ${renderPanelPlacementControls(state.placement, language)}
-                ${renderPausePanelToggle(state.pausePanelEnabled, language)}
+                ${renderPanelModeControls("tracks", state2.hasTranscriptSurface, language)}
+                ${state2.hasNavigableLines ? renderPanelNavigationControls(true, language) : ""}
+                ${renderPanelPlacementControls(state2.placement, language)}
+                ${renderPausePanelToggle(state2.pausePanelEnabled, language)}
             </div>
         </div>
         <div class="jpdb-subtitle-list-scroll">
@@ -37242,9 +37380,9 @@ ${spelling}`);
                 <button type="button" data-action="load">${escapeHtml$1(uiText(language, "loadJapaneseSubtitles"))}</button>
                 <button type="button" data-action="load-secondary">${escapeHtml$1(uiText(language, "loadNativeSubtitles"))}</button>
             </div>
-            <div class="jpdb-subtitle-track-summary">${escapeHtml$1(trackPanelSummaryText(state.autoDetected, language))}</div>
+            <div class="jpdb-subtitle-track-summary">${escapeHtml$1(trackPanelSummaryText(state2.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml$1(uiText(language, "subtitleTracksHint"))}</div>
-            ${state.tracks.length ? state.tracks.map((track) => renderSubtitleTrackRow(track, state)).join("") : ""}
+            ${state2.tracks.length ? state2.tracks.map((track) => renderSubtitleTrackRow(track, state2)).join("") : ""}
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeSubtitleTracksPanel"))}"></div>
     `;
@@ -37256,10 +37394,10 @@ ${spelling}`);
     const secondary = secondaryTrack ? localizedSubtitleTrackLabel(secondaryTrack, options.language) : void 0;
     return drawerMetaParts(options.mode, options.count, primary, secondary, options.language).filter(Boolean).join(" · ");
   }
-  function renderSubtitleTrackRow(track, state) {
-    const isPrimary = track.id === state.selectedTrackId;
-    const isSecondary = track.id === state.secondaryTrackId;
-    const language = state.language;
+  function renderSubtitleTrackRow(track, state2) {
+    const isPrimary = track.id === state2.selectedTrackId;
+    const isSecondary = track.id === state2.secondaryTrackId;
+    const language = state2.language;
     return `
         <div class="jpdb-subtitle-track-row ${isPrimary || isSecondary ? "active" : ""}" data-track-id="${escapeHtml$1(track.id)}">
             <div class="jpdb-subtitle-track-title">
@@ -37367,42 +37505,42 @@ ${spelling}`);
     return `${trackCount} ${uiText(language, "subtitleTracksDetected")}`;
   }
   const GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS = "jpdb-subtitle-native-captions-suppressed";
-  function applySubtitleNativeTrackModes(state) {
+  function applySubtitleNativeTrackModes(state2) {
     const youtubePage = isYouTubePage();
-    const hasYomuCaptionContent = Boolean(state.hasPrimaryCues || state.currentCueText);
-    const yomuCaptionsActive = Boolean(state.suppressNativeCaptions || state.overlayVisible && (state.selectedTrackId || hasYomuCaptionContent));
-    if (!youtubePage) return applyGenericNativeTrackModes(state, yomuCaptionsActive);
+    const hasYomuCaptionContent = Boolean(state2.hasPrimaryCues || state2.currentCueText);
+    const yomuCaptionsActive = Boolean(state2.suppressNativeCaptions || state2.overlayVisible && (state2.selectedTrackId || hasYomuCaptionContent));
+    if (!youtubePage) return applyGenericNativeTrackModes(state2, yomuCaptionsActive);
     document.documentElement.classList.remove(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS);
-    return applyYouTubeNativeTrackModes(state, yomuCaptionsActive);
+    return applyYouTubeNativeTrackModes(state2, yomuCaptionsActive);
   }
-  function applyGenericNativeTrackModes(state, yomuCaptionsActive) {
-    for (const option of state.tracks) {
+  function applyGenericNativeTrackModes(state2, yomuCaptionsActive) {
+    for (const option of state2.tracks) {
       if (!option.track) continue;
-      if (isSelectedSubtitleTrack(option, state)) {
+      if (isSelectedSubtitleTrack(option, state2)) {
         if (yomuCaptionsActive) option.track.mode = "hidden";
         else ensureTextTrackReadable(option.track);
         continue;
       }
       if (yomuCaptionsActive) option.track.mode = "disabled";
     }
-    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state.video);
+    if (yomuCaptionsActive) suppressGenericCaptionPlayerUi(state2.video);
     document.documentElement.classList.toggle(GENERIC_NATIVE_CAPTIONS_SUPPRESSED_CLASS, yomuCaptionsActive);
     document.documentElement.classList.remove("jpdb-subtitle-yomu-captions-active");
     return false;
   }
-  function applyYouTubeNativeTrackModes(state, yomuCaptionsActive) {
-    applyYouTubeTextTrackModes(state);
+  function applyYouTubeNativeTrackModes(state2, yomuCaptionsActive) {
+    applyYouTubeTextTrackModes(state2);
     const hideYouTubeNativeCaptions = yomuCaptionsActive;
     document.documentElement.classList.toggle("jpdb-subtitle-yomu-captions-active", hideYouTubeNativeCaptions);
     return hideYouTubeNativeCaptions;
   }
-  function applyYouTubeTextTrackModes(state) {
-    for (const option of state.tracks) {
-      if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state) ? "hidden" : "disabled";
+  function applyYouTubeTextTrackModes(state2) {
+    for (const option of state2.tracks) {
+      if (option.track) option.track.mode = isSelectedSubtitleTrack(option, state2) ? "hidden" : "disabled";
     }
   }
-  function isSelectedSubtitleTrack(option, state) {
-    return option.id === state.selectedTrackId || option.id === state.secondaryTrackId;
+  function isSelectedSubtitleTrack(option, state2) {
+    return option.id === state2.selectedTrackId || option.id === state2.secondaryTrackId;
   }
   function suppressGenericCaptionPlayerUi(video) {
     for (const player of genericCaptionPlayersForVideo(video)) {
@@ -37951,7 +38089,7 @@ ${spelling}`);
       deckStateApiKeyRequiredKey: "jpdbDeckStateApiKeyRequired",
       addedToastKey: "addedToJpdb",
       supportsCard: isJpdbBackedCard,
-      supportsDeckState: (state) => state === "never-forget" || state === "blacklisted",
+      supportsDeckState: (state2) => state2 === "never-forget" || state2 === "blacklisted",
       selectedDeckId: selectedJpdbDeckId,
       selectedDeckLabel: (current, data) => jpdbDeckLabel(current, current.miningDeck.trim() || "forq", data.jpdbDecks),
       addToDeck: async (deckId, card, sentence) => {
@@ -37966,9 +38104,9 @@ ${spelling}`);
         await jpdb.reviewCard(card, grade);
         return { addedBeforeReview: wasNotInDeck };
       },
-      setDeckState: async (card, state, deckId) => {
-        if (state !== "blacklisted" && state !== "never-forget") return;
-        if (normalizeCardStates(card.cardState).includes(state)) {
+      setDeckState: async (card, state2, deckId) => {
+        if (state2 !== "blacklisted" && state2 !== "never-forget") return;
+        if (normalizeCardStates(card.cardState).includes(state2)) {
           await jpdb.removeFromDeck(deckId, card);
         } else {
           await jpdb.addToDeck(deckId, card);
@@ -37999,9 +38137,9 @@ ${spelling}`);
         await refreshJitenCardState(jiten, card);
         return {};
       },
-      setDeckState: async (card, state) => {
-        const jitenState = jitenVocabularyStateForApiState(state);
-        const currentState = cardStateForApiState(state);
+      setDeckState: async (card, state2) => {
+        const jitenState = jitenVocabularyStateForApiState(state2);
+        const currentState = cardStateForApiState(state2);
         const action = currentState && normalizeCardStates(card.cardState).includes(currentState) ? "remove" : "add";
         await jiten.setVocabularyState(card, jitenState, action);
         await refreshJitenCardState(jiten, card);
@@ -38015,18 +38153,18 @@ ${spelling}`);
   function isJitenBackedCard(card) {
     return card.source === "jiten" || finitePositiveInteger(card.jitenWordId) !== void 0 && finiteNonNegativeInteger(card.jitenReadingIndex) !== void 0;
   }
-  function jitenVocabularyStateForApiState(state) {
-    if (state === "blacklisted") return "blacklist";
-    if (state === "never-forget") return "neverForget";
-    if (state === "suspended") return "suspend";
-    if (state === "forgotten") return "forget";
+  function jitenVocabularyStateForApiState(state2) {
+    if (state2 === "blacklisted") return "blacklist";
+    if (state2 === "never-forget") return "neverForget";
+    if (state2 === "suspended") return "suspend";
+    if (state2 === "forgotten") return "forget";
     return "mining";
   }
-  function cardStateForApiState(state) {
-    if (state === "blacklisted") return "blacklisted";
-    if (state === "never-forget") return "never-forget";
-    if (state === "suspended") return "suspended";
-    if (state === "forgotten") return "not-in-deck";
+  function cardStateForApiState(state2) {
+    if (state2 === "blacklisted") return "blacklisted";
+    if (state2 === "never-forget") return "never-forget";
+    if (state2 === "suspended") return "suspended";
+    if (state2 === "forgotten") return "not-in-deck";
     return "in-deck";
   }
   function finitePositiveInteger(value) {
@@ -40113,11 +40251,11 @@ ${spelling}`);
       });
     }
     applyKaraokeStateToPrimary(cue, time) {
-      const state = this.primaryKaraokeState(cue);
-      if (!state) return;
-      const progress = karaokeCharacterProgress(cue, state.words, time);
+      const state2 = this.primaryKaraokeState(cue);
+      if (!state2) return;
+      const progress = karaokeCharacterProgress(cue, state2.words, time);
       let cursor = 0;
-      for (const element of state.wordElements) {
+      for (const element of state2.wordElements) {
         cursor = applyKaraokeClassToWordElement(element, cursor, progress);
       }
     }
@@ -40987,7 +41125,7 @@ ${spelling}`);
     syncDrawerButtons(hasLines) {
       const panelButton = this.root?.querySelector('[data-action="panel"]');
       if (!panelButton) return;
-      const state = subtitleDrawerButtonState({
+      const state2 = subtitleDrawerButtonState({
         panelOpen: this.isTranscriptPanelOpen(),
         hasLines,
         hasTranscriptSurface: this.hasTranscriptSurface(),
@@ -40995,9 +41133,9 @@ ${spelling}`);
         trackCount: this.tracks.length
       });
       syncSubtitleDrawerButton(panelButton, {
-        disabled: state.disabled,
-        pressed: state.panelOpen,
-        placement: state.panelOpen ? this.effectiveTranscriptPlacement : this.options.getSettings().subtitleTranscriptPlacement,
+        disabled: state2.disabled,
+        pressed: state2.panelOpen,
+        placement: state2.panelOpen ? this.effectiveTranscriptPlacement : this.options.getSettings().subtitleTranscriptPlacement,
         language: this.options.getSettings().interfaceLanguage
       });
     }
@@ -41242,34 +41380,34 @@ ${spelling}`);
       if (!panel) return;
       this.clearDeferredTranscriptPanelRender();
       this.transcriptPreviewPlayerResizeDeferred = false;
-      const state = this.transcriptPanelRenderState();
-      if (this.canRefreshTranscriptPanel(force, state)) return;
-      this.lastTranscriptSignature = state.signature;
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-      this.afterTranscriptPanelRender(state);
+      const state2 = this.transcriptPanelRenderState();
+      if (this.canRefreshTranscriptPanel(force, state2)) return;
+      this.lastTranscriptSignature = state2.signature;
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
+      this.afterTranscriptPanelRender(state2);
     }
     renderTranscriptPanelPreview() {
       const panel = this.renderableTranscriptPanel();
       if (!panel) return;
       const fullState = this.transcriptPanelRenderState();
-      const state = this.transcriptPanelPreviewState(fullState);
+      const state2 = this.transcriptPanelPreviewState(fullState);
       this.transcriptPreviewPlayerResizeDeferred = true;
       this.lastTranscriptSignature = "";
-      setInnerHtml(panel, this.renderTranscriptPanelHtml(state));
-      this.afterTranscriptPanelRender(state, { deferPlayerResize: true });
+      setInnerHtml(panel, this.renderTranscriptPanelHtml(state2));
+      this.afterTranscriptPanelRender(state2, { deferPlayerResize: true });
     }
-    transcriptPanelPreviewState(state) {
-      const rowCount = state.rows.length;
-      if (!rowCount) return { ...state, signature: `preview:${state.signature}`, totalRowCount: 0 };
-      const activeIndex = state.currentRowIndex >= 0 ? state.currentRowIndex : 0;
+    transcriptPanelPreviewState(state2) {
+      const rowCount = state2.rows.length;
+      if (!rowCount) return { ...state2, signature: `preview:${state2.signature}`, totalRowCount: 0 };
+      const activeIndex = state2.currentRowIndex >= 0 ? state2.currentRowIndex : 0;
       const clampedActive = Math.min(Math.max(activeIndex, 0), rowCount - 1);
       const previewStart = Math.max(0, Math.min(clampedActive - 1, rowCount - 3));
       const previewEnd = Math.min(rowCount, previewStart + 3);
       return {
-        rows: state.rows.slice(previewStart, previewEnd),
-        warmupRows: state.warmupRows,
-        currentRowIndex: state.currentRowIndex,
-        signature: `preview:${state.signature}:${previewStart}`,
+        rows: state2.rows.slice(previewStart, previewEnd),
+        warmupRows: state2.warmupRows,
+        currentRowIndex: state2.currentRowIndex,
+        signature: `preview:${state2.signature}:${previewStart}`,
         rowIndexOffset: previewStart,
         totalRowCount: rowCount
       };
@@ -41294,9 +41432,9 @@ ${spelling}`);
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) return null;
       return this.panelMode === "lines" ? this.transcriptPanel : null;
     }
-    canRefreshTranscriptPanel(force, state) {
+    canRefreshTranscriptPanel(force, state2) {
       if (force) return false;
-      return this.refreshExistingTranscriptPanel(state);
+      return this.refreshExistingTranscriptPanel(state2);
     }
     transcriptPanelRenderState() {
       const rows = this.transcriptRows();
@@ -41359,19 +41497,19 @@ ${spelling}`);
       if (performance.now() - this.transcriptUserScrollAt < this.transcriptAutoScrollResumeMs()) return false;
       return scrollTop <= 1 || currentRowIndex < Math.floor(scrollTop / TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX) - TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS;
     }
-    refreshExistingTranscriptPanel(state) {
-      if (this.lastTranscriptSignature !== state.signature) return false;
-      this.updateTranscriptActiveLine(state.currentRowIndex);
-      const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+    refreshExistingTranscriptPanel(state2) {
+      if (this.lastTranscriptSignature !== state2.signature) return false;
+      this.updateTranscriptActiveLine(state2.currentRowIndex);
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state2);
       this.scheduleTranscriptHydration(hydrationIndex);
-      this.scheduleTranscriptCacheWarmup(state.rows, hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(state2.rows, hydrationIndex);
       return true;
     }
-    renderTranscriptPanelHtml(state) {
+    renderTranscriptPanelHtml(state2) {
       const settings = this.options.getSettings();
       const language = settings.interfaceLanguage;
-      const rowCount = state.totalRowCount ?? state.rows.length;
-      const rowIndexOffset = state.rowIndexOffset ?? 0;
+      const rowCount = state2.totalRowCount ?? state2.rows.length;
+      const rowIndexOffset = state2.rowIndexOffset ?? 0;
       return `
             <div class="jpdb-subtitle-drawer-head">
                 <div class="jpdb-subtitle-drawer-brand">
@@ -41392,10 +41530,10 @@ ${spelling}`);
                     ${renderPausePanelToggle(settings.subtitlePausePanel, language)}
                 </div>
             </div>
-            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state.virtual ? ' data-virtualized="true"' : ""}>
-                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.topSpacer) : ""}
-                ${state.rows.length ? state.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
-                ${state.virtual ? this.renderTranscriptVirtualSpacer(state.virtual.bottomSpacer) : ""}
+            <div class="jpdb-subtitle-list-scroll" data-total-rows="${rowCount}"${state2.virtual ? ' data-virtualized="true"' : ""}>
+                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.topSpacer) : ""}
+                ${state2.rows.length ? state2.rows.map((row, index) => this.renderTranscriptRow(row, rowIndexOffset + index, state2.currentRowIndex)).join("") : this.renderTranscriptWaitingState()}
+                ${state2.virtual ? this.renderTranscriptVirtualSpacer(state2.virtual.bottomSpacer) : ""}
             </div>
             <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeTranscriptPanel"))}"></div>
         `;
@@ -41403,26 +41541,26 @@ ${spelling}`);
     renderTranscriptVirtualSpacer(height) {
       return height > 0 ? `<div class="jpdb-subtitle-list-spacer" aria-hidden="true" style="height:${Math.round(height)}px"></div>` : "";
     }
-    afterTranscriptPanelRender(state, options = {}) {
+    afterTranscriptPanelRender(state2, options = {}) {
       this.indexTranscriptTextTargets();
       this.bindTranscriptScroller();
       this.bindTranscriptResizeHandle();
       this.positionTranscriptPanel({ resizeEventMode: options.deferPlayerResize ? "none" : "immediate" });
-      this.restoreTranscriptVirtualScroll(state);
+      this.restoreTranscriptVirtualScroll(state2);
       this.scrollTranscriptToActive();
-      const hydrationIndex = this.transcriptHydrationPreferredIndex(state);
+      const hydrationIndex = this.transcriptHydrationPreferredIndex(state2);
       this.scheduleTranscriptHydration(hydrationIndex);
-      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state.warmupRows ?? state.rows, hydrationIndex);
+      this.scheduleTranscriptCacheWarmup(options.warmupRows ?? state2.warmupRows ?? state2.rows, hydrationIndex);
       this.syncPanelState();
     }
-    transcriptHydrationPreferredIndex(state) {
-      return state.virtual?.start ?? state.currentRowIndex;
+    transcriptHydrationPreferredIndex(state2) {
+      return state2.virtual?.start ?? state2.currentRowIndex;
     }
-    restoreTranscriptVirtualScroll(state) {
-      if (!state.virtual) return;
+    restoreTranscriptVirtualScroll(state2) {
+      if (!state2.virtual) return;
       const scroller = this.transcriptPanel?.querySelector(".jpdb-subtitle-list-scroll");
       if (!scroller) return;
-      const scrollTop = Math.max(0, state.virtual.scrollTop);
+      const scrollTop = Math.max(0, state2.virtual.scrollTop);
       if (Math.abs(scroller.scrollTop - scrollTop) > 1) scroller.scrollTop = scrollTop;
       this.transcriptVirtualScrollTop = scrollTop;
     }
@@ -41505,8 +41643,8 @@ ${spelling}`);
       this.transcriptVirtualRenderFrame = requestAnimationFrame(() => {
         this.transcriptVirtualRenderFrame = void 0;
         if (this.destroyed || this.transcriptResizeActive || !this.isTranscriptPanelOpen() || this.panelMode !== "lines") return;
-        const state = this.transcriptPanelRenderState();
-        if (!state.virtual || state.signature === this.lastTranscriptSignature) return;
+        const state2 = this.transcriptPanelRenderState();
+        if (!state2.virtual || state2.signature === this.lastTranscriptSignature) return;
         this.renderTranscriptPanel(true);
       });
     }
@@ -41920,10 +42058,10 @@ ${spelling}`);
     renderTrackPanel() {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "tracks") return;
       this.transcriptTextTargetsByParseKey.clear();
-      const state = subtitleTrackPanelState(this.tracks);
+      const state2 = subtitleTrackPanelState(this.tracks);
       const settings = this.options.getSettings();
       setInnerHtml(this.transcriptPanel, renderSubtitleTrackPanel({
-        ...state,
+        ...state2,
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         hasTranscriptSurface: this.hasTranscriptSurface(),
@@ -46647,25 +46785,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         preservePosition: true
       });
     }
-    async changeProviderDeckState(card, state, deck) {
+    async changeProviderDeckState(card, state2, deck) {
       const settings = this.options.getSettings();
-      const provider = this.apiProviders(settings).find((candidate) => candidate.supportsCard(card) && candidate.supportsDeckState(state)) ?? this.apiProviderForCard(card, settings);
-      if (!provider && settings.ankiEnabled && isAnkiDeckState(state) && await this.changeAnkiDeckState(card, state, settings)) return;
+      const provider = this.apiProviders(settings).find((candidate) => candidate.supportsCard(card) && candidate.supportsDeckState(state2)) ?? this.apiProviderForCard(card, settings);
+      if (!provider && settings.ankiEnabled && isAnkiDeckState(state2) && await this.changeAnkiDeckState(card, state2, settings)) return;
       this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired"));
-      if (!provider.supportsDeckState(state)) throw new Error(uiText(settings.interfaceLanguage, "actionFailed"));
-      const wasSet = normalizeCardStates(card.cardState).includes(cardStateForApiState(state));
-      await provider.setDeckState(card, state, deck);
-      const toastKey = state === "blacklisted" || state === "never-forget" ? wasSet ? "removedFromDeck" : "addedToDeckToast" : "vocabularyStatusUpdated";
+      if (!provider.supportsDeckState(state2)) throw new Error(uiText(settings.interfaceLanguage, "actionFailed"));
+      const wasSet = normalizeCardStates(card.cardState).includes(cardStateForApiState(state2));
+      await provider.setDeckState(card, state2, deck);
+      const toastKey = state2 === "blacklisted" || state2 === "never-forget" ? wasSet ? "removedFromDeck" : "addedToDeckToast" : "vocabularyStatusUpdated";
       this.options.toast(uiText(settings.interfaceLanguage, toastKey));
       this.notifyApiCardStateChanged(card);
     }
     // Anki has no blacklist/never-forget decks; map blacklist to native card
     // suspension (same effect: never reviewed, dedicated state color) and
     // never-forget to a tag that can also be filtered inside Anki.
-    async changeAnkiDeckState(card, state, settings) {
+    async changeAnkiDeckState(card, state2, settings) {
       const lookup = await this.options.anki.findExistingCards(card).catch(() => null);
       if (!lookup?.notes.length) return false;
-      if (state === "blacklisted") {
+      if (state2 === "blacklisted") {
         const cardIds = lookup.notes.flatMap((note) => note.cardIds);
         const suspended = lookup.state === "suspended";
         await this.options.anki.setCardsSuspended(cardIds, !suspended);
@@ -46939,8 +47077,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (value === "jpdb" || value === "jiten") return value;
     return void 0;
   }
-  function isAnkiDeckState(state) {
-    return state === "never-forget" || state === "blacklisted";
+  function isAnkiDeckState(state2) {
+    return state2 === "never-forget" || state2 === "blacklisted";
   }
   function positiveNumber(value) {
     const number = Number(value);
@@ -47972,7 +48110,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     renderView(card, data) {
       const cardStates = normalizeCardStates(card.cardState);
-      const state = primaryCardState(cardStates);
+      const state2 = primaryCardState(cardStates);
       const settings = this.settings();
       const language = settings.interfaceLanguage;
       const provider = this.apiProviderForCard(card);
@@ -47982,7 +48120,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const ankiActions = data.loading ? "" : renderAnkiActionRow(data.ankiLookup, settings);
       return {
         cardStates,
-        state,
+        state: state2,
         storedContext: data.loading ? null : loadMiningContext(card.spelling),
         jpdbUrl: jpdbVocabularyUrl$1(card),
         cardPos: formatPartOfSpeech(card.partOfSpeech),
@@ -48000,7 +48138,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           reviewBlockReason,
           language
         }),
-        metaItems: this.renderMetaItems(card, provider, state, data),
+        metaItems: this.renderMetaItems(card, provider, state2, data),
         loadingDetails: this.renderLoadingDetails(data.loading, language),
         audioButtonDisabled: !settings.audioEnabled,
         audioButtonTitle: uiText(language, settings.audioEnabled ? "playAudio" : "audioPlaybackDisabled")
@@ -48211,13 +48349,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
             </div>
         `;
     }
-    renderMetaItems(card, provider, state, data) {
+    renderMetaItems(card, provider, state2, data) {
       const settings = this.settings();
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
       return [
         renderMetaReading(card, settings),
         card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : "",
-        canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state, settings.interfaceLanguage))}</span>` : "",
+        canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
     }
@@ -48330,9 +48468,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function renderApiMiningActions(settings, cardStates, language, data, provider) {
     if (!canRenderApiMiningActions(settings, provider)) return "";
-    const state = miningActionState(cardStates, language);
+    const state2 = miningActionState(cardStates, language);
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
-    return renderApiMiningActionDetails(language, state, addDeckSelect, provider);
+    return renderApiMiningActionDetails(language, state2, addDeckSelect, provider);
   }
   function canRenderApiMiningActions(settings, provider) {
     return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
@@ -48346,19 +48484,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!deckOptions) return "";
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}" hidden>${deckOptions}</select>`;
   }
-  function renderApiMiningActionDetails(language, state, addDeckSelect, provider) {
+  function renderApiMiningActionDetails(language, state2, addDeckSelect, provider) {
     const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
     const jitenActions = provider?.id === "jiten" ? `<div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
                         <button class="jpdb-reader-btn add" data-action="jiten-mining" title="${escapeHtml$1(uiText(language, "jitenMiningHint"))}">${escapeHtml$1(uiText(language, "mining"))}</button>
-                        <button class="jpdb-reader-btn nf${state.isSuspended ? " danger" : ""}" data-action="jiten-suspend" title="${escapeHtml$1(uiText(language, "jitenSuspendHint"))}" aria-pressed="${state.isSuspended}">${escapeHtml$1(uiText(language, "stateSuspended"))}</button>
+                        <button class="jpdb-reader-btn nf${state2.isSuspended ? " danger" : ""}" data-action="jiten-suspend" title="${escapeHtml$1(uiText(language, "jitenSuspendHint"))}" aria-pressed="${state2.isSuspended}">${escapeHtml$1(uiText(language, "stateSuspended"))}</button>
                         <button class="jpdb-reader-btn blacklist danger" data-action="jiten-forget" title="${escapeHtml$1(uiText(language, "jitenForgetHint"))}">${escapeHtml$1(uiText(language, "forget"))}</button>
                     </div>` : "";
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
                         <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml$1(uiText(language, "addToDeckHint"))}" aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>
-                        <button class="jpdb-reader-btn nf${state.isNeverForget ? " danger" : ""}" data-action="neverforget" title="${escapeHtml$1(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml$1(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
+                        <button class="jpdb-reader-btn nf${state2.isNeverForget ? " danger" : ""}" data-action="neverforget" title="${escapeHtml$1(state2.neverForgetTitle)}" aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml$1(state2.blacklistTitle)}" aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>
                     </div>
                     ${jitenActions}
                     ${addDeckSelect}
@@ -48394,7 +48532,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return normalizeCardStates(card.cardState).includes("not-in-deck");
   }
   function applyPooledJpdbDeckState(card) {
-    const states = normalizeCardStates(card.cardState).filter((state) => state !== "not-in-deck");
+    const states = normalizeCardStates(card.cardState).filter((state2) => state2 !== "not-in-deck");
     card.cardState = states.length ? states : ["in-deck"];
   }
   function emptyAnkiLookupResult$1() {
@@ -48403,16 +48541,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function ankiLookupFromSourceCard(card) {
     const primaryCardId = sourceCardPrimaryAnkiCardId(card);
     if (!primaryCardId) return null;
-    const state = primaryCardState(normalizeCardStates(card.cardState));
-    const note = ankiExistingNoteFromSourceCard(card, primaryCardId, state);
-    return { state, notes: [note], primary: note };
+    const state2 = primaryCardState(normalizeCardStates(card.cardState));
+    const note = ankiExistingNoteFromSourceCard(card, primaryCardId, state2);
+    return { state: state2, notes: [note], primary: note };
   }
   function sourceCardPrimaryAnkiCardId(card) {
     if (card.source !== "anki" && card.reviewSource !== "anki") return null;
     const primaryCardId = Number(card.ankiCardId ?? card.rid);
     return Number.isFinite(primaryCardId) && primaryCardId > 0 ? primaryCardId : null;
   }
-  function ankiExistingNoteFromSourceCard(card, primaryCardId, state) {
+  function ankiExistingNoteFromSourceCard(card, primaryCardId, state2) {
     const fields = ankiFieldsFromSourceCard(card);
     const noteId = Number(card.ankiNoteId ?? 0);
     const renderedCards = sourceCardRenderedCards(card, primaryCardId, fields);
@@ -48422,7 +48560,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       deckNames: card.ankiDeckNames ?? [],
       cardIds: [primaryCardId],
       primaryCardId,
-      state,
+      state: state2,
       fields,
       renderedCards,
       tags: [],
@@ -50081,10 +50219,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function deterministicShuffle(values, seed) {
     const result = [...values];
-    let state = stablePositiveHashId(seed);
+    let state2 = stablePositiveHashId(seed);
     for (let index = result.length - 1; index > 0; index--) {
-      state = nextRandomState(state);
-      const swapIndex = state % (index + 1);
+      state2 = nextRandomState(state2);
+      const swapIndex = state2 % (index + 1);
       [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
     }
     return result;
@@ -51593,8 +51731,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (ankiLookup.trusted === false && !ankiLookup.primary) return "";
     return `Anki ${lookupStateLabel(ankiLookup.state, settings.interfaceLanguage)}`;
   }
-  function lookupStateLabel(state, language) {
-    return cardStateLabel(state, language);
+  function lookupStateLabel(state2, language) {
+    return cardStateLabel(state2, language);
   }
   function renderLookupReviewTargetButtons(target, grades) {
     const targetLabel = target.label;
@@ -52340,7 +52478,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return [...withDue, ...withoutDue];
   }
   function isScheduledJpdbStudyCard(card) {
-    return card.cardState.some((state) => state === "new" || state === "learning" || state === "due" || state === "failed" || state === "locked");
+    return card.cardState.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked");
   }
   function normalizeDeck(value) {
     if (Array.isArray(value)) return normalizeDeckTuple(value);
@@ -52855,9 +52993,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const reading = (Array.isArray(card.readings) ? card.readings : []).find((candidate) => candidate.readingIndex === card.readingIndex);
     return cleanJitenAnnotatedReading$1(reading?.text || reading?.rubyText || card.wordText || card.wordTextPlain || "").trim();
   }
-  function jitenStudyStateToCardStates(state, isNewCard) {
+  function jitenStudyStateToCardStates(state2, isNewCard) {
     if (isNewCard) return ["new"];
-    return [JITEN_FSRS_CARD_STATE_MAP[state] ?? "known"];
+    return [JITEN_FSRS_CARD_STATE_MAP[state2] ?? "known"];
   }
   const JITEN_FSRS_CARD_STATE_MAP = {
     0: "new",
@@ -52872,7 +53010,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
   }
   function jitenKnownStateToCardStates(states) {
-    const mapped = jitenStateNumbers(states).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
+    const mapped = jitenStateNumbers(states).map((state2) => JITEN_CARD_STATE_MAP[state2]).filter((state2) => Boolean(state2));
     return mapped.length ? mapped : ["not-in-deck"];
   }
   const JITEN_CARD_STATE_MAP = {
@@ -53990,16 +54128,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     </button>`;
   }
   function renderJitenKanjiWordMeta(word, language) {
-    const state = primaryJitenWordState(word.states);
+    const state2 = primaryJitenWordState(word.states);
     const items = [
-      state ? `<span class="jpdb-reader-jiten-kanji-word-status" title="${escapeHtml$1(`Jiten · ${cardStateLabel(state, language)}`)}"><span class="jpdb-reader-state-dot jiten-${escapeHtml$1(state)}"></span>${escapeHtml$1(cardStateLabel(state, language))}</span>` : "",
+      state2 ? `<span class="jpdb-reader-jiten-kanji-word-status" title="${escapeHtml$1(`Jiten · ${cardStateLabel(state2, language)}`)}"><span class="jpdb-reader-state-dot jiten-${escapeHtml$1(state2)}"></span>${escapeHtml$1(cardStateLabel(state2, language))}</span>` : "",
       word.pitchAccents.length ? `<span class="jpdb-reader-jiten-kanji-word-pitch" title="${escapeHtml$1(`Pitch accent: ${word.pitchAccents.join(", ")}`)}">P${escapeHtml$1(word.pitchAccents.join("/"))}</span>` : "",
       word.frequencyRank ? `<em>#${escapeHtml$1(String(word.frequencyRank))}</em>` : ""
     ].filter(Boolean).join("");
     return items ? `<span class="jpdb-reader-jiten-kanji-word-meta">${items}</span>` : "";
   }
   function primaryJitenWordState(states) {
-    return states.find((state) => state !== "not-in-deck" && state !== "in-deck") ?? states[0] ?? null;
+    return states.find((state2) => state2 !== "not-in-deck" && state2 !== "in-deck") ?? states[0] ?? null;
   }
   function jitenKanjiWordTitle(word) {
     return [word.expression, word.reading && word.reading !== word.expression ? word.reading : "", word.meaning].filter(Boolean).join(" · ");
@@ -54060,7 +54198,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function jitenWordStates(word) {
     const source = word;
     const rawStates = Array.isArray(source.knownStates) ? source.knownStates : Array.isArray(source.knownState) ? source.knownState : Array.isArray(source.cardState) ? source.cardState : [];
-    return rawStates.map((state) => typeof state === "number" ? JITEN_KNOWN_STATE_MAP.get(state) : state).filter((state) => typeof state === "string" && CARD_STATES.has(state));
+    return rawStates.map((state2) => typeof state2 === "number" ? JITEN_KNOWN_STATE_MAP.get(state2) : state2).filter((state2) => typeof state2 === "string" && CARD_STATES.has(state2));
   }
   function jitenWordPitchAccents(word) {
     const source = word;
@@ -56081,9 +56219,9 @@ ${normalizedReading}`;
       return { ...DEFAULT_NEW_TAB_UI_STATE };
     }
   }
-  function saveNewTabUiState(state) {
+  function saveNewTabUiState(state2) {
     try {
-      gmStorageSetSync(STATE_STORAGE_KEY, frontFacingNewTabUiState(normalizeNewTabUiState(state)));
+      gmStorageSetSync(STATE_STORAGE_KEY, frontFacingNewTabUiState(normalizeNewTabUiState(state2)));
     } catch {
     }
   }
@@ -56098,10 +56236,10 @@ ${normalizedReading}`;
       onState(normalizeNewTabUiState(event.data.state));
     };
     return {
-      publish(state) {
+      publish(state2) {
         if (isClosed) return;
         try {
-          channel.postMessage({ type: "state", state: normalizeNewTabUiState(state) });
+          channel.postMessage({ type: "state", state: normalizeNewTabUiState(state2) });
         } catch (error) {
           isClosed = true;
           log$4.warn("Failed to publish new tab state update", error);
@@ -56118,8 +56256,8 @@ ${normalizedReading}`;
       }
     };
   }
-  function frontFacingNewTabUiState(state) {
-    return { ...state, revealAnswer: false };
+  function frontFacingNewTabUiState(state2) {
+    return { ...state2, revealAnswer: false };
   }
   function normalizeNewTabMode(value) {
     return value === "kanji" || value === "search" || value === "stats" ? value : DEFAULT_NEW_TAB_UI_STATE.mode;
@@ -56222,8 +56360,8 @@ ${normalizedReading}`;
   function browseStateCounts(cards) {
     const counts = /* @__PURE__ */ new Map();
     for (const card of cards) {
-      const state = primaryCardState(card.cardState);
-      counts.set(state, (counts.get(state) ?? 0) + 1);
+      const state2 = primaryCardState(card.cardState);
+      counts.set(state2, (counts.get(state2) ?? 0) + 1);
     }
     return counts;
   }
@@ -56299,7 +56437,7 @@ ${normalizedReading}`;
       "div",
       { class: "jpdb-reader-newtab-browse-chips", role: "group" },
       chip("all", allLabel, cards.length, active.size === 0),
-      ...BROWSE_FILTER_ORDER.filter((state) => (counts.get(state) ?? 0) > 0).map((state) => chip(state, cardStateLabel(state, language), counts.get(state) ?? 0, active.has(state)))
+      ...BROWSE_FILTER_ORDER.filter((state2) => (counts.get(state2) ?? 0) > 0).map((state2) => chip(state2, cardStateLabel(state2, language), counts.get(state2) ?? 0, active.has(state2)))
     );
   }
   function renderBrowseControls(sort, descending, selectMode, copy) {
@@ -56393,7 +56531,7 @@ ${normalizedReading}`;
     );
   }
   function renderBrowseRow(card, language, selectable = false, dueIn = "") {
-    const state = primaryCardState(card.cardState);
+    const state2 = primaryCardState(card.cardState);
     const meaning = firstCardMeaning(card);
     const reading = card.reading && card.reading !== card.spelling ? card.reading : "";
     return el(
@@ -56426,9 +56564,9 @@ ${normalizedReading}`;
         meaning ? el("span", { class: "jpdb-reader-newtab-browse-meaning" }, meaning) : null,
         el(
           "span",
-          { class: "jpdb-reader-newtab-browse-state", dataset: { browseState: state } },
-          el("span", { class: `jpdb-reader-state-dot jpdb-${state}` }),
-          cardStateLabel(state, language),
+          { class: "jpdb-reader-newtab-browse-state", dataset: { browseState: state2 } },
+          el("span", { class: `jpdb-reader-state-dot jpdb-${state2}` }),
+          cardStateLabel(state2, language),
           card.frequencyRank ? ` · Top ${card.frequencyRank}` : "",
           // Jiten Cards parity: due-in, where the provider's scheduler can
           // answer exactly (Anki prop:due buckets).
@@ -56455,7 +56593,7 @@ ${normalizedReading}`;
     if (card.source === "local" || card.source === "fallback") return true;
     if (card.reviewSource === "jpdb-live") return true;
     const states = card.cardState ?? [];
-    return states.some((state) => state === "new" || state === "learning" || state === "due" || state === "failed" || state === "locked" || state === "not-in-deck");
+    return states.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked" || state2 === "not-in-deck");
   }
   function selectNewTabStudyPool(cards) {
     return cards.filter(shouldShowInStudyQueue);
@@ -56845,7 +56983,7 @@ ${newTabCardReading(card)}`;
     }));
   }
   function isScheduledStudyCard(card) {
-    return card.cardState.some((state) => state === "new" || state === "learning" || state === "due" || state === "failed" || state === "locked");
+    return card.cardState.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked");
   }
   const NEW_TAB_WORD_STATE_CLASSES = [
     "new",
@@ -56933,9 +57071,9 @@ ${newTabCardReading(card)}`;
     "video",
     '[contenteditable="true"]'
   ].join(",");
-  function searchCardStateLabel(state, language) {
-    const key = CARD_STATE_LABEL_KEYS[state];
-    return key ? uiText(language, key) : state.replace(/-/g, " ");
+  function searchCardStateLabel(state2, language) {
+    const key = CARD_STATE_LABEL_KEYS[state2];
+    return key ? uiText(language, key) : state2.replace(/-/g, " ");
   }
   function searchWordSummaryMeta(card, context, ankiLookup) {
     return [
@@ -56948,13 +57086,13 @@ ${newTabCardReading(card)}`;
     const language = context.language;
     if (card.source === "local") return context.text("dictionary");
     if (card.source === "anki" || card.reviewSource === "anki") {
-      const state2 = primaryCardState(card.cardState);
+      const state22 = primaryCardState(card.cardState);
       const label = ankiReviewSourceLabel(card, language);
-      return state2 === "known" ? label : `${label} ${searchCardStateLabel(state2, language)}`;
+      return state22 === "known" ? label : `${label} ${searchCardStateLabel(state22, language)}`;
     }
     if (ankiLookup?.primary) return `Anki ${searchCardStateLabel(ankiLookup.state, language)}`;
-    const state = primaryCardState(card.cardState);
-    return state === "not-in-deck" ? "" : searchCardStateLabel(state, language);
+    const state2 = primaryCardState(card.cardState);
+    return state2 === "not-in-deck" ? "" : searchCardStateLabel(state2, language);
   }
   function renderSearchWordResults(cards, context) {
     return el(
@@ -57067,8 +57205,8 @@ ${newTabCardReading(card)}`;
   }
   function searchWordHeaderHtml(card, detail, context) {
     const settings = context.getSettings();
-    const state = primaryCardState(card.cardState);
-    const metaItems = searchWordMetaItems(card, state, detail, settings);
+    const state2 = primaryCardState(card.cardState);
+    const metaItems = searchWordMetaItems(card, state2, detail, settings);
     const visibleReading = searchWordVisibleReading(card, settings);
     const pitch = settings.showPitchAccent ? renderPitch(card, detail.metaEntries) : "";
     const pills = context.renderSearchWordPills?.(card, detail.metaEntries, detail.ankiLookup) ?? "";
@@ -57076,7 +57214,7 @@ ${newTabCardReading(card)}`;
     return `<div class="jpdb-reader-header jpdb-reader-newtab-search-detail-header">
         <div class="jpdb-reader-heading">
             <div class="jpdb-reader-title-row">
-                <div class="jpdb-reader-spelling jpdb-${state} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "showKanji"))}">${escapeHtml$1(card.spelling)}</div>
+                <div class="jpdb-reader-spelling jpdb-${state2} jpdb-reader-parseable" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(settings.interfaceLanguage, "showKanji"))}">${escapeHtml$1(card.spelling)}</div>
                 ${visibleReading ? `<div class="jpdb-reader-reading">${escapeHtml$1(visibleReading)}</div>` : ""}
                 ${metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : ""}
             </div>
@@ -57088,11 +57226,11 @@ ${newTabCardReading(card)}`;
         </div>
     </div>`;
   }
-  function searchWordMetaItems(card, state, detail, settings) {
+  function searchWordMetaItems(card, state2, detail, settings) {
     return [
       searchWordReadingMeta(card, settings),
       searchWordFrequencyMeta(card),
-      searchWordCardStateMeta(card, state, settings),
+      searchWordCardStateMeta(card, state2, settings),
       searchWordLookupAnkiStateMeta(card, detail, settings)
     ].filter(Boolean);
   }
@@ -57108,19 +57246,19 @@ ${newTabCardReading(card)}`;
   function searchWordFrequencyMeta(card) {
     return card.frequencyRank ? `<span>#${card.frequencyRank}</span>` : "";
   }
-  function searchWordCardStateMeta(card, state, settings) {
-    if (card.source === "anki" || card.reviewSource === "anki") return searchWordStateMeta("anki", state, settings.interfaceLanguage);
-    if (isJitenSrsCard(card) && hasJitenApiCredential(settings)) return searchWordStateMeta("jiten", state, settings.interfaceLanguage);
-    return hasJpdbApiCredential(settings) ? searchWordStateMeta("jpdb", state, settings.interfaceLanguage) : "";
+  function searchWordCardStateMeta(card, state2, settings) {
+    if (card.source === "anki" || card.reviewSource === "anki") return searchWordStateMeta("anki", state2, settings.interfaceLanguage);
+    if (isJitenSrsCard(card) && hasJitenApiCredential(settings)) return searchWordStateMeta("jiten", state2, settings.interfaceLanguage);
+    return hasJpdbApiCredential(settings) ? searchWordStateMeta("jpdb", state2, settings.interfaceLanguage) : "";
   }
   function searchWordLookupAnkiStateMeta(card, detail, settings) {
     if (!settings.ankiEnabled) return "";
     if (card.source === "anki" || card.reviewSource === "anki") return "";
     return detail.ankiLookup?.primary ? searchWordStateMeta("anki", detail.ankiLookup.state, settings.interfaceLanguage) : "";
   }
-  function searchWordStateMeta(source, state, language) {
+  function searchWordStateMeta(source, state2, language) {
     const label = source === "jpdb" ? "JPDB" : source === "jiten" ? "Jiten" : "Anki";
-    return `<span><span class="jpdb-reader-state-dot ${source}-${state}"></span>${label} ${escapeHtml$1(searchCardStateLabel(state, language))}</span>`;
+    return `<span><span class="jpdb-reader-state-dot ${source}-${state2}"></span>${label} ${escapeHtml$1(searchCardStateLabel(state2, language))}</span>`;
   }
   function searchFallbackDefinitionSourcesHtml(card, detail, context) {
     const settings = context.getSettings();
@@ -57690,10 +57828,10 @@ ${newTabCardReading(card)}`;
     }
     return out;
   }
-  function addJpdbCardStateBreakdown(out, state) {
-    const update = JPDB_CARD_STATE_BREAKDOWN_UPDATES[state];
+  function addJpdbCardStateBreakdown(out, state2) {
+    const update = JPDB_CARD_STATE_BREAKDOWN_UPDATES[state2];
     if (update) update(out);
-    else if (JPDB_IGNORED_STATES.has(state)) out.ignored += 1;
+    else if (JPDB_IGNORED_STATES.has(state2)) out.ignored += 1;
     else out.review += 1;
   }
   const JPDB_CARD_STATE_BREAKDOWN_UPDATES = {
@@ -60292,8 +60430,8 @@ ${entry.url}`),
   function normalizedKeywordText(value) {
     return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   }
-  function sourceResult(value, state) {
-    return { value, state };
+  function sourceResult(value, state2) {
+    return { value, state: state2 };
   }
   function searchParentMeaningKeys(cards, kanji) {
     return new Set(cards.filter((card) => card.spelling !== kanji && kanjiCharacters(card.spelling).includes(kanji)).flatMap((card) => firstCardMeaning(card).split(/;\s*/u)).map(normalizedKeywordText).filter(Boolean));
@@ -60345,8 +60483,8 @@ ${entry.url}`),
         source: this.effectiveNewTabSourceFromSettings(dependencies.getSettings())
       };
       if (routeSearchQuery) this.searchQuery = routeSearchQuery;
-      this.stateChannel = createNewTabStateChannel((state) => {
-        void this.applyExternalState(state);
+      this.stateChannel = createNewTabStateChannel((state2) => {
+        void this.applyExternalState(state2);
       });
       this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate((status) => this.applyJpdbBridgeStatus(status));
     }
@@ -61719,8 +61857,8 @@ ${entry.url}`),
     filterStatsStudyCards(cards) {
       if (this.statsStudyFilter !== "trouble") return cards;
       const trouble = cards.filter((card) => {
-        const state = primaryCardState(card.cardState);
-        return state === "failed" || state === "due";
+        const state2 = primaryCardState(card.cardState);
+        return state2 === "failed" || state2 === "due";
       });
       return trouble.length ? trouble : cards;
     }
@@ -62613,11 +62751,11 @@ ${entry.url}`),
     hasConfiguredApiReviewSource(settings) {
       return this.hasAvailableJpdbReviewSource(settings);
     }
-    async applyExternalState(state) {
-      if (JSON.stringify(this.state) === JSON.stringify(state)) return;
+    async applyExternalState(state2) {
+      if (JSON.stringify(this.state) === JSON.stringify(state2)) return;
       const preferredCardKey = this.currentVisibleWordKey();
-      const sourceChanged = this.state.source !== state.source;
-      this.state = state;
+      const sourceChanged = this.state.source !== state2.source;
+      this.state = state2;
       const root = document.querySelector("[data-jpdb-reader-root].jpdb-reader-newtab");
       if (!root) return;
       this.syncMode(root);
@@ -62953,8 +63091,8 @@ ${entry.url}`),
       root.classList.toggle("jpdb-reader-newtab-review-mode", this.canReviewCard(card));
       this.syncThemeToggle(root);
       const slots = this.studySlots(root);
-      const state = primaryCardState(card.cardState);
-      this.renderPromptForMode(slots, card, state, renderAsKanji);
+      const state2 = primaryCardState(card.cardState);
+      this.renderPromptForMode(slots, card, state2, renderAsKanji);
       this.renderSessionProgress(slots, card);
       if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
       this.renderControls(slots, card);
@@ -62965,9 +63103,9 @@ ${entry.url}`),
       this.prefetchNearbyWordPitch(card);
       this.prefetchNearbyImmersionExamples(card, prefetchGeneration);
     }
-    renderPromptForMode(slots, card, state, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
+    renderPromptForMode(slots, card, state2, renderAsKanji = this.shouldRenderCardAsKanji(card)) {
       if (renderAsKanji) this.renderKanjiPrompt(slots, card);
-      else this.renderWordPrompt(slots, card, state);
+      else this.renderWordPrompt(slots, card, state2);
     }
     shouldRenderCardAsKanji(card) {
       return this.state.mode === "kanji" || this.isLiveJpdbKanjiReviewCard(card) || isKanjiUnlockStudyCard(card);
@@ -63468,13 +63606,13 @@ ${entry.url}`),
         }
       });
     }
-    renderWordPrompt(slots, card, state) {
+    renderWordPrompt(slots, card, state2) {
       if (this.renderAnkiRenderedWordPrompt(slots, card)) return;
       if (slots.prompt) {
         const sentence = this.frontSentenceFromCard(card);
-        this.renderWordPromptContent(slots.prompt, card, state, sentence);
+        this.renderWordPromptContent(slots.prompt, card, state2, sentence);
         void this.enrichWordPitch(slots.prompt, card);
-        void this.enrichWordPromptSentence(slots.prompt, card, state, sentence);
+        void this.enrichWordPromptSentence(slots.prompt, card, state2, sentence);
       }
       this.renderWordAnswer(slots.answer, card);
       this.renderWordMeaning(slots.meaning, card);
@@ -63610,7 +63748,7 @@ ${entry.url}`),
       const primaryCardId = Number(card.ankiCardId ?? card.rid);
       return cards.find((rendered) => rendered.cardId === primaryCardId) ?? cards[0] ?? null;
     }
-    renderWordPromptContent(prompt, card, state, sentence) {
+    renderWordPromptContent(prompt, card, state2, sentence) {
       prompt.lang = "ja";
       prompt.dataset.newtabExpression = "true";
       prompt.classList.remove("jpdb-reader-newtab-prompt-anki-card");
@@ -63618,20 +63756,20 @@ ${entry.url}`),
       prompt.classList.toggle("jpdb-reader-newtab-prompt-has-sentence", Boolean(sentence));
       delete prompt.dataset.newtabSentenceRequest;
       delete prompt.dataset.newtabPromptParseRequest;
-      replaceChildrenWith(prompt, this.renderSentencePrompt(card, state, sentence));
+      replaceChildrenWith(prompt, this.renderSentencePrompt(card, state2, sentence));
       void this.parseNewTabPromptSentence(prompt, card);
     }
-    renderSentencePrompt(card, state, sentence = "") {
+    renderSentencePrompt(card, state2, sentence = "") {
       const wrap = el(
         "span",
         { class: "jpdb-reader-newtab-front" },
-        el("span", { class: "jpdb-reader-newtab-term" }, this.renderReaderWord(card, state, card.spelling, sentence || card.spelling))
+        el("span", { class: "jpdb-reader-newtab-term" }, this.renderReaderWord(card, state2, card.spelling, sentence || card.spelling))
       );
       if (!sentence) return wrap;
-      wrap.append(this.renderWordPromptSentenceNode(card, state, sentence));
+      wrap.append(this.renderWordPromptSentenceNode(card, state2, sentence));
       return wrap;
     }
-    renderWordPromptSentenceNode(card, state, sentence) {
+    renderWordPromptSentenceNode(card, state2, sentence) {
       const sentenceWrap = el("span", { class: "jpdb-reader-newtab-sentence" });
       if (this.shouldRenderPlainSentencePrompt(card, sentence)) {
         sentenceWrap.append(document.createTextNode(sentence));
@@ -63647,7 +63785,7 @@ ${entry.url}`),
       }
       const start = sentence.indexOf(target);
       sentenceWrap.append(document.createTextNode(sentence.slice(0, start)));
-      sentenceWrap.append(this.renderReaderWord(card, state, target, sentence));
+      sentenceWrap.append(this.renderReaderWord(card, state2, target, sentence));
       sentenceWrap.append(document.createTextNode(sentence.slice(start + target.length)));
       return sentenceWrap;
     }
@@ -63672,25 +63810,25 @@ ${entry.url}`),
     canApplyNewTabPromptParse(prompt, key, requestId) {
       return prompt.isConnected && prompt.dataset.newtabPromptParseRequest === requestId && cardKey(this.visibleWords[this.index]) === key && this.state.mode === "word";
     }
-    async enrichWordPromptSentence(prompt, card, state, currentSentence) {
+    async enrichWordPromptSentence(prompt, card, state2, currentSentence) {
       if (currentSentence || !this.shouldShowFrontSentence()) return;
       const key = cardKey(card);
       const requestId = `${key}:${performance.now()}:${Math.random()}`;
       prompt.dataset.newtabSentenceRequest = requestId;
       const sentence = await this.loadFrontSentence(card);
       if (!sentence || !this.canApplyFrontSentence(prompt, key, requestId)) return;
-      this.applyFrontSentence(prompt, card, state, sentence);
+      this.applyFrontSentence(prompt, card, state2, sentence);
     }
-    applyFrontSentence(prompt, card, state, sentence) {
+    applyFrontSentence(prompt, card, state2, sentence) {
       const wrap = prompt.querySelector(":scope > .jpdb-reader-newtab-front");
       if (!wrap) {
-        this.renderWordPromptContent(prompt, card, state, sentence);
+        this.renderWordPromptContent(prompt, card, state2, sentence);
         return;
       }
       prompt.classList.toggle("jpdb-reader-newtab-prompt-has-sentence", Boolean(sentence));
       this.updatePromptTermSentence(wrap, sentence || card.spelling);
       wrap.querySelectorAll(":scope > .jpdb-reader-newtab-sentence").forEach((node) => node.remove());
-      if (sentence) wrap.append(this.renderWordPromptSentenceNode(card, state, sentence));
+      if (sentence) wrap.append(this.renderWordPromptSentenceNode(card, state2, sentence));
       void this.parseNewTabPromptSentence(prompt, card);
     }
     updatePromptTermSentence(wrap, sentence) {
@@ -63855,7 +63993,7 @@ ${entry.url}`),
       }
     }
     applyNewTabParsedTargetCardIdentity(word, card, surface) {
-      const state = primaryCardState(card.cardState);
+      const state2 = primaryCardState(card.cardState);
       const sourceClass = card.source === "anki" || card.reviewSource === "anki" ? "anki" : "jpdb";
       const pitchClass = newTabPitchClass(card);
       for (const cls of Array.from(word.classList)) {
@@ -63867,7 +64005,7 @@ ${entry.url}`),
           word.classList.remove(cls);
         }
       }
-      word.classList.add(`${sourceClass}-${state}`, `jpdb-pitch-${pitchClass}`);
+      word.classList.add(`${sourceClass}-${state2}`, `jpdb-pitch-${pitchClass}`);
       word.dataset.vid = String(card.vid);
       word.dataset.sid = String(card.sid);
       word.dataset.expression = card.spelling;
@@ -64370,7 +64508,7 @@ ${entry.url}`),
     }
     kanjiSourcesUnavailable(details) {
       const states = Object.values(details.sourceStates);
-      return states.some((state) => state === "unavailable") && states.every((state) => state === "disabled" || state === "unavailable");
+      return states.some((state2) => state2 === "unavailable") && states.every((state2) => state2 === "disabled" || state2 === "unavailable");
     }
     async applyEnrichedUchisenKeyword(slots, card, kanji, details) {
       if (!slots.prompt || this.state.revealAnswer) return;
@@ -66398,8 +66536,8 @@ ${entry.url}`),
       if (!target) throw new Error(this.text("couldNotSubmitGrade"));
       if (target.kind === "anki") {
         const refreshed = await this.submitAnkiGrade(card, grade, target.ankiCardId);
-        const state = refreshed ? this.ankiLookupStateForCardId(refreshed, target.ankiCardId) ?? refreshed.state : null;
-        return state ? this.lookupReviewTargetWithAnkiState(target, state) : target;
+        const state2 = refreshed ? this.ankiLookupStateForCardId(refreshed, target.ankiCardId) ?? refreshed.state : null;
+        return state2 ? this.lookupReviewTargetWithAnkiState(target, state2) : target;
       }
       const apiTarget = this.reviewTargetForLookupKind(card, target.kind);
       if (!apiTarget) throw new Error(this.text("couldNotSubmitGrade"));
@@ -66618,10 +66756,10 @@ ${entry.url}`),
     ankiNoteHasCardId(note, cardId) {
       return Number.isFinite(cardId) && cardId > 0 && (note.primaryCardId === cardId || note.cardIds.includes(cardId) || Boolean(note.renderedCards?.some((rendered) => rendered.cardId === cardId)));
     }
-    lookupReviewTargetWithAnkiState(target, state) {
+    lookupReviewTargetWithAnkiState(target, state2) {
       return {
         ...target,
-        shortLabel: `${target.shortLabel} · ${searchCardStateLabel(state, this.language())}`
+        shortLabel: `${target.shortLabel} · ${searchCardStateLabel(state2, this.language())}`
       };
     }
     invalidateReviewSourceCache(card) {
@@ -66874,12 +67012,12 @@ ${entry.url}`),
         sourceLabel: this.localizedSourceLabel(cached?.sourceLabel || this.text("cachedReviews"))
       };
     }
-    renderReaderWord(card, state, text2 = card.spelling, sentence = card.sentence || card.spelling) {
+    renderReaderWord(card, state2, text2 = card.spelling, sentence = card.sentence || card.spelling) {
       const sourceClass = card.source === "anki" ? "anki" : "jpdb";
       const pitchClass = newTabPitchClass(card);
       const reading = newTabCardReading(card);
       return el("span", {
-        class: `jpdb-reader-word ${sourceClass}-${state} jpdb-pitch-${pitchClass}`,
+        class: `jpdb-reader-word ${sourceClass}-${state2} jpdb-pitch-${pitchClass}`,
         dataset: {
           action: "lookup",
           term: text2,
@@ -67737,7 +67875,7 @@ ${entry.url}`),
   }
   function setRenderedWordCardIdentity(word, card) {
     const source = renderedWordCardSource(card);
-    const state = primaryCardState(card.cardState);
+    const state2 = primaryCardState(card.cardState);
     clearRenderedWordCardStateClasses(word);
     clearRenderedWordDeckMembershipClasses(word, ["anki"]);
     word.dataset.vid = String(card.vid);
@@ -67745,11 +67883,11 @@ ${entry.url}`),
     word.dataset.cardSource = source;
     word.dataset.cardId = String(renderedWordCardId(card, source));
     word.dataset.readingIndex = String(renderedWordReadingIndex(card, source));
-    word.dataset.cardState = state;
+    word.dataset.cardState = state2;
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
-    word.classList.add(`jpdb-${state}`);
-    if (source !== "jpdb") word.classList.add(`${source}-${state}`);
+    word.classList.add(`jpdb-${state2}`);
+    if (source !== "jpdb") word.classList.add(`${source}-${state2}`);
     applyRenderedWordDeckMembership(word, card);
   }
   function clearRenderedWordCardStateClasses(word) {
@@ -67763,7 +67901,7 @@ ${entry.url}`),
     delete word.dataset.deckNames;
   }
   function isRenderedWordCardStateClass(className) {
-    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state) => className === `${prefix}-${state}`));
+    return RENDERED_WORD_CARD_STATE_PREFIXES.some((prefix) => RENDERED_WORD_CARD_STATES.some((state2) => className === `${prefix}-${state2}`));
   }
   function isRenderedWordDeckMembershipClass(className, preserveSources) {
     if (className === "yomu-deck-member") return false;
@@ -68114,11 +68252,11 @@ ${entry.url}`),
     root.style.setProperty("--jpdb-reader-accent-text", readableTextOnAccent(accentColor), "important");
   }
   function applyReaderWordColors(settings, root = document.documentElement) {
-    Object.entries(readerStateColors(settings)).forEach(([state, color]) => {
-      root.style.setProperty(`--jpdb-reader-state-${state}`, color);
-      root.style.setProperty(`--jpdb-reader-state-${state}-readable`, readableThemeColorOnSurface(color, root));
-      root.style.setProperty(`--jpdb-reader-state-${state}-soft`, accentToRgba(color, 0.16));
-      root.style.setProperty(`--jpdb-reader-state-${state}-strong`, accentToRgba(color, 0.28));
+    Object.entries(readerStateColors(settings)).forEach(([state2, color]) => {
+      root.style.setProperty(`--jpdb-reader-state-${state2}`, color);
+      root.style.setProperty(`--jpdb-reader-state-${state2}-readable`, readableThemeColorOnSurface(color, root));
+      root.style.setProperty(`--jpdb-reader-state-${state2}-soft`, accentToRgba(color, 0.16));
+      root.style.setProperty(`--jpdb-reader-state-${state2}-strong`, accentToRgba(color, 0.28));
     });
     Object.entries(readerPitchColors(settings)).forEach(([pattern, { color, alpha }]) => {
       root.style.setProperty(`--jpdb-reader-pitch-${pattern}`, color);
@@ -70344,8 +70482,8 @@ ${entry.url}`),
     lookupPopoverLockedPosition(popover) {
       return popover.dataset.jpdbReaderPositionLocked === "true" ? this.lockedLookupPopoverPosition() : void 0;
     }
-    restoreLookupPopoverScrollState(state) {
-      if (state.body && state.body.scrollTop !== state.scrollTop) state.body.scrollTop = state.scrollTop;
+    restoreLookupPopoverScrollState(state2) {
+      if (state2.body && state2.body.scrollTop !== state2.scrollTop) state2.body.scrollTop = state2.scrollTop;
     }
     lockedLookupPopoverPosition() {
       if (!this.activeLookupPopover) return void 0;
@@ -70516,7 +70654,7 @@ ${entry.url}`),
     renderedWordSelector(card) {
       return `.jpdb-reader-word[data-vid="${card.vid}"][data-sid="${card.sid}"]`;
     }
-    cardStateText(state) {
+    cardStateText(state2) {
       const keys = {
         new: "stateNew",
         learning: "stateLearning",
@@ -70531,8 +70669,8 @@ ${entry.url}`),
         "in-deck": "stateInDeck",
         "not-in-deck": "stateNotInDeck"
       };
-      const key = keys[state];
-      return key ? this.text(key) : state.replace(/-/g, " ");
+      const key = keys[state2];
+      return key ? this.text(key) : state2.replace(/-/g, " ");
     }
     restoreSettingsPreviewState() {
       if (this.settingsPreviewOriginalAccent !== void 0) {
