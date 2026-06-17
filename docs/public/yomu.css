@@ -1466,15 +1466,14 @@
 }
 
 /* Vertical-text OCR (mokuro / vertical manga & light novels): the reading
-   belongs to the RIGHT of the kanji column, running top-to-bottom — real
-   vertical ruby. The shared .jpdb-ocr-furi anchor (top:0; left:50%;
-   translateX) is the horizontal "reading above the word" geometry; in a
-   writing-mode:vertical-rl line that physical top/left drops the reading on top
-   of the first glyph of the column (user feedback: "furigana is covering the
-   characters" / "reading wrong position"). Re-anchor the furigana to the right
-   edge of its own base run, centered along the run and stacking vertically, so
-   each reading sits beside the characters it annotates. Scoped to
-   [data-vertical="true"] so horizontal furigana-above is left untouched. */
+   belongs to the RIGHT of the kanji column, running top-to-bottom: real
+   vertical ruby. The shared .jpdb-ocr-furi anchor is the horizontal
+   "reading above the base span" geometry; in a writing-mode:vertical-rl line
+   that physical top/left drops the reading on top of the first glyph of the
+   column. Re-anchor the furigana to the right edge of its own base run,
+   centered along the run and stacking vertically, so each reading sits beside
+   the characters it annotates. Scoped to [data-vertical="true"] so horizontal
+   furigana-above is left untouched. */
 .jpdb-ocr-line[data-vertical="true"] .jpdb-ocr-ruby {
   padding-top: 0;
 }
