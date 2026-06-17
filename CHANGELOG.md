@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.22] - 2026-06-17
+
+### Fixed
+
+- BookWalker/iPad bottom-sheet lookups now keep their own vertical scroll gestures instead of letting the host viewer's page-level touch handlers swallow them. This restores scrolling inside long dictionary sheets while keeping the sticky sheet modeless.
+
 ## [1.3.21] - 2026-06-17
 
 ### Fixed

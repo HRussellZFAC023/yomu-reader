@@ -987,6 +987,7 @@ html.jpdb-reader-doodle-active * {
   padding: 14px;
   overscroll-behavior: contain;
   scrollbar-gutter: auto;
+  touch-action: pan-y;
 }
 .jpdb-reader-popover-body > * {
   min-width: 0;

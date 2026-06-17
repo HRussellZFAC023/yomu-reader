@@ -4061,6 +4061,49 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps sheet body pan gestures away from host page touch handlers', () => {
+        const app = new ReaderApp();
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
+        const internals = app as unknown as {
+            settings: typeof settings;
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover' }): void;
+        };
+        internals.settings = settings;
+        const hostTouchMove = vi.fn();
+        const hostWheel = vi.fn();
+        document.addEventListener('touchmove', hostTouchMove);
+        document.addEventListener('wheel', hostWheel);
+
+        try {
+            const popover = createReaderPopover('よむ', settings);
+            popover.innerHTML = `
+                <div class="jpdb-reader-sheet-handle"></div>
+                <div class="jpdb-reader-popover-body">
+                    <p>人物</p>
+                    <div style="height: 900px"></div>
+                </div>
+            `;
+            internals.mountPopover(popover, undefined, { mode: 'modal' });
+            const body = popover.querySelector<HTMLElement>('.jpdb-reader-popover-body')!;
+
+            body.dispatchEvent(new Event('touchmove', { bubbles: true, cancelable: true }));
+            body.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true }));
+
+            expect(hostTouchMove).not.toHaveBeenCalled();
+            expect(hostWheel).not.toHaveBeenCalled();
+        } finally {
+            document.removeEventListener('touchmove', hostTouchMove);
+            document.removeEventListener('wheel', hostWheel);
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('pins sheet body vertical pan ownership in CSS', () => {
+        const normalizedCss = POPOVER_CORE_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain('overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px; scrollbar-gutter: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;');
+    });
+
     it('can mount click popovers without dimming the page', () => {
         const app = new ReaderApp();
         const settings = {

@@ -110,6 +110,7 @@
   overscroll-behavior: contain;
   padding: 14px 16px;
   scrollbar-gutter: auto;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
 

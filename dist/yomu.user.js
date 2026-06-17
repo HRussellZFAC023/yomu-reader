@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.21
+// @version      1.3.22
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.21#sha256-JeEbVY/hyWzQzpZG7YgTt8xfvaKevWACzmIGxmNLnTI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.21#sha256-MZVWqwkIITDKnrmUo6pVlMMdnMpk9B3yDtd1O8DOwko=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.21#sha256-Fg5ZJI9o7mn3uV7h5aG+4xj8fiFh3Ac/LzP0fNp5mhI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.21#sha256-nqO1h3cYg0XC8fyBiyEjjZfjQqPw9IUSWbGCCNwbX5M=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.22#sha256-JeEbVY/hyWzQzpZG7YgTt8xfvaKevWACzmIGxmNLnTI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.22#sha256-MZVWqwkIITDKnrmUo6pVlMMdnMpk9B3yDtd1O8DOwko=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.22#sha256-Fg5ZJI9o7mn3uV7h5aG+4xj8fiFh3Ac/LzP0fNp5mhI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.22#sha256-nqO1h3cYg0XC8fyBiyEjjZfjQqPw9IUSWbGCCNwbX5M=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -33629,6 +33629,16 @@ ${glossaryKey}`;
   function installPopoverBodyStabilizers(popover) {
     if (popover.dataset.jpdbReaderBodyStabilizers === "true") return;
     popover.dataset.jpdbReaderBodyStabilizers = "true";
+    popover.addEventListener("touchmove", (event) => {
+      const target = event.target instanceof Node ? event.target : null;
+      const scrollBody = popoverScrollBody(popover);
+      if (target && scrollBody.contains(target)) event.stopPropagation();
+    }, { capture: true, passive: true });
+    popover.addEventListener("wheel", (event) => {
+      const target = event.target instanceof Node ? event.target : null;
+      const scrollBody = popoverScrollBody(popover);
+      if (target && scrollBody.contains(target)) event.stopPropagation();
+    }, { capture: true, passive: true });
     popover.addEventListener("click", (event) => {
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (!target) return;

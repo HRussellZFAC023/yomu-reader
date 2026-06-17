@@ -68895,6 +68895,16 @@ ${entry.url}`),
   function installPopoverBodyStabilizers(popover) {
     if (popover.dataset.jpdbReaderBodyStabilizers === "true") return;
     popover.dataset.jpdbReaderBodyStabilizers = "true";
+    popover.addEventListener("touchmove", (event) => {
+      const target = event.target instanceof Node ? event.target : null;
+      const scrollBody = popoverScrollBody(popover);
+      if (target && scrollBody.contains(target)) event.stopPropagation();
+    }, { capture: true, passive: true });
+    popover.addEventListener("wheel", (event) => {
+      const target = event.target instanceof Node ? event.target : null;
+      const scrollBody = popoverScrollBody(popover);
+      if (target && scrollBody.contains(target)) event.stopPropagation();
+    }, { capture: true, passive: true });
     popover.addEventListener("click", (event) => {
       const target = event.target instanceof HTMLElement ? event.target : null;
       if (!target) return;

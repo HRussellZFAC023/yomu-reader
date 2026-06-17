@@ -6733,6 +6733,7 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   overscroll-behavior: contain;
   padding: 14px 16px;
   scrollbar-gutter: auto;
+  touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -10890,6 +10891,7 @@ html.jpdb-reader-doodle-active * {
   padding: 14px;
   overscroll-behavior: contain;
   scrollbar-gutter: auto;
+  touch-action: pan-y;
 }
 .jpdb-reader-popover-body > * {
   min-width: 0;
