@@ -6445,13 +6445,14 @@ describe('reader helpers', () => {
         const cases = [
             { surface: '始める', reading: 'はじめる', rubies: [], bases: ['始'], furis: ['はじ'] },
             { surface: '読み', reading: 'よみ', rubies: [{ text: 'よみ', start: 0, end: 2, length: 2 }], bases: ['読'], furis: ['よ'] },
+            { surface: '読んで', spelling: '読む', reading: 'よむ', rubies: [], bases: ['読'], furis: ['よ'] },
             { surface: '問い合わせ', reading: 'といあわせ', rubies: [], bases: ['問', '合'], furis: ['と', 'あ'] },
         ];
 
         try {
             for (const item of cases) {
                 document.body.innerHTML = renderTokensToHtml(item.surface, [{
-                    card: { ...card, spelling: item.surface, reading: item.reading },
+                    card: { ...card, spelling: item.spelling ?? item.surface, reading: item.reading },
                     start: 0,
                     end: item.surface.length,
                     length: item.surface.length,

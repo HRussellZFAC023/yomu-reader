@@ -2598,6 +2598,14 @@ function sourceTokenRubies(surface: string, token: JPDBToken): JPDBToken['rubies
 
     const reading = token.card.reading.trim();
     if (!surface || !KANJI_RE.test(surface) || !reading || reading === surface || !KANA_RE.test(reading)) return [];
+    const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
+    if (inferred.length) {
+        return inferred.map(ruby => ({
+            ...ruby,
+            start: token.start + ruby.start,
+            end: token.start + ruby.end,
+        }));
+    }
     return [{ text: reading, start: token.start, end: token.end, length: token.length }];
 }
 
