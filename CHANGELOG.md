@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.10] - 2026-06-17
+
+### Fixed
+
+- BookWalker OCR still didn't fire on Firefox/iPad after 1.3.8: the canvas-mirror recorder is installed from the Tampermonkey content sandbox while the OCR reader runs in the page main world — different JS realms with different `globalThis`, so the "shared" recorder state wasn't actually shared (`recorded: false`). The recorder state is now anchored on the page window (`unsafeWindow`/`window`, the same object from both realms) and records are keyed by a DOM-attribute id (the DOM is shared across realms) instead of per-realm object references. `captureCanvasMirror` also lazily installs the recorder as a safety net. A diagnostic probe confirmed the sandbox/main-world hooks all capture the viewer's descramble ops and the rebuild is readable on Firefox.
+
 ## [1.3.9] - 2026-06-17
 
 ### Added
