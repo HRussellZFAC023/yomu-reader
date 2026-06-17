@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-XTIHPt4JN8Y3H8H3LgvTf3HDOXkFSMYqJN0DuK5gR8A=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-i9zjqe33+JvpY1AMV+ZglNhqejPGhoI9XrptY/gsS30=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-sUTpMa+iUOJMfFAjBCWiosIbPv3L8pkqqRcT30ZNLDY=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -32930,6 +32930,136 @@ ${glossaryKey}`;
     const maxHeight = Number.parseFloat(popover.style.maxHeight);
     if (Number.isFinite(maxHeight) && maxHeight > 0) popover.style.height = `${maxHeight}px`;
   }
+  const MOKURO_OCR_DEFAULT_MARKER = "yomu_mokuro_ocr_default_applied";
+  const MOKURO_TOGGLE_LABEL = "OCR enabled";
+  const MOKURO_TOGGLE_NOTE = "off = Yomu OCR · on = mokuro OCR";
+  function isMokuroReaderHost(hostname = location.hostname, pathname = location.pathname, protocol = location.protocol) {
+    return hostname === "reader.mokuro.app" || hostname === "mokuro.moe" || hostname.endsWith(".mokuro.moe") || protocol === "file:" && /mokuro/i.test(safeDecode(pathname));
+  }
+  function safeDecode(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function defaultMokuroProfileOcrOffOnce(storage) {
+    try {
+      if (storage.getItem(MOKURO_OCR_DEFAULT_MARKER)) return false;
+      storage.setItem(MOKURO_OCR_DEFAULT_MARKER, "1");
+      const raw = storage.getItem("profiles");
+      if (!raw) return false;
+      const profiles = JSON.parse(raw);
+      const currentRaw = storage.getItem("currentProfile") ?? "Default";
+      let current = currentRaw;
+      try {
+        current = JSON.parse(currentRaw);
+      } catch {
+      }
+      const profile = profiles[current] ?? profiles[currentRaw];
+      if (!profile || typeof profile !== "object" || profile.displayOCR === false) return false;
+      profile.displayOCR = false;
+      storage.setItem("profiles", JSON.stringify(profiles));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function applyMokuroReaderOcrDefault() {
+    if (typeof localStorage === "undefined" || !isMokuroReaderHost()) return;
+    defaultMokuroProfileOcrOffOnce(localStorage);
+  }
+  function injectMokuroToggleNote(root) {
+    for (const el of root.querySelectorAll("label, span, p, div")) {
+      if (elementOwnText(el) !== MOKURO_TOGGLE_LABEL) continue;
+      if (el.querySelector("[data-yomu-mokuro-note]")) continue;
+      const note = document.createElement("span");
+      note.dataset.yomuMokuroNote = "true";
+      note.className = "yomu-mokuro-ocr-note";
+      note.textContent = ` (${MOKURO_TOGGLE_NOTE})`;
+      el.append(note);
+    }
+  }
+  function elementOwnText(el) {
+    let text2 = "";
+    el.childNodes.forEach((node) => {
+      if (node.nodeType === 3) text2 += node.textContent ?? "";
+    });
+    return text2.trim();
+  }
+  function findMokuroOcrToggleInputs(root) {
+    const inputs = [];
+    for (const el of root.querySelectorAll("label, span, p, div")) {
+      if (elementOwnText(el) !== MOKURO_TOGGLE_LABEL) continue;
+      const input = el.querySelector('input[type="checkbox"]');
+      if (input) inputs.push(input);
+    }
+    return inputs;
+  }
+  function watchMokuroOcrToggle(onChange) {
+    if (typeof document === "undefined" || typeof window === "undefined" || !isMokuroReaderHost()) return () => void 0;
+    let last = mokuroDisplayOcrEnabled();
+    let scheduled = false;
+    const fireIfChanged = () => {
+      scheduled = false;
+      const next = mokuroDisplayOcrEnabled();
+      if (next === last) return;
+      last = next;
+      onChange(next);
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16))(fireIfChanged);
+    };
+    const bindToggleInputs = () => {
+      for (const input of findMokuroOcrToggleInputs(document)) {
+        if (input.dataset.yomuMokuroToggleWatched) continue;
+        input.dataset.yomuMokuroToggleWatched = "true";
+        input.addEventListener("change", schedule);
+      }
+    };
+    bindToggleInputs();
+    const observer = new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.addedNodes.length) {
+          bindToggleInputs();
+          return;
+        }
+      }
+    });
+    observer.observe(document.body ?? document.documentElement, { childList: true, subtree: true });
+    const onStorage = (event) => {
+      if (event.key === "profiles" || event.key === "currentProfile" || event.key === null) schedule();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("storage", onStorage);
+    };
+  }
+  function installMokuroOcrToggleNote() {
+    if (typeof document === "undefined" || !isMokuroReaderHost()) return;
+    let scheduled = false;
+    const run = () => {
+      scheduled = false;
+      injectMokuroToggleNote(document);
+    };
+    const schedule = () => {
+      if (scheduled) return;
+      scheduled = true;
+      (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16))(run);
+    };
+    run();
+    new MutationObserver((records) => {
+      for (const record of records) {
+        if (record.addedNodes.length) {
+          schedule();
+          return;
+        }
+      }
+    }).observe(document.body ?? document.documentElement, { childList: true, subtree: true });
+  }
   const MINING_ACTIONS_CLASS = "jpdb-reader-actions";
   const MINING_COLLAPSED_CLASS = "jpdb-reader-actions-mining-collapsed";
   const DECK_PICKER_OPEN_CLASS = "jpdb-reader-add-deck-select-open";
@@ -36744,6 +36874,7 @@ ${glossaryKey}`;
     });
     unsubscribeCardStateSignals;
     unsubscribeSettingsStorageChanges;
+    disposeMokuroOcrToggleWatch;
     factoryReset = createFactoryResetCoordinator({
       dictionaries: this.dictionaries,
       isDestroyed: () => this.isDestroyed,
@@ -36942,6 +37073,8 @@ ${glossaryKey}`;
       this.installFab();
       this.subtitles.init();
       this.ocr.init();
+      this.disposeMokuroOcrToggleWatch?.();
+      this.disposeMokuroOcrToggleWatch = watchMokuroOcrToggle(() => this.ocr.reassessAutoScan());
       this.youtube.init();
       this.setupAutoScan();
       this.initJpdbPageEnhancements();
@@ -37501,6 +37634,8 @@ ${glossaryKey}`;
     }
     destroy(options = {}) {
       this.isDestroyed = true;
+      this.disposeMokuroOcrToggleWatch?.();
+      this.disposeMokuroOcrToggleWatch = void 0;
       this.unsubscribeCardStateSignals?.();
       this.unsubscribeCardStateSignals = void 0;
       this.unsubscribeSettingsStorageChanges?.();
@@ -42458,85 +42593,6 @@ ${span.end}`;
   function releaseRuntime(ownerId) {
     const marker = document.getElementById(RUNTIME_MARKER_ID);
     if (marker?.dataset.yomuRuntimeOwner === ownerId) marker.remove();
-  }
-  const MOKURO_OCR_DEFAULT_MARKER = "yomu_mokuro_ocr_default_applied";
-  const MOKURO_TOGGLE_LABEL = "OCR enabled";
-  const MOKURO_TOGGLE_NOTE = "off = Yomu OCR · on = mokuro OCR";
-  function isMokuroReaderHost(hostname = location.hostname, pathname = location.pathname, protocol = location.protocol) {
-    return hostname === "reader.mokuro.app" || hostname === "mokuro.moe" || hostname.endsWith(".mokuro.moe") || protocol === "file:" && /mokuro/i.test(safeDecode(pathname));
-  }
-  function safeDecode(value) {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  }
-  function defaultMokuroProfileOcrOffOnce(storage) {
-    try {
-      if (storage.getItem(MOKURO_OCR_DEFAULT_MARKER)) return false;
-      storage.setItem(MOKURO_OCR_DEFAULT_MARKER, "1");
-      const raw = storage.getItem("profiles");
-      if (!raw) return false;
-      const profiles = JSON.parse(raw);
-      const currentRaw = storage.getItem("currentProfile") ?? "Default";
-      let current = currentRaw;
-      try {
-        current = JSON.parse(currentRaw);
-      } catch {
-      }
-      const profile = profiles[current] ?? profiles[currentRaw];
-      if (!profile || typeof profile !== "object" || profile.displayOCR === false) return false;
-      profile.displayOCR = false;
-      storage.setItem("profiles", JSON.stringify(profiles));
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function applyMokuroReaderOcrDefault() {
-    if (typeof localStorage === "undefined" || !isMokuroReaderHost()) return;
-    defaultMokuroProfileOcrOffOnce(localStorage);
-  }
-  function injectMokuroToggleNote(root) {
-    for (const el of root.querySelectorAll("label, span, p, div")) {
-      if (elementOwnText(el) !== MOKURO_TOGGLE_LABEL) continue;
-      if (el.querySelector("[data-yomu-mokuro-note]")) continue;
-      const note = document.createElement("span");
-      note.dataset.yomuMokuroNote = "true";
-      note.className = "yomu-mokuro-ocr-note";
-      note.textContent = ` (${MOKURO_TOGGLE_NOTE})`;
-      el.append(note);
-    }
-  }
-  function elementOwnText(el) {
-    let text2 = "";
-    el.childNodes.forEach((node) => {
-      if (node.nodeType === 3) text2 += node.textContent ?? "";
-    });
-    return text2.trim();
-  }
-  function installMokuroOcrToggleNote() {
-    if (typeof document === "undefined" || !isMokuroReaderHost()) return;
-    let scheduled = false;
-    const run = () => {
-      scheduled = false;
-      injectMokuroToggleNote(document);
-    };
-    const schedule = () => {
-      if (scheduled) return;
-      scheduled = true;
-      (typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 16))(run);
-    };
-    run();
-    new MutationObserver((records) => {
-      for (const record of records) {
-        if (record.addedNodes.length) {
-          schedule();
-          return;
-        }
-      }
-    }).observe(document.body ?? document.documentElement, { childList: true, subtree: true });
   }
   installPreferredJapaneseSiteLanguageFromStoredSettings();
   applyMokuroReaderOcrDefault();

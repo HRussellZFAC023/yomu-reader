@@ -24,7 +24,6 @@ export function isOcrLineFrameWord(word: HTMLElement): boolean {
 export function ocrLineWordAtPoint(line: HTMLElement, x: number, y: number): HTMLElement | null {
     const words = Array.from(line.querySelectorAll<HTMLElement>('.jpdb-reader-word[data-vid][data-sid]'));
     if (!words.length) return null;
-    if (words.length === 1) return words[0] ?? null;
     return words.find(word => pointInsideExpandedRect(word.getBoundingClientRect(), x, y, 8)) ?? null;
 }
 

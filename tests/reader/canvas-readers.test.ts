@@ -79,15 +79,33 @@ describe('canvas readers (BookWalker)', () => {
         expect(collectCanvasReaderSurfaces()).toHaveLength(1);
     });
 
-    it('collects the live viewer page canvases (#renderer/#viewport) but skips small decoys', () => {
+    it('collects only the on-screen (.currentScreen) live viewer page canvas, skipping decoys + the off-screen buffer', () => {
         mountLiveViewerFixture();
-        expect(isCanvasReaderPage()).toBe(true);
-        const surfaces = collectCanvasReaderSurfaces();
-        // The two big #viewport canvases; never the .dummy or #frontScreen 300×150
-        // decoys (rejected by the size floor). The off-screen #viewport buffer is
-        // narrowed away later by the controller's isHiddenByCss, not here.
-        expect(surfaces).toHaveLength(2);
+        expect(isCanvasReaderPage('viewer.bookwalker.jp')).toBe(true);
+        const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+        // NFBR double-buffers the page across #viewport0 (off-screen) + #viewport1
+        // (.currentScreen, on screen); both are page-sized. We keep ONLY the
+        // current buffer so the off-screen page never costs a (shared-quota) Lens
+        // call or stacks a stale overlay over the current page. The 300×150 .dummy
+        // and #frontScreen decoys are dropped by the size floor.
+        expect(surfaces).toHaveLength(1);
+        expect(surfaces[0]?.closest('#viewport1')).not.toBeNull();
         expect(surfaces.some(c => c.classList.contains('dummy'))).toBe(false);
+        expect(surfaces.every(c => c.width >= 600 && c.height >= 600)).toBe(true);
+    });
+
+    it('keeps every live viewer page canvas before a buffer is marked current (e.g. the cover)', () => {
+        // Before NFBR marks an on-screen buffer, no canvas carries .currentScreen;
+        // we must not drop the page, so all page-shaped canvases are kept.
+        document.body.innerHTML = `
+            <div id="renderer">
+                <canvas class="dummy" width="300" height="150"></canvas>
+                <div id="viewport0"><canvas width="2400" height="1794"></canvas></div>
+                <div id="viewport1"><canvas width="2400" height="1794"></canvas></div>
+            </div>
+            <span id="pageSliderCounter">1/13</span>`;
+        const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+        expect(surfaces).toHaveLength(2);
         expect(surfaces.every(c => c.width >= 600 && c.height >= 600)).toBe(true);
     });
 

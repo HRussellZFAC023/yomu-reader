@@ -21,7 +21,23 @@ export interface OcrResult {
 
 export function pushJapaneseOcrLine(lines: OcrLine[], text: string, box: OcrRect | null): void {
     if (!text || !box || !HAS_JAPANESE.test(text)) return;
-    lines.push({ text, box, vertical: box.height > box.width * 1.25 && text.length > 1 });
+    lines.push({ text, box, vertical: isVerticalOcrBox(box, text.length) });
+}
+
+// Orientation fallback for OCR engines that don't report a writing direction.
+// Vertical Japanese stacks N glyphs top-to-bottom, so its box is ~N glyphs tall
+// and one glyph wide (aspect ratio ≈ N); a horizontal line of N glyphs is the
+// transpose (aspect ≈ 1/N). So "taller than wide" is the vertical signal — but
+// a short 2–3 glyph phrase can be near-square either way, so it needs a clearer
+// margin than a longer column, where even a slightly-taller-than-wide box can
+// only be vertical (a horizontal run of 4+ glyphs is always much wider than
+// tall). A single glyph has no orientation. Previously this required a flat
+// 1.25 height/width ratio regardless of length, which misread near-square
+// vertical columns (e.g. a two-kanji 講師 box) as horizontal.
+export function isVerticalOcrBox(box: OcrRect, textLength: number): boolean {
+    if (textLength <= 1) return false;
+    const aspect = box.height / Math.max(1, box.width);
+    return aspect >= (textLength >= 4 ? 1.05 : 1.2);
 }
 
 export function clampBox(box: OcrRect, width: number, height: number): OcrRect | null {

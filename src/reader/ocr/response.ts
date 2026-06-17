@@ -1,7 +1,7 @@
 import { HAS_JAPANESE } from '../dom/index';
 import { normalizeCloudVisionResponse } from './cloud-vision';
 import { googleLensUploadCallbackLiteral, parseJsDataLiteral } from './google-lens-data';
-import { cleanOcrText, clampBox, numberFrom, pushJapaneseOcrLine, unionBoxes } from './response-shared';
+import { cleanOcrText, clampBox, isVerticalOcrBox, numberFrom, pushJapaneseOcrLine, unionBoxes } from './response-shared';
 import type { OcrLine, OcrRect, OcrResult } from './response-shared';
 import type { JPDBToken } from '../app/types';
 
@@ -230,7 +230,7 @@ function googleLensLine(
     return {
         text,
         box,
-        vertical: paragraphVertical || (box.height > box.width * 1.25 && text.length > 1),
+        vertical: paragraphVertical || isVerticalOcrBox(box, text.length),
     };
 }
 

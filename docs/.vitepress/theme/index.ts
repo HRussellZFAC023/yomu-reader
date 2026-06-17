@@ -111,9 +111,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Project': 'プロジェクト',
     'Free Japanese lookup and mining for the web': 'Webで使える無料の日本語ルックアップとマイニング',
     'Tap or hover Japanese text, read manga images, mine subtitles, import dictionaries, and save study cards without paying for a full study suite.': '日本語テキストをタップまたはホバーし、漫画画像を読み取り、字幕から採掘し、辞書をインポートし、学習カードを保存できます。',
-    'Install よむ': 'よむをインストール',
+    'Install よむ': 'インストール',
     'Setup Guide': 'セットアップガイド',
-    'Open Study App': '学習アプリを開く',
+    'Open Study App': '学習',
     'Install in minutes': '数分でインストール',
     'Add Tampermonkey or Userscripts, open the よむ install link, then refresh a Japanese page and tap a word.': 'TampermonkeyまたはUserscriptsを追加し、よむのインストールリンクを開いて、日本語ページを更新したら単語をタップします。',
     'Study from real material': '実際の素材で学習',
@@ -143,7 +143,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Install a userscript manager, add よむ, and try your first lookup.': 'ユーザースクリプト管理拡張を入れ、よむを追加して、最初の検索を試します。',
     'See the tools': 'ツールを見る',
     'Lookup, OCR, subtitles, kanji pages, JPDB, dictionaries, and Anki.': '検索、OCR、字幕、漢字ページ、JPDB、辞書、Anki。',
-    'Open study app': '学習アプリを開く',
+    'Open study app': '学習',
     'Review JPDB, Anki, or imported dictionary cards from the hosted app.': 'ホスト版アプリでJPDB、Anki、インポート辞書カードを復習します。',
     'Open video player': '動画プレイヤーを開く',
     'Use local browser-supported videos and subtitle files with よむ lookup.': 'ブラウザー対応のローカル動画と字幕ファイルでよむ検索を使えます。',
@@ -154,10 +154,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Free userscript now. Chrome, Firefox, and Safari packages are being prepared for store submission.': '現在は無料ユーザースクリプト版です。Chrome、Firefox、Safari版はストア提出準備中です。',
     'Released under the GPL-3.0-or-later license.': 'GPL-3.0-or-laterライセンスで公開されています。',
     'A free JPDB and Yomitan popup reader for Japanese text, manga, video subtitles, and mining.': '日本語テキスト、漫画、動画字幕、マイニング向けの無料JPDB/Yomitanポップアップリーダー。',
-    // Hard newline at the clause boundary so the headline breaks as
-    // 好きなものを読んで / 日本語を学ぶ instead of splitting a word (e.g. 読んで)
-    // mid-line. Rendered via `white-space: pre-line` on the JA hero headline.
-    'Learn Japanese by reading what you actually like': '好きなものを読んで\n日本語を学ぶ',
+    'Learn Japanese by reading what you actually like': '好きなものを読んで日本語を学ぶ',
     'Tap a word anywhere, understand it in context, save it for review, and keep reading. よむ turns real Japanese pages, manga, subtitles, and study sites into one connected immersion system.': 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。よむは実際の日本語ページ、漫画、字幕、学習サイトを1つのつながった没入システムにします。',
     'Read first': 'まず読む',
     'Extensive reading works because you meet vocabulary and grammar repeatedly in meaningful context. よむ removes just enough friction that you can stay inside the story.': '多読が効くのは、意味のある文脈の中で語彙や文法に何度も出会えるからです。よむは物語の中に留まれるだけの摩擦を取り除きます。',
