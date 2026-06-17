@@ -1445,6 +1445,8 @@ export class ReaderApp {
                 openStudyPage: () => this.openStudyPage(),
                 togglePause: () => void this.toggleAnnotationsPaused(),
                 isPaused: () => this.settings.annotationsPaused,
+                toggleAutoPlayAudio: () => void this.toggleAutoPlayAudio(),
+                isAutoPlayAudioEnabled: () => this.isAutoPlayAudioEnabled(),
                 isYouTube: () => isYouTubeHostname(),
                 toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
                 isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,
@@ -1481,6 +1483,21 @@ export class ReaderApp {
         if (this.settings.annotationsPaused) return;
         log.info('On-demand scan');
         void this.pageScanner.scanVisiblePage({ silent: false });
+    }
+
+    private isAutoPlayAudioEnabled(): boolean {
+        return this.settings.autoPlayAudio && this.settings.audioAutoPlayMode !== 'off';
+    }
+
+    private async toggleAutoPlayAudio(): Promise<void> {
+        const enabled = this.isAutoPlayAudioEnabled();
+        this.settings.autoPlayAudio = !enabled;
+        // Unmuting from a fully-off mode needs a playing mode again, otherwise
+        // settings normalization forces autoPlayAudio back to false.
+        if (!enabled && this.settings.audioAutoPlayMode === 'off') this.settings.audioAutoPlayMode = 'all';
+        await saveSettings(this.settings);
+        log.info('Auto-play audio toggled', { enabled: !enabled });
+        this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
     }
 
     private openStudyPage(): void {

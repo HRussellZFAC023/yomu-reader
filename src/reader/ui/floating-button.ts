@@ -3,6 +3,8 @@ import { uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
 import {
     RadialMenuController,
+    radialAudioMutedIcon,
+    radialAudioOnIcon,
     radialPowerIcon,
     radialScanIcon,
     radialSettingsIcon,
@@ -21,6 +23,8 @@ export interface FloatingButtonActions {
     openStudyPage(): void;
     togglePause(): void;
     isPaused(): boolean;
+    toggleAutoPlayAudio(): void;
+    isAutoPlayAudioEnabled(): boolean;
     isYouTube(): boolean;
     toggleYoutubeFilter(): void;
     isYoutubeFilterEnabled(): boolean;
@@ -121,6 +125,7 @@ export class FloatingButtonController {
         if (!settings || !actions) return [];
         const language = settings.interfaceLanguage;
         const paused = actions.isPaused();
+        const audioOn = actions.isAutoPlayAudioEnabled();
         const items: RadialAction[] = [
             {
                 id: 'power',
@@ -146,6 +151,14 @@ export class FloatingButtonController {
                 icon: radialScanIcon(),
                 disabled: paused,
                 run: () => actions.scanPage(),
+            },
+            {
+                id: 'audio',
+                label: uiText(language, audioOn ? 'puckMuteAudio' : 'puckUnmuteAudio'),
+                icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
+                tone: audioOn ? 'on' : 'off',
+                keepOpen: true,
+                run: () => actions.toggleAutoPlayAudio(),
             },
             {
                 id: 'study',

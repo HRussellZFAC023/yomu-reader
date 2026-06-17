@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.3.14] - 2026-06-17
+
+### Added
+
+- The puck radial menu gains a mute toggle for auto-play term audio. The node swaps between a speaker and a muted-speaker icon (accent when on, grey when muted) and pauses/restores `Auto-play term audio` without opening settings; unmuting from a fully-off auto-play mode restores playback.
+
+### Fixed
+
+- Hosted docs runtime now appends the settings/video companion scripts before its early-return, so the companions stay available when the core reader runtime already exists (e.g. an installed userscript). A refactor had moved the append after the early-return, dropping companions in that case.
+- The new-tab study "No cards." empty state no longer splits its wordmark and message into opposite corners on coarse-pointer landscape tablets.
+
+### Verified
+
+- Full typecheck/test/build suite (the hosted-companion regression test now passes), plus a live browser check of the puck audio toggle on the docs runtime.
+
 ## [1.3.13] - 2026-06-17
 
 ### Fixed

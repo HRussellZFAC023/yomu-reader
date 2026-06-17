@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.13
+// @version      1.3.14
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-ga6517FvITR1mQ/3PngvghlrF0WulrBEFX3K5uHBwXk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-85mdOuet3UD/7LYtURgvhQSJE8JKKdD8d3/cCgjPk6g=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-GtflZA77ysokyzjpXa8SnueOYs8tkW4YUIRO6Mh7Kh8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-Qr5Q+YOcLkYA0p9YZ1CnZT9ej4OkdOLHcdCHbpPRM+g=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-Kgpk9kbRtT/U7MfLnlOHx8jywJWKrCJAImZj68tmsW4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-IuGiYI0lTlR6pI1AbVpstQ7rOotSJsALOPX/rKGfeEk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-phBpjGcA6vInYTVrJ0HAoCFfRyIyFQbi7JIJcHlnYWc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-vIEdyrkU/KLNSJHAj9jmciIChsjZTkZMrW9VNCJLl0s=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6878,6 +6878,10 @@
       puckResumeAnnotations: "Resume annotations",
       annotationsPausedToast: "Annotations paused.",
       annotationsResumedToast: "Annotations resumed.",
+      puckMuteAudio: "Mute auto-play audio",
+      puckUnmuteAudio: "Unmute auto-play audio",
+      autoplayAudioOnToast: "Auto-play audio on.",
+      autoplayAudioOffToast: "Auto-play audio muted.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
@@ -8437,6 +8441,10 @@ puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 annotationsPausedToast	注釈を一時停止しました。
 annotationsResumedToast	注釈を再開しました。
+puckMuteAudio	音声の自動再生をミュート
+puckUnmuteAudio	音声の自動再生のミュートを解除
+autoplayAudioOnToast	音声の自動再生をオンにしました。
+autoplayAudioOffToast	音声の自動再生をミュートしました。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
@@ -24870,6 +24878,12 @@ ${spelling}`);
   function radialScanIcon() {
     return `${SVG_OPEN}<path d="M4 8V6a2 2 0 0 1 2-2h2"></path><path d="M16 4h2a2 2 0 0 1 2 2v2"></path><path d="M20 16v2a2 2 0 0 1-2 2h-2"></path><path d="M8 20H6a2 2 0 0 1-2-2v-2"></path><path d="M4 12h16"></path></svg>`;
   }
+  function radialAudioOnIcon() {
+    return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7"></path><path d="M18.5 5.5a8.5 8.5 0 0 1 0 13"></path></svg>`;
+  }
+  function radialAudioMutedIcon() {
+    return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="m23 9-6 6"></path><path d="m17 9 6 6"></path></svg>`;
+  }
   function radialYoutubeIcon() {
     return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
   }
@@ -24959,6 +24973,7 @@ ${spelling}`);
       if (!settings || !actions) return [];
       const language = settings.interfaceLanguage;
       const paused = actions.isPaused();
+      const audioOn = actions.isAutoPlayAudioEnabled();
       const items = [
         {
           id: "power",
@@ -24984,6 +24999,14 @@ ${spelling}`);
           icon: radialScanIcon(),
           disabled: paused,
           run: () => actions.scanPage()
+        },
+        {
+          id: "audio",
+          label: uiText(language, audioOn ? "puckMuteAudio" : "puckUnmuteAudio"),
+          icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
+          tone: audioOn ? "on" : "off",
+          keepOpen: true,
+          run: () => actions.toggleAutoPlayAudio()
         },
         {
           id: "study",
@@ -38344,6 +38367,8 @@ ${glossaryKey}`;
           openStudyPage: () => this.openStudyPage(),
           togglePause: () => void this.toggleAnnotationsPaused(),
           isPaused: () => this.settings.annotationsPaused,
+          toggleAutoPlayAudio: () => void this.toggleAutoPlayAudio(),
+          isAutoPlayAudioEnabled: () => this.isAutoPlayAudioEnabled(),
           isYouTube: () => isYouTubeHostname(),
           toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
           isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled
@@ -38376,6 +38401,17 @@ ${glossaryKey}`;
       if (this.settings.annotationsPaused) return;
       log.info("On-demand scan");
       void this.pageScanner.scanVisiblePage({ silent: false });
+    }
+    isAutoPlayAudioEnabled() {
+      return this.settings.autoPlayAudio && this.settings.audioAutoPlayMode !== "off";
+    }
+    async toggleAutoPlayAudio() {
+      const enabled = this.isAutoPlayAudioEnabled();
+      this.settings.autoPlayAudio = !enabled;
+      if (!enabled && this.settings.audioAutoPlayMode === "off") this.settings.audioAutoPlayMode = "all";
+      await saveSettings(this.settings);
+      log.info("Auto-play audio toggled", { enabled: !enabled });
+      this.toast(uiText(this.settings.interfaceLanguage, enabled ? "autoplayAudioOffToast" : "autoplayAudioOnToast"));
     }
     openStudyPage() {
       const opened = window.open(NEW_TAB_PAGE_URL, "_blank");

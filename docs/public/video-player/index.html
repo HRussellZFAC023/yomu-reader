@@ -315,14 +315,14 @@
     }
 
     .app {
-      width: min(1240px, calc(100vw - 28px));
+      width: 100%;
+      min-height: 100vh;
       min-height: 100dvh;
-      margin: 0 auto;
+      margin: 0;
       display: grid;
-      grid-template-rows: auto auto;
-      align-content: start;
-      gap: 14px;
-      padding: max(14px, env(safe-area-inset-top)) 0 max(18px, env(safe-area-inset-bottom));
+      grid-template-rows: auto 1fr;
+      align-content: stretch;
+      gap: 0;
     }
 
     .topbar {
@@ -331,6 +331,12 @@
       justify-content: space-between;
       gap: 14px;
       min-height: 48px;
+      padding:
+        max(12px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        12px
+        max(16px, env(safe-area-inset-left));
+      border-bottom: 1px solid var(--soft-line);
     }
 
     .brand {
@@ -350,11 +356,31 @@
       background: var(--brand-icon-bg);
     }
 
-    .stage {
+    /* Fills the area below the nav and establishes the sizing context for the
+       aspect-locked stage. cqw/cqh below resolve against this box. */
+    .stage-area {
       position: relative;
-      justify-self: center;
-      width: min(100%, calc((100dvh - 92px) * 16 / 9));
-      aspect-ratio: 16 / 9;
+      min-width: 0;
+      min-height: 0;
+      display: grid;
+      /* Centre horizontally, anchor to the top: the video sits just under the
+         nav and the space below/beside it is reserved for the subtitle drawer. */
+      place-items: start center;
+      overflow: hidden;
+      background: var(--bg);
+      container-type: size;
+    }
+
+    /* The video frame: the largest box of the current video's aspect ratio that
+       fits inside .stage-area, centred. --aspect (width / height) is updated from
+       the loaded video; it defaults to 16:9 for the empty / loading state. The
+       subtitle overlay and drawer-inset both anchor to this box, so keeping it on
+       the real video aspect keeps subtitles aligned to the picture. */
+    .stage {
+      --aspect: 1.7777778;
+      position: relative;
+      width: min(100cqw, calc(100cqh * var(--aspect)));
+      height: min(100cqh, calc(100cqw / var(--aspect)));
       min-width: 0;
       min-height: 0;
       display: grid;
@@ -377,6 +403,27 @@
 
     .stage:not(.has-video) video {
       visibility: hidden;
+    }
+
+    /* When the subtitle transcript drawer docks to a side, the Yomu runtime pins
+       the frame to its full (un-docked) height and centres the letterboxed video
+       inside it — leaving big bars and pushing the subtitle overlay (which is
+       anchored to the frame) below the picture. Re-fit the frame to the video
+       aspect at the docked width so the picture fills the frame and the overlay
+       stays on it. Author !important overrides the runtime's non-important inline
+       sizing; the classes are removed when the drawer closes, restoring the base
+       layout. The bottom-dock path already aspect-fits, so it is left untouched. */
+    :root:is(.jpdb-subtitle-video-inset-left, .jpdb-subtitle-video-inset-right) [data-yomu-video-frame] {
+      aspect-ratio: var(--aspect) !important;
+      height: auto !important;
+      max-height: 100% !important;
+      min-height: 0 !important;
+    }
+
+    :root:is(.jpdb-subtitle-video-inset-left, .jpdb-subtitle-video-inset-right) [data-yomu-video-frame] video {
+      height: 100% !important;
+      max-height: 100% !important;
+      min-height: 0 !important;
     }
 
     .empty {
@@ -431,12 +478,6 @@
     }
 
     @media (max-width: 640px) {
-      .app {
-        width: min(100vw - 24px, 620px);
-        gap: 12px;
-        padding-top: max(12px, env(safe-area-inset-top));
-      }
-
       .topbar {
         display: grid;
         grid-template-columns: minmax(0, 1fr) auto auto auto;
@@ -532,15 +573,17 @@
       </div>
     </header>
 
-    <section class="stage" data-stage data-yomu-video-frame aria-label="Video">
-      <video controls playsinline preload="metadata" data-video></video>
-      <button class="empty" type="button" data-empty-open>
-        <div>
-          <strong>Open or drop a video</strong>
-          <span class="status" data-status>Open a video, then use Subtitles to add Japanese and native subtitle files.</span>
-        </div>
-      </button>
-    </section>
+    <div class="stage-area">
+      <section class="stage" data-stage data-yomu-video-frame aria-label="Video">
+        <video controls playsinline preload="metadata" data-video></video>
+        <button class="empty" type="button" data-empty-open>
+          <div>
+            <strong>Open or drop a video</strong>
+            <span class="status" data-status>Open a video, then use Subtitles to add Japanese and native subtitle files.</span>
+          </div>
+        </button>
+      </section>
+    </div>
   </main>
 
   <script>
@@ -1009,6 +1052,17 @@
         }
         setStatus(copy[effectiveInterfaceLanguage()].chooseVideo);
       }
+
+      function applyVideoAspect() {
+        // Drive the stage box to the real video aspect ratio so the frame fills
+        // as much of the page as the picture allows while staying letterbox-free,
+        // and so the subtitle overlay (anchored to the frame) lines up with it.
+        if (video.videoWidth > 0 && video.videoHeight > 0) {
+          stage.style.setProperty('--aspect', String(video.videoWidth / video.videoHeight));
+        }
+      }
+      video.addEventListener('loadedmetadata', applyVideoAspect);
+      video.addEventListener('resize', applyVideoAspect);
 
       videoInput.addEventListener('change', () => {
         const files = Array.from(videoInput.files || []);

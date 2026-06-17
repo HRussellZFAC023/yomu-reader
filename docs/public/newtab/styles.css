@@ -4214,9 +4214,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 /* iPad landscape (study-hub research persona 5): the revealed card wastes a
    short, wide viewport as one tall column. On coarse-pointer landscape
    tablets, split the study surface — prompt left, revealed answer right —
-   while the session/status/control rows keep spanning the full width. */
+   while the session/status/control rows keep spanning the full width.
+   The empty state ("No cards.") also carries -revealed but has no real card,
+   so excluding -empty-mode keeps the よむ wordmark + message centred as one
+   column instead of stranding them in opposite corners. */
 @media (pointer: coarse) and (orientation: landscape) and (min-width: 1000px) {
-  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode, .jpdb-reader-newtab-empty-mode))
     .jpdb-reader-newtab-study {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -4224,7 +4227,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     align-items: start;
   }
 
-  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode, .jpdb-reader-newtab-empty-mode))
     .jpdb-reader-newtab-study
     > :is(
       .jpdb-reader-newtab-count,
@@ -4236,13 +4239,13 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     grid-column: 1 / -1;
   }
 
-  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode, .jpdb-reader-newtab-empty-mode))
     .jpdb-reader-newtab-study > .jpdb-reader-newtab-prompt {
     grid-column: 1;
     align-self: center;
   }
 
-  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode))
+  :where(.jpdb-reader-newtab-revealed:not(.jpdb-reader-newtab-search-mode, .jpdb-reader-newtab-stats-mode, .jpdb-reader-newtab-empty-mode))
     .jpdb-reader-newtab-study > .jpdb-reader-newtab-answer {
     grid-column: 2;
     text-align: left;

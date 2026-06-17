@@ -1593,7 +1593,11 @@ function installHostedDocsEnhancements(): void {
 
 function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
+    appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     if (isHostedYomuRuntimeLoadingOrReady()) return;
+    // Companions are appended above, before this early-return, so they stay
+    // available even when the core reader runtime already exists (e.g. an
+    // installed userscript); the helper is idempotent and never double-loads.
     const target = findHostedYomuRuntimeTarget();
     if (!target) {
         clearHostedYomuRuntimeIntent();

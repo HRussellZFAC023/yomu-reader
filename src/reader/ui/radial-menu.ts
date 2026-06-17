@@ -252,6 +252,16 @@ export function radialScanIcon(): string {
     return `${SVG_OPEN}<path d="M4 8V6a2 2 0 0 1 2-2h2"></path><path d="M16 4h2a2 2 0 0 1 2 2v2"></path><path d="M20 16v2a2 2 0 0 1-2 2h-2"></path><path d="M8 20H6a2 2 0 0 1-2-2v-2"></path><path d="M4 12h16"></path></svg>`;
 }
 
+/** Speaker with sound waves — auto-play audio is on. */
+export function radialAudioOnIcon(): string {
+    return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7"></path><path d="M18.5 5.5a8.5 8.5 0 0 1 0 13"></path></svg>`;
+}
+
+/** Muted speaker — auto-play audio is off. */
+export function radialAudioMutedIcon(): string {
+    return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="m23 9-6 6"></path><path d="m17 9 6 6"></path></svg>`;
+}
+
 /** Video filter — toggle YouTube immersion filtering (YouTube only). */
 export function radialYoutubeIcon(): string {
     return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;

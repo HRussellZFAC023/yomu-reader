@@ -2587,6 +2587,8 @@ function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {
         openStudyPage: vi.fn(),
         togglePause: vi.fn(),
         isPaused: () => false,
+        toggleAutoPlayAudio: vi.fn(),
+        isAutoPlayAudioEnabled: () => true,
         isYouTube: () => false,
         toggleYoutubeFilter: vi.fn(),
         isYoutubeFilterEnabled: () => false,

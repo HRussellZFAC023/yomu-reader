@@ -3054,6 +3054,10 @@
       puckResumeAnnotations: "Resume annotations",
       annotationsPausedToast: "Annotations paused.",
       annotationsResumedToast: "Annotations resumed.",
+      puckMuteAudio: "Mute auto-play audio",
+      puckUnmuteAudio: "Unmute auto-play audio",
+      autoplayAudioOnToast: "Auto-play audio on.",
+      autoplayAudioOffToast: "Auto-play audio muted.",
       showFurigana: "Enable furigana annotations",
       furiganaMode: "Furigana",
       wordColorStates: "Color words",
@@ -4594,6 +4598,10 @@ puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
 annotationsPausedToast	注釈を一時停止しました。
 annotationsResumedToast	注釈を再開しました。
+puckMuteAudio	音声の自動再生をミュート
+puckUnmuteAudio	音声の自動再生のミュートを解除
+autoplayAudioOnToast	音声の自動再生をオンにしました。
+autoplayAudioOffToast	音声の自動再生をミュートしました。
 showFurigana	ふりがな注釈を有効にする
 furiganaMode	ふりがな
 wordColorStates	色を付ける単語
