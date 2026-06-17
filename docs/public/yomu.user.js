@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.11
+// @version      1.3.12
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -4346,8 +4346,9 @@
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment = document.createDocumentFragment();
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(target.parent);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
     const passiveInteraction = target.passiveInteraction || suppressRuby;
+    const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
     const tokenPlans = tokens.map((token) => ({
       token,
@@ -4357,7 +4358,7 @@
     for (const plan of tokenPlans) {
       const { token, tokenWithSentence } = plan;
       appendPlainTextBeforeToken(fragment, text2, offset, token.start);
-      fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, settings, {
+      fragment.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
         allowRuby: !target.hasNativeRuby && !suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
@@ -4375,8 +4376,9 @@
     if (!host.isConnected) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(host);
-    const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+    const renderSettings = furiganaSettingsForTarget(settings, host);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
       const state22 = textMirrorHosts.get(host);
@@ -4393,7 +4395,7 @@
     const state2 = styleTextMirrorHost(host);
     try {
       styleTextMirror(mirror, host);
-      mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
+      mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
         suppressRuby,
@@ -4431,6 +4433,18 @@
         ruby: token.rubies
       }))
     });
+  }
+  function furiganaSettingsForTarget(settings, parent) {
+    if (!targetForcesAllFurigana(parent)) return settings;
+    if (settings.showFurigana && settings.furiganaMode === "all") return settings;
+    return { ...settings, showFurigana: true, furiganaMode: "all" };
+  }
+  function scanTargetSuppressesRuby(parent, suppressRuby) {
+    if (targetForcesAllFurigana(parent)) return false;
+    return Boolean(suppressRuby || shouldSuppressCompactMediaRuby(parent));
+  }
+  function targetForcesAllFurigana(parent) {
+    return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function shouldSuppressCompactMediaRuby(parent) {
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
@@ -4767,7 +4781,8 @@
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
-    applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
+    const renderTarget = targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
+    applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
   }
   function hasFragmentTokenWork(target, tokens) {
@@ -9159,11 +9174,11 @@ recommendedJiten	jiten.moe頻度データです。
   function shouldPreferFetchForAudioRequests() {
     return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
   }
-  function readBlobAsDataUrl(blob, errorMessage = "Could not read media.") {
+  function readBlobAsDataUrl(blob, errorMessage2 = "Could not read media.") {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(reader.error ?? new Error(errorMessage));
+      reader.onerror = () => reject(reader.error ?? new Error(errorMessage2));
       reader.readAsDataURL(blob);
     });
   }
@@ -18008,12 +18023,12 @@ ${entry.reading}`;
         (entry) => termEntryFromSearchEntry(entry)
       );
     }
-    async collectGlossaryTermSearchCandidates(request, query, candidateLimit, rank, options, errorMessage, afterPush, stopAtCandidateLimit = true, entryFromCursorValue = (entry) => entry) {
+    async collectGlossaryTermSearchCandidates(request, query, candidateLimit, rank, options, errorMessage2, afterPush, stopAtCandidateLimit = true, entryFromCursorValue = (entry) => entry) {
       return new Promise((resolve, reject) => {
         const candidates = [];
         const startedAt = performance.now();
         let visited = 0;
-        request.onerror = () => reject(request.error ?? new Error(errorMessage));
+        request.onerror = () => reject(request.error ?? new Error(errorMessage2));
         request.onsuccess = () => {
           const cursor = request.result;
           if (!cursor || stopAtCandidateLimit && candidates.length >= candidateLimit || glossaryCursorSearchExpired(options, visited, startedAt)) {
@@ -18453,13 +18468,13 @@ ${item.sequence ?? ""}`;
   function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
     return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
   }
-  async function scanObjectStoreCursor(db, { storeName, maxRows, maxMs, errorMessage }, visit) {
+  async function scanObjectStoreCursor(db, { storeName, maxRows, maxMs, errorMessage: errorMessage2 }, visit) {
     const startedAt = performance.now();
     let visited = 0;
     await new Promise((resolve, reject) => {
       const tx = db.transaction(storeName, "readonly");
       const request = tx.objectStore(storeName).openCursor();
-      request.onerror = () => reject(request.error ?? new Error(errorMessage));
+      request.onerror = () => reject(request.error ?? new Error(errorMessage2));
       request.onsuccess = () => {
         const cursor = request.result;
         if (!cursor || cursorScanLimitReached(visited, startedAt, maxRows, maxMs)) {
@@ -21721,9 +21736,9 @@ ${entry.reading || ""}`;
     return params.renderImmersionSource ? params.renderImmersionSource() : renderDefinitionSourceImmersionMount(params.settings, params.sourceAttributes);
   }
   function isAbortError$2(error) {
-    return errorName(error) === "AbortError";
+    return errorName$1(error) === "AbortError";
   }
-  function errorName(error) {
+  function errorName$1(error) {
     if (!error || typeof error !== "object") return "";
     const name = error.name;
     return typeof name === "string" ? name : "";
@@ -26219,14 +26234,14 @@ ${spelling}`);
   async function parseJitenResponse(response) {
     const text2 = await response.text();
     const json = parseJson(text2);
-    const errorMessage = jitenApplicationErrorMessage(json);
-    if (errorMessage) throw new JitenApiError(errorMessage, response.status);
+    const errorMessage2 = jitenApplicationErrorMessage(json);
+    if (errorMessage2) throw new JitenApiError(errorMessage2, response.status);
     if (!response.ok) throw new JitenApiError(`Jiten request failed (${response.status}).`, response.status);
     return json;
   }
   function parseJitenPayload(payload) {
-    const errorMessage = jitenApplicationErrorMessage(payload);
-    if (errorMessage) throw new JitenApiError(errorMessage);
+    const errorMessage2 = jitenApplicationErrorMessage(payload);
+    if (errorMessage2) throw new JitenApiError(errorMessage2);
     return payload;
   }
   function normalizeJitenRequestError(error) {
@@ -26298,7 +26313,7 @@ ${spelling}`);
     return error instanceof DOMException && error.name === "AbortError";
   }
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
-  const REQUEST_TIMEOUT_MS$2 = 6e3;
+  const REQUEST_TIMEOUT_MS$2 = 1500;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
   const CACHE_LIMIT$1 = 800;
   const DETAIL_CONCURRENCY = 4;
@@ -26307,14 +26322,15 @@ ${spelling}`);
   const PARSE_TEXT_LIMIT = 1900;
   const PARSE_TERM_SEPARATOR = "。";
   const log$a = Logger.scope("JitenPublicVocabulary");
+  const sharedParseGate = new ConcurrencyGate(1);
+  let sharedRequestBackoffUntil = 0;
+  let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
   class JitenPublicVocabularyClient {
     constructor(options = {}) {
       this.options = options;
     }
     cardCache = /* @__PURE__ */ new Map();
     detailCache = /* @__PURE__ */ new Map();
-    requestBackoffUntil = 0;
-    requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     lookup(term) {
       const normalized = normalizeLookupText(term);
       if (!normalized || this.isBackoffActive()) return Promise.resolve(null);
@@ -26369,8 +26385,6 @@ ${spelling}`);
     clear() {
       this.cardCache.clear();
       this.detailCache.clear();
-      this.requestBackoffUntil = 0;
-      this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
     async lookupUncached(term) {
       const parsed = await this.parseTerms([term]);
@@ -26399,16 +26413,21 @@ ${spelling}`);
     async parseTerms(terms) {
       const chunks = chunkTermsForParse(terms);
       const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, (chunk) => this.requestParse(chunk).catch((error) => {
-        this.noteFailure(error);
         log$a.warn("Public Jiten vocabulary parse chunk failed", { terms: chunk.length }, error);
         return [];
       }));
       return groups.flat();
     }
     async requestParse(terms) {
-      const text2 = terms.join(PARSE_TERM_SEPARATOR);
-      const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`);
-      return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
+      return sharedParseGate.run(async () => {
+        if (this.isBackoffActive()) return [];
+        const text2 = terms.join(PARSE_TERM_SEPARATOR);
+        const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`).catch((error) => {
+          this.noteFailure(error);
+          throw error;
+        });
+        return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
+      });
     }
     async lookupDetail(word, requestedTerm) {
       const key = `${word.wordId}:${word.readingIndex}`;
@@ -26455,12 +26474,12 @@ ${spelling}`);
       }
     }
     isBackoffActive() {
-      return Date.now() < this.requestBackoffUntil;
+      return Date.now() < sharedRequestBackoffUntil;
     }
     noteFailure(error) {
       if (!isPublicJitenBackoffError(error)) return;
-      this.requestBackoffUntil = Date.now() + this.requestBackoffMs;
-      this.requestBackoffMs = Math.min(this.requestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS$1);
+      sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
+      sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS$1);
     }
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
@@ -26565,7 +26584,17 @@ ${spelling}`);
     return finiteInteger(value) ?? null;
   }
   function isPublicJitenBackoffError(error) {
-    return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
+    const name = errorName(error);
+    if (name === "AbortError") return true;
+    const message = errorMessage(error);
+    return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
+  }
+  function errorName(error) {
+    return isRecord(error) && typeof error.name === "string" ? error.name : "";
+  }
+  function errorMessage(error) {
+    if (error instanceof Error) return error.message;
+    return isRecord(error) && typeof error.message === "string" ? error.message : "";
   }
   const imagePromptReplacementDefs = [
     [
@@ -27996,10 +28025,10 @@ ${spelling}`);
   function parseJpdbApiResponse(response, endpoint, responseMode) {
     if (responseMode === "none" || !response.text) return void 0;
     const json = JSON.parse(response.text);
-    const errorMessage = jpdbApplicationErrorMessage(json);
-    if (errorMessage) {
-      log$9.warn("JPDB returned application error", { endpoint, message: errorMessage });
-      throw new Error(errorMessage);
+    const errorMessage2 = jpdbApplicationErrorMessage(json);
+    if (errorMessage2) {
+      log$9.warn("JPDB returned application error", { endpoint, message: errorMessage2 });
+      throw new Error(errorMessage2);
     }
     return json;
   }
@@ -33108,6 +33137,7 @@ ${glossaryKey}`;
     if (word.closest("ruby")) return;
     const ocrLine = word.closest(".jpdb-ocr-line");
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
+    const renderSettings = publicVocabularyFuriganaSettings(word, settings);
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
       card,
@@ -33118,13 +33148,18 @@ ${glossaryKey}`;
       pitchClass: word.dataset.pitchClass ?? "",
       sentence: word.dataset.sentence
     };
-    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies)) return;
+    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
     const html = renderRuby(surface, token);
     if (!html.includes("<rt")) return;
     setInnerHtml(word, html);
     if (ocrLine) normalizeOcrRenderedText(word);
     word.classList.add("jpdb-reader-has-furi");
     if (ocrLine) ocrLine.dataset.hasFuri = "true";
+  }
+  function publicVocabularyFuriganaSettings(word, settings) {
+    if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;
+    if (settings.showFurigana && settings.furiganaMode === "all") return settings;
+    return { ...settings, showFurigana: true, furiganaMode: "all" };
   }
   function applyAnkiLookupToRenderedWord(word, ankiLookup, language, options = {}) {
     if (!ankiLookup.primary) {

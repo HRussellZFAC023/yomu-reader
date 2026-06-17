@@ -1009,6 +1009,7 @@ function createHostedOverflowLink(item: typeof HOSTED_OVERFLOW_LINKS[number]): H
 
 function openHostedSettings(): void {
     loadHostedYomuRuntime();
+    appendHostedRuntimeCompanionScripts(isLocalHostedRuntime());
     const dispatch = () => {
         if (document.querySelector('.jpdb-reader-settings')) return true;
         window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'basics' } }));
@@ -1592,7 +1593,6 @@ function installHostedDocsEnhancements(): void {
 
 function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
-    appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     if (isHostedYomuRuntimeLoadingOrReady()) return;
     const target = findHostedYomuRuntimeTarget();
     if (!target) {
@@ -1652,11 +1652,14 @@ function installHostedYomuRuntime(): HTMLScriptElement | undefined {
     const runtime = hostedYomuRuntimeWindow();
     const forceLocalRuntime = isLocalHostedRuntime();
     const currentScript = hostedRuntimeScript();
+    const companionFirst = shouldLoadHostedRuntimeCompanionsBeforeCore();
     prepareLocalHostedRuntime(forceLocalRuntime);
     if (shouldSkipHostedRuntimeInstall(runtime, forceLocalRuntime, currentScript)) return undefined;
     enableLocalHostedRuntime(runtime, forceLocalRuntime);
-    appendHostedRuntimeCompanionScripts(forceLocalRuntime);
-    return appendHostedRuntimeScript(YOMU_HOSTED_RUNTIME_SCRIPT_ID, hostedRuntimeScriptSrc(forceLocalRuntime));
+    if (companionFirst) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
+    const script = appendHostedRuntimeScript(YOMU_HOSTED_RUNTIME_SCRIPT_ID, hostedRuntimeScriptSrc(forceLocalRuntime));
+    if (!companionFirst) appendHostedRuntimeCompanionScriptsAfterCoreLoad(script, forceLocalRuntime);
+    return script;
 }
 
 function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {
@@ -1696,6 +1699,14 @@ function enableLocalHostedRuntime(runtime: HostedYomuRuntimeWindow, forceLocalRu
     if (forceLocalRuntime) runtime.__yomuDevRuntime = true;
 }
 
+function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean {
+    return location.pathname.includes('/video-player/');
+}
+
+function appendHostedRuntimeCompanionScriptsAfterCoreLoad(script: HTMLScriptElement, forceLocalRuntime: boolean): void {
+    script.addEventListener('load', () => appendHostedRuntimeCompanionScripts(forceLocalRuntime), { once: true });
+}
+
 function appendHostedRuntimeCompanionScripts(forceLocalRuntime: boolean): void {
     for (const script of hostedRuntimeCompanionScripts(forceLocalRuntime)) {
         if (document.getElementById(script.id)) continue;
@@ -1726,7 +1737,7 @@ function appendHostedRuntimeScript(id: string, src: string): HTMLScriptElement {
 }
 
 function hostedRuntimeScriptSrc(forceLocalRuntime: boolean): string {
-    return hostedRuntimeAssetSrc('/yomu-reader/yomu.user.js', forceLocalRuntime);
+    return hostedRuntimeAssetSrc('/yomu-reader/yomu.user.js', false);
 }
 
 function hostedRuntimeAssetSrc(src: string, forceLocalRuntime: boolean): string {

@@ -1,11 +1,11 @@
 import { Logger } from '../app/logger';
 import type { JPDBCard } from '../app/types';
-import { mapLimited } from '../core/async-utils';
+import { ConcurrencyGate, mapLimited } from '../core/async-utils';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { requestJson } from '../network/http';
 
 const JITEN_PUBLIC_API_BASE_URL = 'https://api.jiten.moe/api';
-const REQUEST_TIMEOUT_MS = 6000;
+const REQUEST_TIMEOUT_MS = 1500;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_LIMIT = 800;
 const DETAIL_CONCURRENCY = 4;
@@ -14,11 +14,19 @@ const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const PARSE_TEXT_LIMIT = 1900;
 const PARSE_TERM_SEPARATOR = '。';
 const log = Logger.scope('JitenPublicVocabulary');
+const sharedParseGate = new ConcurrencyGate(1);
+let sharedRequestBackoffUntil = 0;
+let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
 
 export interface JitenPublicVocabularyClientOptions {
     baseUrl?: string;
     proxyUrl?: string | (() => string);
     requestJsonImpl?: (url: string, options?: Parameters<typeof requestJson>[1]) => Promise<unknown>;
+}
+
+export function resetJitenPublicVocabularyBackoffForTests(): void {
+    sharedRequestBackoffUntil = 0;
+    sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
 }
 
 interface PublicParseWord {
@@ -35,8 +43,6 @@ interface PublicCardCacheEntry {
 export class JitenPublicVocabularyClient {
     private readonly cardCache = new Map<string, PublicCardCacheEntry>();
     private readonly detailCache = new Map<string, PublicCardCacheEntry>();
-    private requestBackoffUntil = 0;
-    private requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
 
     constructor(private readonly options: JitenPublicVocabularyClientOptions = {}) {}
 
@@ -100,8 +106,6 @@ export class JitenPublicVocabularyClient {
     clear(): void {
         this.cardCache.clear();
         this.detailCache.clear();
-        this.requestBackoffUntil = 0;
-        this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS;
     }
 
     private async lookupUncached(term: string): Promise<JPDBCard | null> {
@@ -135,7 +139,6 @@ export class JitenPublicVocabularyClient {
     private async parseTerms(terms: readonly string[]): Promise<PublicParseWord[]> {
         const chunks = chunkTermsForParse(terms);
         const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, chunk => this.requestParse(chunk).catch(error => {
-            this.noteFailure(error);
             log.warn('Public Jiten vocabulary parse chunk failed', { terms: chunk.length }, error);
             return [];
         }));
@@ -143,11 +146,17 @@ export class JitenPublicVocabularyClient {
     }
 
     private async requestParse(terms: readonly string[]): Promise<PublicParseWord[]> {
-        const text = terms.join(PARSE_TERM_SEPARATOR);
-        const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`);
-        return Array.isArray(payload)
-            ? payload.map(normalizePublicParseWord).filter((word): word is PublicParseWord => Boolean(word))
-            : [];
+        return sharedParseGate.run(async () => {
+            if (this.isBackoffActive()) return [];
+            const text = terms.join(PARSE_TERM_SEPARATOR);
+            const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
+                this.noteFailure(error);
+                throw error;
+            });
+            return Array.isArray(payload)
+                ? payload.map(normalizePublicParseWord).filter((word): word is PublicParseWord => Boolean(word))
+                : [];
+        });
     }
 
     private async lookupDetail(word: PublicParseWord, requestedTerm: string): Promise<JPDBCard | null> {
@@ -203,13 +212,13 @@ export class JitenPublicVocabularyClient {
     }
 
     private isBackoffActive(): boolean {
-        return Date.now() < this.requestBackoffUntil;
+        return Date.now() < sharedRequestBackoffUntil;
     }
 
     private noteFailure(error: unknown): void {
         if (!isPublicJitenBackoffError(error)) return;
-        this.requestBackoffUntil = Date.now() + this.requestBackoffMs;
-        this.requestBackoffMs = Math.min(this.requestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
+        sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
+        sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS);
     }
 }
 
@@ -339,6 +348,17 @@ function nullableInteger(value: unknown): number | null {
 }
 
 function isPublicJitenBackoffError(error: unknown): boolean {
-    return error instanceof Error
-        && /\b(?:429|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
+    const name = errorName(error);
+    if (name === 'AbortError') return true;
+    const message = errorMessage(error);
+    return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
+}
+
+function errorName(error: unknown): string {
+    return isRecord(error) && typeof error.name === 'string' ? error.name : '';
+}
+
+function errorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    return isRecord(error) && typeof error.message === 'string' ? error.message : '';
 }

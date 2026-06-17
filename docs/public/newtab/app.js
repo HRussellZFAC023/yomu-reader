@@ -3942,8 +3942,9 @@
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment2 = document.createDocumentFragment();
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(target.parent);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
     const passiveInteraction = target.passiveInteraction || suppressRuby;
+    const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
     const tokenPlans = tokens.map((token) => ({
       token,
@@ -3953,7 +3954,7 @@
     for (const plan of tokenPlans) {
       const { token, tokenWithSentence } = plan;
       appendPlainTextBeforeToken(fragment2, text2, offset, token.start);
-      fragment2.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, settings, {
+      fragment2.append(renderToken(text2.slice(token.start, token.end), tokenWithSentence, renderSettings, {
         allowRuby: !target.hasNativeRuby && !suppressRuby,
         kanjiNavigation: kanjiNavigationForElement(target.parent),
         scanWord: true,
@@ -3971,8 +3972,9 @@
     if (!host.isConnected) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(host);
-    const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+    const renderSettings = furiganaSettingsForTarget(settings, host);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
       const state22 = textMirrorHosts.get(host);
@@ -3989,7 +3991,7 @@
     const state2 = styleTextMirrorHost(host);
     try {
       styleTextMirror(mirror, host);
-      mirror.append(renderTokenizedScanText(text2, safeTokens, settings, {
+      mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
         suppressRuby,
@@ -4027,6 +4029,18 @@
         ruby: token.rubies
       }))
     });
+  }
+  function furiganaSettingsForTarget(settings, parent) {
+    if (!targetForcesAllFurigana(parent)) return settings;
+    if (settings.showFurigana && settings.furiganaMode === "all") return settings;
+    return { ...settings, showFurigana: true, furiganaMode: "all" };
+  }
+  function scanTargetSuppressesRuby(parent, suppressRuby) {
+    if (targetForcesAllFurigana(parent)) return false;
+    return Boolean(suppressRuby || shouldSuppressCompactMediaRuby(parent));
+  }
+  function targetForcesAllFurigana(parent) {
+    return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function shouldSuppressCompactMediaRuby(parent) {
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
@@ -4254,7 +4268,8 @@
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
-    applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
+    const renderTarget = targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
+    applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
   }
   function hasFragmentTokenWork(target, tokens) {
@@ -27942,7 +27957,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function handleSettingsActionError(action, control, setStatus, error, language) {
     log$o.warn("Settings action failed", { action }, error);
     if (shouldReenableSettingsAction(action)) control?.removeAttribute("disabled");
-    const message = errorMessage(error, uiText(language, "actionFailed"));
+    const message = errorMessage$1(error, uiText(language, "actionFailed"));
     setStatus(message);
     return message;
   }
@@ -27975,9 +27990,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return uiText(language, "noLocalDictionariesImported");
   }
   function setDictionaryStatusError(status, error, language) {
-    if (status) status.textContent = errorMessage(error, uiText(language, "dictionaryStatusUnavailable"));
+    if (status) status.textContent = errorMessage$1(error, uiText(language, "dictionaryStatusUnavailable"));
   }
-  function errorMessage(error, fallback) {
+  function errorMessage$1(error, fallback) {
     if (error instanceof Error && error.message.trim()) return error.message;
     if (typeof error === "string" && error.trim()) return error;
     return fallback;
@@ -28072,7 +28087,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         const saveRequestId = ++this.saveRequestId;
         void saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId)).catch((error) => {
           log$o.error("Settings save failed", error);
-          this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
+          this.dependencies.toast(errorMessage$1(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
         });
       });
       form.querySelector('[data-action="cancel"]')?.addEventListener("click", () => this.dismissSettings());
@@ -28196,7 +28211,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         await this.dependencies.refreshDictionaryStyles();
       } catch (error) {
         log$o.warn("Dictionary style refresh failed", error);
-        this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, "actionFailed")));
+        this.dependencies.toast(errorMessage$1(error, uiText(this.settings.interfaceLanguage, "actionFailed")));
       }
     }
     bindLivePreview(form) {
@@ -28891,7 +28906,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         }
       } catch (error) {
         log$o.warn("Audio settings preview failed", error);
-        this.dependencies.toast(errorMessage(error, uiText(language, "audioPreviewFailed")));
+        this.dependencies.toast(errorMessage$1(error, uiText(language, "audioPreviewFailed")));
       } finally {
         this.settings = previous;
         button?.removeAttribute("disabled");
@@ -29313,7 +29328,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     }
     handleRecommendedDictionaryDownloadError(dictionary, downloadUrl, control, setStatus, error) {
-      const message = errorMessage(error, uiText(this.settings.interfaceLanguage, "dictionaryDownloadFailed"));
+      const message = errorMessage$1(error, uiText(this.settings.interfaceLanguage, "dictionaryDownloadFailed"));
       control?.removeAttribute("disabled");
       if (!this.shouldPromptManualDictionaryDownload(error, downloadUrl)) throw error;
       const status = `${message} ${uiText(this.settings.interfaceLanguage, "dictionaryManualDownloadHint")}`;
@@ -49681,9 +49696,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
   function isAbortError$2(error) {
-    return errorName(error) === "AbortError";
+    return errorName$1(error) === "AbortError";
   }
-  function errorName(error) {
+  function errorName$1(error) {
     if (!error || typeof error !== "object") return "";
     const name = error.name;
     return typeof name === "string" ? name : "";
@@ -53646,7 +53661,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return error instanceof DOMException && error.name === "AbortError";
   }
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
-  const REQUEST_TIMEOUT_MS$1 = 6e3;
+  const REQUEST_TIMEOUT_MS$1 = 1500;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
   const CACHE_LIMIT$1 = 800;
   const DETAIL_CONCURRENCY = 4;
@@ -53655,14 +53670,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const PARSE_TEXT_LIMIT = 1900;
   const PARSE_TERM_SEPARATOR = "。";
   const log$8 = Logger.scope("JitenPublicVocabulary");
+  const sharedParseGate = new ConcurrencyGate(1);
+  let sharedRequestBackoffUntil = 0;
+  let sharedRequestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
   class JitenPublicVocabularyClient {
     constructor(options = {}) {
       this.options = options;
     }
     cardCache = /* @__PURE__ */ new Map();
     detailCache = /* @__PURE__ */ new Map();
-    requestBackoffUntil = 0;
-    requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     lookup(term) {
       const normalized = normalizeLookupText(term);
       if (!normalized || this.isBackoffActive()) return Promise.resolve(null);
@@ -53717,8 +53733,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     clear() {
       this.cardCache.clear();
       this.detailCache.clear();
-      this.requestBackoffUntil = 0;
-      this.requestBackoffMs = REQUEST_BACKOFF_INITIAL_MS$1;
     }
     async lookupUncached(term) {
       const parsed = await this.parseTerms([term]);
@@ -53747,16 +53761,21 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async parseTerms(terms) {
       const chunks2 = chunkTermsForParse(terms);
       const groups = await mapLimited(chunks2, DETAIL_CONCURRENCY, (chunk) => this.requestParse(chunk).catch((error) => {
-        this.noteFailure(error);
         log$8.warn("Public Jiten vocabulary parse chunk failed", { terms: chunk.length }, error);
         return [];
       }));
       return groups.flat();
     }
     async requestParse(terms) {
-      const text2 = terms.join(PARSE_TERM_SEPARATOR);
-      const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`);
-      return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
+      return sharedParseGate.run(async () => {
+        if (this.isBackoffActive()) return [];
+        const text2 = terms.join(PARSE_TERM_SEPARATOR);
+        const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`).catch((error) => {
+          this.noteFailure(error);
+          throw error;
+        });
+        return Array.isArray(payload) ? payload.map(normalizePublicParseWord).filter((word) => Boolean(word)) : [];
+      });
     }
     async lookupDetail(word, requestedTerm) {
       const key = `${word.wordId}:${word.readingIndex}`;
@@ -53803,12 +53822,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
     }
     isBackoffActive() {
-      return Date.now() < this.requestBackoffUntil;
+      return Date.now() < sharedRequestBackoffUntil;
     }
     noteFailure(error) {
       if (!isPublicJitenBackoffError(error)) return;
-      this.requestBackoffUntil = Date.now() + this.requestBackoffMs;
-      this.requestBackoffMs = Math.min(this.requestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS$1);
+      sharedRequestBackoffUntil = Date.now() + sharedRequestBackoffMs;
+      sharedRequestBackoffMs = Math.min(sharedRequestBackoffMs * 2, REQUEST_BACKOFF_MAX_MS$1);
     }
   }
   function publicJitenCardFromDetail(payload, requestedTerm, fallback) {
@@ -53913,7 +53932,17 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return finiteInteger(value) ?? null;
   }
   function isPublicJitenBackoffError(error) {
-    return error instanceof Error && /\b(?:429|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
+    const name = errorName(error);
+    if (name === "AbortError") return true;
+    const message = errorMessage(error);
+    return /\b(?:429|5\d\d|too many requests|rate[- ]?limited|timed out|aborted|abort|upstream)\b|cloudflare/i.test(message);
+  }
+  function errorName(error) {
+    return isRecord$1(error) && typeof error.name === "string" ? error.name : "";
+  }
+  function errorMessage(error) {
+    if (error instanceof Error) return error.message;
+    return isRecord$1(error) && typeof error.message === "string" ? error.message : "";
   }
   const JITEN_KANJI_WORD_PAGE_SIZE = 9;
   const CARD_STATES = /* @__PURE__ */ new Set([
@@ -67959,6 +67988,7 @@ ${entry.url}`),
     if (word.closest("ruby")) return;
     const ocrLine = word.closest(".jpdb-ocr-line");
     const surface = readerWordSurfaceText$1(word).trim() || word.dataset.expression || card.spelling;
+    const renderSettings = publicVocabularyFuriganaSettings(word, settings);
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token = {
       card,
@@ -67969,13 +67999,18 @@ ${entry.url}`),
       pitchClass: word.dataset.pitchClass ?? "",
       sentence: word.dataset.sentence
     };
-    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies)) return;
+    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
     const html = renderRuby(surface, token);
     if (!html.includes("<rt")) return;
     setInnerHtml(word, html);
     if (ocrLine) normalizeOcrRenderedText(word);
     word.classList.add("jpdb-reader-has-furi");
     if (ocrLine) ocrLine.dataset.hasFuri = "true";
+  }
+  function publicVocabularyFuriganaSettings(word, settings) {
+    if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;
+    if (settings.showFurigana && settings.furiganaMode === "all") return settings;
+    return { ...settings, showFurigana: true, furiganaMode: "all" };
   }
   function shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies = []) {
     const surfaceMatchesSpelling = surface.trim() === card.spelling.trim();

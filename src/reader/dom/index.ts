@@ -1139,8 +1139,9 @@ function renderTokenizedScanText(
     target: { parent: HTMLElement; hasNativeRuby?: boolean; suppressRuby?: boolean; passiveInteraction?: boolean },
 ): DocumentFragment {
     const fragment = document.createDocumentFragment();
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(target.parent);
+    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
     const passiveInteraction = target.passiveInteraction || suppressRuby;
+    const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
     const tokenPlans = tokens.map(token => ({
         token,
@@ -1150,7 +1151,7 @@ function renderTokenizedScanText(
     for (const plan of tokenPlans) {
         const { token, tokenWithSentence } = plan;
         appendPlainTextBeforeToken(fragment, text, offset, token.start);
-        fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, settings, {
+        fragment.append(renderToken(text.slice(token.start, token.end), tokenWithSentence, renderSettings, {
             allowRuby: !target.hasNativeRuby && !suppressRuby,
             kanjiNavigation: kanjiNavigationForElement(target.parent),
             scanWord: true,
@@ -1170,8 +1171,9 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
 
     const text = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text.length);
-    const suppressRuby = target.suppressRuby || shouldSuppressCompactMediaRuby(host);
-    const signature = nonDestructiveScanSignature(target, safeTokens, settings, suppressRuby);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+    const renderSettings = furiganaSettingsForTarget(settings, host);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentTextMirror(host);
     if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) {
         const state = textMirrorHosts.get(host);
@@ -1189,7 +1191,7 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
     const state = styleTextMirrorHost(host);
     try {
         styleTextMirror(mirror, host);
-        mirror.append(renderTokenizedScanText(text, safeTokens, settings, {
+        mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
             parent: host,
             hasNativeRuby: targetHasNativeRuby(target),
             suppressRuby,
@@ -1231,6 +1233,21 @@ function nonDestructiveScanSignature(target: ScanTextTarget, tokens: JPDBToken[]
             ruby: token.rubies,
         })),
     });
+}
+
+function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement): ReaderSettings {
+    if (!targetForcesAllFurigana(parent)) return settings;
+    if (settings.showFurigana && settings.furiganaMode === 'all') return settings;
+    return { ...settings, showFurigana: true, furiganaMode: 'all' };
+}
+
+function scanTargetSuppressesRuby(parent: HTMLElement, suppressRuby?: boolean): boolean {
+    if (targetForcesAllFurigana(parent)) return false;
+    return Boolean(suppressRuby || shouldSuppressCompactMediaRuby(parent));
+}
+
+function targetForcesAllFurigana(parent: HTMLElement): boolean {
+    return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
 }
 
 function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
@@ -1642,7 +1659,10 @@ function applyTokensToFragmentTarget(target: FragmentTextTarget, tokens: JPDBTok
     if (!safeTokens.length) return;
 
     const sentence = target.text.replace(/\s+/g, ' ').trim();
-    applyTokensToIndexedFragmentTarget(target, safeTokens, settings, sentence);
+    const renderTarget = targetForcesAllFurigana(target.parent)
+        ? { ...target, suppressRuby: false }
+        : target;
+    applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
     markRenderedScanTarget(target);
 }
 

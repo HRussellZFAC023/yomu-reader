@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
-import { JitenPublicVocabularyClient } from '../../src/reader/dictionaries/jiten-public-vocabulary';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { JitenPublicVocabularyClient, resetJitenPublicVocabularyBackoffForTests } from '../../src/reader/dictionaries/jiten-public-vocabulary';
 
 describe('JitenPublicVocabularyClient', () => {
+    afterEach(() => {
+        resetJitenPublicVocabularyBackoffForTests();
+    });
+
     it('hydrates keyless vocabulary details with reading and pitch accents', async () => {
         const requestJson = vi.fn(async (url: string) => {
             if (url.includes('/vocabulary/parse?')) {
@@ -68,6 +72,55 @@ describe('JitenPublicVocabularyClient', () => {
         expect(cards.get('青空')).toMatchObject({ spelling: '青空', pitchAccent: ['LHHLL'] });
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/1381470/0/info'))).toHaveLength(1);
+    });
+
+    it('backs off after transient upstream failures so cold enrichment can skip Jiten quickly', async () => {
+        const requestJson = vi.fn(async () => {
+            throw new Error('Public Jiten request failed (503).');
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        await expect(client.lookupMany(['青空'])).resolves.toEqual(new Map());
+        await expect(client.lookupMany(['読む'])).resolves.toEqual(new Map());
+
+        expect(requestJson).toHaveBeenCalledTimes(1);
+    });
+
+    it('drains queued parse chunks after the first transient upstream failure', async () => {
+        const requestJson = vi.fn(async () => {
+            throw new Error('Public Jiten request failed (503).');
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        const terms = Array.from({ length: 5 }, (_, index) => `長い単語${index}${'あ'.repeat(1900)}`);
+
+        await expect(client.lookupMany(terms)).resolves.toEqual(new Map());
+
+        expect(requestJson).toHaveBeenCalledTimes(1);
+    });
+
+    it('shares transient backoff across client instances', async () => {
+        const requestJson = vi.fn(async () => {
+            throw new Error('Public Jiten request failed (503).');
+        });
+        const first = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+        const second = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        await expect(first.lookupMany(['青空'])).resolves.toEqual(new Map());
+        await expect(second.lookupMany(['読む'])).resolves.toEqual(new Map());
+
+        expect(requestJson).toHaveBeenCalledTimes(1);
+    });
+
+    it('backs off after abort-shaped fetch timeouts', async () => {
+        const requestJson = vi.fn(async () => {
+            throw new DOMException('Aborted', 'AbortError');
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        await expect(client.lookupMany(['青空'])).resolves.toEqual(new Map());
+        await expect(client.lookupMany(['読む'])).resolves.toEqual(new Map());
+
+        expect(requestJson).toHaveBeenCalledTimes(1);
     });
 
     it('separates ambiguous short batch terms for Jiten parsing', async () => {

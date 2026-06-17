@@ -129,6 +129,7 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     if (word.closest('ruby')) return;
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
+    const renderSettings = publicVocabularyFuriganaSettings(word, settings);
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token: JPDBToken = {
         card,
@@ -139,13 +140,19 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
         pitchClass: word.dataset.pitchClass ?? '',
         sentence: word.dataset.sentence,
     };
-    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, settings, rubies)) return;
+    if (!shouldApplyPublicVocabularyFurigana(card, surface, token, renderSettings, rubies)) return;
     const html = renderRuby(surface, token);
     if (!html.includes('<rt')) return;
     setInnerHtml(word, html);
     if (ocrLine) normalizeOcrRenderedText(word);
     word.classList.add('jpdb-reader-has-furi');
     if (ocrLine) ocrLine.dataset.hasFuri = 'true';
+}
+
+function publicVocabularyFuriganaSettings(word: HTMLElement, settings: ReaderSettings): ReaderSettings {
+    if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;
+    if (settings.showFurigana && settings.furiganaMode === 'all') return settings;
+    return { ...settings, showFurigana: true, furiganaMode: 'all' };
 }
 
 export function applyAnkiLookupToRenderedWord(

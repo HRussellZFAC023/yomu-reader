@@ -92,7 +92,7 @@ Choose **Use without API key**, then try a lookup:
 
 <div class="yomu-try-me">
   <strong>Try me — tap a word</strong>
-  <div class="yomu-try-me-text">
+  <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
     <p>青空の下で、静かに本を読む。</p>
   </div>
 </div>

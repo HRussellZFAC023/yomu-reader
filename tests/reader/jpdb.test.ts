@@ -31556,6 +31556,30 @@ describe('reader helpers', () => {
         expect(words[0]?.querySelector('rt')?.textContent).toBe('ゆーざーすくりぷとかんりかくちょう');
     });
 
+    it('lets hosted docs Try Me text opt into visible furigana under default settings', () => {
+        const copy = '青空と読書を楽しみます。';
+        document.body.innerHTML = `<div class="yomu-try-me-text" data-yomu-furigana-mode="all">${copy}</div>`;
+        const host = document.querySelector<HTMLElement>('.yomu-try-me-text')!;
+        const target: ScanTextTarget = {
+            node: host.firstChild as Text,
+            parent: host,
+            text: copy,
+            suppressRuby: true,
+            passiveInteraction: true,
+        };
+
+        applyTokensToScanTarget(target, [
+            hostedDocsCardToken(copy, '青空', 'あおぞら'),
+            hostedDocsCardToken(copy, '読書', 'どくしょ'),
+        ], DEFAULT_SETTINGS);
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('.yomu-try-me-text .jpdb-reader-word'));
+        expect(words).toHaveLength(2);
+        expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(words[0]?.querySelector('rt')?.textContent).toBe('あおぞら');
+        expect(words[1]?.querySelector('rt')?.textContent).toBe('どくしょ');
+    });
+
     it('scans hosted docs overflow menu labels as passive ruby lookup targets', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `

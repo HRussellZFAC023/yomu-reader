@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.12] - 2026-06-17
+
+### Fixed
+
+- Hosted docs cold starts no longer wait several seconds on optional public Jiten enrichment before pitch/furigana classes can land. Profiling the live homepage showed the Try Me sample hitting public Jiten `vocabulary/parse` through the proxy and receiving upstream 5xx responses; that route now uses a short 1.5s background timeout, shared parse backoff, and abort-aware transient detection so fallback rendering and JPDB pitch enrichment can continue promptly.
+- The hosted docs loader now preloads the core reader script and lets normal docs load it before optional settings/video companions, reducing contention before the first visible annotations.
+- The hosted Try Me samples now opt into visible furigana for demo text, so the landing page shows the reading aid clearly even though the default reader setting still hides ruby on easier kanji elsewhere.
+
 ## [1.3.11] - 2026-06-17
 
 ### Fixed

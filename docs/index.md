@@ -65,7 +65,7 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
 
 <div class="yomu-try-me">
   <strong>Try me</strong>
-  <div class="yomu-try-me-text">
+  <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
     <h3>青空の下で本を読む</h3>
     <p>今日は静かな喫茶店で新しい本を読みました。</p>
   </div>
