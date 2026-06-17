@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.3.30",
+  "version": "1.4.0",
   "private": true,
   "type": "module",
   "description": "よむ: a small JPDB/Jiten/Yomitan popup dictionary and subtitle miner userscript.",
@@ -84,6 +84,7 @@
     "smoke:youtube-shorts-skip": "node scripts/youtube-shorts-skip-smoke.mjs",
     "smoke:pitch-underline": "node scripts/pitch-underline-smoke.mjs",
     "smoke:underline-baseline": "node scripts/underline-baseline-smoke.mjs",
+    "smoke:pdf-reader": "node scripts/pdf-reader-smoke.mjs",
     "smoke:reader-sites": "node scripts/reader-sites-smoke.mjs",
     "smoke:settings-layout": "node scripts/settings-layout-smoke.mjs",
     "smoke:subtitle-live-sites": "node scripts/subtitle-live-video-site-smoke.mjs",

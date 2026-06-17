@@ -12,6 +12,10 @@ description: Get help with よむ — report a bug, join the Discord, view the s
     <strong>Video Player</strong>
     <span>Open local browser-supported video and subtitle files in the player.</span>
   </a>
+  <a class="yomu-link-card" href="pdf-reader/index.html">
+    <strong>PDF Reader</strong>
+    <span>Open any PDF and read it with よむ lookup, mining, and OCR.</span>
+  </a>
   <a class="yomu-link-card" href="newtab/index.html">
     <strong>New Tab</strong>
     <span>Use the よむ study screen for JPDB, Anki, or imported dictionary cards.</span>

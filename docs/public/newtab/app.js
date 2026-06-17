@@ -829,6 +829,7 @@
   const DONATE_URL = "https://paypal.me/HenryRussell163";
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
+  const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const NADESHIKO_URL = "https://nadeshiko.co/";
@@ -6690,6 +6691,7 @@
       helpSupportCopy: SUPPORT_COPY,
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
+      pdfReader: "PDF Reader",
       newTabPage: "New Tab",
       word: "Word",
       search: "Search",
@@ -8073,6 +8075,7 @@ helpSupportTitle	よむをサポート
 helpSupportCopy	よむはポップアップ検索、JPDB採掘、辞書、OCR、字幕、Ankiを無料でまとめたユーザースクリプトです。
 helpSupportCopyExtra	寄付は任意です。開発、端末、サービス、保守、API費用を支えます。
 videoPlayer	動画プレイヤー
+pdfReader	PDFリーダー
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書、保存データを削除します。
@@ -25675,6 +25678,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel("Video Player")}</a>
+                    <a class="jpdb-reader-btn" href="${PDF_READER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="pdf-reader">${externalButtonLabel("PDF Reader")}</a>
                     <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel("New Tab")}</a>
                     <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel("Docs")}</a>
                     <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
@@ -26478,6 +26482,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   ];
   const HELP_LINK_BUTTON_TEXT_KEYS = [
     ["video-player", "videoPlayer"],
+    ["pdf-reader", "pdfReader"],
     ["new-tab", "newTabPage"],
     ["docs", "docs"],
     ["issues", "issues"],

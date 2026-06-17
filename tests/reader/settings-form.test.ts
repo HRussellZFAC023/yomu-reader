@@ -160,7 +160,7 @@ describe('settings help panel', () => {
         const form = document.createElement('form');
         form.innerHTML = renderHelpLinksPanel();
 
-        for (const key of ['video-player', 'new-tab', 'docs', 'donate', 'issues', 'discord']) {
+        for (const key of ['video-player', 'pdf-reader', 'new-tab', 'docs', 'donate', 'issues', 'discord']) {
             expect(form.querySelector(`[data-help-link="${key}"] svg`)).not.toBeNull();
         }
         expect(form.querySelector('[data-help-link="factory-reset"] svg')).toBeNull();
@@ -169,6 +169,8 @@ describe('settings help panel', () => {
 
         expect(form.querySelector('[data-help-link="video-player"]')?.textContent).toContain('動画プレイヤー');
         expect(form.querySelector('[data-help-link="video-player"] svg')).not.toBeNull();
+        expect(form.querySelector('[data-help-link="pdf-reader"]')?.textContent).toContain('PDFリーダー');
+        expect(form.querySelector('[data-help-link="pdf-reader"] svg')).not.toBeNull();
     });
 
     it('does not render the removed Help glossary', () => {

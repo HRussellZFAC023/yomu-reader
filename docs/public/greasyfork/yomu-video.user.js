@@ -3869,6 +3869,7 @@
       helpSupportCopy: SUPPORT_COPY,
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
+      pdfReader: "PDF Reader",
       newTabPage: "New Tab",
       word: "Word",
       search: "Search",
@@ -5233,6 +5234,7 @@ helpSupportTitle	よむをサポート
 helpSupportCopy	よむはポップアップ検索、JPDB採掘、辞書、OCR、字幕、Ankiを無料でまとめたユーザースクリプトです。
 helpSupportCopyExtra	寄付は任意です。開発、端末、サービス、保守、API費用を支えます。
 videoPlayer	動画プレイヤー
+pdfReader	PDFリーダー
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書、保存データを削除します。

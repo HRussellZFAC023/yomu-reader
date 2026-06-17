@@ -573,6 +573,7 @@
           <div class="overflow-panel" role="menu">
             <button type="button" role="menuitem" data-settings-trigger>Settings</button>
             <a href="../newtab/index.html" role="menuitem" data-menu-study>Study</a>
+            <a href="../pdf-reader/index.html" role="menuitem" data-menu-pdf-reader>PDF Reader</a>
             <a href="../local-audio" role="menuitem" data-menu-local-audio>Local Audio</a>
             <a href="../support" role="menuitem" data-menu-support>Support</a>
           </div>
@@ -657,6 +658,7 @@
           settings: 'Settings',
           openSettings: 'Open settings',
           study: 'Study',
+          pdfReader: 'PDF Reader',
           localAudio: 'Local Audio',
           support: 'Support',
           switchToLightTheme: 'Switch to light theme',
@@ -685,6 +687,7 @@
           settings: '設定',
           openSettings: '設定を開く',
           study: '学習',
+          pdfReader: 'PDFリーダー',
           localAudio: 'ローカル音声',
           support: 'サポート',
           switchToLightTheme: 'ライトテーマに切り替え',
@@ -857,6 +860,7 @@
           settingsTrigger.setAttribute('aria-label', text.openSettings);
         }
         document.querySelector('[data-menu-study]')?.replaceChildren(text.study);
+        document.querySelector('[data-menu-pdf-reader]')?.replaceChildren(text.pdfReader);
         document.querySelector('[data-menu-local-audio]')?.replaceChildren(text.localAudio);
         document.querySelector('[data-menu-support]')?.replaceChildren(text.support);
         if (!currentVideoName) setStatus(text.emptyStatus);

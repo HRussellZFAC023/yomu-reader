@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0] - 2026-06-18
+
+### Added
+
+- **Hosted PDF reader** (`/pdf-reader/`): open or drop any PDF and read it with よむ — no userscript install required. Pages render fully client-side with [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0, vendored), drawing each page to a canvas for full fidelity (images, figures, multi-column layouts, CJK fonts via cMaps, and scanned-image codecs JBIG2/JPEG2000) with a selectable text layer over it that the よむ runtime scans for popup lookup, mining, and furigana. Image-only/scanned pages are flagged and fall through to よむ's OCR. Files are opened locally in the browser tab and never uploaded. Includes page navigation, zoom/fit-width, continuous lazy rendering for large documents, per-document reading-position memory, and theme/accent/interface-language synced with your よむ settings.
+- New `yomu-pdf-reader` site-parser and `/pdf-reader/` route so the runtime recognises and enhances the hosted reader's text layer, plus a `PDF Reader` link in the docs navbar, the in-app overflow menus, the Settings help links, and the docs home/support pages.
+
 ## [1.3.30] - 2026-06-18
 
 ### Changed

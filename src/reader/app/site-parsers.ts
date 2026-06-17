@@ -4,7 +4,7 @@ import {
     type FragmentTextTarget,
     type ScanTextTarget,
 } from '../dom/index';
-import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage } from './pages';
+import { isYomuHostedPassivePage, isYomuHostedVideoPlayerPage, isYomuHostedPdfReaderPage } from './pages';
 
 export interface SiteParserProfile {
     id: string;
@@ -285,6 +285,25 @@ const YOMU_VIDEO_PLAYER_ROOTS = [
     '[data-settings-trigger]',
     '[data-overflow-menu]',
 ];
+const YOMU_PDF_READER_ROOTS = [
+    // PDF.js paints each page to <canvas> for full fidelity and emits a
+    // transparent, absolutely-positioned text layer aligned over it. That text
+    // layer is the real selectable document text, so it is the reading surface
+    // the runtime scans for popups, mining and furigana.
+    '.textLayer',
+    // App chrome so the Japanese UI gets the same lookup treatment.
+    '.brand strong',
+    '[data-yomu-pdf-empty] strong',
+    '[data-yomu-pdf-empty] [data-status]',
+    '.file-button',
+    '[data-settings-trigger]',
+    '[data-overflow-menu]',
+];
+const YOMU_PDF_READER_EXCLUDE = [
+    COMMON_EXCLUDE,
+    '.textLayer .endOfContent',
+    '.textLayer span[role="img"]',
+].join(',');
 const YOUTUBE_CHROME_ROOTS = [
     'yt-chip-cloud-chip-renderer button',
     'yt-chip-cloud-chip-renderer [role="tab"]',
@@ -408,6 +427,19 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includeUiChrome: true,
         includeFormChrome: true,
         matches: url => isYomuHostedVideoPlayerPage(url.href),
+    },
+    {
+        id: 'yomu-pdf-reader-parser',
+        name: 'Yomu PDF reader',
+        description: 'Hosted Yomu PDF reader text layer and Japanese controls.',
+        roots: YOMU_PDF_READER_ROOTS,
+        exclude: YOMU_PDF_READER_EXCLUDE,
+        allowUiText: true,
+        heading: true,
+        minLength: 1,
+        includeUiChrome: true,
+        includeFormChrome: true,
+        matches: url => isYomuHostedPdfReaderPage(url.href),
     },
     {
         id: 'google-search-parser',

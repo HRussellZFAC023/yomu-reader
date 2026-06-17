@@ -12,6 +12,7 @@ export const DISCORD_INVITE_URL = 'https://discord.gg/WvDt57uk5';
 export const DONATE_URL = 'https://paypal.me/HenryRussell163';
 export const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
 export const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
+export const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;
 export const SUPPORT_COPY = 'よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.';
 export const SUPPORT_COPY_EXTRA = 'Donations are optional and help cover development, devices, services, maintenance, and API costs.';
 const NADESHIKO_URL = 'https://nadeshiko.co/';

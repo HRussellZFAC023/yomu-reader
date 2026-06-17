@@ -104,6 +104,10 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
     <strong>Open video player</strong>
     <span>Use local browser-supported videos and subtitle files with よむ lookup.</span>
   </a>
+  <a class="yomu-link-card" href="/yomu-reader/pdf-reader/index.html">
+    <strong>Open PDF reader</strong>
+    <span>Open any PDF and read it with よむ lookup. Files stay on your device.</span>
+  </a>
   <a class="yomu-link-card" href="/yomu-reader/local-audio">
     <strong>Add audio</strong>
     <span>Use hosted Yomitan audio first, or self-host files when you need them.</span>

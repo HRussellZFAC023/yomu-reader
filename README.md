@@ -37,7 +37,7 @@
 
 ## Contents
 
-[Install](#install) · [Features](#features) · [Privacy](#privacy) · [Audio](#audio) · [Mining](#mining) · [Video Player](#video-player) · [New Tab](#new-tab) · [OCR](#ocr) · [Development](#development) · [Deployment](#deployment) · [Support](#support) · [Credits](#credits-and-references) · [Licenses](#source-licenses)
+[Install](#install) · [Features](#features) · [Privacy](#privacy) · [Audio](#audio) · [Mining](#mining) · [Video Player](#video-player) · [PDF Reader](#pdf-reader) · [New Tab](#new-tab) · [OCR](#ocr) · [Development](#development) · [Deployment](#deployment) · [Support](#support) · [Credits](#credits-and-references) · [Licenses](#source-licenses)
 
 ## Install
 
@@ -99,6 +99,16 @@ https://hrussellzfac023.github.io/yomu-reader/video-player/index.html
 ```
 
 Drop a local video file into the page, use the Subtitles button to add Japanese or native subtitle files, and よむ can read the resulting browser video/text tracks with the same overlay and transcript workflow used on streaming pages. The files stay local to the browser tab.
+
+## PDF Reader
+
+Open the hosted PDF reader from the userscript menu or this URL:
+
+```text
+https://hrussellzfac023.github.io/yomu-reader/pdf-reader/index.html
+```
+
+Open or drop any PDF and read it with よむ. Pages render with [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0, vendored under `docs/public/pdf-reader/vendor/`): each page is drawn to a canvas for full fidelity — images, figures, multi-column layouts, CJK fonts via cMaps, and scanned-image codecs (JBIG2/JPEG2000) — with a selectable text layer over it that よむ scans for popup lookup, mining, and furigana. Image-only/scanned pages fall through to よむ's OCR. The file is opened locally in the browser tab and never uploaded. The reader remembers your last page per document, and zoom/fit, page navigation, theme, accent, and interface language follow your よむ settings.
 
 ## New Tab
 

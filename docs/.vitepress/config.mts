@@ -9,6 +9,7 @@ const socialImage = `${siteUrl}og-image.png`;
 const newTabLink = '/newtab/index.html';
 const statsLink = '/newtab/index.html?mode=stats';
 const videoPlayerLink = '/video-player/index.html';
+const pdfReaderLink = '/pdf-reader/index.html';
 
 const siteTitle = 'よむ - Free Japanese popup reader';
 const siteDescription =
@@ -205,6 +206,7 @@ export default defineConfig({
                 text: 'More',
                 items: [
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
+                    { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Stats', link: statsLink, target: '_self' },
                     { text: 'Changelog', link: '/changelog' },
@@ -220,6 +222,7 @@ export default defineConfig({
                     { text: 'Features', link: '/features' },
                     { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
+                    { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
                 ],
             },
             {

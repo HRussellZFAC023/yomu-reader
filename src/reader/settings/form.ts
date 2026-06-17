@@ -1,4 +1,4 @@
-import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
+import { ANKI_CONNECT_ADDON_URL, DISCORD_INVITE_URL, DOCS_BASE_URL, DONATE_URL, GITHUB_REPOSITORY_URL, NADESHIKO_DEVELOPER_URL, NEW_TAB_PAGE_URL, PDF_READER_PAGE_URL, SETTINGS_TITLE, SUPPORT_COPY, SUPPORT_COPY_EXTRA, VIDEO_PLAYER_PAGE_URL } from '../app/constants';
 import { escapeHtml, setInnerHtml, unwrapReaderWords } from '../dom/index';
 import { audioSourceLabel, resolveUiLanguage, uiText } from '../app/i18n';
 import { runningAsBrowserExtension } from '../app/runtime-env';
@@ -122,6 +122,7 @@ export function renderHelpLinksPanel(): string {
                 <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>
                 <div class="jpdb-reader-help-actions">
                     <a class="jpdb-reader-btn" href="${VIDEO_PLAYER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="video-player">${externalButtonLabel('Video Player')}</a>
+                    <a class="jpdb-reader-btn" href="${PDF_READER_PAGE_URL}" target="_blank" rel="noopener" data-help-link="pdf-reader">${externalButtonLabel('PDF Reader')}</a>
                     <a class="jpdb-reader-btn" href="${NEW_TAB_PAGE_URL}" target="_blank" rel="noopener" data-help-link="new-tab">${externalButtonLabel('New Tab')}</a>
                     <a class="jpdb-reader-btn" href="${DOCS_BASE_URL}" target="_blank" rel="noopener" data-help-link="docs">${externalButtonLabel('Docs')}</a>
                     <button class="jpdb-reader-btn jpdb-reader-help-reset" type="button" data-action="factory-reset" data-help-link="factory-reset">Factory Reset</button>
@@ -1007,6 +1008,7 @@ const HELP_LINK_PANEL_TEXT_KEYS = [
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const HELP_LINK_BUTTON_TEXT_KEYS = [
     ['video-player', 'videoPlayer'],
+    ['pdf-reader', 'pdfReader'],
     ['new-tab', 'newTabPage'],
     ['docs', 'docs'],
     ['issues', 'issues'],

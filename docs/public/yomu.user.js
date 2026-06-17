@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.30
+// @version      1.4.0
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.30#sha256-pYIRGwGABDJjB6gNS1DQpHDtbv2iPWnTSeeHMvLvMFQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.30#sha256-rbxqytIAm6gQ9ph8BDcGMfrtB4q4bienA5S0G98xhdA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.30#sha256-o/g5DEAhYePkT2gujveywfWcfognmKNSaGS4aErTe3Q=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.30#sha256-5hexCB37eJN/PfPEEHhuiRWcEpvmB7kPdIjyiaZzkz0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.0#sha256-87PDPKX5ipCr28JWavM0aMtU60T5hJvjTjdpa28M4k0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.0#sha256-ZD8NHRmY557m8Et2C1N837zz/V+1ppHCtqGj0r0lmQs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.0#sha256-GFNEaUDxE2my4ROWM13fboTw0DCwKRlbYc+SYoUas04=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.0#sha256-JaqvTL9lH7pBw+Cy0RWY/f196dNJJCVr0+U3Etnw00E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1006,6 +1006,10 @@
     const appUrl = readYomuAppUrl(value);
     return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuVideoPlayerPath(appUrl.path) : false;
   }
+  function isYomuHostedPdfReaderPage(value) {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuPdfReaderPath(appUrl.path) : false;
+  }
   function readYomuAppUrl(value) {
     try {
       const url = new URL(value);
@@ -1021,7 +1025,7 @@
     return isYomuRepositoryAppUrl(appUrl) && !isYomuActiveAppRoute(value, appUrl);
   }
   function isYomuActiveAppRoute(value, appUrl) {
-    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
+    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path) || isYomuPdfReaderPath(appUrl.path);
   }
   function isYomuRepositoryAppUrl(appUrl) {
     return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
@@ -1038,8 +1042,11 @@
   function isYomuVideoPlayerPath(path) {
     return path.endsWith("/video-player/");
   }
+  function isYomuPdfReaderPath(path) {
+    return path.endsWith("/pdf-reader/");
+  }
   function isYomuLocalAppPath(path) {
-    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path);
+    return path === "/" || path.startsWith(`/${APP_REPOSITORY_NAME}/`) || path.endsWith("/newtab/") || isYomuVideoPlayerPath(path) || isYomuPdfReaderPath(path);
   }
   function bridgeRequestDetail(event) {
     const detail = normalizedBridgeEventDetail$1(event);
@@ -7419,6 +7426,7 @@
       helpSupportCopy: SUPPORT_COPY,
       helpSupportCopyExtra: SUPPORT_COPY_EXTRA,
       videoPlayer: "Video Player",
+      pdfReader: "PDF Reader",
       newTabPage: "New Tab",
       word: "Word",
       search: "Search",
@@ -8802,6 +8810,7 @@ helpSupportTitle	よむをサポート
 helpSupportCopy	よむはポップアップ検索、JPDB採掘、辞書、OCR、字幕、Ankiを無料でまとめたユーザースクリプトです。
 helpSupportCopyExtra	寄付は任意です。開発、端末、サービス、保守、API費用を支えます。
 videoPlayer	動画プレイヤー
+pdfReader	PDFリーダー
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書、保存データを削除します。
@@ -31248,6 +31257,25 @@ ${glossaryKey}`;
     "[data-settings-trigger]",
     "[data-overflow-menu]"
   ];
+  const YOMU_PDF_READER_ROOTS = [
+    // PDF.js paints each page to <canvas> for full fidelity and emits a
+    // transparent, absolutely-positioned text layer aligned over it. That text
+    // layer is the real selectable document text, so it is the reading surface
+    // the runtime scans for popups, mining and furigana.
+    ".textLayer",
+    // App chrome so the Japanese UI gets the same lookup treatment.
+    ".brand strong",
+    "[data-yomu-pdf-empty] strong",
+    "[data-yomu-pdf-empty] [data-status]",
+    ".file-button",
+    "[data-settings-trigger]",
+    "[data-overflow-menu]"
+  ];
+  const YOMU_PDF_READER_EXCLUDE = [
+    COMMON_EXCLUDE,
+    ".textLayer .endOfContent",
+    '.textLayer span[role="img"]'
+  ].join(",");
   const YOUTUBE_CHROME_ROOTS = [
     "yt-chip-cloud-chip-renderer button",
     'yt-chip-cloud-chip-renderer [role="tab"]',
@@ -31371,6 +31399,19 @@ ${glossaryKey}`;
       includeUiChrome: true,
       includeFormChrome: true,
       matches: (url) => isYomuHostedVideoPlayerPage(url.href)
+    },
+    {
+      id: "yomu-pdf-reader-parser",
+      name: "Yomu PDF reader",
+      description: "Hosted Yomu PDF reader text layer and Japanese controls.",
+      roots: YOMU_PDF_READER_ROOTS,
+      exclude: YOMU_PDF_READER_EXCLUDE,
+      allowUiText: true,
+      heading: true,
+      minLength: 1,
+      includeUiChrome: true,
+      includeFormChrome: true,
+      matches: (url) => isYomuHostedPdfReaderPage(url.href)
     },
     {
       id: "google-search-parser",

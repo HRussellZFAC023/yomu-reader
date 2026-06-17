@@ -18,6 +18,11 @@ export function isYomuHostedVideoPlayerPage(value: string): boolean {
     return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuVideoPlayerPath(appUrl.path) : false;
 }
 
+export function isYomuHostedPdfReaderPage(value: string): boolean {
+    const appUrl = readYomuAppUrl(value);
+    return appUrl ? isYomuRepositoryAppUrl(appUrl) && isYomuPdfReaderPath(appUrl.path) : false;
+}
+
 interface YomuAppUrl {
     url: URL;
     path: string;
@@ -41,7 +46,7 @@ function isPassiveYomuRepositoryPage(value: string, appUrl: YomuAppUrl): boolean
 }
 
 function isYomuActiveAppRoute(value: string, appUrl: YomuAppUrl): boolean {
-    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path);
+    return isYomuNewTabUrl(value) || isYomuVideoPlayerPath(appUrl.path) || isYomuPdfReaderPath(appUrl.path);
 }
 
 function isYomuRepositoryAppUrl(appUrl: YomuAppUrl): boolean {
@@ -66,9 +71,14 @@ function isYomuVideoPlayerPath(path: string): boolean {
     return path.endsWith('/video-player/');
 }
 
+function isYomuPdfReaderPath(path: string): boolean {
+    return path.endsWith('/pdf-reader/');
+}
+
 function isYomuLocalAppPath(path: string): boolean {
     return path === '/'
         || path.startsWith(`/${APP_REPOSITORY_NAME}/`)
         || path.endsWith('/newtab/')
-        || isYomuVideoPlayerPath(path);
+        || isYomuVideoPlayerPath(path)
+        || isYomuPdfReaderPath(path);
 }

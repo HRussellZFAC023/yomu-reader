@@ -1,0 +1,1355 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Yomu PDF</title>
+  <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-title" content="よむ">
+  <meta name="color-scheme" content="light dark">
+  <meta name="description" content="Read any PDF with よむ popup lookup, mining and OCR. Files stay on your device.">
+  <script>
+    /* Prime the page theme before paint so dark readers do not flash white. */
+    (() => {
+      try {
+        const settings = JSON.parse(localStorage.getItem('jpdb-popup-reader-settings') || '{}');
+        const stored = (settings && settings.theme) || localStorage.getItem('yomu-page-theme');
+        const pref = stored === 'dark' || stored === 'light' || stored === 'auto' ? stored : 'auto';
+        const theme = pref === 'auto'
+          ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')
+          : pref;
+        document.documentElement.classList.toggle('yomu-page-theme-dark', theme === 'dark');
+        document.documentElement.classList.toggle('yomu-page-theme-light', theme === 'light');
+      } catch {}
+    })();
+  </script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --bg: #101316;
+      --ink: #f5f7f6;
+      --muted: #9aa3a3;
+      --panel: #181d21;
+      --line: rgba(255,255,255,.14);
+      --soft-line: rgba(255,255,255,.08);
+      --accent: #6cc98e;
+      --accent-ink: #0b1710;
+      --accent-soft: rgba(108,201,142,.2);
+      --shadow: rgba(0,0,0,.32);
+      --switch-shadow: rgba(0,0,0,.28);
+      --brand-icon-bg: #f7fbf8;
+      --stage-bg: #050708;
+      --page-bg: #ffffff;
+      --stage-empty-text: rgba(245,247,246,.72);
+      --stage-empty-shadow: rgba(0,0,0,.72);
+      --stage-empty-strong: #f5f7f6;
+      --radius: 8px;
+    }
+
+    :root.yomu-page-theme-light {
+      color-scheme: light;
+      --bg: #ffffff;
+      --ink: #171a1f;
+      --muted: #596272;
+      --panel: #f7f8fa;
+      --line: rgba(20,30,45,.16);
+      --soft-line: rgba(20,30,45,.08);
+      --accent: #5ea780;
+      --accent-ink: #ffffff;
+      --accent-soft: rgba(94,167,128,.16);
+      --shadow: rgba(20,30,45,.12);
+      --stage-bg: #e7eaee;
+      --stage-empty-text: rgba(23,26,31,.72);
+      --stage-empty-shadow: rgba(255,255,255,.6);
+      --stage-empty-strong: #171a1f;
+    }
+
+    :root.yomu-page-theme-dark {
+      color-scheme: dark;
+      --bg: #101316;
+      --ink: #f5f7f6;
+      --muted: #9aa3a3;
+      --panel: #181d21;
+      --line: rgba(255,255,255,.14);
+      --soft-line: rgba(255,255,255,.08);
+      --accent: #6cc98e;
+      --accent-ink: #0b1710;
+      --accent-soft: rgba(108,201,142,.2);
+      --shadow: rgba(0,0,0,.32);
+      --stage-bg: #050708;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      overflow-x: hidden;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button,
+    .file-button,
+    .toolbar-button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 760;
+    }
+
+    button:hover,
+    button:focus-visible,
+    .file-button:hover,
+    .file-button:focus-visible {
+      outline: 2px solid color-mix(in srgb, var(--accent) 62%, transparent);
+      outline-offset: 2px;
+    }
+
+    button[disabled] {
+      opacity: .45;
+      cursor: default;
+    }
+
+    .file-button {
+      display: inline-grid;
+      place-items: center;
+      justify-items: center;
+      padding: 0 14px;
+      background: var(--accent);
+      border-color: transparent;
+      color: var(--accent-ink);
+      text-align: center;
+    }
+
+    .file-button-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      line-height: 1.1;
+    }
+
+    .toolbar-button {
+      display: inline-grid;
+      place-items: center;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .overflow-menu { position: relative; }
+    .overflow-menu > summary { list-style: none; }
+    .overflow-menu > summary::-webkit-details-marker { display: none; }
+
+    .overflow-summary {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .hamburger-icon {
+      width: 18px;
+      height: 14px;
+      background:
+        linear-gradient(currentColor, currentColor) 0 0 / 18px 2px no-repeat,
+        linear-gradient(currentColor, currentColor) 0 6px / 18px 2px no-repeat,
+        linear-gradient(currentColor, currentColor) 0 12px / 18px 2px no-repeat;
+    }
+
+    .overflow-panel {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 40;
+      display: grid;
+      gap: 2px;
+      min-width: 172px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: var(--panel);
+      box-shadow: 0 14px 36px var(--shadow);
+    }
+
+    .overflow-menu:not([open]) .overflow-panel { display: none; }
+
+    .overflow-panel a,
+    .overflow-panel button {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      width: 100%;
+      min-height: 34px;
+      padding: 0 10px;
+      border: 0;
+      border-radius: 6px;
+      background: transparent;
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 720;
+      line-height: 1.2;
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .overflow-panel a:hover,
+    .overflow-panel a:focus-visible,
+    .overflow-panel button:hover,
+    .overflow-panel button:focus-visible,
+    .overflow-summary:hover,
+    .overflow-summary:focus-visible {
+      background: var(--accent-soft);
+      color: var(--ink);
+      outline: 2px solid color-mix(in srgb, var(--accent) 46%, transparent);
+      outline-offset: 2px;
+    }
+
+    .VPNavBarAppearance.appearance {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      min-width: 48px;
+      height: 38px;
+    }
+
+    .language-button {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      min-width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid transparent;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 680;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .language-button:hover,
+    .language-button:focus-visible {
+      background: var(--panel);
+      border-color: var(--line);
+      color: var(--ink);
+    }
+
+    .VPSwitch.VPSwitchAppearance {
+      position: relative;
+      display: block;
+      width: 40px;
+      min-width: 40px;
+      height: 22px;
+      min-height: 22px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--panel) 86%, transparent);
+      cursor: pointer;
+      transition: border-color .18s ease, background .18s ease;
+    }
+
+    .VPSwitch .check {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      display: grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: var(--bg);
+      box-shadow: 0 1px 3px var(--switch-shadow);
+      transition: transform .18s ease, background .18s ease;
+    }
+
+    .VPSwitch[aria-checked="true"] .check { transform: translateX(18px); }
+
+    .VPSwitch .icon {
+      position: relative;
+      display: block;
+      width: 14px;
+      height: 14px;
+      color: var(--muted);
+    }
+
+    .VPSwitch .sun,
+    .VPSwitch .moon {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      line-height: 1;
+      transition: opacity .18s ease;
+    }
+
+    .VPSwitch .sun::before { content: "☀"; }
+    .VPSwitch .moon::before { content: "☾"; }
+    .VPSwitch[aria-checked="false"] .sun,
+    .VPSwitch[aria-checked="true"] .moon { opacity: 0; }
+    .VPSwitch[aria-checked="true"] .sun,
+    .VPSwitch[aria-checked="false"] .moon { opacity: 1; }
+
+    input[type="file"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .app {
+      width: 100%;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      align-content: stretch;
+      gap: 0;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      min-height: 48px;
+      padding:
+        max(12px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        12px
+        max(16px, env(safe-area-inset-left));
+      border-bottom: 1px solid var(--soft-line);
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: inherit;
+      text-decoration: none;
+      font-weight: 900;
+    }
+
+    .brand img {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--brand-icon-bg);
+    }
+
+    /* Document toolbar: page navigation + zoom. Hidden until a PDF is open. */
+    .docbar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      padding: 8px max(16px, env(safe-area-inset-right)) 8px max(16px, env(safe-area-inset-left));
+      border-bottom: 1px solid var(--soft-line);
+    }
+
+    .app:not(.has-pdf) .docbar { display: none; }
+
+    .docbar-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .icon-button {
+      display: inline-grid;
+      place-items: center;
+      width: 38px;
+      min-width: 38px;
+      padding: 0;
+    }
+
+    .page-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--ink);
+      font-weight: 720;
+      font-size: 14px;
+    }
+
+    .page-input {
+      width: 3.4em;
+      min-height: 34px;
+      padding: 0 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--bg);
+      color: var(--ink);
+      text-align: center;
+      font-weight: 720;
+    }
+
+    .page-total { color: var(--muted); }
+
+    .zoom-level {
+      min-width: 4ch;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    /* Scroll container for the rendered pages. */
+    .viewer {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: auto;
+      overscroll-behavior: contain;
+      background: var(--stage-bg);
+      padding: 18px 12px 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .pdf-page {
+      position: relative;
+      flex: 0 0 auto;
+      width: 0;
+      height: 0;
+      max-width: 100%;
+      background: var(--page-bg);
+      border-radius: 2px;
+      box-shadow: 0 10px 30px var(--shadow);
+    }
+
+    .pdf-page canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: 2px;
+    }
+
+    .pdf-page.scanned::after {
+      content: attr(data-scanned-label);
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 5;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--panel) 88%, transparent);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      pointer-events: none;
+    }
+
+    .empty {
+      grid-row: 3;
+      width: auto;
+      position: relative;
+      margin: 18px;
+      display: grid;
+      place-items: center;
+      border: 2px dashed var(--line);
+      border-radius: var(--radius);
+      background: var(--stage-bg);
+      color: var(--stage-empty-text);
+      text-align: center;
+      text-shadow: 0 1px 2px var(--stage-empty-shadow);
+      cursor: pointer;
+      padding: 28px;
+    }
+
+    .app.has-pdf .empty { display: none; }
+    .app.has-pdf .viewer { display: flex; }
+    .app:not(.has-pdf) .viewer { display: none; }
+
+    .empty > div {
+      display: grid;
+      justify-items: center;
+      gap: 8px;
+      width: min(100%, 480px);
+    }
+
+    .empty strong {
+      display: block;
+      color: var(--stage-empty-strong);
+      font-size: clamp(18px, 4.8vw, 24px);
+      line-height: 1.15;
+    }
+
+    .status {
+      display: block;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+    }
+
+    .drop-active .viewer,
+    .drop-active .empty { border-color: var(--accent); }
+    .drop-active .empty { outline: 2px solid var(--accent); outline-offset: -8px; }
+
+    /* PDF.js text layer — sits over the canvas, transparent and selectable, so
+       the よむ runtime can scan, look up, mine and add furigana to real text.
+       Copied from pdfjs-dist web/pdf_viewer.css (Apache-2.0) and flattened. */
+    .textLayer {
+      position: absolute;
+      text-align: initial;
+      inset: 0;
+      overflow: clip;
+      opacity: 1;
+      line-height: 1;
+      letter-spacing: normal;
+      word-spacing: normal;
+      text-size-adjust: none;
+      forced-color-adjust: none;
+      transform-origin: 0 0;
+      caret-color: CanvasText;
+      z-index: 2;
+      --total-scale-factor: 1;
+      --scale-factor: 1;
+      --min-font-size: 1;
+      --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+      --min-font-size-inv: calc(1 / var(--min-font-size));
+    }
+
+    .textLayer span,
+    .textLayer br {
+      color: transparent;
+      position: absolute;
+      white-space: pre;
+      cursor: text;
+      transform-origin: 0% 0%;
+      user-select: text;
+    }
+
+    .textLayer > :not(.markedContent),
+    .textLayer .markedContent span:not(.markedContent) {
+      z-index: 1;
+      --font-height: 0;
+      font-size: calc(var(--text-scale-factor) * var(--font-height));
+      --scale-x: 1;
+      --rotate: 0deg;
+      transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+    }
+
+    .textLayer .markedContent { display: contents; }
+
+    .textLayer span[role="img"] {
+      user-select: none;
+      cursor: default;
+    }
+
+    .textLayer ::selection { background: rgba(108,201,142,.32); }
+    .textLayer .endOfContent {
+      display: block;
+      position: absolute;
+      inset: 100% 0 0;
+      z-index: 0;
+      cursor: default;
+      user-select: none;
+    }
+    .textLayer.selecting .endOfContent { top: 0; }
+
+    /* The runtime adds furigana ruby inside the transparent text layer. Keep the
+       reading line (base) invisible so the canvas glyph shows through, but let
+       the furigana itself render in the accent ink just above the kanji. */
+    .textLayer ruby > rt.jpdb-reader-furi {
+      color: var(--accent);
+      text-shadow: 0 1px 2px var(--stage-empty-shadow);
+    }
+
+    @media (max-width: 640px) {
+      .topbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto auto auto;
+        align-items: center;
+        gap: 12px 10px;
+      }
+      .top-actions { display: contents; }
+      .VPNavBarAppearance.appearance { grid-column: 2; grid-row: 1; width: 42px; min-width: 42px; justify-self: end; }
+      .language-button { grid-column: 3; grid-row: 1; min-width: 54px; justify-self: end; }
+      .overflow-menu { grid-column: 4; grid-row: 1; justify-self: end; }
+      .file-button { grid-column: 1 / -1; grid-row: 2; width: 100%; min-height: 48px; }
+      .viewer { padding: 12px 6px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" data-app>
+    <header class="topbar">
+      <a class="brand" href="../" aria-label="Open Yomu home">
+        <img src="../yomu-icon.svg" alt="" width="36" height="36" data-yomu-brand-icon>
+        <strong>Yomu PDF</strong>
+      </a>
+      <div class="top-actions">
+        <div class="VPNavBarAppearance appearance">
+          <button class="VPSwitch VPSwitchAppearance" type="button" role="switch" data-theme-toggle aria-label="Switch to light theme" aria-checked="false" title="Switch to light theme">
+            <span class="check">
+              <span class="icon">
+                <span class="vpi-sun sun" aria-hidden="true"></span>
+                <span class="vpi-moon moon" aria-hidden="true"></span>
+              </span>
+            </span>
+          </button>
+        </div>
+        <button class="language-button" type="button" data-language-toggle aria-label="Switch Yomu HUD to Japanese" lang="ja">あ</button>
+        <details class="overflow-menu" data-overflow-menu>
+          <summary class="overflow-summary" aria-label="Menu" data-overflow-summary>
+            <span class="hamburger-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="overflow-panel" role="menu">
+            <button type="button" role="menuitem" data-settings-trigger>Settings</button>
+            <a href="../newtab/index.html" role="menuitem" data-menu-study>Study</a>
+            <a href="../video-player/index.html" role="menuitem" data-menu-video>Video Player</a>
+            <a href="../local-audio" role="menuitem" data-menu-local-audio>Local Audio</a>
+            <a href="../support" role="menuitem" data-menu-support>Support</a>
+          </div>
+        </details>
+        <label class="file-button">
+          <span class="file-button-label" data-open-pdf-label>Open PDF</span>
+          <input type="file" accept="application/pdf,.pdf" data-pdf-input>
+        </label>
+      </div>
+    </header>
+
+    <nav class="docbar" aria-label="Document controls" data-docbar>
+      <div class="docbar-group">
+        <button class="toolbar-button icon-button" type="button" data-prev-page aria-label="Previous page" title="Previous page">‹</button>
+        <span class="page-indicator">
+          <input class="page-input" type="text" inputmode="numeric" value="1" data-page-input aria-label="Page number">
+          <span class="page-total" data-page-total>/ 1</span>
+        </span>
+        <button class="toolbar-button icon-button" type="button" data-next-page aria-label="Next page" title="Next page">›</button>
+      </div>
+      <div class="docbar-group">
+        <button class="toolbar-button icon-button" type="button" data-zoom-out aria-label="Zoom out" title="Zoom out">−</button>
+        <span class="zoom-level" data-zoom-level>100%</span>
+        <button class="toolbar-button icon-button" type="button" data-zoom-in aria-label="Zoom in" title="Zoom in">+</button>
+        <button class="toolbar-button" type="button" data-fit-width data-fit-label>Fit width</button>
+      </div>
+    </nav>
+
+    <section class="viewer" data-viewer aria-label="PDF document"></section>
+
+    <button class="empty" type="button" data-empty-open>
+      <div>
+        <strong>Open or drop a PDF</strong>
+        <span class="status" data-status>Pick a PDF and read it with よむ. Files stay on your device — nothing is uploaded.</span>
+      </div>
+    </button>
+  </main>
+
+  <script type="module">
+    import * as pdfjsLib from './vendor/pdf.min.mjs';
+
+    const VENDOR = new URL('./vendor/', import.meta.url);
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdf.worker.min.mjs', VENDOR).href;
+
+    const app = document.querySelector('[data-app]');
+    const viewer = document.querySelector('[data-viewer]');
+    const pdfInput = document.querySelector('[data-pdf-input]');
+    const emptyOpen = document.querySelector('[data-empty-open]');
+    const status = document.querySelector('[data-status]');
+    const themeToggle = document.querySelector('[data-theme-toggle]');
+    const languageToggle = document.querySelector('[data-language-toggle]');
+    const openPdfLabel = document.querySelector('[data-open-pdf-label]');
+    const overflowMenu = document.querySelector('[data-overflow-menu]');
+    const overflowSummary = document.querySelector('[data-overflow-summary]');
+    const settingsTrigger = document.querySelector('[data-settings-trigger]');
+    const brandIcon = document.querySelector('[data-yomu-brand-icon]');
+    const prevPageBtn = document.querySelector('[data-prev-page]');
+    const nextPageBtn = document.querySelector('[data-next-page]');
+    const pageInput = document.querySelector('[data-page-input]');
+    const pageTotal = document.querySelector('[data-page-total]');
+    const zoomOutBtn = document.querySelector('[data-zoom-out]');
+    const zoomInBtn = document.querySelector('[data-zoom-in]');
+    const zoomLevel = document.querySelector('[data-zoom-level]');
+    const fitWidthBtn = document.querySelector('[data-fit-width]');
+
+    const themeKey = 'yomu-page-theme';
+    const settingsKey = 'jpdb-popup-reader-settings';
+    const positionKeyPrefix = 'yomu-pdf-position:';
+    const settingsChangeEvent = 'yomu-settings-change';
+    const openSettingsEvent = 'yomu-open-settings';
+    const languageEvent = 'yomu-interface-language-change';
+    const runtimeScriptId = 'yomu-hosted-pdf-runtime';
+    const runtimeCssAttribute = 'data-yomu-hosted-pdf-css';
+    const runtimeScriptAttribute = 'data-yomu-hosted-pdf-script';
+    const runtimeReadyTimeoutMs = 2600;
+    const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
+    const colorTokens = { accent: '#5ea780', readableInk: '#11161d', white: '#ffffff' };
+    const fallbackIconSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#181b20"/><text x="32" y="38" text-anchor="middle" dominant-baseline="central" font-family="Hiragino Sans, Yu Gothic, Noto Sans JP, system-ui, sans-serif" font-size="38" font-weight="800" fill="#f2f4f8">&#12424;</text></svg>';
+
+    const MIN_SCALE = 0.3;
+    const MAX_SCALE = 6;
+    const SCANNED_TEXT_THRESHOLD = 8; // chars on a page below which we treat it as scanned/image
+
+    let runtimeLoadPromise = null;
+    let pdfDoc = null;
+    let currentFileKey = '';
+    let currentScale = 0;     // 0 means "fit width"
+    let currentPage = 1;
+    let scannedNoticeShown = false;
+    let positionSaveTimer = 0;
+    const pages = new Map(); // pageNumber -> { container, canvas, textLayerDiv, status: 'idle'|'rendering'|'done' }
+
+    const copy = {
+      en: {
+        title: 'Yomu PDF',
+        brand: 'Yomu PDF',
+        openHome: 'Open Yomu home',
+        openPdf: 'Open PDF',
+        stageLabel: 'PDF document',
+        emptyTitle: 'Open or drop a PDF',
+        emptyStatus: 'Pick a PDF and read it with よむ. Files stay on your device — nothing is uploaded.',
+        choosePdf: 'Choose a PDF file (.pdf).',
+        opening: name => `Opening ${name}…`,
+        rendering: 'Rendering…',
+        ready: (name, pages) => `${name} — ${pages} page${pages === 1 ? '' : 's'}`,
+        loadFailed: 'Could not open that PDF. It may be damaged or password protected.',
+        scannedNotice: 'This PDF looks scanned (no selectable text). Turn on OCR in Settings to look up words on the page.',
+        loadingRuntime: 'Loading Yomu controls…',
+        loadingSettings: 'Loading Yomu settings…',
+        runtimeMissing: 'Yomu controls could not load from this server. Serve yomu.user.js and yomu.css next to the reader, or enable the Yomu userscript.',
+        menu: 'Menu',
+        settings: 'Settings',
+        openSettings: 'Open settings',
+        study: 'Study',
+        videoPlayer: 'Video Player',
+        localAudio: 'Local Audio',
+        support: 'Support',
+        prevPage: 'Previous page',
+        nextPage: 'Next page',
+        pageNumber: 'Page number',
+        zoomIn: 'Zoom in',
+        zoomOut: 'Zoom out',
+        fitWidth: 'Fit width',
+        scannedBadge: 'Scanned · OCR',
+        switchToLightTheme: 'Switch to light theme',
+        switchToDarkTheme: 'Switch to dark theme',
+        switchToJapanese: 'Switch Yomu HUD to Japanese',
+        switchToEnglish: 'Switch Yomu HUD to English',
+      },
+      ja: {
+        title: 'よむ PDF',
+        brand: 'よむ PDF',
+        openHome: 'よむホームを開く',
+        openPdf: 'PDFを開く',
+        stageLabel: 'PDF文書',
+        emptyTitle: 'PDFを開くかドロップ',
+        emptyStatus: 'PDFを選んでよむで読みましょう。ファイルは端末内で処理され、アップロードされません。',
+        choosePdf: 'PDFファイル（.pdf）を選んでください。',
+        opening: name => `${name}を開いています…`,
+        rendering: '描画しています…',
+        ready: (name, pages) => `${name} — ${pages}ページ`,
+        loadFailed: 'このPDFを開けませんでした。破損しているか、パスワードで保護されている可能性があります。',
+        scannedNotice: 'このPDFはスキャン画像のようです（選択できる文字がありません）。設定でOCRを有効にすると、ページ上の語句を調べられます。',
+        loadingRuntime: 'よむの操作パネルを読み込んでいます…',
+        loadingSettings: 'よむの設定を読み込んでいます…',
+        runtimeMissing: 'このサーバーからよむの操作パネルを読み込めませんでした。リーダーの隣に yomu.user.js と yomu.css を置くか、よむユーザースクリプトを有効にしてください。',
+        menu: 'メニュー',
+        settings: '設定',
+        openSettings: '設定を開く',
+        study: '学習',
+        videoPlayer: '動画プレイヤー',
+        localAudio: 'ローカル音声',
+        support: 'サポート',
+        prevPage: '前のページ',
+        nextPage: '次のページ',
+        pageNumber: 'ページ番号',
+        zoomIn: '拡大',
+        zoomOut: '縮小',
+        fitWidth: '幅に合わせる',
+        scannedBadge: 'スキャン · OCR',
+        switchToLightTheme: 'ライトテーマに切り替え',
+        switchToDarkTheme: 'ダークテーマに切り替え',
+        switchToJapanese: 'Yomu HUDを日本語に切り替え',
+        switchToEnglish: 'Yomu HUDを英語に切り替え',
+      },
+    };
+
+    function text() { return copy[effectiveInterfaceLanguage()] || copy.en; }
+    function setStatus(message) { status.textContent = message; }
+
+    function readSettings() {
+      try {
+        const settings = JSON.parse(localStorage.getItem(settingsKey) || '{}');
+        return settings && typeof settings === 'object' && !Array.isArray(settings) ? settings : {};
+      } catch { return {}; }
+    }
+
+    /* ---- theme + accent (shared with the video player hosted app) ---- */
+    function normalizeTheme(value) {
+      return value === 'dark' || value === 'light' || value === 'auto' ? value : 'auto';
+    }
+    function themePreference() {
+      const settings = readSettings();
+      if (Object.prototype.hasOwnProperty.call(settings, 'theme')) return normalizeTheme(settings.theme);
+      return normalizeTheme(localStorage.getItem(themeKey));
+    }
+    function effectiveTheme(preference = themePreference()) {
+      if (preference === 'dark' || preference === 'light') return preference;
+      return matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+    }
+    function applyTheme(preference = themePreference()) {
+      const theme = effectiveTheme(preference);
+      document.documentElement.classList.toggle('yomu-page-theme-dark', theme === 'dark');
+      document.documentElement.classList.toggle('yomu-page-theme-light', theme === 'light');
+      if (themeToggle) {
+        const label = theme === 'dark' ? text().switchToLightTheme : text().switchToDarkTheme;
+        themeToggle.setAttribute('aria-label', label);
+        themeToggle.setAttribute('aria-checked', String(theme === 'light'));
+        themeToggle.title = label;
+      }
+    }
+    function saveThemePreference(theme) {
+      const settings = readSettings();
+      settings.theme = theme;
+      localStorage.setItem(settingsKey, JSON.stringify(settings));
+      localStorage.setItem(themeKey, theme);
+      window.dispatchEvent(new CustomEvent(settingsChangeEvent, { detail: { settings } }));
+      applyTheme(theme);
+      applyAccent();
+    }
+    function syncFromSettingsEvent(event) {
+      const theme = event?.detail?.settings?.theme;
+      if (theme === 'dark' || theme === 'light' || theme === 'auto') {
+        if (event?.detail?.preview !== true) {
+          if (theme === 'auto') localStorage.removeItem(themeKey);
+          else localStorage.setItem(themeKey, theme);
+        }
+        applyTheme(theme);
+      } else {
+        applyTheme();
+      }
+      applyAccent();
+    }
+    function applyAccent() {
+      const accent = sanitizeAccent(readSettings().accentColor);
+      const accentInk = readableTextOn(accent);
+      const accentSoft = hexToRgba(accent, effectiveTheme() === 'dark' ? 0.22 : 0.16);
+      const root = document.documentElement.style;
+      root.setProperty('--accent', accent);
+      root.setProperty('--accent-ink', accentInk);
+      root.setProperty('--accent-soft', accentSoft);
+      root.setProperty('--jpdb-reader-accent', accent);
+      root.setProperty('--jpdb-reader-accent-text', accentInk);
+      root.setProperty('--jpdb-reader-accent-soft', accentSoft);
+    }
+    function sanitizeAccent(value) {
+      if (typeof value !== 'string') return colorTokens.accent;
+      const trimmed = value.trim();
+      if (/^#[0-9a-f]{6}$/i.test(trimmed)) return trimmed.toLowerCase();
+      const shortHex = /^#([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(trimmed);
+      return shortHex ? `#${shortHex[1]}${shortHex[1]}${shortHex[2]}${shortHex[2]}${shortHex[3]}${shortHex[3]}`.toLowerCase() : colorTokens.accent;
+    }
+    function readableTextOn(background) {
+      return contrastRatio(background, colorTokens.readableInk) >= contrastRatio(background, colorTokens.white)
+        ? colorTokens.readableInk : colorTokens.white;
+    }
+    function contrastRatio(a, b) {
+      const l1 = relativeLuminance(a), l2 = relativeLuminance(b);
+      return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+    }
+    function relativeLuminance(color) {
+      return hexToRgb(color).map(value => {
+        const channel = value / 255;
+        return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+      }).reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+    }
+    function hexToRgb(color) {
+      const safe = sanitizeAccent(color);
+      return [parseInt(safe.slice(1, 3), 16), parseInt(safe.slice(3, 5), 16), parseInt(safe.slice(5, 7), 16)];
+    }
+    function hexToRgba(color, alpha) {
+      const [r, g, b] = hexToRgb(color);
+      return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, alpha)).toFixed(2)})`;
+    }
+
+    /* ---- interface language ---- */
+    function saveInterfaceLanguage(language) {
+      const settings = readSettings();
+      settings.interfaceLanguage = language;
+      localStorage.setItem(settingsKey, JSON.stringify(settings));
+      window.dispatchEvent(new CustomEvent(languageEvent, { detail: { language } }));
+      applyInterfaceLanguage(language);
+    }
+    function effectiveInterfaceLanguage() {
+      const language = readSettings().interfaceLanguage;
+      if (language === 'ja' || language === 'en') return language;
+      return [...(navigator.languages || []), navigator.language].some(value => String(value || '').toLowerCase().startsWith('ja')) ? 'ja' : 'en';
+    }
+    function nextInterfaceLanguage() { return effectiveInterfaceLanguage() === 'ja' ? 'en' : 'ja'; }
+    function applyInterfaceLanguage(language) {
+      document.documentElement.lang = language === 'ja' ? 'ja' : 'en';
+      const t = copy[language] || copy.en;
+      document.title = t.title;
+      document.querySelector('.brand').setAttribute('aria-label', t.openHome);
+      document.querySelector('.brand strong').textContent = t.brand;
+      viewer.setAttribute('aria-label', t.stageLabel);
+      if (openPdfLabel) openPdfLabel.textContent = t.openPdf;
+      document.querySelector('.empty strong').textContent = t.emptyTitle;
+      overflowSummary?.setAttribute('aria-label', t.menu);
+      if (settingsTrigger) {
+        settingsTrigger.textContent = t.settings;
+        settingsTrigger.setAttribute('aria-label', t.openSettings);
+      }
+      document.querySelector('[data-menu-study]')?.replaceChildren(t.study);
+      document.querySelector('[data-menu-video]')?.replaceChildren(t.videoPlayer);
+      document.querySelector('[data-menu-local-audio]')?.replaceChildren(t.localAudio);
+      document.querySelector('[data-menu-support]')?.replaceChildren(t.support);
+      prevPageBtn?.setAttribute('aria-label', t.prevPage);
+      prevPageBtn?.setAttribute('title', t.prevPage);
+      nextPageBtn?.setAttribute('aria-label', t.nextPage);
+      nextPageBtn?.setAttribute('title', t.nextPage);
+      pageInput?.setAttribute('aria-label', t.pageNumber);
+      zoomInBtn?.setAttribute('aria-label', t.zoomIn);
+      zoomInBtn?.setAttribute('title', t.zoomIn);
+      zoomOutBtn?.setAttribute('aria-label', t.zoomOut);
+      zoomOutBtn?.setAttribute('title', t.zoomOut);
+      if (fitWidthBtn) fitWidthBtn.textContent = t.fitWidth;
+      for (const page of pages.values()) page.container.dataset.scannedLabel = t.scannedBadge;
+      if (!pdfDoc) setStatus(t.emptyStatus);
+      if (languageToggle) {
+        const next = nextInterfaceLanguage();
+        languageToggle.textContent = next === 'ja' ? 'あ' : 'A';
+        languageToggle.lang = next === 'ja' ? 'ja' : 'en';
+        languageToggle.setAttribute('aria-label', next === 'ja' ? t.switchToJapanese : t.switchToEnglish);
+        languageToggle.removeAttribute('title');
+      }
+      applyTheme(effectiveTheme());
+      applyAccent();
+    }
+
+    /* ---- Yomu runtime injection (so visitors need no userscript) ---- */
+    function runtimeAssetCandidates(fileName) {
+      const urls = [
+        new URL(`../${fileName}`, window.location.href),
+        new URL(`./${fileName}`, window.location.href),
+        new URL(`/${fileName}`, window.location.origin),
+        new URL(`/yomu-reader/${fileName}`, window.location.origin),
+      ];
+      return [...new Set(urls.map(url => url.href))];
+    }
+    function hasYomuRuntime() {
+      return Boolean(
+        window.__yomuReaderAppInitialized ||
+        document.getElementById(yomuRuntimeMarkerId) ||
+        document.querySelector('.jpdb-subtitle-player, .jpdb-reader-settings')
+      );
+    }
+    function waitForYomuRuntime(timeoutMs = runtimeReadyTimeoutMs) {
+      if (hasYomuRuntime()) return Promise.resolve(true);
+      return new Promise(resolve => {
+        const started = performance.now();
+        const check = () => {
+          if (hasYomuRuntime()) return resolve(true);
+          if (performance.now() - started >= timeoutMs) return resolve(false);
+          window.setTimeout(check, 50);
+        };
+        check();
+      });
+    }
+    function loadYomuCss() {
+      if (document.querySelector(`link[href$="/yomu.css"], link[href*="/yomu.css?"], link[${runtimeCssAttribute}]`)) {
+        return Promise.resolve(true);
+      }
+      return loadLinkCandidates(runtimeAssetCandidates('yomu.css'));
+    }
+    function loadLinkCandidates(candidates, index = 0) {
+      if (index >= candidates.length) return Promise.resolve(false);
+      return new Promise(resolve => {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = candidates[index];
+        link.setAttribute(runtimeCssAttribute, 'true');
+        link.addEventListener('load', () => resolve(true), { once: true });
+        link.addEventListener('error', () => { link.remove(); void loadLinkCandidates(candidates, index + 1).then(resolve); }, { once: true });
+        document.head.append(link);
+      });
+    }
+    function loadYomuScript() {
+      if (hasYomuRuntime()) return Promise.resolve(true);
+      const existing = document.getElementById(runtimeScriptId) || document.querySelector(`script[${runtimeScriptAttribute}]`);
+      if (existing) return waitForYomuRuntime();
+      return loadScriptCandidates(runtimeAssetCandidates('yomu.user.js'));
+    }
+    function loadScriptCandidates(candidates, index = 0) {
+      if (index >= candidates.length) return Promise.resolve(false);
+      return new Promise(resolve => {
+        const script = document.createElement('script');
+        script.id = runtimeScriptId;
+        script.async = true;
+        script.src = candidates[index];
+        script.setAttribute(runtimeScriptAttribute, 'true');
+        script.addEventListener('load', () => {
+          void waitForYomuRuntime().then(ready => {
+            if (ready) return resolve(true);
+            script.remove();
+            void loadScriptCandidates(candidates, index + 1).then(resolve);
+          });
+        }, { once: true });
+        script.addEventListener('error', () => { script.remove(); void loadScriptCandidates(candidates, index + 1).then(resolve); }, { once: true });
+        document.head.append(script);
+      });
+    }
+    async function ensureYomuRuntime(options = {}) {
+      if (hasYomuRuntime()) return true;
+      if (!options.silent) setStatus(options.message || text().loadingRuntime);
+      runtimeLoadPromise ||= (async () => { await loadYomuCss(); return loadYomuScript(); })();
+      const loaded = await runtimeLoadPromise.catch(() => false);
+      const ready = loaded && await waitForYomuRuntime();
+      if (!ready) runtimeLoadPromise = null;
+      if (!ready && !options.silent) setStatus(text().runtimeMissing);
+      return ready;
+    }
+    function settingsVisible() { return Boolean(document.querySelector('.jpdb-reader-settings')); }
+    function dispatchSettingsOpen() {
+      if (settingsVisible()) return true;
+      window.dispatchEvent(new CustomEvent(openSettingsEvent, { detail: { panel: 'basics' } }));
+      return settingsVisible();
+    }
+    async function openSettings() {
+      overflowMenu?.removeAttribute('open');
+      if (dispatchSettingsOpen()) return;
+      await ensureYomuRuntime({ message: text().loadingSettings });
+      if (dispatchSettingsOpen()) return;
+      [120, 360, 900].forEach(delay => window.setTimeout(dispatchSettingsOpen, delay));
+      window.setTimeout(() => { if (!dispatchSettingsOpen()) setStatus(text().runtimeMissing); }, 1350);
+    }
+
+    /* ---- PDF rendering ---- */
+    function fileKeyFor(file) { return `${positionKeyPrefix}${file.name}:${file.size}`; }
+
+    function resetViewer() {
+      pages.clear();
+      viewer.replaceChildren();
+      scannedNoticeShown = false;
+      currentPage = 1;
+    }
+
+    async function openPdf(file) {
+      if (!file) return;
+      if (pdfDoc) { try { await pdfDoc.destroy(); } catch {} pdfDoc = null; }
+      resetViewer();
+      app.classList.add('has-pdf');
+      currentFileKey = fileKeyFor(file);
+      setStatus(text().opening(file.name));
+      void ensureYomuRuntime({ silent: true });
+      let buffer;
+      try {
+        buffer = await file.arrayBuffer();
+        const task = pdfjsLib.getDocument({
+          data: new Uint8Array(buffer),
+          cMapUrl: new URL('cmaps/', VENDOR).href,
+          cMapPacked: true,
+          standardFontDataUrl: new URL('standard_fonts/', VENDOR).href,
+          wasmUrl: new URL('wasm/', VENDOR).href,
+        });
+        pdfDoc = await task.promise;
+      } catch (error) {
+        console.error('[yomu-pdf] failed to open', error);
+        app.classList.remove('has-pdf');
+        setStatus(text().loadFailed);
+        return;
+      }
+      pageTotal.textContent = `/ ${pdfDoc.numPages}`;
+      buildPlaceholders();
+      setStatus(text().ready(file.name, pdfDoc.numPages));
+      const savedPage = clampPage(Number(localStorage.getItem(currentFileKey)) || 1);
+      await renderAround(savedPage);
+      if (savedPage > 1) goToPage(savedPage, 'auto');
+      else updateCurrentPageFromScroll();
+    }
+
+    function buildPlaceholders() {
+      const fragment = document.createDocumentFragment();
+      for (let number = 1; number <= pdfDoc.numPages; number += 1) {
+        const container = document.createElement('div');
+        container.className = 'pdf-page';
+        container.dataset.pageNumber = String(number);
+        container.dataset.scannedLabel = text().scannedBadge;
+        const canvas = document.createElement('canvas');
+        const textLayerDiv = document.createElement('div');
+        textLayerDiv.className = 'textLayer';
+        container.append(canvas, textLayerDiv);
+        // Estimated size keeps the scrollbar stable before render; corrected on render.
+        container.style.width = '640px';
+        container.style.height = '880px';
+        pages.set(number, { container, canvas, textLayerDiv, status: 'idle' });
+        fragment.append(container);
+        pageObserver.observe(container);
+        visibilityObserver.observe(container);
+      }
+      viewer.append(fragment);
+    }
+
+    function clampPage(number) {
+      if (!pdfDoc) return 1;
+      return Math.min(Math.max(1, Math.round(number) || 1), pdfDoc.numPages);
+    }
+
+    function fitWidthScale(baseViewport) {
+      const available = viewer.clientWidth - 28; // padding allowance
+      if (available <= 0) return 1;
+      return Math.max(MIN_SCALE, Math.min(MAX_SCALE, available / baseViewport.width));
+    }
+
+    function effectiveScaleLabel() {
+      if (currentScale) return `${Math.round(currentScale * 100)}%`;
+      const first = pages.get(currentPage) || pages.get(1);
+      const shown = first?.shownScale;
+      return shown ? `${Math.round(shown * 100)}%` : 'Fit';
+    }
+
+    async function renderPage(number) {
+      const entry = pages.get(number);
+      if (!entry || entry.status !== 'idle') return;
+      entry.status = 'rendering';
+      try {
+        const page = await pdfDoc.getPage(number);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const scale = currentScale || fitWidthScale(baseViewport);
+        entry.shownScale = scale;
+        const viewport = page.getViewport({ scale });
+        const cssWidth = Math.floor(viewport.width);
+        const cssHeight = Math.floor(viewport.height);
+        entry.container.style.width = `${cssWidth}px`;
+        entry.container.style.height = `${cssHeight}px`;
+
+        const outputScale = Math.min(window.devicePixelRatio || 1, 2.5);
+        const canvas = entry.canvas;
+        canvas.width = Math.floor(cssWidth * outputScale);
+        canvas.height = Math.floor(cssHeight * outputScale);
+        const context = canvas.getContext('2d', { alpha: false });
+        const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
+        await page.render({ canvasContext: context, viewport, transform }).promise;
+
+        const textLayerDiv = entry.textLayerDiv;
+        textLayerDiv.replaceChildren();
+        textLayerDiv.style.setProperty('--scale-factor', String(scale));
+        textLayerDiv.style.setProperty('--total-scale-factor', String(scale));
+        const textLayer = new pdfjsLib.TextLayer({
+          textContentSource: page.streamTextContent(),
+          container: textLayerDiv,
+          viewport,
+        });
+        await textLayer.render();
+        entry.status = 'done';
+
+        const textLength = textLayerDiv.textContent.replace(/\s+/g, '').length;
+        if (textLength < SCANNED_TEXT_THRESHOLD) {
+          entry.container.classList.add('scanned');
+          maybeShowScannedNotice();
+        } else {
+          entry.container.classList.remove('scanned');
+        }
+        updateZoomLabel();
+      } catch (error) {
+        console.error(`[yomu-pdf] failed to render page ${number}`, error);
+        entry.status = 'idle';
+      }
+    }
+
+    function maybeShowScannedNotice() {
+      if (scannedNoticeShown) return;
+      scannedNoticeShown = true;
+      setStatus(text().scannedNotice);
+      void ensureYomuRuntime({ silent: true });
+    }
+
+    async function renderAround(number) {
+      const targets = [number - 1, number, number + 1, number + 2]
+        .filter(value => value >= 1 && pdfDoc && value <= pdfDoc.numPages);
+      await Promise.all(targets.map(renderPage));
+    }
+
+    function rerenderRendered() {
+      for (const entry of pages.values()) {
+        entry.status = 'idle';
+        entry.canvas.width = 0;
+        entry.canvas.height = 0;
+        entry.textLayerDiv.replaceChildren();
+      }
+      // Re-render every page currently in view (the IntersectionObserver will
+      // not re-fire for elements that stay intersecting) plus the active page's
+      // neighbours, so a zoom/fit change repaints what the reader can see.
+      const visible = [...visibilityRatios].filter(([, ratio]) => ratio > 0).map(([number]) => number);
+      const targets = new Set([...visible, currentPage - 1, currentPage, currentPage + 1]);
+      for (const number of targets) void renderPage(number);
+    }
+
+    /* IntersectionObserver renders pages as they approach the viewport and keeps
+       the page indicator + saved reading position in sync with the scroll. */
+    const pageObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const number = Number(entry.target.dataset.pageNumber);
+        void renderPage(number);
+      }
+    }, { root: viewer, rootMargin: '600px 0px' });
+
+    const visibilityRatios = new Map();
+    const visibilityObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        const number = Number(entry.target.dataset.pageNumber);
+        visibilityRatios.set(number, entry.isIntersecting ? entry.intersectionRatio : 0);
+      }
+      updateCurrentPageFromScroll();
+    }, { root: viewer, threshold: [0, 0.25, 0.5, 0.75, 1] });
+
+    function updateCurrentPageFromScroll() {
+      let best = currentPage;
+      let bestRatio = -1;
+      for (const [number, ratio] of visibilityRatios) {
+        if (ratio > bestRatio) { bestRatio = ratio; best = number; }
+      }
+      if (best !== currentPage) {
+        currentPage = best;
+        if (document.activeElement !== pageInput) pageInput.value = String(currentPage);
+        updateNavButtons();
+        updateZoomLabel();
+      }
+      schedulePositionSave();
+    }
+
+    function schedulePositionSave() {
+      if (positionSaveTimer) window.clearTimeout(positionSaveTimer);
+      positionSaveTimer = window.setTimeout(() => {
+        if (currentFileKey) localStorage.setItem(currentFileKey, String(currentPage));
+      }, 400);
+    }
+
+    function updateNavButtons() {
+      prevPageBtn.disabled = !pdfDoc || currentPage <= 1;
+      nextPageBtn.disabled = !pdfDoc || currentPage >= pdfDoc.numPages;
+    }
+    function updateZoomLabel() { zoomLevel.textContent = effectiveScaleLabel(); }
+
+    function goToPage(number, behavior = 'smooth') {
+      const target = clampPage(number);
+      const entry = pages.get(target);
+      if (!entry) return;
+      currentPage = target;
+      pageInput.value = String(target);
+      void renderAround(target);
+      entry.container.scrollIntoView({ behavior, block: 'start' });
+      updateNavButtons();
+    }
+
+    function setScale(nextScale) {
+      const reference = pages.get(currentPage);
+      const base = reference?.shownScale || 1;
+      currentScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale ?? base));
+      rerenderRendered();
+      updateZoomLabel();
+    }
+
+    function handleFiles(files) {
+      for (const file of files) {
+        if (file.type === 'application/pdf' || /\.pdf$/i.test(file.name)) {
+          void openPdf(file);
+          return;
+        }
+      }
+      setStatus(text().choosePdf);
+    }
+
+    /* ---- events ---- */
+    pdfInput.addEventListener('change', () => {
+      const files = Array.from(pdfInput.files || []);
+      pdfInput.value = '';
+      window.requestAnimationFrame(() => handleFiles(files));
+    });
+    emptyOpen?.addEventListener('click', () => pdfInput.click());
+    themeToggle?.addEventListener('click', () => saveThemePreference(effectiveTheme() === 'dark' ? 'light' : 'dark'));
+    languageToggle?.addEventListener('click', () => saveInterfaceLanguage(nextInterfaceLanguage()));
+    settingsTrigger?.addEventListener('click', openSettings);
+    prevPageBtn?.addEventListener('click', () => goToPage(currentPage - 1));
+    nextPageBtn?.addEventListener('click', () => goToPage(currentPage + 1));
+    pageInput?.addEventListener('change', () => goToPage(Number(pageInput.value)));
+    pageInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') goToPage(Number(pageInput.value)); });
+    zoomInBtn?.addEventListener('click', () => setScale((pages.get(currentPage)?.shownScale || 1) * 1.2));
+    zoomOutBtn?.addEventListener('click', () => setScale((pages.get(currentPage)?.shownScale || 1) / 1.2));
+    fitWidthBtn?.addEventListener('click', () => { currentScale = 0; rerenderRendered(); updateZoomLabel(); });
+
+    window.addEventListener(settingsChangeEvent, syncFromSettingsEvent);
+    window.addEventListener('storage', (event) => {
+      if (event.key === settingsKey || event.key === themeKey || event.key === null) { applyTheme(); applyAccent(); }
+    });
+    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+      if (themePreference() === 'auto') { applyTheme(); applyAccent(); }
+    });
+    brandIcon?.addEventListener('error', () => {
+      brandIcon.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(fallbackIconSvg)}`;
+    }, { once: true });
+
+    for (const eventName of ['dragenter', 'dragover']) {
+      document.addEventListener(eventName, (event) => { event.preventDefault(); app.classList.add('drop-active'); });
+    }
+    for (const eventName of ['dragleave', 'drop']) {
+      document.addEventListener(eventName, (event) => {
+        event.preventDefault();
+        if (eventName === 'drop') handleFiles(event.dataTransfer?.files || []);
+        app.classList.remove('drop-active');
+      });
+    }
+
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      if (!pdfDoc || currentScale) return; // only fit-width tracks the viewport
+      if (resizeTimer) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => rerenderRendered(), 200);
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (currentFileKey) localStorage.setItem(currentFileKey, String(currentPage));
+    });
+
+    applyTheme();
+    applyInterfaceLanguage(effectiveInterfaceLanguage());
+    updateNavButtons();
+    void ensureYomuRuntime({ silent: true });
+  </script>
+</body>
+</html>
