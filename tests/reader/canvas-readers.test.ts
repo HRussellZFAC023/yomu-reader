@@ -154,6 +154,22 @@ describe('canvas readers (BookWalker)', () => {
         expect(surfaces.every(c => c.width >= 600 && c.height >= 600)).toBe(true);
     });
 
+    it('does not pick a buffer via a .currentScreen on a shared ancestor (#renderer)', () => {
+        // Hardening: the on-screen marker is anchored to the page's own #viewport
+        // container, not any ancestor — so a .currentScreen that ever lands on the
+        // shared #renderer must NOT select both buffers; we fall back to all
+        // page-shaped canvases (the controller's per-canvas visibility narrows later).
+        document.body.innerHTML = `
+            <div id="renderer" class="currentScreen">
+                <canvas class="dummy" width="300" height="150"></canvas>
+                <div id="viewport0"><canvas width="2400" height="1794"></canvas></div>
+                <div id="viewport1"><canvas width="2400" height="1794"></canvas></div>
+            </div>
+            <span id="pageSliderCounter">1/13</span>`;
+        const surfaces = collectCanvasReaderSurfaces('viewer.bookwalker.jp');
+        expect(surfaces).toHaveLength(2);
+    });
+
     it('recognises known canvas-reader hosts', () => {
         expect(isKnownCanvasReaderHost('comic-walker.com')).toBe(true);
         expect(isKnownCanvasReaderHost('viewer.bookwalker.jp')).toBe(true);

@@ -35,8 +35,10 @@
 
 const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
 
-// NFBR marks the on-screen page buffer's container with this class.
-const CURRENT_SCREEN_SELECTOR = '.currentScreen';
+// NFBR marks the on-screen page buffer's container (#viewportN) with this class.
+const CURRENT_SCREEN_CLASS = 'currentScreen';
+const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
+const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
 
 // Hosts known to render manga pages onto <canvas>. They skip the prominence +
 // rendered-image heuristics (the host already disambiguates them); the generic
@@ -160,7 +162,7 @@ function pageCanvases(hostname: string = location.hostname): HTMLCanvasElement[]
 // any buffer is marked current) so a page is never dropped.
 function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasElement[] {
     if (canvases.length < 2) return canvases;
-    const current = canvases.filter(canvas => canvas.closest(CURRENT_SCREEN_SELECTOR));
+    const current = canvases.filter(isOnScreenViewportCanvas);
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
     if (renderedCurrent.length) return renderedCurrent;
@@ -168,6 +170,17 @@ function preferCurrentScreenCanvases(canvases: HTMLCanvasElement[]): HTMLCanvasE
         .filter(canvas => !current.includes(canvas))
         .filter(looksLikeRenderedCanvasImage);
     return renderedFallback.length ? renderedFallback : current;
+}
+
+// The on-screen page lives in the #viewportN whose own container carries
+// `.currentScreen`. Anchor to that container so a `.currentScreen` placed on a
+// shared ancestor (e.g. #renderer) cannot match both buffers; if a canvas has no
+// #viewport container (unknown future DOM), fall back to a generic ancestor match.
+function isOnScreenViewportCanvas(canvas: HTMLCanvasElement): boolean {
+    const viewport = canvas.closest<HTMLElement>(VIEWPORT_CONTAINER_SELECTOR);
+    return viewport
+        ? viewport.classList.contains(CURRENT_SCREEN_CLASS)
+        : Boolean(canvas.closest(CURRENT_SCREEN_SELECTOR));
 }
 
 function hasBackgroundReaderSignal(element: HTMLElement): boolean {

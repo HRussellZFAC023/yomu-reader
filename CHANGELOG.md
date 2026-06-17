@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.3.2] - 2026-06-17
+
+### Fixed
+
+- BookWalker (NetFront/NFBR viewer): the on-screen page-buffer marker (`.currentScreen`) is now matched on the page’s own `#viewport` container rather than any ancestor, so a `.currentScreen` that ever lands on a shared ancestor such as `#renderer` can no longer select both double-buffered pages at once (a duplicate, shared-quota Google Lens call plus a stale overlay for the off-screen page). Composes with the rendered-content preference and still falls back to all page canvases before any buffer is marked current (e.g. the cover).
+
+### Verified
+
+- Live injected-userscript probe on the real `viewer.bookwalker.jp` viewer (opened via the free read flow) and the trial viewer, single page and landscape double-page spread: one canvas captured per visible screen, OCR text + clickable words render, the dictionary popover opens on click, and the per-page OCR loading spinner shows during the scan.
+
 ## [1.3.1] - 2026-06-17
 
 ### Fixed

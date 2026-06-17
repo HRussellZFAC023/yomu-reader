@@ -29430,7 +29430,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   const PAGE_COUNTER_SELECTOR = "#pageSliderCounter";
-  const CURRENT_SCREEN_SELECTOR = ".currentScreen";
+  const CURRENT_SCREEN_CLASS = "currentScreen";
+  const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
+  const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
   const CANVAS_READER_HOST_PATTERNS = [
     /(^|\.)bookwalker\.jp$/i,
     /(^|\.)comic-walker\.com$/i
@@ -29521,12 +29523,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function preferCurrentScreenCanvases(canvases) {
     if (canvases.length < 2) return canvases;
-    const current = canvases.filter((canvas) => canvas.closest(CURRENT_SCREEN_SELECTOR));
+    const current = canvases.filter(isOnScreenViewportCanvas);
     if (!current.length) return canvases;
     const renderedCurrent = current.filter(looksLikeRenderedCanvasImage);
     if (renderedCurrent.length) return renderedCurrent;
     const renderedFallback = canvases.filter((canvas) => !current.includes(canvas)).filter(looksLikeRenderedCanvasImage);
     return renderedFallback.length ? renderedFallback : current;
+  }
+  function isOnScreenViewportCanvas(canvas) {
+    const viewport = canvas.closest(VIEWPORT_CONTAINER_SELECTOR);
+    return viewport ? viewport.classList.contains(CURRENT_SCREEN_CLASS) : Boolean(canvas.closest(CURRENT_SCREEN_SELECTOR));
   }
   function hasBackgroundReaderSignal(element) {
     return element.hasAttribute("data-page-index") || Boolean(element.closest("[data-mokuro-reader]"));
