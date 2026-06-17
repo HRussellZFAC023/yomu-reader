@@ -5,6 +5,8 @@
 ### Fixed
 
 - BookWalker (NetFront/NFBR viewer): the on-screen page-buffer marker (`.currentScreen`) is now matched on the page’s own `#viewport` container rather than any ancestor, so a `.currentScreen` that ever lands on a shared ancestor such as `#renderer` can no longer select both double-buffered pages at once (a duplicate, shared-quota Google Lens call plus a stale overlay for the off-screen page). Composes with the rendered-content preference and still falls back to all page canvases before any buffer is marked current (e.g. the cover).
+- YouTube kana-only titles and metadata now keep contiguous hiragana words together during fallback parsing, avoiding over-segmentation such as `にほんご` becoming separate mini-tokens while preserving real particle and inflection boundaries.
+- Hover popovers now re-anchor to the equivalent refreshed word node when YouTube replaces a mirrored title/metadata node under a stationary cursor, preventing reactive page updates from auto-dismissing the popup.
 
 ### Verified
 
