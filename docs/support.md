@@ -3,15 +3,15 @@
 ## Useful Pages
 
 <div class="yomu-link-grid">
-  <a class="yomu-link-card" href="/yomu-reader/video-player/index.html">
+  <a class="yomu-link-card" href="video-player/index.html">
     <strong>Video Player</strong>
     <span>Open local browser-supported video and subtitle files in the player.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/newtab/index.html">
+  <a class="yomu-link-card" href="newtab/index.html">
     <strong>New Tab</strong>
     <span>Use the よむ study screen for JPDB, Anki, or imported dictionary cards.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/">
+  <a class="yomu-link-card" href="./">
     <strong>Docs</strong>
     <span>Return to the main documentation hub for setup, features, and changelog pages.</span>
   </a>

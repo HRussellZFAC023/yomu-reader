@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.24] - 2026-06-17
+
+### Fixed
+
+- Support-page cards now use relative links for the video player, study page, and docs home instead of hard-coded `/yomu-reader/` production paths. This keeps the generated video-player link working across deploy contexts.
+
 ## [1.3.23] - 2026-06-17
 
 ### Fixed
