@@ -880,6 +880,65 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('shifts the single-column full-bleed YouTube player so a left-docked panel does not cover it', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=single123') as unknown as Location,
+        });
+        try {
+            withViewport(970, 1300, () => {
+                // Single-column watch layout hoists the player out of #primary into
+                // an absolutely-positioned full-bleed container at the viewport's
+                // left edge, so shifting #primary alone leaves the player covering
+                // a left-docked panel.
+                document.body.innerHTML = `
+                    <ytd-watch-flexy is-single-column>
+                        <div id="full-bleed-container">
+                            <div id="player-full-bleed-container">
+                                <div id="player-container" style="position:absolute;left:0;top:0;">
+                                    <div id="movie_player"><video></video></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="columns">
+                            <div id="primary"><div id="primary-inner"></div></div>
+                        </div>
+                    </ytd-watch-flexy>
+                `;
+                const fullBleed = document.querySelector<HTMLElement>('#full-bleed-container #player-container')!;
+                const video = document.querySelector<HTMLVideoElement>('video')!;
+                mockElementRect(fullBleed, new DOMRect(0, 56, 955, 537));
+                mockElementRect(video, new DOMRect(0, 56, 955, 537));
+
+                const adapter = createSubtitleVideoInsetAdapter();
+                const changed = adapter.apply({
+                    video,
+                    side: 'left',
+                    playerSize: 585,
+                    panelSize: 340,
+                    videoRect: new DOMRect(0, 56, 955, 537),
+                    margin: 10,
+                });
+
+                expect(changed).toBe(true);
+                // panelSize (340) + left gap (margin * 2) → inset of 360px.
+                expect(fullBleed.style.marginLeft).toBe('360px');
+                expect(fullBleed.style.width).toBe('585px');
+                expect(fullBleed.style.maxWidth).toBe('585px');
+
+                adapter.clear(video);
+                expect(fullBleed.style.marginLeft).toBe('');
+                expect(fullBleed.style.width).toBe('');
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('resizes a same-size custom player wrapper so controls stay linked to the video frame', () => {
         withViewport(1400, 900, () => {
             const settings = {

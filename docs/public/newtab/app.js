@@ -36283,7 +36283,16 @@ ${spelling}`);
       "ytd-watch-flexy #primary",
       "ytd-watch-flexy #primary-inner"
     ].flatMap((selector) => Array.from(document.querySelectorAll(selector))));
-    return desktopContainers.length ? desktopContainers : youtubeMobileSidePlayerContainers();
+    if (!desktopContainers.length) return youtubeMobileSidePlayerContainers();
+    const fullBleed = youtubeFullBleedPlayerContainer();
+    return fullBleed ? uniqueElements([...desktopContainers, fullBleed]) : desktopContainers;
+  }
+  function youtubeFullBleedPlayerContainer() {
+    const flexy = document.querySelector("ytd-watch-flexy[is-single-column]");
+    const container = flexy?.querySelector("#full-bleed-container #player-container");
+    if (!container) return void 0;
+    const position = getComputedStyle(container).position;
+    return position === "absolute" || position === "fixed" ? container : void 0;
   }
   function youtubeMobileSidePlayerContainers() {
     const player = firstElement([

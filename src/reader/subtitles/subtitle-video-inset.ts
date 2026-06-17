@@ -376,7 +376,23 @@ function youtubePlayerContainers(side: SubtitleVideoInsetSide): HTMLElement[] {
         'ytd-watch-flexy #primary',
         'ytd-watch-flexy #primary-inner',
     ].flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector))));
-    return desktopContainers.length ? desktopContainers : youtubeMobileSidePlayerContainers();
+    if (!desktopContainers.length) return youtubeMobileSidePlayerContainers();
+    const fullBleed = youtubeFullBleedPlayerContainer();
+    return fullBleed ? uniqueElements([...desktopContainers, fullBleed]) : desktopContainers;
+}
+
+// In the single-column watch layout YouTube hoists the player out of #primary
+// into an absolutely-positioned full-bleed container pinned to the viewport's
+// left edge. Shifting #primary then only moves the metadata column and leaves
+// the player itself covering a left-docked panel, so the full-bleed container
+// needs the same side inset. Only the positioned container qualifies — the
+// in-column #player-container is empty in this layout.
+function youtubeFullBleedPlayerContainer(): HTMLElement | undefined {
+    const flexy = document.querySelector<HTMLElement>('ytd-watch-flexy[is-single-column]');
+    const container = flexy?.querySelector<HTMLElement>('#full-bleed-container #player-container');
+    if (!container) return undefined;
+    const position = getComputedStyle(container).position;
+    return position === 'absolute' || position === 'fixed' ? container : undefined;
 }
 
 function youtubeMobileSidePlayerContainers(): HTMLElement[] {

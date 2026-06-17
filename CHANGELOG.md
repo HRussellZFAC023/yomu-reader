@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.29] - 2026-06-18
+
+### Fixed
+
+- The YouTube subtitle transcript panel no longer overlaps the video when docked to the left on the single-column watch layout (narrow windows / iPad). YouTube hoists the player out of `#primary` into an absolutely-positioned full-bleed container in that layout, so shifting only the metadata column left the player covering the panel; the full-bleed player container now gets the same side inset and slides clear of the panel.
+
 ## [1.3.28] - 2026-06-17
 
 ### Fixed
