@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-ek4ewWwfqRokKeJJuVJ2VY57bG6B1eJt/9YPNmhcW7k=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-64HMdgJ525dF/241pYSYqrSzivK9rBHUOjgBqzVWbRM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-bNJdZ5FSOy0WH+OIAXqb9g4GWuFdahDeEgFM0AZWfNg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -22734,6 +22734,11 @@ ${entry.reading || ""}`;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
   const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
   const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
+  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
+  const KANA_I_ADJECTIVE_END_RE = /い$/u;
+  const SMALL_TSU_RE = /っ/u;
+  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
+  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
   const log$c = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -23258,9 +23263,70 @@ ${spelling}`);
   }
   function finalizeJapaneseRunSegments(segments, sourceText) {
     return mergeInflectedFallbackSegments(
-      splitLeadingParticleSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText))),
+      splitLeadingParticleSegments(mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
       sourceText
     );
+  }
+  function mergeContiguousKanaSegments(segments) {
+    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = contiguousKanaMergeSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function contiguousKanaMergeSpanAt(segments, startIndex) {
+    const first = segments[startIndex];
+    if (!first || !isPureKanaSegment(first.surface)) return null;
+    const previous = segments[startIndex - 1];
+    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
+    if (isInflectionBoundarySegment(first.surface) && !atKanaRunStart) return null;
+    const runEnd = contiguousKanaRunEnd(segments, startIndex);
+    if (runEnd - startIndex < 2) return null;
+    let surface = first.surface;
+    let lastIndex = startIndex;
+    for (let index = startIndex + 1; index < runEnd; index += 1) {
+      const current = segments[index];
+      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
+      if (isInflectionBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      surface += current.surface;
+      lastIndex = index;
+    }
+    if (lastIndex === startIndex) return null;
+    return {
+      segment: { surface, start: first.start, end: segments[lastIndex].end },
+      nextIndex: lastIndex + 1
+    };
+  }
+  function contiguousKanaRunEnd(segments, startIndex) {
+    let index = startIndex + 1;
+    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
+      index += 1;
+    }
+    return index;
+  }
+  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
+    let surface = "";
+    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
+    return surface;
+  }
+  function isPureKanaSegment(surface) {
+    return HIRAGANA_SEGMENT_RE.test(surface);
+  }
+  function isKanaContentWordSpan(span) {
+    if (isKanaInflectableBaseShape(span)) return true;
+    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
+  }
+  function isKanaInflectableBaseShape(span) {
+    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
+    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
   }
   function splitNumericCounterPrefixSegments(segments, sourceText) {
     return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
@@ -39038,7 +39104,15 @@ ${glossaryKey}`;
       const target = document.elementFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y);
       const current = this.lookupCandidateFromPoint(this.lastPointerPosition.x, this.lastPointerPosition.y, target, HOVER_POINTER_TEXT_LOOKUP_OPTIONS);
       const active = this.activePointerTextLookup;
-      return Boolean(active && current && samePointerTextLookupTarget(active, current) && pointerOffsetInsideLiveLookup(active, current.offset));
+      if (!active || !current) return false;
+      if (!active.anchor.isConnected) return this.reanchorDisconnectedPointerText(active, current);
+      return samePointerTextLookupTarget(active, current) && pointerOffsetInsideLiveLookup(active, current.offset);
+    }
+    reanchorDisconnectedPointerText(active, current) {
+      if (active.text !== current.text || !pointerOffsetInsideLiveLookup(active, current.offset)) return false;
+      this.activePointerTextLookup = { ...active, anchor: current.anchor };
+      this.refreshActiveHoverAnchor(current.anchor);
+      return true;
     }
     isPopoverCssHoverActive(options) {
       return !options.ignoreCssHover && Boolean(this.activePopover?.matches(":hover"));
@@ -39051,6 +39125,7 @@ ${glossaryKey}`;
       return this.isInsideActivePopover(target) || Boolean(this.activeHoverWord && this.isInsideNode(target, this.activeHoverWord));
     }
     isWordHoverActive(word, options = {}) {
+      if (!word.isConnected) return this.reanchorDisconnectedHoverWord(word, options);
       if (!options.ignoreCssHover && word.matches(":hover")) return true;
       if (options.ignorePointerPosition) return false;
       if (!this.lastPointerPosition) return false;
@@ -39061,6 +39136,17 @@ ${glossaryKey}`;
         if (this.readerWordFromRenderedGeometry(target, this.lastPointerPosition.x, this.lastPointerPosition.y, (item) => this.canHoverLookupReaderWord(item)) === word) return true;
       }
       return this.isInsideNode(target, word);
+    }
+    reanchorDisconnectedHoverWord(word, options) {
+      if (!this.lastPointerPosition) return false;
+      const replacement = this.liveReaderWordAtPointer(this.lastPointerPosition.x, this.lastPointerPosition.y);
+      if (!replacement || replacement === word || renderedWordElementKey(replacement) !== renderedWordElementKey(word)) return false;
+      this.refreshActiveHoverAnchor(replacement);
+      return true;
+    }
+    liveReaderWordAtPointer(x, y) {
+      const target = document.elementFromPoint(x, y);
+      return this.hoverReaderWordFromPointStack(x, y) ?? this.ocrLineWordForPointer(target, x, y) ?? (target instanceof Element ? this.readerWordFromRenderedGeometry(target, x, y, (item) => this.canHoverLookupReaderWord(item)) : null);
     }
     hoverLookupKeyForWord(word) {
       const vid = Number(word.dataset.vid);
