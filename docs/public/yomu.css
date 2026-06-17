@@ -410,6 +410,17 @@
   word-break: normal;
   overflow-wrap: anywhere !important;
   line-break: auto;
+  /* The visible underline is normally an absolutely-positioned ::after, which
+     is a single box and cannot fragment across a line break — so a word that
+     wraps mid-token (e.g. the hero's 読んで splitting as 読 | んで) loses its
+     underline on the wrapped half. Where words are allowed to wrap, paint the
+     underline with the native text-decoration instead: it clones across line
+     boxes via box-decoration-break: clone. The small inter-word inline gap is
+     traded away only in these wrapping contexts. */
+  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
+}
+.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word)::after {
+  content: none;
 }
 
 .jpdb-reader-word.jpdb-reader-scan-word ruby,
@@ -425,6 +436,13 @@
   word-break: keep-all;
   overflow-wrap: normal !important;
   line-break: strict;
+  /* Text-mirror scan words stay nowrap (above), so they never split mid-token.
+     Keep the gapped ::after overlay and its transparent native underline so
+     short host labels (YouTube metadata/action chips) are unchanged. */
+  text-decoration-color: transparent !important;
+}
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word::after {
+  content: "";
 }
 
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,

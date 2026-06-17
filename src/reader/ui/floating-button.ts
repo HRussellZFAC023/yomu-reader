@@ -140,6 +140,14 @@ export class FloatingButtonController {
                 },
             },
             {
+                id: 'audio',
+                label: uiText(language, audioOn ? 'puckMuteAudio' : 'puckUnmuteAudio'),
+                icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
+                tone: audioOn ? 'on' : 'off',
+                keepOpen: true,
+                run: () => actions.toggleAutoPlayAudio(),
+            },
+            {
                 id: 'settings',
                 label: uiText(language, 'settings'),
                 icon: radialSettingsIcon(),
@@ -151,14 +159,6 @@ export class FloatingButtonController {
                 icon: radialScanIcon(),
                 disabled: paused,
                 run: () => actions.scanPage(),
-            },
-            {
-                id: 'audio',
-                label: uiText(language, audioOn ? 'puckMuteAudio' : 'puckUnmuteAudio'),
-                icon: audioOn ? radialAudioOnIcon() : radialAudioMutedIcon(),
-                tone: audioOn ? 'on' : 'off',
-                keepOpen: true,
-                run: () => actions.toggleAutoPlayAudio(),
             },
             {
                 id: 'study',

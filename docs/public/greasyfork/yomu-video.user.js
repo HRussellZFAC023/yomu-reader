@@ -7316,7 +7316,7 @@ ${candidate.depth}`;
     // panel pays for the extra pass, and its lines are merged in over the dark area.
     async recognizeWithDarkPass(image, settings, recognizer) {
       const normal = await this.runRecognizer(image, settings, recognizer, false);
-      if (!settings.ocrInvertDarkPanels) return normal;
+      if (!settings.ocrInvertDarkPanels || shouldSkipAutomaticDarkPass()) return normal;
       const field = buildLuminanceField(image);
       if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
       if (darkAreaIsRead(field, normal)) return normal;
@@ -8855,9 +8855,11 @@ ${spelling}`);
     return rect.bottom >= -margin && rect.top <= window.innerHeight + margin && rect.right >= -margin && rect.left <= window.innerWidth + margin;
   }
   function ocrConcurrencyLimit(settings) {
+    if (isConstrainedTouchOcrDevice()) return 1;
     return Math.max(1, Math.min(8, Math.round(settings.ocrConcurrency || 1)));
   }
   function canvasPrefetchMargin(settings) {
+    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     const pages = Math.max(0, settings.ocrPrefetchPages || 0);
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     return Math.max(settings.ocrPrefetchMargin, pages * viewportHeight);
@@ -8880,10 +8882,18 @@ ${spelling}`);
     return value;
   }
   function imagePrefetchMargin(settings) {
+    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? canvasPrefetchMargin(settings) : settings.ocrPrefetchMargin;
   }
   function imageReaderMaxImages(settings) {
+    if (isConstrainedTouchOcrDevice()) return settings.ocrMaxImagesPerPage;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings) ? Math.max(settings.ocrMaxImagesPerPage, settings.ocrPrefetchPages * 2 + 1) : settings.ocrMaxImagesPerPage;
+  }
+  function isConstrainedTouchOcrDevice() {
+    return isAppleTouchBrowser();
+  }
+  function shouldSkipAutomaticDarkPass() {
+    return isConstrainedTouchOcrDevice();
   }
   function imageViewportDistance(image) {
     const rect = image.getBoundingClientRect();

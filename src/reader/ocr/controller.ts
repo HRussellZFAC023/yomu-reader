@@ -18,6 +18,7 @@ import {
 import { captureReaderSurfaceViaExtensionScreenshot } from './extension-screenshot';
 import { captureCanvasMirror } from './canvas-mirror';
 import { uiText, type UiCopyKey } from '../app/i18n';
+import { isAppleTouchBrowser } from '../platform/browser';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { Logger } from '../app/logger';
@@ -769,7 +770,7 @@ export class ImageOcrController {
         recognizer: OcrRecognizer,
     ): Promise<OcrResult | null> {
         const normal = await this.runRecognizer(image, settings, recognizer, false);
-        if (!settings.ocrInvertDarkPanels) return normal;
+        if (!settings.ocrInvertDarkPanels || shouldSkipAutomaticDarkPass()) return normal;
         const field = buildLuminanceField(image);
         if (!field || luminanceFieldDarkFraction(field) < DARK_REGION_TRIGGER) return normal;
         if (darkAreaIsRead(field, normal)) return normal;
@@ -2659,6 +2660,7 @@ function isNearViewport(element: Element, margin: number): boolean {
 }
 
 function ocrConcurrencyLimit(settings: ReaderSettings): number {
+    if (isConstrainedTouchOcrDevice()) return 1;
     return Math.max(1, Math.min(8, Math.round(settings.ocrConcurrency || 1)));
 }
 
@@ -2666,6 +2668,7 @@ function ocrConcurrencyLimit(settings: ReaderSettings): number {
 // configured margin, extended to `ocrPrefetchPages` viewport-heights so the next
 // few spreads are snapshotted + OCR'd in the background before you scroll to them.
 function canvasPrefetchMargin(settings: ReaderSettings): number {
+    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     const pages = Math.max(0, settings.ocrPrefetchPages || 0);
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
     return Math.max(settings.ocrPrefetchMargin, pages * viewportHeight);
@@ -2696,15 +2699,25 @@ function isLikelyImageReaderPage(settings: ReaderSettings): boolean {
 }
 
 function imagePrefetchMargin(settings: ReaderSettings): number {
+    if (isConstrainedTouchOcrDevice()) return settings.ocrPrefetchMargin;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings)
         ? canvasPrefetchMargin(settings)
         : settings.ocrPrefetchMargin;
 }
 
 function imageReaderMaxImages(settings: ReaderSettings): number {
+    if (isConstrainedTouchOcrDevice()) return settings.ocrMaxImagesPerPage;
     return settings.ocrPrefetchPages > 0 && isLikelyImageReaderPage(settings)
         ? Math.max(settings.ocrMaxImagesPerPage, settings.ocrPrefetchPages * 2 + 1)
         : settings.ocrMaxImagesPerPage;
+}
+
+function isConstrainedTouchOcrDevice(): boolean {
+    return isAppleTouchBrowser();
+}
+
+function shouldSkipAutomaticDarkPass(): boolean {
+    return isConstrainedTouchOcrDevice();
 }
 
 function imageViewportDistance(image: HTMLImageElement): number {

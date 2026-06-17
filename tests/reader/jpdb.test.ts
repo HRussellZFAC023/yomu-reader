@@ -37,7 +37,7 @@ import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '.
 import { ObjectUrlCache } from '../../src/reader/core/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/app/page-media-url';
 import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../src/reader/ocr/controller';
-import { createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../src/reader/popup/shell';
+import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../src/reader/popup/shell';
 import { jpdbPointerLookupCandidates, pointerTextLookupFromTextNode } from '../../src/reader/lookup/pointer-text-lookup';
 import { formatPartOfSpeech } from '../../src/reader/lookup/pos';
 import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/network/proxy-fetch';
@@ -3775,6 +3775,20 @@ describe('reader helpers', () => {
         expect(localStorage.getItem(SHEET_HEIGHT_STORAGE_KEY)).toBe('0.8047');
         expect(dismiss).not.toHaveBeenCalled();
         localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+    });
+
+    it('dismisses on backdrop click while preserving the page text selection', () => {
+        const dismiss = vi.fn();
+        const backdrop = createReaderBackdrop(dismiss);
+
+        const mousedown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+        backdrop.dispatchEvent(mousedown);
+        // preventDefault on the overlay mousedown is what keeps the page selection
+        // from collapsing when the user clicks away to close the popover.
+        expect(mousedown.defaultPrevented).toBe(true);
+
+        backdrop.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+        expect(dismiss).toHaveBeenCalledTimes(1);
     });
 
     it('dismisses sheet popovers when tapping the handle', () => {
@@ -18566,6 +18580,59 @@ describe('reader helpers', () => {
             expect(showTokenList.mock.calls[0]?.[1]).toContain('です。');
         } finally {
             selection.removeAllRanges();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not re-open the selection popover after the user dismisses the same selection', async () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <p>
+                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-expression="今日" data-reading="きょう" data-sentence="今日は静かです。">今日</span>は
+                <span class="jpdb-reader-word" data-vid="502" data-sid="502" data-expression="静か" data-reading="しずか" data-sentence="今日は静かです。">静か</span>です。
+            </p>
+        `;
+        const paragraph = document.querySelector('p')!;
+        const selectWord = (vid: string): void => {
+            const range = document.createRange();
+            range.selectNode(paragraph.querySelector(`[data-vid="${vid}"]`)!);
+            const selection = window.getSelection()!;
+            selection.removeAllRanges();
+            selection.addRange(range);
+        };
+        selectWord('501');
+
+        // The guard sits in lookupSelection ahead of the render path, so spying on
+        // lookupRenderedSelection keeps this independent of single-card vs token-list routing.
+        const lookupRenderedSelection = vi.fn(async () => true);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            lookupRenderedSelection: typeof lookupRenderedSelection;
+            lookupSelection(): Promise<void>;
+            rememberDismissedSelection(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true };
+        internals.lookupRenderedSelection = lookupRenderedSelection;
+
+        try {
+            await internals.lookupSelection();
+            expect(lookupRenderedSelection).toHaveBeenCalledTimes(1);
+
+            // User closes the popover (Escape / click-away) for this selection.
+            internals.rememberDismissedSelection();
+
+            // The trailing keyup/mouseup re-runs the lookup with the same, still
+            // highlighted selection — it must stay closed.
+            await internals.lookupSelection();
+            expect(lookupRenderedSelection).toHaveBeenCalledTimes(1);
+
+            // Selecting a different word clears the guard and opens again.
+            selectWord('502');
+            await internals.lookupSelection();
+            expect(lookupRenderedSelection).toHaveBeenCalledTimes(2);
+        } finally {
+            window.getSelection()?.removeAllRanges();
             app.destroy();
             document.body.replaceChildren();
         }

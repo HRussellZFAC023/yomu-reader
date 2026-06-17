@@ -669,6 +669,7 @@ export class ReaderApp {
     private hoverAnchorIds = new WeakMap<HTMLElement, number>();
     private nextHoverAnchorId = 1;
     private suppressSelectionLookupUntil = 0;
+    private dismissedSelectionText = '';
     private suppressWordClickUntil = 0;
     private suppressPenHoverUntil = 0;
     private pageHasJapaneseText = false;
@@ -1951,6 +1952,9 @@ export class ReaderApp {
         if (!this.hasOpenReaderDialog()) return false;
         if (!escapeClose && !matchesShortcut(event, this.settings.shortcuts.closePopup)) return false;
         event.preventDefault();
+        // Remember the current selection so the keyup that follows this Escape
+        // doesn't immediately re-open the popover for it. The highlight stays put.
+        this.rememberDismissedSelection();
         this.dismiss({ suppressHoverTarget: true });
         return true;
     }
@@ -3266,9 +3270,23 @@ export class ReaderApp {
         if (this.isDestroyed) return;
         if (Date.now() < this.suppressSelectionLookupUntil) return;
         const selected = this.selectionLookupText();
-        if (!selected) return;
+        if (!selected) {
+            // Selection went away — drop the dismissal guard so a fresh
+            // selection of the same text opens the popover again.
+            this.dismissedSelectionText = '';
+            return;
+        }
+        // The user explicitly closed the popover for this exact selection
+        // (Escape or click-away). Keep the highlight but don't re-open until
+        // the selection actually changes.
+        if (selected === this.dismissedSelectionText) return;
+        this.dismissedSelectionText = '';
         if (await this.lookupRenderedSelection(selected)) return;
         await this.lookupText(selected, getSelectionSentence(), { source: 'selection' });
+    }
+
+    private rememberDismissedSelection(): void {
+        this.dismissedSelectionText = getSelectionText();
     }
 
     private selectionLookupText(): string {
@@ -6979,7 +6997,13 @@ export class ReaderApp {
         const mode = options.mode ?? 'modal';
         const backdrop = options.stackOverSettings || mode === 'hover' || shouldUseSheet(this.settings) || !this.settings.popoverBackdropEnabled
             ? undefined
-            : createReaderBackdrop(() => this.dismiss());
+            : createReaderBackdrop(() => {
+                // Clicking away keeps the page selection (the backdrop swallows the
+                // selection-collapsing mousedown); remember it so the trailing
+                // mouseup doesn't re-open the popover we just dismissed.
+                this.rememberDismissedSelection();
+                this.dismiss();
+            });
         const resolvedAnchor = connectedElement(anchor) ?? connectedElement(this.activePopoverAnchor);
         const anchorRect = popoverAnchorRect(resolvedAnchor, this.activePopoverAnchorRect);
         const previousPopoverRect = options.preservePosition ? this.activePopover?.getBoundingClientRect() : undefined;

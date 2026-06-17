@@ -140,7 +140,7 @@ export class RadialMenuController {
         while (hAngle - vAngle < -PI) hAngle += 2 * PI;
 
         const count = actions.length;
-        const radius = Math.min(148, 96 + count * 9);
+        const radius = Math.min(178, 116 + count * 11);
         const pad = 0.12; // keep items off the exact screen-edge directions
 
         actions.forEach((action, index) => {

@@ -107,6 +107,37 @@ describe('OCR concurrency pool', () => {
         }
     });
 
+    it('keeps OCR serial on iPad even when concurrency is configured higher', async () => {
+        stubInstantIntersectionObserver();
+        vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15');
+        vi.spyOn(navigator, 'platform', 'get').mockReturnValue('iPad');
+        let active = 0;
+        let peak = 0;
+        const releases: Array<() => void> = [];
+        const controller = makeController(async text => {
+            active++;
+            peak = Math.max(peak, active);
+            await new Promise<void>(resolve => releases.push(resolve));
+            active--;
+            return [token(text)];
+        }, { ocrConcurrency: 3 });
+        document.body.replaceChildren(makeImage('/a.png'), makeImage('/b.png'), makeImage('/c.png'));
+
+        try {
+            controller.init();
+            await waitForExpect(() => expect(active).toBe(1));
+            await new Promise(resolve => setTimeout(resolve, 30));
+            expect(peak).toBe(1);
+            releases.forEach(release => release());
+        } finally {
+            releases.forEach(release => release());
+            controller.destroy();
+            vi.restoreAllMocks();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('never scans two images with the same content key concurrently', async () => {
         stubInstantIntersectionObserver();
         let active = 0;
