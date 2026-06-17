@@ -5,7 +5,6 @@
 ### Fixed
 
 - Video, OCR, and other Greasy Fork companion libraries now publish their registry on both the userscript sandbox global and `window` when those objects differ. This keeps the main reader from falling back to “Video companion is missing; related features are disabled.” in userscript managers that split `@require` companion code and the main script across globals.
-- The puck radial menu spaces actions farther apart and places the audio toggle immediately after the power toggle, keeping the green controls together.
 
 ## [1.3.15] - 2026-06-17
 
