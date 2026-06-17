@@ -88,7 +88,7 @@ export default defineConfig({
         ],
         footer: {
             message: 'Free userscript now. Chrome, Firefox, and Safari packages are being prepared for store submission.',
-            copyright: 'Released under the GPL-3.0-or-later license.',
+            copyright: 'Released under the MIT license.',
         },
     },
 });
