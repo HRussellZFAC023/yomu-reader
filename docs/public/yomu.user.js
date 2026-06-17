@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.27
+// @version      1.3.28
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.27#sha256-pYIRGwGABDJjB6gNS1DQpHDtbv2iPWnTSeeHMvLvMFQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.27#sha256-rbxqytIAm6gQ9ph8BDcGMfrtB4q4bienA5S0G98xhdA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.27#sha256-o/g5DEAhYePkT2gujveywfWcfognmKNSaGS4aErTe3Q=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.27#sha256-IZg83J62QcEQ1LsbKmI+74jDZ+xQGa3B1a6BWkpmJ6Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.3.28#sha256-pYIRGwGABDJjB6gNS1DQpHDtbv2iPWnTSeeHMvLvMFQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.3.28#sha256-rbxqytIAm6gQ9ph8BDcGMfrtB4q4bienA5S0G98xhdA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.3.28#sha256-o/g5DEAhYePkT2gujveywfWcfognmKNSaGS4aErTe3Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.3.28#sha256-h6IZfX5IOuGM6ppY1/gqfvJRYTrghqPJsoVWmPsmuWs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -5487,6 +5487,14 @@
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
     if (!surface || !KANJI_RE$2.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+    const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
+    if (inferred.length) {
+      return inferred.map((ruby) => ({
+        ...ruby,
+        start: token.start + ruby.start,
+        end: token.start + ruby.end
+      }));
+    }
     return [{ text: reading, start: token.start, end: token.end, length: token.length }];
   }
   function kanjiOnlyRubySegments(surface, token, ruby) {

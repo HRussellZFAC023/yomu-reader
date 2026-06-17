@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.28] - 2026-06-17
+
+### Fixed
+
+- Furigana for inflected words now stays aligned to the kanji when the reader falls back to a dictionary-form card reading. For example, `読んで` now shows `よ` over `読` instead of centering `よむ` over the full surface.
+
 ## [1.3.27] - 2026-06-17
 
 ### Fixed
