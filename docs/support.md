@@ -1,3 +1,8 @@
+---
+title: Support
+description: Get help with よむ — report a bug, join the Discord, view the source on GitHub, or donate. よむ brings popup lookup, JPDB mining, dictionaries, subtitles, OCR, and Anki export into one free userscript.
+---
+
 # Support
 
 ## Useful Pages

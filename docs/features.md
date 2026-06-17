@@ -1,3 +1,8 @@
+---
+title: Features
+description: Everything よむ does — popup dictionary lookup and mining, Yomitan dictionaries, audio and example sentences, kanji drilldown with stroke order, manga and image OCR, video subtitle mining, a YouTube immersion filter, Anki export, and a study new-tab page.
+---
+
 # Features
 
 よむ is designed around one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.

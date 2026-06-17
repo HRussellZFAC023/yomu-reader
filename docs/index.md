@@ -1,5 +1,8 @@
 ---
 layout: home
+title: よむ - Free Japanese popup dictionary & immersion reader
+titleTemplate: false
+description: よむ (Yomu) is a free Japanese reader for your browser. Tap any word on a web page, manga, or video subtitle to see readings, meanings, kanji, pitch, and audio, then mine it to JPDB, Yomitan, or Anki. No account needed.
 hero:
   name: よむ
   text: Learn Japanese by reading what you actually like
@@ -89,9 +92,9 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
     <strong>Set up よむ</strong>
     <span>Install a userscript manager, add よむ, and try your first lookup.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/features">
+  <a class="yomu-link-card" href="/yomu-reader/tools/">
     <strong>See the tools</strong>
-    <span>Lookup, OCR, subtitles, kanji pages, JPDB, dictionaries, and Anki.</span>
+    <span>Free pages for OCR, furigana, kanji stroke order, subtitles, JPDB study, and YouTube.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/newtab/index.html">
     <strong>Open study app</strong>

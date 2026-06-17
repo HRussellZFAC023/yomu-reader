@@ -1,3 +1,8 @@
+---
+title: Getting Started
+description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and tap a word. No account needed. Optional JPDB, Anki, OCR, and audio setup included.
+---
+
 # Getting Started
 
 New to userscripts? You're in the right place — this guide assumes you've never installed one.

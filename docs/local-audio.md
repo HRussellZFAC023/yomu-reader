@@ -1,3 +1,8 @@
+---
+title: Local Audio
+description: Add Japanese word audio to よむ. Use a hosted Yomitan-compatible audio URL for the easiest setup, or run a free local audio server to play pronunciation files stored on your own computer.
+---
+
 # Local Audio
 
 よむ can play audio from any Yomitan-compatible audio source. There are two good ways to set it up:

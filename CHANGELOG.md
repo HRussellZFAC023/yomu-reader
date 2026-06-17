@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.3.30] - 2026-06-18
+
+### Changed
+
+- SEO overhaul for the docs site and hosted apps. Every page now emits a correct per-page canonical URL and `og:url` (previously every page declared itself the home page, a duplicate-content signal and wrong social card), plus per-page titles, meta descriptions, and Open Graph / Twitter tags. Added an auto-generated `sitemap.xml`, a `robots.txt`, and JSON-LD structured data (`SoftwareApplication` + `WebSite` on the home page, `FAQPage` + `BreadcrumbList` on the tool pages). Internal planning/research docs (ADRs, backlogs) are now `noindex` and excluded from the sitemap.
+- New `/tools/` hub plus six keyword-targeted free-tool landing pages (Japanese OCR & manga reader, furigana reader, kanji stroke order, subtitle miner & video reader, JPDB study, YouTube immersion filter), each with its own FAQ schema and cross-links, so individual tools can rank on their own.
+- The hosted new-tab study page and video player now carry descriptive titles, meta descriptions, canonical URLs, and Open Graph tags so those standalone tool URLs are indexable.
+
 ## [1.3.29] - 2026-06-18
 
 ### Fixed
