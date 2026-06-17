@@ -46,7 +46,7 @@ export async function captureReaderSurfaceViaExtensionScreenshot(
     return cropped ? { dataUrl: cropped, rect: new DOMRect(clip.left, clip.top, clip.width, clip.height) } : undefined;
 }
 
-export async function requestVisibleTabScreenshot(): Promise<string | undefined> {
+async function requestVisibleTabScreenshot(): Promise<string | undefined> {
     const extension = extensionRuntime();
     if (!extension?.runtime.id || typeof extension.runtime.sendMessage !== 'function') return undefined;
     const response = await sendExtensionMessage(extension, { type: CAPTURE_VISIBLE_TAB_MESSAGE, format: 'jpeg', quality: 88 });

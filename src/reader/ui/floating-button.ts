@@ -92,10 +92,7 @@ export class FloatingButtonController {
             button.dataset.jpdbReaderMoved = 'true';
             const position = clampPuck(button, originX + dx, originY + dy);
             if (!position) return;
-            button.style.left = `${position.x}px`;
-            button.style.top = `${position.y}px`;
-            button.style.right = 'auto';
-            button.style.bottom = 'auto';
+            applyPuckPosition(button, position.x, position.y);
         }, { passive: false });
         const finishDrag = (event: PointerEvent): void => {
             if (!dragging) return;
@@ -168,10 +165,7 @@ function nonOverlappingPuckPositions(button: HTMLButtonElement, rect: DOMRect, v
 }
 
 function movePuck(button: HTMLButtonElement, position: { x: number; y: number }, settings: ReaderSettings, saveSettings: () => void): void {
-    button.style.left = `${position.x}px`;
-    button.style.top = `${position.y}px`;
-    button.style.right = 'auto';
-    button.style.bottom = 'auto';
+    applyPuckPosition(button, position.x, position.y);
     settings.puckPositionX = Math.round(position.x);
     settings.puckPositionY = Math.round(position.y);
     saveSettings();
@@ -179,10 +173,7 @@ function movePuck(button: HTMLButtonElement, position: { x: number; y: number },
 
 function restoreButtonPosition(button: HTMLButtonElement, settings: ReaderSettings): void {
     if (settings.puckPositionX === undefined || settings.puckPositionY === undefined) return;
-    button.style.left = `${settings.puckPositionX}px`;
-    button.style.top = `${settings.puckPositionY}px`;
-    button.style.right = 'auto';
-    button.style.bottom = 'auto';
+    applyPuckPosition(button, settings.puckPositionX, settings.puckPositionY);
 }
 
 function clampRestoredButtonPosition(button: HTMLButtonElement, settings: ReaderSettings): void {
@@ -193,11 +184,19 @@ function clampRestoredButtonPosition(button: HTMLButtonElement, settings: Reader
         const position = clampPuck(button, rect.left, rect.top);
         if (!position) return;
         if (Math.round(rect.left) === Math.round(position.x) && Math.round(rect.top) === Math.round(position.y)) return;
-        button.style.left = `${position.x}px`;
-        button.style.top = `${position.y}px`;
-        button.style.right = 'auto';
-        button.style.bottom = 'auto';
+        applyPuckPosition(button, position.x, position.y);
     });
+}
+
+function applyPuckPosition(button: HTMLButtonElement, x: number, y: number): void {
+    button.style.setProperty('left', `${x}px`);
+    button.style.setProperty('top', `${y}px`);
+    // .jpdb-reader-fab uses !important default right/bottom rules to survive
+    // hostile page CSS. Restored/dragged positions must clear those with the
+    // same priority; otherwise fixed layout gets both left and right and the
+    // iPad puck stretches into a full-width pill.
+    button.style.setProperty('right', 'auto', 'important');
+    button.style.setProperty('bottom', 'auto', 'important');
 }
 
 function clampPuck(button: HTMLButtonElement, x: number, y: number): { x: number; y: number } | null {

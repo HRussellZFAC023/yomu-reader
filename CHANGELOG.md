@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.3.6] - 2026-06-17
+
+### Fixed
+
+- Auto-translated subtitle tracks now update primary and secondary cue state in the same tick, and the primary line stays visible while its aligned translation is still active.
+- The generated extension build keeps the BookWalker visible-tab screenshot bridge available while avoiding an unused exported helper in the userscript bundle.
+
+### Verified
+
+- Focused subtitle-controller, OCR raster, extension hardening, and typecheck gates.
+
 ## [1.3.5] - 2026-06-17
 
 ### Fixed

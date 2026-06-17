@@ -4233,6 +4233,66 @@ describe('SubtitlePlayerController', () => {
         expect(internals.lastDomCaption).toBe('');
     });
 
+    it('keeps the primary line on screen while its auto-translated secondary cue still shows', () => {
+        // Auto-generated YouTube captions and their `&tlang=` translation are
+        // normalized independently, so the Japanese cue ends a beat before its
+        // English translation. The Japanese line used to vanish while the
+        // English one kept showing alone (user-reported).
+        const settings = makeSubtitleSettings({ subtitleSecondaryVisible: true });
+        const { controller } = createSubtitleController(settings);
+        installController(controller);
+        const video = attachVideo(controller, { currentTime: 0.5 });
+        const cues = [
+            { start: 0, end: 1, text: 'おはよう', transcriptEligible: true },
+            { start: 3, end: 4, text: 'こんにちは', transcriptEligible: true },
+        ];
+        const secondaryCues = [
+            { start: 0, end: 2.5, text: 'Good morning', transcriptEligible: true },
+            { start: 3, end: 4, text: 'Hello', transcriptEligible: true },
+        ];
+        const internals = controllerInternals<{
+            cues: typeof cues;
+            secondaryCues: typeof secondaryCues;
+            currentCue: typeof cues[number] | undefined;
+            selectedTrackId: string;
+            secondaryTrackId: string;
+            updateFromLoadedCues: () => void;
+        }>(controller);
+        internals.selectedTrackId = 'yt-ja';
+        internals.secondaryTrackId = 'yt-en';
+        internals.cues = cues;
+        internals.secondaryCues = secondaryCues;
+
+        // Both lines active.
+        internals.updateFromLoadedCues();
+        expect(internals.currentCue?.text).toBe('おはよう');
+        expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toContain('おはよう');
+        expect(document.querySelector('.jpdb-subtitle-secondary')?.textContent).toContain('Good morning');
+
+        // The Japanese cue has ended, but its translation still spans this
+        // moment: the Japanese line must stay rather than leave English alone.
+        (video as { currentTime: number }).currentTime = 2;
+        internals.updateFromLoadedCues();
+        expect(internals.currentCue?.text).toBe('おはよう');
+        expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toContain('おはよう');
+        expect(document.querySelector('.jpdb-subtitle-secondary')?.textContent).toContain('Good morning');
+
+        // Once the translation also ends, both lines clear together.
+        (video as { currentTime: number }).currentTime = 2.8;
+        internals.updateFromLoadedCues();
+        expect(internals.currentCue).toBeUndefined();
+        expect(document.querySelector('.jpdb-subtitle-primary')).toBeNull();
+        expect(document.querySelector('.jpdb-subtitle-secondary')).toBeNull();
+
+        // The next pair takes over cleanly.
+        (video as { currentTime: number }).currentTime = 3.5;
+        internals.updateFromLoadedCues();
+        expect(internals.currentCue?.text).toBe('こんにちは');
+        expect(document.querySelector('.jpdb-subtitle-secondary')?.textContent).toContain('Hello');
+
+        controller.destroy();
+    });
+
     it('caches keyless empty parses in the retry TTL instead of re-parsing every tick', async () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {

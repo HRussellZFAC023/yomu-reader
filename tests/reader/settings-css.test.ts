@@ -46,6 +46,8 @@ describe('settings CSS', () => {
         const normalizedSettingsCss = normalizeCss(SETTINGS_CSS);
 
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab { position: fixed !important; display: inline-flex !important;');
+        expect(normalizedReaderWordsOcrCss).toContain('inline-size: 52px !important; block-size: 52px !important; min-inline-size: 52px !important; min-block-size: 52px !important; max-inline-size: 52px !important; max-block-size: 52px !important;');
+        expect(normalizedReaderWordsOcrCss).toContain('min-width: 52px !important; width: 52px !important; max-width: 52px !important; height: 52px !important; min-height: 52px !important; max-height: 52px !important; padding: 0 !important;');
         expect(normalizedReaderWordsOcrCss).toContain('border: 1px solid var(--jpdb-reader-border) !important; border-radius: 50% !important; background: var(--jpdb-reader-surface) !important; color: var(--jpdb-reader-text) !important;');
         expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-fab:hover, .jpdb-reader-fab:focus-visible { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important;');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab { min-height: 34px !important; padding: 0 11px !important; border: 1px solid var(--jpdb-reader-border) !important;');

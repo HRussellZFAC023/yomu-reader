@@ -1446,7 +1446,12 @@ export class SubtitlePlayerController {
     }
 
     private updateLoadedCueState(cue: SubtitleCue | undefined, secondary: SubtitleCue | undefined, time: number): boolean {
-        return this.updateLoadedPrimaryCue(cue, time) || this.updateLoadedSecondaryCue(secondary);
+        // Evaluate both, not `||`: short-circuiting skipped the secondary
+        // update on any tick the primary also changed, so a freshly active
+        // line showed its translation only one tick later (lines out of sync).
+        const primaryChanged = this.updateLoadedPrimaryCue(cue, time);
+        const secondaryChanged = this.updateLoadedSecondaryCue(secondary);
+        return primaryChanged || secondaryChanged;
     }
 
     private afterLoadedCueStateChanged(): void {
@@ -1461,8 +1466,22 @@ export class SubtitlePlayerController {
 
     private updateLoadedPrimaryCue(cue: SubtitleCue | undefined, time: number): boolean {
         if (shouldReplaceLoadedCue(cue, this.currentCue)) return this.replaceLoadedPrimaryCue(cue);
-        if (shouldClearLoadedCue(cue, this.currentCue, time)) return this.clearLoadedPrimaryCue();
+        if (shouldClearLoadedCue(cue, this.currentCue, time) && !this.primaryHeldByActiveSecondary(time)) {
+            return this.clearLoadedPrimaryCue();
+        }
         return false;
+    }
+
+    // Auto-generated YouTube captions and their `&tlang=` translations are
+    // normalized independently (text-overlap rolling-cue merge), so the
+    // primary line's cue often ends a beat before its translation's does.
+    // Clearing the primary on its own boundary left the translation showing
+    // alone (user-reported). Hold the primary while the still-active secondary
+    // cue is the one aligned to it, so the pair appears and clears as a unit.
+    private primaryHeldByActiveSecondary(time: number): boolean {
+        if (!this.secondaryTrackId || !this.currentCue || !this.secondaryCues.length) return false;
+        const activeSecondary = findActiveSubtitleCue(this.secondaryCues, time);
+        return Boolean(activeSecondary && findAlignedCue(this.secondaryCues, this.currentCue) === activeSecondary);
     }
 
     private replaceLoadedPrimaryCue(cue: SubtitleCue): boolean {
@@ -1637,7 +1656,7 @@ export class SubtitlePlayerController {
 
     private renderEmptySubtitle(settings: ReaderSettings): void {
         if (!this.subtitleEl) return;
-        this.applySubtitleHtml(this.secondaryCue?.text ? renderSubtitleSecondary(this.secondaryCue.text, settings.subtitleNativeBlurred, settings.interfaceLanguage) : '');
+        this.applySubtitleHtml(this.renderSecondarySubtitle(settings));
     }
 
     private renderActiveSubtitle(text: string, settings: ReaderSettings): void {

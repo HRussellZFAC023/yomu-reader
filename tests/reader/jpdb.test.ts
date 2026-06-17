@@ -9050,6 +9050,10 @@ describe('reader helpers', () => {
             const button = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
             expect(button?.style.left).toBe('640px');
             expect(button?.style.top).toBe('420px');
+            expect(button?.style.getPropertyValue('right')).toBe('auto');
+            expect(button?.style.getPropertyPriority('right')).toBe('important');
+            expect(button?.style.getPropertyValue('bottom')).toBe('auto');
+            expect(button?.style.getPropertyPriority('bottom')).toBe('important');
             expect(settings.puckPositionX).toBe(640);
             expect(settings.puckPositionY).toBe(420);
             expect(save).not.toHaveBeenCalled();
@@ -9112,6 +9116,10 @@ describe('reader helpers', () => {
             button?.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 710, clientY: 510, bubbles: true }));
             button?.dispatchEvent(new MouseEvent('pointermove', { clientX: 810, clientY: 610, bubbles: true }));
             button?.dispatchEvent(new MouseEvent('pointerup', { clientX: 810, clientY: 610, bubbles: true }));
+            expect(button?.style.getPropertyValue('right')).toBe('auto');
+            expect(button?.style.getPropertyPriority('right')).toBe('important');
+            expect(button?.style.getPropertyValue('bottom')).toBe('auto');
+            expect(button?.style.getPropertyPriority('bottom')).toBe('important');
 
             await waitForExpect(() => {
                 expect(gmSetValue).toHaveBeenCalledWith('jpdb-popup-reader-settings', expect.objectContaining({

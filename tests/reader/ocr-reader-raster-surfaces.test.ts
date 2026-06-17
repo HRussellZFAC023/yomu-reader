@@ -138,7 +138,7 @@ describe('reader raster OCR surfaces', () => {
             rect: new DOMRect(32, 40, 400, 520),
         }));
 
-        const canvas = pageCanvas(20, 20);
+        const canvas = pageCanvas(32, 40, 400, 520);
         canvas.toDataURL = tainted;
         document.body.append(canvas);
 

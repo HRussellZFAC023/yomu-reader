@@ -1266,7 +1266,7 @@ export class ImageOcrController {
             frame.className = 'jpdb-ocr-canvas-frame';
             frame.dataset.yomuCanvasFrame = 'true';
             frame.alt = '';
-            positionCanvasFrameImage(frame, frameRect);
+            positionCanvasFrameImage(frame, rect);
             frame.addEventListener('load', () => {
                 if (this.canvasFrames.get(canvas) === frame) this.enqueue(frame, userRequested);
             }, { once: true });

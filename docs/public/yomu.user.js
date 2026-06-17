@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.3.5
+// @version      1.3.6
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js#sha256-D4EYOmwxUNrx0BQwlGoXTySmQIiroZEoL2u9um4zYLc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js#sha256-NvctIqfvF8+R7kzYS8c5sFofDNHI561CnImxv1DF8kU=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js#sha256-2bB7kg7nlBXNQXEF3poKFISWpoeOkpOtQcDOoL11IFA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-4a7dvmaE62BBnlr/dzrK+xRz8wRlPwGyerzLD3U6D84=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js#sha256-JH7zFF8nMDqg8A4QdsFoNwBWgVR+Hl1atU9uMf2o/f4=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -24737,10 +24737,7 @@ ${spelling}`);
         button2.dataset.jpdbReaderMoved = "true";
         const position = clampPuck(button2, originX + dx, originY + dy);
         if (!position) return;
-        button2.style.left = `${position.x}px`;
-        button2.style.top = `${position.y}px`;
-        button2.style.right = "auto";
-        button2.style.bottom = "auto";
+        applyPuckPosition(button2, position.x, position.y);
       }, { passive: false });
       const finishDrag = (event) => {
         if (!dragging) return;
@@ -24800,20 +24797,14 @@ ${spelling}`);
     return candidates.map((candidate) => clampPuck(button2, candidate.x, candidate.y)).filter((position) => Boolean(position)).filter((position) => !intersects(new DOMRect(position.x, position.y, rect.width, rect.height), videoRect));
   }
   function movePuck(button2, position, settings, saveSettings2) {
-    button2.style.left = `${position.x}px`;
-    button2.style.top = `${position.y}px`;
-    button2.style.right = "auto";
-    button2.style.bottom = "auto";
+    applyPuckPosition(button2, position.x, position.y);
     settings.puckPositionX = Math.round(position.x);
     settings.puckPositionY = Math.round(position.y);
     saveSettings2();
   }
   function restoreButtonPosition(button2, settings) {
     if (settings.puckPositionX === void 0 || settings.puckPositionY === void 0) return;
-    button2.style.left = `${settings.puckPositionX}px`;
-    button2.style.top = `${settings.puckPositionY}px`;
-    button2.style.right = "auto";
-    button2.style.bottom = "auto";
+    applyPuckPosition(button2, settings.puckPositionX, settings.puckPositionY);
   }
   function clampRestoredButtonPosition(button2, settings) {
     if (settings.puckPositionX === void 0 || settings.puckPositionY === void 0) return;
@@ -24823,11 +24814,14 @@ ${spelling}`);
       const position = clampPuck(button2, rect.left, rect.top);
       if (!position) return;
       if (Math.round(rect.left) === Math.round(position.x) && Math.round(rect.top) === Math.round(position.y)) return;
-      button2.style.left = `${position.x}px`;
-      button2.style.top = `${position.y}px`;
-      button2.style.right = "auto";
-      button2.style.bottom = "auto";
+      applyPuckPosition(button2, position.x, position.y);
     });
+  }
+  function applyPuckPosition(button2, x, y) {
+    button2.style.setProperty("left", `${x}px`);
+    button2.style.setProperty("top", `${y}px`);
+    button2.style.setProperty("right", "auto", "important");
+    button2.style.setProperty("bottom", "auto", "important");
   }
   function clampPuck(button2, x, y) {
     const rect = button2.getBoundingClientRect();
