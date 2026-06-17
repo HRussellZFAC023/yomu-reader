@@ -117,9 +117,12 @@
   line-height: 1.02;
 }
 
+/* The wordmark reads as a brand label sitting above the headline, so keep it a
+   step smaller than the headline (.text) at every width rather than the giant
+   display size it used to inherit. */
 .VPHomeHero .name {
-  font-size: clamp(48px, 9vw, 84px);
-  margin-bottom: 20px;
+  font-size: clamp(30px, 4.8vw, 56px);
+  margin-bottom: 16px;
 }
 
 .VPHomeHero .text {
@@ -141,12 +144,20 @@ html[lang="ja"] .VPHomeHero .text {
 }
 
 html[lang="ja"] .VPHomeHero .name {
-  margin-bottom: 22px;
+  font-size: clamp(28px, 4vw, 48px);
+  margin-bottom: 16px;
 }
 
 html[lang="ja"] .VPHomeHero .text {
-  max-width: 18ch;
+  max-width: none;
   font-size: clamp(32px, 4.6vw, 52px);
+  /* The translation string carries a hard newline at the clause boundary, so the
+     headline breaks as 好きなものを読んで / 日本語を学ぶ. `keep-all` stops a parsed
+     word (e.g. 読んで) from being split mid-span across a wrap, which also keeps
+     its pitch-accent underline intact. Overrides the shared `text-wrap: balance`. */
+  white-space: pre-line;
+  word-break: keep-all;
+  text-wrap: normal;
 }
 
 html[lang="ja"] .VPHomeHero .tagline {
@@ -251,6 +262,18 @@ html[lang="ja"] .VPHomeHero .tagline {
     text-align: left;
   }
 
+  /* The logo/icon stays centered (it is absolutely positioned inside its own
+     column), but the wordmark, headline, and buttons should hug the left edge.
+     VitePress centers them below 960px via high-specificity
+     `.VPHero.has-image .name/.text { margin: 0 auto }` and
+     `.VPHero.has-image .actions { justify-content: center }` rules (it already
+     left-aligns them itself at >=960px), so override with !important. */
+  .VPHomeHero .name,
+  .VPHomeHero .text {
+    width: auto !important;
+    margin-inline: 0 !important;
+  }
+
   .VPHomeHero .text {
     max-width: 12ch;
     font-size: clamp(38px, 10vw, 58px);
@@ -262,9 +285,21 @@ html[lang="ja"] .VPHomeHero .tagline {
     font-size: 17px;
   }
 
+  /* Content-sized pills that hug the left edge and wrap, instead of chunky
+     full-width blocks stacked one per row. */
   .VPHomeHero .actions {
-    justify-content: flex-start;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start !important;
+    width: auto;
+    max-width: none;
+    gap: 10px;
     padding-top: 24px;
+  }
+
+  .VPHomeHero .actions .action,
+  .VPHomeHero .actions .VPButton {
+    width: auto;
   }
 
   .VPHomeHero .image {
@@ -277,6 +312,67 @@ html[lang="ja"] .VPHomeHero .tagline {
     height: 128px;
     border-width: 4px;
     border-radius: 30px;
+  }
+}
+
+/* Tablet: there is room for the desktop-style two-column layout, so put the copy
+   on the left and the logo on the right (rather than stacking the logo on top
+   with empty space beside it) and let the wordmark grow back toward its desktop
+   size. Font sizes are tied to vw so the (unbreakable, keep-all) headline always
+   fits the narrower left column. */
+@media (min-width: 720px) and (max-width: 959px) {
+  .VPHomeHero .container {
+    flex-direction: row;
+    align-items: center;
+    gap: clamp(28px, 4vw, 48px);
+  }
+
+  .VPHomeHero .main {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .VPHomeHero .image {
+    order: 2;
+    flex: 0 0 auto;
+    justify-content: center;
+    margin: 0;
+  }
+
+  /* The default hero image is absolutely positioned, which blows the column out
+     to ~390px. Make it a normal static box so the column is just the icon. */
+  .VPHomeHero .image-container {
+    width: auto;
+    height: auto;
+    margin: 0;
+  }
+
+  .VPHomeHero .VPImage.image-src[src*="yomu-icon.svg"] {
+    position: static;
+    inset: auto;
+    transform: none;
+    margin: 0;
+    width: clamp(150px, 24vw, 210px);
+    height: clamp(150px, 24vw, 210px);
+    border-width: 6px;
+    border-radius: clamp(34px, 5vw, 46px);
+  }
+
+  .VPHomeHero .name {
+    font-size: clamp(40px, 6vw, 56px);
+  }
+
+  html[lang="ja"] .VPHomeHero .name {
+    font-size: clamp(34px, 5vw, 46px);
+  }
+
+  .VPHomeHero .text {
+    font-size: clamp(34px, 5.2vw, 46px);
+  }
+
+  html[lang="ja"] .VPHomeHero .text {
+    font-size: clamp(28px, 5vw, 44px);
   }
 }
 
@@ -293,17 +389,6 @@ html[lang="ja"] .VPHomeHero .tagline {
   .VPHomeHero .tagline {
     font-size: 16px;
     line-height: 1.55;
-  }
-
-  .VPHomeHero .actions {
-    display: grid;
-    width: 100%;
-    max-width: 360px;
-  }
-
-  .VPHomeHero .actions .action,
-  .VPHomeHero .actions .VPButton {
-    width: 100%;
   }
 }
 

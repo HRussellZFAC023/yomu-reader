@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.1.1
+// @version      1.1.2
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT

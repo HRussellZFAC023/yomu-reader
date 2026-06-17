@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2] - 2026-06-17
+
+### Fixed
+
+- Landing page hero now reads correctly on phones and tablets. The よむ wordmark is left-aligned (and sized as a label rather than the oversized display text it used to inherit on every breakpoint); the app-icon logo stays centered on phones; the headline and the action buttons hug the left edge instead of being centered/stacked as full-width blocks. On tablet widths the layout switches to the desktop-style two-column form (copy on the left, logo on the right) instead of stacking the logo on top with empty space beside it.
+- The Japanese hero headline now breaks at the clause boundary — 好きなものを読んで / 日本語を学ぶ — instead of splitting a word (e.g. 読んで) across the line break. Keeping the word whole also restores its pitch-accent underline, which a mid-word wrap had been hiding.
+
 ## [1.1.1] - 2026-06-17
 
 ### Fixed

@@ -154,7 +154,10 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Free userscript now. Chrome, Firefox, and Safari packages are being prepared for store submission.': '現在は無料ユーザースクリプト版です。Chrome、Firefox、Safari版はストア提出準備中です。',
     'Released under the GPL-3.0-or-later license.': 'GPL-3.0-or-laterライセンスで公開されています。',
     'A free JPDB and Yomitan popup reader for Japanese text, manga, video subtitles, and mining.': '日本語テキスト、漫画、動画字幕、マイニング向けの無料JPDB/Yomitanポップアップリーダー。',
-    'Learn Japanese by reading what you actually like': '好きなものを読んで日本語を学ぶ',
+    // Hard newline at the clause boundary so the headline breaks as
+    // 好きなものを読んで / 日本語を学ぶ instead of splitting a word (e.g. 読んで)
+    // mid-line. Rendered via `white-space: pre-line` on the JA hero headline.
+    'Learn Japanese by reading what you actually like': '好きなものを読んで\n日本語を学ぶ',
     'Tap a word anywhere, understand it in context, save it for review, and keep reading. よむ turns real Japanese pages, manga, subtitles, and study sites into one connected immersion system.': 'どこでも単語をタップし、文脈で理解し、復習用に保存して、そのまま読み続けられます。よむは実際の日本語ページ、漫画、字幕、学習サイトを1つのつながった没入システムにします。',
     'Read first': 'まず読む',
     'Extensive reading works because you meet vocabulary and grammar repeatedly in meaningful context. よむ removes just enough friction that you can stay inside the story.': '多読が効くのは、意味のある文脈の中で語彙や文法に何度も出会えるからです。よむは物語の中に留まれるだけの摩擦を取り除きます。',
