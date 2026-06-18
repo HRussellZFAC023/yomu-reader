@@ -556,22 +556,39 @@ async function assertHostedTracksPanel(page) {
 }
 
 async function readHostedTracksPanelState(page) {
-    return page.evaluate(() => ({
-        title: document.querySelector('.jpdb-subtitle-drawer-title')?.textContent?.trim(),
-        text: document.querySelector('.jpdb-subtitle-list')?.textContent ?? '',
-        hidden: document.querySelector('.jpdb-subtitle-list')?.hidden,
-        jimakuText: document.querySelector('[data-jimaku-link]')?.textContent?.trim(),
-        jimakuHref: document.querySelector('[data-jimaku-link]')?.href,
-        jimakuTarget: document.querySelector('[data-jimaku-link]')?.target,
-        jimakuRel: document.querySelector('[data-jimaku-link]')?.rel ?? '',
-        jimakuAnimeText: document.querySelector('[data-jimaku-anime-search]')?.textContent?.trim(),
-        jimakuAnimeHref: document.querySelector('[data-jimaku-anime-search]')?.href,
-        jimakuAnimeTarget: document.querySelector('[data-jimaku-anime-search]')?.target,
-        jimakuAnimeRel: document.querySelector('[data-jimaku-anime-search]')?.rel ?? '',
-        autoHideText: document.querySelector('[data-action="toggle-pause-panel"]')?.textContent?.trim(),
-        autoHidePressed: document.querySelector('[data-action="toggle-pause-panel"]')?.getAttribute('aria-pressed'),
-        placementButtons: document.querySelectorAll('[data-action="transcript-placement"][data-placement]').length,
-    }));
+    return page.evaluate(() => {
+        const text = selector => document.querySelector(selector)?.textContent?.trim() ?? '';
+        const attribute = (selector, name) => document.querySelector(selector)?.getAttribute(name) ?? '';
+        const link = selector => {
+            const anchor = document.querySelector(selector);
+            if (!(anchor instanceof HTMLAnchorElement)) return { text: '', href: '', target: '', rel: '' };
+            return {
+                text: anchor.textContent?.trim() ?? '',
+                href: anchor.href,
+                target: anchor.target,
+                rel: anchor.rel,
+            };
+        };
+        const subtitleList = document.querySelector('.jpdb-subtitle-list');
+        const jimaku = link('[data-jimaku-link]');
+        const jimakuAnime = link('[data-jimaku-anime-search]');
+        return {
+            title: text('.jpdb-subtitle-drawer-title'),
+            text: subtitleList?.textContent ?? '',
+            hidden: subtitleList?.hidden,
+            jimakuText: jimaku.text,
+            jimakuHref: jimaku.href,
+            jimakuTarget: jimaku.target,
+            jimakuRel: jimaku.rel,
+            jimakuAnimeText: jimakuAnime.text,
+            jimakuAnimeHref: jimakuAnime.href,
+            jimakuAnimeTarget: jimakuAnime.target,
+            jimakuAnimeRel: jimakuAnime.rel,
+            autoHideText: text('[data-action="toggle-pause-panel"]'),
+            autoHidePressed: attribute('[data-action="toggle-pause-panel"]', 'aria-pressed'),
+            placementButtons: document.querySelectorAll('[data-action="transcript-placement"][data-placement]').length,
+        };
+    });
 }
 
 function tracksPanelHasLoadActions(tracksPanel) {
@@ -622,7 +639,8 @@ async function assertHostedPausePanelOnPause(page) {
 async function dispatchHostedVideoEvent(page, eventName) {
     await page.evaluate(name => {
         const video = document.querySelector('video');
-        if (video && (name === 'play' || name === 'playing' || name === 'pause')) {
+        const shouldUpdatePlaybackState = video ? new Set(['play', 'playing', 'pause']).has(name) : false;
+        if (shouldUpdatePlaybackState) {
             Object.defineProperty(video, 'paused', { configurable: true, value: name === 'pause' });
             Object.defineProperty(video, 'ended', { configurable: true, value: false });
         }

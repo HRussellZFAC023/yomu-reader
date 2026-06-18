@@ -70,12 +70,12 @@ describe('dedupeWords dual-provider merge (UT-60)', () => {
 });
 
 describe('reviewTargetsForNewTabCard dual API targets (UT-60)', () => {
-    it('offers both jpdb-api and jiten-api for a merged card with both credentials', async () => {
+    it('offers Jiten before JPDB for a merged card with both credentials', async () => {
         const { reviewTargetsForNewTabCard } = await import('../../src/reader/newtab/review-targets');
         const { DEFAULT_SETTINGS } = await import('../../src/reader/settings');
         const settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten', jpdbMiningEnabled: true, enableReviews: true };
         const merged = kanjiCard({ vid: 1234, sid: 5, reviewSource: 'jpdb-api', jitenWordId: 42, jitenReadingIndex: 2 });
-        expect(reviewTargetsForNewTabCard(merged, settings, null)).toEqual(['jpdb-api', 'jiten-api']);
+        expect(reviewTargetsForNewTabCard(merged, settings, null)).toEqual(['jiten-api', 'jpdb-api']);
         // single-identity cards are unchanged
         const jpdbOnly = kanjiCard({ vid: 1234, sid: 5, reviewSource: 'jpdb-api' });
         expect(reviewTargetsForNewTabCard(jpdbOnly, settings, null)).toEqual(['jpdb-api']);

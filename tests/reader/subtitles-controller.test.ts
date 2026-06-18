@@ -193,6 +193,29 @@ function setupTranscriptCueController<
     return { controller, internals, settings, video };
 }
 
+function setSingleJapaneseSubtitleTrack(controller: SubtitlePlayerController): void {
+    controllerInternals<{ tracks: unknown[] }>(controller).tracks = [{
+        id: 'youtube-ja',
+        kind: 'youtube',
+        label: 'Japanese',
+        language: 'ja',
+        cues: [],
+    }];
+}
+
+function subtitlePanelToggleElements(): { root: HTMLElement; panel: HTMLElement; button: HTMLButtonElement } {
+    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+    const button = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+    return { root, panel, button };
+}
+
+function expectJapaneseTracksPanelOpen(panel: HTMLElement): void {
+    expect(panel.hidden).toBe(false);
+    expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
+    expect(panel.querySelector('.jpdb-subtitle-track-row')?.textContent).toContain('Japanese');
+}
+
 function handlePointerActivity(
     controller: SubtitlePlayerController,
     point: Pick<PointerEvent, 'clientX' | 'clientY'> = { clientX: 100, clientY: 100 },
@@ -418,21 +441,10 @@ describe('SubtitlePlayerController', () => {
 
     it('opens and closes the transcript drawer from the rail panel toggle', async () => {
         vi.useFakeTimers();
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-            subtitleTranscriptVisible: false,
-        };
         const onSettingsChange = vi.fn();
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange,
-        });
+        const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
 
         try {
-            (controller as unknown as { install: () => void }).install();
             const video = document.createElement('video');
             const cue = { start: 0, end: 1, text: '今日は読む。', transcriptEligible: true };
             const internals = controller as unknown as {
@@ -1223,42 +1235,20 @@ describe('SubtitlePlayerController', () => {
     });
 
     it('opens the tracks drawer from the rail panel toggle when lines are unavailable', () => {
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-            subtitleTranscriptVisible: false,
-        };
         const onSettingsChange = vi.fn();
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange,
-        });
+        const { settings, controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
 
         try {
-            (controller as unknown as { install: () => void }).install();
-            const video = document.createElement('video');
+            const video = attachVideo(controller);
             video.dataset.yomuAnimeSearch = 'Sousou.no.Frieren.S01E01.mkv';
-            (controller as unknown as { video: HTMLVideoElement }).video = video;
-            (controller as unknown as { tracks: unknown[] }).tracks = [{
-                id: 'youtube-ja',
-                kind: 'youtube',
-                label: 'Japanese',
-                language: 'ja',
-                cues: [],
-            }];
+            setSingleJapaneseSubtitleTrack(controller);
             controller.refresh();
 
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
-            const button = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+            const { root, panel, button } = subtitlePanelToggleElements();
 
             button.click();
 
-            expect(panel.hidden).toBe(false);
-            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
-            expect(panel.querySelector('.jpdb-subtitle-track-row')?.textContent).toContain('Japanese');
+            expectJapaneseTracksPanelOpen(panel);
             const jimakuSearch = panel.querySelector<HTMLAnchorElement>('[data-jimaku-anime-search]')!;
             expect(jimakuSearch.textContent).toBe('Search anime subtitles');
             expect(jimakuSearch.href).toBe('https://jimaku.cc/opensearch/redirect?anime=true&query=Sousou%20no%20Frieren%20S01E01');
@@ -1655,46 +1645,25 @@ describe('SubtitlePlayerController', () => {
 
     it('keeps the YouTube side panel toggle available when tracks arrive before the video wrapper settles', () => {
         const originalLocation = window.location;
-        const settings = {
-            ...DEFAULT_SETTINGS,
-            apiKey: '',
-            localDictionariesEnabled: false,
-            subtitleTranscriptVisible: false,
-        };
         const onSettingsChange = vi.fn();
         Object.defineProperty(window, 'location', {
             configurable: true,
             value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
         });
-        const controller = new SubtitlePlayerController({
-            getSettings: () => settings,
-            parseJapanese: async () => [],
-            onSettingsChange,
-        });
+        const { controller } = createInstalledSubtitleController({ subtitleTranscriptVisible: false }, { onSettingsChange });
 
         try {
-            (controller as unknown as { install: () => void }).install();
-            (controller as unknown as { tracks: unknown[] }).tracks = [{
-                id: 'youtube-ja',
-                kind: 'youtube',
-                label: 'Japanese',
-                language: 'ja',
-                cues: [],
-            }];
+            setSingleJapaneseSubtitleTrack(controller);
             controller.refresh();
 
-            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
-            const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
-            const button = root.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="panel"]')!;
+            const { root, panel, button } = subtitlePanelToggleElements();
 
             expect(root.hidden).toBe(false);
             expect(button.disabled).toBe(false);
 
             button.click();
 
-            expect(panel.hidden).toBe(false);
-            expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
-            expect(panel.querySelector('.jpdb-subtitle-track-row')?.textContent).toContain('Japanese');
+            expectJapaneseTracksPanelOpen(panel);
             expect(onSettingsChange).toHaveBeenCalled();
         } finally {
             controller.destroy();

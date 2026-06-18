@@ -60,6 +60,43 @@ function createOcrImageControllerFixture(options: {
     return { sentence, image, controller, parseJapanese };
 }
 
+function createSizedOcrImage(src: string, rect = new DOMRect(20, 80, 500, 300)): HTMLImageElement {
+    const image = document.createElement('img');
+    image.src = src;
+    Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+    Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+    image.getBoundingClientRect = () => rect;
+    return image;
+}
+
+function stubLocalOcrFetch(lineText: string) {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+        width: 1000,
+        height: 600,
+        lines: [{ text: lineText, box: { left: 100, top: 120, width: 300, height: 60 } }],
+    }), { status: 200, headers: { 'content-type': 'application/json' } }));
+    vi.stubGlobal('fetch', fetchMock);
+    return fetchMock;
+}
+
+function createLocalServiceOcrController(): ImageOcrController {
+    return new ImageOcrController({
+        getSettings: () => ({
+            ...DEFAULT_SETTINGS,
+            ocrEnabled: true,
+            ocrAutoScanImages: false,
+            ocrShowTextOverlay: false,
+            ocrProvider: 'local-service',
+            ocrMinImageArea: 1,
+            ocrMaxImagesPerPage: 5,
+            ocrPrefetchMargin: 0,
+        }),
+        parseJapanese: vi.fn(async () => []),
+        onToast: vi.fn(),
+        shouldAutoScan: () => false,
+    });
+}
+
 function testCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
     return {
         vid: 10,
@@ -794,18 +831,9 @@ describe('OCR sentence focus', () => {
         vi.useFakeTimers();
         const restoreCanvas = installCanvasEncodingMock();
         stubInstantIntersectionObserver();
-        const image = document.createElement('img');
-        image.src = '/ocr-removed-before-idle.png';
-        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
-        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
-        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        const image = createSizedOcrImage('/ocr-removed-before-idle.png');
         document.body.replaceChildren(image);
-        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-            width: 1000,
-            height: 600,
-            lines: [{ text: '日本語', box: { left: 100, top: 120, width: 300, height: 60 } }],
-        }), { status: 200, headers: { 'content-type': 'application/json' } }));
-        vi.stubGlobal('fetch', fetchMock);
+        const fetchMock = stubLocalOcrFetch('日本語');
 
         const controller = new ImageOcrController({
             getSettings: () => ({
@@ -896,35 +924,12 @@ describe('OCR sentence focus', () => {
     it('does not render a status banner when OCR finds no Japanese text', async () => {
         const restoreCanvas = installCanvasEncodingMock();
         stubInstantIntersectionObserver();
-        const image = document.createElement('img');
-        image.src = '/ocr-english-only.png';
-        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
-        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
-        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        const image = createSizedOcrImage('/ocr-english-only.png');
         document.body.replaceChildren(image);
 
-        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
-            width: 1000,
-            height: 600,
-            lines: [{ text: 'Only English here', box: { left: 100, top: 120, width: 300, height: 60 } }],
-        }), { status: 200, headers: { 'content-type': 'application/json' } }));
-        vi.stubGlobal('fetch', fetchMock);
+        const fetchMock = stubLocalOcrFetch('Only English here');
 
-        const controller = new ImageOcrController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                ocrEnabled: true,
-                ocrAutoScanImages: false,
-                ocrShowTextOverlay: false,
-                ocrProvider: 'local-service',
-                ocrMinImageArea: 1,
-                ocrMaxImagesPerPage: 5,
-                ocrPrefetchMargin: 0,
-            }),
-            parseJapanese: vi.fn(async () => []),
-            onToast: vi.fn(),
-            shouldAutoScan: () => false,
-        });
+        const controller = createLocalServiceOcrController();
 
         try {
             controller.init();
@@ -968,21 +973,7 @@ describe('OCR sentence focus', () => {
         });
         vi.stubGlobal('fetch', fetchMock);
 
-        const controller = new ImageOcrController({
-            getSettings: () => ({
-                ...DEFAULT_SETTINGS,
-                ocrEnabled: true,
-                ocrAutoScanImages: false,
-                ocrShowTextOverlay: false,
-                ocrProvider: 'local-service',
-                ocrMinImageArea: 1,
-                ocrMaxImagesPerPage: 5,
-                ocrPrefetchMargin: 0,
-            }),
-            parseJapanese: vi.fn(async () => []),
-            onToast: vi.fn(),
-            shouldAutoScan: () => false,
-        });
+        const controller = createLocalServiceOcrController();
 
         try {
             controller.init();

@@ -62,7 +62,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 
 ## Privacy
 
-Selected Japanese text is sent to JPDB only when parsing, showing JPDB results, mining, or opening kanji details. Example searches send the looked-up term to the enabled example provider: Immersion Kit needs no key, while Nadeshiko requests include your saved Nadeshiko API key and do not use public proxy fallbacks. Example media is fetched only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; local OCR app mode sends image pixels only to the endpoint you configure. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
+Selected Japanese text is sent to Jiten or JPDB only when parsing, showing their results, mining, or opening kanji details. Example searches send the looked-up term to the enabled example provider: Immersion Kit needs no key, while Nadeshiko requests include your saved Nadeshiko API key and do not use public proxy fallbacks. Example media is fetched only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; local OCR app mode sends image pixels only to the endpoint you configure. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
 
 ## Audio
 
@@ -76,7 +76,7 @@ Self-hosted audio files: https://nyaa.si/view/1957972
 
 Guide: https://yomitan.wiki/advanced/#audio
 
-The default sources are JapanesePod101, LanguagePod101, Jisho.org, JPDB word audio, and browser text-to-speech. Add a custom URL only if you already use a local audio server.
+The default sources are JapanesePod101, LanguagePod101, Jisho.org, Jiten/JPDB word audio, and browser text-to-speech. Add a custom URL only if you already use a local audio server.
 
 ## Mining
 

@@ -19,6 +19,7 @@ const pages = [
     { name: 'support', path: '/support' },
     { name: 'changelog', path: '/changelog' },
     { name: 'newtab-fallback', path: '/newtab/' },
+    { name: 'pdf-reader', path: '/pdf-reader/' },
 ];
 
 const viewports = [
@@ -80,6 +81,7 @@ function contentType(filePath) {
 const DOCS_CONTENT_TYPES = [
     { extension: '.html', type: 'text/html; charset=utf-8' },
     { extension: '.css', type: 'text/css; charset=utf-8' },
+    { extension: '.mjs', type: 'text/javascript; charset=utf-8' },
     { extension: '.js', type: 'text/javascript; charset=utf-8' },
     { extension: '.svg', type: 'image/svg+xml; charset=utf-8' },
     { extension: '.png', type: 'image/png' },
@@ -87,7 +89,7 @@ const DOCS_CONTENT_TYPES = [
 ];
 
 async function waitForStablePage(page) {
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => undefined);
     await page.waitForFunction(() => [...document.images].every(image => image.complete), null, { timeout: 8000 }).catch(() => undefined);
 }
 

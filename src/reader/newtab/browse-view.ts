@@ -102,7 +102,7 @@ export function renderBrowseSourceChips(
     }, `${label} ${count}`);
     return el('div', { class: 'jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips', role: 'group' },
         chip('all', copy.all, cards.length, active.size === 0),
-        ...(['jpdb', 'jiten', 'anki'] as const)
+        ...(['jiten', 'jpdb', 'anki'] as const)
             .filter(source => (counts.get(source) ?? 0) > 0)
             .map(source => chip(source, labels[source], counts.get(source) ?? 0, active.has(source))),
     );

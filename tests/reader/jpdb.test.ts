@@ -115,6 +115,25 @@ const card: JPDBCard = {
     wordWithReading: null,
 };
 
+function createMiningDrawerTestSurface(innerHtml: string): {
+    app: ReaderApp;
+    popover: HTMLElement;
+    actions: HTMLElement;
+    handle: HTMLButtonElement;
+} {
+    const app = new ReaderApp();
+    const popover = document.createElement('div');
+    popover.className = 'jpdb-reader-popover';
+    popover.innerHTML = innerHtml;
+    document.body.append(popover);
+    return {
+        app,
+        popover,
+        actions: popover.querySelector<HTMLElement>('.jpdb-reader-actions')!,
+        handle: popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!,
+    };
+}
+
 function hostedDocsCardToken(sentence: string, spelling: string, reading: string): JPDBToken {
     const start = sentence.indexOf(spelling);
     expect(start).toBeGreaterThanOrEqual(0);
@@ -6311,10 +6330,7 @@ describe('reader helpers', () => {
     });
 
     it('routes pass-through mining drawer gestures instead of opening words underneath', () => {
-        const app = new ReaderApp();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.innerHTML = `
+        const { app, popover, actions, handle } = createMiningDrawerTestSurface(`
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
                 <div class="jpdb-reader-actions-gutter">
                     <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
@@ -6322,11 +6338,8 @@ describe('reader helpers', () => {
                 <span class="jpdb-reader-word" data-expression="食べる" data-reading="たべる" data-sentence="食べる。">食べる</span>
                 <div class="jpdb-reader-mining-details"></div>
             </div>
-        `;
-        document.body.append(popover);
+        `);
 
-        const actions = popover.querySelector<HTMLElement>('.jpdb-reader-actions')!;
-        const handle = popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!;
         const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
         const showWord = vi.fn(async () => undefined);
         const internals = app as unknown as {
@@ -6388,10 +6401,7 @@ describe('reader helpers', () => {
     });
 
     it('installs mining drawer drag gestures on normal word popovers with review target gutters', () => {
-        const app = new ReaderApp();
-        const popover = document.createElement('div');
-        popover.className = 'jpdb-reader-popover';
-        popover.innerHTML = `
+        const { app, popover, actions, handle } = createMiningDrawerTestSurface(`
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
                 <div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
                     <span class="jpdb-reader-review-target-current" data-review-target-current aria-label="Grades JPDB">JPDB</span>
@@ -6399,12 +6409,9 @@ describe('reader helpers', () => {
                 </div>
                 <div class="jpdb-reader-mining-panel"></div>
             </div>
-        `;
-        document.body.append(popover);
+        `);
 
-        const actions = popover.querySelector<HTMLElement>('.jpdb-reader-actions')!;
         const gutter = popover.querySelector<HTMLElement>('[data-review-target-gutter]')!;
-        const handle = popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!;
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
@@ -19703,9 +19710,9 @@ describe('reader helpers', () => {
             'WTY JA-JA',
             'MarvNC JA-JA',
             'KANJIDIC',
+            'Jiten',
             'JPDBv2㋕',
             'BCCWJ',
-            'Jiten',
         ]);
     });
 

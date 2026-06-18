@@ -45,7 +45,7 @@ On the YouTube home feed, once よむ hides enough English-heavy recommendations
 
 ## Read while you watch
 
-The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader): Japanese subtitle lines become tappable words, with a transcript panel and one-tap sentence mining to Anki or JPDB. Filtering finds the right videos; the subtitle reader makes them comprehensible.
+The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader): Japanese subtitle lines become tappable words, with a transcript panel and one-tap sentence mining to Jiten, Anki, or JPDB. Filtering finds the right videos; the subtitle reader makes them comprehensible.
 
 ## Set it up
 

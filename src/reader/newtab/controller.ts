@@ -7619,11 +7619,11 @@ export class NewTabController {
     private lookupReviewTargetsForCard(card: JPDBCard, data?: CardRenderData | null): NewTabLookupReviewTarget[] {
         const targets = this.reviewTargetsForCard(card);
         const result: NewTabLookupReviewTarget[] = [];
-        if (targets.some(target => target === 'jpdb-api' || target === 'jpdb-live')) {
-            result.push({ id: 'jpdb', kind: 'jpdb', label: this.text('gradeTargetJpdb'), shortLabel: 'JPDB' });
-        }
         if (targets.includes('jiten-api')) {
             result.push({ id: 'jiten', kind: 'jiten', label: this.text('gradeTargetJiten'), shortLabel: 'Jiten' });
+        }
+        if (targets.some(target => target === 'jpdb-api' || target === 'jpdb-live')) {
+            result.push({ id: 'jpdb', kind: 'jpdb', label: this.text('gradeTargetJpdb'), shortLabel: 'JPDB' });
         }
         const settings = this.dependencies.getSettings();
         const ankiTargets = settings.ankiEnabled && settings.newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];

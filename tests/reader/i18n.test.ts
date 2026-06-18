@@ -38,9 +38,7 @@ describe('interface language resolution', () => {
             ...copyTableKeys(japaneseCopySource),
         ]);
 
-        expect(englishKeys.filter(key => !japaneseKeys.has(key))).toEqual([]);
-        expect([...japaneseKeys].filter(key => !englishKeys.includes(key))).toEqual([]);
-        expect(japaneseCopySource).not.toContain("'未翻訳'");
+        expectCopyKeysSynced(englishKeys, japaneseKeys, japaneseCopySource);
     });
 
     it('keeps Japanese new-tab copy keys in sync with English copy keys', () => {
@@ -49,9 +47,7 @@ describe('interface language resolution', () => {
         const japaneseCopySource = between(source, 'const JA_NEW_TAB_COPY', 'const NEW_TAB_COPY_BY_LANGUAGE');
         const japaneseKeys = new Set(copyKeys(japaneseCopySource));
 
-        expect(englishKeys.filter(key => !japaneseKeys.has(key))).toEqual([]);
-        expect([...japaneseKeys].filter(key => !englishKeys.includes(key))).toEqual([]);
-        expect(japaneseCopySource).not.toContain("'未翻訳'");
+        expectCopyKeysSynced(englishKeys, japaneseKeys, japaneseCopySource);
     });
 
     it('keeps hosted homepage link cards covered by Japanese docs copy', () => {
@@ -95,6 +91,12 @@ function copyKeys(source: string): string[] {
 
 function copyTableKeys(source: string): string[] {
     return [...source.matchAll(/^([A-Za-z0-9_]+)\t/gm)].map(match => match[1]);
+}
+
+function expectCopyKeysSynced(englishKeys: string[], japaneseKeys: Set<string>, japaneseCopySource: string): void {
+    expect(englishKeys.filter(key => !japaneseKeys.has(key))).toEqual([]);
+    expect([...japaneseKeys].filter(key => !englishKeys.includes(key))).toEqual([]);
+    expect(japaneseCopySource).not.toContain("'未翻訳'");
 }
 
 function hasHostedDocsJaCopy(source: string, copy: string): boolean {

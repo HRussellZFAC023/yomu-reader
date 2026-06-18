@@ -50,7 +50,7 @@ You can use a single tool and ignore the rest. Read manga with just OCR, or watc
 
 - A **userscript manager** (Tampermonkey on desktop, Userscripts on iPhone/iPad) — both are free.
 - The free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js).
-- Optionally: a [JPDB](https://jpdb.io) account, [Anki](https://apps.ankiweb.net/) with AnkiConnect, or a Yomitan dictionary — all optional.
+- Optionally: a [Jiten](https://jiten.moe/) or [JPDB](https://jpdb.io) account, [Anki](https://apps.ankiweb.net/) with AnkiConnect, or a Yomitan dictionary — all optional.
 
 New here? Start with the [setup guide](/getting-started) — it takes about three minutes.
 

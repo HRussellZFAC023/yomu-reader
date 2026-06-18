@@ -1240,21 +1240,10 @@
   }
   function subscribeToFactoryResetSignals(onSignal) {
     const cleanups = [];
-    const addValueChangeListener = globalThis.GM_addValueChangeListener;
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === "function") {
-      try {
-        const listenerId = addValueChangeListener(FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-          const signal = parseFactoryResetSignal(newValue);
-          if (signal) onSignal(signal, { remote, transport: "gm-storage" });
-        });
-        cleanups.push(() => {
-          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-        });
-      } catch (error) {
-        debugStorageError("GM factory reset listener failed", FACTORY_RESET_SIGNAL_KEY, error);
-      }
-    }
+    addGmValueChangeCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+      const signal = parseFactoryResetSignal(newValue);
+      if (signal) onSignal(signal, { remote, transport: "gm-storage" });
+    }, "GM factory reset listener failed");
     if (typeof BroadcastChannel === "function") {
       try {
         const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
@@ -1267,50 +1256,48 @@
         debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
       }
     }
-    const onStorage = (event) => {
-      if (event.key !== FACTORY_RESET_SIGNAL_KEY) return;
+    addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (event) => {
       const signal = parseFactoryResetSignal(event.newValue);
       if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
-    };
-    window.addEventListener("storage", onStorage);
-    cleanups.push(() => window.removeEventListener("storage", onStorage));
-    return () => {
-      while (cleanups.length) {
-        try {
-          cleanups.pop()?.();
-        } catch {
-        }
-      }
-    };
+    });
+    return () => runStorageCleanups(cleanups);
   }
   function subscribeToStoredValueChanges(key, onChange) {
     const cleanups = [];
+    addGmValueChangeCleanup(cleanups, key, (_key, _oldValue, newValue) => onChange(newValue), "GM stored value listener failed");
+    addWebStorageCleanup(cleanups, key, (event) => {
+      onChange(JSON.parse(event.newValue || "null"));
+    });
+    return () => runStorageCleanups(cleanups);
+  }
+  function addGmValueChangeCleanup(cleanups, key, listener, errorLabel) {
     const addValueChangeListener = globalThis.GM_addValueChangeListener;
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === "function") {
-      try {
-        const listenerId = addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
-        cleanups.push(() => {
-          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-        });
-      } catch (error) {
-        debugStorageError("GM stored value listener failed", key, error);
-      }
+    if (typeof addValueChangeListener !== "function") return;
+    try {
+      const listenerId = addValueChangeListener(key, listener);
+      cleanups.push(() => {
+        const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+        if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+      });
+    } catch (error) {
+      debugStorageError(errorLabel, key, error);
     }
+  }
+  function addWebStorageCleanup(cleanups, key, listener) {
     const onStorage = (event) => {
       if (event.key !== key) return;
-      onChange(JSON.parse(event.newValue || "null"));
+      listener(event);
     };
     window.addEventListener("storage", onStorage);
     cleanups.push(() => window.removeEventListener("storage", onStorage));
-    return () => {
-      while (cleanups.length) {
-        try {
-          cleanups.pop()?.();
-        } catch {
-        }
+  }
+  function runStorageCleanups(cleanups) {
+    while (cleanups.length) {
+      try {
+        cleanups.pop()?.();
+      } catch {
       }
-    };
+    }
   }
   async function storageKeys(prefixes) {
     const keys = /* @__PURE__ */ new Set();
@@ -22944,6 +22931,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
     },
     {
+      id: "jiten",
+      category: "frequency",
+      name: "Jiten",
+      descriptionKey: "recommendedJiten",
+      homepage: "https://jiten.moe/other",
+      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
+    },
+    {
       id: "jpdbv2-kana",
       category: "frequency",
       name: "JPDBv2㋕",
@@ -22958,14 +22953,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       descriptionKey: "recommendedBccwj",
       homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
       downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
-    },
-    {
-      id: "jiten",
-      category: "frequency",
-      name: "Jiten",
-      descriptionKey: "recommendedJiten",
-      homepage: "https://jiten.moe/other",
-      downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
     }
   ];
   function findRecommendedDictionary(id) {
@@ -32343,6 +32330,7 @@ ${spelling}`);
   const LENS_AUTO_FILTER = 7;
   const log$m = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
+  let ocrLayerCounter = 0;
   const OCR_RECOGNIZERS = {
     "google-lens": recognizeViaGoogleLens,
     "cloud-vision": recognizeViaCloudVision,
@@ -32699,6 +32687,9 @@ ${spelling}`);
       const overlay = document.createElement("div");
       overlay.className = "jpdb-ocr-layer";
       overlay.dataset.jpdbReaderRoot = "true";
+      overlay.dataset.ocrLayerId = String(++ocrLayerCounter);
+      overlay.hidden = true;
+      setOcrOverlayAccessibility(overlay, false);
       document.body.append(overlay);
       const state2 = { image, overlay, key: imageCacheKey(image), loading: false, overlayRequested: false, manualRequested: false, autoSkipped: false };
       image.addEventListener("load", () => {
@@ -32814,12 +32805,7 @@ ${spelling}`);
       const key = imageCacheKey(image);
       const manualRequested = state2.manualRequested;
       this.resetStateIfImageChanged(state2);
-      try {
-        if (await this.renderCachedOcrResult(state2, key)) return;
-      } catch (error) {
-        if (isStaleOcrState(error)) return;
-        throw error;
-      }
+      if (await this.tryRenderCachedOcrResult(state2, key)) return;
       if (!this.isCurrentState(state2)) return;
       this.updateOcrStatus(image, "loading");
       const scan = beginOcrScan(state2, image, settings, manualRequested);
@@ -32850,6 +32836,14 @@ ${spelling}`);
       await this.renderResult(state2, cached);
       state2.manualRequested = false;
       return true;
+    }
+    async tryRenderCachedOcrResult(state2, key) {
+      try {
+        return await this.renderCachedOcrResult(state2, key);
+      } catch (error) {
+        if (isStaleOcrState(error)) return true;
+        throw error;
+      }
     }
     async scanUncachedImage(state2, image, key, settings, provider, manualRequested) {
       const inlineFallback = readFallbackOcrResult(image, false);
@@ -33484,6 +33478,7 @@ ${spelling}`);
       const rect = image.getBoundingClientRect();
       const visible = isImageVisibleForOcr(image, rect);
       state2.overlay.hidden = !visible;
+      setOcrOverlayAccessibility(state2.overlay, visible);
       if (!visible) return;
       state2.overlay.style.left = `${rect.left}px`;
       state2.overlay.style.top = `${rect.top}px`;
@@ -33729,6 +33724,16 @@ ${spelling}`);
     element.dataset.hasFuri = String(Boolean(textElement.querySelector(".jpdb-reader-has-furi")));
     setOcrLinePosition(element, result, line);
     return element;
+  }
+  function setOcrOverlayAccessibility(overlay, visible) {
+    overlay.setAttribute("aria-hidden", String(!visible));
+    if (!visible) {
+      overlay.removeAttribute("role");
+      overlay.removeAttribute("aria-label");
+      return;
+    }
+    overlay.setAttribute("role", "region");
+    overlay.setAttribute("aria-label", `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ""}`.trim());
   }
   function setOcrLineDataset(element, result, line, sentence) {
     element.dataset.ocrText = line.text;
@@ -56792,7 +56797,7 @@ ${normalizedReading}`;
       "div",
       { class: "jpdb-reader-newtab-browse-chips jpdb-reader-newtab-browse-source-chips", role: "group" },
       chip("all", copy.all, cards.length, active.size === 0),
-      ...["jpdb", "jiten", "anki"].filter((source) => (counts.get(source) ?? 0) > 0).map((source) => chip(source, labels[source], counts.get(source) ?? 0, active.has(source)))
+      ...["jiten", "jpdb", "anki"].filter((source) => (counts.get(source) ?? 0) > 0).map((source) => chip(source, labels[source], counts.get(source) ?? 0, active.has(source)))
     );
   }
   function sortBrowseCards(cards, sort, descending) {
@@ -57177,13 +57182,13 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
     const add = (target) => {
       if (!targets.includes(target)) targets.push(target);
     };
+    if (card.reviewSource !== "jpdb-live" && isJitenGradableCard(card) && settings.jpdbMiningEnabled && hasJitenApiCredential(settings)) {
+      add("jiten-api");
+    }
     if (card.reviewSource === "jpdb-live") {
       if (settings.jpdbMiningEnabled) add("jpdb-live");
     } else if ((card.reviewSource === "jpdb-api" || isPositiveJpdbCard(card)) && settings.jpdbMiningEnabled && hasJpdbApiCredential(settings)) {
       add("jpdb-api");
-    }
-    if (card.reviewSource !== "jpdb-live" && isJitenGradableCard(card) && settings.jpdbMiningEnabled && hasJitenApiCredential(settings)) {
-      add("jiten-api");
     }
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add("anki");
     return targets;
@@ -66805,11 +66810,11 @@ ${entry.url}`),
     lookupReviewTargetsForCard(card, data) {
       const targets = this.reviewTargetsForCard(card);
       const result = [];
-      if (targets.some((target) => target === "jpdb-api" || target === "jpdb-live")) {
-        result.push({ id: "jpdb", kind: "jpdb", label: this.text("gradeTargetJpdb"), shortLabel: "JPDB" });
-      }
       if (targets.includes("jiten-api")) {
         result.push({ id: "jiten", kind: "jiten", label: this.text("gradeTargetJiten"), shortLabel: "Jiten" });
+      }
+      if (targets.some((target) => target === "jpdb-api" || target === "jpdb-live")) {
+        result.push({ id: "jpdb", kind: "jpdb", label: this.text("gradeTargetJpdb"), shortLabel: "JPDB" });
       }
       const settings = this.dependencies.getSettings();
       const ankiTargets = settings.ankiEnabled && settings.newTabAnkiEnabled ? this.lookupAnkiReviewTargets(card, data) : [];

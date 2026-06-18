@@ -15,8 +15,8 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.6#sha256-VN7yyr6bcHdxZFlW1RUhShL2ndAmgvg/3YBAO3H3pKI=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.6#sha256-YR5AkZQBbkddu/EnUVWGU5T3EvEj/RTBx3nmiPMeGoI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.6#sha256-O/p30S8Pemf9w3RtX//0eV0338DfpGpN7BCZIvBmklI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.6#sha256-w9UiVa1ejHO7mEJSMjP1Wu0k53i0Fg+IA0IHH0tTaNU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.6#sha256-cI7EN5NLsJleA7+4byh7E4FPZqN2knQpOrwOQCkCGJg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.6#sha256-Aa0PNP7DGWwLunfGysQF27nzZUs8oZyfio7OJnVK+Bs=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -1574,21 +1574,10 @@
   }
   function subscribeToFactoryResetSignals(onSignal) {
     const cleanups = [];
-    const addValueChangeListener = globalThis.GM_addValueChangeListener;
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === "function") {
-      try {
-        const listenerId = addValueChangeListener(FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-          const signal = parseFactoryResetSignal(newValue);
-          if (signal) onSignal(signal, { remote, transport: "gm-storage" });
-        });
-        cleanups.push(() => {
-          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-        });
-      } catch (error) {
-        debugStorageError("GM factory reset listener failed", FACTORY_RESET_SIGNAL_KEY, error);
-      }
-    }
+    addGmValueChangeCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+      const signal = parseFactoryResetSignal(newValue);
+      if (signal) onSignal(signal, { remote, transport: "gm-storage" });
+    }, "GM factory reset listener failed");
     if (typeof BroadcastChannel === "function") {
       try {
         const channel = new BroadcastChannel(FACTORY_RESET_CHANNEL_NAME);
@@ -1601,50 +1590,48 @@
         debugStorageError("Broadcast factory reset listener failed", FACTORY_RESET_CHANNEL_NAME, error);
       }
     }
-    const onStorage = (event) => {
-      if (event.key !== FACTORY_RESET_SIGNAL_KEY) return;
+    addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (event) => {
       const signal = parseFactoryResetSignal(event.newValue);
       if (signal) onSignal(signal, { remote: true, transport: "web-storage" });
-    };
-    window.addEventListener("storage", onStorage);
-    cleanups.push(() => window.removeEventListener("storage", onStorage));
-    return () => {
-      while (cleanups.length) {
-        try {
-          cleanups.pop()?.();
-        } catch {
-        }
-      }
-    };
+    });
+    return () => runStorageCleanups(cleanups);
   }
   function subscribeToStoredValueChanges(key, onChange) {
     const cleanups = [];
+    addGmValueChangeCleanup(cleanups, key, (_key, _oldValue, newValue) => onChange(newValue), "GM stored value listener failed");
+    addWebStorageCleanup(cleanups, key, (event) => {
+      onChange(JSON.parse(event.newValue || "null"));
+    });
+    return () => runStorageCleanups(cleanups);
+  }
+  function addGmValueChangeCleanup(cleanups, key, listener, errorLabel) {
     const addValueChangeListener = globalThis.GM_addValueChangeListener;
-    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === "function") {
-      try {
-        const listenerId = addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
-        cleanups.push(() => {
-          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
-        });
-      } catch (error) {
-        debugStorageError("GM stored value listener failed", key, error);
-      }
+    if (typeof addValueChangeListener !== "function") return;
+    try {
+      const listenerId = addValueChangeListener(key, listener);
+      cleanups.push(() => {
+        const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
+        if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+      });
+    } catch (error) {
+      debugStorageError(errorLabel, key, error);
     }
+  }
+  function addWebStorageCleanup(cleanups, key, listener) {
     const onStorage = (event) => {
       if (event.key !== key) return;
-      onChange(JSON.parse(event.newValue || "null"));
+      listener(event);
     };
     window.addEventListener("storage", onStorage);
     cleanups.push(() => window.removeEventListener("storage", onStorage));
-    return () => {
-      while (cleanups.length) {
-        try {
-          cleanups.pop()?.();
-        } catch {
-        }
+  }
+  function runStorageCleanups(cleanups) {
+    while (cleanups.length) {
+      try {
+        cleanups.pop()?.();
+      } catch {
       }
-    };
+    }
   }
   async function allStorageKeys() {
     const keys = /* @__PURE__ */ new Set();

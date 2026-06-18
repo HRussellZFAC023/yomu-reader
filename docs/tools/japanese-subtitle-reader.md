@@ -1,6 +1,6 @@
 ---
 title: Japanese Subtitle Miner & Video Reader
-description: Turn Japanese video subtitles into tappable words. よむ adds an overlay and transcript to YouTube and your own video files so you can look up lines, show a second language track, and mine sentences to Anki or JPDB. Free, in your browser.
+description: Turn Japanese video subtitles into tappable words. よむ adds an overlay and transcript to YouTube and your own video files so you can look up lines, show a second language track, and mine sentences to Jiten, Anki, or JPDB. Free, in your browser.
 head:
   - - meta
     - name: keywords
@@ -8,7 +8,7 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up words in Japanese video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ parses Japanese subtitles into tappable words. Tap a word in the overlay or transcript to open the dictionary, and mine the sentence to Anki or JPDB."}},{"@type":"Question","name":"Does it work on YouTube and my own video files?","acceptedAnswer":{"@type":"Answer","text":"Yes. The subtitle overlay works on video pages like YouTube, and the free Yomu video player opens local browser-supported video and subtitle files so the same tools work without a desktop app."}},{"@type":"Question","name":"Can I mine sentences to Anki?","acceptedAnswer":{"@type":"Answer","text":"Yes. With AnkiConnect reachable, よむ can create a card from a subtitle line with the word, reading, meaning, the source sentence, audio, and an optional screenshot."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up words in Japanese video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ parses Japanese subtitles into tappable words. Tap a word in the overlay or transcript to open the dictionary, and mine the sentence to Jiten, Anki, or JPDB."}},{"@type":"Question","name":"Does it work on YouTube and my own video files?","acceptedAnswer":{"@type":"Answer","text":"Yes. The subtitle overlay works on video pages like YouTube, and the free Yomu video player opens local browser-supported video and subtitle files so the same tools work without a desktop app."}},{"@type":"Question","name":"Can I mine sentences to Anki?","acceptedAnswer":{"@type":"Answer","text":"Yes. With AnkiConnect reachable, よむ can create a card from a subtitle line with the word, reading, meaning, the source sentence, audio, and an optional screenshot."}}]}
 ---
 
 # Japanese Subtitle Miner & Video Reader
@@ -37,12 +37,12 @@ Video is some of the best Japanese input you can get — if you can actually rea
 
 For local files, open the free [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the **Subtitles** button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work **without a desktop bridge**.
 
-## Sentence mining to Anki or JPDB
+## Sentence mining to Jiten, Anki, or JPDB
 
 This is where reading turns into study. From a subtitle line you can:
 
 - **Mine to Anki** — with [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ builds a card with the word, reading, meaning, the source sentence, audio, and an optional screenshot.
-- **Mine to JPDB** — add the word, mark it, or send a review grade.
+- **Mine to Jiten or JPDB** — add the word, mark it, or send a review grade.
 
 If you've used asbplayer-style sentence mining before, this will feel familiar — but it lives in the same popup as your dictionary, kanji, and audio.
 

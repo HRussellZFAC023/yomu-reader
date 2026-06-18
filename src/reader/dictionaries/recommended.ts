@@ -59,6 +59,14 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         downloadUrl: 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip',
     },
     {
+        id: 'jiten',
+        category: 'frequency',
+        name: 'Jiten',
+        descriptionKey: 'recommendedJiten',
+        homepage: 'https://jiten.moe/other',
+        downloadUrl: 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan',
+    },
+    {
         id: 'jpdbv2-kana',
         category: 'frequency',
         name: 'JPDBv2㋕',
@@ -73,14 +81,6 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         descriptionKey: 'recommendedBccwj',
         homepage: 'https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined',
         downloadUrl: 'https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip',
-    },
-    {
-        id: 'jiten',
-        category: 'frequency',
-        name: 'Jiten',
-        descriptionKey: 'recommendedJiten',
-        homepage: 'https://jiten.moe/other',
-        downloadUrl: 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan',
     },
 ];
 

@@ -269,8 +269,8 @@
       display: block;
       width: 40px;
       min-width: 40px;
-      height: 22px;
-      min-height: 22px;
+      height: 24px;
+      min-height: 24px;
       padding: 0;
       border: 1px solid var(--line);
       border-radius: 999px;
@@ -285,8 +285,8 @@
       left: 1px;
       display: grid;
       place-items: center;
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       border-radius: 999px;
       background: var(--bg);
       box-shadow: 0 1px 3px var(--switch-shadow);
@@ -335,6 +335,18 @@
       min-height: 100dvh;
       margin: 0;
       display: block;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     /* Sticky chrome: the brand bar and document toolbar stay pinned while the
@@ -619,6 +631,7 @@
 </head>
 <body>
   <main class="app" data-app>
+    <h1 class="sr-only" data-page-title>Yomu PDF</h1>
     <div class="chrome">
     <header class="topbar">
       <a class="brand" href="../" aria-label="Open Yomu home">
@@ -943,6 +956,7 @@
       document.documentElement.lang = language === 'ja' ? 'ja' : 'en';
       const t = copy[language] || copy.en;
       document.title = t.title;
+      document.querySelector('[data-page-title]').textContent = t.title;
       document.querySelector('.brand').setAttribute('aria-label', t.openHome);
       document.querySelector('.brand strong').textContent = t.brand;
       viewer.setAttribute('aria-label', t.stageLabel);

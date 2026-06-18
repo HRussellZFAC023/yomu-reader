@@ -22,6 +22,16 @@ function appendParsedReaderWord(root: HTMLElement): void {
     root.querySelector<HTMLElement>('.jpdb-reader-parseable')!.append(word);
 }
 
+function clickParsedWordInPopover(popover: HTMLElement, target: HTMLElement): { click: MouseEvent; parsedWord: HTMLElement | null } {
+    let parsedWord: HTMLElement | null = null;
+    popover.addEventListener('click', event => {
+        parsedWord = lookupPopoverParsedWordElement(event as MouseEvent, popover);
+    });
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+    target.dispatchEvent(click);
+    return { click, parsedWord };
+}
+
 describe('nested text parse plans', () => {
     afterEach(() => {
         document.body.innerHTML = '';
@@ -178,12 +188,7 @@ describe('nested text parse plans', () => {
         const details = popover.querySelector<HTMLDetailsElement>('details')!;
         const plan = nestedTextParsePlan(popover, 24);
 
-        let parsedWord: HTMLElement | null = null;
-        popover.addEventListener('click', event => {
-            parsedWord = lookupPopoverParsedWordElement(event as MouseEvent, popover);
-        });
-        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-        popover.querySelector<HTMLElement>('summary')!.dispatchEvent(click);
+        const { click, parsedWord } = clickParsedWordInPopover(popover, popover.querySelector<HTMLElement>('summary')!);
 
         expect(plan).toBeNull();
         expect(popover.querySelector('summary .jpdb-reader-word')).toBeNull();
@@ -213,12 +218,7 @@ describe('nested text parse plans', () => {
         });
 
         const summaryWord = popover.querySelector<HTMLElement>('summary .jpdb-reader-word')!;
-        let parsedWord: HTMLElement | null = null;
-        popover.addEventListener('click', event => {
-            parsedWord = lookupPopoverParsedWordElement(event as MouseEvent, popover);
-        });
-        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
-        summaryWord.dispatchEvent(click);
+        const { click, parsedWord } = clickParsedWordInPopover(popover, summaryWord);
 
         expect(readerWordSurfaceText(summaryWord)).toBe('翻訳');
         expect(summaryWord.dataset.jpdbReaderPassive).toBe('true');

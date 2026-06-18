@@ -1807,9 +1807,16 @@ function hasHelpLinks(snapshot) {
 }
 
 function hasRecommendedDictionaryDownloads(snapshot) {
-    const requiredNames = ['JMdict', 'Jitendex', 'JMnedict', 'KANJIDIC', 'JPDBv2', 'BCCWJ', 'Jiten'];
+    const requiredNames = ['JMdict', 'Jitendex', 'JMnedict', 'KANJIDIC', 'Jiten', 'JPDBv2', 'BCCWJ'];
     return snapshot.recommendedDownloads >= requiredNames.length
-        && requiredNames.every(name => new RegExp(name, 'i').test(snapshot.recommendedDownloadText));
+        && requiredNames.every(name => new RegExp(name, 'i').test(snapshot.recommendedDownloadText))
+        && textAppearsBefore(snapshot.recommendedDownloadText, 'Jiten', 'JPDBv2');
+}
+
+function textAppearsBefore(text, first, second) {
+    const firstIndex = text.indexOf(first);
+    const secondIndex = text.indexOf(second);
+    return firstIndex >= 0 && secondIndex >= 0 && firstIndex < secondIndex;
 }
 
 async function assertSettingsAnkiTest(page) {

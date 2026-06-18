@@ -100,6 +100,7 @@ const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 const log = Logger.scope('OCR');
 const STALE_OCR_STATE = Symbol('stale-ocr-state');
+let ocrLayerCounter = 0;
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
     'google-lens': recognizeViaGoogleLens,
     'cloud-vision': recognizeViaCloudVision,
@@ -527,6 +528,9 @@ export class ImageOcrController {
         const overlay = document.createElement('div');
         overlay.className = 'jpdb-ocr-layer';
         overlay.dataset.jpdbReaderRoot = 'true';
+        overlay.dataset.ocrLayerId = String(++ocrLayerCounter);
+        overlay.hidden = true;
+        setOcrOverlayAccessibility(overlay, false);
 
         document.body.append(overlay);
 
@@ -660,12 +664,7 @@ export class ImageOcrController {
         const key = imageCacheKey(image);
         const manualRequested = state.manualRequested;
         this.resetStateIfImageChanged(state);
-        try {
-            if (await this.renderCachedOcrResult(state, key)) return;
-        } catch (error) {
-            if (isStaleOcrState(error)) return;
-            throw error;
-        }
+        if (await this.tryRenderCachedOcrResult(state, key)) return;
         if (!this.isCurrentState(state)) return;
 
         this.updateOcrStatus(image, 'loading');
@@ -699,6 +698,15 @@ export class ImageOcrController {
         await this.renderResult(state, cached);
         state.manualRequested = false;
         return true;
+    }
+
+    private async tryRenderCachedOcrResult(state: ImageState, key: string): Promise<boolean> {
+        try {
+            return await this.renderCachedOcrResult(state, key);
+        } catch (error) {
+            if (isStaleOcrState(error)) return true;
+            throw error;
+        }
     }
 
     private async scanUncachedImage(
@@ -1477,6 +1485,7 @@ export class ImageOcrController {
         const rect = image.getBoundingClientRect();
         const visible = isImageVisibleForOcr(image, rect);
         state.overlay.hidden = !visible;
+        setOcrOverlayAccessibility(state.overlay, visible);
         if (!visible) return;
         state.overlay.style.left = `${rect.left}px`;
         state.overlay.style.top = `${rect.top}px`;
@@ -1784,6 +1793,17 @@ function createOcrLineElement(
     element.dataset.hasFuri = String(Boolean(textElement.querySelector('.jpdb-reader-has-furi')));
     setOcrLinePosition(element, result, line);
     return element;
+}
+
+function setOcrOverlayAccessibility(overlay: HTMLElement, visible: boolean): void {
+    overlay.setAttribute('aria-hidden', String(!visible));
+    if (!visible) {
+        overlay.removeAttribute('role');
+        overlay.removeAttribute('aria-label');
+        return;
+    }
+    overlay.setAttribute('role', 'region');
+    overlay.setAttribute('aria-label', `Yomu OCR text ${overlay.dataset.ocrLayerId ?? ''}`.trim());
 }
 
 function setOcrLineDataset(element: HTMLElement, result: OcrResult, line: OcrLine, sentence: string): void {

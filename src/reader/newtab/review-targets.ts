@@ -63,13 +63,6 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
     const add = (target: NewTabReviewTarget): void => {
         if (!targets.includes(target)) targets.push(target);
     };
-    if (card.reviewSource === 'jpdb-live') {
-        if (settings.jpdbMiningEnabled) add('jpdb-live');
-    } else if ((card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card))
-        && settings.jpdbMiningEnabled
-        && hasJpdbApiCredential(settings)) {
-        add('jpdb-api');
-    }
     // UT-60: not an else-branch — a card living in both SRS queues offers
     // both API targets, exactly like the jpdb+anki pairing already does.
     if (card.reviewSource !== 'jpdb-live'
@@ -77,6 +70,13 @@ export function reviewTargetsForNewTabCard(card: JPDBCard, settings: ReaderSetti
         && settings.jpdbMiningEnabled
         && hasJitenApiCredential(settings)) {
         add('jiten-api');
+    }
+    if (card.reviewSource === 'jpdb-live') {
+        if (settings.jpdbMiningEnabled) add('jpdb-live');
+    } else if ((card.reviewSource === 'jpdb-api' || isPositiveJpdbCard(card))
+        && settings.jpdbMiningEnabled
+        && hasJpdbApiCredential(settings)) {
+        add('jpdb-api');
     }
     if (settings.ankiEnabled && settings.newTabAnkiEnabled && ankiCardId) add('anki');
     return targets;

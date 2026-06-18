@@ -39,6 +39,9 @@ type GmGetValue = <T>(key: string, defaultValue: T) => T | Promise<T>;
 type GmSetValue = (key: string, value: unknown) => void | Promise<void>;
 type GmDeleteValue = (key: string) => void | Promise<void>;
 type GmListValues = () => string[] | Promise<string[]>;
+type GmValueChangeListener = (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void;
+type GmAddValueChangeListener = (key: string, listener: GmValueChangeListener) => number;
+type GmRemoveValueChangeListener = (listenerId: number) => void;
 
 export type FactoryResetSignalPhase = 'prepare' | 'complete';
 
@@ -216,29 +219,11 @@ export async function publishFactoryResetSignal(signal: FactoryResetSignal): Pro
 
 export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSignal, source: FactoryResetSignalSource) => void): () => void {
     const cleanups: Array<() => void> = [];
-    const addValueChangeListener = (globalThis as {
-        GM_addValueChangeListener?: (
-            key: string,
-            listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
-        ) => number;
-    }).GM_addValueChangeListener;
-    const removeValueChangeListener = (globalThis as {
-        GM_removeValueChangeListener?: (listenerId: number) => void;
-    }).GM_removeValueChangeListener;
 
-    if (typeof addValueChangeListener === 'function') {
-        try {
-            const listenerId = addValueChangeListener(FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
-                const signal = parseFactoryResetSignal(newValue);
-                if (signal) onSignal(signal, { remote, transport: 'gm-storage' });
-            });
-            cleanups.push(() => {
-                if (typeof removeValueChangeListener === 'function') removeValueChangeListener(listenerId);
-            });
-        } catch (error) {
-            debugStorageError('GM factory reset listener failed', FACTORY_RESET_SIGNAL_KEY, error);
-        }
-    }
+    addGmValueChangeCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, (_key, _oldValue, newValue, remote) => {
+        const signal = parseFactoryResetSignal(newValue);
+        if (signal) onSignal(signal, { remote, transport: 'gm-storage' });
+    }, 'GM factory reset listener failed');
 
     if (typeof BroadcastChannel === 'function') {
         try {
@@ -253,63 +238,70 @@ export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSi
         }
     }
 
-    const onStorage = (event: StorageEvent): void => {
-        if (event.key !== FACTORY_RESET_SIGNAL_KEY) return;
+    addWebStorageCleanup(cleanups, FACTORY_RESET_SIGNAL_KEY, event => {
         const signal = parseFactoryResetSignal(event.newValue);
         if (signal) onSignal(signal, { remote: true, transport: 'web-storage' });
-    };
-    window.addEventListener('storage', onStorage);
-    cleanups.push(() => window.removeEventListener('storage', onStorage));
+    });
 
-    return () => {
-        while (cleanups.length) {
-            try {
-                cleanups.pop()?.();
-            } catch {
-                // Best-effort listener cleanup.
-            }
-        }
-    };
+    return () => runStorageCleanups(cleanups);
 }
 
 export function subscribeToStoredValueChanges(key: string, onChange: (newValue: unknown) => void): () => void {
     const cleanups: Array<() => void> = [];
-    const addValueChangeListener = (globalThis as {
-        GM_addValueChangeListener?: (
-            key: string,
-            listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
-        ) => number;
-    }).GM_addValueChangeListener;
-    const removeValueChangeListener = (globalThis as {
-        GM_removeValueChangeListener?: (listenerId: number) => void;
-    }).GM_removeValueChangeListener;
-    if (typeof addValueChangeListener === 'function') {
-        try {
-            const listenerId = addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
-            cleanups.push(() => {
-                if (typeof removeValueChangeListener === 'function') removeValueChangeListener(listenerId);
-            });
-        } catch (error) {
-            debugStorageError('GM stored value listener failed', key, error);
-        }
-    }
 
+    addGmValueChangeCleanup(cleanups, key, (_key, _oldValue, newValue) => onChange(newValue), 'GM stored value listener failed');
+    addWebStorageCleanup(cleanups, key, event => {
+        onChange(JSON.parse(event.newValue || 'null'));
+    });
+
+    return () => runStorageCleanups(cleanups);
+}
+
+function addGmValueChangeCleanup(
+    cleanups: Array<() => void>,
+    key: string,
+    listener: GmValueChangeListener,
+    errorLabel: string,
+): void {
+    const addValueChangeListener = (globalThis as {
+        GM_addValueChangeListener?: GmAddValueChangeListener;
+    }).GM_addValueChangeListener;
+    if (typeof addValueChangeListener !== 'function') return;
+
+    try {
+        const listenerId = addValueChangeListener(key, listener);
+        cleanups.push(() => {
+            const removeValueChangeListener = (globalThis as {
+                GM_removeValueChangeListener?: GmRemoveValueChangeListener;
+            }).GM_removeValueChangeListener;
+            if (typeof removeValueChangeListener === 'function') removeValueChangeListener(listenerId);
+        });
+    } catch (error) {
+        debugStorageError(errorLabel, key, error);
+    }
+}
+
+function addWebStorageCleanup(
+    cleanups: Array<() => void>,
+    key: string,
+    listener: (event: StorageEvent) => void,
+): void {
     const onStorage = (event: StorageEvent): void => {
         if (event.key !== key) return;
-        onChange(JSON.parse(event.newValue || 'null'));
+        listener(event);
     };
     window.addEventListener('storage', onStorage);
     cleanups.push(() => window.removeEventListener('storage', onStorage));
+}
 
-    return () => {
-        while (cleanups.length) {
-            try {
-                cleanups.pop()?.();
-            } catch {
-                // Best-effort listener cleanup.
-            }
+function runStorageCleanups(cleanups: Array<() => void>): void {
+    while (cleanups.length) {
+        try {
+            cleanups.pop()?.();
+        } catch {
+            // Best-effort listener cleanup.
         }
-    };
+    }
 }
 
 async function storageKeys(prefixes: string[]): Promise<string[]> {

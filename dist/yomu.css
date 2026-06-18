@@ -1260,6 +1260,9 @@
   overflow: hidden;
   contain: layout style;
 }
+.jpdb-ocr-layer[hidden] {
+  display: none;
+}
 .jpdb-ocr-line {
   pointer-events: auto;
   box-sizing: border-box;

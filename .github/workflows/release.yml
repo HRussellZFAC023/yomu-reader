@@ -41,6 +41,8 @@ jobs:
       - name: Install Yomu dependencies
         run: npm ci
       - run: npm run check
+      - run: npx playwright install --with-deps chromium
+      - run: npm run smoke:p0
       - name: Build split userscript release artifact
         run: |
           npm run build:userscript
