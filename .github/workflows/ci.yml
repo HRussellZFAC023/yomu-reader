@@ -86,14 +86,6 @@ jobs:
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
       - run: npm run verify
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-
-      - name: Install Playwright Chromium headless shell
-        timeout-minutes: 15
-        run: npx playwright install --only-shell chromium
       - run: npm run smoke:p0
+        env:
+          YOMU_PLAYWRIGHT_CHANNEL: chrome
