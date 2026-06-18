@@ -32475,7 +32475,6 @@ ${normalizedReading}`;
   const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
   const PITCH_ENRICHMENT_LIMIT = 12;
   const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
-  const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
   const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
   const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
   const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
@@ -32485,7 +32484,6 @@ ${normalizedReading}`;
   const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
   const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
   const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
-  const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
   const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
   const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
   const PITCH_LOCAL_META_LIMIT = 12;
@@ -32573,7 +32571,7 @@ ${normalizedReading}`;
   }
   function backgroundPitchEnrichmentOptionsForHost(hostname, compactViewport = false) {
     if (!isYouTubeHostname(hostname)) {
-      return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+      return { publicLookup: false };
     }
     return {
       publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
@@ -32590,7 +32588,7 @@ ${normalizedReading}`;
   }
   function nestedPitchEnrichmentOptionsForHost(hostname) {
     if (isYouTubeHostname(hostname)) return { publicLookup: false };
-    return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+    return { publicLookup: false };
   }
   function visibleAutoScanMutationDelay(defaultDelay = 450) {
     return isYouTubeHostForAutoScan() ? 120 : defaultDelay;
