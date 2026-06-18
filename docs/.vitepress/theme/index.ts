@@ -59,6 +59,10 @@ let hostedThemeSyncBound = false;
 let hostedThemeIsDark: Ref<boolean> | undefined;
 let hostedSettingsEventPatch: Record<string, any> = {};
 let themeClassObserver: MutationObserver | undefined;
+let hostedDocsShellSyncPending = false;
+let hostedDocsLocalizationPending = false;
+let hostedDocsLocalizationResetPending = false;
+let hostedAccentSignature = '';
 let hostedRuntimeIntentController: AbortController | undefined;
 let hostedRuntimeIntentTarget: HTMLElement | undefined;
 let routeSyncBound = false;
@@ -142,7 +146,10 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Firefox extension': 'Firefox拡張',
     'Safari extension': 'Safari拡張',
     'Coming soon': '準備中',
+    'Extension store status': '拡張ストアの状況',
+    'Install steps': 'インストール手順',
     'Add manager': '管理拡張を追加',
+    'Open the Tampermonkey install page for your browser': 'ブラウザー用のTampermonkeyインストールページを開く',
     'Open a Japanese page and tap a word for your first lookup': '日本語ページを開き、単語をタップして最初の検索を試す',
     'Refresh page': 'ページを更新',
     'What It Does': 'できること',
@@ -163,7 +170,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Read the guides': 'ガイドを読む',
     'Find things to read': '読むものを探す',
     'Read manga, mine anime & YouTube to Anki, find comprehensible-input channels.': '漫画を読み、アニメやYouTubeをAnkiにマイニングし、理解可能なインプットのチャンネルを見つけられます。',
-    'Manga, anime, YouTube, graded readers, and comprehensible-input ideas.': '漫画、アニメ、YouTube、graded readers、理解可能なインプットのアイデア。',
+    'Manga, anime, YouTube, graded readers, and comprehensible-input ideas.': '漫画、アニメ、YouTube、レベル別読み物、理解可能なインプットのアイデア。',
     'Open study app': '学習',
     'Review JPDB, Anki, or imported dictionary cards from the hosted app.': 'ホスト版アプリでJPDB、Anki、インポート辞書カードを復習します。',
     'Review study cards, Anki cards, or imported dictionary cards from the study app.': '学習アプリで学習カード、Ankiカード、インポート辞書カードを復習します。',
@@ -207,9 +214,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Understand in context': '文脈で理解する',
     'Readings, meanings, kanji, pitch, audio, examples, and dictionary entries stay in one popup.': '読み、意味、漢字、ピッチ、音声、例文、辞書項目を1つのポップアップで確認できます。',
     'Start anywhere': 'どこからでも始める',
-    'Begin with graded readers and easy news, then move into Satori, ebooks, manga, YouTube, web novels, and native sites as your known words grow.': 'まずは graded readers ややさしいニュースから始め、知っている単語が増えたら Satori、電子書籍、漫画、YouTube、Web小説、ネイティブ向けサイトへ進めます。',
+    'Begin with graded readers and easy news, then move into Satori, ebooks, manga, YouTube, web novels, and native sites as your known words grow.': 'まずはレベル別読み物ややさしいニュースから始め、知っている単語が増えたら Satori、電子書籍、漫画、YouTube、Web小説、ネイティブ向けサイトへ進めます。',
     'Use it on desktop or mobile, with no account required. Add dictionaries, Anki, OCR, and study features only when you need them.': 'デスクトップでもモバイルでもアカウント不要で使えます。辞書、Anki、OCR、学習機能は必要になった時だけ追加できます。',
-    'The method is simple: read material you can mostly follow, look up only what keeps you moving, and let useful words come back later in reviews. This is the same idea behind graded readers, comprehensible input, and i+1 sentences: new Japanese sticks faster when it is attached to a scene, a sentence, and a reason you cared enough to read it.': 'やり方はシンプルです。だいたい理解できる素材を読み、読み進めるために必要なものだけ調べ、役に立つ単語はあとで復習に戻します。これは graded readers、理解可能なインプット、i+1文と同じ考え方です。新しい日本語は、場面、文、そして読みたいと思った理由と結びつくほど定着しやすくなります。',
+    'The method is simple: read material you can mostly follow, look up only what keeps you moving, and let useful words come back later in reviews. This is the same idea behind graded readers, comprehensible input, and i+1 sentences: new Japanese sticks faster when it is attached to a scene, a sentence, and a reason you cared enough to read it.': 'やり方はシンプルです。だいたい理解できる素材を読み、読み進めるために必要なものだけ調べ、役に立つ単語はあとで復習に戻します。これはレベル別読み物、理解可能なインプット、i+1文と同じ考え方です。新しい日本語は、場面、文、そして読みたいと思った理由と結びつくほど定着しやすくなります。',
     'よむ gives you the superset of the usual Japanese reading stack. Use JPDB for mining and global word status, import Yomitan dictionaries for local definitions, connect Anki when you want your own cards, pull example sentences from Immersion Kit or Nadeshiko, play audio, trace kanji, OCR manga panels, and mine subtitles from video. You do not have to choose one ecosystem before you start reading.': 'よむは一般的な日本語リーディング環境をまとめて扱える上位セットです。JPDBでマイニングと全体の単語ステータスを管理し、Yomitan辞書をインポートしてローカル定義を使い、自分のカードが欲しいときはAnkiに接続できます。Immersion KitやNadeshikoから例文を取り込み、音声を再生し、漢字をなぞり、漫画コマをOCRし、動画字幕からマイニングできます。読み始める前に、どれか1つのエコシステムを選ぶ必要はありません。',
     'Most reading tools make you pick an ecosystem first. よむ doesn\'t. Import Yomitan dictionaries for offline definitions, connect your own study workflow, pull example sentences from Immersion Kit or Nadeshiko, play audio, trace kanji stroke by stroke, read manga and PDFs with OCR, and mine subtitles from video — all from the same popup, and all optional. Start reading first, then add what you need.': 'ほとんどの読書ツールでは、まず特定の環境を選ぶ必要がありますが、よむは違います。Yomitan辞書をインポートしてオフライン定義を使い、自分の学習フローに接続し、Immersion Kitやなでしこから例文を取得し、音声を再生し、漢字の書き順をなぞり、OCRで漫画やPDFを読み、動画字幕からマイニングできます。すべて同じポップアップから使え、すべて任意です。まずは読書から始め、必要なものを後から追加できます。',
     'よむ runs inside your browser. Tap or hover Japanese text, subtitle lines, or text inside manga images and PDFs to open a clean popup with readings, meanings, kanji, pitch, audio, examples, and save actions.': 'よむはブラウザー内で動きます。日本語テキスト、字幕行、漫画画像やPDF内の文字をタップまたはホバーすると、読み、意味、漢字、ピッチ、音声、例文、保存操作を備えた見やすいポップアップが開きます。',
@@ -910,18 +917,41 @@ function installHostedLanguageToggle() {
     if (languageToggleObserver) return;
     languageToggleObserver = new MutationObserver(mutations => {
         localizeHostedAttributeMutations(mutations);
-        if (!mutations.some(mutation => mutation.type === 'childList')) return;
-        syncHostedLanguageToggle();
-        syncHostedOverflowMenu();
-        syncHostedMobileNavSettings();
-        localizeHostedDocsCopy();
-        syncHostedAccent();
+        if (hasHostedDocsShellMutation(mutations)) scheduleHostedDocsShellSync();
     });
     languageToggleObserver.observe(document.body, {
         childList: true,
         subtree: true,
         attributes: true,
         attributeFilter: [...HOSTED_DOCS_TRANSLATED_ATTRIBUTES],
+    });
+}
+
+function hasHostedDocsShellMutation(mutations: MutationRecord[]): boolean {
+    return mutations.some(isHostedDocsShellMutation);
+}
+
+function isHostedDocsShellMutation(mutation: MutationRecord): boolean {
+    if (mutation.type !== 'childList') return false;
+    if (mutation.target instanceof Element && shouldSkipHostedDocsNode(mutation.target)) return false;
+    return [...mutation.addedNodes, ...mutation.removedNodes].some(isHostedDocsMutationNode);
+}
+
+function isHostedDocsMutationNode(node: Node): boolean {
+    if (node.nodeType === Node.TEXT_NODE) return Boolean(node.textContent?.trim());
+    return node instanceof Element && !shouldSkipHostedDocsNode(node);
+}
+
+function scheduleHostedDocsShellSync(): void {
+    if (hostedDocsShellSyncPending) return;
+    hostedDocsShellSyncPending = true;
+    window.requestAnimationFrame(() => {
+        hostedDocsShellSyncPending = false;
+        syncHostedLanguageToggle();
+        syncHostedOverflowMenu();
+        syncHostedMobileNavSettings();
+        localizeHostedDocsCopy();
+        syncHostedAccent();
     });
 }
 
@@ -1095,20 +1125,22 @@ function bindHostedSettingsWarmup(button: HTMLElement): void {
     button.addEventListener('focusin', warm, { once: true });
 }
 
-function warmHostedSettingsRuntime(): HTMLScriptElement | undefined {
-    appendHostedRuntimeCompanionScripts(isLocalHostedRuntime());
-    return loadHostedYomuRuntime();
+function warmHostedSettingsRuntime(): HTMLScriptElement[] {
+    const forceLocalRuntime = isLocalHostedRuntime();
+    const settings = appendHostedSettingsCompanionScript(forceLocalRuntime);
+    const core = loadHostedYomuRuntime();
+    return [settings, core].filter(isHostedRuntimeScriptElement);
 }
 
 function openHostedSettings(): void {
-    const script = warmHostedSettingsRuntime();
+    const scripts = warmHostedSettingsRuntime();
     const dispatch = () => {
         if (document.querySelector('.jpdb-reader-settings')) return true;
         window.dispatchEvent(new CustomEvent(OPEN_SETTINGS_EVENT, { detail: { panel: 'basics' } }));
         return Boolean(document.querySelector('.jpdb-reader-settings'));
     };
     if (dispatch()) return;
-    script?.addEventListener('load', () => window.requestAnimationFrame(dispatch), { once: true });
+    onHostedScriptsReady(scripts, () => window.requestAnimationFrame(dispatch));
     [50, 120, 240, 480, 900, 1500].forEach(delay => window.setTimeout(dispatch, delay));
 }
 
@@ -1149,8 +1181,14 @@ function localizeHostedDocsCopy(options: { resetReaderWords?: boolean } = {}): v
 }
 
 function scheduleHostedDocsLocalization(options: { resetReaderWords?: boolean } = {}): void {
+    hostedDocsLocalizationResetPending ||= options.resetReaderWords === true;
+    if (hostedDocsLocalizationPending) return;
+    hostedDocsLocalizationPending = true;
     window.requestAnimationFrame(() => {
-        localizeHostedDocsCopy(options);
+        const resetReaderWords = hostedDocsLocalizationResetPending;
+        hostedDocsLocalizationPending = false;
+        hostedDocsLocalizationResetPending = false;
+        localizeHostedDocsCopy({ resetReaderWords });
         window.setTimeout(() => {
             localizeHostedDocsCopy();
         }, 80);
@@ -1350,7 +1388,7 @@ function isHostedReaderAnnotationElement(element: Element): boolean {
 
 function shouldSkipHostedDocsNode(element: Element): boolean {
     if (element.id === LANGUAGE_TOGGLE_ID) return true;
-    return Boolean(element.closest('script, style, pre, code, kbd, samp, textarea, input, [data-jpdb-reader-root], .jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-ocr-layer, .jpdb-ocr-line'));
+    return Boolean(element.closest('script, style, pre, code, kbd, samp, textarea, input, [data-jpdb-reader-root], .jpdb-reader-settings, .jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-ocr-layer, .jpdb-ocr-line'));
 }
 
 function unwrapHostedDocsReaderWords(): void {
@@ -1568,6 +1606,9 @@ function syncHostedAccent(source?: unknown): void {
     const accent = sanitizeHostedAccent(readEffectiveHostedSettings().accentColor);
     const root = document.documentElement;
     const dark = root.classList.contains('dark');
+    const signature = `${accent}|${dark ? 'dark' : 'light'}`;
+    if (hostedAccentSignature === signature) return;
+    hostedAccentSignature = signature;
     const pageBackground = dark ? DOC_COLOR_TOKENS.pageBgDark : DOC_COLOR_TOKENS.pageBgLight;
     const brandReadable = readableOn(accent, pageBackground, 4.5);
     const brandHover = readableOn(mixHex(accent, dark ? DOC_COLOR_TOKENS.white : DOC_COLOR_TOKENS.black, 0.18), pageBackground, 3.5);
@@ -1697,11 +1738,10 @@ function installHostedDocsEnhancements(): void {
 
 function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
-    appendHostedRuntimeCompanionScripts(forceLocalRuntime);
+    if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     if (isHostedYomuRuntimeLoadingOrReady()) return;
-    // Companions are appended above, before this early-return, so they stay
-    // available even when the core reader runtime already exists (e.g. an
-    // installed userscript); the helper is idempotent and never double-loads.
+    // The settings companion loads on the settings warm path; normal docs pages
+    // should not download every companion before the reader is needed.
     const target = findHostedYomuRuntimeTarget();
     if (!target) {
         clearHostedYomuRuntimeIntent();
@@ -1766,7 +1806,7 @@ function installHostedYomuRuntime(): HTMLScriptElement | undefined {
     enableLocalHostedRuntime(runtime, forceLocalRuntime);
     if (companionFirst) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
     const script = appendHostedRuntimeScript(YOMU_HOSTED_RUNTIME_SCRIPT_ID, hostedRuntimeScriptSrc(forceLocalRuntime));
-    if (!companionFirst) appendHostedRuntimeCompanionScriptsAfterCoreLoad(script, forceLocalRuntime);
+    if (!companionFirst) appendHostedSettingsCompanionAfterCoreLoad(script, forceLocalRuntime);
     return script;
 }
 
@@ -1812,23 +1852,30 @@ function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean {
     return location.pathname.includes('/video-player/');
 }
 
-function appendHostedRuntimeCompanionScriptsAfterCoreLoad(script: HTMLScriptElement, forceLocalRuntime: boolean): void {
-    script.addEventListener('load', () => appendHostedRuntimeCompanionScripts(forceLocalRuntime), { once: true });
+function appendHostedSettingsCompanionAfterCoreLoad(script: HTMLScriptElement, forceLocalRuntime: boolean): void {
+    const append = () => appendHostedSettingsCompanionScript(forceLocalRuntime);
+    if (isHostedScriptReady(script)) {
+        append();
+        return;
+    }
+    script.addEventListener('load', append, { once: true });
 }
 
-function appendHostedRuntimeCompanionScripts(forceLocalRuntime: boolean): void {
-    for (const script of hostedRuntimeCompanionScripts(forceLocalRuntime)) {
-        if (document.getElementById(script.id)) continue;
-        appendHostedRuntimeScript(script.id, script.src);
-    }
+function appendHostedRuntimeCompanionScripts(forceLocalRuntime: boolean): HTMLScriptElement[] {
+    return hostedRuntimeCompanionScripts(forceLocalRuntime).map(appendHostedRuntimeCompanionScript);
+}
+
+function appendHostedSettingsCompanionScript(forceLocalRuntime: boolean): HTMLScriptElement {
+    return appendHostedRuntimeCompanionScript(hostedSettingsCompanionScript(forceLocalRuntime));
+}
+
+function appendHostedRuntimeCompanionScript(script: { id: string; src: string }): HTMLScriptElement {
+    return appendHostedRuntimeScript(script.id, script.src);
 }
 
 function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: string; src: string }> {
     return [
-        {
-            id: YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID,
-            src: hostedRuntimeAssetSrc('/yomu-reader/greasyfork/yomu-settings-surface.user.js', forceLocalRuntime),
-        },
+        hostedSettingsCompanionScript(forceLocalRuntime),
         {
             id: YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID,
             src: hostedRuntimeAssetSrc('/yomu-reader/greasyfork/yomu-video.user.js', forceLocalRuntime),
@@ -1836,13 +1883,54 @@ function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: 
     ];
 }
 
+function hostedSettingsCompanionScript(forceLocalRuntime: boolean): { id: string; src: string } {
+    return {
+        id: YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID,
+        src: hostedRuntimeAssetSrc('/yomu-reader/greasyfork/yomu-settings-surface.user.js', forceLocalRuntime),
+    };
+}
+
 function appendHostedRuntimeScript(id: string, src: string): HTMLScriptElement {
+    const existing = document.getElementById(id);
+    if (existing instanceof HTMLScriptElement) return existing;
     const script = document.createElement('script');
     script.id = id;
     script.src = src;
     script.async = false;
+    script.dataset.yomuHostedRuntimeState = 'loading';
+    script.addEventListener('load', () => { script.dataset.yomuHostedRuntimeState = 'loaded'; }, { once: true });
+    script.addEventListener('error', () => { script.dataset.yomuHostedRuntimeState = 'error'; }, { once: true });
     document.head.append(script);
     return script;
+}
+
+function isHostedRuntimeScriptElement(value: HTMLScriptElement | undefined): value is HTMLScriptElement {
+    return value instanceof HTMLScriptElement;
+}
+
+function isHostedScriptReady(script: HTMLScriptElement): boolean {
+    return script.dataset.yomuHostedRuntimeState === 'loaded' || script.dataset.yomuHostedRuntimeState === 'error';
+}
+
+function onHostedScriptsReady(scripts: HTMLScriptElement[], callback: () => void): void {
+    const pending = scripts.filter(script => !isHostedScriptReady(script));
+    if (!pending.length) {
+        callback();
+        return;
+    }
+    let remaining = pending.length;
+    let done = false;
+    const markReady = () => {
+        if (done) return;
+        remaining -= 1;
+        if (remaining > 0) return;
+        done = true;
+        callback();
+    };
+    pending.forEach(script => {
+        script.addEventListener('load', markReady, { once: true });
+        script.addEventListener('error', markReady, { once: true });
+    });
 }
 
 function hostedRuntimeScriptSrc(forceLocalRuntime: boolean): string {

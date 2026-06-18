@@ -41,9 +41,16 @@ jobs:
       - name: Install Yomu dependencies
         run: npm ci
       - run: npm run check
-      - name: Install Playwright Chromium
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+      - name: Install Playwright Chromium headless shell
         timeout-minutes: 15
-        run: npx playwright install chromium
+        run: npx playwright install --only-shell chromium
       - run: npm run smoke:p0
       - name: Build split userscript release artifact
         run: |
