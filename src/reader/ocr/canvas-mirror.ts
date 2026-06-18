@@ -134,12 +134,6 @@ export function canvasMirrorHasOps(canvas: object): boolean {
     return !!id && (state().records[id]?.ops.length ?? 0) > 0;
 }
 
-// Read-only view of a canvas's recorded ops (tests + diagnostics).
-export function recordedOpsFor(canvas: object): readonly MirrorOp[] {
-    const id = canvasId(canvas, false);
-    return (id && state().records[id]?.ops) || [];
-}
-
 // Rebuild `canvas` onto an untainted canvas by replaying the engine's recorded draw
 // ops from origin-clean (GM-fetched) copies of the source images. Returns undefined
 // when there's nothing recorded, no fetchable source, or the rebuild is still

@@ -11270,10 +11270,10 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('replaces no-key segmented fallback words with public JPDB cards', async () => {
+    it('replaces no-key segmented fallback words with public Jiten cards', async () => {
         const runtime = new NewTabRuntime();
         const fallbackCard = newTabTestCard({ vid: -3924751230, sid: -3924751230, spelling: '会話', reading: '会話', source: 'fallback', meanings: [] });
-        const publicCard = newTabTestCard({ vid: 1234, sid: 0, spelling: '会話', reading: 'かいわ', source: 'jpdb', pitchAccent: [] });
+        const publicCard = newTabTestCard({ vid: 1234, sid: 0, spelling: '会話', reading: 'かいわ', source: 'jiten', pitchAccent: ['LHH'] });
         const parse = vi.fn(async (): Promise<JPDBToken[][]> => [[{
             card: fallbackCard,
             start: 0,
@@ -11283,8 +11283,9 @@ describe('new tab review helpers', () => {
             pitchClass: '',
             sentence: '会話',
         }]]);
-        const search = vi.fn(async () => [publicCard]);
+        const search = vi.fn(async () => []);
         const pitch = vi.fn(async () => ['LHH']);
+        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>([['会話', publicCard]]));
         const cacheCards = vi.fn();
         const root = document.createElement('div');
         root.innerHTML = '<span class="jpdb-reader-parseable">会話</span>';
@@ -11308,7 +11309,7 @@ describe('new tab review helpers', () => {
         internals.parser = { canParse: () => true, parse, cacheCards };
         internals.jitenPublicVocabulary = {
             lookup: vi.fn(async () => null),
-            lookupMany: vi.fn(async () => new Map()),
+            lookupMany: jitenLookupMany,
         };
         internals.jpdbVocabulary = { search };
         internals.jpdbPublicPitch = { lookup: pitch };
@@ -11324,8 +11325,9 @@ describe('new tab review helpers', () => {
                 expect(word?.dataset.pitchClass).toBe('heiban');
                 expect(word?.querySelector('rt')?.textContent).toBe('かいわ');
             });
-            expect(search).toHaveBeenCalledWith('会話', 1);
-            expect(pitch).toHaveBeenCalledWith('会話', 'かいわ');
+            expect(jitenLookupMany).toHaveBeenCalledWith(['会話']);
+            expect(search).not.toHaveBeenCalled();
+            expect(pitch).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
         } finally {
             runtime.destroy();
@@ -11333,10 +11335,11 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('unwraps no-key segmented fallback words when public JPDB has no exact card', async () => {
+    it('unwraps no-key segmented fallback words when public Jiten has no card', async () => {
         const runtime = new NewTabRuntime();
         const fallbackCard = newTabTestCard({ vid: -1, sid: -1, spelling: 'した', reading: 'した', source: 'fallback', meanings: [] });
-        const wrongPublicCard = newTabTestCard({ vid: 1184140, sid: 0, spelling: '下', reading: 'した', source: 'jpdb', meanings: [] });
+        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
+        const search = vi.fn(async () => []);
         const parse = vi.fn(async (): Promise<JPDBToken[][]> => [[{
             card: fallbackCard,
             start: 0,
@@ -11360,9 +11363,9 @@ describe('new tab review helpers', () => {
         internals.parser = { canParse: () => true, parse, cacheCards: vi.fn() };
         internals.jitenPublicVocabulary = {
             lookup: vi.fn(async () => null),
-            lookupMany: vi.fn(async () => new Map()),
+            lookupMany: jitenLookupMany,
         };
-        internals.jpdbVocabulary = { search: vi.fn(async () => [wrongPublicCard]) };
+        internals.jpdbVocabulary = { search };
 
         try {
             await internals.parseNewTabContent(root);
@@ -11375,7 +11378,8 @@ describe('new tab review helpers', () => {
             await internals.parseNewTabContent(root);
 
             expect(parse).toHaveBeenCalledTimes(1);
-            expect(internals.jpdbVocabulary.search).toHaveBeenCalledTimes(1);
+            expect(jitenLookupMany).toHaveBeenCalledTimes(1);
+            expect(search).not.toHaveBeenCalled();
             expect(root.querySelector('.jpdb-reader-word')).toBeNull();
         } finally {
             runtime.destroy();
