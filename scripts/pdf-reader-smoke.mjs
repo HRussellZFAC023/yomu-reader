@@ -7,8 +7,9 @@
 // text layer; the scanned PDF is flagged with no usable text layer; the よむ
 // runtime auto-loads and recognises the page (so popups/mining/furigana attach).
 //
-// No binary fixtures are committed — page.pdf() builds the PDFs in headless
-// Chromium. Run: npm run smoke:pdf-reader
+// No binary fixtures are committed — tiny PDF fixtures are built in memory with
+// explicit ToUnicode maps so the text layer is deterministic on Linux runners.
+// Run: npm run smoke:pdf-reader
 
 import path from 'node:path';
 import { existsSync, readFileSync } from 'node:fs';
@@ -62,78 +63,179 @@ function staticHandler(request, response) {
     }
 }
 
-const TEXT_PAGE_HTML = `<!doctype html><html lang="ja"><meta charset="utf-8">
-<body style="font-family:'Hiragino Sans','Noto Sans JP',sans-serif;font-size:20px;line-height:2;padding:48px">
-<h1>日本語のテスト文書</h1>
-<p>今日は静かな喫茶店で新しい本を読みました。窓の外では雨が降っていました。</p>
-<p>言葉の意味が分からないときは、単語をタップすると意味と読み方が表示されます。</p>
-<p style="page-break-before:always">二ページ目です。漢字の勉強を続けましょう。毎日少しずつ読むことが大切です。</p>
-</body></html>`;
+const TEXT_PAGES = [
+    [
+        '日本語のテスト文書',
+        '今日は静かな喫茶店で新しい本を読みました。',
+        '窓の外では雨が降っていました。',
+        '言葉の意味が分からないときは、単語をタップすると意味と読み方が表示されます。',
+    ],
+    [
+        '二ページ目です。',
+        '漢字の勉強を続けましょう。',
+        '毎日少しずつ読むことが大切です。',
+    ],
+];
 
-async function bytesFromHtml(browser, html) {
-    const page = await browser.newPage();
-    await page.setContent(html, { waitUntil: 'networkidle' });
-    const pdf = await page.pdf({ format: 'A4', printBackground: true });
-    await page.close();
-    return pdf;
+const MIXED_PAGE = [
+    '図入りの文書',
+    '次の画像は写真の例です。',
+    '文章と画像が混ざったPDFでも読めます。',
+    '画像の下にも日本語の説明があります。',
+    '猫が庭で昼寝をしています。',
+];
+
+function textPdfBytes() {
+    return buildPdfFixture(TEXT_PAGES.map(lines => ({ lines })));
 }
 
-// A real raster (PNG) image embedded alongside Japanese text — proves the canvas
-// path renders pictures, not just glyphs.
-async function mixedPdfBytes(browser) {
-    const page = await browser.newPage();
-    const pngDataUrl = await page.evaluate(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 320;
-        canvas.height = 200;
-        const ctx = canvas.getContext('2d');
-        const gradient = ctx.createLinearGradient(0, 0, 320, 200);
-        gradient.addColorStop(0, '#cfe8d8');
-        gradient.addColorStop(1, '#5ea780');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, 320, 200);
-        ctx.fillStyle = '#0b3d24';
-        ctx.beginPath();
-        ctx.arc(160, 100, 64, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
-        ctx.font = '28px sans-serif';
-        ctx.fillText('写真', 132, 110);
-        return canvas.toDataURL('image/png');
-    });
-    await page.setContent(`<!doctype html><html lang="ja"><meta charset="utf-8">
-<body style="font-family:'Hiragino Sans','Noto Sans JP',sans-serif;font-size:20px;line-height:2;padding:48px">
-<h1>図入りの文書</h1>
-<p>次の画像は写真の例です。文章と画像が混ざったPDFでも読めます。</p>
-<img alt="sample" width="320" height="200" src="${pngDataUrl}">
-<p>画像の下にも日本語の説明があります。猫が庭で昼寝をしています。</p>
-</body></html>`, { waitUntil: 'networkidle' });
-    const pdf = await page.pdf({ format: 'A4', printBackground: true });
-    await page.close();
-    return pdf;
+function mixedPdfBytes() {
+    return buildPdfFixture([{ lines: MIXED_PAGE, graphic: true }]);
 }
 
-async function imageOnlyPdfBytes(browser) {
-    // Draw Japanese onto a canvas and embed it as a full-page image so the PDF
-    // carries no selectable text layer — the scanned-document case.
-    const page = await browser.newPage();
-    const dataUrl = await page.evaluate(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = 800;
-        canvas.height = 400;
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 800, 400);
-        ctx.fillStyle = '#111111';
-        ctx.font = '40px sans-serif';
-        ctx.fillText('これはスキャン画像です', 60, 180);
-        ctx.fillText('文字は画像の一部です', 60, 260);
-        return canvas.toDataURL('image/png');
+function imageOnlyPdfBytes() {
+    return buildPdfFixture([{ lines: [], scannedGraphic: true }]);
+}
+
+function buildPdfFixture(pages) {
+    const glyphs = collectGlyphs(pages);
+    const objects = [];
+    const addObject = content => {
+        objects.push(content);
+        return objects.length;
+    };
+    const setObject = (ref, content) => {
+        objects[ref - 1] = content;
+    };
+    const addStream = (dict, body) => addObject(`<< ${dict} /Length ${Buffer.byteLength(body, 'latin1')} >>\nstream\n${body}\nendstream`);
+
+    const catalogRef = addObject('');
+    const pagesRef = addObject('');
+    const fontRef = glyphs.size ? addFontObjects(addObject, addStream, glyphs) : 0;
+    const pageRefs = pages.map(page => {
+        const contentRef = addStream('', pageContentStream(page, glyphs));
+        const resources = fontRef ? `/Resources << /Font << /F1 ${fontRef} 0 R >> >>` : '/Resources << >>';
+        return addObject(`<< /Type /Page /Parent ${pagesRef} 0 R /MediaBox [0 0 595 842] ${resources} /Contents ${contentRef} 0 R >>`);
     });
-    await page.setContent(`<!doctype html><html><body style="margin:0"><img style="width:100%" src="${dataUrl}"></body></html>`, { waitUntil: 'networkidle' });
-    const pdf = await page.pdf({ format: 'A4', printBackground: true });
-    await page.close();
-    return pdf;
+
+    setObject(catalogRef, `<< /Type /Catalog /Pages ${pagesRef} 0 R >>`);
+    setObject(pagesRef, `<< /Type /Pages /Kids [${pageRefs.map(ref => `${ref} 0 R`).join(' ')}] /Count ${pageRefs.length} >>`);
+    return serializePdf(objects, catalogRef);
+}
+
+function collectGlyphs(pages) {
+    const glyphs = new Map();
+    let nextCid = 1;
+    for (const page of pages) {
+        for (const line of page.lines) {
+            for (const char of Array.from(line)) {
+                if (!glyphs.has(char)) {
+                    glyphs.set(char, nextCid);
+                    nextCid += 1;
+                }
+            }
+        }
+    }
+    return glyphs;
+}
+
+function addFontObjects(addObject, addStream, glyphs) {
+    const toUnicodeRef = addStream('', toUnicodeCMap(glyphs));
+    const descriptorRef = addObject('<< /Type /FontDescriptor /FontName /YomuSmokeSans /Flags 4 /FontBBox [0 -220 1000 900] /ItalicAngle 0 /Ascent 880 /Descent -120 /CapHeight 700 /StemV 80 >>');
+    const cidFontRef = addObject(`<< /Type /Font /Subtype /CIDFontType2 /BaseFont /YomuSmokeSans /CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 6 >> /FontDescriptor ${descriptorRef} 0 R /DW 1000 >>`);
+    return addObject(`<< /Type /Font /Subtype /Type0 /BaseFont /YomuSmokeSans /Encoding /Identity-H /DescendantFonts [${cidFontRef} 0 R] /ToUnicode ${toUnicodeRef} 0 R >>`);
+}
+
+function pageContentStream(page, glyphs) {
+    const commands = ['q 1 1 1 rg 0 0 595 842 re f Q'];
+    if (page.graphic) {
+        commands.push(
+            'q 0.82 0.93 0.86 rg 72 402 320 200 re f Q',
+            'q 0.05 0.28 0.18 rg 190 466 88 88 re f Q',
+        );
+    }
+    if (page.scannedGraphic) {
+        commands.push(
+            'q 0.96 0.94 0.88 rg 72 500 451 210 re f Q',
+            'q 0.12 0.12 0.12 rg 108 642 260 18 re f Q',
+            'q 0.12 0.12 0.12 rg 108 594 318 18 re f Q',
+            'q 0.12 0.12 0.12 rg 108 546 220 18 re f Q',
+        );
+    }
+    if (page.lines.length) {
+        commands.push('BT', '/F1 20 Tf', '72 760 Td', '30 TL');
+        page.lines.forEach((line, index) => {
+            if (index) commands.push('T*');
+            commands.push(`<${encodedGlyphLine(line, glyphs)}> Tj`);
+        });
+        commands.push('ET');
+    }
+    return commands.join('\n');
+}
+
+function encodedGlyphLine(line, glyphs) {
+    return Array.from(line)
+        .map(char => cidHex(glyphs.get(char) ?? 0))
+        .join('');
+}
+
+function toUnicodeCMap(glyphs) {
+    const entries = Array.from(glyphs.entries()).map(([char, cid]) => `<${cidHex(cid)}> <${unicodeHex(char)}>`);
+    const chunks = [];
+    for (let index = 0; index < entries.length; index += 100) chunks.push(entries.slice(index, index + 100));
+    return [
+        '/CIDInit /ProcSet findresource begin',
+        '12 dict begin',
+        'begincmap',
+        '/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def',
+        '/CMapName /YomuSmokeUnicode def',
+        '/CMapType 2 def',
+        '1 begincodespacerange',
+        '<0000> <FFFF>',
+        'endcodespacerange',
+        ...chunks.flatMap(chunk => [`${chunk.length} beginbfchar`, ...chunk, 'endbfchar']),
+        'endcmap',
+        'CMapName currentdict /CMap defineresource pop',
+        'end',
+        'end',
+    ].join('\n');
+}
+
+function cidHex(cid) {
+    return cid.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function unicodeHex(char) {
+    return Array.from(char)
+        .map(unit => unit.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'))
+        .join('');
+}
+
+function serializePdf(objects, rootRef) {
+    const chunks = [Buffer.from('%PDF-1.7\n', 'latin1')];
+    const offsets = [0];
+    for (let index = 0; index < objects.length; index += 1) {
+        offsets.push(byteLength(chunks));
+        chunks.push(Buffer.from(`${index + 1} 0 obj\n${objects[index]}\nendobj\n`, 'latin1'));
+    }
+    const xrefOffset = byteLength(chunks);
+    const rows = offsets.map((offset, index) => index === 0
+        ? '0000000000 65535 f '
+        : `${String(offset).padStart(10, '0')} 00000 n `);
+    chunks.push(Buffer.from([
+        `xref\n0 ${objects.length + 1}`,
+        ...rows,
+        `trailer\n<< /Size ${objects.length + 1} /Root ${rootRef} 0 R >>`,
+        'startxref',
+        String(xrefOffset),
+        '%%EOF',
+        '',
+    ].join('\n'), 'latin1'));
+    return Buffer.concat(chunks);
+}
+
+function byteLength(chunks) {
+    return chunks.reduce((total, chunk) => total + chunk.length, 0);
 }
 
 async function openInReader(browser, baseUrl, pdfBytes, fileName) {
@@ -174,9 +276,9 @@ async function run() {
     const server = await startLoopbackServer(staticHandler, 'Could not bind PDF reader smoke server');
     const report = {};
     try {
-        const textPdf = await bytesFromHtml(browser, TEXT_PAGE_HTML);
-        const mixedPdf = await mixedPdfBytes(browser);
-        const scannedPdf = await imageOnlyPdfBytes(browser);
+        const textPdf = textPdfBytes();
+        const mixedPdf = mixedPdfBytes();
+        const scannedPdf = imageOnlyPdfBytes();
 
         // --- 1) text PDF: canvas + selectable Japanese text layer + runtime ---
         {
@@ -192,7 +294,7 @@ async function run() {
             await page.close();
         }
 
-        // --- 2) text+image PDF: image embedded, text layer still present ---
+        // --- 2) text+graphic PDF: painted content plus a text layer ---
         {
             const { page } = await openInReader(browser, server.origin, mixedPdf, 'mixed.pdf');
             const state = await readState(page);
