@@ -70779,21 +70779,7 @@ ${entry.url}`),
       return cards.find((card) => card.spelling === term) ?? (exact ? void 0 : cards[0]);
     }
     async publicLookupFallbackCard(card) {
-      if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return void 0;
-      for (const term of fallbackLookupTermsForCard(card)) {
-        const jitenCard = await this.jitenPublicVocabulary?.lookup(term).catch((error) => {
-          log.warn("Public Jiten fallback search failed", { term }, error);
-          return null;
-        });
-        if (jitenCard) return jitenCard;
-        const cards = await this.jpdbVocabulary.search(term, 1).catch((error) => {
-          log.warn("Public JPDB fallback search failed", { term }, error);
-          return [];
-        });
-        const publicCard = cards.find((candidate) => candidate.spelling === term);
-        if (publicCard) return publicCard;
-      }
-      return void 0;
+      return (await this.publicLookupFallbackCards([card])).get(cardKey(card));
     }
     async publicLookupFallbackCards(cards) {
       const result = /* @__PURE__ */ new Map();
