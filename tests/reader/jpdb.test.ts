@@ -30422,23 +30422,27 @@ describe('reader helpers', () => {
             pitchAccent: ['LHHL'],
         };
         const search = vi.fn(async () => [publicCard]);
-        const jitenLookup = vi.fn(async (term: string) => term === '青空' ? publicCard : null);
+        const jitenLookup = vi.fn(async () => null);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('青空') ? [['青空', publicCard]] : [],
+        ));
         const cacheCards = vi.fn();
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             jpdbVocabulary: { search: typeof search };
-            jitenPublicVocabulary: { lookup: typeof jitenLookup };
+            jitenPublicVocabulary: { lookup: typeof jitenLookup; lookupMany: typeof jitenLookupMany };
             parser: { cacheCards: typeof cacheCards };
             resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
         };
         internals.settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false, showPitchAccent: true };
         internals.jpdbVocabulary = { search };
-        internals.jitenPublicVocabulary = { lookup: jitenLookup };
+        internals.jitenPublicVocabulary = { lookup: jitenLookup, lookupMany: jitenLookupMany };
         internals.parser = { cacheCards };
 
         try {
             await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(publicCard);
-            expect(jitenLookup).toHaveBeenCalledWith('青空');
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空']);
+            expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);
         } finally {
