@@ -7979,6 +7979,34 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   gap: 10px;
   font-size: 11px;
 }
+.jpdb-reader-provider-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.jpdb-reader-provider-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jpdb-reader-muted);
+  font: 760 12px/1 var(--jpdb-reader-font);
+  cursor: pointer;
+  pointer-events: auto;
+  vertical-align: middle;
+}
+.jpdb-reader-provider-toggle:hover,
+.jpdb-reader-provider-toggle:focus-visible {
+  color: var(--jpdb-reader-accent-readable);
+  outline: none;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, transparent);
+}
 .jpdb-reader-state-dot {
   width: 8px;
   height: 8px;

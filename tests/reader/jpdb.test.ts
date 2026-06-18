@@ -4948,6 +4948,72 @@ describe('reader helpers', () => {
         expect(ankiBacked).toContain('data-review-target-gutter');
     });
 
+    it('shows a grading-provider toggle and follows the chosen provider when both keys back the card', () => {
+        const dualCard: JPDBCard = { ...card, source: 'jpdb', cardState: ['new'], jitenWordId: 99, jitenReadingIndex: 0 };
+        const dualSettings = {
+            apiKey: 'jpdb-key',
+            jitenApiKey: 'jiten-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+        };
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ...dualSettings }),
+            isJpdbBackedCard: testIsJpdbBackedCard,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, dualCard, '食べる。');
+        expect(document.querySelector('[data-action="grade-provider-toggle"]')).not.toBeNull();
+        expect(readerMetaText()).toContain('JPDB');
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jpdb')).toBe(true);
+        // Only one provider switcher (the header toggle), never a second on the grade row.
+        expect(document.querySelector('[data-review-target-select]')).toBeNull();
+
+        const jitenRenderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, ...dualSettings, apiGradingProvider: 'jiten' as const }),
+            isJpdbBackedCard: testIsJpdbBackedCard,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
+            dictionaryLabel: name => name,
+        });
+        document.body.innerHTML = renderModalCard(jitenRenderer, dualCard, '食べる。');
+        expect(readerMetaText()).toContain('Jiten');
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jiten')).toBe(true);
+    });
+
+    it('hides the grading-provider toggle when only one provider backs the card', () => {
+        const renderer = testCardPopoverRenderer({ apiKey: 'jpdb-key', jpdbMiningEnabled: true, enableReviews: true });
+        document.body.innerHTML = renderModalCard(renderer, { ...card, cardState: ['new'] }, '食べる。');
+        expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
+    });
+
+    it('renders Jiten cards with the JPDB action pattern and no Mining/Suspended/Forget row', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, enableReviews: true }),
+            isJpdbBackedCard: testIsJpdbBackedCard,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
+            dictionaryLabel: name => name,
+        });
+        const html = renderModalCard(renderer, jitenTestCard(), '読む。');
+        expect(html).toContain('data-action="deck-picker"');
+        expect(html).toContain('data-action="neverforget"');
+        expect(html).toContain('data-action="blacklist"');
+        expect(html).not.toContain('data-action="jiten-mining"');
+        expect(html).not.toContain('data-action="jiten-suspend"');
+        expect(html).not.toContain('data-action="jiten-forget"');
+        document.body.innerHTML = html;
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jiten')).toBe(true);
+    });
+
     it('allows locked JPDB review buttons while keeping Anki review available', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',
@@ -15749,7 +15815,7 @@ describe('reader helpers', () => {
             await waitForExpect(() => {
                 const section = document.querySelector<HTMLElement>('.jpdb-reader-jiten-kanji');
                 expect(lookupKanji).toHaveBeenCalledWith('寄');
-                expect(section?.textContent).toContain('Jiten kanji facts');
+                expect(section?.querySelector('summary')?.textContent?.trim()).toBe('Jiten');
                 expect(section?.textContent).toContain('draw near, contribute');
                 expect(section?.textContent).toContain('Jiten #1234');
             });

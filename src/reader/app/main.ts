@@ -42,6 +42,7 @@ import {
     unwrapReaderWords,
 } from '../dom/index';
 import {
+    kanjiFactProviderTitle,
     kanjiSourceStateKey,
     renderKanjiDefinitions,
 } from '../sources/definition-render';
@@ -519,6 +520,10 @@ export class ReaderApp {
         parsePopoverJapanese: popover => this.parsePopoverJapanese(popover),
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
+        setApiGradingProvider: provider => {
+            this.settings.apiGradingProvider = provider;
+            void saveSettings(this.settings);
+        },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => this.applyPublicVocabularyToRenderedWords(card, card),
     });
@@ -5421,10 +5426,7 @@ export class ReaderApp {
             renderKeyword();
             if (miningMount?.isConnected && this.kanjiCompanion) this.updateKanjiMiningControls(popover, this.kanjiCompanion.renderJpdbKanjiMiningControls(jpdbInfo, language));
             if (jpdbMount?.isConnected) {
-                const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
-                setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten', language))
-                    : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb', language)) ?? '');
+                setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
             }
             renderRtk();
         });
@@ -5433,10 +5435,7 @@ export class ReaderApp {
             if (!popover.isConnected) return;
             renderKeyword();
             if (jpdbMount?.isConnected) {
-                const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
-                setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten', language))
-                    : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb', language)) ?? '');
+                setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
             }
         });
         const kanjiEntriesPromise = detailsPromises.kanjiEntries.then(entries => {
@@ -6608,10 +6607,23 @@ export class ReaderApp {
         return kanjiSourceLabel(this.settings, sourceId);
     }
 
-    private kanjiFactSourceTitle(source: 'jpdb' | 'jiten', language = this.settings.interfaceLanguage): string {
-        return source === 'jiten'
-            ? uiText(language, 'sourceNameJitenKanjiFacts')
-            : uiText(language, 'readingsComponents');
+    private kanjiFactSourceTitle(source: 'jpdb' | 'jiten'): string {
+        return kanjiFactProviderTitle(source);
+    }
+
+    private renderKanjiFactSourcesHtml(jpdbInfo: JpdbKanjiInfo | null, jitenInfo: JitenKanjiInfo | null, language: InterfaceLanguage): string {
+        const sections: string[] = [];
+        const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
+        if (jpdbInfo && this.kanjiCompanion) {
+            sections.push(this.kanjiCompanion.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, this.kanjiFactSourceTitle('jpdb')));
+        }
+        // When both services answer for this kanji we show both cards (the reader
+        // asked to see JPDB and Jiten facts side by side, not just the active one).
+        if (jitenInfo) {
+            const jitenKey = `${jpdbKey}:jiten`;
+            sections.push(renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(jitenKey), jitenKey, this.kanjiFactSourceTitle('jiten')));
+        }
+        return sections.join('');
     }
 
     private applyAnkiLookupToRenderedWords(

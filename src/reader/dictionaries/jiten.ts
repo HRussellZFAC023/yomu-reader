@@ -308,7 +308,19 @@ export class JitenApiClient {
     async lookupVocabularyInfoForCard(card: JPDBCard): Promise<JitenVocabularyInfo | null> {
         if (isJitenReferenceableCard(card)) return this.lookupVocabularyInfo(card);
         const jitenCard = await this.lookupJitenCardForVocabularyInfo(card);
-        return jitenCard ? this.lookupVocabularyInfo(jitenCard) : null;
+        if (!jitenCard) return null;
+        // Attach the resolved Jiten identity to the displayed card so a word
+        // first parsed by JPDB can also be graded in Jiten (powers the popover's
+        // provider toggle). Only on an EXACT spelling+reading match: the parse
+        // fallback can return a different homograph reading (辛い からい vs つらい),
+        // and grading must never land on the wrong sense.
+        const reading = card.reading.trim();
+        const exactMatch = jitenCard.spelling === card.spelling && (!reading || jitenCard.reading === reading);
+        if (exactMatch && typeof card.jitenWordId !== 'number' && typeof jitenCard.jitenWordId === 'number') {
+            card.jitenWordId = jitenCard.jitenWordId;
+            card.jitenReadingIndex = jitenCard.jitenReadingIndex;
+        }
+        return this.lookupVocabularyInfo(jitenCard);
     }
 
     async searchVocabulary(query: string, limit = 10): Promise<JPDBCard[]> {

@@ -13,8 +13,7 @@ import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsProviderViewForCard, isApiMiningEnabled, isJitenBackedCard, type ApiSrsProviderView } from './srs-providers';
-import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { apiSrsProviderAvailability, apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
@@ -25,7 +24,6 @@ import { newTabText } from '../newtab/i18n';
 interface MiningActionState {
     isNeverForget: boolean;
     isBlacklisted: boolean;
-    isSuspended: boolean;
     neverForgetTitle: string;
     blacklistTitle: string;
     neverForgetLabel: string;
@@ -314,27 +312,13 @@ export class CardPopoverRenderer {
         return apiTargets;
     }
 
-    private apiReviewTargets(card: JPDBCard, provider: ApiSrsProviderView | null, language: InterfaceLanguage): PopoverReviewTarget[] {
-        const settings = this.settings();
-        const targets: PopoverReviewTarget[] = [];
-        if (hasJpdbApiCredential(settings) && this.dependencies.isJpdbBackedCard(card) && isApiMiningEnabled(settings)) {
-            targets.push(this.apiReviewTarget({
-                id: 'jpdb',
-                label: 'JPDB',
-                deckSource: 'jpdb',
-                hasApiKey: true,
-            }, language));
-        }
-        if (hasJitenApiCredential(settings) && isJitenBackedCard(card) && isApiMiningEnabled(settings)) {
-            targets.push(this.apiReviewTarget({
-                id: 'jiten',
-                label: 'Jiten',
-                deckSource: 'jiten',
-                hasApiKey: true,
-            }, language));
-        }
-        if (!targets.length && provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, language)];
-        return targets;
+    private apiReviewTargets(_card: JPDBCard, provider: ApiSrsProviderView | null, _language: InterfaceLanguage): PopoverReviewTarget[] {
+        // `provider` already reflects the user's chosen grading provider (the
+        // header toggle resolves it via apiSrsProviderViewForCard), so the grade
+        // row tracks one API target. Switching providers happens from the header
+        // toggle, not a second selector here.
+        if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language)];
+        return [];
     }
 
     private providerForReviewTarget(target: PopoverReviewTarget, fallback: ApiSrsProviderView | null): ApiSrsProviderView | null {
@@ -412,10 +396,12 @@ export class CardPopoverRenderer {
     private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }): string[] {
         const settings = this.settings();
         const canShowProviderStatus = Boolean(provider?.hasApiKey);
+        const availability = apiSrsProviderAvailability(card, settings, this.dependencies.isJpdbBackedCard);
+        const canSwitchProvider = canShowProviderStatus && availability.jpdb && availability.jiten;
         return [
             renderMetaReading(card, settings),
             card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : '',
-            canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
+            canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}${canSwitchProvider ? renderGradingProviderToggle(provider, settings.interfaceLanguage) : ''}</span>` : '',
             renderAnkiMeta(data.ankiLookup, settings),
         ].filter(Boolean);
     }
@@ -542,11 +528,9 @@ function reviewButtonTitle(
 function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, language: InterfaceLanguage): MiningActionState {
     const isNeverForget = cardStates.includes('never-forget');
     const isBlacklisted = cardStates.includes('blacklisted');
-    const isSuspended = cardStates.includes('suspended');
     return {
         isNeverForget,
         isBlacklisted,
-        isSuspended,
         neverForgetTitle: isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint'),
         blacklistTitle: isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint'),
         neverForgetLabel: isNeverForget ? uiText(language, 'forget') : uiText(language, 'never'),
@@ -586,15 +570,10 @@ function renderAddDeckSelect(
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml(uiText(language, 'deck'))}" hidden>${deckOptions}</select>`;
 }
 
-function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, provider: ApiSrsProviderView | null): string {
+function renderApiMiningActionDetails(language: InterfaceLanguage, state: MiningActionState, addDeckSelect: string, _provider: ApiSrsProviderView | null): string {
     const addToDeckLabel = `${uiText(language, 'addToDeck')} +`;
-    const jitenActions = provider?.id === 'jiten'
-        ? `<div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add" data-action="jiten-mining" title="${escapeHtml(uiText(language, 'jitenMiningHint'))}">${escapeHtml(uiText(language, 'mining'))}</button>
-                        <button class="jpdb-reader-btn nf${state.isSuspended ? ' danger' : ''}" data-action="jiten-suspend" title="${escapeHtml(uiText(language, 'jitenSuspendHint'))}" aria-pressed="${state.isSuspended}">${escapeHtml(uiText(language, 'stateSuspended'))}</button>
-                        <button class="jpdb-reader-btn blacklist danger" data-action="jiten-forget" title="${escapeHtml(uiText(language, 'jitenForgetHint'))}">${escapeHtml(uiText(language, 'forget'))}</button>
-                    </div>`
-        : '';
+    // Jiten now follows the same Add to deck / Never forget / Blacklist pattern
+    // as JPDB; its old Mining/Suspended/Forget row was removed.
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
@@ -602,7 +581,6 @@ function renderApiMiningActionDetails(language: InterfaceLanguage, state: Mining
                         <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
                         <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
                     </div>
-                    ${jitenActions}
                     ${addDeckSelect}
                 </div>
             `;
@@ -624,6 +602,15 @@ function renderAnkiMeta(lookup: CardRenderData['ankiLookup'], settings: ReaderSe
 
 function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
+}
+
+// Shown next to the JPDB/Jiten status when both keys are set and the word can be
+// graded by either service: a one-tap switch for which SRS the deck and grade
+// buttons act on.
+function renderGradingProviderToggle(provider: ApiSrsProviderView | null, language: InterfaceLanguage): string {
+    const target = provider?.id === 'jiten' ? 'JPDB' : 'Jiten';
+    const label = `${uiText(language, 'switchGradingProvider')} (${target})`;
+    return `<button type="button" class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">⇄</button>`;
 }
 
 function renderMiningGutter(miningActions: string, language: InterfaceLanguage): string {

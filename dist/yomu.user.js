@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.3
+// @version      1.4.4
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.3#sha256-87PDPKX5ipCr28JWavM0aMtU60T5hJvjTjdpa28M4k0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.3#sha256-ZD8NHRmY557m8Et2C1N837zz/V+1ppHCtqGj0r0lmQs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.3#sha256-GFNEaUDxE2my4ROWM13fboTw0DCwKRlbYc+SYoUas04=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.3#sha256-JaqvTL9lH7pBw+Cy0RWY/f196dNJJCVr0+U3Etnw00E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.4#sha256-0+U3nwtSo+lLCZP2C8uUJepRt5XdzO0xrbfiuJNMKyQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.4#sha256-mTPMAf6SlF6Go1AsZxn6GMyxj0nbM1xdc9KNrkWNcSE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.4#sha256-EGxO1nH46tlifVfn3iZw4IVgCcUBbP8xRl98I4mGGKI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.4#sha256-ilY0QRioFTupUqU5xG6CGne3dcm/evwUKjwxpiOEvH0=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2749,6 +2749,7 @@
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
+    apiGradingProvider: "jpdb",
     miningDeck: "forq",
     autoMineOnReview: false,
     neverForgetDeck: "never-forget",
@@ -3041,6 +3042,7 @@
       autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
       neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
       blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
+      apiGradingProvider: value?.apiGradingProvider === "jiten" ? "jiten" : "jpdb",
       ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
     };
   }
@@ -6767,6 +6769,7 @@
       jpdbAndJitenApiKeysConfigured: "JPDB and Jiten keys are set.",
       jpdbApiKeyMissing: "No JPDB key.",
       jpdbConnected: "Connected to JPDB.",
+      jpdbAndJitenConnected: "Connected to JPDB and Jiten.",
       jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
       jitenApiKeyConfigured: "Jiten key set.",
       jitenApiKeyMissing: "No Jiten key.",
@@ -7445,6 +7448,7 @@
       showMiningActions: "Show mining actions",
       hideMiningActions: "Hide mining actions",
       switchReviewTarget: "Switch review target",
+      switchGradingProvider: "Switch grading provider",
       jpdbKanjiUpdated: "JPDB kanji updated.",
       jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check JPDB kanji reviews are enabled.",
       apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -7564,9 +7568,6 @@
       unlistHint: "Remove this from your blacklist to mine or review again.",
       blacklist: "Blacklist",
       blacklistHint: "Ignore this exact word.",
-      jitenMiningHint: "Move this Jiten word to mining.",
-      jitenSuspendHint: "Suspend this Jiten word.",
-      jitenForgetHint: "Forget this Jiten word.",
       vocabularyStatusUpdated: "Vocabulary status updated.",
       addToAnki: "Add to Anki",
       checkingAnki: "Checking Anki...",
@@ -7860,6 +7861,7 @@ resizeLookupSheet	検索シートのサイズ変更。タップで閉じます
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
 switchReviewTarget	採点先を切り替える
+switchGradingProvider	採点サービスを切り替える
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -8174,9 +8176,6 @@ unlist	解除
 unlistHint	ブラックリストから外します。
 blacklist	ブラックリスト
 blacklistHint	この単語を無視します。
-jitenMiningHint	Jiten語彙を採掘状態にします。
-jitenSuspendHint	Jiten語彙を停止します。
-jitenForgetHint	Jiten語彙を忘却します。
 vocabularyStatusUpdated	語彙状態を更新しました。
 addToAnki	Ankiに追加
 checkingAnki	Ankiを確認中...
@@ -8338,6 +8337,7 @@ jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
+jpdbAndJitenConnected	JPDBとJitenに接続しました。
 jpdbConnectionFailed	JPDBがキーを受け付けませんでした（ネットワークまたは無効なキー）。
 jitenApiKeyConfigured	Jitenキーあり。
 jitenApiKeyMissing	Jitenキーなし。
@@ -13495,22 +13495,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function normalizeDeckChoiceRenderOptions(value) {
     return typeof value === "boolean" ? { includeJpdb: value } : value;
   }
-  function apiSrsProviderViewForCard(card, settings, isJpdbBackedCard) {
-    if (isJitenBackedCard(card)) {
-      return {
-        id: "jiten",
-        label: "Jiten",
-        deckSource: "jiten",
-        hasApiKey: hasJitenApiCredential(settings)
-      };
-    }
-    if (!isJpdbBackedCard(card)) return null;
+  function apiGradingProviderPreference(settings) {
+    return settings.apiGradingProvider === "jiten" ? "jiten" : "jpdb";
+  }
+  function apiSrsProviderAvailability(card, settings, isJpdbBackedCard) {
     return {
-      id: "jpdb",
-      label: "JPDB",
-      deckSource: "jpdb",
-      hasApiKey: hasJpdbApiCredential(settings)
+      jpdb: hasJpdbApiCredential(settings) && isJpdbBackedCard(card),
+      jiten: hasJitenApiCredential(settings) && isJitenBackedCard(card)
     };
+  }
+  function apiSrsProviderView(id, settings) {
+    return id === "jiten" ? { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: hasJitenApiCredential(settings) } : { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: hasJpdbApiCredential(settings) };
+  }
+  function apiSrsProviderViewForCard(card, settings, isJpdbBackedCard) {
+    const jpdbBacked = isJpdbBackedCard(card);
+    const jitenBacked = isJitenBackedCard(card);
+    const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
+    const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
+    if (jpdbUsable && jitenUsable) return apiSrsProviderView(apiGradingProviderPreference(settings), settings);
+    if (jpdbUsable) return apiSrsProviderView("jpdb", settings);
+    if (jitenUsable) return apiSrsProviderView("jiten", settings);
+    if (jpdbBacked) return apiSrsProviderView("jpdb", settings);
+    if (jitenBacked) return apiSrsProviderView("jiten", settings);
+    return null;
   }
   function isApiMiningEnabled(settings) {
     return settings.jpdbMiningEnabled;
@@ -14077,9 +14084,35 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         anki: () => this.addToAnki(card, sentence, void 0, context),
         "anki-edit": () => this.openAnkiNote(button2),
         "anki-merge": () => this.mergeExistingAnkiCard(button2, card, sentence, context),
-        grade: () => this.gradeCard(button2, card, sentence)
+        grade: () => this.gradeCard(button2, card, sentence),
+        "grade-provider-toggle": () => this.toggleGradingProvider(card, sentence)
       };
       return handlers[action];
+    }
+    // Flip the popover between JPDB and Jiten grading and re-render so the deck
+    // and grade buttons act on the chosen service. Only reachable when both keys
+    // are set and the word is gradable by either.
+    async toggleGradingProvider(card, sentence) {
+      const settings = this.options.getSettings();
+      const supporting = this.apiProviders(settings).filter((provider) => provider.supportsCard(card) && provider.hasApiKey);
+      if (supporting.length < 2) return;
+      const next = apiGradingProviderPreference(settings) === "jiten" ? "jpdb" : "jiten";
+      this.options.setApiGradingProvider?.(next);
+      await this.refreshGradingProviderState(card, next);
+      this.options.invalidateCardData?.();
+      await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
+        autoPlay: false,
+        trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
+        navigation: "preserve",
+        preservePosition: true
+      });
+    }
+    async refreshGradingProviderState(card, providerId) {
+      try {
+        if (providerId === "jiten") await this.options.jiten?.refreshCardState?.(card);
+        else await this.options.jpdb.refreshCardState?.(card);
+      } catch {
+      }
     }
     async performApiDeckStateAction(action, card) {
       if (action === "neverforget") {
@@ -14090,9 +14123,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         const settings = this.options.getSettings();
         return this.finishMiningAction(this.changeProviderDeckState(card, "blacklisted", settings.blacklistDeck));
       }
-      if (action === "jiten-mining") return this.finishMiningAction(this.changeProviderDeckState(card, "mining", ""));
-      if (action === "jiten-suspend") return this.finishMiningAction(this.changeProviderDeckState(card, "suspended", ""));
-      if (action === "jiten-forget") return this.finishMiningAction(this.changeProviderDeckState(card, "forgotten", ""));
       return void 0;
     }
     async finishMiningAction(action) {
@@ -14115,7 +14145,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }, settings);
     }
     apiProviderForCard(card, settings = this.options.getSettings()) {
-      return this.apiProviders(settings).find((provider) => provider.supportsCard(card)) ?? null;
+      const supporting = this.apiProviders(settings).filter((provider) => provider.supportsCard(card));
+      if (supporting.length > 1 && supporting.every((provider) => provider.hasApiKey)) {
+        const preferred = supporting.find((provider) => provider.id === apiGradingProviderPreference(settings));
+        if (preferred) return preferred;
+      }
+      return supporting[0] ?? null;
     }
     apiProviderForDeckSource(source, card, settings) {
       return this.apiProviders(settings).find((provider) => provider.deckSource === source && provider.supportsCard(card)) ?? null;
@@ -14193,7 +14228,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async changeProviderDeckState(card, state2, deck) {
       const settings = this.options.getSettings();
-      const provider = this.apiProviders(settings).find((candidate) => candidate.supportsCard(card) && candidate.supportsDeckState(state2)) ?? this.apiProviderForCard(card, settings);
+      const preferred = this.apiProviderForCard(card, settings);
+      const provider = preferred?.supportsDeckState(state2) ? preferred : this.apiProviders(settings).find((candidate) => candidate.supportsCard(card) && candidate.supportsDeckState(state2)) ?? preferred;
       if (!provider && settings.ankiEnabled && isAnkiDeckState(state2) && await this.changeAnkiDeckState(card, state2, settings)) return;
       this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? "jpdbDeckStateApiKeyRequired"));
       if (!provider.supportsDeckState(state2)) throw new Error(uiText(settings.interfaceLanguage, "actionFailed"));
@@ -19455,6 +19491,9 @@ ${entry.reading || ""}`;
   function kanjiSourceStateKey(sourceId) {
     return `kanji:${sourceId}`;
   }
+  function kanjiFactProviderTitle(source) {
+    return source === "jiten" ? "Jiten" : "JPDB";
+  }
   function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel, language, reference) {
     const entryCount = groups.length;
     return `
@@ -20385,27 +20424,9 @@ ${entry.reading || ""}`;
       if (ankiTargets.length) return ankiTargets;
       return apiTargets;
     }
-    apiReviewTargets(card, provider, language) {
-      const settings = this.settings();
-      const targets = [];
-      if (hasJpdbApiCredential(settings) && this.dependencies.isJpdbBackedCard(card) && isApiMiningEnabled(settings)) {
-        targets.push(this.apiReviewTarget({
-          id: "jpdb",
-          label: "JPDB",
-          deckSource: "jpdb",
-          hasApiKey: true
-        }, language));
-      }
-      if (hasJitenApiCredential(settings) && isJitenBackedCard(card) && isApiMiningEnabled(settings)) {
-        targets.push(this.apiReviewTarget({
-          id: "jiten",
-          label: "Jiten",
-          deckSource: "jiten",
-          hasApiKey: true
-        }, language));
-      }
-      if (!targets.length && provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, language)];
-      return targets;
+    apiReviewTargets(_card, provider, _language) {
+      if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language)];
+      return [];
     }
     providerForReviewTarget(target, fallback) {
       if (target.kind === "jpdb") return { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: true };
@@ -20473,10 +20494,12 @@ ${entry.reading || ""}`;
     renderMetaItems(card, provider, state2, data) {
       const settings = this.settings();
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
+      const availability = apiSrsProviderAvailability(card, settings, this.dependencies.isJpdbBackedCard);
+      const canSwitchProvider = canShowProviderStatus && availability.jpdb && availability.jiten;
       return [
         renderMetaReading(card, settings),
         card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : "",
-        canShowProviderStatus ? `<span><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}</span>` : "",
+        canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}${canSwitchProvider ? renderGradingProviderToggle(provider, settings.interfaceLanguage) : ""}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
     }
@@ -20572,11 +20595,9 @@ ${entry.reading || ""}`;
   function miningActionState(cardStates, language) {
     const isNeverForget = cardStates.includes("never-forget");
     const isBlacklisted = cardStates.includes("blacklisted");
-    const isSuspended = cardStates.includes("suspended");
     return {
       isNeverForget,
       isBlacklisted,
-      isSuspended,
       neverForgetTitle: isNeverForget ? uiText(language, "forgetHint") : uiText(language, "neverHint"),
       blacklistTitle: isBlacklisted ? uiText(language, "unlistHint") : uiText(language, "blacklistHint"),
       neverForgetLabel: isNeverForget ? uiText(language, "forget") : uiText(language, "never"),
@@ -20587,7 +20608,7 @@ ${entry.reading || ""}`;
     if (!canRenderApiMiningActions(settings, provider)) return "";
     const state2 = miningActionState(cardStates, language);
     const addDeckSelect = renderAddDeckSelect(settings, data, language, provider);
-    return renderApiMiningActionDetails(language, state2, addDeckSelect, provider);
+    return renderApiMiningActionDetails(language, state2, addDeckSelect);
   }
   function canRenderApiMiningActions(settings, provider) {
     return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
@@ -20601,13 +20622,8 @@ ${entry.reading || ""}`;
     if (!deckOptions) return "";
     return `<select class="jpdb-reader-add-deck-select" data-add-deck-select aria-label="${escapeHtml$1(uiText(language, "deck"))}" hidden>${deckOptions}</select>`;
   }
-  function renderApiMiningActionDetails(language, state2, addDeckSelect, provider) {
+  function renderApiMiningActionDetails(language, state2, addDeckSelect, _provider) {
     const addToDeckLabel = `${uiText(language, "addToDeck")} +`;
-    const jitenActions = provider?.id === "jiten" ? `<div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add" data-action="jiten-mining" title="${escapeHtml$1(uiText(language, "jitenMiningHint"))}">${escapeHtml$1(uiText(language, "mining"))}</button>
-                        <button class="jpdb-reader-btn nf${state2.isSuspended ? " danger" : ""}" data-action="jiten-suspend" title="${escapeHtml$1(uiText(language, "jitenSuspendHint"))}" aria-pressed="${state2.isSuspended}">${escapeHtml$1(uiText(language, "stateSuspended"))}</button>
-                        <button class="jpdb-reader-btn blacklist danger" data-action="jiten-forget" title="${escapeHtml$1(uiText(language, "jitenForgetHint"))}">${escapeHtml$1(uiText(language, "forget"))}</button>
-                    </div>` : "";
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
@@ -20615,7 +20631,6 @@ ${entry.reading || ""}`;
                         <button class="jpdb-reader-btn nf${state2.isNeverForget ? " danger" : ""}" data-action="neverforget" title="${escapeHtml$1(state2.neverForgetTitle)}" aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
                         <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml$1(state2.blacklistTitle)}" aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>
                     </div>
-                    ${jitenActions}
                     ${addDeckSelect}
                 </div>
             `;
@@ -20634,6 +20649,11 @@ ${entry.reading || ""}`;
   }
   function renderMeta(metaItems) {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
+  }
+  function renderGradingProviderToggle(provider, language) {
+    const target = provider?.id === "jiten" ? "JPDB" : "Jiten";
+    const label = `${uiText(language, "switchGradingProvider")} (${target})`;
+    return `<button type="button" class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">⇄</button>`;
   }
   function renderMiningGutter(miningActions, language) {
     const label = uiText(language, "showMiningActions");
@@ -25874,7 +25894,14 @@ ${spelling}`);
     async lookupVocabularyInfoForCard(card) {
       if (isJitenReferenceableCard(card)) return this.lookupVocabularyInfo(card);
       const jitenCard = await this.lookupJitenCardForVocabularyInfo(card);
-      return jitenCard ? this.lookupVocabularyInfo(jitenCard) : null;
+      if (!jitenCard) return null;
+      const reading = card.reading.trim();
+      const exactMatch = jitenCard.spelling === card.spelling && (!reading || jitenCard.reading === reading);
+      if (exactMatch && typeof card.jitenWordId !== "number" && typeof jitenCard.jitenWordId === "number") {
+        card.jitenWordId = jitenCard.jitenWordId;
+        card.jitenReadingIndex = jitenCard.jitenReadingIndex;
+      }
+      return this.lookupVocabularyInfo(jitenCard);
     }
     async searchVocabulary(query, limit = 10) {
       const response = await this.requestEndpoint("vocabulary/search", void 0, {
@@ -37646,6 +37673,10 @@ ${normalizedReading}`;
       parsePopoverJapanese: (popover) => this.parsePopoverJapanese(popover),
       toast: (message) => this.toast(message),
       invalidateCardData: () => this.cardRenderData.clear(),
+      setApiGradingProvider: (provider) => {
+        this.settings.apiGradingProvider = provider;
+        void saveSettings(this.settings);
+      },
       onAnkiStatusChanged: (card) => this.handleAnkiStatusChanged(card),
       onApiCardStateChanged: (card) => this.applyPublicVocabularyToRenderedWords(card, card)
     });
@@ -41566,8 +41597,7 @@ ${normalizedReading}`;
         renderKeyword();
         if (miningMount?.isConnected && this.kanjiCompanion) this.updateKanjiMiningControls(popover, this.kanjiCompanion.renderJpdbKanjiMiningControls(jpdbInfo, language));
         if (jpdbMount?.isConnected) {
-          const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
-          setInnerHtml(jpdbMount, jitenInfo ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jiten", language)) : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jpdb", language)) ?? "");
+          setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
         }
         renderRtk();
       });
@@ -41576,8 +41606,7 @@ ${normalizedReading}`;
         if (!popover.isConnected) return;
         renderKeyword();
         if (jpdbMount?.isConnected) {
-          const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
-          setInnerHtml(jpdbMount, jitenInfo ? renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jiten", language)) : this.kanjiCompanion?.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle("jpdb", language)) ?? "");
+          setInnerHtml(jpdbMount, this.renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language));
         }
       });
       const kanjiEntriesPromise = detailsPromises.kanjiEntries.then((entries) => {
@@ -42572,8 +42601,20 @@ ${normalizedReading}`;
       if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "originStructure");
       return kanjiSourceLabel(this.settings, sourceId);
     }
-    kanjiFactSourceTitle(source, language = this.settings.interfaceLanguage) {
-      return source === "jiten" ? uiText(language, "sourceNameJitenKanjiFacts") : uiText(language, "readingsComponents");
+    kanjiFactSourceTitle(source) {
+      return kanjiFactProviderTitle(source);
+    }
+    renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language) {
+      const sections = [];
+      const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
+      if (jpdbInfo && this.kanjiCompanion) {
+        sections.push(this.kanjiCompanion.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, this.kanjiFactSourceTitle("jpdb")));
+      }
+      if (jitenInfo) {
+        const jitenKey = `${jpdbKey}:jiten`;
+        sections.push(renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(jitenKey), jitenKey, this.kanjiFactSourceTitle("jiten")));
+      }
+      return sections.join("");
     }
     applyAnkiLookupToRenderedWords(card, ankiLookup, options = {}) {
       this.applyAnkiLookupMapToRenderedWords(/* @__PURE__ */ new Map([[renderedWordCardKey(card.vid, card.sid), ankiLookup]]), options.roots ?? [document], options);

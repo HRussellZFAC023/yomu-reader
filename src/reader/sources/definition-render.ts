@@ -103,6 +103,13 @@ export function kanjiSourceStateKey(sourceId: string): string {
     return `kanji:${sourceId}`;
 }
 
+// The kanji-fact source cards are branded by provider ("JPDB" / "Jiten") instead
+// of a generic "Kanji facts" / "Readings and components" label, so a reader with
+// both keys can tell them apart. Shared by the reader popover and the New Tab.
+export function kanjiFactProviderTitle(source: 'jpdb' | 'jiten'): string {
+    return source === 'jiten' ? 'Jiten' : 'JPDB';
+}
+
 function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], sourceAttributes: SourceAttributes, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget): string {
     const entryCount = groups.length;
     return `

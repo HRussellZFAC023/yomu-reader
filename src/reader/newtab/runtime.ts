@@ -15,6 +15,7 @@ import { APP_NAME, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import { handleReaderActionPillLink } from '../app/main-helpers';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
 import {
+    kanjiFactProviderTitle,
     kanjiSourceStateKey,
     renderKanjiDefinitions,
 } from '../sources/definition-render';
@@ -335,6 +336,10 @@ export class NewTabRuntime {
         parsePopoverJapanese: popover => this.parseNewTabContent(popover),
         toast: message => this.toast(message),
         invalidateCardData: () => this.cardRenderData.clear(),
+        setApiGradingProvider: provider => {
+            this.settings.apiGradingProvider = provider;
+            void saveSettings(this.settings);
+        },
         onAnkiStatusChanged: card => this.handleAnkiStatusChanged(card),
         onApiCardStateChanged: card => this.handleApiCardStateChanged(card),
     });
@@ -1193,11 +1198,8 @@ export class NewTabRuntime {
                 jpdbInfo = info;
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKeyword();
-                const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
-                if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten'))
-                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb')));
+                if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
                 updateKanjiLookupMiningControls(
                     popover,
                     renderJpdbKanjiMiningControls(jpdbInfo, this.settings.interfaceLanguage),
@@ -1209,11 +1211,8 @@ export class NewTabRuntime {
                 jitenInfo = info;
                 if (!this.isCurrentLookupRender(popover, requestId)) return;
                 renderKeyword();
-                const sourceStateKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
                 const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');
-                if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, jitenInfo
-                    ? renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jiten'))
-                    : renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey, this.kanjiFactSourceTitle('jpdb')));
+                if (jpdbMount?.isConnected) setInnerHtml(jpdbMount, this.renderNewTabKanjiFactSources(jpdbInfo, jitenInfo));
             }),
             detailPromises.kanjiEntries.then(entries => {
                 kanjiEntries = entries;
@@ -1939,10 +1938,19 @@ export class NewTabRuntime {
         return newTabKanjiSourceTitle(this.settings, sourceId);
     }
 
-    private kanjiFactSourceTitle(source: 'jpdb' | 'jiten'): string {
-        return source === 'jiten'
-            ? uiText(this.settings.interfaceLanguage, 'sourceNameJitenKanjiFacts')
-            : uiText(this.settings.interfaceLanguage, 'readingsComponents');
+    // Render JPDB and Jiten kanji facts side by side (both keys present) rather
+    // than only the active provider, matching the reader popover.
+    private renderNewTabKanjiFactSources(jpdbInfo: JpdbKanjiInfo | null, jitenInfo: JitenKanjiInfo | null): string {
+        const sections: string[] = [];
+        const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
+        if (jpdbInfo) {
+            sections.push(renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, kanjiFactProviderTitle('jpdb')));
+        }
+        if (jitenInfo) {
+            const jitenKey = `${jpdbKey}:jiten`;
+            sections.push(renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jitenKey), jitenKey, kanjiFactProviderTitle('jiten')));
+        }
+        return sections.join('');
     }
 
     private isCurrentPopoverRoot(root: HTMLElement): boolean {

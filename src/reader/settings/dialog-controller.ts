@@ -11,7 +11,7 @@ import { clearNewTabOfflineCache } from '../newtab/cache';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../dictionaries/recommended';
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './index';
-import { effectiveJpdbApiKey, mergeApiCredentialValues } from './api-credential';
+import { effectiveJpdbApiKey, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
 import { exportManagedStoredValues, importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
@@ -1133,8 +1133,9 @@ export class SettingsDialogController {
         }
         if (this.currentForm !== form || !form.isConnected || requestId !== this.jpdbConnectionProbeId) return;
         const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const successKey = hasJitenApiCredential(formSettings) ? 'jpdbAndJitenConnected' : 'jpdbConnected';
         const line: SettingsStatusLine = connected
-            ? { message: uiText(language, 'jpdbConnected'), tone: 'success' }
+            ? { message: uiText(language, successKey), tone: 'success' }
             : { message: uiText(language, 'jpdbConnectionFailed'), tone: 'error' };
         status.dataset.statusTone = line.tone;
         status.textContent = formatSettingsStatusLine(line, language);

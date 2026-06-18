@@ -86,7 +86,7 @@ import {
     renderKanjiOrigins,
     renderRtkInfo,
 } from '../popup/render';
-import { kanjiSourceStateKey, renderKanjiDefinitions } from '../sources/definition-render';
+import { kanjiFactProviderTitle, kanjiSourceStateKey, renderKanjiDefinitions } from '../sources/definition-render';
 import {
     cardKey,
     createNewTabStateChannel,
@@ -5890,10 +5890,7 @@ export class NewTabController {
     }
 
     private kanjiFactSourceTitle(source: 'jpdb' | 'jiten'): string {
-        const settings = this.dependencies.getSettings();
-        return source === 'jiten'
-            ? uiText(settings.interfaceLanguage, 'sourceNameJitenKanjiFacts')
-            : uiText(settings.interfaceLanguage, 'readingsComponents');
+        return kanjiFactProviderTitle(source);
     }
 
     private renderKanjiMiningControls(info: JpdbKanjiInfo | null): HTMLElement | null {

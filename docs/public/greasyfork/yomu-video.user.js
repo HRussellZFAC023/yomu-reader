@@ -3210,6 +3210,7 @@
       jpdbAndJitenApiKeysConfigured: "JPDB and Jiten keys are set.",
       jpdbApiKeyMissing: "No JPDB key.",
       jpdbConnected: "Connected to JPDB.",
+      jpdbAndJitenConnected: "Connected to JPDB and Jiten.",
       jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
       jitenApiKeyConfigured: "Jiten key set.",
       jitenApiKeyMissing: "No Jiten key.",
@@ -3888,6 +3889,7 @@
       showMiningActions: "Show mining actions",
       hideMiningActions: "Hide mining actions",
       switchReviewTarget: "Switch review target",
+      switchGradingProvider: "Switch grading provider",
       jpdbKanjiUpdated: "JPDB kanji updated.",
       jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check JPDB kanji reviews are enabled.",
       apiSrsActionsDisabled: "API mining actions are disabled in settings.",
@@ -4007,9 +4009,6 @@
       unlistHint: "Remove this from your blacklist to mine or review again.",
       blacklist: "Blacklist",
       blacklistHint: "Ignore this exact word.",
-      jitenMiningHint: "Move this Jiten word to mining.",
-      jitenSuspendHint: "Suspend this Jiten word.",
-      jitenForgetHint: "Forget this Jiten word.",
       vocabularyStatusUpdated: "Vocabulary status updated.",
       addToAnki: "Add to Anki",
       checkingAnki: "Checking Anki...",
@@ -4284,6 +4283,7 @@ resizeLookupSheet	検索シートのサイズ変更。タップで閉じます
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
 switchReviewTarget	採点先を切り替える
+switchGradingProvider	採点サービスを切り替える
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
@@ -4598,9 +4598,6 @@ unlist	解除
 unlistHint	ブラックリストから外します。
 blacklist	ブラックリスト
 blacklistHint	この単語を無視します。
-jitenMiningHint	Jiten語彙を採掘状態にします。
-jitenSuspendHint	Jiten語彙を停止します。
-jitenForgetHint	Jiten語彙を忘却します。
 vocabularyStatusUpdated	語彙状態を更新しました。
 addToAnki	Ankiに追加
 checkingAnki	Ankiを確認中...
@@ -4762,6 +4759,7 @@ jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
+jpdbAndJitenConnected	JPDBとJitenに接続しました。
 jpdbConnectionFailed	JPDBがキーを受け付けませんでした（ネットワークまたは無効なキー）。
 jitenApiKeyConfigured	Jitenキーあり。
 jitenApiKeyMissing	Jitenキーなし。

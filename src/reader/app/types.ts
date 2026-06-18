@@ -443,6 +443,7 @@ export interface ReaderSettings {
     miningDeck: string;
     autoMineOnReview: boolean;
     jpdbMiningEnabled: boolean;
+    apiGradingProvider: 'jpdb' | 'jiten';
     neverForgetDeck: string;
     blacklistDeck: string;
     addToForq: boolean;

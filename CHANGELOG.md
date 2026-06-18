@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.4] - 2026-06-18
+
+### Added
+
+- When both a JPDB and a Jiten API key are set, the lookup popover shows a small ⇄ toggle next to the JPDB/Jiten status. It switches which SRS the deck and grade buttons act on (persisted), so a word present in both services can be graded into either. The settings connection check now reports "Connected to JPDB and Jiten." when both keys are configured.
+- The kanji card now shows JPDB and Jiten kanji facts side by side (when both are available) instead of only the active provider.
+
+### Changed
+
+- Kanji-fact sources are labelled simply "JPDB" and "Jiten" instead of "Readings and components" / "Jiten kanji facts".
+- Jiten words now use the same Add to deck / Never forget / Blacklist actions as JPDB; the separate Mining / Suspended / Forget row was removed.
+
+### Fixed
+
+- Grading a word in the toggled-to service no longer reads the other service's deck state: the chosen provider's card state is refreshed on switch, and a JPDB word that also exists in Jiten is only treated as gradable in Jiten on an exact spelling+reading match.
+
 ## [1.4.3] - 2026-06-18
 
 ### Fixed

@@ -10,6 +10,7 @@ import { formatUiText, uiList, uiText } from '../app/i18n';
 import type { MiningContext } from '../study/mining-context';
 import type { JitenApiClient } from '../dictionaries/jiten';
 import {
+    apiGradingProviderPreference,
     createApiSrsProviderAdapters,
     cardStateForApiState,
     isApiMiningEnabled,
@@ -52,6 +53,7 @@ interface CardActionControllerOptions {
     parsePopoverJapanese: (popover: HTMLElement) => void | Promise<void>;
     toast: (message: string) => void;
     invalidateCardData?: () => void;
+    setApiGradingProvider?: (provider: ApiSrsProviderId) => void;
     onAnkiStatusChanged?: (card: JPDBCard) => void;
     onApiCardStateChanged?: (card: JPDBCard) => void;
 }
@@ -229,8 +231,40 @@ export class CardActionController {
             'anki-edit': () => this.openAnkiNote(button),
             'anki-merge': () => this.mergeExistingAnkiCard(button, card, sentence, context),
             grade: () => this.gradeCard(button, card, sentence),
+            'grade-provider-toggle': () => this.toggleGradingProvider(card, sentence),
         };
         return handlers[action];
+    }
+
+    // Flip the popover between JPDB and Jiten grading and re-render so the deck
+    // and grade buttons act on the chosen service. Only reachable when both keys
+    // are set and the word is gradable by either.
+    private async toggleGradingProvider(card: JPDBCard, sentence: string | undefined): Promise<void> {
+        const settings = this.options.getSettings();
+        const supporting = this.apiProviders(settings).filter(provider => provider.supportsCard(card) && provider.hasApiKey);
+        if (supporting.length < 2) return;
+        const next: ApiSrsProviderId = apiGradingProviderPreference(settings) === 'jiten' ? 'jpdb' : 'jiten';
+        this.options.setApiGradingProvider?.(next);
+        // The card's SRS state is a single shared field; refresh the newly chosen
+        // service so the status dot and the Never forget / Blacklist pressed-state
+        // (and their add-vs-remove decisions) reflect that service, not the old one.
+        await this.refreshGradingProviderState(card, next);
+        this.options.invalidateCardData?.();
+        await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
+            autoPlay: false,
+            trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
+            navigation: 'preserve',
+            preservePosition: true,
+        });
+    }
+
+    private async refreshGradingProviderState(card: JPDBCard, providerId: ApiSrsProviderId): Promise<void> {
+        try {
+            if (providerId === 'jiten') await this.options.jiten?.refreshCardState?.(card);
+            else await this.options.jpdb.refreshCardState?.(card);
+        } catch {
+            // Best-effort: the grade still dispatches to the correct word.
+        }
     }
 
     private async performApiDeckStateAction(action: string | undefined, card: JPDBCard): Promise<boolean | undefined> {
@@ -242,9 +276,6 @@ export class CardActionController {
             const settings = this.options.getSettings();
             return this.finishMiningAction(this.changeProviderDeckState(card, 'blacklisted', settings.blacklistDeck));
         }
-        if (action === 'jiten-mining') return this.finishMiningAction(this.changeProviderDeckState(card, 'mining', ''));
-        if (action === 'jiten-suspend') return this.finishMiningAction(this.changeProviderDeckState(card, 'suspended', ''));
-        if (action === 'jiten-forget') return this.finishMiningAction(this.changeProviderDeckState(card, 'forgotten', ''));
         return undefined;
     }
 
@@ -271,7 +302,15 @@ export class CardActionController {
     }
 
     private apiProviderForCard(card: JPDBCard, settings: ReaderSettings = this.options.getSettings()): ApiSrsProviderAdapter | null {
-        return this.apiProviders(settings).find(provider => provider.supportsCard(card)) ?? null;
+        const supporting = this.apiProviders(settings).filter(provider => provider.supportsCard(card));
+        // When the word can be graded by both keyed services, follow the user's
+        // chosen grading provider (set by the popover toggle); otherwise use the
+        // first provider that backs the card.
+        if (supporting.length > 1 && supporting.every(provider => provider.hasApiKey)) {
+            const preferred = supporting.find(provider => provider.id === apiGradingProviderPreference(settings));
+            if (preferred) return preferred;
+        }
+        return supporting[0] ?? null;
     }
 
     private apiProviderForDeckSource(source: ApiSrsDeckSource, card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {
@@ -364,8 +403,13 @@ export class CardActionController {
 
     private async changeProviderDeckState(card: JPDBCard, state: ApiSrsDeckState, deck: string): Promise<void> {
         const settings = this.options.getSettings();
-        const provider = this.apiProviders(settings).find(candidate => candidate.supportsCard(card) && candidate.supportsDeckState(state))
-            ?? this.apiProviderForCard(card, settings);
+        // Prefer the chosen grading provider when it supports this state so the
+        // header toggle decides where Never forget / Blacklist land; otherwise
+        // fall back to any provider that backs the card and supports the state.
+        const preferred = this.apiProviderForCard(card, settings);
+        const provider = preferred?.supportsDeckState(state)
+            ? preferred
+            : (this.apiProviders(settings).find(candidate => candidate.supportsCard(card) && candidate.supportsDeckState(state)) ?? preferred);
         if (!provider && settings.ankiEnabled && isAnkiDeckState(state) && await this.changeAnkiDeckState(card, state, settings)) return;
         this.assertApiProviderActionAllowed(provider, uiText(settings.interfaceLanguage, provider?.deckStateApiKeyRequiredKey ?? 'jpdbDeckStateApiKeyRequired'));
         if (!provider.supportsDeckState(state)) throw new Error(uiText(settings.interfaceLanguage, 'actionFailed'));

@@ -396,6 +396,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
+    apiGradingProvider: 'jpdb',
     miningDeck: 'forq',
     autoMineOnReview: false,
     neverForgetDeck: 'never-forget',
@@ -749,6 +750,7 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
         autoMineOnReview: typeof value?.autoMineOnReview === 'boolean' ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
         neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
+        apiGradingProvider: value?.apiGradingProvider === 'jiten' ? 'jiten' : 'jpdb',
         ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS),
     };
 }

@@ -56,26 +56,61 @@ export interface ApiSrsProviderAdapterOptions {
     isJpdbBackedCard: (card: JPDBCard) => boolean;
 }
 
+export interface ApiSrsProviderAvailability {
+    jpdb: boolean;
+    jiten: boolean;
+}
+
+// The grading provider the popover toggle prefers. Only meaningful when both
+// API keys are set and the card can be graded by both; otherwise the card's
+// own backing provider wins.
+export function apiGradingProviderPreference(settings: ReaderSettings): ApiSrsProviderId {
+    return settings.apiGradingProvider === 'jiten' ? 'jiten' : 'jpdb';
+}
+
+// Which providers can actually grade this card: a configured key AND the card
+// carrying that provider's identity (jpdb vid / jiten word id). Page words are
+// enriched with the jiten identity during lookup so a word present in both
+// services reports both available.
+export function apiSrsProviderAvailability(
+    card: JPDBCard,
+    settings: ReaderSettings,
+    isJpdbBackedCard: (card: JPDBCard) => boolean,
+): ApiSrsProviderAvailability {
+    return {
+        jpdb: hasJpdbApiCredential(settings) && isJpdbBackedCard(card),
+        jiten: hasJitenApiCredential(settings) && isJitenBackedCard(card),
+    };
+}
+
+function apiSrsProviderView(id: ApiSrsProviderId, settings: ReaderSettings): ApiSrsProviderView {
+    return id === 'jiten'
+        ? { id: 'jiten', label: 'Jiten', deckSource: 'jiten', hasApiKey: hasJitenApiCredential(settings) }
+        : { id: 'jpdb', label: 'JPDB', deckSource: 'jpdb', hasApiKey: hasJpdbApiCredential(settings) };
+}
+
 export function apiSrsProviderViewForCard(
     card: JPDBCard,
     settings: ReaderSettings,
     isJpdbBackedCard: (card: JPDBCard) => boolean,
 ): ApiSrsProviderView | null {
-    if (isJitenBackedCard(card)) {
-        return {
-            id: 'jiten',
-            label: 'Jiten',
-            deckSource: 'jiten',
-            hasApiKey: hasJitenApiCredential(settings),
-        };
-    }
-    if (!isJpdbBackedCard(card)) return null;
-    return {
-        id: 'jpdb',
-        label: 'JPDB',
-        deckSource: 'jpdb',
-        hasApiKey: hasJpdbApiCredential(settings),
-    };
+    const jpdbBacked = isJpdbBackedCard(card);
+    const jitenBacked = isJitenBackedCard(card);
+    const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
+    const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
+    // Both services can grade this word and both keys are set → follow the
+    // toggle. Otherwise prefer whichever service has a usable key (jpdb-first, to
+    // match the action controller). A word may be jiten-backed via keyless
+    // enrichment, so the fallback must be gated on the key actually being set —
+    // never drop a gradable JPDB word for a keyless Jiten view.
+    if (jpdbUsable && jitenUsable) return apiSrsProviderView(apiGradingProviderPreference(settings), settings);
+    if (jpdbUsable) return apiSrsProviderView('jpdb', settings);
+    if (jitenUsable) return apiSrsProviderView('jiten', settings);
+    // Neither key is usable: surface the backing provider for the status label
+    // only (no grading UI renders without a key).
+    if (jpdbBacked) return apiSrsProviderView('jpdb', settings);
+    if (jitenBacked) return apiSrsProviderView('jiten', settings);
+    return null;
 }
 
 export function isApiMiningEnabled(settings: ReaderSettings): boolean {

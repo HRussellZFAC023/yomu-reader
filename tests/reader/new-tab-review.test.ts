@@ -7646,7 +7646,7 @@ describe('new tab review helpers', () => {
 
             await waitForExpect(() => {
                 const meaning = answerRoot.querySelector('[data-newtab-meaning]')?.textContent ?? '';
-                expect(meaning).toContain('Readings and components');
+                expect(meaning).toContain('JPDB');
                 expect(meaning).toContain('Keywordriver');
                 expect(meaning).toContain('かわ 77%');
                 expect(meaning).toContain('川辺');
@@ -9600,7 +9600,7 @@ describe('new tab review helpers', () => {
             expect(wordDetail()?.textContent).not.toContain('Popup sources');
             await waitForExpect(() => {
                 const detail = wordDetail()?.textContent ?? '';
-                expect(detail).toContain('Readings and components');
+                expect(detail).toContain('JPDB');
                 expect(detail).toContain('cat radical');
                 expect(detail).toContain('Cat kanji mnemonic');
                 expect(detail).toContain('Loading dictionary details');
@@ -9613,7 +9613,7 @@ describe('new tab review helpers', () => {
                 expect(detail).toContain('Popup sources');
                 expect(detail).toContain('Kanji Local');
                 expect(detail).toContain('cat kanji');
-                expect(detail).toContain('Readings and components');
+                expect(detail).toContain('JPDB');
                 expect(detail).toContain('cat radical');
                 expect(detail).toContain('Cat kanji mnemonic');
                 expect(detail).toContain('Freq Local 1600');
@@ -15041,7 +15041,7 @@ describe('new tab review helpers', () => {
 
         const sourceLabels = Array.from(details.querySelectorAll<HTMLElement>('.jpdb-reader-source-card > .jpdb-reader-local-title'))
             .map(item => item.textContent?.trim() ?? '');
-        expect(sourceLabels.slice(0, 3)).toEqual(['Readings and components', 'RTK', 'Component graph']);
+        expect(sourceLabels.slice(0, 3)).toEqual(['JPDB', 'RTK', 'Component graph']);
         expect(details.querySelector('.jpdb-reader-newtab-kanji-info-source')?.hasAttribute('open')).toBe(true);
         const rtkSection = details.querySelector('.jpdb-reader-rtk');
         expect(rtkSection).not.toBeNull();
