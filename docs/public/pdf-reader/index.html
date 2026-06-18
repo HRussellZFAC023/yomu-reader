@@ -10,7 +10,7 @@
   <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
   <meta name="apple-mobile-web-app-title" content="よむ">
   <meta name="color-scheme" content="light dark">
-  <meta name="description" content="Read any PDF with よむ popup lookup, mining and OCR. Files stay on your device.">
+  <meta name="description" content="Read any PDF with よむ popup lookup, mining and OCR.">
   <script>
     /* Prime the page theme before paint so dark readers do not flash white. */
     (() => {
@@ -674,7 +674,7 @@
     <button class="empty" type="button" data-empty-open>
       <div>
         <strong>Open or drop a PDF</strong>
-        <span class="status" data-status>Pick a PDF and read it with よむ. Files stay on your device — nothing is uploaded.</span>
+        <span class="status" data-status>Pick a PDF and read it with よむ.</span>
       </div>
     </button>
   </main>
@@ -723,6 +723,15 @@
     const MIN_SCALE = 0.3;
     const MAX_SCALE = 6;
     const SCANNED_TEXT_THRESHOLD = 8; // chars on a page below which we treat it as scanned/image
+    // Backing-store caps. A canvas larger than the browser limit is silently
+    // clamped — pdf.js then paints into the un-clamped space, so the page lands
+    // in a corner and the rest stays black. Cap area and per-axis size well
+    // under every engine's limit (iOS Safari is the strictest) and downscale the
+    // render resolution to fit; the page still displays at full CSS size.
+    const MAX_CANVAS_PIXELS = 6_000_000;
+    const MAX_CANVAS_DIM = 4096;
+    const KEEP_WINDOW = 2;            // render only currentPage ± this; evict the rest to bound memory
+    const MAX_CONCURRENT_RENDERS = 2; // large scanned books otherwise spike memory and crash the tab
 
     let runtimeLoadPromise = null;
     let pdfDoc = null;
@@ -731,7 +740,11 @@
     let currentPage = 1;
     let scannedNoticeShown = false;
     let positionSaveTimer = 0;
-    const pages = new Map(); // pageNumber -> { container, canvas, textLayerDiv, status: 'idle'|'rendering'|'done' }
+    let renderEpoch = 0;      // bumped on scale/fit changes to invalidate in-flight renders
+    let activeRenders = 0;
+    const renderQueue = [];   // page numbers waiting for a render slot
+    // pageNumber -> { container, canvas, textLayerDiv, status, renderTask, page, shownScale }
+    const pages = new Map();
 
     const copy = {
       en: {
@@ -741,7 +754,7 @@
         openPdf: 'Open PDF',
         stageLabel: 'PDF document',
         emptyTitle: 'Open or drop a PDF',
-        emptyStatus: 'Pick a PDF and read it with よむ. Files stay on your device — nothing is uploaded.',
+        emptyStatus: 'Pick a PDF and read it with よむ.',
         choosePdf: 'Choose a PDF file (.pdf).',
         opening: name => `Opening ${name}…`,
         rendering: 'Rendering…',
@@ -777,7 +790,7 @@
         openPdf: 'PDFを開く',
         stageLabel: 'PDF文書',
         emptyTitle: 'PDFを開くかドロップ',
-        emptyStatus: 'PDFを選んでよむで読みましょう。ファイルは端末内で処理され、アップロードされません。',
+        emptyStatus: 'PDFを選んでよむで読みましょう。',
         choosePdf: 'PDFファイル（.pdf）を選んでください。',
         opening: name => `${name}を開いています…`,
         rendering: '描画しています…',
@@ -1097,7 +1110,8 @@
       buildPlaceholders();
       setStatus(text().ready(file.name, pdfDoc.numPages));
       const savedPage = clampPage(Number(localStorage.getItem(currentFileKey)) || 1);
-      await renderAround(savedPage);
+      currentPage = savedPage;
+      requestRender(savedPage); // render just the first page now; the observer pulls in the rest
       if (savedPage > 1) goToPage(savedPage, 'auto');
       else updateCurrentPageFromScroll();
     }
@@ -1142,52 +1156,100 @@
       return shown ? `${Math.round(shown * 100)}%` : 'Fit';
     }
 
+    // Clamp the backing-store scale so the canvas never exceeds the engine's
+    // size limit (which causes the corner/black-page artifact) and stays within
+    // a sane pixel budget. The page still displays at full CSS size; only the
+    // raster resolution is reduced when a page would otherwise be enormous.
+    function cappedRenderScale(cssScale, baseViewport) {
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let scale = cssScale * dpr;
+      const cap = (limit, dim) => { if (dim * scale > limit) scale = limit / dim; };
+      cap(MAX_CANVAS_DIM, baseViewport.width);
+      cap(MAX_CANVAS_DIM, baseViewport.height);
+      const area = baseViewport.width * baseViewport.height;
+      if (area * scale * scale > MAX_CANVAS_PIXELS) scale = Math.sqrt(MAX_CANVAS_PIXELS / area);
+      return Math.max(0.1, scale);
+    }
+
+    // Concurrency-limited render queue. Heavy scanned books would otherwise fire
+    // dozens of concurrent renders as the observer/scroll fan out and crash the tab.
+    function requestRender(number) {
+      if (!pdfDoc || number < 1 || number > pdfDoc.numPages) return;
+      const entry = pages.get(number);
+      if (!entry || entry.status === 'rendering' || entry.status === 'done') return;
+      if (renderQueue.includes(number)) return;
+      renderQueue.push(number);
+      drainRenderQueue();
+    }
+
+    function drainRenderQueue() {
+      while (activeRenders < MAX_CONCURRENT_RENDERS && renderQueue.length) {
+        // Prioritise pages closest to the one being read.
+        renderQueue.sort((a, b) => Math.abs(a - currentPage) - Math.abs(b - currentPage));
+        const number = renderQueue.shift();
+        activeRenders += 1;
+        void renderPage(number).finally(() => { activeRenders -= 1; drainRenderQueue(); });
+      }
+    }
+
+    function cancelRender(entry) {
+      if (entry.renderTask) { try { entry.renderTask.cancel(); } catch {} entry.renderTask = null; }
+    }
+
     async function renderPage(number) {
       const entry = pages.get(number);
-      if (!entry || entry.status !== 'idle') return;
+      if (!entry || entry.status === 'rendering' || entry.status === 'done') return;
       entry.status = 'rendering';
+      const epoch = renderEpoch;
       try {
         const page = await pdfDoc.getPage(number);
+        if (epoch !== renderEpoch) { entry.status = 'idle'; return; }
         const baseViewport = page.getViewport({ scale: 1 });
-        const scale = currentScale || fitWidthScale(baseViewport);
-        entry.shownScale = scale;
-        const viewport = page.getViewport({ scale });
-        const cssWidth = Math.floor(viewport.width);
-        const cssHeight = Math.floor(viewport.height);
+        const cssScale = currentScale || fitWidthScale(baseViewport);
+        entry.shownScale = cssScale;
+        const cssWidth = Math.floor(baseViewport.width * cssScale);
+        const cssHeight = Math.floor(baseViewport.height * cssScale);
         entry.container.style.width = `${cssWidth}px`;
         entry.container.style.height = `${cssHeight}px`;
 
-        const outputScale = Math.min(window.devicePixelRatio || 1, 2.5);
+        // Render the bitmap at a capped device-pixel resolution (no transform
+        // matrix — the viewport scale carries everything; the CSS box downsamples).
+        const renderScale = cappedRenderScale(cssScale, baseViewport);
+        const renderViewport = page.getViewport({ scale: renderScale });
         const canvas = entry.canvas;
-        canvas.width = Math.floor(cssWidth * outputScale);
-        canvas.height = Math.floor(cssHeight * outputScale);
+        canvas.width = Math.floor(renderViewport.width);
+        canvas.height = Math.floor(renderViewport.height);
         const context = canvas.getContext('2d', { alpha: false });
-        const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : undefined;
-        await page.render({ canvasContext: context, viewport, transform }).promise;
+        const task = page.render({ canvasContext: context, viewport: renderViewport });
+        entry.renderTask = task;
+        await task.promise;
+        entry.renderTask = null;
+        if (epoch !== renderEpoch) { entry.status = 'idle'; return; }
 
+        // Text layer overlays the CSS box, so it uses the (un-capped) CSS scale.
+        const textViewport = page.getViewport({ scale: cssScale });
         const textLayerDiv = entry.textLayerDiv;
         textLayerDiv.replaceChildren();
-        textLayerDiv.style.setProperty('--scale-factor', String(scale));
-        textLayerDiv.style.setProperty('--total-scale-factor', String(scale));
+        textLayerDiv.style.setProperty('--scale-factor', String(cssScale));
+        textLayerDiv.style.setProperty('--total-scale-factor', String(cssScale));
         const textLayer = new pdfjsLib.TextLayer({
           textContentSource: page.streamTextContent(),
           container: textLayerDiv,
-          viewport,
+          viewport: textViewport,
         });
         await textLayer.render();
         entry.status = 'done';
 
         const textLength = textLayerDiv.textContent.replace(/\s+/g, '').length;
-        if (textLength < SCANNED_TEXT_THRESHOLD) {
-          entry.container.classList.add('scanned');
-          maybeShowScannedNotice();
-        } else {
-          entry.container.classList.remove('scanned');
-        }
+        entry.container.classList.toggle('scanned', textLength < SCANNED_TEXT_THRESHOLD);
+        if (textLength < SCANNED_TEXT_THRESHOLD) maybeShowScannedNotice();
         updateZoomLabel();
+        evictDistantPages(); // free bitmaps left behind by fast scrolling
       } catch (error) {
-        console.error(`[yomu-pdf] failed to render page ${number}`, error);
+        entry.renderTask = null;
         entry.status = 'idle';
+        if (error?.name === 'RenderingCancelledException') return;
+        console.warn(`[yomu-pdf] failed to render page ${number}`, error);
       }
     }
 
@@ -1198,25 +1260,37 @@
       void ensureYomuRuntime({ silent: true });
     }
 
-    async function renderAround(number) {
-      const targets = [number - 1, number, number + 1, number + 2]
-        .filter(value => value >= 1 && pdfDoc && value <= pdfDoc.numPages);
-      await Promise.all(targets.map(renderPage));
+    // Free the bitmap + text layer of pages far from the reader so memory stays
+    // bounded on 200+ page scanned books (the prime cause of the tab crash).
+    function evictDistantPages() {
+      for (const [number, entry] of pages) {
+        if (Math.abs(number - currentPage) <= KEEP_WINDOW) continue;
+        if (entry.status === 'idle' && !entry.canvas.width) continue;
+        cancelRender(entry);
+        entry.canvas.width = 0;
+        entry.canvas.height = 0;
+        entry.textLayerDiv.replaceChildren();
+        entry.container.classList.remove('scanned');
+        entry.status = 'idle';
+      }
+      const i = renderQueue.length;
+      renderQueue.splice(0, i, ...renderQueue.filter(n => Math.abs(n - currentPage) <= KEEP_WINDOW + 1));
     }
 
-    function rerenderRendered() {
+    // Zoom / fit changed: invalidate in-flight renders, drop cached bitmaps, and
+    // re-render what is on screen at the new scale.
+    function rescaleAll() {
+      renderEpoch += 1;
+      renderQueue.length = 0;
       for (const entry of pages.values()) {
+        cancelRender(entry);
         entry.status = 'idle';
         entry.canvas.width = 0;
         entry.canvas.height = 0;
         entry.textLayerDiv.replaceChildren();
       }
-      // Re-render every page currently in view (the IntersectionObserver will
-      // not re-fire for elements that stay intersecting) plus the active page's
-      // neighbours, so a zoom/fit change repaints what the reader can see.
       const visible = [...visibilityRatios].filter(([, ratio]) => ratio > 0).map(([number]) => number);
-      const targets = new Set([...visible, currentPage - 1, currentPage, currentPage + 1]);
-      for (const number of targets) void renderPage(number);
+      for (const number of new Set([currentPage, ...visible, currentPage - 1, currentPage + 1])) requestRender(number);
     }
 
     /* IntersectionObserver renders pages as they approach the viewport and keeps
@@ -1224,10 +1298,9 @@
     const pageObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
-        const number = Number(entry.target.dataset.pageNumber);
-        void renderPage(number);
+        requestRender(Number(entry.target.dataset.pageNumber));
       }
-    }, { root: viewer, rootMargin: '600px 0px' });
+    }, { root: viewer, rootMargin: '300px 0px' });
 
     const visibilityRatios = new Map();
     const visibilityObserver = new IntersectionObserver((entries) => {
@@ -1249,7 +1322,13 @@
         if (document.activeElement !== pageInput) pageInput.value = String(currentPage);
         updateNavButtons();
         updateZoomLabel();
+        // Prefetch immediate neighbours.
+        requestRender(currentPage - 1);
+        requestRender(currentPage + 1);
       }
+      // Always run — fast scrolling paints pages between currentPage changes,
+      // and their off-heap canvas memory must be reclaimed to avoid an OOM crash.
+      evictDistantPages();
       schedulePositionSave();
     }
 
@@ -1272,7 +1351,8 @@
       if (!entry) return;
       currentPage = target;
       pageInput.value = String(target);
-      void renderAround(target);
+      requestRender(target);
+      requestRender(target + 1);
       entry.container.scrollIntoView({ behavior, block: 'start' });
       updateNavButtons();
     }
@@ -1281,7 +1361,7 @@
       const reference = pages.get(currentPage);
       const base = reference?.shownScale || 1;
       currentScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, nextScale ?? base));
-      rerenderRendered();
+      rescaleAll();
       updateZoomLabel();
     }
 
@@ -1311,7 +1391,7 @@
     pageInput?.addEventListener('keydown', (event) => { if (event.key === 'Enter') goToPage(Number(pageInput.value)); });
     zoomInBtn?.addEventListener('click', () => setScale((pages.get(currentPage)?.shownScale || 1) * 1.2));
     zoomOutBtn?.addEventListener('click', () => setScale((pages.get(currentPage)?.shownScale || 1) / 1.2));
-    fitWidthBtn?.addEventListener('click', () => { currentScale = 0; rerenderRendered(); updateZoomLabel(); });
+    fitWidthBtn?.addEventListener('click', () => { currentScale = 0; rescaleAll(); updateZoomLabel(); });
 
     window.addEventListener(settingsChangeEvent, syncFromSettingsEvent);
     window.addEventListener('storage', (event) => {
@@ -1339,7 +1419,7 @@
     window.addEventListener('resize', () => {
       if (!pdfDoc || currentScale) return; // only fit-width tracks the viewport
       if (resizeTimer) window.clearTimeout(resizeTimer);
-      resizeTimer = window.setTimeout(() => rerenderRendered(), 200);
+      resizeTimer = window.setTimeout(() => rescaleAll(), 200);
     });
 
     window.addEventListener('pagehide', () => {

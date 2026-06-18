@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.3] - 2026-06-18
+
+### Fixed
+
+- PDF reader: large and scanned PDFs (e.g. 90–130 MB image-heavy workbooks) could crash the tab and render upside-down with the page stuck in a black corner. The renderer now bakes device-pixel scaling into the page viewport instead of a canvas transform (fixes the orientation/black-corner artifact), **caps each canvas to a safe pixel budget and maximum dimension** so it never exceeds the browser's canvas limit, **cancels in-flight renders** when you zoom/fit/resize (fixes the "Cannot use the same canvas during multiple render() operations" crash), **evicts off-screen pages** and **limits render concurrency** so memory stays bounded on 200+ page books, and renders the first page immediately instead of a batch. Opening, zooming, and scrolling large PDFs are now fast and stable.
+
 ## [1.4.2] - 2026-06-18
 
 ### Fixed

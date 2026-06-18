@@ -110,7 +110,7 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
   </a>
   <a class="yomu-link-card" href="/yomu-reader/pdf-reader/index.html">
     <strong>Open PDF reader</strong>
-    <span>Open any PDF and read it with よむ lookup. Files stay on your device.</span>
+    <span>Open any PDF and read it with よむ lookup, mining, and OCR.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/local-audio">
     <strong>Add audio</strong>

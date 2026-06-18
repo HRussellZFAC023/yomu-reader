@@ -108,7 +108,7 @@ Open the hosted PDF reader from the userscript menu or this URL:
 https://hrussellzfac023.github.io/yomu-reader/pdf-reader/index.html
 ```
 
-Open or drop any PDF and read it with よむ. Pages render with [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0, vendored under `docs/public/pdf-reader/vendor/`): each page is drawn to a canvas for full fidelity — images, figures, multi-column layouts, CJK fonts via cMaps, and scanned-image codecs (JBIG2/JPEG2000) — with a selectable text layer over it that よむ scans for popup lookup, mining, and furigana. Image-only/scanned pages fall through to よむ's OCR. The file is opened locally in the browser tab and never uploaded. The reader remembers your last page per document, and zoom/fit, page navigation, theme, accent, and interface language follow your よむ settings.
+Open or drop any PDF and read it with よむ. Pages render with [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0, vendored under `docs/public/pdf-reader/vendor/`): each page is drawn to a canvas for full fidelity — images, figures, multi-column layouts, CJK fonts via cMaps, and scanned-image codecs (JBIG2/JPEG2000) — with a selectable text layer over it that よむ scans for popup lookup, mining, and furigana. Image-only/scanned pages fall through to よむ's OCR. Large and scanned books stay responsive via capped-resolution canvases and off-screen page eviction. The reader remembers your last page per document, and zoom/fit, page navigation, theme, accent, and interface language follow your よむ settings.
 
 ## New Tab
 
