@@ -1,5 +1,5 @@
 import { AudioPlayer } from '../audio/player';
-import { isYomuHostedAppUrl } from './pages';
+import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './pages';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki/index';
 import { renderReviewButtons } from '../anki/render';
 import { runLimited } from '../core/async-utils';
@@ -1035,6 +1035,12 @@ export class ReaderApp {
         if (!isThemeSyncHost()) return;
         this.initHostThemeSync();
         window.clearTimeout(this.hostThemeEnforceTimer);
+        if (isYomuHostedPassivePage(location.href)) {
+            const theme = settings.theme === 'auto' ? detectHostTheme() : settings.theme;
+            applyHostTheme(theme);
+            this.applyReaderThemeClasses(theme);
+            return;
+        }
         if (isHostThemeAuthoritative()) {
             const hostTheme = detectHostTheme();
             this.applyReaderThemeClasses(hostTheme);
@@ -1063,6 +1069,13 @@ export class ReaderApp {
     private handleHostThemeChange(hostTheme: HostTheme): void {
         if (this.isDestroyed) return;
         const setting = this.settings.theme;
+        if (isYomuHostedPassivePage(location.href)) {
+            const theme = setting === 'auto' ? hostTheme : setting;
+            applyHostTheme(theme);
+            this.applyReaderThemeClasses(theme);
+            refreshReaderWordContrast(document);
+            return;
+        }
         if (setting === hostTheme) return;
         if ((setting === 'light' || setting === 'dark') && jitenThemeCookieMatches(setting)) {
             applyHostTheme(setting);
@@ -3426,20 +3439,7 @@ export class ReaderApp {
     }
 
     private async publicLookupFallbackCard(card: JPDBCard, options: Pick<PitchEnrichmentOptions, 'publicLookupTermLimit'> = {}): Promise<JPDBCard | undefined> {
-        const terms = fallbackLookupTermsForCard(card);
-        const limitedTerms = typeof options.publicLookupTermLimit === 'number'
-            ? terms.slice(0, Math.max(1, Math.floor(options.publicLookupTermLimit)))
-            : terms;
-        for (const term of limitedTerms) {
-            const jitenCard = await this.jitenPublicVocabulary?.lookup(term).catch(error => {
-                log.warn('Public Jiten fallback lookup failed', { term }, error);
-                return null;
-            });
-            if (jitenCard) return jitenCard;
-            const publicCard = await this.publicLookupSpellingCard(term);
-            if (publicCard) return publicCard;
-        }
-        return undefined;
+        return (await this.publicLookupFallbackCards([card], options)).get(cardKey(card));
     }
 
     private async publicLookupFallbackCards(
@@ -3484,13 +3484,15 @@ export class ReaderApp {
     }
 
     private async jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
-        for (const term of fallbackLookupTermsForCard(card)) {
-            const parsed = await this.jiten.parse([term]).catch(error => {
-                log.warn('Jiten fallback lookup failed', { term }, error);
-                return [];
-            });
-            const candidate = parsed[0]?.find(token => jitenFallbackTokenMatches(term, token))?.card
-                ?? parsed[0]?.find(token => token.card.source === 'jiten')?.card;
+        const terms = fallbackLookupTermsForCard(card);
+        const parsed = await this.jiten.parse(terms).catch(error => {
+            log.warn('Jiten fallback lookup failed', { terms: terms.length }, error);
+            return [];
+        });
+        for (const [index, term] of terms.entries()) {
+            const tokens = parsed[index] ?? [];
+            const candidate = tokens.find(token => jitenFallbackTokenMatches(term, token))?.card
+                ?? tokens.find(token => token.card.source === 'jiten')?.card;
             if (candidate?.source === 'jiten') return candidate;
         }
         return undefined;

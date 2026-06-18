@@ -2300,6 +2300,7 @@ function configurePublicVocabularyEnrichment(app: ReaderApp, options: {
         parser: { cacheCards: typeof cacheCards };
         enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
         enrichJpdbRelatedWords(root: ParentNode): void;
+        publicLookupFallbackCard(card: JPDBCard, options?: { publicLookupTermLimit?: number }): Promise<JPDBCard | undefined>;
     };
     internals.settings = {
         ...DEFAULT_SETTINGS,
@@ -7258,7 +7259,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses Jiten parsing when a Jiten key is configured without a JPDB key', async () => {
+    it('uses one Jiten reader parse request for the full paragraph batch', async () => {
         const jitenTokens: JPDBToken[][] = [[{
             card: jitenTestCard(),
             start: 2,
@@ -7267,6 +7268,14 @@ describe('reader helpers', () => {
             rubies: [],
             pitchClass: 'heiban',
             sentence: '本を読む。',
+        }], [{
+            card: { ...jitenTestCard(), spelling: '見る', reading: 'みる' },
+            start: 2,
+            end: 4,
+            length: 2,
+            rubies: [],
+            pitchClass: 'atamadaka',
+            sentence: '猫を見る。',
         }]];
         const parse = vi.fn(async () => jitenTokens);
         const jpdbParse = vi.fn();
@@ -7283,8 +7292,9 @@ describe('reader helpers', () => {
             dictionaries: { findTermMatches } as never,
         });
 
-        await expect(parser.parse(['本を読む。'])).resolves.toBe(jitenTokens);
-        expect(parse).toHaveBeenCalledWith(['本を読む。']);
+        await expect(parser.parse(['本を読む。', '猫を見る。'])).resolves.toBe(jitenTokens);
+        expect(parse).toHaveBeenCalledTimes(1);
+        expect(parse).toHaveBeenCalledWith(['本を読む。', '猫を見る。']);
         expect(jpdbParse).not.toHaveBeenCalled();
         expect(findTermMatches).not.toHaveBeenCalled();
     });
@@ -19356,6 +19366,38 @@ describe('reader helpers', () => {
         }
     });
 
+    it('does not mirror passive hosted docs class drift back into saved theme settings', () => {
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+            pathname: '/yomu-reader/',
+        });
+        document.documentElement.classList.remove('dark');
+        const app = new ReaderApp();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            handleHostThemeChange(theme: 'dark' | 'light'): void;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            theme: 'dark',
+        };
+
+        try {
+            internals.handleHostThemeChange('light');
+
+            expect(internals.settings.theme).toBe('dark');
+            expect(document.documentElement.classList.contains('dark')).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-reader-theme-dark')).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(false);
+        } finally {
+            app.destroy();
+            vi.unstubAllGlobals();
+            document.documentElement.classList.remove('dark', 'jpdb-reader-theme-light', 'jpdb-reader-theme-dark');
+        }
+    });
+
     it('segments modal popover Japanese without a JPDB API key', async () => {
         const app = new ReaderApp();
         const popover = document.createElement('div');
@@ -27380,6 +27422,89 @@ describe('reader helpers', () => {
         } finally {
             firstWord.remove();
             secondWord.remove();
+            app.destroy();
+        }
+    });
+
+    it('uses batched public Jiten lookup for single fallback card resolution', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -1556420,
+            sid: -1556420,
+            spelling: '読みました',
+            fallbackLookupTerms: ['読む'],
+        });
+        const publicCard = jitenTestCard({
+            vid: 1556420,
+            sid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+            pitchAccent: ['HL'],
+        });
+
+        const search = vi.fn(async () => []);
+        const jitenLookup = vi.fn(async () => null);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('読む') ? [['読む', publicCard]] : [],
+        ));
+        const { internals } = configurePublicVocabularyEnrichment(app, {
+            search,
+            jitenLookup,
+            jitenLookupMany,
+            settings: { apiKey: '', localDictionariesEnabled: false },
+        });
+
+        try {
+            await expect(internals.publicLookupFallbackCard(fallbackCard)).resolves.toBe(publicCard);
+
+            expect(jitenLookupMany).toHaveBeenCalledTimes(1);
+            const [terms] = jitenLookupMany.mock.calls[0] ?? [[]];
+            expect(terms).toContain('読む');
+            expect(terms).toContain('読みました');
+            expect(jitenLookup).not.toHaveBeenCalled();
+            expect(search).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('uses one Jiten reader parse request for fallback candidate spellings', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -1556420,
+            sid: -1556420,
+            spelling: '読みました',
+            fallbackLookupTerms: ['読む'],
+        });
+        const publicCard = jitenTestCard({
+            vid: 1556420,
+            sid: 0,
+            spelling: '読む',
+            reading: 'よむ',
+        });
+        const parse = vi.fn(async (terms: string[]) => terms.map(term => term === '読む' ? [{
+            card: publicCard,
+            start: 0,
+            end: term.length,
+            length: term.length,
+            rubies: [],
+            pitchClass: 'atamadaka',
+            sentence: term,
+        }] : []));
+        const internals = app as unknown as {
+            jiten: { parse: typeof parse };
+            jitenLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined>;
+        };
+        internals.jiten = { parse };
+
+        try {
+            await expect(internals.jitenLookupFallbackCard(fallbackCard)).resolves.toBe(publicCard);
+
+            expect(parse).toHaveBeenCalledTimes(1);
+            const [terms] = parse.mock.calls[0] ?? [[]];
+            expect(terms).toContain('読む');
+            expect(terms).toContain('読みました');
+        } finally {
             app.destroy();
         }
     });

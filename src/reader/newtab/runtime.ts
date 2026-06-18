@@ -1695,21 +1695,7 @@ export class NewTabRuntime {
     }
 
     private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
-        if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return undefined;
-        for (const term of fallbackLookupTermsForCard(card)) {
-            const jitenCard = await this.jitenPublicVocabulary?.lookup(term).catch(error => {
-                log.warn('Public Jiten fallback search failed', { term }, error);
-                return null;
-            });
-            if (jitenCard) return jitenCard;
-            const cards = await this.jpdbVocabulary.search(term, 1).catch(error => {
-                log.warn('Public JPDB fallback search failed', { term }, error);
-                return [];
-            });
-            const publicCard = cards.find(candidate => candidate.spelling === term);
-            if (publicCard) return publicCard;
-        }
-        return undefined;
+        return (await this.publicLookupFallbackCards([card])).get(cardKey(card));
     }
 
     private async publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {

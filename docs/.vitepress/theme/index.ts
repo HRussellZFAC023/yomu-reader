@@ -59,6 +59,7 @@ let hostedThemeSyncBound = false;
 let hostedThemeIsDark: Ref<boolean> | undefined;
 let hostedSettingsEventPatch: Record<string, any> = {};
 let themeClassObserver: MutationObserver | undefined;
+let hostedThemeClassObserver: MutationObserver | undefined;
 let hostedDocsShellSyncPending = false;
 let hostedDocsLocalizationPending = false;
 let hostedDocsLocalizationResetPending = false;
@@ -1494,11 +1495,22 @@ function installHostedThemeSync(isDark: Ref<boolean>): void {
     window.matchMedia?.('(prefers-color-scheme: dark)').addEventListener('change', () => {
         if (readStoredThemePreference() === 'auto') syncHostedThemeFromSettings();
     });
+    hostedThemeClassObserver = new MutationObserver(() => {
+        const preference = readStoredThemePreference();
+        if (preference === 'auto') return;
+        const dark = document.documentElement.classList.contains('dark');
+        if ((preference === 'dark') === dark) return;
+        window.requestAnimationFrame(() => {
+            if (readStoredThemePreference() === preference) syncHostedThemeFromSettings(preference);
+        });
+    });
+    hostedThemeClassObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
 }
 
-function installHostedAppearanceProvider(isDark: Ref<boolean>): void {
+function installHostedAppearanceProvider(): void {
     provide('toggle-appearance', () => {
-        setHostedThemePreference(isDark.value ? 'light' : 'dark');
+        const current = effectiveHostedTheme(readStoredThemePreference());
+        setHostedThemePreference(current === 'dark' ? 'light' : 'dark');
     });
 }
 
@@ -1968,7 +1980,7 @@ const YomuLayout = defineComponent({
     name: 'YomuLayout',
     setup(_, { slots }) {
         const { isDark } = useData();
-        installHostedAppearanceProvider(isDark);
+        installHostedAppearanceProvider();
         onMounted(() => {
             installHostedThemeSync(isDark);
             installHostedDocsEnhancements();
