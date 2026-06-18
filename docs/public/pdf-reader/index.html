@@ -89,7 +89,7 @@
       min-height: 100vh;
       min-height: 100dvh;
       margin: 0;
-      background: var(--bg);
+      background: var(--stage-bg);
       color: var(--ink);
       overflow-x: hidden;
     }
@@ -334,10 +334,17 @@
       min-height: 100vh;
       min-height: 100dvh;
       margin: 0;
-      display: grid;
-      grid-template-rows: auto auto 1fr;
-      align-content: stretch;
-      gap: 0;
+      display: block;
+    }
+
+    /* Sticky chrome: the brand bar and document toolbar stay pinned while the
+       page itself scrolls natively (mouse wheel / trackpad / keyboard just work,
+       no inner scroll container to fight). */
+    .chrome {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--bg);
     }
 
     .topbar {
@@ -433,16 +440,12 @@
     .viewer {
       position: relative;
       min-width: 0;
-      min-height: 0;
-      overflow: auto;
-      overscroll-behavior: contain;
       background: var(--stage-bg);
       padding: 18px 12px 48px;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 16px;
-      -webkit-overflow-scrolling: touch;
     }
 
     .pdf-page {
@@ -481,10 +484,10 @@
     }
 
     .empty {
-      grid-row: 3;
       width: auto;
       position: relative;
       margin: 18px;
+      min-height: calc(100dvh - 100px);
       display: grid;
       place-items: center;
       border: 2px dashed var(--line);
@@ -616,6 +619,7 @@
 </head>
 <body>
   <main class="app" data-app>
+    <div class="chrome">
     <header class="topbar">
       <a class="brand" href="../" aria-label="Open Yomu home">
         <img src="../yomu-icon.svg" alt="" width="36" height="36" data-yomu-brand-icon>
@@ -668,6 +672,7 @@
         <button class="toolbar-button" type="button" data-fit-width data-fit-label>Fit width</button>
       </div>
     </nav>
+    </div>
 
     <section class="viewer" data-viewer aria-label="PDF document"></section>
 
@@ -732,6 +737,7 @@
     const MAX_CANVAS_DIM = 4096;
     const KEEP_WINDOW = 2;            // render only currentPage ± this; evict the rest to bound memory
     const MAX_CONCURRENT_RENDERS = 2; // large scanned books otherwise spike memory and crash the tab
+    const MAX_FIT_WIDTH_PX = 820;     // cap fit-width to a readable column so wide monitors don't over-zoom
 
     let runtimeLoadPromise = null;
     let pdfDoc = null;
@@ -1144,7 +1150,10 @@
     }
 
     function fitWidthScale(baseViewport) {
-      const available = viewer.clientWidth - 28; // padding allowance
+      // Fit the page to a comfortable reading column, not the full window — on a
+      // wide monitor true fit-width blows a small page up to 300%+. Cap the target
+      // width so the default lands at a readable size and the page centres.
+      const available = Math.min(viewer.clientWidth - 28, MAX_FIT_WIDTH_PX);
       if (available <= 0) return 1;
       return Math.max(MIN_SCALE, Math.min(MAX_SCALE, available / baseViewport.width));
     }
@@ -1207,6 +1216,8 @@
         const baseViewport = page.getViewport({ scale: 1 });
         const cssScale = currentScale || fitWidthScale(baseViewport);
         entry.shownScale = cssScale;
+        entry.baseW = baseViewport.width;
+        entry.baseH = baseViewport.height;
         const cssWidth = Math.floor(baseViewport.width * cssScale);
         const cssHeight = Math.floor(baseViewport.height * cssScale);
         entry.container.style.width = `${cssWidth}px`;
@@ -1214,9 +1225,11 @@
 
         // Render the bitmap at a capped device-pixel resolution (no transform
         // matrix — the viewport scale carries everything; the CSS box downsamples).
+        // Paint into a DETACHED canvas and swap it in only once it is ready, so the
+        // visible page keeps its old bitmap (no black flash) while zooming.
         const renderScale = cappedRenderScale(cssScale, baseViewport);
         const renderViewport = page.getViewport({ scale: renderScale });
-        const canvas = entry.canvas;
+        const canvas = document.createElement('canvas');
         canvas.width = Math.floor(renderViewport.width);
         canvas.height = Math.floor(renderViewport.height);
         const context = canvas.getContext('2d', { alpha: false });
@@ -1225,6 +1238,8 @@
         await task.promise;
         entry.renderTask = null;
         if (epoch !== renderEpoch) { entry.status = 'idle'; return; }
+        entry.canvas.replaceWith(canvas);
+        entry.canvas = canvas;
 
         // Text layer overlays the CSS box, so it uses the (un-capped) CSS scale.
         const textViewport = page.getViewport({ scale: cssScale });
@@ -1285,9 +1300,15 @@
       for (const entry of pages.values()) {
         cancelRender(entry);
         entry.status = 'idle';
-        entry.canvas.width = 0;
-        entry.canvas.height = 0;
         entry.textLayerDiv.replaceChildren();
+        // Resize the box to the new scale up front (for pages we've measured) so
+        // the scroll height stays consistent; keep the old bitmap visible (CSS-
+        // scaled) until the fresh render swaps in — no black flash.
+        if (entry.baseW) {
+          const s = currentScale || fitWidthScale({ width: entry.baseW, height: entry.baseH });
+          entry.container.style.width = `${Math.floor(entry.baseW * s)}px`;
+          entry.container.style.height = `${Math.floor(entry.baseH * s)}px`;
+        }
       }
       const visible = [...visibilityRatios].filter(([, ratio]) => ratio > 0).map(([number]) => number);
       for (const number of new Set([currentPage, ...visible, currentPage - 1, currentPage + 1])) requestRender(number);
@@ -1300,7 +1321,7 @@
         if (!entry.isIntersecting) continue;
         requestRender(Number(entry.target.dataset.pageNumber));
       }
-    }, { root: viewer, rootMargin: '300px 0px' });
+    }, { root: null, rootMargin: '300px 0px' });
 
     const visibilityRatios = new Map();
     const visibilityObserver = new IntersectionObserver((entries) => {
@@ -1309,7 +1330,7 @@
         visibilityRatios.set(number, entry.isIntersecting ? entry.intersectionRatio : 0);
       }
       updateCurrentPageFromScroll();
-    }, { root: viewer, threshold: [0, 0.25, 0.5, 0.75, 1] });
+    }, { root: null, threshold: [0, 0.25, 0.5, 0.75, 1] });
 
     function updateCurrentPageFromScroll() {
       let best = currentPage;

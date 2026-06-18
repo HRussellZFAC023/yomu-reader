@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { isYomuHostedPdfReaderPage } from '../../src/reader/app/pages';
-import { collectScanTargets, getMatchingSiteParsers } from '../../src/reader/app/site-parsers';
+import { collectScanTargets, getMatchingSiteParsers, siteProvidesNativeTextLayer } from '../../src/reader/app/site-parsers';
 
 // The hosted PDF reader renders each page to <canvas> (fidelity) plus PDF.js's
 // transparent, absolutely-positioned text layer (real selectable text). The
@@ -31,6 +31,13 @@ describe('hosted PDF reader route + parser', () => {
         expect(parser).toBeDefined();
         expect(parser?.roots).toContain('.textLayer');
         expect(getMatchingSiteParsers(LOCAL_PDF_URL).some(p => p.id === 'yomu-pdf-reader-parser')).toBe(true);
+    });
+
+    it('marks the PDF reader as providing a native text layer so image-OCR does not double-paint', () => {
+        const parser = getMatchingSiteParsers(HOSTED_PDF_URL).find(p => p.id === 'yomu-pdf-reader-parser');
+        expect(parser?.providesTextLayer).toBe(true);
+        expect(siteProvidesNativeTextLayer(HOSTED_PDF_URL)).toBe(true);
+        expect(siteProvidesNativeTextLayer(LOCAL_PDF_URL)).toBe(true);
     });
 
     it('scans Japanese text inside the PDF.js text layer', () => {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.4
+// @version      1.4.5
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.4#sha256-0+U3nwtSo+lLCZP2C8uUJepRt5XdzO0xrbfiuJNMKyQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.4#sha256-mTPMAf6SlF6Go1AsZxn6GMyxj0nbM1xdc9KNrkWNcSE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.4#sha256-EGxO1nH46tlifVfn3iZw4IVgCcUBbP8xRl98I4mGGKI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.4#sha256-ilY0QRioFTupUqU5xG6CGne3dcm/evwUKjwxpiOEvH0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.5#sha256-0+U3nwtSo+lLCZP2C8uUJepRt5XdzO0xrbfiuJNMKyQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.5#sha256-mTPMAf6SlF6Go1AsZxn6GMyxj0nbM1xdc9KNrkWNcSE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.5#sha256-EGxO1nH46tlifVfn3iZw4IVgCcUBbP8xRl98I4mGGKI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.5#sha256-ilY0QRioFTupUqU5xG6CGne3dcm/evwUKjwxpiOEvH0=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -31443,6 +31443,12 @@ ${normalizedReading}`;
       minLength: 1,
       includeUiChrome: true,
       includeFormChrome: true,
+      // PDF.js paints an accurate selectable text layer over each page, so the
+      // runtime reads that natively (popups/furigana/mining) and must NOT also
+      // run Google Lens image-OCR over the same canvas — re-OCRing double-paints
+      // a competing overlay over text that is already covered. Manual FAB OCR
+      // still works for genuinely scanned pages with no text layer.
+      providesTextLayer: true,
       matches: (url) => isYomuHostedPdfReaderPage(url.href)
     },
     {

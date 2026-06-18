@@ -439,6 +439,12 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         minLength: 1,
         includeUiChrome: true,
         includeFormChrome: true,
+        // PDF.js paints an accurate selectable text layer over each page, so the
+        // runtime reads that natively (popups/furigana/mining) and must NOT also
+        // run Google Lens image-OCR over the same canvas — re-OCRing double-paints
+        // a competing overlay over text that is already covered. Manual FAB OCR
+        // still works for genuinely scanned pages with no text layer.
+        providesTextLayer: true,
         matches: url => isYomuHostedPdfReaderPage(url.href),
     },
     {

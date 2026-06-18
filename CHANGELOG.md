@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.5] - 2026-06-18
+
+### Changed
+
+- PDF reader is now more native to よむ and far smoother to read:
+  - **No more competing OCR overlay.** PDF.js exposes an accurate selectable text layer, so the runtime reads it natively (popups, furigana, mining) and no longer also runs image-OCR over the same page — the chaotic double-painted OCR boxes are gone. Manual OCR still works for genuinely scanned pages with no text layer.
+  - **Native page scrolling with a sticky toolbar.** The document scrolls with the page (mouse wheel / trackpad / keyboard just work) instead of an inner scroll box, and the brand bar + page/zoom controls stay pinned at the top.
+  - **Sensible default zoom.** Fit-width is capped to a readable column so a small page no longer balloons to 300%+ on wide monitors.
+  - **No black flash when zooming.** Pages are re-rendered into an off-screen canvas and swapped in only when ready, so the visible page never blanks to black mid-zoom.
+
 ## [1.4.4] - 2026-06-18
 
 ### Added
