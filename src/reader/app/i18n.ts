@@ -9,7 +9,7 @@ const COPY = {
         settingsTitle: `${APP_NAME} Settings`,
         welcomeLabel: `${APP_NAME} welcome`,
         onboardingEyebrow: 'Japanese, wherever it appears',
-        onboardingCopy: 'Make Japanese text, subtitles, and images tappable while you read.',
+        onboardingCopy: 'Make Japanese text, subtitles, and images tappable.',
         onboardingLanguage: 'Settings language',
         onboardingAccentColor: 'Accent color',
         customAccentColor: 'Custom color',
@@ -27,7 +27,7 @@ const COPY = {
         featureControl: 'Control',
         featureControlBody: 'Tune features, shortcuts, and color.',
         featureStudy: 'Study',
-        featureStudyBody: 'Review JPDB, Anki, Jiten, and optional kanji cards in order on the built-in study page.',
+        featureStudyBody: 'Review Jiten, JPDB, Anki, and optional kanji cards in order on the built-in study page.',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
         jpdbScanFailed: 'Page scan failed.',
@@ -68,14 +68,14 @@ const COPY = {
         apiKey: 'API key',
         jitenApiKey: 'Jiten API key',
         apiAccess: 'API access',
-        apiAccessHelp: 'Paste a JPDB or Jiten API key. Jiten keys start with ak_.',
+        apiAccessHelp: 'Paste a Jiten or JPDB API key. Jiten starts with ak_.',
         jpdbSettings: 'JPDB settings',
         jitenSettings: 'Jiten settings',
         jpdbApiKeyConfigured: 'JPDB key set.',
-        jpdbAndJitenApiKeysConfigured: 'JPDB and Jiten keys are set.',
+        jpdbAndJitenApiKeysConfigured: 'Jiten and JPDB keys are set.',
         jpdbApiKeyMissing: 'No JPDB key.',
         jpdbConnected: 'Connected to JPDB.',
-        jpdbAndJitenConnected: 'Connected to JPDB and Jiten.',
+        jpdbAndJitenConnected: 'Connected to Jiten and JPDB.',
         jpdbConnectionFailed: 'JPDB did not accept the key (network or invalid key).',
         jitenApiKeyConfigured: 'Jiten key set.',
         jitenApiKeyMissing: 'No Jiten key.',
@@ -137,7 +137,7 @@ const COPY = {
         newTabAnkiReviewDecksHelp: 'Uncheck decks to skip.',
         newTabSource: 'Study review source',
         newTabAuto: 'Auto: API/Anki, then study words',
-        newTabApiSrs: 'API SRS (JPDB / Jiten)',
+        newTabApiSrs: 'API SRS (Jiten / JPDB)',
         dictionaryFallback: 'Dictionary fallback',
         newTabJpdbReviewMode: 'API review mode',
         newTabJpdbReviewAuto: 'Auto: live kanji + API vocabulary',
@@ -147,7 +147,7 @@ const COPY = {
         newTabKanjiKeywordSource: 'Kanji keyword source',
         newTabKanjiKeywordAuto: 'Auto: RTK, then {service} kanji facts, then local',
         newTabKanjiKeywordRtk: 'RTK / Heisig',
-        newTabKanjiKeywordApiFacts: '{service} kanji facts (JPDB / Jiten)',
+        newTabKanjiKeywordApiFacts: '{service} kanji facts (Jiten / JPDB)',
         newTabKanjiKeywordLocal: 'Local card meaning',
         newTabParsingEnabled: 'Enable sentence parsing on Study',
         newTabFrontSentenceEnabled: 'Show sentence on word fronts',
@@ -160,8 +160,8 @@ const COPY = {
         newTabStopAtBatchEnd: 'Stop at the end of each batch',
         newTabSwipeReviews: 'Swipe cards to grade (left = fail, right = pass)',
         newTabUrl: 'Study address',
-        newTabOfflineHelp: 'Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.',
-        newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
+        newTabOfflineHelp: 'Caches due cards and queued grades.',
+        newTabAddressHelp: 'Use as a start page or add to iPad Home Screen.',
         newTabJpdbDeck: 'Study JPDB deck',
         openNewTabPage: 'Open Study',
         copyAddress: 'Copy address',
@@ -284,16 +284,16 @@ const COPY = {
         defaultVoiceSuffix: 'default',
         audioGuideLinkLabel: 'Yomitan audio guide',
         audioProxyGuideSummary: 'Make your own Cloudflare proxy',
-        audioProxyGuideIntro: 'Public proxy works for most users. Use Worker for private proxy.',
-        audioProxyGuideCloudflare: 'Open Cloudflare Dashboard.',
+        audioProxyGuideIntro: 'Use a Worker when you want a private proxy.',
+        audioProxyGuideCloudflare: 'Open Cloudflare.',
         audioProxyGuideWorkers: 'Open Workers & Pages, then Create.',
-        audioProxyGuideCreateWorker: 'Choose Worker, name it, and deploy.',
-        audioProxyGuideEditCode: 'Edit code and paste the Yomu Worker source.',
+        audioProxyGuideCreateWorker: 'Choose Worker, name it, deploy.',
+        audioProxyGuideEditCode: 'Paste the Yomu Worker source.',
         audioProxyGuideDeploy: 'Deploy.',
-        audioProxyGuideCopyUrl: 'Copy the Worker URL, e.g. https://yomu-proxy.yourname.workers.dev.',
-        audioProxyGuidePasteUrl: 'Paste it into Cross-origin proxy URL. Do not add ?url=.',
-        audioProxyGuideTest: 'Save, then try lookup, import, or external audio.',
-        audioProxyGuideNote: 'Worker source is in the repo. Limit hosts before sharing.',
+        audioProxyGuideCopyUrl: 'Copy the Worker URL.',
+        audioProxyGuidePasteUrl: 'Paste it into Cross-origin proxy URL.',
+        audioProxyGuideTest: 'Save, then test lookup/import/audio.',
+        audioProxyGuideNote: 'Limit hosts before sharing.',
         audioProxyWorkerSource: 'Worker source',
         audioProxyDeployGuide: 'Deploy guide',
         immersionKit: 'Immersion Kit',
@@ -318,22 +318,22 @@ const COPY = {
         immersionKitMaxLength: 'Maximum sentence length',
         immersionKitPlaybackRate: 'Example audio speed',
         immersionKitExactMatch: 'Prefer exact matches',
-        immersionKitHelp: 'Examples appear in popups and JPDB. Nadeshiko needs a key.',
+        immersionKitHelp: 'Examples appear in popups. Nadeshiko needs a key.',
         loadingExamples: 'Loading examples...',
         noImmersionExamples: 'No Immersion Kit examples found.',
         noImmersionExamplesCompact: 'No examples',
-        immersionKitRateLimited: 'Immersion Kit is temporarily rate-limited; retrying later.',
+        immersionKitRateLimited: 'Immersion Kit rate-limited; retrying later.',
         immersionKitRequest: 'Immersion Kit request',
         immersionKitRequestFailed: 'Immersion Kit request failed.',
         immersionKitRequestFailedWithStatus: 'Immersion Kit request failed ({status}).',
         immersionKitRequestTimedOut: 'Immersion Kit request timed out.',
-        immersionKitSearchBlocked: 'Immersion Kit is blocked here. Configure CORS or use fallback.',
+        immersionKitSearchBlocked: 'Immersion Kit blocked. Configure CORS or use fallback.',
         immersionKitMediaRequest: 'Media request',
         immersionKitMediaRequestFailed: 'Media request failed.',
         immersionKitMediaRequestFailedWithStatus: 'Media request failed ({status}).',
         immersionKitMediaRequestTimedOut: 'Media request timed out.',
         immersionKitMediaRequestReturnedNonMedia: 'Media request returned an error document instead of audio or image.',
-        immersionKitNoMediaCandidate: 'No Immersion Kit media candidate could be loaded.',
+        immersionKitNoMediaCandidate: 'No Immersion Kit media loaded.',
         nadeshikoRequest: 'Nadeshiko request',
         nadeshikoRequestFailed: 'Nadeshiko request failed.',
         nadeshikoRequestFailedWithStatus: 'Nadeshiko request failed ({status}).',
@@ -350,13 +350,13 @@ const COPY = {
         randomOrder: 'Random',
         ocrEnabled: 'Read text in images',
         ocrAutoScanImages: 'Read images automatically',
-        ocrShowTextOverlay: 'Show recognized image text areas',
+        ocrShowTextOverlay: 'Show recognized text areas',
         ocrVideoPauseFrames: 'Read paused video frames',
         ocrInvertDarkPanels: 'Read light text on dark panels',
         ocrProvider: 'Image reading',
-        googleLens: 'Google Lens — free, no setup (recommended)',
-        cloudVision: 'Google Cloud Vision — needs API key',
-        localOcr: 'Local OCR server — advanced',
+        googleLens: 'Google Lens (free, recommended)',
+        cloudVision: 'Google Cloud Vision (API key)',
+        localOcr: 'Local OCR server',
         off: 'Off',
         ocrMaxImagesPerPage: 'Images to read per page',
         ocrMinImageArea: 'Smallest image to read',
@@ -371,7 +371,7 @@ const COPY = {
         sharper: 'Sharper',
         ocrTextColor: 'Image text color',
         ocrOutlineColor: 'Image text outline',
-        ocrBackgroundColor: 'Image highlight background',
+        ocrBackgroundColor: 'Image highlight',
         ocrBackgroundOpacity: 'Image highlight opacity',
         ocrFontScale: 'Image text scale',
         ocrEndpointUrl: 'Local OCR server URL',
@@ -380,21 +380,21 @@ const COPY = {
         ocrEngineMangaOcr: 'MangaOCR (best for manga)',
         ocrEngineAppleVision: 'Apple Vision (macOS)',
         cloudVisionApiKey: 'Google Cloud Vision API key',
-        ocrHelp: 'Reads images near the viewport. Google Lens works out of the box — no setup or key.',
-        ocrCloudHelp: 'Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled). Paste the key here.',
-        ocrLocalHelp: 'Advanced: runs OCR on your own computer — nothing leaves your device. Start a local OCR server that exposes an HTTP endpoint (e.g. MangaOCR, best for manga), then enter its URL. Most users should keep Google Lens.',
+        ocrHelp: 'Reads nearby images. Google Lens needs no setup.',
+        ocrCloudHelp: 'Paste a Google Cloud Vision API key.',
+        ocrLocalHelp: 'Run MangaOCR/Apple Vision locally and enter its URL.',
         subtitlePlayerEnabled: 'Enable video subtitle player',
         subtitleAutoDetect: 'Auto-detect page subtitles',
         subtitleOverlayVisible: 'Show subtitle overlay',
-        subtitleSecondaryVisible: 'Show native subtitles when available',
+        subtitleSecondaryVisible: 'Show native subtitles',
         subtitleNativeBlurred: 'Blur native subtitles until hover',
         subtitleKaraokeMode: 'Karaoke word timing',
         subtitleTranscriptVisible: 'Open transcript panel by default',
         subtitlePausePanel: 'Open side panel when paused',
         subtitleTranscriptPlacement: 'Transcript panel position',
         subtitleTranscriptAutoScroll: 'Scroll transcript with playback',
-        subtitleTranscriptAutoScrollResumeSeconds: 'Resume transcript auto-scroll after manual scroll (s)',
-        subtitleAutoCopyLine: 'Auto-copy each subtitle line as it plays',
+        subtitleTranscriptAutoScrollResumeSeconds: 'Resume auto-scroll after manual scroll (s)',
+        subtitleAutoCopyLine: 'Auto-copy subtitle lines',
         subtitleMiningPause: 'Pause video when mining subtitle',
         subtitleControlsMode: 'Subtitle controls',
         right: 'Right',
@@ -424,9 +424,9 @@ const COPY = {
         youtubeShowHiddenVideos: 'Show hidden videos',
         youtubeHideHiddenVideos: 'Hide hidden videos',
         youtubeHideNotice: 'Hide notice',
-        youtubeFilterShowing: '{appName} is showing {count} hidden YouTube item{plural}',
-        youtubeFilterHid: '{appName} hid {count} non-Japanese-looking YouTube item{plural}',
-        youtubeFilterVisible: '{count} Japanese-looking items stayed visible.',
+        youtubeFilterShowing: '{appName} shows {count} hidden item{plural}',
+        youtubeFilterHid: '{appName} hid {count} non-Japanese item{plural}',
+        youtubeFilterVisible: '{count} Japanese items stayed visible.',
         youtubeToggleToastOn: 'YouTube immersion filter enabled.',
         youtubeToggleToastOff: 'YouTube immersion filter disabled.',
         ankiEnabled: 'Enable Anki mining',
@@ -470,36 +470,36 @@ const COPY = {
         ankiCheckingConnection: 'Checking AnkiConnect at {url}.',
         ankiMiningDisabledStatus: 'Anki mining disabled.',
         ankiTesting: 'Checking AnkiConnect...',
-        ankiPreparing: 'Creating or refreshing the Yomu deck and note type...',
-        ankiScanning: 'Reading Anki decks, note types, and fields...',
-        ankiScanSummary: 'Decks {decks}, note types {models}. Best: {model}. {fields}',
+        ankiPreparing: 'Creating Yomu deck/note type...',
+        ankiScanning: 'Reading decks, note types, fields...',
+        ankiScanSummary: 'Decks {decks}, types {models}. Best: {model}. {fields}',
         ankiScanNoModels: 'Found {decks} decks. Note types unavailable.',
         ankiScanFieldSummary: 'Fields: {fields}',
-        ankiUnreachable: 'Open desktop Anki, enable AnkiConnect, then check again.',
-        ankiCorsBlocked: 'AnkiConnect is running but refuses this site. In Anki: Tools → Add-ons → AnkiConnect → Config, add "{origin}" to webCorsOriginList, then restart Anki.',
-        ankiSettingsUnreachable: 'AnkiConnect not reached. Open desktop Anki and check again.',
-        ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript, refresh the page, then check again.`,
+        ankiUnreachable: 'Open desktop Anki and check again.',
+        ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList, then restart Anki.',
+        ankiSettingsUnreachable: 'AnkiConnect not reached. Open Anki and retry.',
+        ankiHostedBridgeMissing: `Enable ${APP_NAME}, refresh, then check again.`,
         ankiStatusOpenDesktop: 'Open desktop Anki',
         ankiStatusInstallAddon: 'Install/enable AnkiConnect',
         ankiStatusMobileDocs: 'Mobile setup docs',
         ankiStatusUseDesktopUrl: 'Use the LAN/Tailscale URL on mobile',
-        ankiStatusEnableUserscript: `Enable the installed ${APP_NAME} userscript`,
+        ankiStatusEnableUserscript: `Enable installed ${APP_NAME}`,
         ankiStatusRefreshAndCheck: 'Refresh, then check again',
-        ankiHostedCorsHint: 'Advanced: direct browser access needs {origin} in AnkiConnect webCorsOriginList.',
+        ankiHostedCorsHint: 'Direct access needs {origin} in webCorsOriginList.',
         ankiLibraryAdapter: 'Existing library adapter',
         ankiLibraryAdapterStatus: 'Scans decks and note types, then suggests mappings.',
         ankiLibraryChoices: 'Deck and note type',
-        ankiLibraryChoicesHelp: 'Filled from AnkiConnect. Pick where mining creates or updates notes.',
+        ankiLibraryChoicesHelp: 'From AnkiConnect. Pick where mining saves notes.',
         ankiTemplateSettings: 'Yomu card template',
         ankiTemplateSettingsHelp: 'For Yomu note types. Imported templates stay in Anki.',
-        ankiMappingConfidenceHelp: 'Based on fields and samples. Edit low-confidence mappings.',
+        ankiMappingConfidenceHelp: 'Based on fields/samples. Edit low-confidence mappings.',
         ankiMappingHighConfidence: 'High',
         ankiMappingMediumConfidence: 'Medium',
         ankiMappingLowConfidence: 'Low',
         ankiHelp: 'Full Anki uses desktop AnkiConnect over LAN/Tailscale. Handoff only creates new notes.',
         jpdbDefinitionsEnabled: 'Show JPDB definitions',
         localDictionariesEnabled: 'Show imported dictionary definitions',
-        dictionarySourcesInitiallyExpanded: 'Open popup sources by default',
+        dictionarySourcesInitiallyExpanded: 'Open sources by default',
         localDictionaryMaxResults: 'Dictionary result limit',
         importSettings: 'Import settings JSON',
         exportSettings: 'Export settings JSON',
@@ -525,11 +525,11 @@ const COPY = {
         queued: 'Queued',
         saveAfterInstall: 'Save after install',
         download: 'Download',
-        downloadAndImport: 'Download and import into よむ',
+        downloadAndImport: 'Download and import',
         update: 'Update',
-        noLocalDictionaries: 'No local dictionaries yet. Download JMdict or import a Yomitan ZIP.',
+        noLocalDictionaries: 'No local dictionaries yet. Download or import a ZIP.',
         checkingDictionaries: 'Checking imported dictionaries...',
-        dictionaryOnlyJpdb: 'Only JPDB is enabled. Import Yomitan for local definitions.',
+        dictionaryOnlyJpdb: 'Only JPDB is enabled. Import Yomitan for local results.',
         dictionaryDownloading: 'Downloading',
         dictionaryReadingZip: 'Reading dictionary ZIP...',
         dictionaryCheckingIndex: 'Checking dictionary index...',
@@ -551,18 +551,18 @@ const COPY = {
         noLocalDictionariesImported: 'No local dictionaries imported yet.',
         dictionaryDownloadFailed: 'Dictionary download failed.',
         dictionaryDownloadTimedOut: 'Dictionary download timed out.',
-        dictionaryDownloadNotZip: 'Dictionary download did not return a ZIP file.',
-        dictionaryDownloadNeedsBridge: 'Download needs the userscript bridge; else import the ZIP.',
-        dictionaryDownloadBlocked: 'Download is blocked. Open the URL and import the ZIP manually.',
-        dictionaryManualDownloadHint: 'Enable the userscript, download again, or import the ZIP.',
-        dictionaryInstallQueueHelp: 'Installs take a few minutes. Save unlocks when done.',
-        dictionaryInstallQueued: '{dictionary} queued; installs after the current dictionary.',
+        dictionaryDownloadNotZip: 'Download was not a ZIP.',
+        dictionaryDownloadNeedsBridge: 'Download needs the bridge; else import the ZIP.',
+        dictionaryDownloadBlocked: 'Download is blocked. Import the ZIP manually.',
+        dictionaryManualDownloadHint: 'Enable the userscript or import the ZIP.',
+        dictionaryInstallQueueHelp: 'Installs take a few minutes.',
+        dictionaryInstallQueued: '{dictionary} queued after current install.',
         dictionaryInstallSaveBlocked: 'Dictionary import is running. Save unlocks when done.',
-        dictionaryImportQueueStatus: '{count} install{plural} running. Save unlocks when done.',
+        dictionaryImportQueueStatus: '{count} install{plural} running.',
         dictionaryRemoveConfirm: 'Remove "{dictionary}" and all of its imported entries?',
         dictionaryRemoving: 'Removing {dictionary}...',
         dictionaryRemoved: 'Removed {dictionary}.',
-        dictionaryImportComplete: 'Imported {records} records from {sources} dictionary source{plural}.',
+        dictionaryImportComplete: 'Imported {records} records from {sources} source{plural}.',
         dictionaryRecordsImported: '{dictionary}: {records} records imported.',
         settingsImported: 'Settings imported.',
         settingsImportedWithDetails: 'Settings imported; {details}.',
@@ -570,7 +570,7 @@ const COPY = {
         restoredStoredChoices: 'restored {count} stored choice{plural}',
         importedDictionaryRecordCount: 'imported {count} dictionary record{plural}',
         dictionaryNoSupportedBanks: 'No supported Yomitan dictionary banks found.',
-        dictionaryUnsupportedJson: 'Use Yomitan Dexie, dictionary ZIP, or reader export.',
+        dictionaryUnsupportedJson: 'Use Yomitan Dexie, ZIP, or reader export.',
         dictionaryZipMissingIndex: 'Yomitan dictionary ZIP is missing index.json.',
         yomitanSettingsInvalid: 'This does not look like a Yomitan settings export.',
         localDictionaryText: 'Dictionary text',
@@ -635,6 +635,7 @@ const COPY = {
         loadJapaneseSubtitles: 'Load Japanese subtitles',
         loadPrimarySubtitles: 'Load primary subtitles',
         loadNativeSubtitles: 'Load native subtitles',
+        searchAnimeSubtitles: 'Search anime subtitles',
         toggleNativeSubtitleBlur: 'Toggle native subtitle blur',
         subtitleTrackDetectedSingular: '1 subtitle track detected',
         subtitleTracksDetected: 'subtitle tracks detected',
@@ -756,7 +757,7 @@ const COPY = {
         switchReviewTarget: 'Switch review target',
         switchGradingProvider: 'Switch grading provider',
         jpdbKanjiUpdated: 'JPDB kanji updated.',
-        jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check JPDB kanji reviews are enabled.',
+        jpdbKanjiUpdateFailedRuntime: 'Could not update JPDB kanji. Check kanji reviews.',
         apiSrsActionsDisabled: 'API mining actions are disabled in settings.',
         addJpdbApiKeyReview: 'Add a JPDB API key to review JPDB cards.',
         addJitenApiKeyReview: 'Add a Jiten API key to review Jiten cards.',
@@ -807,11 +808,11 @@ const COPY = {
         factOldForms: 'Old forms',
         docs: 'Docs',
         factoryReset: 'Factory Reset',
-        factoryResetConfirm: 'Reset all {appName} data?\n\nDeletes settings, keys, cache, dictionaries, and storage.',
+        factoryResetConfirm: 'Reset all {appName} data?\n\nDeletes settings, keys, cache, dictionaries.',
         factoryResetFailed: 'Reset failed.',
-        factoryResetDictionaryWarning: 'Settings reset. Close other tabs before clearing dictionaries.',
-        factoryResetOtherTabReloading: 'よむ was reset in another tab. Reloading...',
-        factoryResetDeleteSettingsFailed: 'Could not delete saved settings. Close other tabs and retry.',
+        factoryResetDictionaryWarning: 'Settings reset. Close other tabs before dictionaries.',
+        factoryResetOtherTabReloading: 'よむ reset in another tab. Reloading...',
+        factoryResetDeleteSettingsFailed: 'Could not delete settings. Close other tabs and retry.',
         issues: 'Issues',
         donate: 'Donate',
         discord: 'Discord',
@@ -858,27 +859,27 @@ const COPY = {
         deck: 'Deck',
         deckActions: 'Deck actions',
         reviewAddsToDeck: 'Reviewing will add new words to',
-        reviewBlockedBlacklisted: 'This word is blacklisted. Unlist it before reviewing.',
-        reviewBlockedNeverForget: 'Marked never forget. Remove that before reviewing.',
-        reviewBlockedLocked: 'This JPDB card is locked. Unlock it in JPDB before reviewing.',
-        reviewBlockedRedundant: 'JPDB marks this word redundant (covered by another card), so it cannot be reviewed.',
+        reviewBlockedBlacklisted: 'Blacklisted. Unlist before reviewing.',
+        reviewBlockedNeverForget: 'Never-forget. Remove before reviewing.',
+        reviewBlockedLocked: 'Locked. Unlock before reviewing.',
+        reviewBlockedRedundant: 'JPDB marks this redundant.',
         ankiCardsSuspended: 'Suspended in Anki (works like a blacklist).',
         ankiCardsUnsuspended: 'Unsuspended in Anki.',
-        ankiNeverForgetTagAdded: 'Tagged yomu-never-forget in Anki.',
-        ankiNeverForgetTagRemoved: 'Removed the yomu-never-forget tag in Anki.',
+        ankiNeverForgetTagAdded: 'Tagged yomu-never-forget.',
+        ankiNeverForgetTagRemoved: 'Removed yomu-never-forget.',
         forget: 'Forget',
         never: 'Never forget',
         neverHint: 'Move to never-forget and count as known.',
-        forgetHint: 'Remove from never-forget so it can be mined or reviewed.',
+        forgetHint: 'Remove from never-forget to mine/review.',
         unlist: 'Unlist',
-        unlistHint: 'Remove this from your blacklist to mine or review again.',
+        unlistHint: 'Remove from blacklist to mine/review.',
         blacklist: 'Blacklist',
         blacklistHint: 'Ignore this exact word.',
         vocabularyStatusUpdated: 'Vocabulary status updated.',
         addToAnki: 'Add to Anki',
         checkingAnki: 'Checking Anki...',
         sendToMobileAnki: 'Send to {app}',
-        mobileAnkiActionHint: 'Opens mobile Anki to create a new note.',
+        mobileAnkiActionHint: 'Opens mobile Anki for a new note.',
         ankiAudioFileNotFound: 'Anki audio file not found.',
         ankiAudioPlaybackUnavailable: 'Anki audio playback is not available here.',
         ankiAudioUnavailablePreview: 'Audio not available in preview',
@@ -890,7 +891,7 @@ const COPY = {
         ankiMatches: 'Anki matches',
         gradeAnkiCardTarget: 'Grades Anki card: {target}',
         gradeJpdbCardTarget: 'Grades API SRS card',
-        ankiMergeNeedsDesktop: 'Merging existing Anki notes needs AnkiConnect on desktop.',
+        ankiMergeNeedsDesktop: 'Merging needs desktop AnkiConnect.',
         ankiNoteNotFound: 'Anki note not found.',
         mergeYomu: 'Merge Yomu',
         mergeYomuTitle: 'Update matching fields and add Yomu media to this note',
@@ -907,11 +908,11 @@ const COPY = {
         alreadyInAnki: 'Already in Anki. Use Edit in Anki instead.',
         removedFromDeck: 'Removed from deck.',
         addedToDeckToast: 'Added to deck.',
-        apiDeckMediaNotSupported: 'Captured image/audio stays in Yomu — this service has no media API.',
+        apiDeckMediaNotSupported: 'Media stays in Yomu; no media API.',
         sentToAnkiWithContextImageAndAudio: 'Sent to Anki with context image and audio.',
         sentToAnkiWithContextImage: 'Sent to Anki with context image.',
         sentToAnkiWithAudio: 'Sent to Anki with audio.',
-        ankiMergeNoNewData: 'Anki note already has the available Yomu data.',
+        ankiMergeNoNewData: 'Anki note already has the Yomu data.',
         ankiMergeFieldSingular: 'field',
         ankiMergeFieldPlural: 'fields',
         ankiMergeAudio: 'audio',
@@ -921,7 +922,7 @@ const COPY = {
         ankiConnectActionFailed: 'AnkiConnect action failed.',
         ankiConnectRequestFailed: 'AnkiConnect request failed.',
         ankiConnectTimedOut: 'AnkiConnect timed out.',
-        ankiConnectNeedsBridge: 'AnkiConnect needs the userscript request bridge on content pages.',
+        ankiConnectNeedsBridge: 'AnkiConnect needs the userscript bridge.',
         mobileAnkiReady: 'Anki is not connected. Mobile handoff can still create notes.',
         ankiConnectionReady: 'Connected. AnkiConnect is reachable.',
         ankiConnectedReady: 'Connected. Deck "{deck}" and note type "{model}" are ready.',
@@ -945,10 +946,10 @@ const COPY = {
         reviewActionsDisabled: 'Review actions are disabled in settings.',
         jpdbLookupFailed: 'JPDB lookup failed.',
         jpdbDeckStateApiKeyRequired: 'Add a JPDB API key to change JPDB deck state.',
-        jpdbAddApiKeyRequired: 'Add a JPDB API key to add cards to JPDB, or use Add to Anki.',
+        jpdbAddApiKeyRequired: 'Add a JPDB API key, or use Add to Anki.',
         addedToJpdb: 'Added to JPDB.',
         jitenDeckStateApiKeyRequired: 'Add a Jiten API key to change Jiten vocabulary state.',
-        jitenAddApiKeyRequired: 'Add a Jiten API key to add cards to Jiten, or use Add to Anki.',
+        jitenAddApiKeyRequired: 'Add a Jiten API key, or use Add to Anki.',
         chooseJitenStudyDeck: 'Choose a Jiten study deck first.',
         addedToJiten: 'Added to Jiten.',
         kanjiDetailsUnavailable: 'Kanji details are not available yet.',
@@ -986,7 +987,7 @@ const COPY = {
         removeImportedDictionary: 'Remove imported dictionary',
         customAdvanced: '{label} (advanced)',
         importLocalDefinitionsHelp: 'Import Yomitan dictionaries for local definitions.',
-        frequencyMetadataHelp: 'Frequency, pitch, and kanji metadata appear in badges and kanji data.',
+        frequencyMetadataHelp: 'Frequency, pitch, and kanji metadata for badges.',
         sourceHelpJpdb: 'JPDB meanings from the current card.',
         sourceHelpJiten: 'Jiten meanings, examples, and related vocabulary from the current card.',
         sourceHelpAnki: 'Matching Anki card content and status.',
@@ -1014,7 +1015,7 @@ const COPY = {
         generateUchisenImageToggle: 'Generate image +',
         uchisenMnemonicStory: 'Mnemonic story',
         uchisenImagePrompt: 'Image prompt',
-        uchisenGenerateHint: 'Edit the story and prompt, then publish a Uchisen image.',
+        uchisenGenerateHint: 'Edit story/prompt, then publish a Uchisen image.',
         uchisenGeneratingImage: 'Generating image...',
         uchisenPublishingMnemonic: 'Publishing mnemonic...',
         uchisenGeneratedImage: 'Uchisen image published.',
@@ -1029,16 +1030,16 @@ const COPY = {
         recommendedJmnedict: 'Japanese proper names dictionary.',
         recommendedWtyJapaneseJapanese: 'Monolingual Wiktionary.',
         recommendedMarvncMonolingual: 'Monolingual collection.',
-        recommendedKanjidic: 'Kanji readings, meanings, strokes, levels, and frequency.',
+        recommendedKanjidic: 'Kanji readings, meanings, strokes, levels, frequency.',
         recommendedJpdbv2Kana: 'JPDB frequency data for local frequency chips.',
         recommendedBccwj: 'BCCWJ frequency data.',
-        recommendedJiten: 'Frequency data from the media stats database at jiten.moe.',
+        recommendedJiten: 'Frequency data from jiten.moe media stats.',
         fallbackSetupTitle: 'Public JPDB lookup',
-        fallbackSetupCopy: 'Search works without JPDB. Add dictionaries for offline results.',
+        fallbackSetupCopy: 'Search works without JPDB. Add dictionaries offline.',
         fallbackSetupDictionaries: 'Add dictionaries',
         fallbackSetupJpdb: 'Add JPDB key',
         getApp: `Get ${APP_NAME}`,
-        offlineCacheGradesDisabled: 'Offline cache. Grades sync when JPDB or Anki reconnects.',
+        offlineCacheGradesDisabled: 'Offline cache. Grades sync on reconnect.',
         recognizing: 'Recognizing...',
         noHandwritingMatch: 'No handwriting match yet. Type or paste kanji instead.',
         yourKanjiDrawing: 'Your kanji drawing',
@@ -1072,7 +1073,7 @@ const COPY = {
         grammarGuide: 'Guide',
         grammarHideKnown: 'Hide known',
         grammarShowKnown: 'Show known',
-        allDetectedGrammarKnown: 'All detected grammar for this sentence is marked known.',
+        allDetectedGrammarKnown: 'All detected grammar is marked known.',
         grammarShown: 'shown',
         grammarKnownHidden: 'known hidden',
         grammarGenericShort: 'Grammar point: {name}',
@@ -1136,7 +1137,7 @@ featureVideoBody	字幕がある場合、字幕内の単語もタップできま
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJPDB・Anki・Jiten・任意の漢字カードを順番に復習できます。
+featureStudyBody	内蔵の学習ページでJiten・JPDB・Anki・任意の漢字カードを順番に復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -1276,7 +1277,7 @@ stateFailed	失敗
 stateKnown	既知
 stateMastered	習得済み
 stateNeverForget	忘れない
-jpdbAndJitenApiKeysConfigured	JPDBとJitenキーあり。
+jpdbAndJitenApiKeysConfigured	JitenとJPDBキーあり。
 stateSuspended	停止中
 stateLocked	ロック中
 stateBlacklisted	ブラックリスト
@@ -1386,6 +1387,7 @@ subtitleAutoHideShort	自動
 loadJapaneseSubtitles	日本語字幕を読み込む
 loadPrimarySubtitles	主字幕を読み込む
 loadNativeSubtitles	母語字幕を読み込む
+searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
 subtitleTracksDetected	件の字幕トラックを検出
@@ -1508,7 +1510,7 @@ ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
-ankiHostedCorsHint	上級: 直接接続には {origin} をAnkiConnectのwebCorsOriginListに追加してください。
+ankiHostedCorsHint	直接接続には{origin}をwebCorsOriginListに追加してください。
 mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
 ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
@@ -1536,7 +1538,7 @@ openedMobileAnkiHandoff	モバイルAnki受け渡しを開きました。
 alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
-apiDeckMediaNotSupported	キャプチャした画像・音声はYomuに残ります（このサービスにはメディアAPIがありません）。
+apiDeckMediaNotSupported	キャプチャメディアはYomuに残ります（メディアAPIなし）。
 sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
 sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。
@@ -1557,10 +1559,10 @@ reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB追加にはAPIキーかAnki追加が必要です。
+jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten語彙状態の変更にはJiten APIキーが必要です。
-jitenAddApiKeyRequired	Jiten追加にはJiten APIキーかAnki追加が必要です。
+jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
@@ -1643,13 +1645,13 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JPDBまたはJiten APIキーを貼り付けます。Jitenキーはak_で始まります。
+apiAccessHelp	JitenまたはJPDB APIキーを貼ります。Jitenはak_で始まります。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
-jpdbAndJitenConnected	JPDBとJitenに接続しました。
+jpdbAndJitenConnected	JitenとJPDBに接続しました。
 jpdbConnectionFailed	JPDBがキーを受け付けませんでした（ネットワークまたは無効なキー）。
 jitenApiKeyConfigured	Jitenキーあり。
 jitenApiKeyMissing	Jitenキーなし。
@@ -1706,7 +1708,7 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動: API/Anki、その後に学習語
-newTabApiSrs	API SRS（JPDB / Jiten）
+newTabApiSrs	API SRS（Jiten / JPDB）
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
@@ -1716,7 +1718,7 @@ corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
 newTabKanjiKeywordRtk	RTK / Heisig
-newTabKanjiKeywordApiFacts	{service}漢字情報（JPDB / Jiten）
+newTabKanjiKeywordApiFacts	{service}漢字情報（Jiten / JPDB）
 newTabKanjiKeywordLocal	ローカルカードの意味
 newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
@@ -1729,8 +1731,8 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
-newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
+newTabOfflineHelp	復習カードと未送信採点を保存し、再接続時に同期します。
+newTabAddressHelp	開始/新規タブページに設定するか、iPadのホーム画面に追加します。
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -1849,17 +1851,17 @@ audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースのためURL不要
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
-audioProxyGuideSummary	Cloudflareプロキシを自作する
-audioProxyGuideIntro	標準プロキシで十分です。専用ならWorkerへ。
-audioProxyGuideCloudflare	Cloudflare Dashboardを開きます。
+audioProxyGuideSummary	Cloudflareプロキシ
+audioProxyGuideIntro	専用プロキシが必要ならWorkerを使います。
+audioProxyGuideCloudflare	Cloudflareを開きます。
 audioProxyGuideWorkers	Workers & PagesでCreateします。
-audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeployします。
-audioProxyGuideEditCode	Edit codeでYomu Workerソースを貼ります。
+audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeploy。
+audioProxyGuideEditCode	Yomu Workerソースを貼ります。
 audioProxyGuideDeploy	Deployします。
-audioProxyGuideCopyUrl	Worker URLをコピーします。例: https://yomu-proxy.yourname.workers.dev
-audioProxyGuidePasteUrl	Cross-origin proxy URLに貼ります。?url=は不要です。
-audioProxyGuideTest	保存後、検索・インポート・音声で確認します。
-audioProxyGuideNote	Workerソースはリポジトリ内です。共有前にホストを絞ります。
+audioProxyGuideCopyUrl	Worker URLをコピーします。
+audioProxyGuidePasteUrl	Cross-origin proxy URLに貼ります。
+audioProxyGuideTest	保存後、検索・インポート・音声で確認。
+audioProxyGuideNote	共有前にホストを絞ります。
 audioProxyWorkerSource	Workerソース
 audioProxyDeployGuide	デプロイガイド
 immersionKitEnabled	イマージョンキット例文を表示
@@ -1923,9 +1925,9 @@ ocrEngine	ローカルOCRエンジン
 ocrEngineMangaOcr	MangaOCR（マンガに最適）
 ocrEngineAppleVision	Apple Vision（macOS）
 cloudVisionApiKey	Google Cloud Vision APIキー
-ocrHelp	ビューポート付近の画像を読み取ります。Google Lensは設定もキーも不要ですぐ使えます。
-ocrCloudHelp	Google Cloud VisionのAPIキー（課金を有効にしたGoogle Cloudプロジェクト）が必要です。ここにキーを貼り付けてください。
-ocrLocalHelp	上級者向け：OCRをあなたのPC上で実行します（データは外部に送信されません）。HTTPエンドポイントを公開するローカルOCRサーバー（マンガにはMangaOCRが最適）を起動し、そのURLを入力してください。多くの方はGoogle Lensのままで問題ありません。
+ocrHelp	近くの画像を読み取ります。Google Lensは設定不要です。
+ocrCloudHelp	Google Cloud Vision APIキーを貼ります。
+ocrLocalHelp	MangaOCR/Apple VisionのローカルURLを入力します。
 subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
 subtitleAutoDetect	ページの字幕を自動検出
 subtitleOverlayVisible	字幕オーバーレイを表示
@@ -2018,7 +2020,7 @@ ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
 ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
-ankiCorsBlocked	AnkiConnectは起動していますが、このサイトを拒否しています。Ankiの「ツール → アドオン → AnkiConnect → 設定」で webCorsOriginList に「{origin}」を追加し、Ankiを再起動してください。
+ankiCorsBlocked	webCorsOriginListに「{origin}」を追加し再起動してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
 ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
@@ -2037,7 +2039,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断。低信頼
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	完全なAnki機能はデスクトップAnkiConnectをLAN/Tailscaleで使います。受け渡しは新規ノート作成のみ。
+ankiHelp	完全なAnki機能にはデスクトップAnkiConnectが必要です。受け渡しは新規ノートのみ。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -2068,7 +2070,7 @@ download	ダウンロード
 downloadAndImport	ダウンロードしてよむにインポート
 update	更新
 checkingDictionaries	インポート済み辞書を確認中...
-dictionaryOnlyJpdb	定義ソースはJPDBのみです。Yomitan辞書でローカル定義を追加。
+dictionaryOnlyJpdb	JPDBのみです。Yomitan辞書でローカル定義を追加。
 localDictionaryText	辞書テキスト
 localSenseSingular	意味
 localSensePlural	意味
@@ -2119,13 +2121,13 @@ ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
-helpSupportCopy	よむはポップアップ検索、JPDB採掘、辞書、OCR、字幕、Ankiを無料でまとめたユーザースクリプトです。
-helpSupportCopyExtra	寄付は任意です。開発、端末、サービス、保守、API費用を支えます。
+helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
+helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
 docs	ドキュメント
 factoryReset	初期状態に戻す
-factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書、保存データを削除します。
+factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除します。
 factoryResetFailed	リセットに失敗しました。
 factoryResetDictionaryWarning	設定をリセットしました。他のよむタブを閉じて辞書を確認してください。
 factoryResetOtherTabReloading	別のタブでよむがリセットされました。再読み込みします...

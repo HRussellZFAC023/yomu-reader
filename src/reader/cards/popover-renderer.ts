@@ -604,7 +604,7 @@ function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
 }
 
-// Shown next to the JPDB/Jiten status when both keys are set and the word can be
+// Shown next to the Jiten/JPDB status when both keys are set and the word can be
 // graded by either service: a one-tap switch for which SRS the deck and grade
 // buttons act on.
 function renderGradingProviderToggle(provider: ApiSrsProviderView | null, language: InterfaceLanguage): string {

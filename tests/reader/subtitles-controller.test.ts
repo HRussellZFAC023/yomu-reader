@@ -1238,7 +1238,9 @@ describe('SubtitlePlayerController', () => {
 
         try {
             (controller as unknown as { install: () => void }).install();
-            (controller as unknown as { video: HTMLVideoElement }).video = document.createElement('video');
+            const video = document.createElement('video');
+            video.dataset.yomuAnimeSearch = 'Sousou.no.Frieren.S01E01.mkv';
+            (controller as unknown as { video: HTMLVideoElement }).video = video;
             (controller as unknown as { tracks: unknown[] }).tracks = [{
                 id: 'youtube-ja',
                 kind: 'youtube',
@@ -1257,6 +1259,11 @@ describe('SubtitlePlayerController', () => {
             expect(panel.hidden).toBe(false);
             expect(panel.classList.contains('jpdb-subtitle-tracks-panel')).toBe(true);
             expect(panel.querySelector('.jpdb-subtitle-track-row')?.textContent).toContain('Japanese');
+            const jimakuSearch = panel.querySelector<HTMLAnchorElement>('[data-jimaku-anime-search]')!;
+            expect(jimakuSearch.textContent).toBe('Search anime subtitles');
+            expect(jimakuSearch.href).toBe('https://jimaku.cc/opensearch/redirect?anime=true&query=Sousou%20no%20Frieren%20S01E01');
+            expect(jimakuSearch.target).toBe('_blank');
+            expect(jimakuSearch.rel).toContain('noopener');
             expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-tracks"]')?.getAttribute('aria-pressed')).toBe('true');
             expect(panel.querySelector<HTMLButtonElement>('[data-action="panel-lines"]')?.disabled).toBe(true);
             expect(root.classList.contains('jpdb-subtitle-panel-open')).toBe(true);

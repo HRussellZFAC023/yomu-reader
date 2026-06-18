@@ -9,11 +9,11 @@ const socialImage = `${siteUrl}og-image.png`;
 const newTabLink = '/newtab/index.html';
 const statsLink = '/newtab/index.html?mode=stats';
 const videoPlayerLink = '/video-player/index.html';
-const pdfReaderLink = '/pdf-reader/index.html';
+const pdfReaderLink = '/pdf-reader/';
 
 const siteTitle = 'よむ - Free Japanese popup reader';
 const siteDescription =
-    'よむ is a free Japanese immersion reader. Tap a word on any web page, manga, or subtitle to see readings, meanings, kanji, audio, and example sentences, then mine it to JPDB, Yomitan, or Anki.';
+    'よむ is a free Japanese immersion reader. Tap a word on any web page, manga image, PDF, or subtitle to see readings, meanings, kanji, audio, examples, and study actions.';
 
 // Turn a VitePress relativePath (e.g. "features.md", "tools/japanese-ocr.md",
 // "index.md") into the canonical absolute URL with cleanUrls applied.
@@ -84,9 +84,9 @@ function jsonLdFor(pageData: PageDataLike, pageUrl: string): HeadConfig[] {
                 'Japanese popup dictionary lookup',
                 'Manga and image OCR',
                 'Video subtitle mining',
-                'JPDB review and mining',
                 'Yomitan dictionary import',
                 'Anki card creation',
+                'Study card review',
                 'Kanji stroke order and drilldown',
                 'Pitch accent and audio',
             ],
@@ -196,10 +196,9 @@ export default defineConfig({
         logo: '/yomu-icon.svg',
         siteTitle: 'yomu',
         nav: [
-            { text: 'Start', link: '/getting-started' },
-            { text: 'Features', link: '/features' },
+            { text: 'Install', link: '/getting-started' },
             { text: 'Tools', link: '/tools/' },
-            { text: 'Guides', link: '/guides/' },
+            { text: 'Learn', link: '/guides/' },
             { text: 'Study', link: newTabLink, target: '_self' },
             { text: 'Support', link: '/support' },
             {
@@ -207,51 +206,50 @@ export default defineConfig({
                 items: [
                     { text: 'Video Player', link: videoPlayerLink, target: '_self' },
                     { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
-                    { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Stats', link: statsLink, target: '_self' },
+                    { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Changelog', link: '/changelog' },
                 ],
             },
         ],
         sidebar: [
             {
-                text: 'Start',
+                text: 'Use よむ',
                 items: [
                     { text: 'Overview', link: '/' },
-                    { text: 'Getting Started', link: '/getting-started' },
-                    { text: 'Features', link: '/features' },
-                    { text: 'Local Audio', link: '/local-audio' },
-                    { text: 'Video Player', link: videoPlayerLink, target: '_self' },
-                    { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
+                    { text: 'Install', link: '/getting-started' },
+                    { text: 'What it does', link: '/features' },
                 ],
             },
             {
-                text: 'Free Tools',
+                text: 'Tools',
                 items: [
                     { text: 'All tools', link: '/tools/' },
-                    { text: 'Japanese OCR & manga reader', link: '/tools/japanese-ocr' },
+                    { text: 'OCR & manga', link: '/tools/japanese-ocr' },
+                    { text: 'Subtitles & video', link: '/tools/japanese-subtitle-reader' },
+                    { text: 'Video Player', link: videoPlayerLink, target: '_self' },
+                    { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
                     { text: 'Furigana reader', link: '/tools/furigana-reader' },
                     { text: 'Kanji stroke order', link: '/tools/kanji-stroke-order' },
-                    { text: 'Subtitle miner', link: '/tools/japanese-subtitle-reader' },
-                    { text: 'JPDB study & review', link: '/tools/jpdb-study' },
+                    { text: 'Study page', link: '/tools/jpdb-study' },
                     { text: 'YouTube for Japanese', link: '/tools/youtube-japanese' },
                 ],
             },
             {
-                text: 'Guides',
+                text: 'Learn',
                 items: [
                     { text: 'All guides', link: '/guides/' },
                     { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
-                    { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
                     { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
-                    { text: 'Yomitan vs JPDB vs Anki', link: '/guides/yomitan-jpdb-anki' },
-                    { text: 'Free Migaku alternative', link: '/compare/migaku-alternative' },
+                    { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
+                    { text: 'Study setup', link: '/guides/yomitan-jpdb-anki' },
                 ],
             },
             {
                 text: 'Project',
                 items: [
                     { text: 'Support', link: '/support' },
+                    { text: 'Local Audio', link: '/local-audio' },
                     { text: 'Changelog', link: '/changelog' },
                 ],
             },

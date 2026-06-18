@@ -140,7 +140,7 @@ async function openInReader(browser, baseUrl, pdfBytes, fileName) {
     const page = await browser.newPage({ viewport: { width: 1280, height: 1000 } });
     const consoleErrors = [];
     page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
-    await page.goto(`${baseUrl}/pdf-reader/index.html`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${baseUrl}/pdf-reader/`, { waitUntil: 'domcontentloaded' });
     await page.setInputFiles('[data-pdf-input]', { name: fileName, mimeType: 'application/pdf', buffer: pdfBytes });
     // Wait for PDF.js to paint the first page canvas.
     await page.waitForFunction(() => {

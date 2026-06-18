@@ -650,7 +650,12 @@ export class ImageOcrController {
 
     private async scanImage(image: HTMLImageElement): Promise<void> {
         if (this.destroyed) return;
-        const state = this.states.get(image) ?? this.ensureState(image);
+        const existingState = this.states.get(image);
+        if (!image.isConnected) {
+            if (existingState) this.releaseImageState(image, existingState);
+            return;
+        }
+        const state = existingState ?? this.ensureState(image);
         const settings = this.options.getSettings();
         const key = imageCacheKey(image);
         const manualRequested = state.manualRequested;
@@ -1179,13 +1184,9 @@ export class ImageOcrController {
         status?.remove();
         this.videoFrameStatuses.delete(target);
         const state = this.states.get(frame);
-        if (state) {
-            this.observer?.unobserve(frame);
-            state.overlay.remove();
-            this.states.delete(frame);
-        }
+        if (state) this.releaseImageState(frame, state);
+        else this.forgetImageWork(frame);
         this.videoFrameVideos.delete(frame);
-        this.queue = this.queue.filter(queued => queued !== frame);
         frame.remove();
     }
 
@@ -1328,15 +1329,10 @@ export class ImageOcrController {
         if (!frame) return;
         this.canvasFrames.delete(canvas);
         const state = this.states.get(frame);
-        if (state) {
-            this.observer?.unobserve(frame);
-            state.overlay.remove();
-            this.states.delete(frame);
-        }
-        this.removeImageStatusCard(frame);
+        if (state) this.releaseImageState(frame, state);
+        else this.forgetImageWork(frame);
         this.canvasFrameSources.delete(frame);
         this.canvasFrameStaticRects.delete(frame);
-        this.queue = this.queue.filter(queued => queued !== frame);
         frame.remove();
     }
 
@@ -1432,14 +1428,9 @@ export class ImageOcrController {
         this.backgroundFrames.delete(surface);
         this.backgroundFrameKeys.delete(surface);
         const state = this.states.get(frame);
-        if (state) {
-            this.observer?.unobserve(frame);
-            state.overlay.remove();
-            this.states.delete(frame);
-        }
-        this.removeImageStatusCard(frame);
+        if (state) this.releaseImageState(frame, state);
+        else this.forgetImageWork(frame);
         this.backgroundFrameSources.delete(frame);
-        this.queue = this.queue.filter(queued => queued !== frame);
         frame.remove();
     }
 
@@ -1593,11 +1584,7 @@ export class ImageOcrController {
                 this.releaseBackgroundFrame(background);
                 continue;
             }
-            this.queue = this.queue.filter(queued => queued !== image);
-            this.inFlightKeys.delete(state.key);
-            state.overlay.remove();
-            this.states.delete(image);
-            this.removeImageStatusCard(image);
+            this.releaseImageState(image, state);
         }
     }
 
@@ -1665,11 +1652,24 @@ export class ImageOcrController {
     private pruneDisconnectedStates(): void {
         for (const [image, state] of this.states) {
             if (image.isConnected) continue;
+            this.releaseImageState(image, state);
+        }
+    }
+
+    private releaseImageState(image: HTMLImageElement, state = this.states.get(image)): void {
+        if (state) {
             this.observer?.unobserve(image);
             state.overlay.remove();
             this.states.delete(image);
-            this.removeImageStatusCard(image);
         }
+        this.forgetImageWork(image, state);
+    }
+
+    private forgetImageWork(image: HTMLImageElement, state?: ImageState): void {
+        this.queue = this.queue.filter(queued => queued !== image);
+        this.inFlightKeys.delete(imageCacheKey(image));
+        if (state) this.inFlightKeys.delete(state.key);
+        this.removeImageStatusCard(image);
     }
 
     private isCurrentState(state: ImageState): boolean {

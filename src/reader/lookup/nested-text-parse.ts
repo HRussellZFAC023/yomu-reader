@@ -2,7 +2,7 @@ import { applyTokensToScanTarget, collectFragmentTextTargetsIn, HAS_JAPANESE, is
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 const PARSEABLE_SELECTOR = '.jpdb-reader-parseable';
-const POPOVER_SUMMARY_PARSE_SELECTOR = '.jpdb-reader-popover summary.jpdb-reader-local-title';
+const POPOVER_SUMMARY_PARSE_SELECTOR = '.jpdb-reader-popover summary.jpdb-reader-example-summary';
 const NESTED_PARSE_ROOT_SELECTOR = [
     PARSEABLE_SELECTOR,
     POPOVER_SUMMARY_PARSE_SELECTOR,

@@ -135,6 +135,10 @@
       white-space: nowrap;
     }
 
+    a.toolbar-button {
+      text-decoration: none;
+    }
+
     .top-actions {
       display: flex;
       align-items: center;
@@ -573,12 +577,13 @@
           <div class="overflow-panel" role="menu">
             <button type="button" role="menuitem" data-settings-trigger>Settings</button>
             <a href="../newtab/index.html" role="menuitem" data-menu-study>Study</a>
-            <a href="../pdf-reader/index.html" role="menuitem" data-menu-pdf-reader>PDF Reader</a>
+            <a href="../pdf-reader/" role="menuitem" data-menu-pdf-reader>PDF Reader</a>
             <a href="../local-audio" role="menuitem" data-menu-local-audio>Local Audio</a>
             <a href="../support" role="menuitem" data-menu-support>Support</a>
           </div>
         </details>
         <button class="toolbar-button" type="button" data-subtitle-open>Subtitles</button>
+        <a class="toolbar-button" href="https://jimaku.cc/" target="_blank" rel="noopener" data-jimaku-link aria-label="Find subtitles on Jimaku">Find subtitles</a>
         <label class="file-button">
           <span class="file-button-label" data-open-video-label>Open video</span>
           <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
@@ -614,6 +619,7 @@
       const overflowSummary = document.querySelector('[data-overflow-summary]');
       const settingsTrigger = document.querySelector('[data-settings-trigger]');
       const subtitleOpen = document.querySelector('[data-subtitle-open]');
+      const jimakuLink = document.querySelector('[data-jimaku-link]');
       const brandIcon = document.querySelector('[data-yomu-brand-icon]');
       const themeKey = 'yomu-page-theme';
       const settingsKey = 'jpdb-popup-reader-settings';
@@ -624,6 +630,13 @@
       const runtimeScriptId = 'yomu-hosted-video-runtime';
       const runtimeCssAttribute = 'data-yomu-hosted-video-css';
       const runtimeScriptAttribute = 'data-yomu-hosted-video-script';
+      const runtimeCompanionAttribute = 'data-yomu-hosted-video-companion';
+      const runtimeCompanionScripts = [
+        'greasyfork/yomu-anki.user.js',
+        'greasyfork/yomu-kanji-study.user.js',
+        'greasyfork/yomu-settings-surface.user.js',
+        'greasyfork/yomu-video.user.js',
+      ];
       const runtimeReadyTimeoutMs = 2600;
       const yomuRuntimeMarkerId = 'jpdb-reader-runtime-owner';
       const colorTokens = {
@@ -644,6 +657,8 @@
           openVideo: 'Open video',
           subtitles: 'Subtitles',
           openSubtitles: 'Open subtitle tracks',
+          findSubtitles: 'Find subtitles',
+          openJimaku: 'Find subtitles on Jimaku',
           stageLabel: 'Video',
           emptyTitle: 'Open or drop a video',
           emptyStatus: 'Open a video, then use Subtitles to add Japanese and native subtitle files.',
@@ -673,6 +688,8 @@
           openVideo: '動画を開く',
           subtitles: '字幕',
           openSubtitles: '字幕トラックを開く',
+          findSubtitles: '字幕を探す',
+          openJimaku: 'Jimakuで字幕を探す',
           stageLabel: '動画',
           emptyTitle: '動画を開くかドロップ',
           emptyStatus: '動画を開いたあと、字幕ボタンから日本語字幕と母語字幕ファイルを追加できます。',
@@ -853,6 +870,8 @@
         if (openVideoLabel) openVideoLabel.textContent = text.openVideo;
         subtitleOpen?.replaceChildren(text.subtitles);
         subtitleOpen?.setAttribute('aria-label', text.openSubtitles);
+        jimakuLink?.replaceChildren(text.findSubtitles);
+        jimakuLink?.setAttribute('aria-label', text.openJimaku);
         document.querySelector('.empty strong').textContent = text.emptyTitle;
         overflowSummary?.setAttribute('aria-label', text.menu);
         if (settingsTrigger) {
@@ -945,30 +964,44 @@
         if (hasYomuRuntime()) return Promise.resolve(true);
         const existing = document.getElementById(runtimeScriptId) || document.querySelector('script[' + runtimeScriptAttribute + ']');
         if (existing) return waitForYomuRuntime();
-        return loadScriptCandidates(runtimeAssetCandidates('yomu.user.js'));
+        return loadYomuCompanions().then(() => loadScriptCandidates(runtimeAssetCandidates('yomu.user.js')));
       }
 
-      function loadScriptCandidates(candidates, index = 0) {
+      async function loadYomuCompanions() {
+        for (const fileName of runtimeCompanionScripts) await loadYomuCompanion(fileName);
+      }
+
+      function loadYomuCompanion(fileName) {
+        const id = `yomu-hosted-video-${fileName.replace(/[^a-z0-9]+/gi, '-')}`;
+        if (document.getElementById(id) || document.querySelector(`script[${runtimeCompanionAttribute}="${fileName}"]`)) return Promise.resolve(true);
+        return loadScriptCandidates(runtimeAssetCandidates(fileName), 0, { id, attribute: runtimeCompanionAttribute, value: fileName, waitForRuntime: false });
+      }
+
+      function loadScriptCandidates(candidates, index = 0, options = {}) {
         if (index >= candidates.length) return Promise.resolve(false);
         return new Promise(resolve => {
           const script = document.createElement('script');
-          script.id = runtimeScriptId;
+          script.id = options.id || runtimeScriptId;
           script.async = true;
           script.src = candidates[index];
-          script.setAttribute(runtimeScriptAttribute, 'true');
+          script.setAttribute(options.attribute || runtimeScriptAttribute, options.value || 'true');
           script.addEventListener('load', () => {
+            if (options.waitForRuntime === false) {
+              resolve(true);
+              return;
+            }
             void waitForYomuRuntime().then(ready => {
               if (ready) {
                 resolve(true);
                 return;
               }
               script.remove();
-              void loadScriptCandidates(candidates, index + 1).then(resolve);
+              void loadScriptCandidates(candidates, index + 1, options).then(resolve);
             });
           }, { once: true });
           script.addEventListener('error', () => {
             script.remove();
-            void loadScriptCandidates(candidates, index + 1).then(resolve);
+            void loadScriptCandidates(candidates, index + 1, options).then(resolve);
           }, { once: true });
           document.head.append(script);
         });
@@ -1050,6 +1083,7 @@
         revokeObjectUrl();
         stage.classList.add('has-video');
         currentVideoName = file.name;
+        video.dataset.yomuAnimeSearch = file.name;
         setStatus(copy[effectiveInterfaceLanguage()].opening(file.name));
         objectUrl = URL.createObjectURL(file);
         window.setTimeout(() => {

@@ -53,6 +53,32 @@ describe('interface language resolution', () => {
         expect([...japaneseKeys].filter(key => !englishKeys.includes(key))).toEqual([]);
         expect(japaneseCopySource).not.toContain("'未翻訳'");
     });
+
+    it('keeps hosted homepage link cards covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const homeSource = readFileSync('docs/index.md', 'utf8');
+        const nextSteps = between(homeSource, '<div class="yomu-link-grid yomu-next-grid">', '</div>');
+        const cardCopy = [...nextSteps.matchAll(/<(?:strong|span)>(.*?)<\/(?:strong|span)>/g)]
+            .map(match => decodeMarkdownHtml(match[1].trim()))
+            .filter(Boolean);
+
+        expect(cardCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+    });
+
+    it('keeps dynamic hosted docs attributes covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const dynamicCopy = [
+            'Switch to dark theme',
+            'Switch to light theme',
+        ];
+
+        expect(dynamicCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+        expect(themeSource).toContain('attributeFilter: [...HOSTED_DOCS_TRANSLATED_ATTRIBUTES]');
+        expect(themeSource).toContain('canonicalHostedDocsSourceString(value, originals.get(attribute))');
+        expect(themeSource).not.toContain('未翻訳');
+        expect(themeSource).not.toContain('母国語의');
+        expect(themeSource).not.toContain("Wait, let's fix");
+    });
 });
 
 function between(source: string, startMarker: string, endMarker: string): string {
@@ -69,4 +95,12 @@ function copyKeys(source: string): string[] {
 
 function copyTableKeys(source: string): string[] {
     return [...source.matchAll(/^([A-Za-z0-9_]+)\t/gm)].map(match => match[1]);
+}
+
+function hasHostedDocsJaCopy(source: string, copy: string): boolean {
+    return source.includes(`'${copy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}':`);
+}
+
+function decodeMarkdownHtml(value: string): string {
+    return value.replaceAll('&amp;', '&');
 }

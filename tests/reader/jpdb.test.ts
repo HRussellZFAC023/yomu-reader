@@ -6387,6 +6387,54 @@ describe('reader helpers', () => {
         }
     });
 
+    it('installs mining drawer drag gestures on normal word popovers with review target gutters', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
+                <div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
+                    <span class="jpdb-reader-review-target-current" data-review-target-current aria-label="Grades JPDB">JPDB</span>
+                    <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
+                </div>
+                <div class="jpdb-reader-mining-panel"></div>
+            </div>
+        `;
+        document.body.append(popover);
+
+        const actions = popover.querySelector<HTMLElement>('.jpdb-reader-actions')!;
+        const gutter = popover.querySelector<HTMLElement>('[data-review-target-gutter]')!;
+        const handle = popover.querySelector<HTMLButtonElement>('[data-action="mining-collapse"]')!;
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS };
+        internals.installCardPopoverHandlers(popover, card, '食べる。', undefined, 'modal');
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 80, clientY: 180 });
+            gutter.dispatchEvent(click);
+            expect(click.defaultPrevented).toBe(true);
+            expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(false);
+            expect(handle.getAttribute('aria-expanded')).toBe('true');
+
+            const dragStart = createPointerEvent('pointerdown', { clientX: 80, clientY: 180, pointerId: 31, button: 0 });
+            const dragMove = createPointerEvent('pointermove', { clientX: 80, clientY: 226, pointerId: 31 });
+            const dragEnd = createPointerEvent('pointerup', { clientX: 80, clientY: 226, pointerId: 31 });
+            gutter.dispatchEvent(dragStart);
+            document.dispatchEvent(dragMove);
+            document.dispatchEvent(dragEnd);
+
+            expect(dragStart.defaultPrevented).toBe(true);
+            expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+            expect(handle.getAttribute('aria-expanded')).toBe('false');
+        } finally {
+            app.destroy();
+            popover.remove();
+        }
+    });
+
     it('uses concrete color-channel defaults while preserving legacy automatic choices', () => {
         expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto')).toBe('off');
         expect(effectiveReaderColorSource(DEFAULT_SETTINGS, 'auto', 'pitch')).toBe('pitch');
@@ -6719,7 +6767,7 @@ describe('reader helpers', () => {
         });
     });
 
-    it('repairs partial JPDB and Jiten kana stems with sentence-context fallback tokens', async () => {
+    it('repairs partial Jiten and JPDB kana stems with sentence-context fallback tokens', async () => {
         const text = 'ややさしい';
         const brokenRemoteTokens = (source: 'jpdb' | 'jiten') => [
             parsedProviderToken(text, 'やや', 0, source),
@@ -10693,6 +10741,35 @@ describe('reader helpers', () => {
         }
     });
 
+    it('caches keyless public JPDB search results across client instances', async () => {
+        vi.stubGlobal('location', {
+            href: 'https://jpdb.io/search',
+            origin: 'https://jpdb.io',
+            hostname: 'jpdb.io',
+        });
+        const html = `
+            <div class="results search">
+                <div class="result vocabulary">
+                    <a href="/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80#a">読む</a>
+                    <div class="subsection-headword">
+                        <div class="primary-spelling"><div class="spelling"><ruby>読<rt>よ</rt>む<rt></rt></ruby></div></div>
+                    </div>
+                    <div class="subsection-meanings"><div class="description">1. to read</div></div>
+                </div>
+            </div>
+        `;
+        const fetchMock = vi.fn(async () => new Response(html, { status: 200 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const first = await new JpdbVocabularyClient().search('読む', 1);
+        const second = await new JpdbVocabularyClient().search('読む', 1);
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(first[0]).toMatchObject({ spelling: '読む', reading: 'よむ', meanings: [{ glosses: ['to read'] }] });
+        expect(second[0]).toMatchObject({ spelling: '読む', reading: 'よむ', meanings: [{ glosses: ['to read'] }] });
+        expect(localStorage.getItem('yomu:jpdb-cache:v1')).toContain('search');
+    });
+
     it('summarizes kanji used-in glossary text for quick learner scanning', () => {
         expect(summarizeLearnerGlossary({
             glossary: ['na-adj noun easy simple plain ココの知らせるのは容易ではない。 Testing Koko\'s IQ is not easy. JMdict | Tatoeba'],
@@ -10895,7 +10972,7 @@ describe('reader helpers', () => {
     it('keeps JPDB definitions enabled when legacy source-row state is absent', () => {
         const settings = { ...DEFAULT_SETTINGS, jpdbDefinitionsEnabled: false };
 
-        expect(definitionSourceRows(settings).map(row => row.name)).toEqual(expect.arrayContaining(['JPDB', 'Jiten']));
+        expect(definitionSourceRows(settings).map(row => row.name)).toEqual(expect.arrayContaining(['Jiten', 'JPDB']));
         expect(renderDictionarySourceRows(settings)).toContain('JPDB meanings from the current card.');
         expect(renderDictionarySourceRows(settings)).toContain('Jiten meanings, examples, and related vocabulary from the current card.');
 
@@ -19240,7 +19317,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps the settings surface on the hosted docs page theme when stored settings are stale', () => {
+    it('applies stored Yomu theme to hosted docs when the page class is stale', () => {
         vi.stubGlobal('location', {
             href: 'https://hrussellzfac023.github.io/yomu-reader/',
             origin: 'https://hrussellzfac023.github.io',
@@ -19261,9 +19338,10 @@ describe('reader helpers', () => {
         try {
             internals.applyTheme();
 
-            expect(internals.settings.theme).toBe('light');
-            expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(true);
-            expect(document.documentElement.classList.contains('jpdb-reader-theme-dark')).toBe(false);
+            expect(internals.settings.theme).toBe('dark');
+            expect(document.documentElement.classList.contains('dark')).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-reader-theme-dark')).toBe(true);
+            expect(document.documentElement.classList.contains('jpdb-reader-theme-light')).toBe(false);
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -24874,7 +24952,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('renders JPDB word page addons with local, JPDB, and Jiten definition data', async () => {
+    it('renders JPDB word page addons with local, Jiten, and JPDB definition data', async () => {
         vi.stubGlobal('location', {
             href: 'https://jpdb.io/review?c=v%2C1391940%2C864903531&r=1#a',
             origin: 'https://jpdb.io',

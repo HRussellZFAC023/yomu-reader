@@ -27,6 +27,7 @@ export interface SubtitleTrackPanelRenderState {
     pausePanelEnabled: boolean;
     placement: ReaderSettings['subtitleTranscriptPlacement'];
     language: InterfaceLanguage;
+    animeSearchQuery?: string;
 }
 
 export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): string {
@@ -55,6 +56,7 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load">${escapeHtml(uiText(language, 'loadJapaneseSubtitles'))}</button>
                 <button type="button" data-action="load-secondary">${escapeHtml(uiText(language, 'loadNativeSubtitles'))}</button>
+                <a href="${escapeHtml(jimakuAnimeSearchUrl(state.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml(uiText(language, 'searchAnimeSubtitles'))}</a>
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml(trackPanelSummaryText(state.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml(uiText(language, 'subtitleTracksHint'))}</div>
@@ -62,6 +64,12 @@ export function renderSubtitleTrackPanel(state: SubtitleTrackPanelRenderState): 
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml(uiText(language, 'resizeSubtitleTracksPanel'))}"></div>
     `;
+}
+
+function jimakuAnimeSearchUrl(query = ''): string {
+    const trimmed = query.trim();
+    if (!trimmed) return 'https://jimaku.cc/';
+    return `https://jimaku.cc/opensearch/redirect?anime=true&query=${encodeURIComponent(trimmed)}`;
 }
 
 export function subtitleDrawerMetaText(options: {

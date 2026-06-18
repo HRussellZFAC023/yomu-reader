@@ -49,7 +49,7 @@ describe('Jiten color state parity CSS', () => {
         expect(SUBTITLES_CSS).toContain('.jpdb-reader-subtitle-preview .jpdb-reader-word.jpdb-unparsed { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-unparsed);');
     });
 
-    it('styles JPDB and Jiten state dots for parity-only states', () => {
+    it('styles Jiten and JPDB state dots for parity-only states', () => {
         expect(POPOVER_CSS).toContain('.jpdb-reader-state-dot.jiten-new,');
         expect(POPOVER_CSS).toContain('.jpdb-reader-state-dot.jiten-young,');
         expect(POPOVER_CSS).toContain('.jpdb-reader-state-dot.jiten-mature,');

@@ -9,7 +9,7 @@ const JITEN_API_KEY_PREFIX = 'ak_';
 export function combinedApiCredentialLabel(settings: ApiCredentialSettings): string {
     const jpdb = Boolean(effectiveJpdbApiKey(settings));
     const jiten = Boolean(effectiveJitenApiKey(settings));
-    if (jpdb && jiten) return 'JPDB + Jiten';
+    if (jpdb && jiten) return 'Jiten + JPDB';
     if (jiten) return 'Jiten';
     return 'JPDB';
 }

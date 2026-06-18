@@ -216,9 +216,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
-    jpdbDefinitionsPriority: 0,
+    jpdbDefinitionsPriority: 1,
     jitenDefinitionsEnabled: true,
-    jitenDefinitionsPriority: 1,
+    jitenDefinitionsPriority: 0,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -487,7 +487,7 @@ export function normalizeReaderSettings(value: Partial<ReaderSettings> | null | 
 function normalizeApiCredentialSettings(value: LegacyReaderSettings | null | undefined): Pick<ReaderSettings, 'apiKey' | 'jitenApiKey'> {
     const apiKey = trimmedStringSetting(value, 'apiKey', DEFAULT_SETTINGS.apiKey);
     const jitenApiKey = trimmedStringSetting(value, 'jitenApiKey', DEFAULT_SETTINGS.jitenApiKey);
-    // UT-56: JPDB and Jiten credentials COEXIST — the study queue loads both
+    // UT-56: Jiten and JPDB credentials COEXIST — the study queue loads both
     // providers in parallel, so a Jiten key must not wipe the JPDB key (that
     // wipe made the study page silently diverge from jpdb Learn). A
     // jiten-prefixed value in the JPDB slot still routes to the Jiten slot.
@@ -629,7 +629,7 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
     return {
         interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
         ...normalizeBooleanSettingGroup(value, API_DEFINITION_BOOLEAN_SETTING_KEYS),
-        ...normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES),
+        ...normalizeDefinitionSourcePrioritySettings(value),
         ...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
         lookupOnClick: booleanSettingWithFallback(value, 'lookupOnClick', true),
         lookupOnHover: booleanSettingWithFallback(value, 'lookupOnHover', value?.popupActivationMode !== 'click'),
@@ -638,6 +638,24 @@ function normalizeLookupSettings(value: Partial<ReaderSettings> | null): Partial
         hoverOpenDelayMs: clampNumber(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
         hoverCloseDelayMs: clampNumber(value?.hoverCloseDelayMs, 0, 3000, DEFAULT_SETTINGS.hoverCloseDelayMs),
     };
+}
+
+function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsPriority' | 'jitenDefinitionsPriority'> {
+    const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
+    return isLegacyDefaultDefinitionSourceOrder(value)
+        ? {
+            ...normalized,
+            jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
+            jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority,
+        }
+        : normalized;
+}
+
+function isLegacyDefaultDefinitionSourceOrder(value: Partial<ReaderSettings> | null | undefined): boolean {
+    return hasOwn(value, 'jpdbDefinitionsPriority')
+        && hasOwn(value, 'jitenDefinitionsPriority')
+        && value?.jpdbDefinitionsPriority === 0
+        && value?.jitenDefinitionsPriority === 1;
 }
 
 function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'jpdbDefinitionsEnabled' | 'localDictionariesEnabled' | 'dictionarySourcesInitiallyExpanded' | 'localDictionaryMaxResults' | 'localDictionaryShowKanji'> {

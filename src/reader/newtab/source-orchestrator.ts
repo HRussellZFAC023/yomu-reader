@@ -100,11 +100,22 @@ export function interleavedNewTabLoadAccumulator(results: NewTabLoadResult[]): N
 export function newTabLoadResult(accumulator: NewTabLoadAccumulator, language: ReaderSettings['interfaceLanguage']): NewTabLoadResult {
     return {
         cards: accumulator.cards,
-        sourceLabel: accumulator.labels.length ? accumulator.labels.join(' + ') : newTabText(language, 'noSource'),
+        sourceLabel: accumulator.labels.length ? orderedNewTabSourceLabels(accumulator.labels).join(' + ') : newTabText(language, 'noSource'),
         reviewCountMode: accumulator.reviewCountMode,
         emptyMessageKey: accumulator.emptyMessageKey,
         fallbackNotice: accumulator.fallbackNotice,
     };
+}
+
+function orderedNewTabSourceLabels(labels: string[]): string[] {
+    return [...labels].sort((a, b) => newTabSourceLabelRank(a) - newTabSourceLabelRank(b));
+}
+
+function newTabSourceLabelRank(label: string): number {
+    if (label.startsWith('Jiten')) return 0;
+    if (label.startsWith('JPDB')) return 1;
+    if (label.startsWith('Anki')) return 2;
+    return 3;
 }
 
 export function mergeDedupeCardMetadata(primary: JPDBCard, secondary: JPDBCard): JPDBCard {

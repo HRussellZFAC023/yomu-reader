@@ -1,6 +1,6 @@
 ---
 title: Support
-description: Get help with よむ — report a bug, join the Discord, view the source on GitHub, or donate. よむ brings popup lookup, JPDB mining, dictionaries, subtitles, OCR, and Anki export into one free userscript.
+description: Get help with よむ — report a bug, join the Discord, view the source on GitHub, or donate. よむ brings popup lookup, mining, dictionaries, subtitles, OCR, and Anki export into one free userscript.
 ---
 
 # Support
@@ -12,13 +12,13 @@ description: Get help with よむ — report a bug, join the Discord, view the s
     <strong>Video Player</strong>
     <span>Open local browser-supported video and subtitle files in the player.</span>
   </a>
-  <a class="yomu-link-card" href="pdf-reader/index.html">
+  <a class="yomu-link-card" href="pdf-reader/">
     <strong>PDF Reader</strong>
     <span>Open any PDF and read it with よむ lookup, mining, and OCR.</span>
   </a>
   <a class="yomu-link-card" href="newtab/index.html">
     <strong>New Tab</strong>
-    <span>Use the よむ study screen for JPDB, Anki, or imported dictionary cards.</span>
+    <span>Use the よむ study screen for Jiten, JPDB, Anki, or imported dictionary cards.</span>
   </a>
   <a class="yomu-link-card" href="./">
     <strong>Docs</strong>
@@ -28,7 +28,7 @@ description: Get help with よむ — report a bug, join the Discord, view the s
 
 ## Support
 
-よむ brings popup lookup, JPDB mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as [Migaku](https://migaku.com/pricing) currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.
+よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as [Migaku](https://migaku.com/pricing) currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.
 
 Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.
 

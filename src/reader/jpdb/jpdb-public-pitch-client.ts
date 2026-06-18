@@ -6,6 +6,7 @@ import {
     requestPublicJpdbText,
     unique,
 } from './jpdb-public-lookup';
+import { readPublicJpdbCache, writePublicJpdbCache } from './jpdb-public-cache';
 import { parseJpdbPublicPitchHtml } from './jpdb-public-pitch-parser';
 
 const REQUEST_TIMEOUT_MS = 6000;
@@ -34,7 +35,13 @@ export class JpdbPublicPitchClient {
         }
         if (cached) this.cache.delete(key);
 
-        const promise = this.fetchPitch(normalizedSpelling, normalizedReading);
+        const persistent = readPublicJpdbCache<string[]>('pitch', key, now);
+        const promise = persistent
+            ? Promise.resolve(persistent)
+            : this.fetchPitch(normalizedSpelling, normalizedReading).then(pitch => {
+                if (pitch.length) writePublicJpdbCache('pitch', key, pitch);
+                return pitch;
+            });
         this.cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
         this.pruneCache(now);
         return promise;

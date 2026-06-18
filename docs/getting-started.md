@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and tap a word. No account needed. Optional JPDB, Anki, OCR, and audio setup included.
+description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and tap a word. No account needed. Optional Jiten, JPDB, Anki, OCR, and audio setup included.
 ---
 
 # Getting Started
@@ -64,7 +64,7 @@ This is the part people get stuck on, so here's exactly what happens.
    ```text
    // ==UserScript==
    // @name         よむ
-   // @version      0.6.28
+   // @version      1.4.6
    // @match        *://*/*
    // ==/UserScript==
    (function () { "use strict"; ...
@@ -87,7 +87,7 @@ This is the part people get stuck on, so here's exactly what happens.
 The first time よむ runs, it shows a short **welcome screen** with two buttons:
 
 - **Use without API key** — start reading right now. よむ looks words up using free public data, with no account needed. **Pick this one to begin.**
-- **Add API key** — connect a JPDB account for word tracking and mining. Optional, and you can do it later ([Add JPDB](#add-jpdb-optional)).
+- **Add API key** — connect Jiten or JPDB for word tracking and mining. Optional, and you can do it later ([Add an API source](#add-an-api-source-optional)).
 
 Choose **Use without API key**, then try a lookup:
 
@@ -104,15 +104,15 @@ Choose **Use without API key**, then try a lookup:
 
 That's the whole loop: see a word, understand it, keep reading. Everything below is optional.
 
-## Add JPDB (optional)
+## Add an API source (optional)
 
-[JPDB](https://jpdb.io/) is a free study service. With it, よむ shows whether you already know a word, colors words by status, and lets you mine straight into JPDB. Local dictionary lookup works fine without it, but JPDB is the easiest way to track progress.
+[Jiten](https://jiten.moe/) and [JPDB](https://jpdb.io/) can give よむ word status and mining actions. Local dictionary lookup works fine without them, but connecting one makes progress tracking easier.
 
-1. Open [your JPDB settings](https://jpdb.io/settings) and copy your key from the **API** section.
+1. Open your Jiten or JPDB settings and copy your API key.
 2. In よむ, open settings: tap the floating よむ button, or press `Alt+Shift+J` on a computer.
-3. Paste the key into the **API key** field and save.
+3. Paste the key into the matching **API key** field and save.
 
-You can also study from imported dictionaries instead — see Settings → Dictionaries. JPDB-only actions like mining to JPDB still need the key.
+You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.
 
 ## Turn on more tools
 

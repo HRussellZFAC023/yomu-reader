@@ -1,6 +1,6 @@
 // ADR-0003 Anki render extraction: Anki-specific sections live in the
 // Yomu Anki companion. Core keeps only a tiny review-button fallback because
-// JPDB/Jiten grade controls also use this module.
+// Jiten/JPDB grade controls also use this module.
 import { yomuAnkiCompanion, type PruneRedundantAnkiGlyphRepeatsFn, type RenderAnkiActionRowFn, type RenderAnkiExistingSectionFn, type RenderAnkiNewCardPreviewFn, type RenderAnkiRenderedCardStudyBodyFn, type RenderReviewButtonsFn, type ReviewButtonGradesFn } from '../companions/registry';
 import { uiText } from '../app/i18n';
 import type { InterfaceLanguage, ReaderSettings, ReviewGradeIntervals } from '../app/types';

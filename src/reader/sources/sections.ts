@@ -39,16 +39,6 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
     const language = settings.interfaceLanguage;
     const builtInRows: SettingsSourceRow[] = [
         {
-            id: JPDB_DEFINITION_SOURCE_ID,
-            name: 'JPDB',
-            alias: 'JPDB',
-            enabled: settings.jpdbDefinitionsEnabled,
-            priority: settings.jpdbDefinitionsPriority,
-            prefix: 'jpdbDefinitions',
-            readonly: true,
-            help: uiText(language, 'sourceHelpJpdb'),
-        },
-        {
             id: JITEN_DEFINITION_SOURCE_ID,
             name: 'Jiten',
             alias: 'Jiten',
@@ -57,6 +47,16 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             prefix: 'jitenDefinitions',
             readonly: true,
             help: uiText(language, 'sourceHelpJiten'),
+        },
+        {
+            id: JPDB_DEFINITION_SOURCE_ID,
+            name: 'JPDB',
+            alias: 'JPDB',
+            enabled: settings.jpdbDefinitionsEnabled,
+            priority: settings.jpdbDefinitionsPriority,
+            prefix: 'jpdbDefinitions',
+            readonly: true,
+            help: uiText(language, 'sourceHelpJpdb'),
         },
         {
             id: STUDY_TRANSLATION_SOURCE_ID,
@@ -240,16 +240,16 @@ export function orderedDefinitionSourceIds(settings: ReaderSettings, dictionaryN
     const preferences = new Map(settings.dictionaryPreferences.map(item => [item.name, item]));
     const sources = [
         {
-            id: JPDB_DEFINITION_SOURCE_ID,
-            enabled: settings.jpdbDefinitionsEnabled,
-            priority: settings.jpdbDefinitionsPriority,
-            name: 'JPDB',
-        },
-        {
             id: JITEN_DEFINITION_SOURCE_ID,
             enabled: settings.jitenDefinitionsEnabled,
             priority: settings.jitenDefinitionsPriority,
             name: 'Jiten',
+        },
+        {
+            id: JPDB_DEFINITION_SOURCE_ID,
+            enabled: settings.jpdbDefinitionsEnabled,
+            priority: settings.jpdbDefinitionsPriority,
+            name: 'JPDB',
         },
         {
             id: ANKI_SOURCE_ID,

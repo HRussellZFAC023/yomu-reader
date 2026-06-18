@@ -179,6 +179,7 @@ describe('storage reset', () => {
             listener = callback;
             return 21;
         });
+        const removeValueChangeListener = vi.fn();
         vi.stubGlobal('BroadcastChannel', undefined);
         vi.stubGlobal('GM_getValue', vi.fn((key: string, fallback: unknown) => values.has(key) ? values.get(key) : fallback));
         vi.stubGlobal('GM_setValue', vi.fn(async (key: string, value: unknown) => {
@@ -187,6 +188,7 @@ describe('storage reset', () => {
             listener?.(key, oldValue, value, true);
         }));
         vi.stubGlobal('GM_addValueChangeListener', addValueChangeListener);
+        vi.stubGlobal('GM_removeValueChangeListener', removeValueChangeListener);
 
         const changes: unknown[] = [];
         const unsubscribe = subscribeToStoredValueChanges('jpdb-popup-reader-settings', value => {
@@ -198,6 +200,7 @@ describe('storage reset', () => {
 
         expect(addValueChangeListener).toHaveBeenCalledWith('jpdb-popup-reader-settings', expect.any(Function));
         expect(changes).toEqual([{ theme: 'dark' }]);
+        expect(removeValueChangeListener).toHaveBeenCalledWith(21);
     });
 
     it('factory reset deletes its coordination signal when GM_listValues is unavailable', async () => {

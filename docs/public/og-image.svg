@@ -63,8 +63,8 @@
     <text x="568" y="215" font-size="118" font-weight="800" fill="#f5f7fb">よむ</text>
     <text x="572" y="288" font-size="48" font-weight="750" fill="#dce8e1">Free Japanese</text>
     <text x="572" y="344" font-size="48" font-weight="750" fill="#dce8e1">popup reader</text>
-    <text x="574" y="402" font-size="28" font-weight="500" fill="#b7c5bf">Lookup, mining, OCR, subtitles, JPDB,</text>
-    <text x="574" y="438" font-size="28" font-weight="500" fill="#b7c5bf">Yomitan, Anki, and audio.</text>
+    <text x="574" y="402" font-size="28" font-weight="500" fill="#b7c5bf">Lookup, mining, OCR, subtitles,</text>
+    <text x="574" y="438" font-size="28" font-weight="500" fill="#b7c5bf">dictionaries, Anki, and audio.</text>
     <g font-size="24" font-weight="700">
       <rect x="574" y="474" width="120" height="44" rx="22" fill="#5ea780" />
       <text x="634" y="503" text-anchor="middle" fill="#07120d">Lookup</text>

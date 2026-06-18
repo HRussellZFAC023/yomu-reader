@@ -75,11 +75,11 @@ function jitenInfo(meanings: string[]): JitenVocabularyInfo {
 }
 
 describe('definition source stack', () => {
-    it('keeps JPDB and Jiten as separate enabled default source IDs', () => {
-        expect(orderedDefinitionSourceIds(DEFAULT_SETTINGS, [])).toEqual(expect.arrayContaining([
-            JPDB_DEFINITION_SOURCE_ID,
+    it('keeps Jiten and JPDB as separate enabled default source IDs with Jiten first', () => {
+        expect(orderedDefinitionSourceIds(DEFAULT_SETTINGS, []).slice(0, 2)).toEqual([
             JITEN_DEFINITION_SOURCE_ID,
-        ]));
+            JPDB_DEFINITION_SOURCE_ID,
+        ]);
     });
 
     it('hides an empty keyless Jiten source instead of replacing content with an external button', () => {

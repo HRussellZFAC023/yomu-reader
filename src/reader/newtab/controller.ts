@@ -346,6 +346,20 @@ interface NewTabStatsApiProviderResult {
     error: unknown | null;
 }
 
+function orderedNewTabStatsProviderLabel(results: NewTabStatsApiProviderResult[]): string {
+    return results
+        .map(result => result.provider.label)
+        .sort((a, b) => newTabStatsProviderLabelRank(a) - newTabStatsProviderLabelRank(b))
+        .join(' + ');
+}
+
+function newTabStatsProviderLabelRank(label: string): number {
+    if (label.startsWith('Jiten')) return 0;
+    if (label.startsWith('JPDB')) return 1;
+    if (label.startsWith('Anki')) return 2;
+    return 3;
+}
+
 function newTabShortParseOptions(): NewTabParseContentOptions {
     return { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS };
 }
@@ -2291,10 +2305,6 @@ export class NewTabController {
 
     private jpdbStatsApiProviders(settings: ReaderSettings): NewTabStatsApiProvider[] {
         const providers: NewTabStatsApiProvider[] = [];
-        if (hasJpdbApiCredential(settings)) providers.push({
-            label: 'JPDB',
-            load: () => this.loadJpdbStatsCards(),
-        });
         const jiten = this.dependencies.jiten;
         if (hasJitenApiCredential(settings) && typeof jiten?.listStudyBatchCards === 'function') {
             const listJitenStudyBatchCards = jiten.listStudyBatchCards.bind(jiten);
@@ -2303,6 +2313,10 @@ export class NewTabController {
                 load: () => listJitenStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
             });
         }
+        if (hasJpdbApiCredential(settings)) providers.push({
+            label: 'JPDB',
+            load: () => this.loadJpdbStatsCards(),
+        });
         return providers;
     }
 
@@ -2331,7 +2345,7 @@ export class NewTabController {
 
     private jpdbStatsSourceFromApiResults(results: NewTabStatsApiProviderResult[]): StatsSourceSnapshot {
         const loaded = results.filter(result => result.error === null);
-        const label = (loaded.length ? loaded : results).map(result => result.provider.label).join(' + ');
+        const label = orderedNewTabStatsProviderLabel(loaded.length ? loaded : results);
         if (!loaded.length) {
             const error = results.find(result => result.error)?.error;
             return emptyStatsSource('jpdb', label, error instanceof Error ? error.message : this.text('couldNotLoadWords'), 'error');
@@ -2963,6 +2977,10 @@ export class NewTabController {
             const jiten = await this.loadJitenStudyBatchWords(options);
             return jiten ? [jiten] : [];
         }
+        if (pickedDeck === JPDB_ALL_DECKS || pickedDeck === 'all') {
+            const jiten = await this.loadJitenStudyBatchWords(options);
+            if (jiten) apiResults.push(jiten);
+        }
         if (hasJpdbKey) {
             // The in-page deck selector (study-hub parity SH-6) overrides the
             // settings default; '' follows settings.
@@ -2975,10 +2993,6 @@ export class NewTabController {
                 : options.timeoutMs;
             const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, timeoutMs, options.limit);
             if (selectedDeckCards) apiResults.push(selectedDeckCards);
-        }
-        if (pickedDeck === JPDB_ALL_DECKS || pickedDeck === 'all') {
-            const jiten = await this.loadJitenStudyBatchWords(options);
-            if (jiten) apiResults.push(jiten);
         }
         return apiResults;
     }
@@ -3879,8 +3893,8 @@ export class NewTabController {
         const add = (label: string): void => {
             if (!labels.includes(label)) labels.push(label);
         };
-        if (summary.hasJpdb) add('JPDB');
         if (summary.hasJiten) add('Jiten');
+        if (summary.hasJpdb) add('JPDB');
         if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten ? 'Anki' : this.ankiReviewSourceLabel(card));
         return labels;
     }
@@ -3904,6 +3918,7 @@ export class NewTabController {
         const source = this.cardReviewSource(card);
         return (source === 'dictionary' || (source === 'jpdb' && !isJitenSrsCard(card)))
             && this.sourceLabel.startsWith('Jiten')
+            && !this.sourceLabel.includes(' + ')
             && this.hasJitenOnlyApiCredentials();
     }
 
@@ -3944,7 +3959,7 @@ export class NewTabController {
     }
 
     private statusLightSourceForCard(card: JPDBCard): 'jpdb' | 'jiten' | 'anki' | null {
-        if ((this.cardReviewSource(card) === 'dictionary' && this.sourceLabel.startsWith('Jiten'))
+        if ((this.cardReviewSource(card) === 'dictionary' && this.sourceLabel.startsWith('Jiten') && !this.sourceLabel.includes(' + '))
             || this.shouldShowJitenOnlyApiFallbackSource(card)
             || isJitenSrsCard(card)) {
             return 'jiten';
@@ -3959,8 +3974,8 @@ export class NewTabController {
         const add = (source: 'jpdb' | 'jiten' | 'anki'): void => {
             if (!sources.includes(source)) sources.push(source);
         };
-        if (summary.hasJpdb) add('jpdb');
         if (summary.hasJiten) add('jiten');
+        if (summary.hasJpdb) add('jpdb');
         if (summary.hasAnki) add('anki');
         return sources;
     }
@@ -3987,7 +4002,7 @@ export class NewTabController {
             return;
         }
         const target = this.emptySourceToggleTarget(source);
-        const lightSource = source === 'jpdb' && this.sourceLabel.startsWith('Jiten')
+        const lightSource = source === 'jpdb' && this.sourceLabel.startsWith('Jiten') && !this.sourceLabel.includes(' + ')
             ? 'jiten'
             : source;
         replaceChildrenWith(statusSlot, ...[
@@ -4045,7 +4060,7 @@ export class NewTabController {
 
     private shouldSuppressJitenOnlyJpdbCardToggle(card: JPDBCard): boolean {
         return this.hasJitenOnlyApiCredentials()
-            && !this.sourceLabel.startsWith('Jiten')
+            && !this.isJitenOnlySourceLabel()
             && this.cardReviewSource(card) === 'jpdb'
             && !isJitenSrsCard(card)
             && !this.reviewTargetsForCard(card).includes('anki');
@@ -4104,7 +4119,7 @@ export class NewTabController {
     }
 
     private shouldIncludeDictionaryToggleSource(context: SourceToggleContext, sources: ConcreteNewTabWordSource[]): boolean {
-        if (this.sourceLabel.startsWith('Jiten') && this.hasJitenOnlyApiCredentials()) return false;
+        if (this.isJitenOnlySourceLabel() && this.hasJitenOnlyApiCredentials()) return false;
         return context.current === 'dictionary'
             && sources.length === 1;
     }
@@ -4141,6 +4156,10 @@ export class NewTabController {
         if (this.sourceLabel.startsWith('Jiten')) return 'jpdb';
         if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.anki)) return 'anki';
         return this.sourceLabel === this.text('dictionary') ? 'dictionary' : null;
+    }
+
+    private isJitenOnlySourceLabel(): boolean {
+        return this.sourceLabel.startsWith('Jiten') && !this.sourceLabel.includes(' + ');
     }
 
     private cardHasToggleSource(card: JPDBCard, source: ConcreteNewTabWordSource): boolean {
@@ -4190,7 +4209,7 @@ export class NewTabController {
     }
 
     private jpdbSourceToggleLabel(): string {
-        if (this.sourceLabel.includes('JPDB + Jiten')) return 'JPDB + Jiten';
+        if (this.sourceLabel.includes('Jiten + JPDB')) return 'Jiten + JPDB';
         if (this.sourceLabel.startsWith('Jiten')) return 'Jiten';
         return this.apiReviewSourceLabel();
     }
@@ -7188,7 +7207,7 @@ export class NewTabController {
 
     // SH-3 due-in column: bucket the pool's Anki cards through Anki's own
     // scheduler search (is:due, prop:due<=1/7/30) — exact answers, no due
-    // decoding. JPDB/Jiten cards stay blank (their APIs expose no per-card
+    // decoding. Jiten/JPDB cards stay blank (their APIs expose no per-card
     // due timestamps).
     private async loadBrowseAnkiDueBuckets(cards: JPDBCard[]): Promise<Map<number, string>> {
         const ankiCardIds = new Set(cards.map(card => card.ankiCardId).filter((id): id is number => Number.isFinite(id) && (id as number) > 0));

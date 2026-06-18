@@ -165,11 +165,38 @@ describe('nested text parse plans', () => {
         expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', '読みます']);
     });
 
-    it('renders dictionary popover summaries as passive render-only words', () => {
+    it('keeps dictionary source summaries as plain labels', () => {
         document.body.innerHTML = `
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
                 <details open>
                     <summary class="jpdb-reader-local-title">翻訳</summary>
+                    <div>Translation text.</div>
+                </details>
+            </div>
+        `;
+        const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+        const details = popover.querySelector<HTMLDetailsElement>('details')!;
+        const plan = nestedTextParsePlan(popover, 24);
+
+        let parsedWord: HTMLElement | null = null;
+        popover.addEventListener('click', event => {
+            parsedWord = lookupPopoverParsedWordElement(event as MouseEvent, popover);
+        });
+        const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+        popover.querySelector<HTMLElement>('summary')!.dispatchEvent(click);
+
+        expect(plan).toBeNull();
+        expect(popover.querySelector('summary .jpdb-reader-word')).toBeNull();
+        expect(parsedWord).toBeNull();
+        expect(click.defaultPrevented).toBe(false);
+        expect(details.open).toBe(false);
+    });
+
+    it('parses dictionary example summaries as passive render-only words', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <details open>
+                    <summary class="jpdb-reader-local-title jpdb-reader-example-summary">翻訳</summary>
                     <div>Translation text.</div>
                 </details>
             </div>

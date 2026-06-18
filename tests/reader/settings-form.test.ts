@@ -285,9 +285,9 @@ describe('settings form localization', () => {
         expect(topLevelLegendForControl(form, 'newTabJpdbReviewMode')).toBe('Study');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API review mode');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('Auto: API/Anki, then study words');
-        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (JPDB / Jiten)');
+        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS (Jiten / JPDB)');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then JPDB kanji facts, then local');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (JPDB / Jiten)');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB kanji facts (Jiten / JPDB)');
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="newTab"]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="newTab"]')).not.toBeNull();
     });
@@ -325,7 +325,7 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('#jpdb-reader-settings-panel-kanji')?.hidden).toBe(false);
     });
 
-    it('renders and saves coexisting JPDB and Jiten API keys (UT-56)', () => {
+    it('renders and saves coexisting Jiten and JPDB API keys (UT-56)', () => {
         const form = renderSettingsTestForm({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'ak_jiten-key' });
         const jpdbInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJpdb"]')!;
         const jitenInput = form.querySelector<HTMLInputElement>('input[name="apiCredentialJiten"]')!;
@@ -988,7 +988,7 @@ describe('settings form localization', () => {
 
         expect(settingsTone(form, '[data-jpdb-status]')).toBe('pending');
         expect(jpdbStatus).toContain('Needs setup:');
-        expect(jpdbStatus).toContain('No JPDB or Jiten key');
+        expect(jpdbStatus).toContain('No Jiten or JPDB key');
         expect(jpdbStatus).not.toContain('Public lookup works');
         expect(form.querySelector<HTMLElement>('[data-jiten-status]')).toBeNull();
     });
@@ -1064,7 +1064,7 @@ describe('settings form localization', () => {
         expect(optionText(jitenForm, 'wordTextColorSource', 'status')).toBe('Jiten + Anki status');
         expect(optionText(jitenForm, 'wordHighlightColorSource', 'jpdb')).toBe('Jiten status');
         expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'auto')).toBe('Auto: RTK, then Jiten kanji facts, then local');
-        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (JPDB / Jiten)');
+        expect(optionText(jitenForm, 'newTabKanjiKeywordSource', 'jpdb')).toBe('Jiten kanji facts (Jiten / JPDB)');
         expect(labelForControl(jitenForm, 'jpdbDefinitionsEnabled')).toBe('');
         expect(labelForControl(jitenForm, 'localDictionariesEnabled')).toBe('');
         expect(labelForControl(jitenForm, 'dictionarySourcesInitiallyExpanded')).toBe('');
@@ -1333,7 +1333,25 @@ describe('settings form localization', () => {
 
         expect(DEFAULT_SETTINGS.ankiSectionEnabled).toBe(false);
         expect(orderedDefinitionSourceIds({ ...DEFAULT_SETTINGS, ankiEnabled: false }, [])).not.toContain(ANKI_SOURCE_ID);
-        expect(orderedDefinitionSourceIds({ ...DEFAULT_SETTINGS, ankiEnabled: false }, [])).toEqual(expect.arrayContaining([JPDB_DEFINITION_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID]));
+        expect(DEFAULT_SETTINGS.jitenDefinitionsPriority).toBeLessThan(DEFAULT_SETTINGS.jpdbDefinitionsPriority);
+        expect(orderedDefinitionSourceIds({ ...DEFAULT_SETTINGS, ankiEnabled: false }, []).slice(0, 2)).toEqual([
+            JITEN_DEFINITION_SOURCE_ID,
+            JPDB_DEFINITION_SOURCE_ID,
+        ]);
+        expect(orderedDefinitionSourceIds(normalizeReaderSettings({
+            jpdbDefinitionsPriority: 0,
+            jitenDefinitionsPriority: 1,
+        }), []).slice(0, 2)).toEqual([
+            JITEN_DEFINITION_SOURCE_ID,
+            JPDB_DEFINITION_SOURCE_ID,
+        ]);
+        expect(orderedDefinitionSourceIds(normalizeReaderSettings({
+            jpdbDefinitionsPriority: 0,
+            jitenDefinitionsPriority: 2,
+        }), []).slice(0, 2)).toEqual([
+            JPDB_DEFINITION_SOURCE_ID,
+            JITEN_DEFINITION_SOURCE_ID,
+        ]);
         expect(ankiRow.textContent).toContain('Anki');
         expect(ankiRow.textContent).toContain('Matching Anki card content and status');
         expect(ankiRow.textContent).not.toContain('mining');
@@ -1541,11 +1559,11 @@ describe('settings form localization', () => {
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
         expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki、その後に学習語');
-        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（JPDB / Jiten）');
+        expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
         expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順・JPDBの復習順とは異なります）');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB漢字情報、ローカルの順');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（JPDB / Jiten）');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
         expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効にする');
         expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('サイトの言語と地域を日本優先にする');
         expect(optionText(form, 'audioAutoPlayMode', 'all')).toBe('ホバーとタップ/クリック');

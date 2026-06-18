@@ -5018,6 +5018,7 @@ export class ReaderApp {
     }
 
     private installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
+        installMiningDrawerHandle(popover, (button, expanded) => this.setMiningControlsExpanded(button, expanded));
         popover.addEventListener('click', event => this.handleCardPopoverClick(event, card, sentence, anchor, trigger));
         popover.addEventListener('change', event => this.handlePopoverReviewTargetChange(event, popover));
     }
@@ -6618,7 +6619,7 @@ export class ReaderApp {
             sections.push(this.kanjiCompanion.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, this.kanjiFactSourceTitle('jpdb')));
         }
         // When both services answer for this kanji we show both cards (the reader
-        // asked to see JPDB and Jiten facts side by side, not just the active one).
+        // asked to see Jiten and JPDB facts side by side, not just the active one).
         if (jitenInfo) {
             const jitenKey = `${jpdbKey}:jiten`;
             sections.push(renderJitenKanjiInfo(jitenInfo, language, this.dictionarySourceState.isOpen(jitenKey), jitenKey, this.kanjiFactSourceTitle('jiten')));

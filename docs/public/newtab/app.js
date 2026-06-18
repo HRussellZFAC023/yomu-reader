@@ -829,8 +829,8 @@
   const DONATE_URL = "https://paypal.me/HenryRussell163";
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
-  const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/index.html`;
-  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, JPDB mining, dictionaries, OCR, subtitles, and Anki.";
+  const PDF_READER_PAGE_URL = `${DOCS_BASE_URL}pdf-reader/`;
+  const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const NADESHIKO_URL = "https://nadeshiko.co/";
   const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
@@ -1085,6 +1085,7 @@
     "jpdb-reader-transcript-panel-size",
     "yomu:anki-status-index:v1",
     "yomu:anki-status-index-rebuild:v1",
+    "yomu:jpdb-cache:v1",
     "yomu.grammarPreferences.v1",
     "yomu:enable-logs",
     "yomu:prefer-japanese-site-language",
@@ -1283,17 +1284,32 @@
     };
   }
   function subscribeToStoredValueChanges(key, onChange) {
+    const cleanups = [];
     const addValueChangeListener = globalThis.GM_addValueChangeListener;
+    const removeValueChangeListener = globalThis.GM_removeValueChangeListener;
     if (typeof addValueChangeListener === "function") {
-      addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
+      try {
+        const listenerId = addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
+        cleanups.push(() => {
+          if (typeof removeValueChangeListener === "function") removeValueChangeListener(listenerId);
+        });
+      } catch (error) {
+        debugStorageError("GM stored value listener failed", key, error);
+      }
     }
     const onStorage = (event) => {
       if (event.key !== key) return;
       onChange(JSON.parse(event.newValue || "null"));
     };
     window.addEventListener("storage", onStorage);
+    cleanups.push(() => window.removeEventListener("storage", onStorage));
     return () => {
-      window.removeEventListener("storage", onStorage);
+      while (cleanups.length) {
+        try {
+          cleanups.pop()?.();
+        } catch {
+        }
+      }
     };
   }
   async function storageKeys(prefixes) {
@@ -1555,7 +1571,7 @@
   function combinedApiCredentialLabel(settings) {
     const jpdb = Boolean(effectiveJpdbApiKey(settings));
     const jiten = Boolean(effectiveJitenApiKey(settings));
-    if (jpdb && jiten) return "JPDB + Jiten";
+    if (jpdb && jiten) return "Jiten + JPDB";
     if (jiten) return "Jiten";
     return "JPDB";
   }
@@ -2338,9 +2354,9 @@
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
-    jpdbDefinitionsPriority: 0,
+    jpdbDefinitionsPriority: 1,
     jitenDefinitionsEnabled: true,
-    jitenDefinitionsPriority: 1,
+    jitenDefinitionsPriority: 0,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
@@ -2707,7 +2723,7 @@
     return {
       interfaceLanguage: normalizeInterfaceLanguage(value?.interfaceLanguage),
       ...normalizeBooleanSettingGroup(value, API_DEFINITION_BOOLEAN_SETTING_KEYS),
-      ...normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES),
+      ...normalizeDefinitionSourcePrioritySettings(value),
       ...normalizeBooleanSettingGroup(value, LOOKUP_PAGE_ENHANCEMENT_KEYS),
       lookupOnClick: booleanSettingWithFallback(value, "lookupOnClick", true),
       lookupOnHover: booleanSettingWithFallback(value, "lookupOnHover", value?.popupActivationMode !== "click"),
@@ -2716,6 +2732,17 @@
       hoverOpenDelayMs: clampNumber$3(value?.hoverOpenDelayMs, 0, 1500, DEFAULT_SETTINGS.hoverOpenDelayMs),
       hoverCloseDelayMs: clampNumber$3(value?.hoverCloseDelayMs, 0, 3e3, DEFAULT_SETTINGS.hoverCloseDelayMs)
     };
+  }
+  function normalizeDefinitionSourcePrioritySettings(value) {
+    const normalized = normalizeNumberSettingGroup(value, API_DEFINITION_NUMBER_SETTING_RANGES);
+    return isLegacyDefaultDefinitionSourceOrder(value) ? {
+      ...normalized,
+      jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
+      jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
+    } : normalized;
+  }
+  function isLegacyDefaultDefinitionSourceOrder(value) {
+    return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
   }
   function normalizeRemovedDictionarySettings(value) {
     return {
@@ -5968,7 +5995,7 @@
       settingsTitle: `${APP_NAME} Settings`,
       welcomeLabel: `${APP_NAME} welcome`,
       onboardingEyebrow: "Japanese, wherever it appears",
-      onboardingCopy: "Make Japanese text, subtitles, and images tappable while you read.",
+      onboardingCopy: "Make Japanese text, subtitles, and images tappable.",
       onboardingLanguage: "Settings language",
       onboardingAccentColor: "Accent color",
       customAccentColor: "Custom color",
@@ -5986,7 +6013,7 @@
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "Review JPDB, Anki, Jiten, and optional kanji cards in order on the built-in study page.",
+      featureStudyBody: "Review Jiten, JPDB, Anki, and optional kanji cards in order on the built-in study page.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -6027,14 +6054,14 @@
       apiKey: "API key",
       jitenApiKey: "Jiten API key",
       apiAccess: "API access",
-      apiAccessHelp: "Paste a JPDB or Jiten API key. Jiten keys start with ak_.",
+      apiAccessHelp: "Paste a Jiten or JPDB API key. Jiten starts with ak_.",
       jpdbSettings: "JPDB settings",
       jitenSettings: "Jiten settings",
       jpdbApiKeyConfigured: "JPDB key set.",
-      jpdbAndJitenApiKeysConfigured: "JPDB and Jiten keys are set.",
+      jpdbAndJitenApiKeysConfigured: "Jiten and JPDB keys are set.",
       jpdbApiKeyMissing: "No JPDB key.",
       jpdbConnected: "Connected to JPDB.",
-      jpdbAndJitenConnected: "Connected to JPDB and Jiten.",
+      jpdbAndJitenConnected: "Connected to Jiten and JPDB.",
       jpdbConnectionFailed: "JPDB did not accept the key (network or invalid key).",
       jitenApiKeyConfigured: "Jiten key set.",
       jitenApiKeyMissing: "No Jiten key.",
@@ -6096,7 +6123,7 @@
       newTabAnkiReviewDecksHelp: "Uncheck decks to skip.",
       newTabSource: "Study review source",
       newTabAuto: "Auto: API/Anki, then study words",
-      newTabApiSrs: "API SRS (JPDB / Jiten)",
+      newTabApiSrs: "API SRS (Jiten / JPDB)",
       dictionaryFallback: "Dictionary fallback",
       newTabJpdbReviewMode: "API review mode",
       newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
@@ -6106,7 +6133,7 @@
       newTabKanjiKeywordSource: "Kanji keyword source",
       newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
       newTabKanjiKeywordRtk: "RTK / Heisig",
-      newTabKanjiKeywordApiFacts: "{service} kanji facts (JPDB / Jiten)",
+      newTabKanjiKeywordApiFacts: "{service} kanji facts (Jiten / JPDB)",
       newTabKanjiKeywordLocal: "Local card meaning",
       newTabParsingEnabled: "Enable sentence parsing on Study",
       newTabFrontSentenceEnabled: "Show sentence on word fronts",
@@ -6119,8 +6146,8 @@
       newTabStopAtBatchEnd: "Stop at the end of each batch",
       newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
-      newTabOfflineHelp: "Offline cache keeps your next due cards and queued grades in this browser; grades made offline sync when you reconnect.",
-      newTabAddressHelp: "Set this as your browser's start or new-tab page (desktop browsers need a new-tab redirect extension), or add it to your iPad Home Screen.",
+      newTabOfflineHelp: "Caches due cards and queued grades.",
+      newTabAddressHelp: "Use as a start page or add to iPad Home Screen.",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -6243,16 +6270,16 @@
       defaultVoiceSuffix: "default",
       audioGuideLinkLabel: "Yomitan audio guide",
       audioProxyGuideSummary: "Make your own Cloudflare proxy",
-      audioProxyGuideIntro: "Public proxy works for most users. Use Worker for private proxy.",
-      audioProxyGuideCloudflare: "Open Cloudflare Dashboard.",
+      audioProxyGuideIntro: "Use a Worker when you want a private proxy.",
+      audioProxyGuideCloudflare: "Open Cloudflare.",
       audioProxyGuideWorkers: "Open Workers & Pages, then Create.",
-      audioProxyGuideCreateWorker: "Choose Worker, name it, and deploy.",
-      audioProxyGuideEditCode: "Edit code and paste the Yomu Worker source.",
+      audioProxyGuideCreateWorker: "Choose Worker, name it, deploy.",
+      audioProxyGuideEditCode: "Paste the Yomu Worker source.",
       audioProxyGuideDeploy: "Deploy.",
-      audioProxyGuideCopyUrl: "Copy the Worker URL, e.g. https://yomu-proxy.yourname.workers.dev.",
-      audioProxyGuidePasteUrl: "Paste it into Cross-origin proxy URL. Do not add ?url=.",
-      audioProxyGuideTest: "Save, then try lookup, import, or external audio.",
-      audioProxyGuideNote: "Worker source is in the repo. Limit hosts before sharing.",
+      audioProxyGuideCopyUrl: "Copy the Worker URL.",
+      audioProxyGuidePasteUrl: "Paste it into Cross-origin proxy URL.",
+      audioProxyGuideTest: "Save, then test lookup/import/audio.",
+      audioProxyGuideNote: "Limit hosts before sharing.",
       audioProxyWorkerSource: "Worker source",
       audioProxyDeployGuide: "Deploy guide",
       immersionKit: "Immersion Kit",
@@ -6277,22 +6304,22 @@
       immersionKitMaxLength: "Maximum sentence length",
       immersionKitPlaybackRate: "Example audio speed",
       immersionKitExactMatch: "Prefer exact matches",
-      immersionKitHelp: "Examples appear in popups and JPDB. Nadeshiko needs a key.",
+      immersionKitHelp: "Examples appear in popups. Nadeshiko needs a key.",
       loadingExamples: "Loading examples...",
       noImmersionExamples: "No Immersion Kit examples found.",
       noImmersionExamplesCompact: "No examples",
-      immersionKitRateLimited: "Immersion Kit is temporarily rate-limited; retrying later.",
+      immersionKitRateLimited: "Immersion Kit rate-limited; retrying later.",
       immersionKitRequest: "Immersion Kit request",
       immersionKitRequestFailed: "Immersion Kit request failed.",
       immersionKitRequestFailedWithStatus: "Immersion Kit request failed ({status}).",
       immersionKitRequestTimedOut: "Immersion Kit request timed out.",
-      immersionKitSearchBlocked: "Immersion Kit is blocked here. Configure CORS or use fallback.",
+      immersionKitSearchBlocked: "Immersion Kit blocked. Configure CORS or use fallback.",
       immersionKitMediaRequest: "Media request",
       immersionKitMediaRequestFailed: "Media request failed.",
       immersionKitMediaRequestFailedWithStatus: "Media request failed ({status}).",
       immersionKitMediaRequestTimedOut: "Media request timed out.",
       immersionKitMediaRequestReturnedNonMedia: "Media request returned an error document instead of audio or image.",
-      immersionKitNoMediaCandidate: "No Immersion Kit media candidate could be loaded.",
+      immersionKitNoMediaCandidate: "No Immersion Kit media loaded.",
       nadeshikoRequest: "Nadeshiko request",
       nadeshikoRequestFailed: "Nadeshiko request failed.",
       nadeshikoRequestFailedWithStatus: "Nadeshiko request failed ({status}).",
@@ -6309,13 +6336,13 @@
       randomOrder: "Random",
       ocrEnabled: "Read text in images",
       ocrAutoScanImages: "Read images automatically",
-      ocrShowTextOverlay: "Show recognized image text areas",
+      ocrShowTextOverlay: "Show recognized text areas",
       ocrVideoPauseFrames: "Read paused video frames",
       ocrInvertDarkPanels: "Read light text on dark panels",
       ocrProvider: "Image reading",
-      googleLens: "Google Lens — free, no setup (recommended)",
-      cloudVision: "Google Cloud Vision — needs API key",
-      localOcr: "Local OCR server — advanced",
+      googleLens: "Google Lens (free, recommended)",
+      cloudVision: "Google Cloud Vision (API key)",
+      localOcr: "Local OCR server",
       off: "Off",
       ocrMaxImagesPerPage: "Images to read per page",
       ocrMinImageArea: "Smallest image to read",
@@ -6330,7 +6357,7 @@
       sharper: "Sharper",
       ocrTextColor: "Image text color",
       ocrOutlineColor: "Image text outline",
-      ocrBackgroundColor: "Image highlight background",
+      ocrBackgroundColor: "Image highlight",
       ocrBackgroundOpacity: "Image highlight opacity",
       ocrFontScale: "Image text scale",
       ocrEndpointUrl: "Local OCR server URL",
@@ -6339,21 +6366,21 @@
       ocrEngineMangaOcr: "MangaOCR (best for manga)",
       ocrEngineAppleVision: "Apple Vision (macOS)",
       cloudVisionApiKey: "Google Cloud Vision API key",
-      ocrHelp: "Reads images near the viewport. Google Lens works out of the box — no setup or key.",
-      ocrCloudHelp: "Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled). Paste the key here.",
-      ocrLocalHelp: "Advanced: runs OCR on your own computer — nothing leaves your device. Start a local OCR server that exposes an HTTP endpoint (e.g. MangaOCR, best for manga), then enter its URL. Most users should keep Google Lens.",
+      ocrHelp: "Reads nearby images. Google Lens needs no setup.",
+      ocrCloudHelp: "Paste a Google Cloud Vision API key.",
+      ocrLocalHelp: "Run MangaOCR/Apple Vision locally and enter its URL.",
       subtitlePlayerEnabled: "Enable video subtitle player",
       subtitleAutoDetect: "Auto-detect page subtitles",
       subtitleOverlayVisible: "Show subtitle overlay",
-      subtitleSecondaryVisible: "Show native subtitles when available",
+      subtitleSecondaryVisible: "Show native subtitles",
       subtitleNativeBlurred: "Blur native subtitles until hover",
       subtitleKaraokeMode: "Karaoke word timing",
       subtitleTranscriptVisible: "Open transcript panel by default",
       subtitlePausePanel: "Open side panel when paused",
       subtitleTranscriptPlacement: "Transcript panel position",
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-      subtitleTranscriptAutoScrollResumeSeconds: "Resume transcript auto-scroll after manual scroll (s)",
-      subtitleAutoCopyLine: "Auto-copy each subtitle line as it plays",
+      subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll after manual scroll (s)",
+      subtitleAutoCopyLine: "Auto-copy subtitle lines",
       subtitleMiningPause: "Pause video when mining subtitle",
       subtitleControlsMode: "Subtitle controls",
       right: "Right",
@@ -6383,9 +6410,9 @@
       youtubeShowHiddenVideos: "Show hidden videos",
       youtubeHideHiddenVideos: "Hide hidden videos",
       youtubeHideNotice: "Hide notice",
-      youtubeFilterShowing: "{appName} is showing {count} hidden YouTube item{plural}",
-      youtubeFilterHid: "{appName} hid {count} non-Japanese-looking YouTube item{plural}",
-      youtubeFilterVisible: "{count} Japanese-looking items stayed visible.",
+      youtubeFilterShowing: "{appName} shows {count} hidden item{plural}",
+      youtubeFilterHid: "{appName} hid {count} non-Japanese item{plural}",
+      youtubeFilterVisible: "{count} Japanese items stayed visible.",
       youtubeToggleToastOn: "YouTube immersion filter enabled.",
       youtubeToggleToastOff: "YouTube immersion filter disabled.",
       ankiEnabled: "Enable Anki mining",
@@ -6429,36 +6456,36 @@
       ankiCheckingConnection: "Checking AnkiConnect at {url}.",
       ankiMiningDisabledStatus: "Anki mining disabled.",
       ankiTesting: "Checking AnkiConnect...",
-      ankiPreparing: "Creating or refreshing the Yomu deck and note type...",
-      ankiScanning: "Reading Anki decks, note types, and fields...",
-      ankiScanSummary: "Decks {decks}, note types {models}. Best: {model}. {fields}",
+      ankiPreparing: "Creating Yomu deck/note type...",
+      ankiScanning: "Reading decks, note types, fields...",
+      ankiScanSummary: "Decks {decks}, types {models}. Best: {model}. {fields}",
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
       ankiScanFieldSummary: "Fields: {fields}",
-      ankiUnreachable: "Open desktop Anki, enable AnkiConnect, then check again.",
-      ankiCorsBlocked: 'AnkiConnect is running but refuses this site. In Anki: Tools → Add-ons → AnkiConnect → Config, add "{origin}" to webCorsOriginList, then restart Anki.',
-      ankiSettingsUnreachable: "AnkiConnect not reached. Open desktop Anki and check again.",
-      ankiHostedBridgeMissing: `Enable the ${APP_NAME} userscript, refresh the page, then check again.`,
+      ankiUnreachable: "Open desktop Anki and check again.",
+      ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList, then restart Anki.',
+      ankiSettingsUnreachable: "AnkiConnect not reached. Open Anki and retry.",
+      ankiHostedBridgeMissing: `Enable ${APP_NAME}, refresh, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
       ankiStatusInstallAddon: "Install/enable AnkiConnect",
       ankiStatusMobileDocs: "Mobile setup docs",
       ankiStatusUseDesktopUrl: "Use the LAN/Tailscale URL on mobile",
-      ankiStatusEnableUserscript: `Enable the installed ${APP_NAME} userscript`,
+      ankiStatusEnableUserscript: `Enable installed ${APP_NAME}`,
       ankiStatusRefreshAndCheck: "Refresh, then check again",
-      ankiHostedCorsHint: "Advanced: direct browser access needs {origin} in AnkiConnect webCorsOriginList.",
+      ankiHostedCorsHint: "Direct access needs {origin} in webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
       ankiLibraryAdapterStatus: "Scans decks and note types, then suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
-      ankiLibraryChoicesHelp: "Filled from AnkiConnect. Pick where mining creates or updates notes.",
+      ankiLibraryChoicesHelp: "From AnkiConnect. Pick where mining saves notes.",
       ankiTemplateSettings: "Yomu card template",
       ankiTemplateSettingsHelp: "For Yomu note types. Imported templates stay in Anki.",
-      ankiMappingConfidenceHelp: "Based on fields and samples. Edit low-confidence mappings.",
+      ankiMappingConfidenceHelp: "Based on fields/samples. Edit low-confidence mappings.",
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
       ankiHelp: "Full Anki uses desktop AnkiConnect over LAN/Tailscale. Handoff only creates new notes.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
-      dictionarySourcesInitiallyExpanded: "Open popup sources by default",
+      dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
@@ -6484,11 +6511,11 @@
       queued: "Queued",
       saveAfterInstall: "Save after install",
       download: "Download",
-      downloadAndImport: "Download and import into よむ",
+      downloadAndImport: "Download and import",
       update: "Update",
-      noLocalDictionaries: "No local dictionaries yet. Download JMdict or import a Yomitan ZIP.",
+      noLocalDictionaries: "No local dictionaries yet. Download or import a ZIP.",
       checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local definitions.",
+      dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local results.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking dictionary index...",
@@ -6510,18 +6537,18 @@
       noLocalDictionariesImported: "No local dictionaries imported yet.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
-      dictionaryDownloadNotZip: "Dictionary download did not return a ZIP file.",
-      dictionaryDownloadNeedsBridge: "Download needs the userscript bridge; else import the ZIP.",
-      dictionaryDownloadBlocked: "Download is blocked. Open the URL and import the ZIP manually.",
-      dictionaryManualDownloadHint: "Enable the userscript, download again, or import the ZIP.",
-      dictionaryInstallQueueHelp: "Installs take a few minutes. Save unlocks when done.",
-      dictionaryInstallQueued: "{dictionary} queued; installs after the current dictionary.",
+      dictionaryDownloadNotZip: "Download was not a ZIP.",
+      dictionaryDownloadNeedsBridge: "Download needs the bridge; else import the ZIP.",
+      dictionaryDownloadBlocked: "Download is blocked. Import the ZIP manually.",
+      dictionaryManualDownloadHint: "Enable the userscript or import the ZIP.",
+      dictionaryInstallQueueHelp: "Installs take a few minutes.",
+      dictionaryInstallQueued: "{dictionary} queued after current install.",
       dictionaryInstallSaveBlocked: "Dictionary import is running. Save unlocks when done.",
-      dictionaryImportQueueStatus: "{count} install{plural} running. Save unlocks when done.",
+      dictionaryImportQueueStatus: "{count} install{plural} running.",
       dictionaryRemoveConfirm: 'Remove "{dictionary}" and all of its imported entries?',
       dictionaryRemoving: "Removing {dictionary}...",
       dictionaryRemoved: "Removed {dictionary}.",
-      dictionaryImportComplete: "Imported {records} records from {sources} dictionary source{plural}.",
+      dictionaryImportComplete: "Imported {records} records from {sources} source{plural}.",
       dictionaryRecordsImported: "{dictionary}: {records} records imported.",
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
@@ -6529,7 +6556,7 @@
       restoredStoredChoices: "restored {count} stored choice{plural}",
       importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
       dictionaryNoSupportedBanks: "No supported Yomitan dictionary banks found.",
-      dictionaryUnsupportedJson: "Use Yomitan Dexie, dictionary ZIP, or reader export.",
+      dictionaryUnsupportedJson: "Use Yomitan Dexie, ZIP, or reader export.",
       dictionaryZipMissingIndex: "Yomitan dictionary ZIP is missing index.json.",
       yomitanSettingsInvalid: "This does not look like a Yomitan settings export.",
       localDictionaryText: "Dictionary text",
@@ -6594,6 +6621,7 @@
       loadJapaneseSubtitles: "Load Japanese subtitles",
       loadPrimarySubtitles: "Load primary subtitles",
       loadNativeSubtitles: "Load native subtitles",
+      searchAnimeSubtitles: "Search anime subtitles",
       toggleNativeSubtitleBlur: "Toggle native subtitle blur",
       subtitleTrackDetectedSingular: "1 subtitle track detected",
       subtitleTracksDetected: "subtitle tracks detected",
@@ -6715,7 +6743,7 @@
       switchReviewTarget: "Switch review target",
       switchGradingProvider: "Switch grading provider",
       jpdbKanjiUpdated: "JPDB kanji updated.",
-      jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check JPDB kanji reviews are enabled.",
+      jpdbKanjiUpdateFailedRuntime: "Could not update JPDB kanji. Check kanji reviews.",
       apiSrsActionsDisabled: "API mining actions are disabled in settings.",
       addJpdbApiKeyReview: "Add a JPDB API key to review JPDB cards.",
       addJitenApiKeyReview: "Add a Jiten API key to review Jiten cards.",
@@ -6766,11 +6794,11 @@
       factOldForms: "Old forms",
       docs: "Docs",
       factoryReset: "Factory Reset",
-      factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dictionaries, and storage.",
+      factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dictionaries.",
       factoryResetFailed: "Reset failed.",
-      factoryResetDictionaryWarning: "Settings reset. Close other tabs before clearing dictionaries.",
-      factoryResetOtherTabReloading: "よむ was reset in another tab. Reloading...",
-      factoryResetDeleteSettingsFailed: "Could not delete saved settings. Close other tabs and retry.",
+      factoryResetDictionaryWarning: "Settings reset. Close other tabs before dictionaries.",
+      factoryResetOtherTabReloading: "よむ reset in another tab. Reloading...",
+      factoryResetDeleteSettingsFailed: "Could not delete settings. Close other tabs and retry.",
       issues: "Issues",
       donate: "Donate",
       discord: "Discord",
@@ -6817,27 +6845,27 @@
       deck: "Deck",
       deckActions: "Deck actions",
       reviewAddsToDeck: "Reviewing will add new words to",
-      reviewBlockedBlacklisted: "This word is blacklisted. Unlist it before reviewing.",
-      reviewBlockedNeverForget: "Marked never forget. Remove that before reviewing.",
-      reviewBlockedLocked: "This JPDB card is locked. Unlock it in JPDB before reviewing.",
-      reviewBlockedRedundant: "JPDB marks this word redundant (covered by another card), so it cannot be reviewed.",
+      reviewBlockedBlacklisted: "Blacklisted. Unlist before reviewing.",
+      reviewBlockedNeverForget: "Never-forget. Remove before reviewing.",
+      reviewBlockedLocked: "Locked. Unlock before reviewing.",
+      reviewBlockedRedundant: "JPDB marks this redundant.",
       ankiCardsSuspended: "Suspended in Anki (works like a blacklist).",
       ankiCardsUnsuspended: "Unsuspended in Anki.",
-      ankiNeverForgetTagAdded: "Tagged yomu-never-forget in Anki.",
-      ankiNeverForgetTagRemoved: "Removed the yomu-never-forget tag in Anki.",
+      ankiNeverForgetTagAdded: "Tagged yomu-never-forget.",
+      ankiNeverForgetTagRemoved: "Removed yomu-never-forget.",
       forget: "Forget",
       never: "Never forget",
       neverHint: "Move to never-forget and count as known.",
-      forgetHint: "Remove from never-forget so it can be mined or reviewed.",
+      forgetHint: "Remove from never-forget to mine/review.",
       unlist: "Unlist",
-      unlistHint: "Remove this from your blacklist to mine or review again.",
+      unlistHint: "Remove from blacklist to mine/review.",
       blacklist: "Blacklist",
       blacklistHint: "Ignore this exact word.",
       vocabularyStatusUpdated: "Vocabulary status updated.",
       addToAnki: "Add to Anki",
       checkingAnki: "Checking Anki...",
       sendToMobileAnki: "Send to {app}",
-      mobileAnkiActionHint: "Opens mobile Anki to create a new note.",
+      mobileAnkiActionHint: "Opens mobile Anki for a new note.",
       ankiAudioFileNotFound: "Anki audio file not found.",
       ankiAudioPlaybackUnavailable: "Anki audio playback is not available here.",
       ankiAudioUnavailablePreview: "Audio not available in preview",
@@ -6849,7 +6877,7 @@
       ankiMatches: "Anki matches",
       gradeAnkiCardTarget: "Grades Anki card: {target}",
       gradeJpdbCardTarget: "Grades API SRS card",
-      ankiMergeNeedsDesktop: "Merging existing Anki notes needs AnkiConnect on desktop.",
+      ankiMergeNeedsDesktop: "Merging needs desktop AnkiConnect.",
       ankiNoteNotFound: "Anki note not found.",
       mergeYomu: "Merge Yomu",
       mergeYomuTitle: "Update matching fields and add Yomu media to this note",
@@ -6866,11 +6894,11 @@
       alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
-      apiDeckMediaNotSupported: "Captured image/audio stays in Yomu — this service has no media API.",
+      apiDeckMediaNotSupported: "Media stays in Yomu; no media API.",
       sentToAnkiWithContextImageAndAudio: "Sent to Anki with context image and audio.",
       sentToAnkiWithContextImage: "Sent to Anki with context image.",
       sentToAnkiWithAudio: "Sent to Anki with audio.",
-      ankiMergeNoNewData: "Anki note already has the available Yomu data.",
+      ankiMergeNoNewData: "Anki note already has the Yomu data.",
       ankiMergeFieldSingular: "field",
       ankiMergeFieldPlural: "fields",
       ankiMergeAudio: "audio",
@@ -6880,7 +6908,7 @@
       ankiConnectActionFailed: "AnkiConnect action failed.",
       ankiConnectRequestFailed: "AnkiConnect request failed.",
       ankiConnectTimedOut: "AnkiConnect timed out.",
-      ankiConnectNeedsBridge: "AnkiConnect needs the userscript request bridge on content pages.",
+      ankiConnectNeedsBridge: "AnkiConnect needs the userscript bridge.",
       mobileAnkiReady: "Anki is not connected. Mobile handoff can still create notes.",
       ankiConnectionReady: "Connected. AnkiConnect is reachable.",
       ankiConnectedReady: 'Connected. Deck "{deck}" and note type "{model}" are ready.',
@@ -6904,10 +6932,10 @@
       reviewActionsDisabled: "Review actions are disabled in settings.",
       jpdbLookupFailed: "JPDB lookup failed.",
       jpdbDeckStateApiKeyRequired: "Add a JPDB API key to change JPDB deck state.",
-      jpdbAddApiKeyRequired: "Add a JPDB API key to add cards to JPDB, or use Add to Anki.",
+      jpdbAddApiKeyRequired: "Add a JPDB API key, or use Add to Anki.",
       addedToJpdb: "Added to JPDB.",
       jitenDeckStateApiKeyRequired: "Add a Jiten API key to change Jiten vocabulary state.",
-      jitenAddApiKeyRequired: "Add a Jiten API key to add cards to Jiten, or use Add to Anki.",
+      jitenAddApiKeyRequired: "Add a Jiten API key, or use Add to Anki.",
       chooseJitenStudyDeck: "Choose a Jiten study deck first.",
       addedToJiten: "Added to Jiten.",
       kanjiDetailsUnavailable: "Kanji details are not available yet.",
@@ -6945,7 +6973,7 @@
       removeImportedDictionary: "Remove imported dictionary",
       customAdvanced: "{label} (advanced)",
       importLocalDefinitionsHelp: "Import Yomitan dictionaries for local definitions.",
-      frequencyMetadataHelp: "Frequency, pitch, and kanji metadata appear in badges and kanji data.",
+      frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
       sourceHelpJiten: "Jiten meanings, examples, and related vocabulary from the current card.",
       sourceHelpAnki: "Matching Anki card content and status.",
@@ -6973,7 +7001,7 @@
       generateUchisenImageToggle: "Generate image +",
       uchisenMnemonicStory: "Mnemonic story",
       uchisenImagePrompt: "Image prompt",
-      uchisenGenerateHint: "Edit the story and prompt, then publish a Uchisen image.",
+      uchisenGenerateHint: "Edit story/prompt, then publish a Uchisen image.",
       uchisenGeneratingImage: "Generating image...",
       uchisenPublishingMnemonic: "Publishing mnemonic...",
       uchisenGeneratedImage: "Uchisen image published.",
@@ -6988,16 +7016,16 @@
       recommendedJmnedict: "Japanese proper names dictionary.",
       recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
       recommendedMarvncMonolingual: "Monolingual collection.",
-      recommendedKanjidic: "Kanji readings, meanings, strokes, levels, and frequency.",
+      recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
-      recommendedJiten: "Frequency data from the media stats database at jiten.moe.",
+      recommendedJiten: "Frequency data from jiten.moe media stats.",
       fallbackSetupTitle: "Public JPDB lookup",
-      fallbackSetupCopy: "Search works without JPDB. Add dictionaries for offline results.",
+      fallbackSetupCopy: "Search works without JPDB. Add dictionaries offline.",
       fallbackSetupDictionaries: "Add dictionaries",
       fallbackSetupJpdb: "Add JPDB key",
       getApp: `Get ${APP_NAME}`,
-      offlineCacheGradesDisabled: "Offline cache. Grades sync when JPDB or Anki reconnects.",
+      offlineCacheGradesDisabled: "Offline cache. Grades sync on reconnect.",
       recognizing: "Recognizing...",
       noHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
       yourKanjiDrawing: "Your kanji drawing",
@@ -7031,7 +7059,7 @@
       grammarGuide: "Guide",
       grammarHideKnown: "Hide known",
       grammarShowKnown: "Show known",
-      allDetectedGrammarKnown: "All detected grammar for this sentence is marked known.",
+      allDetectedGrammarKnown: "All detected grammar is marked known.",
       grammarShown: "shown",
       grammarKnownHidden: "known hidden",
       grammarGenericShort: "Grammar point: {name}",
@@ -7090,7 +7118,7 @@ featureVideoBody	字幕がある場合、字幕内の単語もタップできま
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJPDB・Anki・Jiten・任意の漢字カードを順番に復習できます。
+featureStudyBody	内蔵の学習ページでJiten・JPDB・Anki・任意の漢字カードを順番に復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -7230,7 +7258,7 @@ stateFailed	失敗
 stateKnown	既知
 stateMastered	習得済み
 stateNeverForget	忘れない
-jpdbAndJitenApiKeysConfigured	JPDBとJitenキーあり。
+jpdbAndJitenApiKeysConfigured	JitenとJPDBキーあり。
 stateSuspended	停止中
 stateLocked	ロック中
 stateBlacklisted	ブラックリスト
@@ -7340,6 +7368,7 @@ subtitleAutoHideShort	自動
 loadJapaneseSubtitles	日本語字幕を読み込む
 loadPrimarySubtitles	主字幕を読み込む
 loadNativeSubtitles	母語字幕を読み込む
+searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
 subtitleTracksDetected	件の字幕トラックを検出
@@ -7462,7 +7491,7 @@ ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
-ankiHostedCorsHint	上級: 直接接続には {origin} をAnkiConnectのwebCorsOriginListに追加してください。
+ankiHostedCorsHint	直接接続には{origin}をwebCorsOriginListに追加してください。
 mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
 ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
@@ -7490,7 +7519,7 @@ openedMobileAnkiHandoff	モバイルAnki受け渡しを開きました。
 alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
-apiDeckMediaNotSupported	キャプチャした画像・音声はYomuに残ります（このサービスにはメディアAPIがありません）。
+apiDeckMediaNotSupported	キャプチャメディアはYomuに残ります（メディアAPIなし）。
 sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
 sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。
@@ -7511,10 +7540,10 @@ reviewFailed	レビューに失敗しました。
 reviewActionsDisabled	設定でレビュー操作が無効です。
 jpdbLookupFailed	JPDB検索に失敗しました。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
-jpdbAddApiKeyRequired	JPDB追加にはAPIキーかAnki追加が必要です。
+jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
 jitenDeckStateApiKeyRequired	Jiten語彙状態の変更にはJiten APIキーが必要です。
-jitenAddApiKeyRequired	Jiten追加にはJiten APIキーかAnki追加が必要です。
+jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
 kanjiDetailsUnavailable	漢字情報はまだ利用できません。
@@ -7596,13 +7625,13 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JPDBまたはJiten APIキーを貼り付けます。Jitenキーはak_で始まります。
+apiAccessHelp	JitenまたはJPDB APIキーを貼ります。Jitenはak_で始まります。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
-jpdbAndJitenConnected	JPDBとJitenに接続しました。
+jpdbAndJitenConnected	JitenとJPDBに接続しました。
 jpdbConnectionFailed	JPDBがキーを受け付けませんでした（ネットワークまたは無効なキー）。
 jitenApiKeyConfigured	Jitenキーあり。
 jitenApiKeyMissing	Jitenキーなし。
@@ -7659,7 +7688,7 @@ newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
 newTabSource	学習の復習ソース
 newTabAuto	自動: API/Anki、その後に学習語
-newTabApiSrs	API SRS（JPDB / Jiten）
+newTabApiSrs	API SRS（Jiten / JPDB）
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
@@ -7669,7 +7698,7 @@ corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
 newTabKanjiKeywordRtk	RTK / Heisig
-newTabKanjiKeywordApiFacts	{service}漢字情報（JPDB / Jiten）
+newTabKanjiKeywordApiFacts	{service}漢字情報（Jiten / JPDB）
 newTabKanjiKeywordLocal	ローカルカードの意味
 newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
@@ -7682,8 +7711,8 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	オフラインキャッシュは次の復習カードと未送信の採点をこのブラウザに保存し、再接続時に同期します。
-newTabAddressHelp	ブラウザのスタート/新しいタブページに設定するか（デスクトップではリダイレクト拡張機能が必要）、iPadのホーム画面に追加してください。
+newTabOfflineHelp	復習カードと未送信採点を保存し、再接続時に同期します。
+newTabAddressHelp	開始/新規タブページに設定するか、iPadのホーム画面に追加します。
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -7802,17 +7831,17 @@ audioCustomUrlPlaceholder	直接音声ファイルURL
 audioBuiltInPlaceholder	内蔵ソースのためURL不要
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
-audioProxyGuideSummary	Cloudflareプロキシを自作する
-audioProxyGuideIntro	標準プロキシで十分です。専用ならWorkerへ。
-audioProxyGuideCloudflare	Cloudflare Dashboardを開きます。
+audioProxyGuideSummary	Cloudflareプロキシ
+audioProxyGuideIntro	専用プロキシが必要ならWorkerを使います。
+audioProxyGuideCloudflare	Cloudflareを開きます。
 audioProxyGuideWorkers	Workers & PagesでCreateします。
-audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeployします。
-audioProxyGuideEditCode	Edit codeでYomu Workerソースを貼ります。
+audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeploy。
+audioProxyGuideEditCode	Yomu Workerソースを貼ります。
 audioProxyGuideDeploy	Deployします。
-audioProxyGuideCopyUrl	Worker URLをコピーします。例: https://yomu-proxy.yourname.workers.dev
-audioProxyGuidePasteUrl	Cross-origin proxy URLに貼ります。?url=は不要です。
-audioProxyGuideTest	保存後、検索・インポート・音声で確認します。
-audioProxyGuideNote	Workerソースはリポジトリ内です。共有前にホストを絞ります。
+audioProxyGuideCopyUrl	Worker URLをコピーします。
+audioProxyGuidePasteUrl	Cross-origin proxy URLに貼ります。
+audioProxyGuideTest	保存後、検索・インポート・音声で確認。
+audioProxyGuideNote	共有前にホストを絞ります。
 audioProxyWorkerSource	Workerソース
 audioProxyDeployGuide	デプロイガイド
 immersionKitEnabled	イマージョンキット例文を表示
@@ -7876,9 +7905,9 @@ ocrEngine	ローカルOCRエンジン
 ocrEngineMangaOcr	MangaOCR（マンガに最適）
 ocrEngineAppleVision	Apple Vision（macOS）
 cloudVisionApiKey	Google Cloud Vision APIキー
-ocrHelp	ビューポート付近の画像を読み取ります。Google Lensは設定もキーも不要ですぐ使えます。
-ocrCloudHelp	Google Cloud VisionのAPIキー（課金を有効にしたGoogle Cloudプロジェクト）が必要です。ここにキーを貼り付けてください。
-ocrLocalHelp	上級者向け：OCRをあなたのPC上で実行します（データは外部に送信されません）。HTTPエンドポイントを公開するローカルOCRサーバー（マンガにはMangaOCRが最適）を起動し、そのURLを入力してください。多くの方はGoogle Lensのままで問題ありません。
+ocrHelp	近くの画像を読み取ります。Google Lensは設定不要です。
+ocrCloudHelp	Google Cloud Vision APIキーを貼ります。
+ocrLocalHelp	MangaOCR/Apple VisionのローカルURLを入力します。
 subtitlePlayerEnabled	動画字幕プレイヤーを有効にする
 subtitleAutoDetect	ページの字幕を自動検出
 subtitleOverlayVisible	字幕オーバーレイを表示
@@ -7971,7 +8000,7 @@ ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
 ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
-ankiCorsBlocked	AnkiConnectは起動していますが、このサイトを拒否しています。Ankiの「ツール → アドオン → AnkiConnect → 設定」で webCorsOriginList に「{origin}」を追加し、Ankiを再起動してください。
+ankiCorsBlocked	webCorsOriginListに「{origin}」を追加し再起動してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
 ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
@@ -7990,7 +8019,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断。低信頼
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	完全なAnki機能はデスクトップAnkiConnectをLAN/Tailscaleで使います。受け渡しは新規ノート作成のみ。
+ankiHelp	完全なAnki機能にはデスクトップAnkiConnectが必要です。受け渡しは新規ノートのみ。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -8021,7 +8050,7 @@ download	ダウンロード
 downloadAndImport	ダウンロードしてよむにインポート
 update	更新
 checkingDictionaries	インポート済み辞書を確認中...
-dictionaryOnlyJpdb	定義ソースはJPDBのみです。Yomitan辞書でローカル定義を追加。
+dictionaryOnlyJpdb	JPDBのみです。Yomitan辞書でローカル定義を追加。
 localDictionaryText	辞書テキスト
 localSenseSingular	意味
 localSensePlural	意味
@@ -8072,13 +8101,13 @@ ankiMappingStaleField	保存済みフィールドなし
 helpLinksTitle	便利なページ
 helpLinksCopy	リーダーツールとドキュメントをここから開けます。
 helpSupportTitle	よむをサポート
-helpSupportCopy	よむはポップアップ検索、JPDB採掘、辞書、OCR、字幕、Ankiを無料でまとめたユーザースクリプトです。
-helpSupportCopyExtra	寄付は任意です。開発、端末、サービス、保守、API費用を支えます。
+helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまとめた無料ユーザースクリプトです。
+helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
 docs	ドキュメント
 factoryReset	初期状態に戻す
-factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書、保存データを削除します。
+factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除します。
 factoryResetFailed	リセットに失敗しました。
 factoryResetDictionaryWarning	設定をリセットしました。他のよむタブを閉じて辞書を確認してください。
 factoryResetOtherTabReloading	別のタブでよむがリセットされました。再読み込みします...
@@ -14158,11 +14187,11 @@ ${entry.reading || ""}`;
         log$w.warn("Exact Anki status lookup failed", error);
       }
     }
-    collectPendingLookupGroups(cards, results, readCache) {
+    collectPendingLookupGroups(cards, results, readCache2) {
       const pendingByCacheKey = /* @__PURE__ */ new Map();
       cards.forEach((card, index) => {
         const cacheKey = this.lookupCacheKey(card);
-        const cached = readCache(cacheKey);
+        const cached = readCache2(cacheKey);
         if (cached) {
           results[index] = cached;
           return;
@@ -17859,9 +17888,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.unavailableJpdbAudioIds.set(audioId, Date.now() + JPDB_AUDIO_UNAVAILABLE_TTL_MS);
     }
     isJpdbAudioUnavailable(audioId) {
-      const expiresAt = this.unavailableJpdbAudioIds.get(audioId);
-      if (!expiresAt) return false;
-      if (expiresAt > Date.now()) return true;
+      const expiresAt2 = this.unavailableJpdbAudioIds.get(audioId);
+      if (!expiresAt2) return false;
+      if (expiresAt2 > Date.now()) return true;
       this.unavailableJpdbAudioIds.delete(audioId);
       return false;
     }
@@ -25209,7 +25238,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     };
   }
   function jitenAwareMissingApiKeyMessage(language) {
-    return resolveUiLanguage(language) === "ja" ? "JPDBまたはJitenキーなし。" : "No JPDB or Jiten key.";
+    return resolveUiLanguage(language) === "ja" ? "JitenまたはJPDBキーなし。" : "No Jiten or JPDB key.";
   }
   function jitenApiKeyConfiguredMessage(language) {
     return resolveUiLanguage(language) === "ja" ? "Jitenキーあり。" : "Jiten key set.";
@@ -25329,16 +25358,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const language = settings.interfaceLanguage;
     const builtInRows = [
       {
-        id: JPDB_DEFINITION_SOURCE_ID,
-        name: "JPDB",
-        alias: "JPDB",
-        enabled: settings.jpdbDefinitionsEnabled,
-        priority: settings.jpdbDefinitionsPriority,
-        prefix: "jpdbDefinitions",
-        readonly: true,
-        help: uiText(language, "sourceHelpJpdb")
-      },
-      {
         id: JITEN_DEFINITION_SOURCE_ID,
         name: "Jiten",
         alias: "Jiten",
@@ -25347,6 +25366,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         prefix: "jitenDefinitions",
         readonly: true,
         help: uiText(language, "sourceHelpJiten")
+      },
+      {
+        id: JPDB_DEFINITION_SOURCE_ID,
+        name: "JPDB",
+        alias: "JPDB",
+        enabled: settings.jpdbDefinitionsEnabled,
+        priority: settings.jpdbDefinitionsPriority,
+        prefix: "jpdbDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpJpdb")
       },
       {
         id: STUDY_TRANSLATION_SOURCE_ID,
@@ -25519,16 +25548,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const preferences = new Map(settings.dictionaryPreferences.map((item) => [item.name, item]));
     const sources = [
       {
-        id: JPDB_DEFINITION_SOURCE_ID,
-        enabled: settings.jpdbDefinitionsEnabled,
-        priority: settings.jpdbDefinitionsPriority,
-        name: "JPDB"
-      },
-      {
         id: JITEN_DEFINITION_SOURCE_ID,
         enabled: settings.jitenDefinitionsEnabled,
         priority: settings.jitenDefinitionsPriority,
         name: "Jiten"
+      },
+      {
+        id: JPDB_DEFINITION_SOURCE_ID,
+        enabled: settings.jpdbDefinitionsEnabled,
+        priority: settings.jpdbDefinitionsPriority,
+        name: "JPDB"
       },
       {
         id: ANKI_SOURCE_ID,
@@ -25759,10 +25788,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                         ${input("apiCredentialJiten", `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
+                        ${input("apiCredentialJpdb", `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), "text", { ...API_KEY_INPUT_ATTRIBUTES, class: "jpdb-reader-masked-input" })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste a JPDB or Jiten API key. Jiten keys start with ak_.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste a Jiten or JPDB API key. Jiten starts with ak_.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -25834,7 +25863,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                         ${runningAsBrowserExtension() ? checkbox("newTabEnabled", "Set Study as the new tab", settings.newTabEnabled) : ""}
                         ${checkbox("newTabAnkiEnabled", "Use Anki cards in Study", settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (JPDB / Jiten)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
+                        ${select("newTabSource", "Study review source", settings.newTabSource, [["auto", "Auto: API/Anki, then study words"], ["jpdb", "API SRS (Jiten / JPDB)"], ["anki", "Anki"], ["dictionary", "Dictionary fallback"]])}
                         ${select("newTabJpdbReviewMode", "API review mode", settings.newTabJpdbReviewMode, [["auto", "Auto: live kanji + API vocabulary"], ["live-review", "Live JPDB review session"], ["api-vocabulary", "API vocabulary only"]])}
                         ${select("newTabKanjiKeywordSource", "Kanji keyword source", settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
                         ${checkbox("newTabParsingEnabled", "Parse sentences on Study", settings.newTabParsingEnabled)}
@@ -25861,7 +25890,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function kanjiKeywordSourceOptions(settings, text2) {
     const apiLabel = combinedApiCredentialLabel(settings);
     const auto = text2 ? text2("newTabKanjiKeywordAuto").replace("{service}", apiLabel) : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
-    const apiFacts = text2 ? text2("newTabKanjiKeywordApiFacts").replace("{service}", apiLabel) : `${apiLabel} kanji facts (JPDB / Jiten)`;
+    const apiFacts = text2 ? text2("newTabKanjiKeywordApiFacts").replace("{service}", apiLabel) : `${apiLabel} kanji facts (Jiten / JPDB)`;
     return [
       ["auto", auto],
       ["rtk", text2 ? text2("newTabKanjiKeywordRtk") : "RTK / Heisig"],
@@ -26180,7 +26209,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${renderColorInputs(OCR_COLOR_FIELDS, settings)}
                     ${input("ocrBackgroundOpacity", "Image highlight opacity", String(settings.ocrBackgroundOpacity), "number")}
                     ${input("ocrFontScale", "Image text scale", String(settings.ocrFontScale), "number")}
-                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">Advanced: runs OCR on your own computer. Start a local OCR server (e.g. MangaOCR, best for manga) and enter its URL below. Most users should keep Google Lens.</div>
+                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">Advanced: run OCR locally. Start a MangaOCR/Apple Vision HTTP server, then enter its URL. Most users should keep Google Lens.</div>
                     <div data-local-ocr ${localOcrHidden}>${select("ocrEngine", "Local OCR engine", settings.ocrEngine, [["auto", "Automatic"], ["MangaOCR", "MangaOCR (best for manga)"], ["PaddleOCR", "PaddleOCR"], ["AppleVision", "Apple Vision (macOS)"]])}</div>
                     <label data-local-ocr ${localOcrHidden}>Local OCR server URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml$1(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled).</div>
@@ -32775,7 +32804,12 @@ ${spelling}`);
     }
     async scanImage(image) {
       if (this.destroyed) return;
-      const state2 = this.states.get(image) ?? this.ensureState(image);
+      const existingState = this.states.get(image);
+      if (!image.isConnected) {
+        if (existingState) this.releaseImageState(image, existingState);
+        return;
+      }
+      const state2 = existingState ?? this.ensureState(image);
       const settings = this.options.getSettings();
       const key = imageCacheKey(image);
       const manualRequested = state2.manualRequested;
@@ -33195,13 +33229,9 @@ ${spelling}`);
       status?.remove();
       this.videoFrameStatuses.delete(target);
       const state2 = this.states.get(frame);
-      if (state2) {
-        this.observer?.unobserve(frame);
-        state2.overlay.remove();
-        this.states.delete(frame);
-      }
+      if (state2) this.releaseImageState(frame, state2);
+      else this.forgetImageWork(frame);
       this.videoFrameVideos.delete(frame);
-      this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
     }
     releaseAllVideoFrames() {
@@ -33317,15 +33347,10 @@ ${spelling}`);
       if (!frame) return;
       this.canvasFrames.delete(canvas);
       const state2 = this.states.get(frame);
-      if (state2) {
-        this.observer?.unobserve(frame);
-        state2.overlay.remove();
-        this.states.delete(frame);
-      }
-      this.removeImageStatusCard(frame);
+      if (state2) this.releaseImageState(frame, state2);
+      else this.forgetImageWork(frame);
       this.canvasFrameSources.delete(frame);
       this.canvasFrameStaticRects.delete(frame);
-      this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
     }
     releaseAllCanvasFrames() {
@@ -33415,14 +33440,9 @@ ${spelling}`);
       this.backgroundFrames.delete(surface);
       this.backgroundFrameKeys.delete(surface);
       const state2 = this.states.get(frame);
-      if (state2) {
-        this.observer?.unobserve(frame);
-        state2.overlay.remove();
-        this.states.delete(frame);
-      }
-      this.removeImageStatusCard(frame);
+      if (state2) this.releaseImageState(frame, state2);
+      else this.forgetImageWork(frame);
       this.backgroundFrameSources.delete(frame);
-      this.queue = this.queue.filter((queued) => queued !== frame);
       frame.remove();
     }
     releaseAllBackgroundFrames() {
@@ -33552,11 +33572,7 @@ ${spelling}`);
           this.releaseBackgroundFrame(background);
           continue;
         }
-        this.queue = this.queue.filter((queued) => queued !== image);
-        this.inFlightKeys.delete(state2.key);
-        state2.overlay.remove();
-        this.states.delete(image);
-        this.removeImageStatusCard(image);
+        this.releaseImageState(image, state2);
       }
     }
     rememberOcrWordRenderStates(line, tokens) {
@@ -33617,11 +33633,22 @@ ${spelling}`);
     pruneDisconnectedStates() {
       for (const [image, state2] of this.states) {
         if (image.isConnected) continue;
+        this.releaseImageState(image, state2);
+      }
+    }
+    releaseImageState(image, state2 = this.states.get(image)) {
+      if (state2) {
         this.observer?.unobserve(image);
         state2.overlay.remove();
         this.states.delete(image);
-        this.removeImageStatusCard(image);
       }
+      this.forgetImageWork(image, state2);
+    }
+    forgetImageWork(image, state2) {
+      this.queue = this.queue.filter((queued) => queued !== image);
+      this.inFlightKeys.delete(imageCacheKey(image));
+      if (state2) this.inFlightKeys.delete(state2.key);
+      this.removeImageStatusCard(image);
     }
     isCurrentState(state2) {
       return !this.destroyed && this.states.get(state2.image) === state2;
@@ -37608,6 +37635,7 @@ ${spelling}`);
             <div class="jpdb-subtitle-track-tools">
                 <button type="button" data-action="load">${escapeHtml$1(uiText(language, "loadJapaneseSubtitles"))}</button>
                 <button type="button" data-action="load-secondary">${escapeHtml$1(uiText(language, "loadNativeSubtitles"))}</button>
+                <a href="${escapeHtml$1(jimakuAnimeSearchUrl(state2.animeSearchQuery))}" target="_blank" rel="noopener" data-jimaku-anime-search>${escapeHtml$1(uiText(language, "searchAnimeSubtitles"))}</a>
             </div>
             <div class="jpdb-subtitle-track-summary">${escapeHtml$1(trackPanelSummaryText(state2.autoDetected, language))}</div>
             <div class="jpdb-subtitle-track-hint">${escapeHtml$1(uiText(language, "subtitleTracksHint"))}</div>
@@ -37615,6 +37643,11 @@ ${spelling}`);
         </div>
         <div class="jpdb-subtitle-resize" data-resize-transcript role="separator" tabindex="0" aria-orientation="horizontal" aria-label="${escapeHtml$1(uiText(language, "resizeSubtitleTracksPanel"))}"></div>
     `;
+  }
+  function jimakuAnimeSearchUrl(query = "") {
+    const trimmed = query.trim();
+    if (!trimmed) return "https://jimaku.cc/";
+    return `https://jimaku.cc/opensearch/redirect?anime=true&query=${encodeURIComponent(trimmed)}`;
   }
   function subtitleDrawerMetaText(options) {
     const primaryTrack = options.tracks.find((track) => track.id === options.selectedTrackId);
@@ -38835,6 +38868,10 @@ ${spelling}`);
   }
   function videoRectKey(rect) {
     return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
+  }
+  function subtitleAnimeSearchQuery(video) {
+    const raw = video?.dataset.yomuAnimeSearch || video?.dataset.yomuVideoTitle || video?.title || document.title || "";
+    return raw.replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, "").replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, "").replace(/\[[^\]]*\]/gu, " ").replace(/[._]+/gu, " ").replace(/\s+/gu, " ").trim().slice(0, 120);
   }
   function clearWindowTimeout(id) {
     if (id !== void 0) window.clearTimeout(id);
@@ -42304,7 +42341,8 @@ ${spelling}`);
         hasNavigableLines: Boolean(this.video && this.cues.length),
         pausePanelEnabled: settings.subtitlePausePanel,
         placement: this.effectiveTranscriptPlacement,
-        language: settings.interfaceLanguage
+        language: settings.interfaceLanguage,
+        animeSearchQuery: subtitleAnimeSearchQuery(this.video)
       }));
       this.bindTranscriptResizeHandle();
       this.syncPanelState();
@@ -46520,7 +46558,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       statsJpdbLoaded: "JPDB card states loaded.",
       statsJitenLoaded: "Jiten SRS loaded.",
       statsApiLoaded: "{providers} SRS loaded.",
-      statsApiKeyMissing: "Add a JPDB or Jiten API key.",
+      statsApiKeyMissing: "Add a Jiten or JPDB API key.",
       statsAnkiUnavailable: "Open Anki with AnkiConnect enabled.",
       statsAnkiDecks: "Anki decks",
       statsAnkiConnected: "Connected to Anki.",
@@ -46566,14 +46604,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       noReviewWordsReady: "No review cards ready.",
       starterWords: "Starter words",
       reviewFallbackNotice: "No reviews ready — showing practice words",
-      connectSrsCta: "Connect JPDB / Jiten / Anki",
+      connectSrsCta: "Connect Jiten / JPDB / Anki",
       jpdbKanjiDueChip: "+{count} kanji on jpdb.io",
       reviewRequeuedLocally: "Returned to the queue — the recorded review still counts upstream",
       noReviewKanjiReady: "No kanji review cards ready.",
       noKanjiKeyword: "No kanji keyword found.",
       kanjiSourcesUnavailable: "Kanji sources are unavailable. Check the proxy or try again.",
       couldNotLoadWords: "Could not load words.",
-      offlineGradesDisabled: "Offline cache. Grades are saved here and sync when JPDB, Jiten, or Anki reconnects.",
+      offlineGradesDisabled: "Offline cache. Grades are saved here and sync when Jiten, JPDB, or Anki reconnects.",
       startWithDictionary: "Start with a dictionary",
       addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
       dictionaryReadyNewTabs: "Public JPDB lookup works without an API key.",
@@ -46591,9 +46629,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       gradeTargetAnki: "Grades Anki card: {target}",
       gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
       gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
-      gradeTargetJpdbAndJiten: "Grades JPDB + Jiten",
-      gradeTargetAllProviders: "Grades JPDB + Jiten + Anki card: {target}",
-      offlineGradeReconnect: "Grade saved offline. It will sync when JPDB, Jiten, or Anki reconnects.",
+      gradeTargetJpdbAndJiten: "Grades Jiten + JPDB",
+      gradeTargetAllProviders: "Grades Jiten + JPDB + Anki card: {target}",
+      offlineGradeReconnect: "Grade saved offline. It will sync when Jiten, JPDB, or Anki reconnects.",
       missingAnkiCardId: "Missing Anki card id.",
       noDefinitionsFound: "No definitions found.",
       cachedReviews: "Cached reviews",
@@ -46674,7 +46712,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     statsJpdbLoaded: "JPDBカード状態を読み込みました。",
     statsJitenLoaded: "Jiten SRSを読み込みました。",
     statsApiLoaded: "{providers} SRSを読み込みました。",
-    statsApiKeyMissing: "JPDBまたはJiten APIキーを追加してください。",
+    statsApiKeyMissing: "JitenまたはJPDB APIキーを追加してください。",
     statsAnkiUnavailable: "AnkiConnectを有効にしてAnkiを開いてください。",
     statsAnkiDecks: "Ankiデッキ",
     statsAnkiConnected: "Ankiに接続しました。",
@@ -46720,14 +46758,14 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     noReviewWordsReady: "復習する単語カードは今ありません。",
     starterWords: "入門単語",
     reviewFallbackNotice: "復習カードがないため、練習用の単語を表示中",
-    connectSrsCta: "JPDB / Jiten / Anki と連携",
+    connectSrsCta: "Jiten / JPDB / Anki と連携",
     jpdbKanjiDueChip: "+{count} 漢字（jpdb.io）",
     reviewRequeuedLocally: "キューに戻しました（送信済みのレビューは取り消されません）",
     noReviewKanjiReady: "復習する漢字カードは今ありません。",
     noKanjiKeyword: "漢字キーワードが見つかりません。",
     kanjiSourcesUnavailable: "漢字情報ソースに接続できません。プロキシを確認するか、もう一度お試しください。",
     couldNotLoadWords: "単語を読み込めませんでした。",
-    offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、JPDB・Jiten・Ankiへの再接続時に同期されます。",
+    offlineGradesDisabled: "オフラインキャッシュです。採点はここに保存され、Jiten・JPDB・Ankiへの再接続時に同期されます。",
     startWithDictionary: "辞書から始める",
     addDictionaryStudyCards: "オフラインのYomitan結果が必要なときだけ使います。",
     dictionaryReadyNewTabs: "公開JPDB検索はAPIキーなしで使えます。",
@@ -46745,9 +46783,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     gradeTargetAnki: "Ankiカードを採点: {target}",
     gradeTargetJpdbAndAnki: "JPDB + Ankiカードを採点: {target}",
     gradeTargetJitenAndAnki: "Jiten + Ankiカードを採点: {target}",
-    gradeTargetJpdbAndJiten: "JPDB + Jitenを採点",
-    gradeTargetAllProviders: "JPDB + Jiten + Ankiカードを採点: {target}",
-    offlineGradeReconnect: "採点をオフラインで保存しました。JPDB・Jiten・Ankiへの再接続時に同期されます。",
+    gradeTargetJpdbAndJiten: "Jiten + JPDBを採点",
+    gradeTargetAllProviders: "Jiten + JPDB + Ankiカードを採点: {target}",
+    offlineGradeReconnect: "採点をオフラインで保存しました。Jiten・JPDB・Ankiへの再接続時に同期されます。",
     missingAnkiCardId: "AnkiカードIDがありません。",
     noDefinitionsFound: "定義が見つかりませんでした。",
     cachedReviews: "キャッシュ済みレビュー",
@@ -46912,7 +46950,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
       return handlers[action];
     }
-    // Flip the popover between JPDB and Jiten grading and re-render so the deck
+    // Flip the popover between Jiten and JPDB grading and re-render so the deck
     // and grade buttons act on the chosen service. Only reachable when both keys
     // are set and the word is gradable by either.
     async toggleGradingProvider(card, sentence) {
@@ -54681,6 +54719,59 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isPublicLookupBackoffError(error) {
     return error instanceof Error && /\b(?:429|525|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
   }
+  const PUBLIC_JPDB_CACHE_STORAGE_KEY = "yomu:jpdb-cache:v1";
+  const PUBLIC_JPDB_CACHE_TTL_MS = 24 * 60 * 60 * 1e3;
+  const PUBLIC_JPDB_CACHE_LIMIT = 240;
+  function readCache(kind, key, now = Date.now()) {
+    const state2 = readState();
+    const cacheKey = `${kind}
+${key}`;
+    const entry = state2[cacheKey];
+    if (!entry) return void 0;
+    if (!isEntry(entry) || expiresAt(entry) <= now) {
+      delete state2[cacheKey];
+      writeState(state2);
+      return void 0;
+    }
+    return entry.v;
+  }
+  function writeCache(kind, key, value, now = Date.now()) {
+    const state2 = readState();
+    state2[`${kind}
+${key}`] = { t: now, v: value };
+    pruneState(state2, now);
+    writeState(state2);
+  }
+  function readState() {
+    try {
+      const value = JSON.parse(localStorage.getItem(PUBLIC_JPDB_CACHE_STORAGE_KEY) ?? "{}");
+      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    } catch {
+      return {};
+    }
+  }
+  function isEntry(value) {
+    if (!value || typeof value !== "object") return false;
+    const entry = value;
+    return typeof entry.t === "number" && Number.isFinite(entry.t) && Object.prototype.hasOwnProperty.call(entry, "v");
+  }
+  function pruneState(state2, now) {
+    for (const [key, entry] of Object.entries(state2)) {
+      if (!isEntry(entry) || expiresAt(entry) <= now) delete state2[key];
+    }
+    const entries = Object.entries(state2);
+    if (entries.length <= PUBLIC_JPDB_CACHE_LIMIT) return;
+    entries.sort((a, b) => a[1].t - b[1].t).slice(0, entries.length - PUBLIC_JPDB_CACHE_LIMIT).forEach(([key]) => delete state2[key]);
+  }
+  function expiresAt(entry) {
+    return entry.t + PUBLIC_JPDB_CACHE_TTL_MS;
+  }
+  function writeState(state2) {
+    try {
+      localStorage.setItem(PUBLIC_JPDB_CACHE_STORAGE_KEY, JSON.stringify(state2));
+    } catch {
+    }
+  }
   const PITCH_KANA = /[\u3040-\u30ff\u3099\u309A]/u;
   function parseJpdbPublicPitchHtml(html, spelling = "", reading = "") {
     const doc = parseHtmlDocument(html);
@@ -54745,7 +54836,11 @@ ${normalizedReading}`;
         return cached.promise;
       }
       if (cached) this.cache.delete(key);
-      const promise = this.fetchPitch(normalizedSpelling, normalizedReading);
+      const persistent = readCache("pitch", key, now);
+      const promise = persistent ? Promise.resolve(persistent) : this.fetchPitch(normalizedSpelling, normalizedReading).then((pitch) => {
+        if (pitch.length) writeCache("pitch", key, pitch);
+        return pitch;
+      });
       this.cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
       this.pruneCache(now);
       return promise;
@@ -55098,7 +55193,11 @@ ${normalizedReading}`;
       const key = `${vid}:${spelling}:${reading}`;
       let promise = this.cache.get(key);
       if (!promise) {
-        promise = this.fetchInfo(vid, spelling, reading);
+        const cached = readCache("vocabulary", key);
+        promise = cached ? Promise.resolve(cached) : this.fetchInfo(vid, spelling, reading).then((info) => {
+          if (info) writeCache("vocabulary", key, info);
+          return info;
+        });
         this.cache.set(key, promise);
       }
       return promise;
@@ -55109,7 +55208,11 @@ ${normalizedReading}`;
       const key = `${normalized}:${limit}`;
       let promise = this.searchCache.get(key);
       if (!promise) {
-        promise = this.fetchSearch(normalized, limit);
+        const cached = readCache("search", key);
+        promise = cached ? Promise.resolve(cached) : this.fetchSearch(normalized, limit).then((cards) => {
+          if (cards.length) writeCache("search", key, cards);
+          return cards;
+        });
         this.searchCache.set(key, promise);
       }
       return promise;
@@ -56150,7 +56253,7 @@ ${normalizedReading}`;
     }
   }
   const PARSEABLE_SELECTOR = ".jpdb-reader-parseable";
-  const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-local-title";
+  const POPOVER_SUMMARY_PARSE_SELECTOR = ".jpdb-reader-popover summary.jpdb-reader-example-summary";
   const NESTED_PARSE_ROOT_SELECTOR = [
     PARSEABLE_SELECTOR,
     POPOVER_SUMMARY_PARSE_SELECTOR
@@ -56961,11 +57064,20 @@ ${normalizedReading}`;
   function newTabLoadResult(accumulator, language) {
     return {
       cards: accumulator.cards,
-      sourceLabel: accumulator.labels.length ? accumulator.labels.join(" + ") : newTabText(language, "noSource"),
+      sourceLabel: accumulator.labels.length ? orderedNewTabSourceLabels(accumulator.labels).join(" + ") : newTabText(language, "noSource"),
       reviewCountMode: accumulator.reviewCountMode,
       emptyMessageKey: accumulator.emptyMessageKey,
       fallbackNotice: accumulator.fallbackNotice
     };
+  }
+  function orderedNewTabSourceLabels(labels) {
+    return [...labels].sort((a, b) => newTabSourceLabelRank(a) - newTabSourceLabelRank(b));
+  }
+  function newTabSourceLabelRank(label) {
+    if (label.startsWith("Jiten")) return 0;
+    if (label.startsWith("JPDB")) return 1;
+    if (label.startsWith("Anki")) return 2;
+    return 3;
   }
   function mergeDedupeCardMetadata(primary, secondary) {
     return {
@@ -58072,8 +58184,8 @@ ${newTabCardReading(card)}`;
     const apiLabel = jpdb.label || "JPDB";
     if (jpdb.status === "ready" && anki.status === "ready") return `${apiLabel} and Anki are connected.`;
     if (jpdb.status === "ready" || jpdb.status === "partial") return `Showing ${apiLabel} stats. Connect Anki for the combined view.`;
-    if (anki.status === "ready" || anki.status === "partial") return "Showing Anki stats. Add JPDB or Jiten data for the combined view.";
-    return "Connect JPDB, Jiten, or Anki to build your dashboard.";
+    if (anki.status === "ready" || anki.status === "partial") return "Showing Anki stats. Add Jiten or JPDB data for the combined view.";
+    return "Connect Jiten, JPDB, or Anki to build your dashboard.";
   }
   function addCardBreakdowns(left, right) {
     return {
@@ -58841,7 +58953,7 @@ ${newTabCardReading(card)}`;
     return labels.jpdb;
   }
   function newTabApiGradeTargetShortLabel(summary) {
-    if (summary.hasJpdb && summary.hasJiten) return "JPDB + Jiten";
+    if (summary.hasJpdb && summary.hasJiten) return "Jiten + JPDB";
     return summary.hasJiten ? "Jiten" : "JPDB";
   }
   function newTabMainGradeTargetOptions(targets, combinedLabel, bothLabel) {
@@ -60660,6 +60772,15 @@ ${entry.url}`),
   const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
   const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
   const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
+  function orderedNewTabStatsProviderLabel(results) {
+    return results.map((result) => result.provider.label).sort((a, b) => newTabStatsProviderLabelRank(a) - newTabStatsProviderLabelRank(b)).join(" + ");
+  }
+  function newTabStatsProviderLabelRank(label) {
+    if (label.startsWith("Jiten")) return 0;
+    if (label.startsWith("JPDB")) return 1;
+    if (label.startsWith("Anki")) return 2;
+    return 3;
+  }
   function newTabShortParseOptions() {
     return { jpdbTimeoutMs: NEW_TAB_IMMERSION_PARSE_TIMEOUT_MS };
   }
@@ -62176,10 +62297,6 @@ ${entry.url}`),
     }
     jpdbStatsApiProviders(settings) {
       const providers = [];
-      if (hasJpdbApiCredential(settings)) providers.push({
-        label: "JPDB",
-        load: () => this.loadJpdbStatsCards()
-      });
       const jiten = this.dependencies.jiten;
       if (hasJitenApiCredential(settings) && typeof jiten?.listStudyBatchCards === "function") {
         const listJitenStudyBatchCards = jiten.listStudyBatchCards.bind(jiten);
@@ -62188,6 +62305,10 @@ ${entry.url}`),
           load: () => listJitenStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT)
         });
       }
+      if (hasJpdbApiCredential(settings)) providers.push({
+        label: "JPDB",
+        load: () => this.loadJpdbStatsCards()
+      });
       return providers;
     }
     // SH-3 v2: the My-Cards browser spans all three providers. Anki joins
@@ -62213,7 +62334,7 @@ ${entry.url}`),
     }
     jpdbStatsSourceFromApiResults(results) {
       const loaded = results.filter((result) => result.error === null);
-      const label = (loaded.length ? loaded : results).map((result) => result.provider.label).join(" + ");
+      const label = orderedNewTabStatsProviderLabel(loaded.length ? loaded : results);
       if (!loaded.length) {
         const error = results.find((result) => result.error)?.error;
         return emptyStatsSource("jpdb", label, error instanceof Error ? error.message : this.text("couldNotLoadWords"), "error");
@@ -62737,15 +62858,15 @@ ${entry.url}`),
         const jiten = await this.loadJitenStudyBatchWords(options);
         return jiten ? [jiten] : [];
       }
+      if (pickedDeck === JPDB_ALL_DECKS || pickedDeck === "all") {
+        const jiten = await this.loadJitenStudyBatchWords(options);
+        if (jiten) apiResults.push(jiten);
+      }
       if (hasJpdbKey) {
         const selectedDeck = NewTabController.normalizeProviderScopedDeck((this.state.jpdbDeck || settings.newTabJpdbDeck).trim() || JPDB_ALL_DECKS);
         const timeoutMs = selectedDeck === JPDB_ALL_DECKS ? Math.max(options.timeoutMs ?? 0, NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS * 3) : options.timeoutMs;
         const selectedDeckCards = await this.loadSelectedJpdbDeckWords(selectedDeck, timeoutMs, options.limit);
         if (selectedDeckCards) apiResults.push(selectedDeckCards);
-      }
-      if (pickedDeck === JPDB_ALL_DECKS || pickedDeck === "all") {
-        const jiten = await this.loadJitenStudyBatchWords(options);
-        if (jiten) apiResults.push(jiten);
       }
       return apiResults;
     }
@@ -63499,8 +63620,8 @@ ${entry.url}`),
       const add = (label) => {
         if (!labels.includes(label)) labels.push(label);
       };
-      if (summary.hasJpdb) add("JPDB");
       if (summary.hasJiten) add("Jiten");
+      if (summary.hasJpdb) add("JPDB");
       if (summary.hasAnki) add(summary.hasJpdb || summary.hasJiten ? "Anki" : this.ankiReviewSourceLabel(card));
       return labels;
     }
@@ -63516,7 +63637,7 @@ ${entry.url}`),
     }
     shouldShowJitenOnlyApiFallbackSource(card) {
       const source = this.cardReviewSource(card);
-      return (source === "dictionary" || source === "jpdb" && !isJitenSrsCard(card)) && this.sourceLabel.startsWith("Jiten") && this.hasJitenOnlyApiCredentials();
+      return (source === "dictionary" || source === "jpdb" && !isJitenSrsCard(card)) && this.sourceLabel.startsWith("Jiten") && !this.sourceLabel.includes(" + ") && this.hasJitenOnlyApiCredentials();
     }
     renderStatus(statusSlot, card) {
       if (!statusSlot) return;
@@ -63553,7 +63674,7 @@ ${entry.url}`),
       }));
     }
     statusLightSourceForCard(card) {
-      if (this.cardReviewSource(card) === "dictionary" && this.sourceLabel.startsWith("Jiten") || this.shouldShowJitenOnlyApiFallbackSource(card) || isJitenSrsCard(card)) {
+      if (this.cardReviewSource(card) === "dictionary" && this.sourceLabel.startsWith("Jiten") && !this.sourceLabel.includes(" + ") || this.shouldShowJitenOnlyApiFallbackSource(card) || isJitenSrsCard(card)) {
         return "jiten";
       }
       const source = this.cardReviewSource(card);
@@ -63565,8 +63686,8 @@ ${entry.url}`),
       const add = (source) => {
         if (!sources.includes(source)) sources.push(source);
       };
-      if (summary.hasJpdb) add("jpdb");
       if (summary.hasJiten) add("jiten");
+      if (summary.hasJpdb) add("jpdb");
       if (summary.hasAnki) add("anki");
       return sources;
     }
@@ -63591,7 +63712,7 @@ ${entry.url}`),
         return;
       }
       const target = this.emptySourceToggleTarget(source);
-      const lightSource = source === "jpdb" && this.sourceLabel.startsWith("Jiten") ? "jiten" : source;
+      const lightSource = source === "jpdb" && this.sourceLabel.startsWith("Jiten") && !this.sourceLabel.includes(" + ") ? "jiten" : source;
       replaceChildrenWith(statusSlot, ...[
         el("span", {
           class: "jpdb-reader-newtab-status-light",
@@ -63641,7 +63762,7 @@ ${entry.url}`),
       return sources;
     }
     shouldSuppressJitenOnlyJpdbCardToggle(card) {
-      return this.hasJitenOnlyApiCredentials() && !this.sourceLabel.startsWith("Jiten") && this.cardReviewSource(card) === "jpdb" && !isJitenSrsCard(card) && !this.reviewTargetsForCard(card).includes("anki");
+      return this.hasJitenOnlyApiCredentials() && !this.isJitenOnlySourceLabel() && this.cardReviewSource(card) === "jpdb" && !isJitenSrsCard(card) && !this.reviewTargetsForCard(card).includes("anki");
     }
     sourceToggleContext(card) {
       const current = this.cardReviewSource(card);
@@ -63681,7 +63802,7 @@ ${entry.url}`),
       return context.current === "jpdb" || context.selected === "jpdb";
     }
     shouldIncludeDictionaryToggleSource(context, sources) {
-      if (this.sourceLabel.startsWith("Jiten") && this.hasJitenOnlyApiCredentials()) return false;
+      if (this.isJitenOnlySourceLabel() && this.hasJitenOnlyApiCredentials()) return false;
       return context.current === "dictionary" && sources.length === 1;
     }
     sourceToggleCurrentSource(card, sources) {
@@ -63706,6 +63827,9 @@ ${entry.url}`),
       if (this.sourceLabel.startsWith("Jiten")) return "jpdb";
       if (this.sourceLabel.startsWith(NEW_TAB_SOURCE_LABELS.anki)) return "anki";
       return this.sourceLabel === this.text("dictionary") ? "dictionary" : null;
+    }
+    isJitenOnlySourceLabel() {
+      return this.sourceLabel.startsWith("Jiten") && !this.sourceLabel.includes(" + ");
     }
     cardHasToggleSource(card, source) {
       if (source === "dictionary") return this.cardReviewSource(card) === "dictionary";
@@ -63742,7 +63866,7 @@ ${entry.url}`),
       return this.text("dictionary");
     }
     jpdbSourceToggleLabel() {
-      if (this.sourceLabel.includes("JPDB + Jiten")) return "JPDB + Jiten";
+      if (this.sourceLabel.includes("Jiten + JPDB")) return "Jiten + JPDB";
       if (this.sourceLabel.startsWith("Jiten")) return "Jiten";
       return this.apiReviewSourceLabel();
     }
@@ -66298,7 +66422,7 @@ ${entry.url}`),
     }
     // SH-3 due-in column: bucket the pool's Anki cards through Anki's own
     // scheduler search (is:due, prop:due<=1/7/30) — exact answers, no due
-    // decoding. JPDB/Jiten cards stay blank (their APIs expose no per-card
+    // decoding. Jiten/JPDB cards stay blank (their APIs expose no per-card
     // due timestamps).
     async loadBrowseAnkiDueBuckets(cards) {
       const ankiCardIds = new Set(cards.map((card) => card.ankiCardId).filter((id) => Number.isFinite(id) && id > 0));
@@ -70851,7 +70975,7 @@ ${entry.url}`),
     kanjiSourceTitle(sourceId) {
       return newTabKanjiSourceTitle(this.settings, sourceId);
     }
-    // Render JPDB and Jiten kanji facts side by side (both keys present) rather
+    // Render Jiten and JPDB kanji facts side by side (both keys present) rather
     // than only the active provider, matching the reader popover.
     renderNewTabKanjiFactSources(jpdbInfo, jitenInfo) {
       const sections = [];

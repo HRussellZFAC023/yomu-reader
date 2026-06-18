@@ -208,10 +208,10 @@ function renderApiSettingsPanel(settings: ReaderSettings, jpdbSettingsUrl: strin
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">API access</div>
                     <div class="grid">
-                        ${input('apiCredentialJpdb', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                         ${input('apiCredentialJiten', `Jiten API key <a href="${jitenSettingsUrl}" target="_blank" rel="noopener">Jiten settings</a>`, effectiveJitenApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
+                        ${input('apiCredentialJpdb', `JPDB API key <a href="${jpdbSettingsUrl}" target="_blank" rel="noopener">JPDB settings</a>`, effectiveJpdbApiKey(settings), 'text', { ...API_KEY_INPUT_ATTRIBUTES, class: 'jpdb-reader-masked-input' })}
                     </div>
-                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste a JPDB or Jiten API key. Jiten keys start with ak_.</div>
+                    <div class="jpdb-reader-help" data-jpdb-api-key-help>Paste a Jiten or JPDB API key. Jiten starts with ak_.</div>
                 </div>
                 ${jpdbStatus}
                 <div data-jpdb-decks>
@@ -287,7 +287,7 @@ function renderNewTabSettingsSubsection(settings: ReaderSettings): string {
                         ${runningAsBrowserExtension() ? checkbox('newTabEnabled', 'Set Study as the new tab', settings.newTabEnabled) : ''}
                         ${checkbox('newTabAnkiEnabled', 'Use Anki cards in Study', settings.newTabAnkiEnabled)}
                         ${renderNewTabAnkiDeckControls(settings)}
-                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (JPDB / Jiten)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
+                        ${select('newTabSource', 'Study review source', settings.newTabSource, [['auto', 'Auto: API/Anki, then study words'], ['jpdb', 'API SRS (Jiten / JPDB)'], ['anki', 'Anki'], ['dictionary', 'Dictionary fallback']])}
                         ${select('newTabJpdbReviewMode', 'API review mode', settings.newTabJpdbReviewMode, [['auto', 'Auto: live kanji + API vocabulary'], ['live-review', 'Live JPDB review session'], ['api-vocabulary', 'API vocabulary only']])}
                         ${select('newTabKanjiKeywordSource', 'Kanji keyword source', settings.newTabKanjiKeywordSource, kanjiKeywordSourceOptions(settings))}
                         ${checkbox('newTabParsingEnabled', 'Parse sentences on Study', settings.newTabParsingEnabled)}
@@ -319,7 +319,7 @@ function kanjiKeywordSourceOptions(settings: Pick<ReaderSettings, 'apiKey' | 'ji
         : `Auto: RTK, then ${apiLabel} kanji facts, then local`;
     const apiFacts = text
         ? text('newTabKanjiKeywordApiFacts').replace('{service}', apiLabel)
-        : `${apiLabel} kanji facts (JPDB / Jiten)`;
+        : `${apiLabel} kanji facts (Jiten / JPDB)`;
     return [
         ['auto', auto],
         ['rtk', text ? text('newTabKanjiKeywordRtk') : 'RTK / Heisig'],
@@ -685,7 +685,7 @@ function renderImageSettingsPanel(settings: ReaderSettings): string {
                     ${renderColorInputs(OCR_COLOR_FIELDS, settings)}
                     ${input('ocrBackgroundOpacity', 'Image highlight opacity', String(settings.ocrBackgroundOpacity), 'number')}
                     ${input('ocrFontScale', 'Image text scale', String(settings.ocrFontScale), 'number')}
-                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">Advanced: runs OCR on your own computer. Start a local OCR server (e.g. MangaOCR, best for manga) and enter its URL below. Most users should keep Google Lens.</div>
+                    <div class="jpdb-reader-help" data-local-ocr ${localOcrHidden} data-help-key="ocrLocalHelp">Advanced: run OCR locally. Start a MangaOCR/Apple Vision HTTP server, then enter its URL. Most users should keep Google Lens.</div>
                     <div data-local-ocr ${localOcrHidden}>${select('ocrEngine', 'Local OCR engine', settings.ocrEngine, [['auto', 'Automatic'], ['MangaOCR', 'MangaOCR (best for manga)'], ['PaddleOCR', 'PaddleOCR'], ['AppleVision', 'Apple Vision (macOS)']])}</div>
                     <label data-local-ocr ${localOcrHidden}>Local OCR server URL<input name="ocrEndpointUrl" type="url" value="${escapeHtml(settings.ocrEndpointUrl)}" placeholder="http://127.0.0.1:7331/ocr" autocomplete="off"></label>
                     <div class="jpdb-reader-help" data-cloud-ocr ${cloudOcrHidden} data-help-key="ocrCloudHelp">Needs a Google Cloud Vision API key (a Google Cloud project with billing enabled).</div>

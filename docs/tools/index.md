@@ -1,6 +1,6 @@
 ---
 title: Free Japanese Learning Tools
-description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, furigana, kanji stroke order, subtitle mining, JPDB study, and a YouTube immersion filter. Every tool runs in your browser, no account required.
+description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, furigana, kanji stroke order, subtitle mining, study, and a YouTube immersion filter. Every tool runs in your browser, no account required.
 head:
   - - meta
     - name: keywords
@@ -31,8 +31,8 @@ Everything here is **free**, runs **in your browser**, and needs **no account** 
     <span>Turn Japanese subtitles into tappable words on YouTube and your own video files.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/tools/jpdb-study">
-    <strong>JPDB study &amp; review</strong>
-    <span>A new-tab study page that reviews JPDB, Anki, or imported dictionary cards.</span>
+    <strong>Study &amp; review</strong>
+    <span>A new-tab study page that reviews Jiten, JPDB, Anki, or imported dictionary cards.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/tools/youtube-japanese">
     <strong>YouTube for Japanese</strong>

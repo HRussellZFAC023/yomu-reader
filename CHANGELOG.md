@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.6] - 2026-06-18
+
+### Changed
+
+- Jiten now comes before JPDB in fresh installs, migrated default installs, definition-source rows, Study combined source labels, settings copy, docs copy, and dictionary/source ordering surfaces. Custom source priorities are preserved.
+- The homepage now focuses on よむ itself: lookup, local dictionaries, study cards, audio, OCR, PDFs, subtitles, and video, without promoting JPDB in the landing-page copy.
+- The hosted Settings menu warms the よむ runtime on hover, focus, touch, and pointer down, then retries immediately when the runtime script finishes loading so opening settings feels snappier on mobile.
+- The hosted video player now includes a localized Jimaku subtitle-search link next to the Subtitles button.
+
+### Fixed
+
+- OCR no longer resurrects overlays for images that are removed before idle scanning runs, preventing stale page-turn scans from painting old or missing content.
+- Hosted docs Japanese mode now localizes the Tools/Guides nav, theme-toggle labels, and home-page Next Steps cards, including the PDF reader card.
+- Hosted light/dark switching now treats the stored よむ theme as authoritative and cleans up Greasemonkey storage listeners, avoiding flashes when settings or multiple tabs change theme.
+- Keyless public JPDB search, vocabulary, and pitch lookups now persist successful results in a local browser cache, reducing repeat public/proxy requests for hosted visitors.
+
 ## [1.4.5] - 2026-06-18
 
 ### Changed
@@ -14,8 +30,8 @@
 
 ### Added
 
-- When both a JPDB and a Jiten API key are set, the lookup popover shows a small ⇄ toggle next to the JPDB/Jiten status. It switches which SRS the deck and grade buttons act on (persisted), so a word present in both services can be graded into either. The settings connection check now reports "Connected to JPDB and Jiten." when both keys are configured.
-- The kanji card now shows JPDB and Jiten kanji facts side by side (when both are available) instead of only the active provider.
+- When both a JPDB and a Jiten API key are set, the lookup popover shows a small ⇄ toggle next to the Jiten/JPDB status. It switches which SRS the deck and grade buttons act on (persisted), so a word present in both services can be graded into either. The settings connection check now reports "Connected to Jiten and JPDB." when both keys are configured.
+- The kanji card now shows Jiten and JPDB kanji facts side by side (when both are available) instead of only the active provider.
 
 ### Changed
 
@@ -36,7 +52,7 @@
 
 ### Fixed
 
-- The JPDB and Jiten definition panels are no longer shown on their own sites — on `jiten.moe` the redundant **Jiten** panel (definitions + "used in vocabulary") is suppressed, and on `jpdb.io` the **JPDB** panel is suppressed, since the native page already shows that source. Other added sources (your dictionaries, Immersion Kit, kanji practice, study tools) still appear, and both panels remain available everywhere else. The native-page addon no longer leaves an empty "No definitions" box when the self-site source was its only content.
+- The Jiten and JPDB definition panels are no longer shown on their own sites — on `jiten.moe` the redundant **Jiten** panel (definitions + "used in vocabulary") is suppressed, and on `jpdb.io` the **JPDB** panel is suppressed, since the native page already shows that source. Other added sources (your dictionaries, Immersion Kit, kanji practice, study tools) still appear, and both panels remain available everywhere else. The native-page addon no longer leaves an empty "No definitions" box when the self-site source was its only content.
 
 ## [1.4.1] - 2026-06-18
 
@@ -391,8 +407,8 @@
 ### Fixed
 
 - JPDB review and search page enhancements now keep Immersion Kit examples stable, position example subtitles over the image correctly, show kanji doodle practice on unrevealed kanji fronts with the trace hidden by default, remember the native examples toggle state, and preserve native JPDB audio links.
-- JPDB passive link-style words now open Yomu hover dictionaries reliably, while JPDB and Jiten study prompts suppress Yomu-added furigana for the word being quizzed.
-- JPDB word-card backs now render the full local/JPDB/Jiten definition information, matching kanji cards and Jiten word pages.
+- JPDB passive link-style words now open Yomu hover dictionaries reliably, while Jiten and JPDB study prompts suppress Yomu-added furigana for the word being quizzed.
+- JPDB word-card backs now render the full local/Jiten/JPDB definition information, matching kanji cards and Jiten word pages.
 
 ## [1.0.4] - 2026-06-17
 
@@ -613,8 +629,8 @@
 
 ### Fixed
 
-- JPDB public dictionary details now render alongside Jiten details even when the clicked/search result card came from Jiten parsing, so keyless, Jiten-key-only, JPDB-key-only, and dual-key lookups can all show the real JPDB and Jiten source panels together.
-- Definition source toggles now persist through settings normalization, so turning off JPDB or Jiten removes that source from both popover dictionary cards and the `/search` detail page.
+- JPDB public dictionary details now render alongside Jiten details even when the clicked/search result card came from Jiten parsing, so keyless, Jiten-key-only, JPDB-key-only, and dual-key lookups can all show the real Jiten and JPDB source panels together.
+- Definition source toggles now persist through settings normalization, so turning off Jiten or JPDB removes that source from both popover dictionary cards and the `/search` detail page.
 
 ## [0.7.67] - 2026-06-15
 
@@ -899,7 +915,7 @@
 
 ### Fixed
 
-- Japanese parsing now repairs incomplete kana spans inside continuous text, preventing dangling stems like `やや さし` and keeping context words such as `読んで` and `読み取る` coherent across JPDB, Jiten, local dictionary, and fallback parses.
+- Japanese parsing now repairs incomplete kana spans inside continuous text, preventing dangling stems like `やや さし` and keeping context words such as `読んで` and `読み取る` coherent across Jiten, JPDB, local dictionary, and fallback parses.
 - Selected sentence lookup now reparses long or fragmented rendered selections with sentence context, so large selections still open a popup and sentences like `好きなものを読んで日本語を学ぶ` keep coherent token choices.
 
 ## [0.7.24] - 2026-06-14
@@ -941,7 +957,7 @@
 
 - Hosted new-tab searches now keep the `q` query parameter in sync for typed searches, nested modal lookups, handwriting candidates, and cleared searches, so browser back/forward restores the searched term and rendered results.
 - New-tab search results no longer render the redundant global external-search link row when each expanded dictionary entry already has its own lookup pills.
-- Search-result entry pills now dispatch Copy, Yomu, JPDB/Jiten, and Anki actions through the shared card-action path; the Anki pill now gives the same success/error feedback in new-tab search details as it does in lookup popovers.
+- Search-result entry pills now dispatch Copy, Yomu, Jiten/JPDB, and Anki actions through the shared card-action path; the Anki pill now gives the same success/error feedback in new-tab search details as it does in lookup popovers.
 
 ## [0.7.19] - 2026-06-14
 
@@ -1256,7 +1272,7 @@
 
 ### Fixed
 
-- JPDB and Jiten now stay as separate dictionary definition sources in settings and popup ordering. Both source rows are enabled by default even before API keys are added, and adding a Jiten key no longer relabels or replaces the JPDB source.
+- Jiten and JPDB now stay as separate dictionary definition sources in settings and popup ordering. Both source rows are enabled by default even before API keys are added, and adding a Jiten key no longer relabels or replaces the JPDB source.
 
 ## [0.6.187] - 2026-06-13
 
@@ -1369,7 +1385,7 @@
 - Public jpdb pitch lookups now run four-wide, so keyless pitch underlines fill in faster during subtitle bursts.
 - ASBPlayer subtitle overlays no longer inherit Yomu subtitle underline color channels, avoiding dark shadow underlines when API-backed status/pitch styling is enabled.
 - ASBPlayer subtitle overlays now get the same deliberate temporary move handle as Yomu subtitles, so their position can be nudged per video without dragging ordinary subtitle text.
-- Deck membership styling now applies across JPDB, Jiten, and Anki rendered words, with provider-specific deck classes and merged Anki metadata preserved.
+- Deck membership styling now applies across Jiten, JPDB, and Anki rendered words, with provider-specific deck classes and merged Anki metadata preserved.
 - Word lookups now resolve the real pointer target through shadow-DOM event retargeting, so framework re-renders that replace annotated nodes are re-annotated by the next scan.
 - Imported dictionaries on iPad now request persistent storage on import, and the Dictionaries panel explains when Safari has cleared remembered IndexedDB data.
 - Grammar rows in the lookup sheet now indent consistently across alternate forms.
@@ -1446,7 +1462,7 @@
 
 ### Added
 
-- Words that live in both the JPDB and Jiten review queues now keep both identities after merging, so the study grade-target selector offers Both / JPDB / Jiten (and Anki) per card — grading just one provider works exactly like the jpdb+anki pairing always has.
+- Words that live in both the Jiten and JPDB review queues now keep both identities after merging, so the study grade-target selector offers Both / Jiten / JPDB (and Anki) per card — grading just one provider works exactly like the jpdb+anki pairing always has.
 
 ### Changed
 
@@ -1456,13 +1472,13 @@
 
 ### Fixed
 
-- Removed the remaining "one credential or the other" assumptions: with both JPDB and Jiten keys, Jiten features no longer pretend JPDB is absent, settings labels read "JPDB + Jiten" where both apply, and an open jpdb.io review tab no longer hijacks the merged study queue in Auto mode — the explicit "Live JPDB review session" mode is the only thing that preempts, exactly as chosen.
+- Removed the remaining "one credential or the other" assumptions: with both Jiten and JPDB keys, Jiten features no longer pretend JPDB is absent, settings labels read "Jiten + JPDB" where both apply, and an open jpdb.io review tab no longer hijacks the merged study queue in Auto mode — the explicit "Live JPDB review session" mode is the only thing that preempts, exactly as chosen.
 
 ## [0.6.168] - 2026-06-12
 
 ### Added
 
-- With both JPDB and Jiten connected, the study page's deck picker now has one-tap "JPDB" and "Jiten" entries to study a single provider's queue — "All vocabulary" keeps mixing both, and individual decks keep scoping further.
+- With both Jiten and JPDB connected, the study page's deck picker now has one-tap "JPDB" and "Jiten" entries to study a single provider's queue — "All vocabulary" keeps mixing both, and individual decks keep scoping further.
 
 ## [0.6.167] - 2026-06-12
 
@@ -1507,7 +1523,7 @@
 
 ### Added
 
-- First-run guidance on the study page: when no SRS source is connected, the practice-words view now shows a "Connect JPDB / Jiten / Anki" button that opens settings directly — instead of silently showing random practice words.
+- First-run guidance on the study page: when no SRS source is connected, the practice-words view now shows a "Connect Jiten / JPDB / Anki" button that opens settings directly — instead of silently showing random practice words.
 
 ### Verified
 
@@ -1546,7 +1562,7 @@
 
 ### Fixed
 
-- JPDB and Jiten API keys now coexist: settings has separate fields for each, and the study queue mixes both providers' reviews in one session. Previously saving a Jiten key silently erased the JPDB key, which made the study page mirror only Jiten while jpdb.io Learn kept counting dues — the main source of "my queue doesn't match jpdb" reports. A Jiten-format key pasted into the JPDB field still routes to the right place.
+- Jiten and JPDB API keys now coexist: settings has separate fields for each, and the study queue mixes both providers' reviews in one session. Previously saving a Jiten key silently erased the JPDB key, which made the study page mirror only Jiten while jpdb.io Learn kept counting dues — the main source of "my queue doesn't match jpdb" reports. A Jiten-format key pasted into the JPDB field still routes to the right place.
 
 ## [0.6.155] - 2026-06-12
 
@@ -1571,7 +1587,7 @@
 
 ### Changed
 
-- The default furigana mode is now Automatic: with a JPDB/Jiten key or Anki connected it hides furigana for words you know (known, due and failed states by default — your request), and falls back to difficult-kanji-only furigana otherwise. An explicitly chosen mode is never changed.
+- The default furigana mode is now Automatic: with a Jiten/JPDB key or Anki connected it hides furigana for words you know (known, due and failed states by default — your request), and falls back to difficult-kanji-only furigana otherwise. An explicitly chosen mode is never changed.
 
 ## [0.6.152] - 2026-06-12
 
@@ -1823,7 +1839,7 @@
 
 ### Added
 
-- My Cards browser: Anki rows now show a due-in bucket (Due / ≤1d / ≤7d / ≤30d) answered by Anki's own scheduler search — the last open study-hub parity ticket. JPDB and Jiten rows stay blank rather than guessing: their APIs expose no per-card due timestamps.
+- My Cards browser: Anki rows now show a due-in bucket (Due / ≤1d / ≤7d / ≤30d) answered by Anki's own scheduler search — the last open study-hub parity ticket. Jiten and JPDB rows stay blank rather than guessing: their APIs expose no per-card due timestamps.
 
 ## [0.6.114] - 2026-06-11
 
@@ -1918,7 +1934,7 @@
 
 ### Added
 
-- The My Cards browser on the idle Search tab now includes your Anki cards alongside JPDB and Jiten — state chips, search, and rows span all three providers (study-hub parity SH-3 v2). Anki joins only the browser pool; the stats page keeps its dedicated Anki source so nothing double-counts.
+- The My Cards browser on the idle Search tab now includes your Anki cards alongside Jiten and JPDB — state chips, search, and rows span all three providers (study-hub parity SH-3 v2). Anki joins only the browser pool; the stats page keeps its dedicated Anki source so nothing double-counts.
 
 ## [0.6.99] - 2026-06-11
 
@@ -1967,7 +1983,7 @@
 
 ### Added
 
-- The study page's Search tab now opens as a 'My Cards' browser when JPDB or Jiten is connected: your whole SRS pool with state filter chips in JPDB's Show-only order (All/New/Learning/Due/Failed/Known/Never forget/Blacklisted/…) including live counts, 50-per-page rows showing the word, reading, first meaning, state badge, and frequency rank — and tapping a row opens Yomu's full lookup (dictionaries, Immersion Kit, mining) for that card. Typing still searches dictionaries as before. Touch-sized rows; meanings column folds away on narrow screens. (Study-hub parity SH-3 v1.)
+- The study page's Search tab now opens as a 'My Cards' browser when Jiten or JPDB is connected: your whole SRS pool with state filter chips in JPDB's Show-only order (All/New/Learning/Due/Failed/Known/Never forget/Blacklisted/…) including live counts, 50-per-page rows showing the word, reading, first meaning, state badge, and frequency rank — and tapping a row opens Yomu's full lookup (dictionaries, Immersion Kit, mining) for that card. Typing still searches dictionaries as before. Touch-sized rows; meanings column folds away on narrow screens. (Study-hub parity SH-3 v1.)
 
 ## [0.6.91] - 2026-06-11
 
@@ -1985,7 +2001,7 @@
 
 ### Added
 
-- Stats tab now opens with a JPDB-style learning-progress table — 'Learning | You know' columns with the Words row (total, learning count, known count and percentage) and a 'Total known vocabulary' line — for whichever provider is selected (JPDB, Jiten, Anki, or combined).
+- Stats tab now opens with a JPDB-style learning-progress table — 'Learning | You know' columns with the Words row (total, learning count, known count and percentage) and a 'Total known vocabulary' line — for whichever provider is selected (Jiten, JPDB, Anki, or combined).
 
 ## [0.6.88] - 2026-06-11
 
@@ -2003,7 +2019,7 @@
 
 ### Fixed
 
-- Mining a card with a captured context image or audio into a JPDB or Jiten deck no longer drops the media silently: when no Anki note is created alongside (Anki co-mining off), the success toast now adds 'Captured image/audio stays in Yomu — this service has no media API.' (localized). Jiten and JPDB deck APIs cannot store media; now the UI says so.
+- Mining a card with a captured context image or audio into a Jiten or JPDB deck no longer drops the media silently: when no Anki note is created alongside (Anki co-mining off), the success toast now adds 'Captured image/audio stays in Yomu — this service has no media API.' (localized). Jiten and JPDB deck APIs cannot store media; now the UI says so.
 
 ## [0.6.85] - 2026-06-11
 
@@ -2509,7 +2525,7 @@
 
 ### Fixed
 
-- Restored full-word kana lookup on mobile and split inline text, so taps inside words like `にほんご` resolve the full JPDB/Jiten candidate instead of fragment entries.
+- Restored full-word kana lookup on mobile and split inline text, so taps inside words like `にほんご` resolve the full Jiten/JPDB candidate instead of fragment entries.
 - Kept hosted AnkiConnect on the userscript bridge for local Anki while allowing detailed clicked-word card hydration to retry past stale availability cooldowns.
 - Restored new-tab fallback study words when no JPDB or Anki review cards are ready, and made JPDB/Anki source switching deterministic.
 - Refined mobile new-tab layout, Anki card audio controls, and Anki opt-in defaults so fresh installs do not show loud mobile handoff actions by default.

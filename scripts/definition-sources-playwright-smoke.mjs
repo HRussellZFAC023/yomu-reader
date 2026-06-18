@@ -57,25 +57,25 @@ const STATIC_ROUTES = new Map([
 const SCENARIOS = [
     {
         id: 'keyless-both-on',
-        label: 'No API keys, JPDB and Jiten enabled',
+        label: 'No API keys, Jiten and JPDB enabled',
         settings: {},
         expect: { jpdb: true, jiten: true },
     },
     {
         id: 'jiten-key-both-on',
-        label: 'Jiten key only, JPDB and Jiten enabled',
+        label: 'Jiten key only, Jiten and JPDB enabled',
         settings: { jitenApiKey: JITEN_API_KEY },
         expect: { jpdb: true, jiten: true },
     },
     {
         id: 'jpdb-key-both-on',
-        label: 'JPDB key only, JPDB and Jiten enabled',
+        label: 'JPDB key only, Jiten and JPDB enabled',
         settings: { apiKey: JPDB_API_KEY },
         expect: { jpdb: true, jiten: true },
     },
     {
         id: 'both-keys-both-on',
-        label: 'JPDB and Jiten keys, JPDB and Jiten enabled',
+        label: 'Jiten and JPDB keys, Jiten and JPDB enabled',
         settings: { apiKey: JPDB_API_KEY, jitenApiKey: JITEN_API_KEY },
         expect: { jpdb: true, jiten: true },
     },

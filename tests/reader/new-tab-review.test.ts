@@ -2027,7 +2027,7 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('combines JPDB and Jiten SRS in the new-tab API stats connection', async () => {
+    it('combines Jiten and JPDB SRS in the new-tab API stats connection', async () => {
         const jpdbCard = newTabTestCard({
             source: 'jpdb',
             reviewSource: 'jpdb-api',
@@ -2061,8 +2061,8 @@ describe('new tab review helpers', () => {
 
             expect(listDeckCards).toHaveBeenCalledWith('all', 2000);
             expect(listStudyBatchCards).toHaveBeenCalledWith(2000);
-            expect(root.textContent).toContain('JPDB + Jiten SRS loaded.');
-            expectApiStatsSource(root, 'JPDB + Jiten');
+            expect(root.textContent).toContain('Jiten + JPDB SRS loaded.');
+            expectApiStatsSource(root, 'Jiten + JPDB');
             expect(root.querySelector('[data-newtab-action="stats-import-jpdb"]')).not.toBeNull();
             expect(root.querySelector('[data-stats-jpdb-file]')).not.toBeNull();
             expectApiStatsSettingsButton(root, showSettings);
@@ -3576,7 +3576,7 @@ describe('new tab review helpers', () => {
                 visibleWords: cards,
                 index: 0,
                 reviewCountMode: false,
-                sourceLabel: 'JPDB + Jiten + Anki',
+                sourceLabel: 'Jiten + JPDB + Anki',
                 state: { mode: 'word', sort: 'random', filter: 'study', source: 'auto', revealAnswer: false },
             });
 
@@ -5948,7 +5948,7 @@ describe('new tab review helpers', () => {
         expect(listStudyBatchCards).toHaveBeenCalledWith(180);
     });
 
-    it('interleaves JPDB and Jiten SRS cards through the shared new-tab API source', async () => {
+    it('interleaves Jiten and JPDB SRS cards through the shared new-tab API source', async () => {
         const jpdbCard = newTabTestCard({
             spelling: '復習',
             reading: 'ふくしゅう',
@@ -5984,11 +5984,11 @@ describe('new tab review helpers', () => {
 
         const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
 
-        expect(result.sourceLabel).toBe('JPDB + Jiten');
+        expect(result.sourceLabel).toBe('Jiten + JPDB');
         expect(result.reviewCountMode).toBe(true);
         expect(result.cards.map(card => [card.spelling, card.reviewSource])).toEqual([
-            ['復習', 'jpdb-api'],
             ['日本語', 'jiten-api'],
+            ['復習', 'jpdb-api'],
         ]);
         expect(listDeckCards).toHaveBeenCalledWith('all', 180, { scheduledOnly: true });
         expect(listStudyBatchCards).toHaveBeenCalledWith(180);

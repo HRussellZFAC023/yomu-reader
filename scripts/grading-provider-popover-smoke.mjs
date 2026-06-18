@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // E2E smoke for the dual SRS grading provider: with BOTH a jpdb and a jiten key,
 // a word present in both services shows a provider toggle in the popover header.
-// Toggling flips the deck/grade buttons between JPDB and Jiten, and grading
+// Toggling flips the deck/grade buttons between Jiten and JPDB, and grading
 // dispatches to the chosen service. Produces before/after screenshots.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';

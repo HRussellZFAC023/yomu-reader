@@ -10,6 +10,12 @@ import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const SCRIPT_PATH = path.join(ROOT, 'dist', 'yomu.user.js');
 const CSS_PATH = path.join(ROOT, 'dist', 'yomu.css');
+const COMPANION_SCRIPT_PATHS = [
+    'yomu-anki.user.js',
+    'yomu-kanji-study.user.js',
+    'yomu-settings-surface.user.js',
+    'yomu-video.user.js',
+].map(name => path.join(ROOT, 'dist', 'greasyfork', name));
 const PUBLIC_DIR = path.join(ROOT, 'docs', 'public');
 const VIDEO_PLAYER_PATH = path.join(ROOT, 'docs', 'public', 'video-player', 'index.html');
 const SETTINGS_KEY = 'jpdb-popup-reader-settings';
@@ -145,6 +151,14 @@ const FEEDBACK_TEXT_ROUTES = new Map([
 const FEEDBACK_FILE_ROUTES = new Map([
     ...routeEntries(['/yomu.user.js', '/video-player/yomu.user.js', '/yomu-reader/yomu.user.js'], { filePath: SCRIPT_PATH, contentType: 'application/javascript; charset=utf-8' }),
     ...routeEntries(['/yomu.css', '/video-player/yomu.css', '/yomu-reader/yomu.css'], { filePath: CSS_PATH, contentType: 'text/css; charset=utf-8' }),
+    ...COMPANION_SCRIPT_PATHS.flatMap(filePath => {
+        const fileName = path.basename(filePath);
+        return routeEntries([
+            `/greasyfork/${fileName}`,
+            `/video-player/greasyfork/${fileName}`,
+            `/yomu-reader/greasyfork/${fileName}`,
+        ], { filePath, contentType: 'application/javascript; charset=utf-8' });
+    }),
     ...routeEntries(['/yomu-icon.svg', '/video-player/yomu-icon.svg', '/yomu-reader/yomu-icon.svg'], { filePath: path.join(PUBLIC_DIR, 'yomu-icon.svg'), contentType: 'image/svg+xml; charset=utf-8' }),
     ...['/favicon-32x32.png', '/favicon-16x16.png', '/apple-touch-icon.png']
         .map(pathname => [pathname, { filePath: path.join(PUBLIC_DIR, pathname.slice(1)), contentType: 'image/png' }]),
@@ -195,15 +209,36 @@ async function newPage(browser, settings = baseSettings, viewport = { width: 136
 
 async function injectUserscript(page) {
     await installUserscriptCssResource(page, CSS_PATH);
+    for (const companionPath of COMPANION_SCRIPT_PATHS) await page.addScriptTag({ path: companionPath });
     await page.addScriptTag({ path: SCRIPT_PATH });
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => Boolean(window.__yomuReaderAppInitialized || document.getElementById('jpdb-reader-runtime-owner')), null, { timeout: 6000 });
 }
 
 async function openSettings(page, panel = 'basics') {
+    const logs = [];
+    const onConsole = message => {
+        const type = message.type();
+        if (type === 'error' || type === 'warning') logs.push(`[${type}] ${message.text()}`);
+    };
+    const onPageError = error => logs.push(`[pageerror] ${error.stack || error.message}`);
+    page.on('console', onConsole);
+    page.on('pageerror', onPageError);
     await page.evaluate(({ eventName, panelName }) => {
         window.dispatchEvent(new CustomEvent(eventName, { detail: { panel: panelName } }));
     }, { eventName: OPEN_SETTINGS_EVENT, panelName: panel });
-    await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    try {
+        await page.waitForSelector('.jpdb-reader-settings', { timeout: 6000 });
+    } catch (error) {
+        const active = await page.evaluate(() => ({
+            hasRoot: Boolean(document.querySelector('[data-jpdb-reader-root]')),
+            bodyClasses: document.body.className,
+            yomuReady: Boolean(document.querySelector('.jpdb-reader-float')),
+        }));
+        throw new Error(`Settings did not open for panel ${panel}: ${error.message}\n${logs.join('\n')}\n${JSON.stringify(active)}`);
+    } finally {
+        page.off('console', onConsole);
+        page.off('pageerror', onPageError);
+    }
 }
 
 async function verifySettingsDiscoverability(page, baseUrl) {
@@ -509,6 +544,12 @@ async function loadHostedVideoAndOpenTracks(page) {
 
 async function assertHostedTracksPanel(page) {
     const tracksPanel = await readHostedTracksPanelState(page);
+    assert(tracksPanel.jimakuText === 'Find subtitles', 'Jimaku subtitle search link was missing from the hosted video toolbar', tracksPanel);
+    assert(tracksPanel.jimakuHref === 'https://jimaku.cc/', 'Jimaku subtitle search link points to the wrong URL', tracksPanel);
+    assert(tracksPanel.jimakuTarget === '_blank' && tracksPanel.jimakuRel.includes('noopener'), 'Jimaku subtitle search link should open safely in a new tab', tracksPanel);
+    assert(tracksPanel.jimakuAnimeText === 'Search anime subtitles', 'Jimaku anime search link was missing from the subtitle tracks panel', tracksPanel);
+    assert(tracksPanel.jimakuAnimeHref === 'https://jimaku.cc/opensearch/redirect?anime=true&query=local-video', 'Jimaku anime search link points to the wrong URL', tracksPanel);
+    assert(tracksPanel.jimakuAnimeTarget === '_blank' && tracksPanel.jimakuAnimeRel.includes('noopener'), 'Jimaku anime search link should open safely in a new tab', tracksPanel);
     assert(tracksPanel.title === 'Subtitles', 'Subtitles button did not open the Yomu tracks panel', tracksPanel);
     assert(tracksPanelHasLoadActions(tracksPanel), 'Track loading actions were not intuitive after clicking Subtitles', tracksPanel);
     assert(tracksPanelControlsReady(tracksPanel), 'Subtitle drawer controls did not expose auto-hide and docking actions', tracksPanel);
@@ -519,6 +560,14 @@ async function readHostedTracksPanelState(page) {
         title: document.querySelector('.jpdb-subtitle-drawer-title')?.textContent?.trim(),
         text: document.querySelector('.jpdb-subtitle-list')?.textContent ?? '',
         hidden: document.querySelector('.jpdb-subtitle-list')?.hidden,
+        jimakuText: document.querySelector('[data-jimaku-link]')?.textContent?.trim(),
+        jimakuHref: document.querySelector('[data-jimaku-link]')?.href,
+        jimakuTarget: document.querySelector('[data-jimaku-link]')?.target,
+        jimakuRel: document.querySelector('[data-jimaku-link]')?.rel ?? '',
+        jimakuAnimeText: document.querySelector('[data-jimaku-anime-search]')?.textContent?.trim(),
+        jimakuAnimeHref: document.querySelector('[data-jimaku-anime-search]')?.href,
+        jimakuAnimeTarget: document.querySelector('[data-jimaku-anime-search]')?.target,
+        jimakuAnimeRel: document.querySelector('[data-jimaku-anime-search]')?.rel ?? '',
         autoHideText: document.querySelector('[data-action="toggle-pause-panel"]')?.textContent?.trim(),
         autoHidePressed: document.querySelector('[data-action="toggle-pause-panel"]')?.getAttribute('aria-pressed'),
         placementButtons: document.querySelectorAll('[data-action="transcript-placement"][data-placement]').length,
@@ -573,6 +622,10 @@ async function assertHostedPausePanelOnPause(page) {
 async function dispatchHostedVideoEvent(page, eventName) {
     await page.evaluate(name => {
         const video = document.querySelector('video');
+        if (video && (name === 'play' || name === 'playing' || name === 'pause')) {
+            Object.defineProperty(video, 'paused', { configurable: true, value: name === 'pause' });
+            Object.defineProperty(video, 'ended', { configurable: true, value: false });
+        }
         video?.dispatchEvent(new Event(name));
     }, eventName);
 }

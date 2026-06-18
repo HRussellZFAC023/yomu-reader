@@ -2,7 +2,7 @@
 layout: home
 title: よむ - Free Japanese popup dictionary & immersion reader
 titleTemplate: false
-description: よむ (Yomu) is a free Japanese reader for your browser. Tap any word on a web page, manga, or video subtitle to see readings, meanings, kanji, pitch, and audio, then mine it to JPDB, Yomitan, or Anki. No account needed.
+description: よむ (Yomu) is a free Japanese reader for your browser. Tap any word on a web page, manga image, PDF, or video subtitle to see readings, meanings, kanji, pitch, and audio, then save useful context for review. No account needed.
 hero:
   name: よむ
   text: Learn Japanese by reading what you actually like
@@ -28,12 +28,12 @@ hero:
       link: /newtab/index.html
       target: _self
 features:
-  - title: Read first
-    details: Extensive reading works because you meet vocabulary and grammar repeatedly in meaningful context. よむ removes just enough friction that you can stay inside the story.
-  - title: Bring every tool
-    details: JPDB status and mining, Yomitan dictionaries, Anki cards, audio, example sentences, OCR, and subtitles all work from the same popup.
+  - title: Read anything Japanese
+    details: Web pages, manga images, PDFs, subtitles, and study sites become tappable reading surfaces.
+  - title: Understand in context
+    details: Readings, meanings, kanji, pitch, audio, examples, and dictionary entries stay in one popup.
   - title: Start anywhere
-    details: Begin with graded readers and easy news, then move into Satori, ebooks, manga, YouTube, web novels, and native sites as your known words grow.
+    details: Use it on desktop or mobile, with no account required. Add dictionaries, Anki, OCR, and study features only when you need them.
 ---
 
 <div class="yomu-install-panel">
@@ -58,13 +58,9 @@ features:
 
 ## What It Does
 
-よむ runs inside your browser. Point it at Japanese text, subtitles, or manga images and it opens a clean popup with readings, meanings, kanji details, examples, audio, and mining actions.
+よむ runs inside your browser. Tap or hover Japanese text, subtitle lines, or text inside manga images and PDFs to open a clean popup with readings, meanings, kanji, pitch, audio, examples, and save actions.
 
-The method is simple: read material you can mostly follow, look up only what keeps you moving, and let useful words come back later in reviews. This is the same idea behind graded readers, comprehensible input, and i+1 sentences: new Japanese sticks faster when it is attached to a scene, a sentence, and a reason you cared enough to read it.
-
-Most reading tools make you pick an ecosystem first. よむ doesn't. Use JPDB for word status and mining, import Yomitan dictionaries for offline definitions, connect Anki for your own cards, pull example sentences from Immersion Kit or Nadeshiko, play audio, trace kanji stroke by stroke, read manga with OCR, and mine subtitles from video — all from the same popup, and all optional. Start reading first, then add what you need.
-
-For the research behind the approach, see the 2025 meta-analysis on [learning a language through extensive reading](https://link.springer.com/article/10.1007/s10648-025-10068-6), the classic idea of [comprehensible input](https://journals.library.columbia.edu/index.php/SALT/article/view/1278), and Tadoku's practical reading rules for Japanese learners at [tadoku.org](https://tadoku.org/japanese/en/what-is-tadoku-en/).
+Start with lookup. Add local dictionaries, Anki, OCR, subtitles, and the study page only when they help you keep reading. On mobile, the floating よむ button stays reachable so settings and tools are never far away.
 
 <div class="yomu-try-me">
   <strong>Try me</strong>
@@ -73,16 +69,6 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
     <p>今日は静かな喫茶店で新しい本を読みました。</p>
   </div>
 
-  <div class="yomu-shot-grid">
-    <figure>
-      <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
-      <figcaption>Popup lookup with live JPDB data and mining controls.</figcaption>
-    </figure>
-    <figure>
-      <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
-      <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
-    </figure>
-  </div>
 </div>
 
 ## Next Steps
@@ -93,28 +79,24 @@ For the research behind the approach, see the 2025 meta-analysis on [learning a 
     <span>Install a userscript manager, add よむ, and try your first lookup.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/tools/">
-    <strong>See the tools</strong>
-    <span>Free pages for OCR, furigana, kanji stroke order, subtitles, JPDB study, and YouTube.</span>
+    <strong>Try the tools</strong>
+    <span>OCR, furigana, kanji stroke order, subtitles, PDFs, and YouTube helpers.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/guides/">
-    <strong>Read the guides</strong>
-    <span>Read manga, mine anime &amp; YouTube to Anki, find comprehensible-input channels.</span>
+    <strong>Find things to read</strong>
+    <span>Manga, anime, YouTube, graded readers, and comprehensible-input ideas.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/newtab/index.html">
     <strong>Open study app</strong>
-    <span>Review JPDB, Anki, or imported dictionary cards from the study app.</span>
+    <span>Review study cards, Anki cards, or imported dictionary cards from the study app.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/video-player/index.html">
     <strong>Open video player</strong>
     <span>Use local browser-supported videos and subtitle files with よむ lookup.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/pdf-reader/index.html">
+  <a class="yomu-link-card" href="/yomu-reader/pdf-reader/">
     <strong>Open PDF reader</strong>
     <span>Open any PDF and read it with よむ lookup, mining, and OCR.</span>
-  </a>
-  <a class="yomu-link-card" href="/yomu-reader/local-audio">
-    <strong>Add audio</strong>
-    <span>Use hosted Yomitan audio first, or self-host files when you need them.</span>
   </a>
   <a class="yomu-link-card" href="/yomu-reader/support">
     <strong>Get support</strong>

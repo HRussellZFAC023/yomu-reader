@@ -9,7 +9,7 @@ import { DEFAULT_SETTINGS } from '../../src/reader/settings';
 
 /**
  * Regression coverage for the keyless local segmenter that drives parsing when
- * no JPDB/Jiten key is available. These guard against the misparses reported in
+ * no Jiten/JPDB key is available. These guard against the misparses reported in
  * the 2026-06-14 P0 backlog (P0-02): dangling kana stems and over-isolated
  * single-character tiles. They assert linguistic coherence properties rather
  * than re-deriving the segmenter, so the parser keeps choosing whole words from

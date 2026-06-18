@@ -76,7 +76,7 @@ export function newTabGradeTargetLabel(summary: NewTabReviewSourceSummary, label
 }
 
 export function newTabApiGradeTargetShortLabel(summary: NewTabReviewSourceSummary): string {
-    if (summary.hasJpdb && summary.hasJiten) return 'JPDB + Jiten';
+    if (summary.hasJpdb && summary.hasJiten) return 'Jiten + JPDB';
     return summary.hasJiten ? 'Jiten' : 'JPDB';
 }
 

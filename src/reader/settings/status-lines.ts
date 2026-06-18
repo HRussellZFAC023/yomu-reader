@@ -72,8 +72,8 @@ function jpdbStatusLineFromValues(hasJpdbApiKey: boolean, hasJitenApiKey: boolea
 
 function jitenAwareMissingApiKeyMessage(language: InterfaceLanguage): string {
     return resolveUiLanguage(language) === 'ja'
-        ? 'JPDBまたはJitenキーなし。'
-        : 'No JPDB or Jiten key.';
+        ? 'JitenまたはJPDBキーなし。'
+        : 'No Jiten or JPDB key.';
 }
 
 function jitenApiKeyConfiguredMessage(language: InterfaceLanguage): string {

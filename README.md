@@ -31,7 +31,7 @@
 ## Highlights
 
 - 📖 **Read anything** — graded readers, easy news, ebooks, manga, web novels, YouTube, and native sites.
-- 🧩 **Every tool in one popup** — JPDB status and mining, Yomitan dictionaries, Anki cards, audio, example sentences, kanji drilldown, OCR, and subtitle mining.
+- 🧩 **Every tool in one popup** — dictionary lookup, mining, Anki cards, audio, example sentences, kanji drilldown, OCR, and subtitle mining.
 - 🆓 **Free and open source** — comparable study suites charge from $10/month. よむ does the core reading-and-mining loop for free, under MIT.
 - 📱 **Works on iPhone and iPad** — runs in Safari through a free userscript app, with touch-first lookup.
 
@@ -54,10 +54,10 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 ## Features
 
 - **Lookup anywhere:** popup dictionary on selected text, scanned page text, OCR text, subtitles, and Japanese pages.
-- **Study where you already are:** JPDB or Jiten SRS, AnkiConnect, mobile Anki handoff, configurable review buttons, and the hosted study page.
-- **Bring your dictionaries:** import Yomitan ZIPs, settings exports, Dexie exports, and JMdict; reorder JPDB/Jiten, Anki, local, grammar, example, and kanji sources.
-- **Japanese that stays readable:** furigana modes, status/pitch/accent coloring, JPDB/Jiten kanji details, stroke tracing, Uchisen, RTK, origin graphs, and local kanji dictionaries.
-- **Examples and audio:** Immersion Kit, Nadeshiko, Jisho.org, JPDB/Jiten audio, browser voices, custom audio URLs, thumbnails, translations, and replay buttons.
+- **Study where you already are:** Jiten or JPDB SRS, AnkiConnect, mobile Anki handoff, configurable review buttons, and the hosted study page.
+- **Bring your dictionaries:** import Yomitan ZIPs, settings exports, Dexie exports, and JMdict; reorder Jiten, JPDB, Anki, local, grammar, example, and kanji sources.
+- **Japanese that stays readable:** furigana modes, status/pitch/accent coloring, Jiten/JPDB kanji details, stroke tracing, Uchisen, RTK, origin graphs, and local kanji dictionaries.
+- **Examples and audio:** Immersion Kit, Nadeshiko, Jisho.org, Jiten/JPDB audio, browser voices, custom audio URLs, thumbnails, translations, and replay buttons.
 - **Immersion tools:** manga/image OCR, ASB-style subtitle overlay, transcript mining, local video player, YouTube Japanese-mode filtering, and touch-first mobile controls.
 
 ## Privacy
@@ -80,7 +80,7 @@ The default sources are JapanesePod101, LanguagePod101, Jisho.org, JPDB word aud
 
 ## Mining
 
-JPDB mining is the default path. The JPDB pill in a popup opens the matching JPDB page; clicking kanji inside the headword opens kanji details with JPDB data, RTK information, local kanji dictionaries, components, and words that use the same kanji.
+Mining is optional and source-aware. The Jiten and JPDB pills in a popup open the matching dictionary pages; clicking kanji inside the headword opens kanji details with study data, RTK information, local kanji dictionaries, components, and words that use the same kanji.
 
 Kanji details are modular. The **Kanji facts and origins map** setting adds compact facts such as type, JLPT, school grade, stroke count, frequency, Kanken, RTK frame, old forms, and radical data when those values are available from JPDB, KanjiVG, RTK, imported local dictionaries, or optional public kanji sources. The 2D map stays lightweight and uses per-kanji components instead of bundling a large etymology dataset. The Kanji Alive / Kanji Map, component graph, and radical-image sections can each be turned off.
 
@@ -105,7 +105,7 @@ Drop a local video file into the page, use the Subtitles button to add Japanese 
 Open the hosted PDF reader from the userscript menu or this URL:
 
 ```text
-https://hrussellzfac023.github.io/yomu-reader/pdf-reader/index.html
+https://hrussellzfac023.github.io/yomu-reader/pdf-reader/
 ```
 
 Open or drop any PDF and read it with よむ. Pages render with [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0, vendored under `docs/public/pdf-reader/vendor/`): each page is drawn to a canvas for full fidelity — images, figures, multi-column layouts, CJK fonts via cMaps, and scanned-image codecs (JBIG2/JPEG2000) — with a selectable text layer over it that よむ scans for popup lookup, mining, and furigana. Image-only/scanned pages fall through to よむ's OCR. Large and scanned books stay responsive via capped-resolution canvases and off-screen page eviction. The reader remembers your last page per document, and zoom/fit, page navigation, theme, accent, and interface language follow your よむ settings.
@@ -118,7 +118,7 @@ Use this address as a browser new-tab/home-page URL or add it to the iPad Home S
 https://hrussellzfac023.github.io/yomu-reader/newtab/
 ```
 
-The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is reachable and new-tab Anki cards are enabled. On mobile, use desktop Anki through Wi-Fi or Tailscale for existing-card status, updates, and review queues; mobile handoff only creates new notes. Otherwise the page uses the configured JPDB deck, public JPDB lookup, and imported dictionary words. Public JPDB lookup works without an API key; local Yomitan dictionaries are optional and add offline study cards plus local definitions. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is reachable and new-tab Anki cards are enabled. On mobile, use desktop Anki through Wi-Fi or Tailscale for existing-card status, updates, and review queues; mobile handoff only creates new notes. Otherwise the page uses connected Jiten/JPDB study data, public lookup, and imported dictionary words. Local Yomitan dictionaries are optional and add offline study cards plus local definitions. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
 
 If a mobile Home Screen shortcut or browser tab keeps showing an older new-tab build after a release, open the full URL above, refresh once, then close and reopen the shortcut. The hosted new tab uses a build id plus `version.json` to refresh itself, but mobile service-worker caches can need that manual nudge.
 
@@ -131,7 +131,7 @@ OCR is designed for manga and image-heavy pages on iPhone/iPad:
 - Local OCR app/server mode supports simple line output plus MangaOCR, PaddleOCR, Apple Vision, and YomiNinja-style structured outputs.
 - OCR results are cached per image for the current page.
 - Recognized Japanese lines become transparent touch targets, so the image is not covered.
-- Tapping or hovering recognized text opens the normal JPDB/Yomitan popup and mining flow.
+- Tapping or hovering recognized text opens the normal よむ popup and mining flow.
 
 A local OCR app can be selected in settings for users who want server-side or native OCR. It receives JSON like:
 
@@ -276,7 +276,7 @@ GreasyFork requires posted code to stay readable and non-minified. The release b
 - Imported dictionaries stay in IndexedDB and do not need to be imported again.
 - OCR reads likely images near the viewport, caches results, and makes recognized text tappable without covering the image.
 - YouTube subtitle detection uses caption metadata when available and visible DOM captions as a fallback. Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can also be loaded manually.
-- On iPhone/iPad, desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network. よむ keeps manual speaker buttons, copy, JPDB/Jiten links, and dictionary fallbacks visible for mobile browser limits.
+- On iPhone/iPad, desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network. よむ keeps manual speaker buttons, copy, Jiten/JPDB links, and dictionary fallbacks visible for mobile browser limits.
 - Support links, Factory Reset, API keys, imports, and appearance settings live in the settings panel.
 
 ## Star History

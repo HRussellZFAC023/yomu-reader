@@ -790,6 +790,58 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it('does not resurrect an image removed before its idle OCR scan starts', async () => {
+        vi.useFakeTimers();
+        const restoreCanvas = installCanvasEncodingMock();
+        stubInstantIntersectionObserver();
+        const image = document.createElement('img');
+        image.src = '/ocr-removed-before-idle.png';
+        Object.defineProperty(image, 'naturalWidth', { configurable: true, value: 1000 });
+        Object.defineProperty(image, 'naturalHeight', { configurable: true, value: 600 });
+        image.getBoundingClientRect = () => new DOMRect(20, 80, 500, 300);
+        document.body.replaceChildren(image);
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            width: 1000,
+            height: 600,
+            lines: [{ text: '日本語', box: { left: 100, top: 120, width: 300, height: 60 } }],
+        }), { status: 200, headers: { 'content-type': 'application/json' } }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrAutoScanImages: true,
+                ocrShowTextOverlay: false,
+                ocrProvider: 'local-service',
+                ocrMinImageArea: 1,
+                ocrMaxImagesPerPage: 5,
+                ocrPrefetchMargin: 0,
+            }),
+            parseJapanese: vi.fn(async text => [parsedToken(text)]),
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+            image.remove();
+            controller.refresh();
+
+            await vi.advanceTimersByTimeAsync(920);
+
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-layer')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+        } finally {
+            controller.destroy();
+            restoreCanvas();
+            vi.useRealTimers();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('repositions OCR overlays when an inner image scroller moves', async () => {
         stubInstantIntersectionObserver();
         const sentence = '日本語を読む';

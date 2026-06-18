@@ -853,7 +853,7 @@ describe('settings dialog keyboard dismissal', () => {
         apiKey.dispatchEvent(new Event('input', { bubbles: true }));
 
         expect(status.dataset.statusTone).toBe('pending');
-        expect(status.textContent).toContain('No JPDB or Jiten key');
+        expect(status.textContent).toContain('No Jiten or JPDB key');
     });
 
     it('upgrades the JPDB status to a live connected/rejected answer via ping', async () => {

@@ -15392,7 +15392,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   gap: 8px;
   margin-bottom: 4px;
 }
-.jpdb-subtitle-track-tools button {
+.jpdb-subtitle-track-tools button,
+.jpdb-subtitle-track-tools a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -15404,6 +15405,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   white-space: normal;
   overflow-wrap: anywhere;
   box-shadow: none;
+  text-decoration: none;
 }
 .jpdb-subtitle-track-summary {
   margin: 0 0 3px;
@@ -15473,7 +15475,8 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   }
   .jpdb-subtitle-drawer-auto,
   .jpdb-subtitle-track-row button,
-  .jpdb-subtitle-track-tools button {
+  .jpdb-subtitle-track-tools button,
+  .jpdb-subtitle-track-tools a {
     min-height: 44px;
   }
   .jpdb-subtitle-panel-nav button,

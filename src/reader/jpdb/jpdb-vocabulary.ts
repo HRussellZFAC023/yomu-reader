@@ -6,6 +6,7 @@ import {
     unique,
 } from './jpdb-public-lookup';
 import { readJpdbPitchPatterns } from './jpdb-public-pitch';
+import { readPublicJpdbCache, writePublicJpdbCache } from './jpdb-public-cache';
 import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl, type JpdbVocabularyUrlIdentity } from './jpdb-text';
 import { Logger } from '../app/logger';
 import type { JPDBCard } from '../app/types';
@@ -53,7 +54,13 @@ export class JpdbVocabularyClient {
         const key = `${vid}:${spelling}:${reading}`;
         let promise = this.cache.get(key);
         if (!promise) {
-            promise = this.fetchInfo(vid, spelling, reading);
+            const cached = readPublicJpdbCache<JpdbVocabularyInfo>('vocabulary', key);
+            promise = cached
+                ? Promise.resolve(cached)
+                : this.fetchInfo(vid, spelling, reading).then(info => {
+                    if (info) writePublicJpdbCache('vocabulary', key, info);
+                    return info;
+                });
             this.cache.set(key, promise);
         }
         return promise;
@@ -65,7 +72,13 @@ export class JpdbVocabularyClient {
         const key = `${normalized}:${limit}`;
         let promise = this.searchCache.get(key);
         if (!promise) {
-            promise = this.fetchSearch(normalized, limit);
+            const cached = readPublicJpdbCache<JPDBCard[]>('search', key);
+            promise = cached
+                ? Promise.resolve(cached)
+                : this.fetchSearch(normalized, limit).then(cards => {
+                    if (cards.length) writePublicJpdbCache('search', key, cards);
+                    return cards;
+                });
             this.searchCache.set(key, promise);
         }
         return promise;

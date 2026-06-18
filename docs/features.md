@@ -11,11 +11,11 @@ New to the words? **Lookup** is opening the popup. **Mining** is saving a word f
 
 ## Popup Lookup And Mining
 
-Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: JPDB definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
+Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: Jiten/JPDB definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
 Keyboard shortcuts can move lookup to the previous or next parsed word, and if you have selected a piece of text, navigation stays inside that selection. Popup Japanese font family and weight are configurable, and the default stack matches jpdb.io for kanji, readings, example sentences, grammar snippets, and dictionary terms.
 
-JPDB mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping JPDB-powered popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, JPDB link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.
+API mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, source link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.
 
 Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by JPDB/Anki state, color them by pitch accent, or turn highlight coloring off.
 
@@ -23,12 +23,12 @@ The popup also has optional study helpers for the current sentence. The translat
 
 <figure class="yomu-feature-shot">
   <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
-  <figcaption>Popup lookup with live JPDB data and mining controls.</figcaption>
+  <figcaption>Popup lookup with live study data and mining controls.</figcaption>
 </figure>
 
 ## Yomitan Dictionaries
 
-よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have JPDB or Anki connected, よむ can still use public JPDB lookup and local dictionary words for the new-tab study page after you download JMdict or import a Yomitan ZIP in Settings.
+よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have an API source or Anki connected, よむ can still use public lookup and local dictionary words for the study page after you download JMdict or import a Yomitan ZIP in Settings.
 
 This is useful if you want native-language dictionaries, monolingual Japanese definitions, frequency dictionaries, kanji dictionaries, or pitch dictionaries without depending on a remote service for every lookup.
 
@@ -39,7 +39,7 @@ This is useful if you want native-language dictionaries, monolingual Japanese de
 
 ## Audio And Examples
 
-The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
+The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, Jiten/JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
 
 Example sentences can come from JPDB's public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 
@@ -52,7 +52,7 @@ Examples can show Japanese, translations, thumbnails, audio, and source filters.
 
 ## Kanji Drilldown
 
-Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show JPDB facts, stroke count, grade, JLPT level, RTK data, related words, component hints, KanjiVG stroke tracing, and a small drawing pad.
+Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show Jiten/JPDB facts, stroke count, grade, JLPT level, RTK data, related words, component hints, KanjiVG stroke tracing, and a small drawing pad.
 
 Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
 
@@ -123,16 +123,16 @@ If you do not use Anki, leave it off. JPDB mining and local dictionary lookup st
 
 ## New Tab Study Page
 
-よむ includes an optional [new-tab page](/newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
+よむ includes an optional [study page](/newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then Jiten/JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
-On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and use a reachable LAN or Tailscale URL in よむ, such as `http://desktop-name.tailnet-name.ts.net:8765`. If AnkiConnect still uses its default `127.0.0.1` address, mobile devices cannot reach it because `127.0.0.1` means "this device." If AnkiConnect or JPDB is not available, dictionary-backed words keep the page useful once a dictionary is installed. The step-by-step mobile Anki setup is in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
+On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and use a reachable LAN or Tailscale URL in よむ, such as `http://desktop-name.tailnet-name.ts.net:8765`. If AnkiConnect still uses its default `127.0.0.1` address, mobile devices cannot reach it because `127.0.0.1` means "this device." If AnkiConnect or an API source is not available, dictionary-backed words keep the page useful once a dictionary is installed. The step-by-step mobile Anki setup is in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
 The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](/getting-started#if-something-does-not-work) cover the heavier reset path.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-newtab.png'" alt="The よむ new-tab study page loaded with a real JPDB study card.">
+  <img :src="'/yomu-reader/screenshots/real-newtab.png'" alt="The よむ study page loaded with a real study card.">
   <figcaption>New-tab study using the current app defaults.</figcaption>
 </figure>
 

@@ -1938,7 +1938,7 @@ export class NewTabRuntime {
         return newTabKanjiSourceTitle(this.settings, sourceId);
     }
 
-    // Render JPDB and Jiten kanji facts side by side (both keys present) rather
+    // Render Jiten and JPDB kanji facts side by side (both keys present) rather
     // than only the active provider, matching the reader popover.
     private renderNewTabKanjiFactSources(jpdbInfo: JpdbKanjiInfo | null, jitenInfo: JitenKanjiInfo | null): string {
         const sections: string[] = [];

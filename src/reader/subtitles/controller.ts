@@ -343,6 +343,22 @@ function videoRectKey(rect: DOMRect): string {
     return `${Math.round(rect.left)},${Math.round(rect.top)},${Math.round(rect.width)},${Math.round(rect.height)}`;
 }
 
+function subtitleAnimeSearchQuery(video?: HTMLVideoElement): string {
+    const raw = video?.dataset.yomuAnimeSearch
+        || video?.dataset.yomuVideoTitle
+        || video?.title
+        || document.title
+        || '';
+    return raw
+        .replace(/\.(?:mkv|mp4|m4v|mov|webm|ogv)$/iu, '')
+        .replace(/[-|]\s*(?:YouTube|Yomu Video|よむ 動画)\s*$/iu, '')
+        .replace(/\[[^\]]*\]/gu, ' ')
+        .replace(/[._]+/gu, ' ')
+        .replace(/\s+/gu, ' ')
+        .trim()
+        .slice(0, 120);
+}
+
 function clearWindowTimeout(id: number | undefined): undefined {
     if (id !== undefined) window.clearTimeout(id);
     return undefined;
@@ -4450,6 +4466,7 @@ export class SubtitlePlayerController {
             pausePanelEnabled: settings.subtitlePausePanel,
             placement: this.effectiveTranscriptPlacement,
             language: settings.interfaceLanguage,
+            animeSearchQuery: subtitleAnimeSearchQuery(this.video),
         }));
         this.bindTranscriptResizeHandle();
         this.syncPanelState();

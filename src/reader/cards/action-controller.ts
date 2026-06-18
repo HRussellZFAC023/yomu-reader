@@ -236,7 +236,7 @@ export class CardActionController {
         return handlers[action];
     }
 
-    // Flip the popover between JPDB and Jiten grading and re-render so the deck
+    // Flip the popover between Jiten and JPDB grading and re-render so the deck
     // and grade buttons act on the chosen service. Only reachable when both keys
     // are set and the word is gradable by either.
     private async toggleGradingProvider(card: JPDBCard, sentence: string | undefined): Promise<void> {
@@ -345,7 +345,7 @@ export class CardActionController {
         await provider.addToDeck(selectedDeckId, card, sentence, { sourceTitle: document.title });
         const minedToAnkiToo = shouldMineAnkiAlongsideApi(settings);
         if (minedToAnkiToo) await this.addToAnki(card, sentence, settings.ankiDeck, context);
-        // JPDB/Jiten deck APIs cannot store media: when the user captured an
+        // Jiten/JPDB deck APIs cannot store media: when the user captured an
         // image or audio for this mine and no Anki note carries it, say so
         // instead of silently dropping it.
         const miningContext = await Promise.resolve(this.options.resolveMiningContext(card, sentence)).catch(() => null);

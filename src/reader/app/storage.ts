@@ -21,6 +21,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-transcript-panel-size',
     'yomu:anki-status-index:v1',
     'yomu:anki-status-index-rebuild:v1',
+    'yomu:jpdb-cache:v1',
     'yomu.grammarPreferences.v1',
     'yomu:enable-logs',
     'yomu:prefer-japanese-site-language',
@@ -272,14 +273,25 @@ export function subscribeToFactoryResetSignals(onSignal: (signal: FactoryResetSi
 }
 
 export function subscribeToStoredValueChanges(key: string, onChange: (newValue: unknown) => void): () => void {
+    const cleanups: Array<() => void> = [];
     const addValueChangeListener = (globalThis as {
         GM_addValueChangeListener?: (
             key: string,
             listener: (key: string, oldValue: unknown, newValue: unknown, remote: boolean) => void,
         ) => number;
     }).GM_addValueChangeListener;
+    const removeValueChangeListener = (globalThis as {
+        GM_removeValueChangeListener?: (listenerId: number) => void;
+    }).GM_removeValueChangeListener;
     if (typeof addValueChangeListener === 'function') {
-        addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
+        try {
+            const listenerId = addValueChangeListener(key, (_key, _oldValue, newValue) => onChange(newValue));
+            cleanups.push(() => {
+                if (typeof removeValueChangeListener === 'function') removeValueChangeListener(listenerId);
+            });
+        } catch (error) {
+            debugStorageError('GM stored value listener failed', key, error);
+        }
     }
 
     const onStorage = (event: StorageEvent): void => {
@@ -287,9 +299,16 @@ export function subscribeToStoredValueChanges(key: string, onChange: (newValue: 
         onChange(JSON.parse(event.newValue || 'null'));
     };
     window.addEventListener('storage', onStorage);
+    cleanups.push(() => window.removeEventListener('storage', onStorage));
 
     return () => {
-        window.removeEventListener('storage', onStorage);
+        while (cleanups.length) {
+            try {
+                cleanups.pop()?.();
+            } catch {
+                // Best-effort listener cleanup.
+            }
+        }
     };
 }
 

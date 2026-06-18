@@ -19,7 +19,7 @@ export function isThemeSyncHost(): boolean {
 }
 
 export function isHostThemeAuthoritative(): boolean {
-    return currentThemeHost() === 'yomu-hosted';
+    return false;
 }
 
 function prefersDark(): boolean {
