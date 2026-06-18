@@ -1,4 +1,4 @@
-export const PUBLIC_JPDB_CACHE_STORAGE_KEY = 'yomu:jpdb-cache:v1';
+const PUBLIC_JPDB_CACHE_STORAGE_KEY = 'yomu:jpdb-cache:v1';
 
 const PUBLIC_JPDB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const PUBLIC_JPDB_CACHE_LIMIT = 240;
