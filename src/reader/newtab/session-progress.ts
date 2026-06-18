@@ -2,7 +2,7 @@ import { primaryCardState } from '../cards/state';
 import { isJitenSrsCard, isPositiveJpdbCard, isReviewSource } from './review-targets';
 import type { JPDBCard } from '../app/types';
 
-export type NewTabSessionProgressSource = 'jpdb' | 'jiten' | 'anki';
+export type NewTabSessionProgressSource = 'jiten' | 'jpdb' | 'anki';
 
 export interface NewTabSessionProgressSourceSnapshot {
     source: NewTabSessionProgressSource;
@@ -30,7 +30,7 @@ export interface NewTabSessionProgressTrackerOptions {
     now?: () => number;
 }
 
-const SESSION_PROGRESS_SOURCES: NewTabSessionProgressSource[] = ['jpdb', 'jiten', 'anki'];
+const SESSION_PROGRESS_SOURCES: NewTabSessionProgressSource[] = ['jiten', 'jpdb', 'anki'];
 const DUE_SESSION_STATES = new Set(['due', 'failed', 'learning']);
 const DEFAULT_SESSION_PROGRESS_LABELS: NewTabSessionProgressLabels = {
     completed: 'Done',

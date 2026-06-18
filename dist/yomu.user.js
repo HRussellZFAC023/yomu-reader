@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.6#sha256-VN7yyr6bcHdxZFlW1RUhShL2ndAmgvg/3YBAO3H3pKI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.6#sha256-YR5AkZQBbkddu/EnUVWGU5T3EvEj/RTBx3nmiPMeGoI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.6#sha256-cI7EN5NLsJleA7+4byh7E4FPZqN2knQpOrwOQCkCGJg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.6#sha256-Aa0PNP7DGWwLunfGysQF27nzZUs8oZyfio7OJnVK+Bs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.6#sha256-IYKUAFMMFmkCDutS5EugdV5EBsJH9GPSo4BJmZuamGQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.6#sha256-ZBYrsUXRSciTdmDxXgdtjQaf1QrUTQWZrlZfoxkt5wM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.6#sha256-BOFEm5UGST3VCyYPwukoV1L9wAi8tsvAa6MJ/wYA0H4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.6#sha256-vhedJ6TFYguqrY+3Ep8+H79pp51UPA9yKN5jvxgc9Lw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2752,7 +2752,7 @@
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
-    apiGradingProvider: "jpdb",
+    apiGradingProvider: "jiten",
     miningDeck: "forq",
     autoMineOnReview: false,
     neverForgetDeck: "never-forget",
@@ -3056,9 +3056,13 @@
       autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
       neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
       blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
-      apiGradingProvider: value?.apiGradingProvider === "jiten" ? "jiten" : "jpdb",
+      apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
       ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
     };
+  }
+  function normalizeApiGradingProvider(value) {
+    if (value === "jpdb") return "jpdb";
+    return DEFAULT_SETTINGS.apiGradingProvider;
   }
   function normalizeMediaSettings(value) {
     const settings = value ?? {};
@@ -7742,8 +7746,8 @@
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
-      fallbackSetupTitle: "Public JPDB lookup",
-      fallbackSetupCopy: "Search works without JPDB. Add dictionaries offline.",
+      fallbackSetupTitle: "Public lookup",
+      fallbackSetupCopy: "Search works without a JPDB key. Add dictionaries for offline results.",
       fallbackSetupDictionaries: "Add dictionaries",
       fallbackSetupJpdb: "Add JPDB key",
       getApp: `Get ${APP_NAME}`,
@@ -13542,8 +13546,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return settings.ankiEnabled && settings.ankiMineWithJpdb;
   }
   function createApiSrsProviderAdapters(options, settings) {
-    const providers = [createJpdbSrsProviderAdapter(options.jpdb, options.isJpdbBackedCard, settings)];
-    if (options.jiten) providers.push(createJitenSrsProviderAdapter(options.jiten, settings));
+    const jpdbProvider = createJpdbSrsProviderAdapter(options.jpdb, options.isJpdbBackedCard, settings);
+    const providers = options.jiten ? [createJitenSrsProviderAdapter(options.jiten, settings), jpdbProvider] : [jpdbProvider];
     return providers;
   }
   function createJpdbSrsProviderAdapter(jpdb, isJpdbBackedCard, settings) {
@@ -13661,7 +13665,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   const NEW_TAB_COPY = {
     en: {
       switchReviewSource: "Switch review source",
-      dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.",
+      dictionaryInstallNewTabHelp: "Optional: add a Yomitan dictionary in Settings for offline local results. Public lookup works without one.",
       newTabMode: "New tab mode",
       stats: "Stats",
       statsRefresh: "Refresh stats",
@@ -13772,7 +13776,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       offlineGradesDisabled: "Offline cache. Grades are saved here and sync when Jiten, JPDB, or Anki reconnects.",
       startWithDictionary: "Start with a dictionary",
       addDictionaryStudyCards: "Use this only if you want offline Yomitan results.",
-      dictionaryReadyNewTabs: "Public JPDB lookup works without an API key.",
+      dictionaryReadyNewTabs: "Public lookup works without an API key.",
       addDictionary: "Add dictionary",
       hide: "Hide",
       yourDrawing: "Your drawing",
@@ -14162,11 +14166,13 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     apiProviderForCard(card, settings = this.options.getSettings()) {
       const supporting = this.apiProviders(settings).filter((provider) => provider.supportsCard(card));
-      if (supporting.length > 1 && supporting.every((provider) => provider.hasApiKey)) {
-        const preferred = supporting.find((provider) => provider.id === apiGradingProviderPreference(settings));
+      const keyed = supporting.filter((provider) => provider.hasApiKey);
+      if (keyed.length > 1) {
+        const preferred = keyed.find((provider) => provider.id === apiGradingProviderPreference(settings));
         if (preferred) return preferred;
       }
-      return supporting[0] ?? null;
+      if (keyed.length === 1) return keyed[0] ?? null;
+      return supporting.find((provider) => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
     }
     apiProviderForDeckSource(source, card, settings) {
       return this.apiProviders(settings).find((provider) => provider.deckSource === source && provider.supportsCard(card)) ?? null;
@@ -23565,6 +23571,13 @@ ${glossaryKey}`;
       }
     }
     async parseWithPreferredSource(paragraphs, options, settings) {
+      if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
+        const jitenResult2 = await this.tryParseWithJiten(paragraphs, options, settings);
+        if (jitenResult2) return jitenResult2;
+        const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
+        if (jpdbResult2) return jpdbResult2;
+        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      }
       const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
       if (jpdbResult) return jpdbResult;
       const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
@@ -23893,6 +23906,9 @@ ${spelling}`);
   }
   function shouldUseJitenParser(settings, options, jiten) {
     return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
+  }
+  function shouldPreferJitenParser(settings, options, jiten) {
+    return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true;
   }
   function shouldSkipApiParser(options) {
     return Boolean(options.skipApi ?? options.skipJpdb);
@@ -39405,6 +39421,7 @@ ${normalizedReading}`;
       const keylessVisibleLimit = pageBudget || PITCH_ENRICHMENT_LIMIT;
       return {
         ...options,
+        jpdbPublicLookup: false,
         publicLookupLimit: Math.max(Math.floor(options.publicLookupLimit ?? 0), keylessVisibleLimit),
         publicLookupTotalLimit: Math.max(Math.floor(options.publicLookupTotalLimit ?? 0), keylessVisibleLimit)
       };
@@ -40224,6 +40241,7 @@ ${normalizedReading}`;
           break;
         }
       }
+      if (options.jpdbPublicLookup === false) return result;
       const unresolved = entries.filter((entry) => !result.has(entry.key));
       await runLimited(unresolved, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, async (entry) => {
         for (const term of entry.terms) {
@@ -40234,6 +40252,28 @@ ${normalizedReading}`;
         }
       });
       return result;
+    }
+    async publicJitenLookupCandidateCards(terms) {
+      const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
+      if (!uniqueTerms.length) return /* @__PURE__ */ new Map();
+      return await this.jitenPublicVocabulary.lookupMany(uniqueTerms).catch((error) => {
+        log.warn("Public Jiten candidate batch lookup failed", { terms: uniqueTerms.length }, error);
+        return /* @__PURE__ */ new Map();
+      });
+    }
+    async publicLookupFirstCandidateTerm(terms) {
+      const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
+      if (!uniqueTerms.length) return void 0;
+      const jitenCards = await this.publicJitenLookupCandidateCards(uniqueTerms);
+      for (const term of uniqueTerms) {
+        const card = jitenCards.get(normalizedJitenLookupKey(term));
+        if (card) return card;
+      }
+      for (const term of uniqueTerms) {
+        const card = await this.publicLookupCard(term, true, { allowCandidateLookup: true });
+        if (card) return card;
+      }
+      return void 0;
     }
     async lookupFallbackApiCard(card, options = {}) {
       return this.isJitenApiActive() ? this.jitenLookupFallbackCard(card) : this.publicLookupFallbackCard(card, options);
@@ -40417,12 +40457,23 @@ ${normalizedReading}`;
     async showPublicJpdbPointerTextCandidate(candidate, sentence, trigger, options) {
       const spans = this.publicJpdbPointerLookupCandidates(candidate);
       if (!this.canUsePublicJpdbPointerLookup() || !this.canUsePublicJpdbPointerTextLookup(candidate, spans)) return false;
+      const jitenCards = await this.publicJitenLookupCandidateCards(spans.map((span) => span.term));
+      for (const span of spans) {
+        const card = jitenCards.get(normalizedJitenLookupKey(span.term));
+        if (!card) continue;
+        const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
+        this.parser.cacheCards?.([card]);
+        await this.showPointerTextCard(card, sentence, candidate, displaySpan, trigger, options);
+        return true;
+      }
       for (const span of spans) {
         const card = await this.publicLookupCard(span.term, true, { allowCandidateLookup: true });
-        if (!card) continue;
-        this.parser.cacheCards?.([card]);
-        await this.showPointerTextCard(card, sentence, candidate, span, trigger, options);
-        return true;
+        if (card) {
+          const displaySpan = pointerSpanForResolvedCard(candidate.text, candidate.offset, span, card);
+          this.parser.cacheCards?.([card]);
+          await this.showPointerTextCard(card, sentence, candidate, displaySpan, trigger, options);
+          return true;
+        }
       }
       return false;
     }
@@ -40720,11 +40771,7 @@ ${normalizedReading}`;
       ]);
     }
     async resolvePublicJpdbRenderedWordCandidateTerms(terms) {
-      for (const term of terms) {
-        const resolved = await this.publicLookupCard(term, true, { allowCandidateLookup: true });
-        if (resolved) return resolved;
-      }
-      return void 0;
+      return this.publicLookupFirstCandidateTerm(terms);
     }
     async handleMissingRenderedWordCard(word, options, insideReaderPopup) {
       const vid = Number(word.dataset.vid);
@@ -42141,7 +42188,7 @@ ${normalizedReading}`;
         pending.set(key, group);
       }
       if (!pending.size) return;
-      const resolved = await this.publicLookupFallbackCards([...pending.values()].map((group) => group.card));
+      const resolved = await this.publicLookupFallbackCards([...pending.values()].map((group) => group.card), { jpdbPublicLookup: false });
       for (const [key, group] of pending) {
         const card = resolved.get(key);
         if (!card || card.source === "fallback") continue;
@@ -42555,7 +42602,7 @@ ${normalizedReading}`;
       return await this.resolveRenderedFallbackVocabulary(fallback, options) ?? fallback;
     }
     async ensureCardPitchAccent(card, options) {
-      if (cardHasContextPitch(card) || options.publicLookup === false) return;
+      if (cardHasContextPitch(card) || options.publicLookup === false || options.jpdbPublicLookup === false) return;
       const pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
       if (pitchAccent.length) card.pitchAccent = mergePitchPatterns(pitchAccent, card.pitchAccent);
     }
@@ -43421,6 +43468,7 @@ ${normalizedReading}`;
     return {
       publicLookup: options.publicLookup,
       publicLookupTermLimit: options.publicLookupTermLimit,
+      jpdbPublicLookup: options.jpdbPublicLookup,
       urgent: options.urgent
     };
   }
@@ -43470,6 +43518,20 @@ ${span.end}`;
       seen.add(key);
       return true;
     });
+  }
+  function pointerSpanForResolvedCard(text2, offset, span, card) {
+    const surface = normalizedLookupText(text2.slice(span.start, span.end));
+    if (!surface) return span;
+    const values = [...new Set([card.spelling, card.reading].map(normalizedLookupText).filter(Boolean))].sort((first, second) => second.length - first.length);
+    for (const value of values) {
+      const relativeStart = surface.indexOf(value);
+      if (relativeStart < 0) continue;
+      const start = span.start + relativeStart;
+      const end = start + value.length;
+      if (offset < start || offset >= end) continue;
+      return { ...span, start, end };
+    }
+    return span;
   }
   function cardHasContextPitch(card) {
     if (!card.pitchAccent.length) return false;
@@ -43698,133 +43760,17 @@ ${span.end}`;
   }
   function state() {
     const win = pageWindow();
-    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, debug: false, records: /* @__PURE__ */ Object.create(null) };
+    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: /* @__PURE__ */ Object.create(null) };
   }
   function isBookwalkerHost(hostname) {
     return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
   }
-  function isCanvasSource(value) {
-    return Boolean(value) && (typeof HTMLCanvasElement !== "undefined" && value instanceof HTMLCanvasElement || typeof OffscreenCanvas !== "undefined" && value instanceof OffscreenCanvas);
-  }
-  function imageSourceUrl(value) {
-    const image = value;
-    if (!image) return "";
-    return typeof image.currentSrc === "string" && image.currentSrc || typeof image.src === "string" && image.src || "";
-  }
-  function canvasId(canvas, create) {
-    const el = canvas;
-    if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
-      let id = el.getAttribute(ID_ATTR);
-      if (!id && create) {
-        id = `m${state().nextId++}`;
-        try {
-          el.setAttribute(ID_ATTR, id);
-        } catch {
-          return null;
-        }
-      }
-      return id;
-    }
-    if (el && el.__yomuMid) return el.__yomuMid;
-    if (el && create) {
-      const id = `m${state().nextId++}`;
-      try {
-        el.__yomuMid = id;
-        return id;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  }
-  function recordFor(id, w, h) {
-    const s = state();
-    let record = s.records[id];
-    if (!record) {
-      record = { w, h, ops: [] };
-      s.records[id] = record;
-    }
-    if (w) record.w = w;
-    if (h) record.h = h;
-    if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
-    return record;
-  }
-  function recordDrawImage(canvas, source, args) {
-    const id = canvasId(canvas, true);
-    if (!id) return;
-    const record = recordFor(id, canvas.width, canvas.height);
-    const op = {
-      seq: state().seq++,
-      srcId: isCanvasSource(source) ? canvasId(source, true) : null,
-      url: isCanvasSource(source) ? "" : imageSourceUrl(source),
-      sx: 0,
-      sy: 0,
-      sw: -1,
-      sh: -1,
-      dx: 0,
-      dy: 0,
-      dw: -1,
-      dh: -1,
-      clear: false
-    };
-    if (args.length === 8) {
-      op.sx = args[0];
-      op.sy = args[1];
-      op.sw = args[2];
-      op.sh = args[3];
-      op.dx = args[4];
-      op.dy = args[5];
-      op.dw = args[6];
-      op.dh = args[7];
-    } else if (args.length === 4) {
-      op.dx = args[0];
-      op.dy = args[1];
-      op.dw = args[2];
-      op.dh = args[3];
-    } else if (args.length === 2) {
-      op.dx = args[0];
-      op.dy = args[1];
-    }
-    record.ops.push(op);
-  }
-  function recordClear(canvas) {
-    const id = canvasId(canvas, true);
-    if (!id) return;
-    const record = recordFor(id, canvas.width, canvas.height);
-    record.ops.push({ seq: state().seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
-  }
-  function patchContextPrototype(prototype) {
-    if (!prototype || prototype.__yomuMirrorPatched) return false;
-    prototype.__yomuMirrorPatched = true;
-    const drawImage = prototype.drawImage;
-    prototype.drawImage = function(source, ...args) {
-      if (!this.__yomuMirrorSkip) {
-        try {
-          recordDrawImage(this.canvas, source, args);
-        } catch {
-        }
-      }
-      return drawImage.apply(this, arguments);
-    };
-    const clearRect = prototype.clearRect;
-    prototype.clearRect = function(x, y, w, h) {
-      if (!this.__yomuMirrorSkip) {
-        try {
-          if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) recordClear(this.canvas);
-        } catch {
-        }
-      }
-      return clearRect.apply(this, arguments);
-    };
-    return true;
-  }
   function recorderBootstrap(win, opts) {
     if (win.__yomuCanvasMirrorRecorder) return;
     win.__yomuCanvasMirrorRecorder = true;
-    const ATTR = opts.idAttr, MAX = opts.maxOps, KEEP = opts.keep;
-    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, debug: opts.debug, records: /* @__PURE__ */ Object.create(null) };
+    const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
+    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: /* @__PURE__ */ Object.create(null) };
     S.installed = true;
-    S.debug = opts.debug;
     const HC = win.HTMLCanvasElement;
     const OC = win.OffscreenCanvas;
     const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
@@ -43952,25 +43898,16 @@ ${span.end}`;
   }
   function installCanvasMirrorRecorder(hostname = location.hostname) {
     if (!isBookwalkerHost(hostname)) return;
-    let debug = false;
-    try {
-      debug = localStorage.getItem("yomu.canvasMirrorDebug") === "1";
-    } catch {
-    }
     const uw = globalThis.unsafeWindow;
     const differentRealm = Boolean(uw) && uw !== globalThis;
     if (differentRealm) {
       const existing = uw.__yomuCanvasMirror;
       if (existing?.installed) return;
-      if (injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) return;
+      if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
     }
     const s = state();
     if (s.installed) return;
-    s.debug = debug;
-    const global = globalThis;
-    patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
-    patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
-    s.installed = true;
+    recorderBootstrap(pageWindow(), { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
   }
   installPreferredJapaneseSiteLanguageFromStoredSettings();
   installCanvasMirrorRecorder();

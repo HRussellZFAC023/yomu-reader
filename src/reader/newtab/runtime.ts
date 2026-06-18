@@ -1694,11 +1694,11 @@ export class NewTabRuntime {
         return cards.find(card => card.spelling === term) ?? (exact ? undefined : cards[0]);
     }
 
-    private async publicLookupFallbackCard(card: JPDBCard): Promise<JPDBCard | undefined> {
-        return (await this.publicLookupFallbackCards([card])).get(cardKey(card));
+    private async publicLookupFallbackCard(card: JPDBCard, options: { jpdbPublicLookup?: boolean } = {}): Promise<JPDBCard | undefined> {
+        return (await this.publicLookupFallbackCards([card], options)).get(cardKey(card));
     }
 
-    private async publicLookupFallbackCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
+    private async publicLookupFallbackCards(cards: readonly JPDBCard[], options: { jpdbPublicLookup?: boolean } = {}): Promise<Map<string, JPDBCard>> {
         const result = new Map<string, JPDBCard>();
         if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return result;
         const entries = uniqueFallbackLookupEntries(cards);
@@ -1718,6 +1718,7 @@ export class NewTabRuntime {
             }
         }
 
+        if (options.jpdbPublicLookup === false) return result;
         const unresolved = entries.filter(entry => !result.has(entry.key));
         await runLimited(unresolved, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async entry => {
             for (const term of entry.terms) {
@@ -1958,6 +1959,7 @@ export class NewTabRuntime {
 
     private async enrichPitchWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
         if (!this.settings.showPitchAccent) return;
+        if (!effectiveJpdbApiKey(this.settings)) return;
         const uniqueTokens = this.uniqueTokens(
             tokens,
             token => !token.card.pitchAccent.length && Boolean(token.card.spelling.trim()),
@@ -1979,7 +1981,7 @@ export class NewTabRuntime {
             token => token.card.source === 'fallback',
             limit,
         );
-        const resolvedCards = await this.publicLookupFallbackCards(uniqueTokens.map(token => token.card));
+        const resolvedCards = await this.publicLookupFallbackCards(uniqueTokens.map(token => token.card), { jpdbPublicLookup: false });
 
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
@@ -1987,7 +1989,6 @@ export class NewTabRuntime {
                 this.unwrapRenderedFallbackWords(token.card);
                 return;
             }
-            if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
             this.parser.cacheCards?.([card]);
             this.applyPublicVocabularyToRenderedWords(token.card, card);
         });
@@ -2242,11 +2243,10 @@ export class NewTabRuntime {
             token => token.card.source === 'fallback',
             NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT,
         );
-        const resolvedCards = await this.publicLookupFallbackCards(tokens.map(token => token.card));
+        const resolvedCards = await this.publicLookupFallbackCards(tokens.map(token => token.card), { jpdbPublicLookup: false });
         await runLimited(tokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
             if (!card) return;
-            if (!card.pitchAccent.length) card.pitchAccent = await this.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(() => []);
             const surface = token.sentence?.slice(token.start, token.end) || card.spelling;
             token.card = card;
             token.rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);

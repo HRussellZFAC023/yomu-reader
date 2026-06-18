@@ -274,6 +274,9 @@ type TestLocationStub = { href: string; origin: string; hostname: string };
 type TestPointerTextCandidate = { text: string; offset: number; start: number; end: number; anchor: HTMLElement };
 type TestPointerTextTrigger = 'modal' | 'hover';
 type TestPointerTextOptions = { userGesture?: boolean };
+type TestJitenLookupManyMock = ((terms: readonly string[]) => Promise<Map<string, JPDBCard>>) & {
+    mock: { calls: Array<[readonly string[]]> };
+};
 type TestPointerParserStub = {
     parse?: (texts: string[], options?: unknown) => Promise<JPDBToken[][]>;
     fallbackCardFromText?: (text: string) => JPDBCard;
@@ -284,6 +287,7 @@ type TestPointerTextInternals = {
     parser: TestPointerParserStub;
     parseJapanese?: (paragraphs: string[], options?: unknown) => Promise<JPDBToken[][]>;
     publicLookupCard?: (term: string, exact?: boolean, options?: unknown) => Promise<JPDBCard | undefined>;
+    jitenPublicVocabulary?: { lookupMany: (terms: readonly string[]) => Promise<Map<string, JPDBCard>> };
     dictionaries?: { lookup: (text: string, reading: string, limit: number, preferences?: unknown) => Promise<YomitanTermEntry[]> };
     showLocalPointerTextCandidate?: (
         candidate: TestPointerTextCandidate,
@@ -312,6 +316,7 @@ type TestRenderedWordInternals = {
     parser: { cacheCards(cards: JPDBCard[]): void };
     parseJapanese?: (texts: string[], options?: unknown) => Promise<JPDBToken[][]>;
     publicLookupCard: (term: string, exact?: boolean, options?: unknown) => Promise<JPDBCard | undefined>;
+    jitenPublicVocabulary?: { lookupMany: (terms: readonly string[]) => Promise<Map<string, JPDBCard>> };
     showRenderedWordCard: (
         lookupCard: JPDBCard,
         context?: unknown,
@@ -2177,13 +2182,16 @@ function configureRenderedWordTest(app: ReaderApp, options: {
     settings?: Partial<ReaderSettings>;
     parseJapanese?: (texts: string[], options?: unknown) => Promise<JPDBToken[][]>;
     publicLookupCard?: TestRenderedWordInternals['publicLookupCard'];
+    jitenLookupMany?: TestJitenLookupManyMock;
     showRenderedWordCard?: TestRenderedWordInternals['showRenderedWordCard'];
 }): {
     internals: TestRenderedWordInternals;
     publicLookupCard: TestRenderedWordInternals['publicLookupCard'];
+    jitenLookupMany: TestJitenLookupManyMock;
     showRenderedWordCard: TestRenderedWordInternals['showRenderedWordCard'];
 } {
     const publicLookupCard = options.publicLookupCard ?? vi.fn(async () => undefined);
+    const jitenLookupMany = options.jitenLookupMany ?? vi.fn(async (_terms: readonly string[]) => new Map<string, JPDBCard>()) as TestJitenLookupManyMock;
     const showRenderedWordCard = options.showRenderedWordCard ?? vi.fn(async () => undefined);
     const internals = app as unknown as TestRenderedWordInternals;
     internals.settings = {
@@ -2196,8 +2204,9 @@ function configureRenderedWordTest(app: ReaderApp, options: {
     internals.parser.cacheCards(options.cachedCards);
     if (options.parseJapanese) internals.parseJapanese = options.parseJapanese;
     internals.publicLookupCard = publicLookupCard;
+    internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
     internals.showRenderedWordCard = showRenderedWordCard;
-    return { internals, publicLookupCard, showRenderedWordCard };
+    return { internals, publicLookupCard, jitenLookupMany, showRenderedWordCard };
 }
 
 async function expectParserBackedRenderedKanaWord(options: {
@@ -2298,9 +2307,9 @@ function configurePublicVocabularyEnrichment(app: ReaderApp, options: {
             lookupMany?: NonNullable<typeof options.jitenLookupMany>;
         };
         parser: { cacheCards: typeof cacheCards };
-        enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number }): Promise<void>;
+        enrichPitchWords(tokens: JPDBToken[], options?: { publicLookupLimit?: number; jpdbPublicLookup?: boolean }): Promise<void>;
         enrichJpdbRelatedWords(root: ParentNode): void;
-        publicLookupFallbackCard(card: JPDBCard, options?: { publicLookupTermLimit?: number }): Promise<JPDBCard | undefined>;
+        publicLookupFallbackCard(card: JPDBCard, options?: { publicLookupTermLimit?: number; jpdbPublicLookup?: boolean }): Promise<JPDBCard | undefined>;
     };
     internals.settings = {
         ...DEFAULT_SETTINGS,
@@ -4988,8 +4997,8 @@ describe('reader helpers', () => {
 
         document.body.innerHTML = renderModalCard(renderer, dualCard, '食べる。');
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).not.toBeNull();
-        expect(readerMetaText()).toContain('JPDB');
-        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jpdb')).toBe(true);
+        expect(readerMetaText()).toContain('Jiten');
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jiten')).toBe(true);
         // Only one provider switcher (the header toggle), never a second on the grade row.
         expect(document.querySelector('[data-review-target-select]')).toBeNull();
 
@@ -7297,6 +7306,35 @@ describe('reader helpers', () => {
         expect(parse).toHaveBeenCalledWith(['本を読む。', '猫を見る。']);
         expect(jpdbParse).not.toHaveBeenCalled();
         expect(findTermMatches).not.toHaveBeenCalled();
+    });
+
+    it('prefers Jiten parsing over JPDB parsing when both API keys are configured', async () => {
+        const jitenTokens: JPDBToken[][] = [[{
+            card: jitenTestCard(),
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: 'heiban',
+            sentence: '読む',
+        }]];
+        const jitenParse = vi.fn(async () => jitenTokens);
+        const jpdbParse = vi.fn(async () => [[testTokenForCard(card)]]);
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jitenApiKey: 'jiten-key',
+                localDictionariesEnabled: true,
+            }),
+            jpdb: { parse: jpdbParse } as never,
+            jiten: { parse: jitenParse } as unknown as JitenApiClient,
+            dictionaries: { findTermMatches: vi.fn() } as never,
+        });
+
+        await expect(parser.parse(['読む'])).resolves.toBe(jitenTokens);
+        expect(jitenParse).toHaveBeenCalledWith(['読む']);
+        expect(jpdbParse).not.toHaveBeenCalled();
     });
 
     it('falls back to local parsing when Jiten parsing stalls', async () => {
@@ -17703,6 +17741,9 @@ describe('reader helpers', () => {
         }]]);
         const cacheCards = vi.fn();
         const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [],
+        ));
         const showLocalPointerTextCandidate = vi.fn(async () => true);
         const showPointerTextCard = vi.fn(async () => undefined);
         const candidate = {
@@ -17716,6 +17757,7 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean; cacheCards(cards: JPDBCard[]): void };
             publicLookupCard: typeof publicLookupCard;
+            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
             showLocalPointerTextCandidate: typeof showLocalPointerTextCandidate;
             showPointerTextCard: typeof showPointerTextCard;
             showFirstPointerTextCandidate(
@@ -17737,13 +17779,15 @@ describe('reader helpers', () => {
             isJpdbBackedCard: parsedCard => parsedCard.source === 'jpdb' && parsedCard.vid > 0,
         };
         internals.publicLookupCard = publicLookupCard;
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
         internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
+            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
+            expect(publicLookupCard).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([jpdbCard]);
             expect(showLocalPointerTextCandidate).not.toHaveBeenCalled();
             expect(showPointerTextCard).toHaveBeenCalledWith(
@@ -17772,6 +17816,9 @@ describe('reader helpers', () => {
         });
         const parse = vi.fn(async () => [[]]);
         const publicLookupCard = vi.fn(async (term: string) => term === '疑う' ? lookupCard : undefined);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('疑う') ? [['疑う', lookupCard]] : [],
+        ));
         const showLocalPointerTextCandidate = vi.fn(async () => true);
         const showPointerTextCard = vi.fn(async () => undefined);
         const candidate = pointerTextCandidate(sentence, paragraph, sentence.indexOf('疑'));
@@ -17779,6 +17826,7 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             parser: { parse: typeof parse; isJpdbBackedCard(card: JPDBCard): boolean; cacheCards(cards: JPDBCard[]): void };
             publicLookupCard: typeof publicLookupCard;
+            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
             showLocalPointerTextCandidate: typeof showLocalPointerTextCandidate;
             showPointerTextCard: typeof showPointerTextCard;
             showFirstPointerTextCandidate(
@@ -17800,13 +17848,15 @@ describe('reader helpers', () => {
             isJpdbBackedCard: testIsJpdbBackedCard,
         };
         internals.publicLookupCard = publicLookupCard;
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
         internals.showLocalPointerTextCandidate = showLocalPointerTextCandidate;
         internals.showPointerTextCard = showPointerTextCard;
 
         try {
             await internals.showFirstPointerTextCandidate(candidate, sentence, 'modal', { userGesture: true });
 
-            expect(publicLookupCard.mock.calls[0]).toEqual(['疑う', true, expect.objectContaining({ allowCandidateLookup: true })]);
+            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('疑う');
+            expect(publicLookupCard).not.toHaveBeenCalled();
             expect(internals.parser.cacheCards).toHaveBeenCalledWith([lookupCard]);
             expect(showLocalPointerTextCandidate).not.toHaveBeenCalled();
             expect(showPointerTextCard).toHaveBeenCalledWith(
@@ -17840,9 +17890,13 @@ describe('reader helpers', () => {
             const word = appendRenderedReaderWord(fragmentCard, { text: fragment });
             word.dataset.sentence = 'にほんごのじかん';
             const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
+            const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+                terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [],
+            ));
             const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
                 cachedCards: [fragmentCard],
                 publicLookupCard,
+                jitenLookupMany,
                 settings: {
                     jpdbDefinitionsEnabled: false,
                     showPitchAccent: false,
@@ -17853,7 +17907,8 @@ describe('reader helpers', () => {
             try {
                 await internals.showWord(word, { trigger: 'click', userGesture: true });
 
-                expect(publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
+                expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
+                expect(publicLookupCard).not.toHaveBeenCalled();
                 expect(showRenderedWordCard).toHaveBeenCalledWith(
                     jpdbCard,
                     expect.objectContaining({ sentence: 'にほんごのじかん', anchor: word }),
@@ -17908,15 +17963,20 @@ describe('reader helpers', () => {
         word.dataset.tokenStart = '2';
         word.dataset.tokenEnd = '3';
         const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [],
+        ));
         const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
             cachedCards: [fragmentCard],
             publicLookupCard,
+            jitenLookupMany,
         });
 
         try {
             await internals.showWord(word, { trigger: 'click', userGesture: true });
 
-            expect(publicLookupCard.mock.calls[0]?.[0]).toBe('にほんご');
+            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
+            expect(publicLookupCard).not.toHaveBeenCalled();
             expect(showRenderedWordCard).toHaveBeenCalledWith(
                 jpdbCard,
                 expect.objectContaining({ sentence, anchor: word }),
@@ -18053,13 +18113,14 @@ describe('reader helpers', () => {
         });
         const word = appendRenderedReaderWord(bookCard, { text: 'ほん' });
         word.dataset.sentence = 'にほんごのじかん';
-        const { internals, publicLookupCard, showRenderedWordCard } = configureRenderedWordTest(app, {
+        const { internals, publicLookupCard, jitenLookupMany, showRenderedWordCard } = configureRenderedWordTest(app, {
             cachedCards: [bookCard],
         });
 
         try {
             await internals.showWord(word, { trigger: 'click', userGesture: true });
 
+            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
             expect(publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
             expect(showRenderedWordCard).not.toHaveBeenCalled();
         } finally {
@@ -18081,13 +18142,14 @@ describe('reader helpers', () => {
         word.dataset.reading = 'タップ';
         word.dataset.tokenStart = '7';
         word.dataset.tokenEnd = '10';
-        const { internals, publicLookupCard, showRenderedWordCard } = configureRenderedWordTest(app, {
+        const { internals, publicLookupCard, jitenLookupMany, showRenderedWordCard } = configureRenderedWordTest(app, {
             cachedCards: [tapCard],
         });
 
         try {
             await internals.showWord(word, { trigger: 'click', userGesture: true });
 
+            expect(jitenLookupMany).toHaveBeenCalled();
             expect(publicLookupCard).toHaveBeenCalled();
             expect(showRenderedWordCard).toHaveBeenCalledWith(
                 tapCard,
@@ -26917,11 +26979,15 @@ describe('reader helpers', () => {
         const word = appendRenderedReaderWord(fragmentCard, { text: 'ほん' });
         word.dataset.sentence = 'にほんごのじかん';
         const publicLookupCard = vi.fn(async (term: string) => term === 'にほんご' ? jpdbCard : undefined);
+        const jitenLookupMany = vi.fn(async (terms: readonly string[]) => new Map(
+            terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [],
+        ));
         const lookupText = vi.fn(async () => undefined);
         const showCard = vi.fn(async () => undefined);
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             publicLookupCard: typeof publicLookupCard;
+            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
             lookupText: typeof lookupText;
             showCard: typeof showCard;
             showWord(word: HTMLElement, options: { trigger?: 'click'; userGesture?: boolean }): Promise<void>;
@@ -26933,13 +26999,15 @@ describe('reader helpers', () => {
             showPitchAccent: true,
         };
         internals.publicLookupCard = publicLookupCard;
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
         internals.lookupText = lookupText;
         internals.showCard = showCard;
 
         try {
             await internals.showWord(word, { trigger: 'click', userGesture: true });
 
-            expect(publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
+            expect(jitenLookupMany.mock.calls[0]?.[0]).toContain('にほんご');
+            expect(publicLookupCard).not.toHaveBeenCalled();
             expect(lookupText).not.toHaveBeenCalled();
             expectRenderedKanaModalCard({ showCard, card: jpdbCard, word });
         } finally {
@@ -27317,7 +27385,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('hydrates fallback words beyond the background public lookup throttle without hover', async () => {
+    it('keeps keyless background fallback hydration on Jiten without JPDB search fan-out', async () => {
         const app = new ReaderApp();
         const firstFallbackCard = testFallbackCard({
             vid: -1381470,
@@ -27350,19 +27418,14 @@ describe('reader helpers', () => {
         });
 
         try {
-            await internals.enrichPitchWords([testTokenForCard(firstFallbackCard), testTokenForCard(secondFallbackCard)], { publicLookupLimit: 1 });
-
-            expect(search).toHaveBeenCalledWith('青空', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
-            expect(firstWord.dataset.vid).toBe('1381470');
-            expect(secondWord.dataset.vid).toBe(String(secondFallbackCard.vid));
-
-            await waitForExpect(() => {
-                expect(search).toHaveBeenCalledWith('読む', PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT);
-                expect(secondWord.dataset.vid).toBe('1556420');
-                expect(secondWord.dataset.reading).toBe('よむ');
-                expect(secondWord.dataset.pitchClass).toBe('atamadaka');
-                expect(secondWord.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+            await internals.enrichPitchWords([testTokenForCard(firstFallbackCard), testTokenForCard(secondFallbackCard)], {
+                publicLookupLimit: 2,
+                jpdbPublicLookup: false,
             });
+
+            expect(search).not.toHaveBeenCalled();
+            expect(firstWord.dataset.vid).toBe(String(firstFallbackCard.vid));
+            expect(secondWord.dataset.vid).toBe(String(secondFallbackCard.vid));
         } finally {
             firstWord.remove();
             secondWord.remove();
@@ -27463,6 +27526,34 @@ describe('reader helpers', () => {
             expect(terms).toContain('読みました');
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+        }
+    });
+
+    it('tries later JPDB candidates for explicit lookup after the Jiten batch misses', async () => {
+        const app = new ReaderApp();
+        const publicCard = testPublicCard({
+            vid: 1775000,
+            spelling: '当たり',
+            reading: 'あたり',
+        });
+        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
+        const publicLookupCard = vi.fn(async (term: string) => term === '当たり' ? publicCard : undefined);
+        const internals = app as unknown as {
+            jitenPublicVocabulary: { lookupMany: typeof jitenLookupMany };
+            publicLookupCard: typeof publicLookupCard;
+            publicLookupFirstCandidateTerm(terms: readonly string[]): Promise<JPDBCard | undefined>;
+        };
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
+        internals.publicLookupCard = publicLookupCard;
+
+        try {
+            await expect(internals.publicLookupFirstCandidateTerm(['外れ', '当たり'])).resolves.toBe(publicCard);
+
+            expect(jitenLookupMany).toHaveBeenCalledWith(['外れ', '当たり']);
+            expect(publicLookupCard).toHaveBeenCalledWith('外れ', true, expect.objectContaining({ allowCandidateLookup: true }));
+            expect(publicLookupCard).toHaveBeenCalledWith('当たり', true, expect.objectContaining({ allowCandidateLookup: true }));
         } finally {
             app.destroy();
         }
@@ -28264,16 +28355,27 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses the visible-page budget for keyless YouTube background public pitch enrichment', () => {
+    it('uses the visible-page Jiten budget without JPDB pitch fan-out for keyless YouTube background enrichment', async () => {
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/watch?v=eWHIWDHkYW8',
             origin: 'https://www.youtube.com',
             hostname: 'www.youtube.com',
         });
         const app = new ReaderApp();
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const youtubeCards = Array.from({ length: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT + 1 }, (_, index) => testPublicCard({
+            vid: 300000 + index,
+            spelling: `背景${index}`,
+            reading: 'はいけい',
+            source: 'jpdb',
+            pitchAccent: [],
+        }));
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
+            jpdbPublicPitch: { lookup: typeof publicPitch };
             backgroundPitchEnrichmentOptions(): {
+                publicLookup?: boolean;
+                jpdbPublicLookup?: boolean;
                 publicLookupLimit?: number;
                 publicLookupTotalLimit?: number;
                 publicLookupPageBudget?: number;
@@ -28281,6 +28383,7 @@ describe('reader helpers', () => {
                 substantivePublicLookupOnly?: boolean;
                 deferPublicLookup?: boolean;
             };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookup?: boolean; jpdbPublicLookup?: boolean; publicLookupLimit?: number }): Promise<void>;
         };
         internals.settings = {
             ...DEFAULT_SETTINGS,
@@ -28290,9 +28393,12 @@ describe('reader helpers', () => {
             localDictionariesEnabled: false,
             jpdbDefinitionsEnabled: false,
         };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
 
         try {
-            expect(internals.backgroundPitchEnrichmentOptions()).toEqual({
+            const options = internals.backgroundPitchEnrichmentOptions();
+            expect(options).toEqual({
+                jpdbPublicLookup: false,
                 publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
                 publicLookupPageBudget: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
@@ -28300,6 +28406,9 @@ describe('reader helpers', () => {
                 substantivePublicLookupOnly: true,
                 deferPublicLookup: false,
             });
+            await internals.enrichPitchWords(youtubeCards.map(lookupCard => testTokenForCard(lookupCard)), options);
+
+            expect(publicPitch).not.toHaveBeenCalled();
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
@@ -28317,6 +28426,7 @@ describe('reader helpers', () => {
             settings: typeof DEFAULT_SETTINGS;
             subtitleBeforeRenderPitchEnrichmentOptions(): {
                 urgent?: boolean;
+                jpdbPublicLookup?: boolean;
                 publicLookupLimit?: number;
                 publicLookupTotalLimit?: number;
                 publicLookupPageBudget?: number;
@@ -28337,6 +28447,7 @@ describe('reader helpers', () => {
         try {
             expect(internals.subtitleBeforeRenderPitchEnrichmentOptions()).toEqual({
                 urgent: true,
+                jpdbPublicLookup: false,
                 publicLookupLimit: PITCH_ENRICHMENT_LIMIT * 4,
                 publicLookupTotalLimit: PITCH_ENRICHMENT_LIMIT * 4,
                 publicLookupPageBudget: undefined,

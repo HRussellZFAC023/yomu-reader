@@ -116,6 +116,13 @@ export class ReaderParser {
     }
 
     private async parseWithPreferredSource(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][]> {
+        if (shouldPreferJitenParser(settings, options, this.dependencies.jiten)) {
+            const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
+            if (jitenResult) return jitenResult;
+            const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
+            if (jpdbResult) return jpdbResult;
+            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+        }
         const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
         if (jpdbResult) return jpdbResult;
         const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
@@ -498,6 +505,10 @@ function remoteParseFallbackTimeoutMs(options: ReaderParserParseOptions): number
 
 function shouldUseJitenParser(settings: ReaderSettings, options: ReaderParserParseOptions, jiten: JitenApiClient | undefined): boolean {
     return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
+}
+
+function shouldPreferJitenParser(settings: ReaderSettings, options: ReaderParserParseOptions, jiten: JitenApiClient | undefined): boolean {
+    return shouldUseJitenParser(settings, options, jiten) && options.requireJpdb !== true;
 }
 
 function shouldSkipApiParser(options: ReaderParserParseOptions): boolean {

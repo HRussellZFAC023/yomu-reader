@@ -1,26 +1,6 @@
-// Rebuilds a cross-origin "tainted" DRM page canvas onto an UNTAINTED canvas so
-// OCR can read it. On Firefox and iPad/Safari the BookWalker/NFBR viewer composites
-// each page into a <canvas> from a scrambled cross-origin <img> (the CDN sends no
-// CORS), so getImageData/toDataURL throw "The operation is insecure." and OCR gets
-// nothing. Chrome happens not to taint, so it reads the canvas directly.
-//
-// The engine descrambles by replaying tile `drawImage(<img>, sx,sy,w,h, dx,dy,w,h)`
-// copies from the scrambled image into a 2D buffer, then composites the buffers
-// onto the on-screen canvas. We record those drawImage/clearRect calls, then REPLAY
-// them onto a fresh canvas we own — sourcing each leaf <img> from an origin-clean
-// copy fetched via GM_xmlhttpRequest, and never drawing a tainted original. The
-// engine still computes the descramble permutation; we just feed it clean pixels.
-//
-// CROSS-WORLD: the recorder is installed from the Tampermonkey content sandbox
-// (document-start) while the OCR reader runs in the page MAIN WORLD. Those are
-// different JS realms with different `globalThis`, so the shared state is anchored
-// on the PAGE window (`unsafeWindow`/`window` resolve to the same object from both
-// realms) and records are keyed by a DOM attribute id (the DOM is shared across
-// realms) — no per-realm object reference ever crosses the boundary.
-//
-// A global op sequence lets each composite rebuild its source buffer as it was AT
-// THAT moment, so a two-page spread sharing one reused buffer reconstructs both
-// halves correctly.
+// Rebuild tainted BookWalker/NFBR page canvases onto an origin-clean canvas so OCR
+// can read them. The page records drawImage/clearRect calls in the page realm; the
+// reader replays them with GM-fetched clean image sources.
 
 export interface MirrorOp {
     seq: number;
@@ -31,27 +11,23 @@ export interface MirrorOp {
     clear: boolean;
 }
 export interface MirrorRecord { w: number; h: number; ops: MirrorOp[]; }
-type CanvasLike = HTMLCanvasElement | OffscreenCanvas;
-
 const ID_ATTR = 'data-yomu-mid';
 const MAX_OPS_PER_CANVAS = 6000;
 const PRUNE_KEEP = 3000;
 const MAX_REBUILD_DEPTH = 6;
 
 interface MirrorGlobalState {
-    seq: number; nextId: number; installed: boolean; debug: boolean;
+    seq: number; nextId: number; installed: boolean;
     records: Record<string, MirrorRecord>;
 }
-// Anchor on the page window so the sandbox recorder and the main-world reader share
-// ONE state object. From the sandbox `unsafeWindow` is the page window; from the
-// main world it's undefined and `window` is the page window — both the same object.
+// Share state between the userscript sandbox and page main world.
 function pageWindow(): typeof globalThis & { __yomuCanvasMirror?: MirrorGlobalState } {
     const uw = (globalThis as unknown as { unsafeWindow?: typeof globalThis }).unsafeWindow;
     return (uw || globalThis) as typeof globalThis & { __yomuCanvasMirror?: MirrorGlobalState };
 }
 function state(): MirrorGlobalState {
     const win = pageWindow();
-    return (win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, debug: false, records: Object.create(null) });
+    return (win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: Object.create(null) });
 }
 
 function isBookwalkerHost(hostname: string): boolean {
@@ -60,24 +36,7 @@ function isBookwalkerHost(hostname: string): boolean {
         || hostname.endsWith('.bookwalker.jp');
 }
 
-function isCanvasSource(value: unknown): value is CanvasLike {
-    return Boolean(value) && (
-        (typeof HTMLCanvasElement !== 'undefined' && value instanceof HTMLCanvasElement)
-        || (typeof OffscreenCanvas !== 'undefined' && value instanceof OffscreenCanvas)
-    );
-}
-
-function imageSourceUrl(value: unknown): string {
-    const image = value as { currentSrc?: string; src?: string } | null;
-    if (!image) return '';
-    return (typeof image.currentSrc === 'string' && image.currentSrc)
-        || (typeof image.src === 'string' && image.src)
-        || '';
-}
-
-// A stable id for a canvas that survives crossing the sandbox↔main-world boundary:
-// a DOM attribute for real elements (shared DOM), falling back to an own-property
-// for OffscreenCanvas / test stubs (same-realm only, which is fine for those).
+// Stable id across sandbox/main-world boundaries.
 function canvasId(canvas: unknown, create: boolean): string | null {
     const el = canvas as { getAttribute?: (n: string) => string | null; setAttribute?: (n: string, v: string) => void; __yomuMid?: string };
     if (el && typeof el.getAttribute === 'function' && typeof el.setAttribute === 'function') {
@@ -90,45 +49,9 @@ function canvasId(canvas: unknown, create: boolean): string | null {
     return null;
 }
 
-function recordFor(id: string, w: number, h: number): MirrorRecord {
-    const s = state();
-    let record = s.records[id];
-    if (!record) { record = { w, h, ops: [] }; s.records[id] = record; }
-    if (w) record.w = w;
-    if (h) record.h = h;
-    if (record.ops.length >= MAX_OPS_PER_CANVAS) record.ops.splice(0, record.ops.length - PRUNE_KEEP);
-    return record;
-}
-
-// Record one drawImage call. `args` is everything after the source image.
-export function recordDrawImage(canvas: { width: number; height: number }, source: unknown, args: ArrayLike<number>): void {
-    const id = canvasId(canvas, true);
-    if (!id) return;
-    const record = recordFor(id, canvas.width, canvas.height);
-    const op: MirrorOp = {
-        seq: state().seq++,
-        srcId: isCanvasSource(source) ? canvasId(source, true) : null,
-        url: isCanvasSource(source) ? '' : imageSourceUrl(source),
-        sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false,
-    };
-    if (args.length === 8) { op.sx = args[0]; op.sy = args[1]; op.sw = args[2]; op.sh = args[3]; op.dx = args[4]; op.dy = args[5]; op.dw = args[6]; op.dh = args[7]; }
-    else if (args.length === 4) { op.dx = args[0]; op.dy = args[1]; op.dw = args[2]; op.dh = args[3]; }
-    else if (args.length === 2) { op.dx = args[0]; op.dy = args[1]; }
-    record.ops.push(op);
-}
-
-export function recordClear(canvas: { width: number; height: number }): void {
-    const id = canvasId(canvas, true);
-    if (!id) return;
-    const record = recordFor(id, canvas.width, canvas.height);
-    record.ops.push({ seq: state().seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
-}
-
 const destKey = (op: MirrorOp): string => `${op.dx},${op.dy},${op.dw},${op.dh}`;
 
-// The current content of a canvas = the latest non-clear op per destination rect
-// (later opaque draws fully cover earlier ones), restricted to ops drawn before
-// `beforeSeq` so a composite reconstructs its source buffer as it was at that time.
+// Current content = latest non-clear op per destination before `beforeSeq`.
 export function selectLatestContentOps(ops: readonly MirrorOp[], beforeSeq: number): MirrorOp[] {
     const byDest = new Map<string, MirrorOp>();
     for (const op of ops) {
@@ -138,8 +61,7 @@ export function selectLatestContentOps(ops: readonly MirrorOp[], beforeSeq: numb
     return [...byDest.values()].sort((a, b) => a.seq - b.seq);
 }
 
-// Every leaf <img> URL feeding the current content of record `id` (recursing through
-// intermediate buffer canvases) — these are GM-fetched as origin-clean copies.
+// Leaf image URLs feeding this record; fetched as clean copies.
 export function collectLeafUrls(
     id: string | null,
     beforeSeq: number,
@@ -151,9 +73,7 @@ export function collectLeafUrls(
     if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
     const record = lookup(id);
     if (!record) return out;
-    // Per-path `seen` copy (NOT shared): a spread reuses ONE buffer for both pages,
-    // visiting it twice at different seq bounds. A shared set would skip the second
-    // visit, so the left page's source image is never fetched and renders blank.
+    // Keep `seen` per path; spreads can revisit a shared buffer at different seqs.
     const next = new Set(seen).add(id);
     for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
         if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
@@ -174,9 +94,7 @@ function isReadable(canvas: HTMLCanvasElement): boolean {
     } catch { return false; }
 }
 
-// Rebuild record `id` onto a fresh canvas, drawing ONLY origin-clean sources (fetched
-// images or recursively-rebuilt buffers) — never a tainted original — so the result
-// is always untainted.
+// Rebuild onto a fresh canvas using only clean fetched/rebuilt sources.
 function rebuildById(
     id: string,
     beforeSeq: number,
@@ -244,40 +162,15 @@ export async function captureCanvasMirror(
         }));
     }
     const rebuilt = (id && images.size) ? rebuildById(id, Number.POSITIVE_INFINITY, images, new Set(), 0) : null;
-    const ok = !!rebuilt && isReadable(rebuilt);
-    if (s.debug) {
-        // eslint-disable-next-line no-console
-        console.log('[Yomu][canvas-mirror]', { id, records: Object.keys(s.records).length, leafUrls: urls.size, fetched: images.size, rebuilt: !!rebuilt, readable: ok });
-    }
-    return ok ? rebuilt! : undefined;
+    return rebuilt && isReadable(rebuilt) ? rebuilt : undefined;
 }
 
 interface Context2DPrototype {
     drawImage: (...args: unknown[]) => unknown;
     clearRect: (x: number, y: number, w: number, h: number) => unknown;
-    canvas: CanvasLike;
+    canvas: { width: number; height: number };
     __yomuMirrorPatched?: boolean;
     __yomuMirrorSkip?: boolean;
-}
-
-export function patchContextPrototype(prototype: Context2DPrototype | undefined): boolean {
-    if (!prototype || prototype.__yomuMirrorPatched) return false;
-    prototype.__yomuMirrorPatched = true;
-    const drawImage = prototype.drawImage;
-    prototype.drawImage = function (this: Context2DPrototype, source: unknown, ...args: unknown[]) {
-        if (!this.__yomuMirrorSkip) {
-            try { recordDrawImage(this.canvas, source, args as number[]); } catch { /* never break the page */ }
-        }
-        return drawImage.apply(this, arguments as unknown as unknown[]);
-    } as typeof prototype.drawImage;
-    const clearRect = prototype.clearRect;
-    prototype.clearRect = function (this: Context2DPrototype, x: number, y: number, w: number, h: number) {
-        if (!this.__yomuMirrorSkip) {
-            try { if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) recordClear(this.canvas); } catch { /* */ }
-        }
-        return clearRect.apply(this, arguments as unknown as [number, number, number, number]);
-    } as typeof prototype.clearRect;
-    return true;
 }
 
 // Self-contained recorder, serialized and injected into the PAGE main world on
@@ -285,12 +178,12 @@ export function patchContextPrototype(prototype: Context2DPrototype | undefined)
 // sandbox-created state object can't be defined on / read from the page window).
 // Running in the page realm makes the state + ops page-compartment objects the
 // main-world reader can read directly. Must reference ONLY its parameters.
-export function recorderBootstrap(win: PageWindowLike, opts: { idAttr: string; maxOps: number; keep: number; debug: boolean }): void {
+export function recorderBootstrap(win: PageWindowLike, opts: { a: string; m: number; k: number }): void {
     if (win.__yomuCanvasMirrorRecorder) return;
     win.__yomuCanvasMirrorRecorder = true;
-    const ATTR = opts.idAttr, MAX = opts.maxOps, KEEP = opts.keep;
-    const S = (win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, debug: opts.debug, records: Object.create(null) }) as MirrorGlobalState;
-    S.installed = true; S.debug = opts.debug;
+    const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
+    const S = (win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: Object.create(null) }) as MirrorGlobalState;
+    S.installed = true;
     const HC = (win as { HTMLCanvasElement?: unknown }).HTMLCanvasElement as (new () => unknown) | undefined;
     const OC = (win as { OffscreenCanvas?: unknown }).OffscreenCanvas as (new () => unknown) | undefined;
     const isCanvas = (o: unknown): boolean => Boolean(o) && ((HC != null && o instanceof HC) || (OC != null && o instanceof OC));
@@ -310,9 +203,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: { idAttr: string; m
                 if (cid) {
                     const r = rec(cid, this.canvas.width, this.canvas.height); const a = arguments as unknown as ArrayLike<number>;
                     const o: MirrorOp = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? '' : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
-                    // `arguments` includes the source image at [0], so the 9/5/3-arg
-                    // drawImage forms put coordinates at a[1..] (unlike the args-only
-                    // array passed to recordDrawImage, which uses 8/4/2).
+                    // `arguments` includes the source image at [0], so coordinates start at a[1].
                     if (a.length === 9) { o.sx = a[1]; o.sy = a[2]; o.sw = a[3]; o.sh = a[4]; o.dx = a[5]; o.dy = a[6]; o.dw = a[7]; o.dh = a[8]; }
                     else if (a.length === 5) { o.dx = a[1]; o.dy = a[2]; o.dw = a[3]; o.dh = a[4]; }
                     else if (a.length === 3) { o.dx = a[1]; o.dy = a[2]; }
@@ -336,7 +227,7 @@ interface PageWindowLike { __yomuCanvasMirror?: MirrorGlobalState; __yomuCanvasM
 
 // Inject the recorder into the page main world (Firefox sandbox → page realm).
 // Returns true if the injection ran (state created in the page compartment).
-function injectRecorderIntoPage(opts: { idAttr: string; maxOps: number; keep: number; debug: boolean }): boolean {
+function injectRecorderIntoPage(opts: { a: string; m: number; k: number }): boolean {
     const parent = document.head || document.documentElement;
     if (!parent) return false;
     const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
@@ -368,8 +259,6 @@ function createTrustedMirrorScript(code: string): unknown {
 // OCR reader can read it. Idempotent via the shared page-window state.
 export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
     if (!isBookwalkerHost(hostname)) return;
-    let debug = false;
-    try { debug = localStorage.getItem('yomu.canvasMirrorDebug') === '1'; } catch { /* */ }
     const uw = (globalThis as unknown as { unsafeWindow?: typeof globalThis }).unsafeWindow;
     const differentRealm = Boolean(uw) && uw !== (globalThis as unknown as typeof globalThis);
     if (differentRealm) {
@@ -380,19 +269,12 @@ export function installCanvasMirrorRecorder(hostname: string = location.hostname
         // state itself.
         const existing = (uw as unknown as { __yomuCanvasMirror?: MirrorGlobalState }).__yomuCanvasMirror;
         if (existing?.installed) return;
-        if (injectRecorderIntoPage({ idAttr: ID_ATTR, maxOps: MAX_OPS_PER_CANVAS, keep: PRUNE_KEEP, debug })) return;
+        if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
         // Injection blocked (CSP / Trusted Types): fall through to a same-realm patch.
     }
     // Same realm (iPad/Chrome, or injection unavailable): patch directly. The
     // 2D-context prototype is shared across realms, so this still captures draws.
     const s = state();
     if (s.installed) return;
-    s.debug = debug;
-    const global = globalThis as unknown as {
-        CanvasRenderingContext2D?: { prototype: Context2DPrototype };
-        OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype };
-    };
-    patchContextPrototype(global.CanvasRenderingContext2D?.prototype);
-    patchContextPrototype(global.OffscreenCanvasRenderingContext2D?.prototype);
-    s.installed = true;
+    recorderBootstrap(pageWindow() as PageWindowLike, { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
 }

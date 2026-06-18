@@ -26,8 +26,8 @@ const jpdbOnlyCard: JPDBCard = { ...baseCard, source: 'jpdb' };
 const jitenCard: JPDBCard = { ...baseCard, source: 'jiten', vid: 42, sid: 0, jitenWordId: 42, jitenReadingIndex: 0 };
 
 describe('apiGradingProviderPreference', () => {
-    it('defaults to jpdb and honors an explicit jiten preference', () => {
-        expect(apiGradingProviderPreference(settings())).toBe('jpdb');
+    it('defaults to jiten and honors an explicit jpdb preference', () => {
+        expect(apiGradingProviderPreference(settings())).toBe('jiten');
         expect(apiGradingProviderPreference(settings({ apiGradingProvider: 'jiten' }))).toBe('jiten');
         expect(apiGradingProviderPreference(settings({ apiGradingProvider: 'jpdb' }))).toBe('jpdb');
     });
@@ -46,8 +46,8 @@ describe('apiSrsProviderAvailability', () => {
 describe('apiSrsProviderViewForCard', () => {
     it('follows the toggled grading provider when both keys are set and the card is gradable by both', () => {
         const bothKeys = settings({ apiKey: 'jpdb-key', jitenApiKey: 'jiten-key' });
-        expect(apiSrsProviderViewForCard(dualCard, bothKeys, isJpdbBackedCard)?.id).toBe('jpdb');
-        expect(apiSrsProviderViewForCard(dualCard, { ...bothKeys, apiGradingProvider: 'jiten' }, isJpdbBackedCard)?.id).toBe('jiten');
+        expect(apiSrsProviderViewForCard(dualCard, bothKeys, isJpdbBackedCard)?.id).toBe('jiten');
+        expect(apiSrsProviderViewForCard(dualCard, { ...bothKeys, apiGradingProvider: 'jpdb' }, isJpdbBackedCard)?.id).toBe('jpdb');
     });
 
     it('uses whichever provider backs the card when only one is usable', () => {

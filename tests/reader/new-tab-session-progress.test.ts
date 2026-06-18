@@ -100,8 +100,8 @@ describe('new-tab session progress', () => {
         expect(snapshot.remainingCards).toBe(3);
         expect(snapshot.remainingDueCards).toBe(2);
         expect(snapshot.sources).toEqual([
-            { source: 'jpdb', remainingCards: 1, remainingDueCards: 1, available: true },
             { source: 'jiten', remainingCards: 1, remainingDueCards: 0, available: true },
+            { source: 'jpdb', remainingCards: 1, remainingDueCards: 1, available: true },
             { source: 'anki', remainingCards: 1, remainingDueCards: 1, available: true },
         ]);
     });

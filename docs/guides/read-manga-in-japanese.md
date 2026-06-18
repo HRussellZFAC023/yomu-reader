@@ -1,6 +1,6 @@
 ---
 title: How to read manga in Japanese — free OCR setup
-description: Read raw, untranslated Japanese manga for free in your browser. Tap words inside panels with OCR, get furigana and readings, and mine unknowns to Anki or JPDB.
+description: Read raw, untranslated Japanese manga for free in your browser. Tap words inside panels with OCR, get furigana and readings, and save unknowns to Anki, Jiten, or JPDB.
 head:
   - - meta
     - name: keywords
@@ -8,7 +8,7 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I tap words inside manga images to look them up?","acceptedAnswer":{"@type":"Answer","text":"Yes. If a chapter ships embedded OCR metadata (such as Mokuro) the text is already mapped to each panel, so よむ makes it tappable instantly. For plain image-only manga you run a local OCR engine like MangaOCR or PaddleOCR, and よむ taps the recognised text. Either way the popup gives you the reading, meaning, pitch and frequency."}},{"@type":"Question","name":"Is my manga uploaded anywhere when I use OCR?","acceptedAnswer":{"@type":"Answer","text":"No. Embedded Mokuro OCR is read locally from the page, so nothing leaves your browser. For image-only OCR, よむ only sends the image to a local OCR endpoint that you run yourself — there is no cloud service in the middle. If you do not configure a local endpoint, no image is sent anywhere."}},{"@type":"Question","name":"Do I need to know all the words before I start reading manga?","acceptedAnswer":{"@type":"Answer","text":"No. Pick a manga that is mostly comprehensible and look up only the words that block your understanding. Tap an unknown word, read the popup, and move on. Save the words that matter to Anki or JPDB so you meet them again, rather than trying to memorise everything in one sitting."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I tap words inside manga images to look them up?","acceptedAnswer":{"@type":"Answer","text":"Yes. If a chapter ships embedded OCR metadata (such as Mokuro) the text is already mapped to each panel, so よむ makes it tappable instantly. For plain image-only manga you run a local OCR engine like MangaOCR or PaddleOCR, and よむ taps the recognised text. Either way the popup gives you the reading, meaning, pitch and frequency."}},{"@type":"Question","name":"Is my manga uploaded anywhere when I use OCR?","acceptedAnswer":{"@type":"Answer","text":"No. Embedded Mokuro OCR is read locally from the page, so nothing leaves your browser. For image-only OCR, よむ only sends the image to a local OCR endpoint that you run yourself — there is no cloud service in the middle. If you do not configure a local endpoint, no image is sent anywhere."}},{"@type":"Question","name":"Do I need to know all the words before I start reading manga?","acceptedAnswer":{"@type":"Answer","text":"No. Pick a manga that is mostly comprehensible and look up only the words that block your understanding. Tap an unknown word, read the popup, and move on. Save the words that matter to Anki, Jiten, or JPDB so you meet them again, rather than trying to memorise everything in one sitting."}}]}
 ---
 
 # How to read manga in Japanese (free setup)
@@ -37,7 +37,7 @@ Full walkthrough on the [getting started](/getting-started) page if this is your
 
 ## Step 2 — Reading where the text is selectable
 
-A few readers and graded-reader sites publish manga as real HTML text rather than flat images. There, よむ works immediately: tap, select, or hover a word and the popup shows the reading, meaning, pitch accent, frequency, JPDB and Yomitan dictionary entries, audio, and example sentences.
+A few readers and graded-reader sites publish manga as real HTML text rather than flat images. There, よむ works immediately: tap, select, or hover a word and the popup shows the reading, meaning, pitch accent, frequency, Jiten/JPDB and Yomitan dictionary entries, audio, and example sentences.
 
 <figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="The よむ popup dictionary showing reading, meaning, pitch and frequency for a Japanese word"><figcaption>The lookup popup: reading, meaning, pitch, frequency and dictionary entries.</figcaption></figure>
 
@@ -103,7 +103,7 @@ Yes. If a chapter ships embedded OCR metadata (such as Mokuro) the text is alrea
 No. Embedded Mokuro OCR is read locally from the page, so nothing leaves your browser. For image-only OCR, よむ only sends the image to a local OCR endpoint that you run yourself — there is no cloud service in the middle. If you do not configure a local endpoint, no image is sent anywhere.
 
 **Do I need to know all the words before I start reading manga?**
-No. Pick a manga that is mostly comprehensible and look up only the words that block your understanding. Tap an unknown word, read the popup, and move on. Save the words that matter to Anki or JPDB so you meet them again, rather than trying to memorise everything in one sitting.
+No. Pick a manga that is mostly comprehensible and look up only the words that block your understanding. Tap an unknown word, read the popup, and move on. Save the words that matter to Anki, Jiten, or JPDB so you meet them again, rather than trying to memorise everything in one sitting.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>

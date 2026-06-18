@@ -305,12 +305,15 @@ export class CardActionController {
         const supporting = this.apiProviders(settings).filter(provider => provider.supportsCard(card));
         // When the word can be graded by both keyed services, follow the user's
         // chosen grading provider (set by the popover toggle); otherwise use the
-        // first provider that backs the card.
-        if (supporting.length > 1 && supporting.every(provider => provider.hasApiKey)) {
-            const preferred = supporting.find(provider => provider.id === apiGradingProviderPreference(settings));
+        // keyed provider that can actually act. If no key is present, surface the
+        // preferred backing provider so the error/status copy matches the toggle.
+        const keyed = supporting.filter(provider => provider.hasApiKey);
+        if (keyed.length > 1) {
+            const preferred = keyed.find(provider => provider.id === apiGradingProviderPreference(settings));
             if (preferred) return preferred;
         }
-        return supporting[0] ?? null;
+        if (keyed.length === 1) return keyed[0] ?? null;
+        return supporting.find(provider => provider.id === apiGradingProviderPreference(settings)) ?? supporting[0] ?? null;
     }
 
     private apiProviderForDeckSource(source: ApiSrsDeckSource, card: JPDBCard, settings: ReaderSettings): ApiSrsProviderAdapter | null {

@@ -1,6 +1,6 @@
 ---
 title: Japanese Immersion Guides
-description: Free, practical guides to learning Japanese by reading and watching what you like — read raw manga, mine sentences from anime and YouTube to Anki, find comprehensible-input channels, and choose between Yomitan, JPDB, and Anki.
+description: Free, practical guides to learning Japanese by reading and watching what you like — read raw manga, mine sentences from anime and YouTube to Anki, find comprehensible-input channels, and choose between Jiten, Yomitan, Anki, and JPDB.
 head:
   - - meta
     - name: keywords

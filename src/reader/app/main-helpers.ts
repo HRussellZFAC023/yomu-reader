@@ -456,6 +456,7 @@ export interface ReaderAppDestroyOptions {
 export interface PitchEnrichmentOptions {
     urgent?: boolean;
     publicLookup?: boolean;
+    jpdbPublicLookup?: boolean;
     publicLookupLimit?: number;
     publicLookupTotalLimit?: number;
     publicLookupPageBudget?: number;

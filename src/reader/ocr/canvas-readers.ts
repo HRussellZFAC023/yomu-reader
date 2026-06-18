@@ -1,39 +1,7 @@
-// Canvas-based manga readers paint each page onto a <canvas> instead of an
-// <img> (usually to wrap DRM/scrambling), so the normal `document.images` OCR
-// path never sees them. We snapshot the canvas to a data-URL <img> and feed it
-// to the existing OCR pipeline — mirroring the paused-video-frame mechanism.
-//
-// Detection is GENERIC — it targets "canvas-wrapped rendered images" on any
-// site, not a fixed host list. A manga page canvas is:
-//   1. large + page-shaped (drawing-buffer size & aspect),
-//   2. prominent in the viewport (a reader fills the screen with the page), and
-//   3. carrying a RENDERED RASTER IMAGE — the decoded page. Test 3 is what tells
-//      a wrapped page image apart from WebGL games, vector/UI canvases, charts
-//      and blank buffers; it also rejects cross-origin-tainted canvases, which
-//      throw on read and need a trusted rendered-frame source before OCR.
-// Known reader hosts (or a reader page-counter) take a LENIENT path — size+shape
-// only — because the context already disambiguates them and we want maximum
-// reliability there; every other site must additionally clear the prominence +
-// rendered-image tests before we spend an OCR call. Size/shape/content — not
-// class names or container ids — is what makes a page canvas, which is resilient
-// to viewer rewrites (an earlier class-name match, `canvas.default`/`#renderer
-// canvas`, silently broke when BookWalker shipped a new DOM). The controller's
-// isHiddenByCss / isNearViewport then narrow capture to the page(s) on screen, so
-// off-screen buffers and transition canvases drop out on their own.
-//
-// Verified canvas viewers (live trial probe 2026-06-17): bookwalker.jp / its
-// NetFront (NFBR) viewer double-buffers each page across #viewport0 + #viewport1
-// (both 1280x1600, stacked at the SAME screen rect); the on-screen one's
-// container carries `.currentScreen`, plus 300x150 #renderer/#frontScreen dummy
-// canvases. comic-walker.com (カドコミ): vertical scroll, one persistent canvas
-// per page, no counter. When readable, the rendered page buffer is authoritative.
-// Do not OCR BookWalker's fetched source image resources as a tainted-canvas
-// fallback: the viewer may scramble those assets before compositing, while the
-// on-screen canvas contains the real readable page. The size floor drops the
-// dummies; preferCurrentScreenCanvases() then keeps only the visible buffer so we
-// never spend a (shared-quota) OCR call on the off-screen page or paint a second
-// overlay for a different page at the same coordinates.
-// See references/bookwalker-viewer + references/BookWalker-Screenshot-Simulator.
+// Canvas readers paint pages outside document.images, so OCR snapshots the
+// visible page canvas and feeds it through the normal image pipeline. Known manga
+// hosts use size/shape; generic pages also need viewport prominence + raster
+// content so UI, WebGL, blank, tainted, and off-screen buffers are skipped.
 
 const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
 
@@ -42,9 +10,7 @@ const CURRENT_SCREEN_CLASS = 'currentScreen';
 const CURRENT_SCREEN_SELECTOR = `.${CURRENT_SCREEN_CLASS}`;
 const VIEWPORT_CONTAINER_SELECTOR = '[id^="viewport"]';
 
-// Hosts known to render manga pages onto <canvas>. They skip the prominence +
-// rendered-image heuristics (the host already disambiguates them); the generic
-// path below covers every other reader.
+// Known manga canvas hosts skip the generic prominence/content sniff.
 const CANVAS_READER_HOST_PATTERNS: RegExp[] = [
     /(^|\.)bookwalker\.jp$/i,
     /(^|\.)comic-walker\.com$/i,
@@ -58,16 +24,16 @@ const BACKGROUND_IMAGE_READER_SELECTOR = [
     '[style*="background:"][style*="url("]',
 ].join(',');
 
-const MIN_PAGE_CANVAS_DIMENSION = 600;     // drawing-buffer floor: rejects decoy/UI canvases
-const MIN_PAGE_CANVAS_ASPECT = 0.3;        // a single portrait page …
-const MAX_PAGE_CANVAS_ASPECT = 3.2;        // … through a two-page landscape spread
-const MIN_RENDERED_DIMENSION = 200;        // must be laid out at a readable on-screen size
-const VIEWPORT_COVERAGE_FRACTION = 0.4;    // a reader page fills ≥40% of a viewport axis …
-const VIEWPORT_AREA_FRACTION = 0.18;       // … and ≥18% of the viewport area
-const CONTENT_SAMPLE_SIZE = 20;            // downscale target for the rendered-image sniff
-const MIN_CONTENT_CONTRAST = 36;           // luminance spread of a real page (B&W manga = high)
-const MIN_CONTENT_BUCKETS = 3;             // distinct luminance bands (anti-aliasing/screentone)
-const MIN_OPAQUE_FRACTION = 0.5;           // a mostly-transparent canvas is an overlay, not a page
+const MIN_PAGE_CANVAS_DIMENSION = 600;
+const MIN_PAGE_CANVAS_ASPECT = 0.3;
+const MAX_PAGE_CANVAS_ASPECT = 3.2;
+const MIN_RENDERED_DIMENSION = 200;
+const VIEWPORT_COVERAGE_FRACTION = 0.4;
+const VIEWPORT_AREA_FRACTION = 0.18;
+const CONTENT_SAMPLE_SIZE = 20;
+const MIN_CONTENT_CONTRAST = 36;
+const MIN_CONTENT_BUCKETS = 3;
+const MIN_OPAQUE_FRACTION = 0.5;
 
 export function isBookwalkerViewerHost(hostname: string = location.hostname): boolean {
     return hostname === 'viewer.bookwalker.jp'
@@ -96,9 +62,7 @@ function hasRenderedPageShape(rect: DOMRect): boolean {
     return aspect >= MIN_PAGE_CANVAS_ASPECT && aspect <= MAX_PAGE_CANVAS_ASPECT;
 }
 
-// Reader pages dominate the viewport; this rejects incidental large canvases
-// (thumbnails rendered to canvas, embedded widgets, sprite buffers) on unknown
-// sites without needing to know the host.
+// Reject incidental large canvases on unknown hosts.
 function isViewportProminent(element: Element): boolean {
     const rect = element.getBoundingClientRect();
     if (rect.width < MIN_RENDERED_DIMENSION || rect.height < MIN_RENDERED_DIMENSION) return false;
@@ -110,13 +74,8 @@ function isViewportProminent(element: Element): boolean {
     return coversAxis && coversArea;
 }
 
-// A wrapped page image has rich, mostly-opaque raster content: high luminance
-// spread across several bands (manga is high-contrast B&W with screentone/anti-
-// aliasing greys; colour pages span many bands too). Flat UI/solid canvases and
-// near-blank buffers fail the contrast/bucket test; WebGL/vector canvases tend to
-// as well; tainted canvases throw on read and are rejected here. Some readers can
-// fall back to a fetched source image, but BookWalker cannot because those source
-// resources can be scrambled before the viewer composites the real page.
+// Real pages have mostly opaque, high-contrast raster content; flat/blank/tainted
+// buffers fail here.
 interface CanvasContentSample {
     buckets: number;
     contrast: number;

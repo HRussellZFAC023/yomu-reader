@@ -6,7 +6,7 @@ type NewTabLanguage = 'en' | 'ja';
 const NEW_TAB_COPY = {
     en: {
         switchReviewSource: 'Switch review source',
-        dictionaryInstallNewTabHelp: 'Optional: add a Yomitan dictionary in Settings for offline local results. Public JPDB lookup works without one.',
+        dictionaryInstallNewTabHelp: 'Optional: add a Yomitan dictionary in Settings for offline local results. Public lookup works without one.',
         newTabMode: 'New tab mode',
         stats: 'Stats',
         statsRefresh: 'Refresh stats',
@@ -117,7 +117,7 @@ const NEW_TAB_COPY = {
         offlineGradesDisabled: 'Offline cache. Grades are saved here and sync when Jiten, JPDB, or Anki reconnects.',
         startWithDictionary: 'Start with a dictionary',
         addDictionaryStudyCards: 'Use this only if you want offline Yomitan results.',
-        dictionaryReadyNewTabs: 'Public JPDB lookup works without an API key.',
+        dictionaryReadyNewTabs: 'Public lookup works without an API key.',
         addDictionary: 'Add dictionary',
         hide: 'Hide',
         yourDrawing: 'Your drawing',

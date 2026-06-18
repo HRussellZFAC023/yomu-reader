@@ -98,11 +98,10 @@ export function apiSrsProviderViewForCard(
     const jitenBacked = isJitenBackedCard(card);
     const jpdbUsable = jpdbBacked && hasJpdbApiCredential(settings);
     const jitenUsable = jitenBacked && hasJitenApiCredential(settings);
-    // Both services can grade this word and both keys are set → follow the
-    // toggle. Otherwise prefer whichever service has a usable key (jpdb-first, to
-    // match the action controller). A word may be jiten-backed via keyless
-    // enrichment, so the fallback must be gated on the key actually being set —
-    // never drop a gradable JPDB word for a keyless Jiten view.
+    // Both services can grade this word and both keys are set -> follow the
+    // toggle. Otherwise prefer whichever service has a usable key. A word may be
+    // jiten-backed via keyless enrichment, so the fallback must be gated on the
+    // key actually being set.
     if (jpdbUsable && jitenUsable) return apiSrsProviderView(apiGradingProviderPreference(settings), settings);
     if (jpdbUsable) return apiSrsProviderView('jpdb', settings);
     if (jitenUsable) return apiSrsProviderView('jiten', settings);
@@ -122,8 +121,10 @@ export function shouldMineAnkiAlongsideApi(settings: ReaderSettings): boolean {
 }
 
 export function createApiSrsProviderAdapters(options: ApiSrsProviderAdapterOptions, settings: ReaderSettings): ApiSrsProviderAdapter[] {
-    const providers: ApiSrsProviderAdapter[] = [createJpdbSrsProviderAdapter(options.jpdb, options.isJpdbBackedCard, settings)];
-    if (options.jiten) providers.push(createJitenSrsProviderAdapter(options.jiten, settings));
+    const jpdbProvider = createJpdbSrsProviderAdapter(options.jpdb, options.isJpdbBackedCard, settings);
+    const providers: ApiSrsProviderAdapter[] = options.jiten
+        ? [createJitenSrsProviderAdapter(options.jiten, settings), jpdbProvider]
+        : [jpdbProvider];
     return providers;
 }
 

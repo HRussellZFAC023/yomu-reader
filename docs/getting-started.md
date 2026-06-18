@@ -21,7 +21,7 @@ You'll meet more later, but these three get you reading:
 - **Lookup** — tapping or hovering a word to open よむ's popup.
 - **Mining** — saving a word, with its sentence, for later review.
 
-JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
+Jiten, JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
 
 ## Step 1: Install a userscript manager
 
@@ -142,7 +142,7 @@ These are reliable starting points, ordered roughly from easiest to hardest:
   </a>
   <a class="yomu-link-card" href="https://www.satorireader.com/" target="_blank" rel="noopener">
     <strong>Satori Reader</strong>
-    <span>Polished learner stories with notes and audio. よむ adds your usual JPDB, Yomitan, and Anki flow on top.</span>
+    <span>Polished learner stories with notes and audio. よむ adds your usual Jiten, Yomitan, Anki, and JPDB flow on top.</span>
   </a>
   <a class="yomu-link-card" href="https://watanoc.com/" target="_blank" rel="noopener">
     <strong>Watanoc</strong>
@@ -174,9 +174,9 @@ For more, skim these community threads: [Tadoku graded readers](https://www.redd
 
 ## Using よむ on a phone or tablet
 
-Most of よむ works the same on mobile: lookup, local dictionaries, JPDB, OCR, subtitle taps, the [video player](/video-player/index.html), and the [study page](/newtab/index.html). Tapping is the main gesture, since touch screens have no hover. The floating よむ button stays reachable so you can always open settings.
+Most of よむ works the same on mobile: lookup, local dictionaries, Jiten/JPDB, OCR, subtitle taps, the [video player](/video-player/index.html), and the [study page](/newtab/index.html). Tapping is the main gesture, since touch screens have no hover. The floating よむ button stays reachable so you can always open settings.
 
-The one thing that's different is **desktop helpers**. Anything that runs on your computer — AnkiConnect, a self-hosted audio server, a local OCR app — has to be reachable over the network. On a phone, `localhost` means *the phone*, not your computer, so you point よむ at your computer's LAN or Tailscale address instead. The easy mobile paths (public JPDB lookup, imported dictionaries, hosted audio, the study page) don't need any of that.
+The one thing that's different is **desktop helpers**. Anything that runs on your computer — AnkiConnect, a self-hosted audio server, a local OCR app — has to be reachable over the network. On a phone, `localhost` means *the phone*, not your computer, so you point よむ at your computer's LAN or Tailscale address instead. The easy mobile paths (public lookup, imported dictionaries, hosted audio, the study page) don't need any of that.
 
 ### Use desktop Anki from a phone, iPad, or Android
 

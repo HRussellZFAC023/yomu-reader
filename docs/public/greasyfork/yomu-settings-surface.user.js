@@ -2093,7 +2093,7 @@
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
-    apiGradingProvider: "jpdb",
+    apiGradingProvider: "jiten",
     miningDeck: "forq",
     autoMineOnReview: false,
     neverForgetDeck: "never-forget",
@@ -2400,9 +2400,13 @@
       autoMineOnReview: typeof value?.autoMineOnReview === "boolean" ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
       neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
       blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
-      apiGradingProvider: value?.apiGradingProvider === "jiten" ? "jiten" : "jpdb",
+      apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
       ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS)
     };
+  }
+  function normalizeApiGradingProvider(value) {
+    if (value === "jpdb") return "jpdb";
+    return DEFAULT_SETTINGS.apiGradingProvider;
   }
   function normalizeMediaSettings(value) {
     const settings = value ?? {};
@@ -3905,8 +3909,8 @@
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
-      fallbackSetupTitle: "Public JPDB lookup",
-      fallbackSetupCopy: "Search works without JPDB. Add dictionaries offline.",
+      fallbackSetupTitle: "Public lookup",
+      fallbackSetupCopy: "Search works without a JPDB key. Add dictionaries for offline results.",
       fallbackSetupDictionaries: "Add dictionaries",
       fallbackSetupJpdb: "Add JPDB key",
       getApp: `Get ${APP_NAME}`,

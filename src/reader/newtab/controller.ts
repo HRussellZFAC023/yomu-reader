@@ -8603,8 +8603,8 @@ export class NewTabController {
             { id: 'all', name: this.text('allVocabularyDeck') },
             // UT-62: one-tap provider scoping when both queues exist.
             ...(bothProviders ? [
-                { id: 'provider:jpdb', name: 'JPDB' },
                 { id: 'provider:jiten', name: 'Jiten' },
+                { id: 'provider:jpdb', name: 'JPDB' },
             ] : []),
             ...decks.filter(deck => deck.id !== 'all'),
             ...jitenDecks,

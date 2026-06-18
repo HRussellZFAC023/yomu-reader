@@ -396,7 +396,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     popupFontFamily: DEFAULT_POPUP_FONT_FAMILY,
     popupFontWeight: 400,
     jpdbMiningEnabled: true,
-    apiGradingProvider: 'jpdb',
+    apiGradingProvider: 'jiten',
     miningDeck: 'forq',
     autoMineOnReview: false,
     neverForgetDeck: 'never-forget',
@@ -768,9 +768,14 @@ function normalizeMiningSettings(value: Partial<ReaderSettings> | null): Partial
         autoMineOnReview: typeof value?.autoMineOnReview === 'boolean' ? value.autoMineOnReview : DEFAULT_SETTINGS.autoMineOnReview,
         neverForgetDeck: normalizeDeckIdSetting(value?.neverForgetDeck, DEFAULT_SETTINGS.neverForgetDeck),
         blacklistDeck: normalizeDeckIdSetting(value?.blacklistDeck, DEFAULT_SETTINGS.blacklistDeck),
-        apiGradingProvider: value?.apiGradingProvider === 'jiten' ? 'jiten' : 'jpdb',
+        apiGradingProvider: normalizeApiGradingProvider(value?.apiGradingProvider),
         ...normalizeBooleanSettingGroup(value, MINING_BOOLEAN_SETTING_KEYS),
     };
+}
+
+function normalizeApiGradingProvider(value: unknown): ReaderSettings['apiGradingProvider'] {
+    if (value === 'jpdb') return 'jpdb';
+    return DEFAULT_SETTINGS.apiGradingProvider;
 }
 
 function normalizeMediaSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {

@@ -4,7 +4,7 @@ description: A free toolkit for reading real Japanese — popup dictionary, mang
 head:
   - - meta
     - name: keywords
-      content: Japanese learning tools, free Japanese reader, popup dictionary, manga OCR, furigana, kanji stroke order, subtitle mining, JPDB, Yomitan, Anki
+      content: Japanese learning tools, free Japanese reader, popup dictionary, manga OCR, furigana, kanji stroke order, subtitle mining, Jiten, Yomitan, Anki, JPDB
 ---
 
 # Free Japanese Learning Tools
