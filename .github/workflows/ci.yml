@@ -87,6 +87,6 @@ jobs:
       - run: npm run docs:build
       - run: npm run verify
       - name: Install Playwright Chromium
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: npx playwright install chromium
       - run: npm run smoke:p0

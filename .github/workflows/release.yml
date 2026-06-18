@@ -42,7 +42,7 @@ jobs:
         run: npm ci
       - run: npm run check
       - name: Install Playwright Chromium
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: npx playwright install chromium
       - run: npm run smoke:p0
       - name: Build split userscript release artifact
