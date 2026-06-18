@@ -49222,6 +49222,54 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (!open(url)) location.href = url;
     return true;
   }
+  function isRubyAnnotation(element) {
+    return element.tagName === "RT" || element.tagName === "RP";
+  }
+  function rubyReadingText(element, fallback, rtText = defaultRubyText) {
+    let text2 = "";
+    let base = "";
+    element.childNodes.forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        base += child.textContent ?? "";
+        return;
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+      const childElement = child;
+      if (childElement.tagName === "RT") {
+        text2 += rtText(childElement, base);
+        base = "";
+        return;
+      }
+      if (childElement.tagName === "RP") return;
+      base += fallback(childElement);
+    });
+    return text2 + base || fallback(element);
+  }
+  function defaultRubyText(element, base) {
+    return element.textContent || base;
+  }
+  function isJpdbHost() {
+    return location.hostname === "jpdb.io";
+  }
+  function jpdbAudioCard(term, reading) {
+    return {
+      vid: 0,
+      sid: 0,
+      rid: 0,
+      spelling: term,
+      reading: reading || term,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "local"
+    };
+  }
+  function isJitenHost() {
+    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
+  }
   function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
@@ -49576,7 +49624,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function definitionSourceStateKey(sourceId) {
     return `definition-source:${sourceId}`;
   }
-  const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeStudySources", "includeImmersionSource"];
+  const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeJitenSource", "includeStudySources", "includeImmersionSource"];
   const CORE_DEFINITION_SOURCE_RENDERERS = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
     [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
@@ -49612,7 +49660,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       grouped,
       dictionarySourceIds,
       extraSections,
-      includeJpdbSource: options.includeJpdbSource ?? true,
+      // A dictionary's own panel is redundant on its own site (the native
+      // jpdb.io / jiten.moe page already shows it), so suppress it there by
+      // default. Callers can still force it on with an explicit option.
+      includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
+      includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
       includeStudySources: options.includeStudySources ?? true,
       includeImmersionSource: options.includeImmersionSource ?? true,
       jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
@@ -49663,6 +49715,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     );
   }
   function renderJitenDefinitionSourceSection(context, params) {
+    if (!context.includeJitenSource) return "";
     return renderJitenDefinitionSource(
       context.card,
       params.sourceAttributes,
@@ -54706,48 +54759,6 @@ ${normalizedReading}`;
       failureLabel: "Public JPDB pitch request",
       timeoutLabel: "Public JPDB pitch request timed out."
     });
-  }
-  function isRubyAnnotation(element) {
-    return element.tagName === "RT" || element.tagName === "RP";
-  }
-  function rubyReadingText(element, fallback, rtText = defaultRubyText) {
-    let text2 = "";
-    let base = "";
-    element.childNodes.forEach((child) => {
-      if (child.nodeType === Node.TEXT_NODE) {
-        base += child.textContent ?? "";
-        return;
-      }
-      if (child.nodeType !== Node.ELEMENT_NODE) return;
-      const childElement = child;
-      if (childElement.tagName === "RT") {
-        text2 += rtText(childElement, base);
-        base = "";
-        return;
-      }
-      if (childElement.tagName === "RP") return;
-      base += fallback(childElement);
-    });
-    return text2 + base || fallback(element);
-  }
-  function defaultRubyText(element, base) {
-    return element.textContent || base;
-  }
-  function jpdbAudioCard(term, reading) {
-    return {
-      vid: 0,
-      sid: 0,
-      rid: 0,
-      spelling: term,
-      reading: reading || term,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "local"
-    };
   }
   const JPDB_REVIEW_BRIDGE_CHANNEL = "yomu-jpdb-review-bridge";
   const JPDB_REVIEW_BRIDGE_STALE_MS = 3e4;

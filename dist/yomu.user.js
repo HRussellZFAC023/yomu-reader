@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.1
+// @version      1.4.2
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.1#sha256-87PDPKX5ipCr28JWavM0aMtU60T5hJvjTjdpa28M4k0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.1#sha256-ZD8NHRmY557m8Et2C1N837zz/V+1ppHCtqGj0r0lmQs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.1#sha256-GFNEaUDxE2my4ROWM13fboTw0DCwKRlbYc+SYoUas04=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.1#sha256-JaqvTL9lH7pBw+Cy0RWY/f196dNJJCVr0+U3Etnw00E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.2#sha256-87PDPKX5ipCr28JWavM0aMtU60T5hJvjTjdpa28M4k0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.2#sha256-ZD8NHRmY557m8Et2C1N837zz/V+1ppHCtqGj0r0lmQs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.2#sha256-GFNEaUDxE2my4ROWM13fboTw0DCwKRlbYc+SYoUas04=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.2#sha256-JaqvTL9lH7pBw+Cy0RWY/f196dNJJCVr0+U3Etnw00E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -21292,6 +21292,568 @@ ${entry.reading || ""}`;
   function delay$1(ms) {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
+  function isRubyAnnotation(element2) {
+    return element2.tagName === "RT" || element2.tagName === "RP";
+  }
+  function rubyReadingText(element2, fallback, rtText = defaultRubyText) {
+    let text2 = "";
+    let base = "";
+    element2.childNodes.forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        base += child.textContent ?? "";
+        return;
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+      const childElement = child;
+      if (childElement.tagName === "RT") {
+        text2 += rtText(childElement, base);
+        base = "";
+        return;
+      }
+      if (childElement.tagName === "RP") return;
+      base += fallback(childElement);
+    });
+    return text2 + base || fallback(element2);
+  }
+  function defaultRubyText(element2, base) {
+    return element2.textContent || base;
+  }
+  function isJpdbHost() {
+    return location.hostname === "jpdb.io";
+  }
+  function isReviewPage() {
+    return location.pathname.startsWith("/review");
+  }
+  function isKanjiPage() {
+    return location.pathname.startsWith("/kanji/");
+  }
+  function isKanjiReviewFront() {
+    const state2 = currentReviewCardState();
+    return state2.isKanji && state2.phase === "before" && !hasReviewAnswerContent();
+  }
+  function isKanjiReviewBack() {
+    const state2 = currentReviewCardState();
+    return state2.isKanji && (state2.phase === "after" || hasReviewAnswerContent());
+  }
+  function hasReviewAnswerContent() {
+    return Boolean(document.querySelector(".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings"));
+  }
+  function currentReviewCardState() {
+    if (!isReviewPage()) return { kind: "", kanji: "", isKanji: false, phase: "none" };
+    const response = new URLSearchParams(location.search).get("r");
+    const cardValue = new URLSearchParams(location.search).get("c") ?? document.querySelector('input[name="c"]')?.value ?? "";
+    return parseJpdbReviewCardValue(cardValue, response);
+  }
+  function parseJpdbReviewCardValue(value, response = null) {
+    const parts = (value ?? "").split(",");
+    const kind = (parts[0] ?? "").trim();
+    const kanji = firstReviewGlyph(parts.slice(1).join(",")) ?? "";
+    const isKanji2 = kind.startsWith("k") && Boolean(kanji);
+    const phase = reviewCardPhase(isKanji2, response);
+    return { kind, kanji, isKanji: isKanji2, phase };
+  }
+  function reviewCardPhase(isKanji2, response) {
+    if (!isKanji2) return "none";
+    return response === "1" ? "after" : "before";
+  }
+  function extractCurrentKanji() {
+    return currentKanjiFromPath() || currentKanjiFromHiddenInput() || currentKanjiFromPageText();
+  }
+  function currentKanjiFromPath() {
+    const parts = location.pathname.split("/").filter(Boolean);
+    if (parts[0] === "kanji" && parts[1]) return firstReviewGlyph(decodeURIComponent(parts[1])) ?? "";
+    return "";
+  }
+  function currentKanjiFromHiddenInput() {
+    const hidden = document.querySelector('input[name="c"]')?.value ?? "";
+    const hiddenParts = hidden.split(",");
+    if (hiddenParts[0] === "kb" && hiddenParts[1]) return firstReviewGlyph(hiddenParts[1]) ?? "";
+    return "";
+  }
+  function currentKanjiFromPageText() {
+    return firstReviewGlyph(document.querySelector(".kanji, a.kanji.plain")?.textContent ?? "") ?? "";
+  }
+  function currentJpdbTermTarget() {
+    return currentKanjiTermTarget() ?? currentVocabularyTermTarget();
+  }
+  function currentKanjiTermTarget() {
+    const kanji = extractCurrentKanji();
+    if (!canReadCurrentKanjiTarget(kanji)) return null;
+    const anchor = currentKanjiAddonAnchor();
+    const queries = uniqueLookupValues([kanji, ...kanjiComponentTerms(document)]);
+    return { term: kanji, reading: kanji, queries: queries.length ? queries : [kanji], examples: extractPageExamples(document), anchor: anchor ?? document.body };
+  }
+  function canReadCurrentKanjiTarget(kanji) {
+    return Boolean(kanji && (isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack()));
+  }
+  function currentVocabularyTermTarget() {
+    const pageTerm = extractCurrentTermTarget();
+    const searchQuery = extractSearchQuery();
+    const term = currentVocabularyLookupTerm(pageTerm, searchQuery);
+    if (!term) return null;
+    const queries = vocabularyTermQueries(term, pageTerm, searchQuery);
+    return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], examples: extractPageExamples(document), anchor: currentVocabularyAddonAnchor() };
+  }
+  function currentVocabularyLookupTerm(pageTerm, searchQuery) {
+    return isSearchPage() && searchQuery ? searchQuery : pageTerm?.term ?? "";
+  }
+  function currentVocabularyAddonAnchor() {
+    return firstElementForSelectors(VOCABULARY_ADDON_ANCHOR_SELECTORS) ?? document.body.firstElementChild ?? document.body;
+  }
+  const VOCABULARY_ADDON_ANCHOR_SELECTORS = [
+    ".subsection-meanings",
+    ".result.vocabulary",
+    ".subsection-used-in",
+    ".cross-table",
+    ".answer-box",
+    "main"
+  ];
+  function firstElementForSelectors(selectors) {
+    for (const selector of selectors) {
+      const element2 = document.querySelector(selector);
+      if (element2) return element2;
+    }
+    return null;
+  }
+  function vocabularyTermQueries(term, pageTerm, searchQuery) {
+    const searchTerms = searchResultTerms(8).flatMap((item) => [item.term, item.reading]);
+    return isSearchPage() ? uniqueLookupValues([searchQuery, pageTerm?.term, pageTerm?.reading, ...searchTerms]) : uniqueLookupValues([pageTerm?.term, pageTerm?.reading, term, ...searchTerms]);
+  }
+  function currentLocalDictionaryTargets() {
+    if (isDeckPage() || isSearchPage()) {
+      return sourceElements(document, ".result.vocabulary, .entry").map((section) => {
+        const term = extractTermFromElement(section);
+        const compounds2 = extractPageCompounds(section);
+        return term ? {
+          ...term,
+          alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section), ...compounds2.flatMap((compound) => [compound.term, compound.reading])]),
+          compounds: compounds2,
+          examples: extractPageExamples(section),
+          anchor: section.querySelector(".subsection-meanings") ?? section
+        } : null;
+      }).filter((item) => item !== null).slice(0, 16);
+    }
+    const target = currentJpdbTermTarget();
+    if (!target) return [];
+    const compounds = extractPageCompounds(document);
+    return [{
+      term: target.term,
+      reading: target.reading,
+      alternates: uniqueLookupValues([...target.queries, ...extractAlternateTerms(document), ...compounds.flatMap((compound) => [compound.term, compound.reading])]),
+      compounds,
+      examples: extractPageExamples(document),
+      anchor: target.anchor
+    }];
+  }
+  function currentKanjiAddonAnchor() {
+    const mnemonic = mnemonicSiblingAnchor();
+    if (mnemonic) return mnemonic;
+    return firstElementForSelectors(KANJI_ADDON_ANCHOR_SELECTORS);
+  }
+  const KANJI_ADDON_ANCHOR_SELECTORS = [
+    ".result.kanji .vbox",
+    ".result.kanji",
+    ".answer-box",
+    ".bugfix",
+    "main"
+  ];
+  function mnemonicSiblingAnchor() {
+    const labels = Array.from(document.querySelectorAll("h6.subsection-label"));
+    const mnemonic = labels.find((label) => label.textContent?.trim().toLowerCase().startsWith("mnemonic"));
+    return mnemonic?.nextElementSibling instanceof HTMLElement ? mnemonic.nextElementSibling : null;
+  }
+  function kanjiComponentTerms(root) {
+    return sourceElements(root, '.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]').map((element2) => cleanText(extractBaseText(element2)) || cleanText(element2.textContent ?? "")).filter((value) => value && JAPANESE_RE.test(value));
+  }
+  function extractPageCompounds(root) {
+    const entries = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (const row of compoundRows(root)) {
+      const compound = readPageCompound(row);
+      if (!compound || seen.has(compound.term)) continue;
+      seen.add(compound.term);
+      entries.push(compound);
+    }
+    return entries.slice(0, 8);
+  }
+  function compoundRows(root) {
+    return compoundSections(root).flatMap(
+      (section) => Array.from(section.querySelectorAll(".subsection > div, .subsection .used-in"))
+    );
+  }
+  function compoundSections(root) {
+    return sourceElements(root, ".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").filter(isComposedOfSection$1);
+  }
+  function isComposedOfSection$1(section) {
+    const label = cleanText(section.querySelector(".subsection-label")?.textContent ?? "").toLowerCase();
+    return !label || label.startsWith("composed of");
+  }
+  function readPageCompound(row) {
+    const link = compoundLink(row);
+    const spelling = compoundSpellingElement(row, link);
+    const term = readCompoundTerm(spelling, link);
+    if (!isJapaneseTerm$1(term)) return null;
+    return {
+      term,
+      reading: readCompoundReading(spelling, link, term),
+      meaning: cleanText(row.querySelector(".description, .en, .meaning")?.textContent ?? ""),
+      url: link?.getAttribute("href") ?? ""
+    };
+  }
+  function compoundLink(row) {
+    return sourceElements(row, 'a[href^="/vocabulary/"], a[href^="/kanji/"]')[0] ?? null;
+  }
+  function compoundSpellingElement(row, link) {
+    return row.querySelector('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
+  }
+  function readCompoundTerm(spelling, link) {
+    return cleanText(link ? jpdbPathTerm(link.pathname) : "") || cleanText(spelling ? extractBaseText(spelling) : "") || cleanText(sourceTextContent(spelling));
+  }
+  function readCompoundReading(spelling, link, term) {
+    return cleanText(link ? vocabularyPathReading(link.pathname) : "") || cleanText(spelling ? extractReadingText(spelling) : "") || term;
+  }
+  function extractPageExamples(root) {
+    const seen = /* @__PURE__ */ new Set();
+    const examples = [];
+    const sections = Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples"));
+    for (const section of sections) {
+      const rows = Array.from(section.querySelectorAll(".subsection > div, .example, li, p"));
+      for (const row of rows) {
+        const example = readPageExampleRow(row, seen);
+        if (example) examples.push(example);
+      }
+    }
+    return examples.slice(0, 5);
+  }
+  function readPageExampleRow(row, seen) {
+    const sentence = pageExampleSentence(row);
+    if (!shouldKeepPageExample(sentence, seen)) return null;
+    seen.add(sentence);
+    const translation = cleanText(row.querySelector(".translation, .en, .english")?.textContent ?? "");
+    return { sentence, translation };
+  }
+  function pageExampleSentence(row) {
+    const sentenceNode = row.querySelector(".sentence, .jp, .japanese, .plain") ?? row;
+    return cleanText(extractBaseText(sentenceNode)) || cleanText(sentenceNode.textContent ?? "");
+  }
+  function shouldKeepPageExample(sentence, seen) {
+    return isJapaneseTerm$1(sentence) && !seen.has(sentence);
+  }
+  function localDictionaryLookupVariants(target) {
+    const variants = [];
+    const compoundValues = new Set(target.compounds.flatMap((compound) => [
+      cleanText(compound.term),
+      cleanText(compound.reading)
+    ]).filter(Boolean));
+    const add = (term, reading = "") => {
+      const cleanTerm = cleanText(term);
+      const cleanReading = cleanText(reading);
+      if (!cleanTerm) return;
+      if (variants.some((item) => item.term === cleanTerm && item.reading === cleanReading)) return;
+      variants.push({ term: cleanTerm, reading: cleanReading });
+    };
+    add(target.term, target.reading);
+    add(target.reading);
+    for (const compound of target.compounds) {
+      add(compound.term, compound.reading);
+    }
+    for (const alternate of target.alternates) {
+      add(alternate, alternate === target.term ? target.reading : "");
+      if (target.reading && alternate !== target.reading && !compoundValues.has(cleanText(alternate))) add(alternate, target.reading);
+    }
+    return variants;
+  }
+  function uniqueLocalDictionaryEntries(entries) {
+    const seen = /* @__PURE__ */ new Set();
+    return entries.filter((entry) => {
+      const key = localDictionaryEntryKey(entry);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function localDictionaryEntryKey(entry) {
+    const glossaryKey = JSON.stringify(entry.glossary);
+    return entry.sequence !== void 0 ? `${entry.dictionary}
+sequence:${entry.sequence}
+${glossaryKey}` : `${entry.dictionary}
+${entry.expression}
+${entry.reading}
+${glossaryKey}`;
+  }
+  function dictionaryPreferencePriority(dictionary, settings) {
+    const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
+    return preference?.priority ?? 999;
+  }
+  function jpdbAudioCard(term, reading) {
+    return {
+      vid: 0,
+      sid: 0,
+      rid: 0,
+      spelling: term,
+      reading: reading || term,
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "local"
+    };
+  }
+  function isDeckPage() {
+    return location.pathname.startsWith("/deck");
+  }
+  function isSearchPage() {
+    return location.pathname.startsWith("/search");
+  }
+  function extractCurrentTermTarget() {
+    const fromPage = extractTermFromElement(document.body);
+    const fromUrl = extractTermFromUrl();
+    if (fromUrl) {
+      const pageReading = fromPage?.term === fromUrl ? fromPage.reading : "";
+      return { term: fromUrl, reading: extractReadingFromUrl() || pageReading || fromUrl };
+    }
+    return fromPage;
+  }
+  function extractSearchQuery() {
+    if (!isSearchPage()) return "";
+    return cleanText(new URLSearchParams(location.search).get("q") ?? "");
+  }
+  function extractTermFromUrl() {
+    return jpdbPathTerm(location.pathname);
+  }
+  function extractReadingFromUrl() {
+    return vocabularyPathReading(location.pathname);
+  }
+  function decodePathPart(value) {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  function extractTermFromElement(root) {
+    for (const selector of TERM_TARGET_SELECTORS) {
+      const element2 = sourceElements(root, selector)[0];
+      if (!element2) continue;
+      const target = termTargetFromElement(element2);
+      if (target) return target;
+    }
+    return null;
+  }
+  const TERM_TARGET_SELECTORS = [
+    ".vocabulary-spelling a",
+    ".vocabulary-spelling",
+    ".horizontal-spelling",
+    ".subsection-spelling",
+    ".answer-box .plain",
+    ".plain"
+  ];
+  function termTargetFromElement(element2) {
+    const term = cleanText(extractBaseText(element2)) || cleanText(sourceTextContent(element2));
+    if (!isJapaneseTerm$1(term)) return null;
+    const reading = cleanText(extractReadingText(element2)) || term;
+    return { term, reading };
+  }
+  function extractBaseText(root) {
+    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
+    if (root.nodeType !== Node.ELEMENT_NODE) return "";
+    return extractBaseElementText(root);
+  }
+  function extractBaseElementText(element2) {
+    if (isIgnoredSourceTextElement(element2)) return "";
+    return Array.from(element2.childNodes).map(extractBaseText).join("");
+  }
+  function extractReadingText(root) {
+    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
+    if (root.nodeType !== Node.ELEMENT_NODE) return "";
+    return extractReadingElementText(root);
+  }
+  function extractReadingElementText(element2) {
+    if (isIgnoredSourceTextElement(element2)) return "";
+    if (element2.tagName === "RUBY") return rubyReadingText(element2, extractBaseText, generatedAwareRubyText);
+    return Array.from(element2.childNodes).map(extractReadingText).join("");
+  }
+  function isJapaneseTerm$1(value) {
+    return Boolean(value && JAPANESE_RE.test(value));
+  }
+  function isIgnoredSourceTextElement(element2) {
+    return isRubyAnnotation(element2) || isGeneratedReaderAnnotation(element2) || element2.matches("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
+  }
+  function isGeneratedReaderAnnotation(element2) {
+    return element2.matches('[data-jpdb-reader-surface-ignore="true"], .jpdb-reader-furi, .jpdb-ocr-furi');
+  }
+  function generatedAwareRubyText(element2, base) {
+    return isGeneratedReaderAnnotation(element2) ? base : element2.textContent || base;
+  }
+  function extractAlternateTerms(root) {
+    return sourceElements(root, '.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]').flatMap((element2) => {
+      const fromText = cleanText(extractBaseText(element2)) || cleanText(sourceTextContent(element2));
+      const href = element2 instanceof HTMLAnchorElement ? element2 : element2.querySelector('a[href^="/vocabulary/"]');
+      const fromHref = href ? vocabularyPathTerm(href.pathname) : "";
+      return [fromText, fromHref];
+    }).filter((value) => value && JAPANESE_RE.test(value));
+  }
+  function searchResultTerms(limit) {
+    if (!isSearchPage()) return [];
+    return sourceElements(document, ".result.vocabulary, .entry").map((section) => extractTermFromElement(section)).filter((item) => item !== null).slice(0, limit);
+  }
+  function vocabularyPathTerm(pathname) {
+    const parts = jpdbPathParts(pathname);
+    return parts[0] === "vocabulary" && parts[2] ? decodePathPart(parts[2]) : "";
+  }
+  function vocabularyPathReading(pathname) {
+    const parts = jpdbPathParts(pathname);
+    return parts[0] === "vocabulary" && parts[3] ? decodePathPart(parts[3]) : "";
+  }
+  function jpdbPathTerm(pathname) {
+    const parts = jpdbPathParts(pathname);
+    if (parts[0] === "vocabulary" && parts[2]) return decodePathPart(parts[2]);
+    if (parts[0] === "kanji" && parts[1]) return decodePathPart(parts[1]);
+    return "";
+  }
+  function jpdbPathParts(pathname) {
+    return pathname.split("/").filter(Boolean);
+  }
+  function sourceElements(root, selector) {
+    return Array.from(root.querySelectorAll(selector)).filter(isSourceElement);
+  }
+  function isSourceElement(element2) {
+    return !element2.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
+  }
+  function sourceTextContent(element2) {
+    return element2 && isSourceElement(element2) ? element2.textContent ?? "" : "";
+  }
+  function uniqueLookupValues(values) {
+    const seen = /* @__PURE__ */ new Set();
+    const result = [];
+    for (const value of values) {
+      const text2 = cleanText(value ?? "");
+      const key = text2.replace(/\s+/g, "").toLowerCase();
+      if (!text2 || seen.has(key)) continue;
+      seen.add(key);
+      result.push(text2);
+    }
+    return result;
+  }
+  const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
+  const VOCAB_COLUMN_SELECTOR = "div.flex.flex-col.max-w-2xl";
+  const HEADWORD_SELECTOR = [
+    '.text-3xl[lang="ja"]',
+    ".text-3xl.font-noto-sans",
+    '.text-4xl[lang="ja"]',
+    '.text-5xl[lang="ja"]',
+    '.text-6xl[lang="ja"]'
+  ].join(", ");
+  const KANJI_GLYPH_SELECTOR = ".text-9xl";
+  function isJitenHost() {
+    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
+  }
+  function isJitenKanjiPage() {
+    return location.pathname.startsWith("/kanji/");
+  }
+  function isJitenVocabPage() {
+    return location.pathname.startsWith("/vocabulary/") || location.pathname.startsWith("/parse");
+  }
+  function isJitenStudyPage() {
+    return location.pathname.startsWith("/srs/study");
+  }
+  function isJitenEnhanceablePage() {
+    return isJitenKanjiPage() || isJitenVocabPage() || isJitenStudyPage();
+  }
+  function extractCurrentJitenKanji() {
+    const parts = location.pathname.split("/").filter(Boolean);
+    const fromPath = parts[0] === "kanji" && parts[1] ? firstReviewGlyph(decodePathPart(parts[1])) ?? "" : "";
+    return fromPath || (firstReviewGlyph(document.querySelector(KANJI_GLYPH_SELECTOR)?.textContent ?? "") ?? "");
+  }
+  function currentJitenTermTarget() {
+    if (isJitenKanjiPage()) {
+      const kanji = extractCurrentJitenKanji();
+      return kanji ? { term: kanji, reading: kanji, queries: [kanji], examples: [], anchor: jitenKanjiAnchor() } : null;
+    }
+    const headword = jitenHeadword();
+    if (!headword) return null;
+    const anchor = jitenContentAnchor();
+    if (!anchor) return null;
+    return {
+      term: headword.term,
+      reading: headword.reading,
+      queries: uniqueLookupValues([headword.term, headword.reading, ...jitenAlternateForms()]),
+      examples: [],
+      anchor
+    };
+  }
+  function jitenContentAnchor() {
+    if (isJitenStudyPage()) return jitenStudyCardAnchor();
+    return jitenVocabAnchor();
+  }
+  function jitenStudyCardAnchor() {
+    if (jitenStudyAnswerHidden()) return null;
+    const wrap = ownedElement(document.querySelector(".relative.touch-pan-y"));
+    if (!wrap) return null;
+    const content = Array.from(wrap.children).find(
+      (child) => child instanceof HTMLElement && !/pointer-events-none/.test(String(child.className))
+    );
+    const card = content?.firstElementChild instanceof HTMLElement ? content.firstElementChild : content;
+    const last = card?.lastElementChild;
+    if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR)) return last;
+    return card ?? null;
+  }
+  function jitenStudyAnswerHidden() {
+    return Array.from(document.querySelectorAll("button")).some((button2) => /show answer/i.test(button2.textContent ?? ""));
+  }
+  function currentJitenLocalDictionaryTargets() {
+    if (isJitenKanjiPage()) {
+      const kanji = extractCurrentJitenKanji();
+      return kanji ? [{ term: kanji, reading: kanji, alternates: [kanji], compounds: [], examples: [], anchor: jitenKanjiAnchor() }] : [];
+    }
+    const headword = jitenHeadword();
+    if (!headword) return [];
+    const anchor = jitenContentAnchor();
+    if (!anchor) return [];
+    return [{
+      term: headword.term,
+      reading: headword.reading,
+      alternates: uniqueLookupValues([headword.reading, ...jitenAlternateForms()]),
+      compounds: [],
+      examples: [],
+      anchor
+    }];
+  }
+  function jitenHeadword() {
+    const element2 = ownedElement(document.querySelector(HEADWORD_SELECTOR));
+    const domTerm = element2 ? cleanText(extractBaseText(element2)) : "";
+    if (element2 && domTerm && JAPANESE_RE.test(domTerm)) {
+      return { term: domTerm, reading: cleanText(extractReadingText(element2)) || domTerm };
+    }
+    const titleTerm = termFromTitle();
+    return titleTerm ? { term: titleTerm, reading: titleTerm } : null;
+  }
+  function termFromTitle() {
+    const title = cleanText(document.title.replace(/\s*[-–—|].*$/, ""));
+    return JAPANESE_RE.test(title) ? title : "";
+  }
+  function jitenAlternateForms() {
+    const heading = Array.from(document.querySelectorAll("h1, h2, h3, h4")).find((node) => /^forms|別の表記|表記/i.test(cleanText(node.textContent ?? "")));
+    if (!heading?.parentElement) return [];
+    return Array.from(heading.parentElement.querySelectorAll('[lang="ja"], ruby')).map((node) => cleanText(extractBaseText(node))).filter((value) => value && JAPANESE_RE.test(value)).slice(0, 8);
+  }
+  function jitenVocabAnchor() {
+    const column = ownedElement(document.querySelector(VOCAB_COLUMN_SELECTOR));
+    const lastChild = column?.lastElementChild;
+    if (lastChild instanceof HTMLElement) return lastChild;
+    return column ?? document.querySelector("main") ?? document.body;
+  }
+  function jitenKanjiAnchor() {
+    const header = ownedElement(document.querySelector(".text-center"));
+    if (header) return header;
+    const glyphHeader = document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2");
+    return glyphHeader ?? document.querySelector("main") ?? document.body;
+  }
+  function ownedElement(element2) {
+    return element2 && !element2.closest(READER_OWNED_SELECTOR) ? element2 : null;
+  }
   function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
@@ -21646,7 +22208,7 @@ ${entry.reading || ""}`;
   function definitionSourceStateKey(sourceId) {
     return `definition-source:${sourceId}`;
   }
-  const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeStudySources", "includeImmersionSource"];
+  const DEFAULT_OPTION_KEYS = ["includeJpdbSource", "includeJitenSource", "includeStudySources", "includeImmersionSource"];
   const CORE_DEFINITION_SOURCE_RENDERERS = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
     [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
@@ -21682,7 +22244,11 @@ ${entry.reading || ""}`;
       grouped,
       dictionarySourceIds,
       extraSections,
-      includeJpdbSource: options.includeJpdbSource ?? true,
+      // A dictionary's own panel is redundant on its own site (the native
+      // jpdb.io / jiten.moe page already shows it), so suppress it there by
+      // default. Callers can still force it on with an explicit option.
+      includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
+      includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
       includeStudySources: options.includeStudySources ?? true,
       includeImmersionSource: options.includeImmersionSource ?? true,
       jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
@@ -21733,6 +22299,7 @@ ${entry.reading || ""}`;
     );
   }
   function renderJitenDefinitionSourceSection(context, params) {
+    if (!context.includeJitenSource) return "";
     return renderJitenDefinitionSource(
       context.card,
       params.sourceAttributes,
@@ -28885,568 +29452,6 @@ ${normalizedReading}`;
       failureLabel: "Public JPDB pitch request",
       timeoutLabel: "Public JPDB pitch request timed out."
     });
-  }
-  function isRubyAnnotation(element2) {
-    return element2.tagName === "RT" || element2.tagName === "RP";
-  }
-  function rubyReadingText(element2, fallback, rtText = defaultRubyText) {
-    let text2 = "";
-    let base = "";
-    element2.childNodes.forEach((child) => {
-      if (child.nodeType === Node.TEXT_NODE) {
-        base += child.textContent ?? "";
-        return;
-      }
-      if (child.nodeType !== Node.ELEMENT_NODE) return;
-      const childElement = child;
-      if (childElement.tagName === "RT") {
-        text2 += rtText(childElement, base);
-        base = "";
-        return;
-      }
-      if (childElement.tagName === "RP") return;
-      base += fallback(childElement);
-    });
-    return text2 + base || fallback(element2);
-  }
-  function defaultRubyText(element2, base) {
-    return element2.textContent || base;
-  }
-  function isJpdbHost() {
-    return location.hostname === "jpdb.io";
-  }
-  function isReviewPage() {
-    return location.pathname.startsWith("/review");
-  }
-  function isKanjiPage() {
-    return location.pathname.startsWith("/kanji/");
-  }
-  function isKanjiReviewFront() {
-    const state2 = currentReviewCardState();
-    return state2.isKanji && state2.phase === "before" && !hasReviewAnswerContent();
-  }
-  function isKanjiReviewBack() {
-    const state2 = currentReviewCardState();
-    return state2.isKanji && (state2.phase === "after" || hasReviewAnswerContent());
-  }
-  function hasReviewAnswerContent() {
-    return Boolean(document.querySelector(".review-reveal, .result.kanji .kanji, .answer-box .kanji, a.kanji.plain, .subsection-meanings"));
-  }
-  function currentReviewCardState() {
-    if (!isReviewPage()) return { kind: "", kanji: "", isKanji: false, phase: "none" };
-    const response = new URLSearchParams(location.search).get("r");
-    const cardValue = new URLSearchParams(location.search).get("c") ?? document.querySelector('input[name="c"]')?.value ?? "";
-    return parseJpdbReviewCardValue(cardValue, response);
-  }
-  function parseJpdbReviewCardValue(value, response = null) {
-    const parts = (value ?? "").split(",");
-    const kind = (parts[0] ?? "").trim();
-    const kanji = firstReviewGlyph(parts.slice(1).join(",")) ?? "";
-    const isKanji2 = kind.startsWith("k") && Boolean(kanji);
-    const phase = reviewCardPhase(isKanji2, response);
-    return { kind, kanji, isKanji: isKanji2, phase };
-  }
-  function reviewCardPhase(isKanji2, response) {
-    if (!isKanji2) return "none";
-    return response === "1" ? "after" : "before";
-  }
-  function extractCurrentKanji() {
-    return currentKanjiFromPath() || currentKanjiFromHiddenInput() || currentKanjiFromPageText();
-  }
-  function currentKanjiFromPath() {
-    const parts = location.pathname.split("/").filter(Boolean);
-    if (parts[0] === "kanji" && parts[1]) return firstReviewGlyph(decodeURIComponent(parts[1])) ?? "";
-    return "";
-  }
-  function currentKanjiFromHiddenInput() {
-    const hidden = document.querySelector('input[name="c"]')?.value ?? "";
-    const hiddenParts = hidden.split(",");
-    if (hiddenParts[0] === "kb" && hiddenParts[1]) return firstReviewGlyph(hiddenParts[1]) ?? "";
-    return "";
-  }
-  function currentKanjiFromPageText() {
-    return firstReviewGlyph(document.querySelector(".kanji, a.kanji.plain")?.textContent ?? "") ?? "";
-  }
-  function currentJpdbTermTarget() {
-    return currentKanjiTermTarget() ?? currentVocabularyTermTarget();
-  }
-  function currentKanjiTermTarget() {
-    const kanji = extractCurrentKanji();
-    if (!canReadCurrentKanjiTarget(kanji)) return null;
-    const anchor = currentKanjiAddonAnchor();
-    const queries = uniqueLookupValues([kanji, ...kanjiComponentTerms(document)]);
-    return { term: kanji, reading: kanji, queries: queries.length ? queries : [kanji], examples: extractPageExamples(document), anchor: anchor ?? document.body };
-  }
-  function canReadCurrentKanjiTarget(kanji) {
-    return Boolean(kanji && (isKanjiPage() || isKanjiReviewFront() || isKanjiReviewBack()));
-  }
-  function currentVocabularyTermTarget() {
-    const pageTerm = extractCurrentTermTarget();
-    const searchQuery = extractSearchQuery();
-    const term = currentVocabularyLookupTerm(pageTerm, searchQuery);
-    if (!term) return null;
-    const queries = vocabularyTermQueries(term, pageTerm, searchQuery);
-    return { term, reading: pageTerm?.reading || term, queries: queries.length ? queries : [term], examples: extractPageExamples(document), anchor: currentVocabularyAddonAnchor() };
-  }
-  function currentVocabularyLookupTerm(pageTerm, searchQuery) {
-    return isSearchPage() && searchQuery ? searchQuery : pageTerm?.term ?? "";
-  }
-  function currentVocabularyAddonAnchor() {
-    return firstElementForSelectors(VOCABULARY_ADDON_ANCHOR_SELECTORS) ?? document.body.firstElementChild ?? document.body;
-  }
-  const VOCABULARY_ADDON_ANCHOR_SELECTORS = [
-    ".subsection-meanings",
-    ".result.vocabulary",
-    ".subsection-used-in",
-    ".cross-table",
-    ".answer-box",
-    "main"
-  ];
-  function firstElementForSelectors(selectors) {
-    for (const selector of selectors) {
-      const element2 = document.querySelector(selector);
-      if (element2) return element2;
-    }
-    return null;
-  }
-  function vocabularyTermQueries(term, pageTerm, searchQuery) {
-    const searchTerms = searchResultTerms(8).flatMap((item) => [item.term, item.reading]);
-    return isSearchPage() ? uniqueLookupValues([searchQuery, pageTerm?.term, pageTerm?.reading, ...searchTerms]) : uniqueLookupValues([pageTerm?.term, pageTerm?.reading, term, ...searchTerms]);
-  }
-  function currentLocalDictionaryTargets() {
-    if (isDeckPage() || isSearchPage()) {
-      return sourceElements(document, ".result.vocabulary, .entry").map((section) => {
-        const term = extractTermFromElement(section);
-        const compounds2 = extractPageCompounds(section);
-        return term ? {
-          ...term,
-          alternates: uniqueLookupValues([term.reading, ...extractAlternateTerms(section), ...compounds2.flatMap((compound) => [compound.term, compound.reading])]),
-          compounds: compounds2,
-          examples: extractPageExamples(section),
-          anchor: section.querySelector(".subsection-meanings") ?? section
-        } : null;
-      }).filter((item) => item !== null).slice(0, 16);
-    }
-    const target = currentJpdbTermTarget();
-    if (!target) return [];
-    const compounds = extractPageCompounds(document);
-    return [{
-      term: target.term,
-      reading: target.reading,
-      alternates: uniqueLookupValues([...target.queries, ...extractAlternateTerms(document), ...compounds.flatMap((compound) => [compound.term, compound.reading])]),
-      compounds,
-      examples: extractPageExamples(document),
-      anchor: target.anchor
-    }];
-  }
-  function currentKanjiAddonAnchor() {
-    const mnemonic = mnemonicSiblingAnchor();
-    if (mnemonic) return mnemonic;
-    return firstElementForSelectors(KANJI_ADDON_ANCHOR_SELECTORS);
-  }
-  const KANJI_ADDON_ANCHOR_SELECTORS = [
-    ".result.kanji .vbox",
-    ".result.kanji",
-    ".answer-box",
-    ".bugfix",
-    "main"
-  ];
-  function mnemonicSiblingAnchor() {
-    const labels = Array.from(document.querySelectorAll("h6.subsection-label"));
-    const mnemonic = labels.find((label) => label.textContent?.trim().toLowerCase().startsWith("mnemonic"));
-    return mnemonic?.nextElementSibling instanceof HTMLElement ? mnemonic.nextElementSibling : null;
-  }
-  function kanjiComponentTerms(root) {
-    return sourceElements(root, '.subsection-composed-of-kanji a.plain, a[href^="/kanji/"]').map((element2) => cleanText(extractBaseText(element2)) || cleanText(element2.textContent ?? "")).filter((value) => value && JAPANESE_RE.test(value));
-  }
-  function extractPageCompounds(root) {
-    const entries = [];
-    const seen = /* @__PURE__ */ new Set();
-    for (const row of compoundRows(root)) {
-      const compound = readPageCompound(row);
-      if (!compound || seen.has(compound.term)) continue;
-      seen.add(compound.term);
-      entries.push(compound);
-    }
-    return entries.slice(0, 8);
-  }
-  function compoundRows(root) {
-    return compoundSections(root).flatMap(
-      (section) => Array.from(section.querySelectorAll(".subsection > div, .subsection .used-in"))
-    );
-  }
-  function compoundSections(root) {
-    return sourceElements(root, ".subsection-composed-of, .subsection-composed-of-vocabulary, .subsection-composed-of-kanji").filter(isComposedOfSection$1);
-  }
-  function isComposedOfSection$1(section) {
-    const label = cleanText(section.querySelector(".subsection-label")?.textContent ?? "").toLowerCase();
-    return !label || label.startsWith("composed of");
-  }
-  function readPageCompound(row) {
-    const link = compoundLink(row);
-    const spelling = compoundSpellingElement(row, link);
-    const term = readCompoundTerm(spelling, link);
-    if (!isJapaneseTerm$1(term)) return null;
-    return {
-      term,
-      reading: readCompoundReading(spelling, link, term),
-      meaning: cleanText(row.querySelector(".description, .en, .meaning")?.textContent ?? ""),
-      url: link?.getAttribute("href") ?? ""
-    };
-  }
-  function compoundLink(row) {
-    return sourceElements(row, 'a[href^="/vocabulary/"], a[href^="/kanji/"]')[0] ?? null;
-  }
-  function compoundSpellingElement(row, link) {
-    return row.querySelector('.spelling, .jp, .plain, a[href^="/vocabulary/"], a[href^="/kanji/"]') ?? link;
-  }
-  function readCompoundTerm(spelling, link) {
-    return cleanText(link ? jpdbPathTerm(link.pathname) : "") || cleanText(spelling ? extractBaseText(spelling) : "") || cleanText(sourceTextContent(spelling));
-  }
-  function readCompoundReading(spelling, link, term) {
-    return cleanText(link ? vocabularyPathReading(link.pathname) : "") || cleanText(spelling ? extractReadingText(spelling) : "") || term;
-  }
-  function extractPageExamples(root) {
-    const seen = /* @__PURE__ */ new Set();
-    const examples = [];
-    const sections = Array.from(root.querySelectorAll(".subsection-examples, .subsection-monolingual-examples"));
-    for (const section of sections) {
-      const rows = Array.from(section.querySelectorAll(".subsection > div, .example, li, p"));
-      for (const row of rows) {
-        const example = readPageExampleRow(row, seen);
-        if (example) examples.push(example);
-      }
-    }
-    return examples.slice(0, 5);
-  }
-  function readPageExampleRow(row, seen) {
-    const sentence = pageExampleSentence(row);
-    if (!shouldKeepPageExample(sentence, seen)) return null;
-    seen.add(sentence);
-    const translation = cleanText(row.querySelector(".translation, .en, .english")?.textContent ?? "");
-    return { sentence, translation };
-  }
-  function pageExampleSentence(row) {
-    const sentenceNode = row.querySelector(".sentence, .jp, .japanese, .plain") ?? row;
-    return cleanText(extractBaseText(sentenceNode)) || cleanText(sentenceNode.textContent ?? "");
-  }
-  function shouldKeepPageExample(sentence, seen) {
-    return isJapaneseTerm$1(sentence) && !seen.has(sentence);
-  }
-  function localDictionaryLookupVariants(target) {
-    const variants = [];
-    const compoundValues = new Set(target.compounds.flatMap((compound) => [
-      cleanText(compound.term),
-      cleanText(compound.reading)
-    ]).filter(Boolean));
-    const add = (term, reading = "") => {
-      const cleanTerm = cleanText(term);
-      const cleanReading = cleanText(reading);
-      if (!cleanTerm) return;
-      if (variants.some((item) => item.term === cleanTerm && item.reading === cleanReading)) return;
-      variants.push({ term: cleanTerm, reading: cleanReading });
-    };
-    add(target.term, target.reading);
-    add(target.reading);
-    for (const compound of target.compounds) {
-      add(compound.term, compound.reading);
-    }
-    for (const alternate of target.alternates) {
-      add(alternate, alternate === target.term ? target.reading : "");
-      if (target.reading && alternate !== target.reading && !compoundValues.has(cleanText(alternate))) add(alternate, target.reading);
-    }
-    return variants;
-  }
-  function uniqueLocalDictionaryEntries(entries) {
-    const seen = /* @__PURE__ */ new Set();
-    return entries.filter((entry) => {
-      const key = localDictionaryEntryKey(entry);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-  function localDictionaryEntryKey(entry) {
-    const glossaryKey = JSON.stringify(entry.glossary);
-    return entry.sequence !== void 0 ? `${entry.dictionary}
-sequence:${entry.sequence}
-${glossaryKey}` : `${entry.dictionary}
-${entry.expression}
-${entry.reading}
-${glossaryKey}`;
-  }
-  function dictionaryPreferencePriority(dictionary, settings) {
-    const preference = settings.dictionaryPreferences.find((item) => item.name === dictionary);
-    return preference?.priority ?? 999;
-  }
-  function jpdbAudioCard(term, reading) {
-    return {
-      vid: 0,
-      sid: 0,
-      rid: 0,
-      spelling: term,
-      reading: reading || term,
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [],
-      cardState: ["not-in-deck"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "local"
-    };
-  }
-  function isDeckPage() {
-    return location.pathname.startsWith("/deck");
-  }
-  function isSearchPage() {
-    return location.pathname.startsWith("/search");
-  }
-  function extractCurrentTermTarget() {
-    const fromPage = extractTermFromElement(document.body);
-    const fromUrl = extractTermFromUrl();
-    if (fromUrl) {
-      const pageReading = fromPage?.term === fromUrl ? fromPage.reading : "";
-      return { term: fromUrl, reading: extractReadingFromUrl() || pageReading || fromUrl };
-    }
-    return fromPage;
-  }
-  function extractSearchQuery() {
-    if (!isSearchPage()) return "";
-    return cleanText(new URLSearchParams(location.search).get("q") ?? "");
-  }
-  function extractTermFromUrl() {
-    return jpdbPathTerm(location.pathname);
-  }
-  function extractReadingFromUrl() {
-    return vocabularyPathReading(location.pathname);
-  }
-  function decodePathPart(value) {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  }
-  function extractTermFromElement(root) {
-    for (const selector of TERM_TARGET_SELECTORS) {
-      const element2 = sourceElements(root, selector)[0];
-      if (!element2) continue;
-      const target = termTargetFromElement(element2);
-      if (target) return target;
-    }
-    return null;
-  }
-  const TERM_TARGET_SELECTORS = [
-    ".vocabulary-spelling a",
-    ".vocabulary-spelling",
-    ".horizontal-spelling",
-    ".subsection-spelling",
-    ".answer-box .plain",
-    ".plain"
-  ];
-  function termTargetFromElement(element2) {
-    const term = cleanText(extractBaseText(element2)) || cleanText(sourceTextContent(element2));
-    if (!isJapaneseTerm$1(term)) return null;
-    const reading = cleanText(extractReadingText(element2)) || term;
-    return { term, reading };
-  }
-  function extractBaseText(root) {
-    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
-    if (root.nodeType !== Node.ELEMENT_NODE) return "";
-    return extractBaseElementText(root);
-  }
-  function extractBaseElementText(element2) {
-    if (isIgnoredSourceTextElement(element2)) return "";
-    return Array.from(element2.childNodes).map(extractBaseText).join("");
-  }
-  function extractReadingText(root) {
-    if (root.nodeType === Node.TEXT_NODE) return root.textContent ?? "";
-    if (root.nodeType !== Node.ELEMENT_NODE) return "";
-    return extractReadingElementText(root);
-  }
-  function extractReadingElementText(element2) {
-    if (isIgnoredSourceTextElement(element2)) return "";
-    if (element2.tagName === "RUBY") return rubyReadingText(element2, extractBaseText, generatedAwareRubyText);
-    return Array.from(element2.childNodes).map(extractReadingText).join("");
-  }
-  function isJapaneseTerm$1(value) {
-    return Boolean(value && JAPANESE_RE.test(value));
-  }
-  function isIgnoredSourceTextElement(element2) {
-    return isRubyAnnotation(element2) || isGeneratedReaderAnnotation(element2) || element2.matches("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
-  }
-  function isGeneratedReaderAnnotation(element2) {
-    return element2.matches('[data-jpdb-reader-surface-ignore="true"], .jpdb-reader-furi, .jpdb-ocr-furi');
-  }
-  function generatedAwareRubyText(element2, base) {
-    return isGeneratedReaderAnnotation(element2) ? base : element2.textContent || base;
-  }
-  function extractAlternateTerms(root) {
-    return sourceElements(root, '.subsection-other-spellings .alt-spelling, .alt-spelling, a[href^="/vocabulary/"]').flatMap((element2) => {
-      const fromText = cleanText(extractBaseText(element2)) || cleanText(sourceTextContent(element2));
-      const href = element2 instanceof HTMLAnchorElement ? element2 : element2.querySelector('a[href^="/vocabulary/"]');
-      const fromHref = href ? vocabularyPathTerm(href.pathname) : "";
-      return [fromText, fromHref];
-    }).filter((value) => value && JAPANESE_RE.test(value));
-  }
-  function searchResultTerms(limit) {
-    if (!isSearchPage()) return [];
-    return sourceElements(document, ".result.vocabulary, .entry").map((section) => extractTermFromElement(section)).filter((item) => item !== null).slice(0, limit);
-  }
-  function vocabularyPathTerm(pathname) {
-    const parts = jpdbPathParts(pathname);
-    return parts[0] === "vocabulary" && parts[2] ? decodePathPart(parts[2]) : "";
-  }
-  function vocabularyPathReading(pathname) {
-    const parts = jpdbPathParts(pathname);
-    return parts[0] === "vocabulary" && parts[3] ? decodePathPart(parts[3]) : "";
-  }
-  function jpdbPathTerm(pathname) {
-    const parts = jpdbPathParts(pathname);
-    if (parts[0] === "vocabulary" && parts[2]) return decodePathPart(parts[2]);
-    if (parts[0] === "kanji" && parts[1]) return decodePathPart(parts[1]);
-    return "";
-  }
-  function jpdbPathParts(pathname) {
-    return pathname.split("/").filter(Boolean);
-  }
-  function sourceElements(root, selector) {
-    return Array.from(root.querySelectorAll(selector)).filter(isSourceElement);
-  }
-  function isSourceElement(element2) {
-    return !element2.closest("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
-  }
-  function sourceTextContent(element2) {
-    return element2 && isSourceElement(element2) ? element2.textContent ?? "" : "";
-  }
-  function uniqueLookupValues(values) {
-    const seen = /* @__PURE__ */ new Set();
-    const result = [];
-    for (const value of values) {
-      const text2 = cleanText(value ?? "");
-      const key = text2.replace(/\s+/g, "").toLowerCase();
-      if (!text2 || seen.has(key)) continue;
-      seen.add(key);
-      result.push(text2);
-    }
-    return result;
-  }
-  const READER_OWNED_SELECTOR = "[data-jpdb-reader-root], [data-yomu-jpdb-addon]";
-  const VOCAB_COLUMN_SELECTOR = "div.flex.flex-col.max-w-2xl";
-  const HEADWORD_SELECTOR = [
-    '.text-3xl[lang="ja"]',
-    ".text-3xl.font-noto-sans",
-    '.text-4xl[lang="ja"]',
-    '.text-5xl[lang="ja"]',
-    '.text-6xl[lang="ja"]'
-  ].join(", ");
-  const KANJI_GLYPH_SELECTOR = ".text-9xl";
-  function isJitenHost() {
-    return location.hostname === "jiten.moe" || location.hostname.endsWith(".jiten.moe");
-  }
-  function isJitenKanjiPage() {
-    return location.pathname.startsWith("/kanji/");
-  }
-  function isJitenVocabPage() {
-    return location.pathname.startsWith("/vocabulary/") || location.pathname.startsWith("/parse");
-  }
-  function isJitenStudyPage() {
-    return location.pathname.startsWith("/srs/study");
-  }
-  function isJitenEnhanceablePage() {
-    return isJitenKanjiPage() || isJitenVocabPage() || isJitenStudyPage();
-  }
-  function extractCurrentJitenKanji() {
-    const parts = location.pathname.split("/").filter(Boolean);
-    const fromPath = parts[0] === "kanji" && parts[1] ? firstReviewGlyph(decodePathPart(parts[1])) ?? "" : "";
-    return fromPath || (firstReviewGlyph(document.querySelector(KANJI_GLYPH_SELECTOR)?.textContent ?? "") ?? "");
-  }
-  function currentJitenTermTarget() {
-    if (isJitenKanjiPage()) {
-      const kanji = extractCurrentJitenKanji();
-      return kanji ? { term: kanji, reading: kanji, queries: [kanji], examples: [], anchor: jitenKanjiAnchor() } : null;
-    }
-    const headword = jitenHeadword();
-    if (!headword) return null;
-    const anchor = jitenContentAnchor();
-    if (!anchor) return null;
-    return {
-      term: headword.term,
-      reading: headword.reading,
-      queries: uniqueLookupValues([headword.term, headword.reading, ...jitenAlternateForms()]),
-      examples: [],
-      anchor
-    };
-  }
-  function jitenContentAnchor() {
-    if (isJitenStudyPage()) return jitenStudyCardAnchor();
-    return jitenVocabAnchor();
-  }
-  function jitenStudyCardAnchor() {
-    if (jitenStudyAnswerHidden()) return null;
-    const wrap = ownedElement(document.querySelector(".relative.touch-pan-y"));
-    if (!wrap) return null;
-    const content = Array.from(wrap.children).find(
-      (child) => child instanceof HTMLElement && !/pointer-events-none/.test(String(child.className))
-    );
-    const card = content?.firstElementChild instanceof HTMLElement ? content.firstElementChild : content;
-    const last = card?.lastElementChild;
-    if (last instanceof HTMLElement && !last.closest(READER_OWNED_SELECTOR)) return last;
-    return card ?? null;
-  }
-  function jitenStudyAnswerHidden() {
-    return Array.from(document.querySelectorAll("button")).some((button2) => /show answer/i.test(button2.textContent ?? ""));
-  }
-  function currentJitenLocalDictionaryTargets() {
-    if (isJitenKanjiPage()) {
-      const kanji = extractCurrentJitenKanji();
-      return kanji ? [{ term: kanji, reading: kanji, alternates: [kanji], compounds: [], examples: [], anchor: jitenKanjiAnchor() }] : [];
-    }
-    const headword = jitenHeadword();
-    if (!headword) return [];
-    const anchor = jitenContentAnchor();
-    if (!anchor) return [];
-    return [{
-      term: headword.term,
-      reading: headword.reading,
-      alternates: uniqueLookupValues([headword.reading, ...jitenAlternateForms()]),
-      compounds: [],
-      examples: [],
-      anchor
-    }];
-  }
-  function jitenHeadword() {
-    const element2 = ownedElement(document.querySelector(HEADWORD_SELECTOR));
-    const domTerm = element2 ? cleanText(extractBaseText(element2)) : "";
-    if (element2 && domTerm && JAPANESE_RE.test(domTerm)) {
-      return { term: domTerm, reading: cleanText(extractReadingText(element2)) || domTerm };
-    }
-    const titleTerm = termFromTitle();
-    return titleTerm ? { term: titleTerm, reading: titleTerm } : null;
-  }
-  function termFromTitle() {
-    const title = cleanText(document.title.replace(/\s*[-–—|].*$/, ""));
-    return JAPANESE_RE.test(title) ? title : "";
-  }
-  function jitenAlternateForms() {
-    const heading = Array.from(document.querySelectorAll("h1, h2, h3, h4")).find((node) => /^forms|別の表記|表記/i.test(cleanText(node.textContent ?? "")));
-    if (!heading?.parentElement) return [];
-    return Array.from(heading.parentElement.querySelectorAll('[lang="ja"], ruby')).map((node) => cleanText(extractBaseText(node))).filter((value) => value && JAPANESE_RE.test(value)).slice(0, 8);
-  }
-  function jitenVocabAnchor() {
-    const column = ownedElement(document.querySelector(VOCAB_COLUMN_SELECTOR));
-    const lastChild = column?.lastElementChild;
-    if (lastChild instanceof HTMLElement) return lastChild;
-    return column ?? document.querySelector("main") ?? document.body;
-  }
-  function jitenKanjiAnchor() {
-    const header = ownedElement(document.querySelector(".text-center"));
-    if (header) return header;
-    const glyphHeader = document.querySelector(KANJI_GLYPH_SELECTOR)?.closest(".space-y-2");
-    return glyphHeader ?? document.querySelector("main") ?? document.body;
-  }
-  function ownedElement(element2) {
-    return element2 && !element2.closest(READER_OWNED_SELECTOR) ? element2 : null;
   }
   function isPageEnhancementHost() {
     return isJpdbHost() || isJitenHost();
@@ -38338,7 +38343,7 @@ ${glossaryKey}`;
     }
     hasJpdbPageWordContent(entries, data) {
       return Boolean(
-        entries.length || data?.jpdbVocabularyInfo || data?.jitenVocabularyInfo || this.settings.immersionKitEnabled
+        entries.length || data?.jpdbVocabularyInfo && !isJpdbHost() || data?.jitenVocabularyInfo && !isJitenHost() || this.settings.immersionKitEnabled
       );
     }
     jpdbPageWordCard(target) {

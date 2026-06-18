@@ -2,6 +2,8 @@ import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JP
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from './definition-render';
 import { uiText } from '../app/i18n';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
+import { isJitenHost } from '../jiten/jiten-page-targets';
+import { isJpdbHost } from '../jpdb/jpdb-page-targets';
 import { renderJitenDefinitionSource } from '../jiten/jiten-definition-source-render';
 import { orderedDefinitionSourceIds } from './sections';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
@@ -16,6 +18,7 @@ type CoreDefinitionSourceRenderer = (context: DefinitionSourceStackContext, para
 
 export interface DefinitionSourceStackOptions {
     includeJpdbSource?: boolean;
+    includeJitenSource?: boolean;
     includeStudySources?: boolean;
     includeImmersionSource?: boolean;
 }
@@ -29,6 +32,7 @@ interface DefinitionSourceStackContext {
     dictionarySourceIds: string[];
     extraSections: Record<string, string>;
     includeJpdbSource: boolean;
+    includeJitenSource: boolean;
     includeStudySources: boolean;
     includeImmersionSource: boolean;
     jpdbVocabularyInfo: JpdbVocabularyInfo | null;
@@ -59,7 +63,7 @@ interface DefinitionSourceSectionRender {
     renderedDictionaries: boolean;
 }
 
-const DEFAULT_OPTION_KEYS: DefinitionSourceStackOptionKey[] = ['includeJpdbSource', 'includeStudySources', 'includeImmersionSource'];
+const DEFAULT_OPTION_KEYS: DefinitionSourceStackOptionKey[] = ['includeJpdbSource', 'includeJitenSource', 'includeStudySources', 'includeImmersionSource'];
 const CORE_DEFINITION_SOURCE_RENDERERS: Record<string, CoreDefinitionSourceRenderer> = {
     [JPDB_DEFINITION_SOURCE_ID]: renderJpdbDefinitionSourceSection,
     [JITEN_DEFINITION_SOURCE_ID]: renderJitenDefinitionSourceSection,
@@ -100,7 +104,11 @@ function definitionSourceStackContext(params: RenderDefinitionSourcesStackParams
         grouped,
         dictionarySourceIds,
         extraSections,
-        includeJpdbSource: options.includeJpdbSource ?? true,
+        // A dictionary's own panel is redundant on its own site (the native
+        // jpdb.io / jiten.moe page already shows it), so suppress it there by
+        // default. Callers can still force it on with an explicit option.
+        includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
+        includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
         includeStudySources: options.includeStudySources ?? true,
         includeImmersionSource: options.includeImmersionSource ?? true,
         jpdbVocabularyInfo: params.jpdbVocabularyInfo ?? null,
@@ -173,6 +181,7 @@ function renderJpdbDefinitionSourceSection(context: DefinitionSourceStackContext
 }
 
 function renderJitenDefinitionSourceSection(context: DefinitionSourceStackContext, params: RenderDefinitionSourcesStackParams): string {
+    if (!context.includeJitenSource) return '';
     return renderJitenDefinitionSource(
         context.card,
         params.sourceAttributes,

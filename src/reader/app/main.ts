@@ -65,6 +65,7 @@ import { renderedJpdbRelatedWords } from '../jpdb/jpdb-related-words';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import {
     dictionaryPreferencePriority as jpdbPageDictionaryPreferencePriority,
+    isJpdbHost,
     jpdbAudioCard,
     localDictionaryLookupVariants,
     uniqueLocalDictionaryEntries,
@@ -1287,10 +1288,13 @@ export class ReaderApp {
     }
 
     private hasJpdbPageWordContent(entries: YomitanTermEntry[], data: CardRenderData | null): boolean {
+        // The addon's job on a dictionary's own site is to add sources the native
+        // page lacks, so the self-site source (suppressed in renderDefinitionSources)
+        // doesn't count as content — otherwise it leaves an empty "No definitions" box.
         return Boolean(
             entries.length
-            || data?.jpdbVocabularyInfo
-            || data?.jitenVocabularyInfo
+            || (data?.jpdbVocabularyInfo && !isJpdbHost())
+            || (data?.jitenVocabularyInfo && !isJitenHost())
             || this.settings.immersionKitEnabled,
         );
     }

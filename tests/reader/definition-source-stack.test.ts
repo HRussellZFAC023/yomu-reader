@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
@@ -237,5 +237,68 @@ describe('definition source stack', () => {
 
         expect(html).toContain('data-source="jiten"');
         expect(html).not.toContain('data-source="jpdb"');
+    });
+});
+
+describe('definition source stack host suppression', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    function jitenBackedCard(): JPDBCard {
+        return card({
+            source: 'jiten',
+            jitenWordId: 10,
+            jitenReadingIndex: 0,
+            spelling: '大学',
+            reading: 'だいがく',
+            meanings: [{ glosses: ['JPDB meaning only'], partOfSpeech: [] }],
+        });
+    }
+
+    it('suppresses the Jiten source on jiten.moe but keeps JPDB', () => {
+        vi.stubGlobal('location', { hostname: 'jiten.moe', pathname: '/parse' });
+        const html = renderSources(jitenBackedCard(), DEFAULT_SETTINGS, undefined, jitenInfo(['university; college']), [], {
+            meanings: ['JPDB public meaning'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        });
+
+        expect(html).not.toContain('data-source="jiten"');
+        expect(html).toContain('data-source="jpdb"');
+    });
+
+    it('suppresses the JPDB source on jpdb.io but keeps Jiten', () => {
+        vi.stubGlobal('location', { hostname: 'jpdb.io', pathname: '/vocabulary' });
+        const html = renderSources(jitenBackedCard(), DEFAULT_SETTINGS, undefined, jitenInfo(['university; college']), [], {
+            meanings: ['JPDB public meaning'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        });
+
+        expect(html).toContain('data-source="jiten"');
+        expect(html).not.toContain('data-source="jpdb"');
+    });
+
+    it('renders both sources off-site (e.g. while reading on a third-party page)', () => {
+        vi.stubGlobal('location', { hostname: 'example.com', pathname: '/' });
+        const html = renderSources(jitenBackedCard(), DEFAULT_SETTINGS, undefined, jitenInfo(['university; college']), [], {
+            meanings: ['JPDB public meaning'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        });
+
+        expect(html).toContain('data-source="jiten"');
+        expect(html).toContain('data-source="jpdb"');
+    });
+
+    it('lets an explicit includeJitenSource override the on-site default', () => {
+        vi.stubGlobal('location', { hostname: 'jiten.moe', pathname: '/parse' });
+        const html = renderSources(jitenBackedCard(), DEFAULT_SETTINGS, { includeJitenSource: true }, jitenInfo(['university; college']));
+
+        expect(html).toContain('data-source="jiten"');
     });
 });

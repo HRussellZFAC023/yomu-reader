@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.2] - 2026-06-18
+
+### Fixed
+
+- The JPDB and Jiten definition panels are no longer shown on their own sites — on `jiten.moe` the redundant **Jiten** panel (definitions + "used in vocabulary") is suppressed, and on `jpdb.io` the **JPDB** panel is suppressed, since the native page already shows that source. Other added sources (your dictionaries, Immersion Kit, kanji practice, study tools) still appear, and both panels remain available everywhere else. The native-page addon no longer leaves an empty "No definitions" box when the self-site source was its only content.
+
 ## [1.4.1] - 2026-06-18
 
 ### Added
