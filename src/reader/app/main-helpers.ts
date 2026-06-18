@@ -41,6 +41,7 @@ export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
+const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 export const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 export const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
 export const PITCH_LOCAL_META_LIMIT = 12;
@@ -186,7 +187,7 @@ export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compac
 
 export function nestedPitchEnrichmentOptionsForHost(hostname: string): PitchEnrichmentOptions {
     if (isYouTubeHostname(hostname)) return { publicLookup: false };
-    return { publicLookup: false };
+    return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
 }
 
 export function visibleAutoScanMutationDelay(defaultDelay = 450): number {

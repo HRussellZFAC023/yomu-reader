@@ -82,7 +82,7 @@ describe('reader runtime helpers', () => {
 
     it('keeps no-key YouTube page pitch enrichment bounded but enabled', () => {
         expect(backgroundPitchEnrichmentOptionsForHost('example.com')).toEqual({ publicLookup: false });
-        expect(nestedPitchEnrichmentOptionsForHost('example.com')).toEqual({ publicLookup: false });
+        expect(nestedPitchEnrichmentOptionsForHost('example.com')).toEqual({ publicLookupLimit: 3 });
         expect(backgroundPitchEnrichmentOptionsForHost('www.youtube.com')).toEqual({
             publicLookupLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
             publicLookupTotalLimit: YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
