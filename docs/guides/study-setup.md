@@ -93,7 +93,7 @@ No. They overlap and you can use any one of them. A common combination is a dict
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/jpdb-study">JPDB study page</a>
+  <a class="yomu-cta-button" href="/yomu-reader/tools/study-page">Study page</a>
   <a class="yomu-cta-button" href="/yomu-reader/guides/mine-sentences-to-anki">Mine sentences to Anki</a>
   <a class="yomu-cta-button" href="/yomu-reader/features">All features</a>
 </div>

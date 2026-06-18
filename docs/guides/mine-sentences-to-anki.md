@@ -29,7 +29,7 @@ You need three free pieces:
 - **Anki** — the spaced-repetition app, free on desktop.
 - **AnkiConnect** — a free Anki add-on that lets Yomu push cards into your deck automatically.
 
-If you would rather review inside [JPDB](/tools/jpdb-study) than Anki, Yomu can mine to JPDB instead — the same tap-to-card flow, a different destination. Pick whichever you already review in daily; the worst card is the one you never see again.
+If you would rather review inside [JPDB](/tools/study-page) than Anki, Yomu can mine to JPDB instead — the same tap-to-card flow, a different destination. Pick whichever you already review in daily; the worst card is the one you never see again.
 
 ## Workflow on YouTube
 
@@ -52,7 +52,7 @@ For anime episodes, drama or anything with a local subtitle file, use the free h
 A mined card carries the pieces you need to recall the word in context:
 
 - **Word** and **reading** (with furigana).
-- **Meaning** — from JPDB and any [Yomitan dictionaries](/guides/yomitan-jpdb-anki) you've imported.
+- **Meaning** — from JPDB and any [Yomitan dictionaries](/guides/study-setup) you've imported.
 - **Source sentence** — the full subtitle line it came from.
 - **Audio** — pronunciation of the word, and where available the sentence audio.
 - **Image** — an optional screenshot of the video frame for a visual cue.
@@ -87,5 +87,5 @@ Yes. AnkiConnect runs on a desktop copy of Anki, and Yomu on your phone or iPad 
   <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
   <a class="yomu-cta-button" href="/yomu-reader/tools/japanese-subtitle-reader">Subtitle reader</a>
   <a class="yomu-cta-button" href="/yomu-reader/guides/comprehensible-input-youtube">Comprehensible input on YouTube</a>
-  <a class="yomu-cta-button" href="/yomu-reader/guides/yomitan-jpdb-anki">Yomitan + JPDB + Anki</a>
+  <a class="yomu-cta-button" href="/yomu-reader/guides/study-setup">Yomitan + JPDB + Anki</a>
 </div>

@@ -62,4 +62,4 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
   <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
 </div>
 
-**Related guide:** [Yomitan vs JPDB vs Anki: which to use when](/guides/yomitan-jpdb-anki).
+**Related guide:** [Yomitan vs JPDB vs Anki: which to use when](/guides/study-setup).

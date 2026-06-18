@@ -30,7 +30,7 @@ Everything here is **free**, runs **in your browser**, and needs **no account** 
     <strong>Subtitle miner &amp; video reader</strong>
     <span>Turn Japanese subtitles into tappable words on YouTube and your own video files.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/tools/jpdb-study">
+  <a class="yomu-link-card" href="/yomu-reader/tools/study-page">
     <strong>Study &amp; review</strong>
     <span>A new-tab study page that reviews Jiten, JPDB, Anki, or imported dictionary cards.</span>
   </a>

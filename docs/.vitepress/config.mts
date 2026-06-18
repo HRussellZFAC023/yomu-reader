@@ -231,7 +231,7 @@ export default defineConfig({
                     { text: 'PDF Reader', link: pdfReaderLink, target: '_self' },
                     { text: 'Furigana reader', link: '/tools/furigana-reader' },
                     { text: 'Kanji stroke order', link: '/tools/kanji-stroke-order' },
-                    { text: 'Study page', link: '/tools/jpdb-study' },
+                    { text: 'Study page', link: '/tools/study-page' },
                     { text: 'YouTube for Japanese', link: '/tools/youtube-japanese' },
                 ],
             },
@@ -242,7 +242,7 @@ export default defineConfig({
                     { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
                     { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
                     { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
-                    { text: 'Study setup', link: '/guides/yomitan-jpdb-anki' },
+                    { text: 'Study setup', link: '/guides/study-setup' },
                 ],
             },
             {

@@ -28,7 +28,7 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
     <strong>Comprehensible-input YouTube</strong>
     <span>Filter YouTube into a Japanese feed, plus a levelled list of channels from N5 to N1.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/guides/yomitan-jpdb-anki">
+  <a class="yomu-link-card" href="/yomu-reader/guides/study-setup">
     <strong>Yomitan vs JPDB vs Anki</strong>
     <span>What each one is for, and how to use any or all of them from one popup.</span>
   </a>
