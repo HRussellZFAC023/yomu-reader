@@ -86,5 +86,7 @@ jobs:
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
       - run: npm run verify
-      - run: npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        timeout-minutes: 5
+        run: npx playwright install chromium
       - run: npm run smoke:p0

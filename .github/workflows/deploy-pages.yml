@@ -32,7 +32,7 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -53,7 +53,9 @@ jobs:
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
       - run: npm run verify
-      - run: npx playwright install --with-deps chromium
+      - name: Install Playwright Chromium
+        timeout-minutes: 5
+        run: npx playwright install chromium
       - run: npm run smoke:p0
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5
