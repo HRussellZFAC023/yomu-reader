@@ -25,7 +25,6 @@ export const RENDERED_KANA_EXPANSION_EXACT_MATCH_WAIT_MS = 450;
 export const HOVER_ANKI_HYDRATION_DELAY_MS = 180;
 export const PITCH_ENRICHMENT_LIMIT = 12;
 export const PITCH_ENRICHMENT_QUEUE_LIMIT = 240;
-const BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT = 8;
 export const PUBLIC_FALLBACK_SPELLING_SEARCH_LIMIT = 6;
 export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 10;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT = 6;
@@ -42,7 +41,6 @@ export const YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 64;
 export const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
 export const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
-const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
 export const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 30_000;
 export const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
 export const PITCH_LOCAL_META_LIMIT = 12;
@@ -170,7 +168,7 @@ export function isYouTubeHostname(hostname = location.hostname): boolean {
 
 export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compactViewport = false): PitchEnrichmentOptions {
     if (!isYouTubeHostname(hostname)) {
-        return { publicLookupLimit: BACKGROUND_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+        return { publicLookup: false };
     }
     return {
         publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
@@ -188,7 +186,7 @@ export function backgroundPitchEnrichmentOptionsForHost(hostname: string, compac
 
 export function nestedPitchEnrichmentOptionsForHost(hostname: string): PitchEnrichmentOptions {
     if (isYouTubeHostname(hostname)) return { publicLookup: false };
-    return { publicLookupLimit: NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT };
+    return { publicLookup: false };
 }
 
 export function visibleAutoScanMutationDelay(defaultDelay = 450): number {
