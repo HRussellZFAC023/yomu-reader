@@ -29,7 +29,7 @@ For look-and-feel acceptance, do not use mocked fixture screenshots as proof. Fi
 - Always push completed changes and trigger the relevant redeploy before finishing, unless the user explicitly says not to.
 - Preserve iPhone/iPad Tampermonkey friendliness.
 - Prefer local/imported data and optional runtime lookups over bundling large datasets.
-- Treat external kanji/etymology sources as license-sensitive. Check `docs/kanji-source-research.md` before adding a source.
+- Treat external kanji/etymology sources as license-sensitive. Verify licensing and attribution before adding a source.
 - Keep visible product naming as `よむ` and the built userscript as `dist/yomu.user.js`.
 - When adding user-visible app or website copy, add both English and Japanese entries in `src/reader/i18n.ts`, verify Japanese mode does not show `未翻訳`, and rebuild/sync hosted assets so `docs/public/newtab/app.js` carries the new copy.
 - Update `dist/yomu.user.js` by running the build when source changes affect the bundle.

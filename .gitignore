@@ -21,3 +21,12 @@ docs/.vitepress/dist/
 .module-sizes-baseline.json
 .module-sizes.json
 .size-report/
+/*_FEEDBACK_AUDIT.md
+/*-PLAN.md
+/P0_BACKLOG_*.md
+/docs/*-backlog.md
+/docs/*-parity.md
+/docs/*-research.md
+/docs/research/
+/scripts/*-probe.mjs
+/scripts/*-repro.mjs

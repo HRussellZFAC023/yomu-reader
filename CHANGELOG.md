@@ -528,10 +528,6 @@
 - Selection popover word buttons no longer fall through to the page word underneath the popover. Because the popover overlaps page text, clicking a parsed token could resolve the underlying word by point geometry and open *its* dictionary at the wrong location (shifting the popover); document click handling now ignores clicks on the popover's own controls.
 - Text selection now opens the lookup popover consistently once the selection settles, including iPad selection-handle and loupe adjustments that do not emit a fresh `mouseup`/`touchend` — a debounced `selectionchange` trigger covers them.
 
-### Added
-
-- Simulated user-research notes and a ranked backlog for the selection feature (`docs/research/selection-popover-research.md`).
-
 ## [0.7.78] - 2026-06-16
 
 ### Fixed
@@ -1326,10 +1322,6 @@
 
 - Words Jiten doesn't track were silently treated as "mature" — coloring them as known and hiding their furigana on jiten.moe pages. They are now neutral (not-in-deck), so untracked words keep honest colors and visible furigana.
 
-### Added
-
-- Engineering survey of 8 comparable furigana/reader extensions in docs/research/furigana-survey.md, with ranked adoption ideas (UT-80).
-
 ## [0.6.180] - 2026-06-13
 
 ### Changed
@@ -1993,7 +1985,7 @@
 
 ### Added
 
-- Stats tab now opens with a JPDB-style learning-progress table — 'Learning | You know' columns with the Words row (total, learning count, known count and percentage) and a 'Total known vocabulary' line — for whichever provider is selected (JPDB, Jiten, Anki, or combined). First slice of the study-hub parity plan (docs/study-hub-parity.md).
+- Stats tab now opens with a JPDB-style learning-progress table — 'Learning | You know' columns with the Words row (total, learning count, known count and percentage) and a 'Total known vocabulary' line — for whichever provider is selected (JPDB, Jiten, Anki, or combined).
 
 ## [0.6.88] - 2026-06-11
 
@@ -2099,10 +2091,6 @@
 
 - CI dead-code check: `JpdbClient.ping` is reached through the settings dialog's dependency interface, which the static analyzer cannot trace — marked with the same used-via-interface pragma as `parse()` (the 0.6.71 CI run flagged it).
 
-### Added
-
-- `smoke:youtube-grid`: a desktop Playwright probe for the home-feed filter layout — asserts no empty visible section bands, every visible row's first item carries the margin-compensation marker, and no visible cards overlap. Companion to the 0.6.70 grid-rebalance fix.
-
 ## [0.6.71] - 2026-06-10
 
 ### Added
@@ -2122,9 +2110,8 @@
 
 ### Fixed
 
-- m.youtube action chips (共有/保存/報告/チャンネル登録) no longer collapse into stacked, overlapping characters that spilled into the description area: scanned words inside passive UI controls now respect the host's nowrap contract instead of re-enabling per-character wrapping (the prose-wrapping rule from 0.4.47 now excludes `.jpdb-reader-passive-word`). Reproduced and verified fixed in an iPhone-profile Playwright probe against the live watch page (`npm run smoke:mobile-youtube`).
+- m.youtube action chips (共有/保存/報告/チャンネル登録) no longer collapse into stacked, overlapping characters that spilled into the description area: scanned words inside passive UI controls now respect the host's nowrap contract instead of re-enabling per-character wrapping (the prose-wrapping rule from 0.4.47 now excludes `.jpdb-reader-passive-word`).
 - New-tab auto review no longer shows the same word twice when providers disagree on kana script (JPDB ベッド vs Anki べっど): the cross-provider dedupe key is now kana-insensitive.
-- CI dead-code check: registered the new mobile probe as `smoke:mobile-youtube` (the 0.6.68 CI run flagged the unregistered script).
 
 ## [0.6.68] - 2026-06-10
 
@@ -2194,10 +2181,6 @@
 - Subtitles no longer render punctuation-only cues (a lone 。 or ?) as their own rows: sentence splitting merges trailing punctuation into the preceding line and contentless cues are dropped.
 - Pitch-underline mode no longer flashes a colorless underline before the pitch class arrives — undetermined words keep a transparent underline.
 - The channel-suggestions shelf now says "You are subscribed to all of these channels" when there is nothing left to suggest, instead of showing an empty list (or appearing broken).
-
-### Notes
-
-- The remaining items from the critical batch (sites missing ruby/colorisation like Google Maps and claude.ai, just-in-time pitch colors during playback, jiten /parse direct-load mount race, expression-level pitch, per-kanji jukugo ruby, nihongotube-informed feed smoothness) are recorded as P0 in docs/refactor-backlog.md with reproduction notes.
 
 ## [0.6.61] - 2026-06-10
 
@@ -2275,8 +2258,6 @@
 ### Added
 
 - New `smoke:study-personas` Playwright harness that simulates users on the study page across environments — keyless beginner (desktop + 390x844 mobile) and a reviewer whose Jiten API is unreachable — gathering timing/labeling/console feedback. All personas pass; the degraded-reviewer run verifies end-to-end that the "No reviews ready — showing practice words" notice appears exactly when configured review sources fail and never for keyless users.
-- Recorded the full JPDB/Jiten/Anki capability parity matrix in docs/refactor-backlog.md (new-tab queue, kanji study, grading, mining attachments, deck states, stats, audio, status colors, offline behavior) with the real gaps ranked: Anki deck-state actions (blacklist→suspend mapping planned), Jiten page-word state refresh after grading, Anki kanji study, Jiten media attachments (upstream limitation — to be surfaced in UI), JPDB live-review intervals.
-
 ### Fixed
 
 - Built-in starter study words are now labeled "Starter words" (入門単語) instead of "Dictionary", which confused keyless users who had never imported a dictionary.
@@ -2325,10 +2306,6 @@
 - Fixed clipped/invisible text in YouTube chrome: line-clamped and fixed-height boxes (video metadata rows, subscribe buttons) no longer receive furigana ruby — the taller ruby line was clipping the base text so only the furigana stayed visible, or wrapping fixed-height buttons. These words stay colorised and lookupable, just without ruby.
 - Fixed subtitle word colorisation disappearing when stepping back to a previous line: cache-hit renders now re-apply JPDB/Anki state colors to the freshly inserted nodes, and the parse warm-up window keeps more history behind the active cue (6 behind / 10 ahead) so back-navigation always hits the cache.
 - Fixed the subtitle rail and panel opener staying permanently visible on mobile: the controls now auto-hide after the idle delay (touch devices get no mouse movement to trigger it) and follow m.youtube.com's own player-controls overlay, so tapping the video reveals them together with YouTube's controls.
-
-### Notes
-
-- Recorded the full Anki/mining/new-tab trust-audit findings and the Jiten Reader v1.2.x parity matrix in docs/refactor-backlog.md as the prioritized plan for the next releases.
 
 ## [0.6.49] - 2026-06-10
 

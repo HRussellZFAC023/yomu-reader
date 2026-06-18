@@ -64,7 +64,7 @@ interface YomuCompanionRegistry {
         ImageOcrController: ImageOcrControllerClass;
     };
     // ADR-0003 Kanji/Study extraction (scaffolding shipped 0.6.112; core
-    // import-severing is the follow-up lane — see refactor-backlog).
+    // import-severing remains a follow-up lane).
     kanjiStudy?: {
         KanjiOriginClient: typeof import('../kanji/origin').KanjiOriginClient;
         KanjiVGClient: typeof import('../kanji/vg').KanjiVGClient;

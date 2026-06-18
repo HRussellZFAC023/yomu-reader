@@ -24,10 +24,9 @@ function canonicalUrl(relativePath: string): string {
     return `${siteUrl}${clean}`;
 }
 
-// Internal planning/research docs that should not be indexed or sitemapped —
-// they are build artifacts of the dev process, not pages for learners. Marked
-// noindex (transformHead) and dropped from the sitemap (transformItems).
-const INTERNAL_PAGE_RE = /^(adr\/|research\/|.*-backlog\.md$|community-intel|refactor-backlog|study-hub-parity|kanji-source-research)/;
+// ADRs are engineering context rather than learner-facing pages. Mark them
+// noindex (transformHead) and drop them from the sitemap (transformItems).
+const INTERNAL_PAGE_RE = /^adr\//;
 function isInternalPage(relativePath: string): boolean {
     return INTERNAL_PAGE_RE.test(relativePath);
 }
@@ -172,8 +171,8 @@ export default defineConfig({
     ],
     transformHead({ pageData }) {
         const pageUrl = canonicalUrl(pageData.relativePath);
-        // Keep internal planning/research docs out of the index, but follow
-        // their links so any useful outbound links still pass equity.
+        // Keep internal engineering context out of the index, but follow its
+        // links so useful outbound links still pass equity.
         if (isInternalPage(pageData.relativePath)) {
             return [
                 ['meta', { name: 'robots', content: 'noindex, follow' }],
