@@ -718,7 +718,13 @@ function initGmBridge({
 
 export async function launchSmokeBrowser(browserType = chromium, browserName = 'chromium', options = {}) {
     const configuredChannel = smokeBrowserChannel(browserName);
-    if (configuredChannel) return chromium.launch({ ...options, channel: configuredChannel });
+    if (configuredChannel) {
+        try {
+            return await chromium.launch({ ...options, channel: configuredChannel });
+        } catch (error) {
+            if (!isMissingBrowserExecutable(error)) throw error;
+        }
+    }
     return await launchSmokeBrowserWithFallback(browserType, browserName, options);
 }
 

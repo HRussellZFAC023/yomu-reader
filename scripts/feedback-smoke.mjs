@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { createYomuPaths } from './lib/paths.mjs';
-import { assert, closeServer, serveFile, startLoopbackServer } from './lib/smoke-harness.mjs';
+import { assert, closeServer, launchSmokeBrowser, serveFile, startLoopbackServer } from './lib/smoke-harness.mjs';
 import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
@@ -346,6 +346,7 @@ function includesText(value, fragment) {
 async function verifyKeyboardWordNavigation(page, baseUrl) {
     await page.goto(`${baseUrl}/reader-fixture.html`, { waitUntil: 'domcontentloaded' });
     await injectUserscript(page);
+    await installKeyboardNavigationProbe(page);
 
     await pressWordNavigationShortcut(page, 'ArrowRight');
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 6000 });
@@ -366,9 +367,48 @@ async function verifyKeyboardWordNavigation(page, baseUrl) {
     const selectedScope = await page.evaluate(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim());
     assert(selectedScope === '犬', 'Keyboard navigation escaped the selected text range at the boundary', { selectedScope });
     await pressWordNavigationShortcut(page, 'ArrowRight');
-    await page.waitForFunction(() => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === '鳥');
+    await waitForKeyboardActiveWord(page, '鳥', 'Keyboard navigation did not advance inside the selected text range');
 
     await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'), fullPage: false });
+}
+
+async function installKeyboardNavigationProbe(page) {
+    await page.evaluate(() => {
+        window.__yomuKeyboardSmokeEvents = [];
+        document.addEventListener('keydown', event => {
+            window.__yomuKeyboardSmokeEvents.push({
+                key: event.key,
+                altKey: event.altKey,
+                shiftKey: event.shiftKey,
+                ctrlKey: event.ctrlKey,
+                metaKey: event.metaKey,
+                defaultPrevented: event.defaultPrevented,
+                target: event.target instanceof Element ? event.target.tagName : '',
+                active: document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() ?? '',
+                selection: window.getSelection()?.toString() ?? '',
+            });
+            window.__yomuKeyboardSmokeEvents = window.__yomuKeyboardSmokeEvents.slice(-12);
+        });
+    });
+}
+
+async function waitForKeyboardActiveWord(page, expected, message) {
+    try {
+        await page.waitForFunction(
+            value => document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() === value,
+            expected,
+            { timeout: 6000 },
+        );
+    } catch (error) {
+        const state = await page.evaluate(() => ({
+            active: document.querySelector('.jpdb-reader-keyboard-active')?.textContent?.trim() ?? '',
+            selection: window.getSelection()?.toString() ?? '',
+            popoverText: document.querySelector('.jpdb-reader-popover')?.textContent?.trim() ?? '',
+            focused: document.activeElement instanceof Element ? document.activeElement.tagName : '',
+            events: window.__yomuKeyboardSmokeEvents ?? [],
+        }));
+        assert(false, message, state);
+    }
 }
 
 async function readKeyboardPopupStyle(page) {
@@ -685,7 +725,7 @@ function hostedPausePanelFitsViewport(pausePanel) {
 }
 
 const { server, baseUrl } = await createFixtureServer();
-const browser = await chromium.launch({ headless: true });
+const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 
 try {
     const settingsPage = await newPage(browser);
