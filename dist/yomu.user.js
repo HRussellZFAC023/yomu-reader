@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.14
+// @version      1.4.15
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.14#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.14#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.14#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.14#sha256-TLPZB559gVjeqFJH/TGPQUOmOdpYSu+HsEH5zCEe+Mc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.15#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.15#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.15#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.15#sha256-TLPZB559gVjeqFJH/TGPQUOmOdpYSu+HsEH5zCEe+Mc=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -14169,29 +14169,29 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const current = this.apiProviderForCard(card, settings);
       if (!current?.hasApiKey) return;
       const next = current.id === "jiten" ? "jpdb" : "jiten";
-      const nextProvider = this.apiProviders(settings).find((provider) => provider.id === next && provider.hasApiKey);
-      if (!nextProvider) return;
-      const targetCard = nextProvider.supportsCard(card) ? card : await this.resolveCardForGradingProvider(card, next);
-      if (!targetCard || !nextProvider.supportsCard(targetCard)) return;
+      const provider = this.apiProviders(settings).find((p) => p.id === next && p.hasApiKey);
+      if (!provider) return;
+      const target = provider.supportsCard(card) ? card : await this.resolveProviderCard(card, next);
+      if (!target || !provider.supportsCard(target)) return;
       this.options.setApiGradingProvider?.(next);
-      await this.refreshGradingProviderState(targetCard, next);
+      await this.refreshProviderState(target, next);
       this.options.invalidateCardData?.();
-      await this.options.showCard(targetCard, sentence, this.options.getActivePopoverAnchor(), {
+      await this.options.showCard(target, sentence, this.options.getActivePopoverAnchor(), {
         autoPlay: false,
         trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
         navigation: "preserve",
         preservePosition: true
       });
     }
-    async resolveCardForGradingProvider(card, providerId) {
+    async resolveProviderCard(card, id) {
       try {
-        const [tokens = []] = providerId === "jiten" ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([])) : await this.options.jpdb.parse([card.spelling]);
-        return exactParsedProviderCard(card, tokens);
+        const [tokens = []] = id === "jiten" ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([])) : await this.options.jpdb.parse([card.spelling]);
+        return exactCard(card, tokens);
       } catch {
         return null;
       }
     }
-    async refreshGradingProviderState(card, providerId) {
+    async refreshProviderState(card, providerId) {
       try {
         if (providerId === "jiten") await this.options.jiten?.refreshCardState?.(card);
         else await this.options.jpdb.refreshCardState?.(card);
@@ -14592,11 +14592,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button2.dataset.ankiCardId);
     return { kind: target, ankiCardId };
   }
-  function exactParsedProviderCard(source, tokens) {
-    const spelling = source.spelling.trim();
-    const reading = source.reading.trim();
-    const candidates = tokens.map((token) => token.card).filter((card) => card.spelling.trim() === spelling);
-    return candidates.find((card) => !reading || card.reading.trim() === reading) ?? candidates[0] ?? null;
+  function exactCard(source, tokens) {
+    const s = source.spelling.trim();
+    const r = source.reading.trim();
+    return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card ?? null;
   }
   function reviewTargetKind(value) {
     if (value === "both" || value === "anki") return value;
@@ -20387,7 +20386,7 @@ ${entry.reading || ""}`;
             </div>
             <div class="jpdb-reader-card-tools">
                 ${this.renderPitch(card, data)}
-                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" type="button" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? " disabled" : ""}>${speakerIcon()}</button>
+                <button class="jpdb-reader-icon-btn jpdb-reader-audio-control" data-action="audio" aria-label="${view.audioButtonTitle}" title="${view.audioButtonTitle}"${view.audioButtonDisabled ? " disabled" : ""}>${speakerIcon()}</button>
             </div>
         </div>`;
     }
@@ -20456,13 +20455,7 @@ ${entry.reading || ""}`;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
       if (earlyResult !== void 0) return earlyResult;
       const targets = this.popoverReviewTargets(card, data, provider, language);
-      if (targets.length) {
-        return this.renderTargetedReviewButtons(targets, language, {
-          canSwitchReviewTarget: targets.length > 1,
-          canSwitchGradingProvider: this.canSwitchGradingProvider(provider),
-          gradingProvider: provider
-        });
-      }
+      if (targets.length) return this.renderTargetedReviewButtons(targets, language, targets.length > 1, this.canSwitchProvider(provider), provider);
       if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -20488,11 +20481,9 @@ ${entry.reading || ""}`;
       const settings = this.settings();
       return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
     }
-    canSwitchGradingProvider(provider) {
+    canSwitchProvider(provider) {
       const settings = this.settings();
-      return Boolean(
-        settings.enableReviews && isApiMiningEnabled(settings) && provider?.hasApiKey && hasJpdbApiCredential(settings) && hasJitenApiCredential(settings)
-      );
+      return !!(provider && settings.apiKey && settings.jitenApiKey);
     }
     popoverReviewTargets(card, data, provider, language) {
       const apiTargets = this.apiReviewTargets(card, provider, language);
@@ -20556,13 +20547,13 @@ ${entry.reading || ""}`;
         shortLabel: compactAnkiReviewTargetLabel(label, cardId)
       }));
     }
-    renderTargetedReviewButtons(targets, language, gutterOptions) {
+    renderTargetedReviewButtons(targets, language, canSwitchTarget, canSwitchProvider, provider) {
       const settings = this.settings();
       const grades = reviewButtonGrades(settings);
       const selected = targets[0];
       if (!selected || !grades.length) return "";
-      const selector = gutterOptions.canSwitchReviewTarget ? renderReviewTargetSelector(targets, language) : "";
-      const targetGutter = renderReviewTargetGutter(selected, language, gutterOptions);
+      const selector = canSwitchTarget ? renderReviewTargetSelector(targets, language) : "";
+      const targetGutter = renderReviewTargetGutter(selected, language, canSwitchTarget, canSwitchProvider, provider);
       const targetLabel = renderReviewTargetLabel(selected);
       const targetAttrs = reviewTargetButtonAttrs(selected);
       return `
@@ -20616,11 +20607,7 @@ ${entry.reading || ""}`;
     const target = option.dataset.reviewTarget ?? "";
     const ankiCardId = option.dataset.ankiCardId ?? "";
     const current = actions.querySelector("[data-review-target-current]");
-    if (current) {
-      current.textContent = shortLabel;
-      current.title = label;
-      current.setAttribute("aria-label", label);
-    }
+    if (current) current.textContent = shortLabel;
     const labelText = actions.querySelector("[data-review-target-label] [data-newtab-grade-target-text]");
     if (labelText) labelText.textContent = label;
     actions.querySelectorAll('[data-review-target-row] [data-action="grade"][data-grade]').forEach((button2) => {
@@ -20647,19 +20634,15 @@ ${entry.reading || ""}`;
   function reviewButtonsIncludeTargetGutter(reviewButtons) {
     return reviewButtons.includes("data-review-target-gutter");
   }
-  function renderReviewTargetGutter(target, language, options) {
+  function renderReviewTargetGutter(target, language, canSwitchTarget, canSwitchProvider, provider) {
     const label = uiText(language, "showMiningActions");
     const switchLabel = uiText(language, "switchReviewTarget");
-    const showCurrentTarget = options.canSwitchGradingProvider || options.canSwitchReviewTarget;
-    const gradingToggle = options.canSwitchGradingProvider ? renderGradingProviderToggle(options.gradingProvider, language) : "";
-    const targetCluster = showCurrentTarget ? `<span class="jpdb-reader-review-target-cluster">
-            ${gradingToggle}
-            <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$1(target.label)}" aria-label="${escapeHtml$1(target.label)}">${escapeHtml$1(target.shortLabel)}</span>
-        </span>` : "";
+    const currentTarget = canSwitchProvider || canSwitchTarget ? renderReviewTargetCurrent(target) : "";
+    const targetControl = canSwitchProvider ? renderProviderToggle(provider, language, currentTarget) : currentTarget;
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
-        ${targetCluster}
-        ${options.canSwitchReviewTarget ? `<button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="${escapeHtml$1(switchLabel)}" aria-label="${escapeHtml$1(switchLabel)}">⇄</button>` : ""}
-        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}"></button>
+        ${targetControl}
+        ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml$1(switchLabel)}">⇄</button>` : ""}
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button>
     </div>`;
   }
   function renderReviewTargetSelector(targets, language) {
@@ -20668,6 +20651,9 @@ ${entry.reading || ""}`;
             ${targets.map((target, index) => `<option value="${escapeHtml$1(target.id)}"${index === 0 ? " selected" : ""} data-review-target="${target.kind}" data-review-target-label="${escapeHtml$1(target.label)}" data-review-target-short-label="${escapeHtml$1(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ""}>${escapeHtml$1(target.shortLabel)}</option>`).join("")}
         </select>
     </div>`;
+  }
+  function renderReviewTargetCurrent(target) {
+    return `<span class="jpdb-reader-review-target-current" data-review-target-current>${escapeHtml$1(target.shortLabel)}</span>`;
   }
   function renderReviewTargetLabel(target) {
     return `<div class="jpdb-reader-sr-only jpdb-reader-newtab-sr-only" data-review-target-label><span data-newtab-grade-target-text>${escapeHtml$1(target.label)}</span></div>`;
@@ -20688,8 +20674,6 @@ ${entry.reading || ""}`;
     return {
       isNeverForget,
       isBlacklisted,
-      neverForgetTitle: isNeverForget ? uiText(language, "forgetHint") : uiText(language, "neverHint"),
-      blacklistTitle: isBlacklisted ? uiText(language, "unlistHint") : uiText(language, "blacklistHint"),
       neverForgetLabel: isNeverForget ? uiText(language, "forget") : uiText(language, "never"),
       blacklistLabel: isBlacklisted ? uiText(language, "unlist") : uiText(language, "blacklist")
     };
@@ -20717,9 +20701,9 @@ ${entry.reading || ""}`;
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml$1(uiText(language, "deckActions"))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml$1(uiText(language, "addToDeckHint"))}" aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>
-                        <button class="jpdb-reader-btn nf${state2.isNeverForget ? " danger" : ""}" data-action="neverforget" title="${escapeHtml$1(state2.neverForgetTitle)}" aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml$1(state2.blacklistTitle)}" aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" aria-expanded="false">${escapeHtml$1(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn nf${state2.isNeverForget ? " danger" : ""}" data-action="neverforget" aria-pressed="${state2.isNeverForget}">${state2.neverForgetLabel}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state2.isBlacklisted}">${state2.blacklistLabel}</button>
                     </div>
                     ${addDeckSelect}
                 </div>
@@ -20740,14 +20724,14 @@ ${entry.reading || ""}`;
   function renderMeta(metaItems) {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join("")}</div>` : "";
   }
-  function renderGradingProviderToggle(provider, language) {
+  function renderProviderToggle(provider, language, content = "") {
     const target = provider?.id === "jiten" ? "JPDB" : "Jiten";
     const label = `${uiText(language, "switchGradingProvider")} (${target})`;
-    return `<button type="button" class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}">⇄</button>`;
+    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml$1(label)}">⇄ ${content}</button>`;
   }
   function renderMiningGutter(miningActions, language) {
     const label = uiText(language, "showMiningActions");
-    return miningActions ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}"></button></div>` : "";
+    return miningActions ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml$1(label)}"></button></div>` : "";
   }
   function jitenDeckLabel(deck) {
     return deck?.name ? `Jiten: ${deck.name}` : "Jiten";

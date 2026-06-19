@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.15] - 2026-06-19
+
+### Fixed
+
+- The JPDB/Jiten grading-provider switcher now sits in the review-target gutter, stays available for users with both API keys, and uses the provider label itself as part of the tap target.
+- Single-provider setups no longer show redundant "JPDB" or "Jiten" review-target text next to the grade buttons.
+
 ## [1.4.14] - 2026-06-19
 
 ### Fixed

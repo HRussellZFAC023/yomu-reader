@@ -7991,18 +7991,14 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-left: 4px;
+  height: 20px;
   padding: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--jpdb-reader-muted);
-  font: 760 12px/1 var(--jpdb-reader-font);
+  font: 760 13px/1 var(--jpdb-reader-font);
   cursor: pointer;
-  pointer-events: auto;
-  vertical-align: middle;
 }
 .jpdb-reader-provider-toggle:hover,
 .jpdb-reader-provider-toggle:focus-visible {
@@ -11006,10 +11002,11 @@ html.jpdb-reader-doodle-active * {
   gap: 8px;
   cursor: grab;
 }
-.jpdb-reader-review-target-current {
+.jpdb-reader-review-target-gutter > .jpdb-reader-provider-toggle {
   grid-column: 1;
-  align-self: center;
   justify-self: end;
+}
+.jpdb-reader-review-target-current {
   min-width: 0;
   max-width: min(180px, 34cqi);
   color: var(--jpdb-reader-muted);
@@ -11019,7 +11016,6 @@ html.jpdb-reader-doodle-active * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
 }
 .jpdb-reader-review-target-gutter .jpdb-reader-mining-collapse {
   grid-column: 3;
