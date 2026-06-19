@@ -1362,18 +1362,17 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   gap: 2px;
 }
 .jpdb-reader-provider-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  margin-left: 4px;
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;
   color: var(--jpdb-reader-muted);
-  font: 760 12px/1 var(--jpdb-reader-font);
+  font: 760 13px/1 var(--jpdb-reader-font);
   cursor: pointer;
   pointer-events: auto;
   vertical-align: middle;

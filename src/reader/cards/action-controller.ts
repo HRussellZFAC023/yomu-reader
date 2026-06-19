@@ -21,7 +21,7 @@ import {
     type ApiSrsToggleDeckState,
     type ApiSrsProviderAdapter,
 } from './srs-providers';
-import type { JPDBCard, JPDBGrade, ReaderSettings } from '../app/types';
+import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { YomitanDictionaryStore } from '../dictionaries/yomitan';
 import type { GrammarHint } from '../study/tools';
 import { newTabText } from '../newtab/i18n';
@@ -219,6 +219,10 @@ export class CardActionController {
 
     private async performMiningAction(action: string | undefined, button: HTMLButtonElement, card: JPDBCard, sentence: string | undefined, context: CardActionContext): Promise<boolean | undefined> {
         if (!action) return undefined;
+        if (action === 'grade-provider-toggle') {
+            await this.toggleGradingProvider(card, sentence);
+            return false;
+        }
         const handler = this.miningActionHandler(action, button, card, sentence, context);
         if (handler) return this.finishMiningAction(handler());
         return this.performApiDeckStateAction(action, card);
@@ -231,31 +235,46 @@ export class CardActionController {
             'anki-edit': () => this.openAnkiNote(button),
             'anki-merge': () => this.mergeExistingAnkiCard(button, card, sentence, context),
             grade: () => this.gradeCard(button, card, sentence),
-            'grade-provider-toggle': () => this.toggleGradingProvider(card, sentence),
         };
         return handlers[action];
     }
 
     // Flip the popover between Jiten and JPDB grading and re-render so the deck
-    // and grade buttons act on the chosen service. Only reachable when both keys
-    // are set and the word is gradable by either.
+    // and grade buttons act on the chosen service.
     private async toggleGradingProvider(card: JPDBCard, sentence: string | undefined): Promise<void> {
         const settings = this.options.getSettings();
-        const supporting = this.apiProviders(settings).filter(provider => provider.supportsCard(card) && provider.hasApiKey);
-        if (supporting.length < 2) return;
-        const next: ApiSrsProviderId = apiGradingProviderPreference(settings) === 'jiten' ? 'jpdb' : 'jiten';
+        const current = this.apiProviderForCard(card, settings);
+        if (!current?.hasApiKey) return;
+        const next: ApiSrsProviderId = current.id === 'jiten' ? 'jpdb' : 'jiten';
+        const nextProvider = this.apiProviders(settings).find(provider => provider.id === next && provider.hasApiKey);
+        if (!nextProvider) return;
+        const targetCard = nextProvider.supportsCard(card)
+            ? card
+            : await this.resolveCardForGradingProvider(card, next);
+        if (!targetCard || !nextProvider.supportsCard(targetCard)) return;
         this.options.setApiGradingProvider?.(next);
         // The card's SRS state is a single shared field; refresh the newly chosen
         // service so the status dot and the Never forget / Blacklist pressed-state
         // (and their add-vs-remove decisions) reflect that service, not the old one.
-        await this.refreshGradingProviderState(card, next);
+        await this.refreshGradingProviderState(targetCard, next);
         this.options.invalidateCardData?.();
-        await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
+        await this.options.showCard(targetCard, sentence, this.options.getActivePopoverAnchor(), {
             autoPlay: false,
             trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
             navigation: 'preserve',
             preservePosition: true,
         });
+    }
+
+    private async resolveCardForGradingProvider(card: JPDBCard, providerId: ApiSrsProviderId): Promise<JPDBCard | null> {
+        try {
+            const [tokens = []] = providerId === 'jiten'
+                ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([] as JPDBToken[][]))
+                : await this.options.jpdb.parse([card.spelling]);
+            return exactParsedProviderCard(card, tokens);
+        } catch {
+            return null;
+        }
     }
 
     private async refreshGradingProviderState(card: JPDBCard, providerId: ApiSrsProviderId): Promise<void> {
@@ -756,6 +775,17 @@ function selectedPopoverReviewTarget(button: HTMLButtonElement): PopoverReviewTa
     const target = reviewTargetKind(option?.dataset.reviewTarget ?? button.dataset.reviewTarget);
     const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button.dataset.ankiCardId);
     return { kind: target, ankiCardId };
+}
+
+function exactParsedProviderCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
+    const spelling = source.spelling.trim();
+    const reading = source.reading.trim();
+    const candidates = tokens
+        .map(token => token.card)
+        .filter(card => card.spelling.trim() === spelling);
+    return candidates.find(card => !reading || card.reading.trim() === reading)
+        ?? candidates[0]
+        ?? null;
 }
 
 function reviewTargetKind(value: string | undefined): PopoverReviewTargetKind | undefined {

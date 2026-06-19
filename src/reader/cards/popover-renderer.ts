@@ -13,7 +13,8 @@ import { loadMiningContext } from '../study/mining-context';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
 import { cardPronunciationReading, renderExpressionComponentPitches, renderPitch } from '../popup/render';
 import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
-import { apiSrsProviderAvailability, apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
+import { apiSrsProviderViewForCard, isApiMiningEnabled, type ApiSrsProviderView } from './srs-providers';
+import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
@@ -65,6 +66,12 @@ interface PopoverReviewTarget {
     shortLabel: string;
     ankiCardId?: number;
     plainLabel?: string;
+}
+
+interface ReviewTargetGutterOptions {
+    canSwitchReviewTarget: boolean;
+    canSwitchGradingProvider: boolean;
+    gradingProvider: ApiSrsProviderView | null;
 }
 
 export interface CardPopoverRendererDependencies {
@@ -247,7 +254,13 @@ export class CardPopoverRenderer {
         const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
         if (earlyResult !== undefined) return earlyResult;
         const targets = this.popoverReviewTargets(card, data, provider, language);
-        if (targets.length) return this.renderTargetedReviewButtons(targets, language);
+        if (targets.length) {
+            return this.renderTargetedReviewButtons(targets, language, {
+                canSwitchReviewTarget: targets.length > 1,
+                canSwitchGradingProvider: this.canSwitchGradingProvider(provider),
+                gradingProvider: provider,
+            });
+        }
         if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         }
@@ -290,6 +303,17 @@ export class CardPopoverRenderer {
         return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
     }
 
+    private canSwitchGradingProvider(provider: ApiSrsProviderView | null): boolean {
+        const settings = this.settings();
+        return Boolean(
+            settings.enableReviews
+            && isApiMiningEnabled(settings)
+            && provider?.hasApiKey
+            && hasJpdbApiCredential(settings)
+            && hasJitenApiCredential(settings),
+        );
+    }
+
     private popoverReviewTargets(
         card: JPDBCard,
         data: CardRenderData & { loading: boolean },
@@ -314,8 +338,8 @@ export class CardPopoverRenderer {
 
     private apiReviewTargets(_card: JPDBCard, provider: ApiSrsProviderView | null, _language: InterfaceLanguage): PopoverReviewTarget[] {
         // `provider` already reflects the user's chosen grading provider (the
-        // header toggle resolves it via apiSrsProviderViewForCard), so the grade
-        // row tracks one API target. Switching providers happens from the header
+        // target-gutter toggle resolves it via apiSrsProviderViewForCard), so the grade
+        // row tracks one API target. Switching providers happens from the gutter
         // toggle, not a second selector here.
         if (provider && this.canReviewWithApiProvider(provider)) return [this.apiReviewTarget(provider, _language)];
         return [];
@@ -371,13 +395,13 @@ export class CardPopoverRenderer {
         }));
     }
 
-    private renderTargetedReviewButtons(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
+    private renderTargetedReviewButtons(targets: PopoverReviewTarget[], language: InterfaceLanguage, gutterOptions: ReviewTargetGutterOptions): string {
         const settings = this.settings();
         const grades = reviewButtonGrades(settings);
         const selected = targets[0];
         if (!selected || !grades.length) return '';
-        const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : '';
-        const targetGutter = renderReviewTargetGutter(selected, language, targets.length > 1);
+        const selector = gutterOptions.canSwitchReviewTarget ? renderReviewTargetSelector(targets, language) : '';
+        const targetGutter = renderReviewTargetGutter(selected, language, gutterOptions);
         const targetLabel = renderReviewTargetLabel(selected);
         const targetAttrs = reviewTargetButtonAttrs(selected);
         return `
@@ -396,12 +420,10 @@ export class CardPopoverRenderer {
     private renderMetaItems(card: JPDBCard, provider: ApiSrsProviderView | null, state: string, data: CardRenderData & { loading: boolean }): string[] {
         const settings = this.settings();
         const canShowProviderStatus = Boolean(provider?.hasApiKey);
-        const availability = apiSrsProviderAvailability(card, settings, this.dependencies.isJpdbBackedCard);
-        const canSwitchProvider = canShowProviderStatus && availability.jpdb && availability.jiten;
         return [
             renderMetaReading(card, settings),
             card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : '',
-            canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}${canSwitchProvider ? renderGradingProviderToggle(provider, settings.interfaceLanguage) : ''}</span>` : '',
+            canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state}"></span>${escapeHtml(provider?.label ?? 'API')} ${escapeHtml(cardStateLabel(state, settings.interfaceLanguage))}</span>` : '',
             renderAnkiMeta(data.ankiLookup, settings),
         ].filter(Boolean);
     }
@@ -485,12 +507,22 @@ function reviewButtonsIncludeTargetGutter(reviewButtons: string): boolean {
     return reviewButtons.includes('data-review-target-gutter');
 }
 
-function renderReviewTargetGutter(target: PopoverReviewTarget, language: InterfaceLanguage, canSwitch: boolean): string {
+function renderReviewTargetGutter(target: PopoverReviewTarget, language: InterfaceLanguage, options: ReviewTargetGutterOptions): string {
     const label = uiText(language, 'showMiningActions');
     const switchLabel = uiText(language, 'switchReviewTarget');
+    const showCurrentTarget = options.canSwitchGradingProvider || options.canSwitchReviewTarget;
+    const gradingToggle = options.canSwitchGradingProvider
+        ? renderGradingProviderToggle(options.gradingProvider, language)
+        : '';
+    const targetCluster = showCurrentTarget
+        ? `<span class="jpdb-reader-review-target-cluster">
+            ${gradingToggle}
+            <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}">${escapeHtml(target.shortLabel)}</span>
+        </span>`
+        : '';
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
-        <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml(target.label)}" aria-label="${escapeHtml(target.label)}">${escapeHtml(target.shortLabel)}</span>
-        ${canSwitch ? `<button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="${escapeHtml(switchLabel)}" aria-label="${escapeHtml(switchLabel)}">⇄</button>` : ''}
+        ${targetCluster}
+        ${options.canSwitchReviewTarget ? `<button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="${escapeHtml(switchLabel)}" aria-label="${escapeHtml(switchLabel)}">⇄</button>` : ''}
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button>
     </div>`;
 }
@@ -604,9 +636,9 @@ function renderMeta(metaItems: string[]): string {
     return metaItems.length ? `<div class="jpdb-reader-meta">${metaItems.join('')}</div>` : '';
 }
 
-// Shown next to the Jiten/JPDB status when both keys are set and the word can be
-// graded by either service: a one-tap switch for which SRS the deck and grade
-// buttons act on.
+// Shown next to the Jiten/JPDB grade target when both keys are set and the word
+// can be graded by either service: a one-tap switch for which SRS the deck and
+// grade buttons act on.
 function renderGradingProviderToggle(provider: ApiSrsProviderView | null, language: InterfaceLanguage): string {
     const target = provider?.id === 'jiten' ? 'JPDB' : 'Jiten';
     const label = `${uiText(language, 'switchGradingProvider')} (${target})`;

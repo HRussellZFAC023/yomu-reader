@@ -4996,10 +4996,14 @@ describe('reader helpers', () => {
         });
 
         document.body.innerHTML = renderModalCard(renderer, dualCard, '食べる。');
-        expect(document.querySelector('[data-action="grade-provider-toggle"]')).not.toBeNull();
+        const providerToggle = document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
+        expect(providerToggle).not.toBeNull();
+        expect(providerToggle?.parentElement?.classList.contains('jpdb-reader-review-target-cluster')).toBe(true);
+        expect(providerToggle?.nextElementSibling).toBe(document.querySelector('[data-review-target-current]'));
+        expect(document.querySelector('.jpdb-reader-provider-status [data-action="grade-provider-toggle"]')).toBeNull();
         expect(readerMetaText()).toContain('Jiten');
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jiten')).toBe(true);
-        // Only one provider switcher (the header toggle), never a second on the grade row.
+        // Only one provider switcher (the review-target gutter toggle), never a second selector on the grade row.
         expect(document.querySelector('[data-review-target-select]')).toBeNull();
 
         const jitenRenderer = new CardPopoverRenderer({
@@ -5012,6 +5016,7 @@ describe('reader helpers', () => {
             dictionaryLabel: name => name,
         });
         document.body.innerHTML = renderModalCard(jitenRenderer, dualCard, '食べる。');
+        expect(document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]')).not.toBeNull();
         expect(readerMetaText()).toContain('Jiten');
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jiten')).toBe(true);
     });
@@ -5020,6 +5025,27 @@ describe('reader helpers', () => {
         const renderer = testCardPopoverRenderer({ apiKey: 'jpdb-key', jpdbMiningEnabled: true, enableReviews: true });
         document.body.innerHTML = renderModalCard(renderer, { ...card, cardState: ['new'] }, '食べる。');
         expect(document.querySelector('[data-action="grade-provider-toggle"]')).toBeNull();
+        expect(document.querySelector('[data-review-target-current]')).toBeNull();
+    });
+
+    it('keeps the grading-provider toggle visible for dual-key Jiten-only popovers', () => {
+        const renderer = new CardPopoverRenderer({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', jitenApiKey: 'jiten-key', jpdbMiningEnabled: true, enableReviews: true }),
+            isJpdbBackedCard: () => false,
+            renderWordHistory: () => '',
+            renderWordPills: () => '',
+            renderDefinitionSources: () => '',
+            dictionarySourceAttributes: (_key, initiallyExpanded = true) => initiallyExpanded ? 'open' : '',
+            dictionaryLabel: name => name,
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, jitenTestCard(), '読む。');
+
+        const providerToggle = document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
+        expect(providerToggle).not.toBeNull();
+        expect(providerToggle?.nextElementSibling).toBe(document.querySelector('[data-review-target-current]'));
+        expect(providerToggle?.getAttribute('aria-label')).toBe('Switch grading provider (JPDB)');
+        expect(popoverGradeTargetCurrentText()).toBe('Jiten');
     });
 
     it('renders Jiten cards with the JPDB action pattern and no Mining/Suspended/Forget row', () => {
@@ -6026,6 +6052,61 @@ describe('reader helpers', () => {
         expect(playSentenceAudio).toHaveBeenCalledWith('訓むこともある。');
     });
 
+    it('switches from a visible Jiten card to an exact JPDB parse even when the saved preference is JPDB', async () => {
+        const sourceCard = jitenTestCard({ spelling: '読む', reading: 'よむ', cardState: ['new'] });
+        const jpdbCard: JPDBCard = {
+            ...card,
+            source: 'jpdb',
+            vid: 777,
+            sid: 3,
+            spelling: '読む',
+            reading: 'よむ',
+            cardState: ['new'],
+        };
+        const parse = vi.fn(async (): Promise<JPDBToken[][]> => [[{
+            card: jpdbCard,
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [],
+            pitchClass: '',
+            sentence: '読む',
+        }]]);
+        const refreshCardState = vi.fn(async () => undefined);
+        const showCard = vi.fn(async () => undefined);
+        const setApiGradingProvider = vi.fn();
+        const invalidateCardData = vi.fn();
+        const controller = testCardActionController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
+                jitenApiKey: 'jiten-key',
+                apiGradingProvider: 'jpdb',
+                jpdbMiningEnabled: true,
+                enableReviews: true,
+            }),
+            jpdb: { parse, refreshCardState } as unknown as JpdbClient,
+            isJpdbBackedCard: lookupCard => lookupCard.source === 'jpdb' && lookupCard.vid > 0,
+            showCard,
+            setApiGradingProvider,
+            invalidateCardData,
+        });
+        const button = document.createElement('button');
+        button.dataset.action = 'grade-provider-toggle';
+
+        await expect(controller.perform('grade-provider-toggle', button, sourceCard, '本を読む。')).resolves.toBe(false);
+
+        expect(parse).toHaveBeenCalledWith(['読む']);
+        expect(setApiGradingProvider).toHaveBeenCalledWith('jpdb');
+        expect(refreshCardState).toHaveBeenCalledWith(jpdbCard);
+        expect(invalidateCardData).toHaveBeenCalledTimes(1);
+        expect(showCard).toHaveBeenCalledWith(jpdbCard, '本を読む。', undefined, expect.objectContaining({
+            autoPlay: false,
+            navigation: 'preserve',
+            preservePosition: true,
+        }));
+    });
+
     it('does not submit JPDB review grades when JPDB writes are disabled', async () => {
         const { controller, reviewCard, answerCard, invalidateCardData, onAnkiStatusChanged } = testReviewGradeController({
             settings: {
@@ -6139,7 +6220,7 @@ describe('reader helpers', () => {
         expect(html).toContain('jpdb-reader-actions-mining-collapsed');
         expect(mount.querySelector('[data-newtab-grade-target-chip]')).toBeNull();
         expect(mount.querySelector('[data-review-target-gutter]')).not.toBeNull();
-        expect(mount.querySelector('[data-review-target-current]')?.textContent).toBe('Jiten');
+        expect(mount.querySelector('[data-review-target-current]')).toBeNull();
         expect(mount.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="mining-collapse"]')?.getAttribute('aria-expanded')).toBe('false');
         expect(mount.querySelector('[data-review-target-label]')?.classList.contains('jpdb-reader-sr-only')).toBe(true);
         expect(mount.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Jiten');
@@ -6414,7 +6495,10 @@ describe('reader helpers', () => {
         const { app, popover, actions, handle } = createMiningDrawerTestSurface(`
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
                 <div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
-                    <span class="jpdb-reader-review-target-current" data-review-target-current aria-label="Grades JPDB">JPDB</span>
+                    <span class="jpdb-reader-review-target-cluster">
+                        <button type="button" class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="Switch grading provider (Jiten)">⇄</button>
+                        <span class="jpdb-reader-review-target-current" data-review-target-current aria-label="Grades JPDB">JPDB</span>
+                    </span>
                     <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
                 </div>
                 <div class="jpdb-reader-mining-panel"></div>
@@ -6422,6 +6506,7 @@ describe('reader helpers', () => {
         `);
 
         const gutter = popover.querySelector<HTMLElement>('[data-review-target-gutter]')!;
+        const providerToggle = popover.querySelector<HTMLButtonElement>('[data-action="grade-provider-toggle"]')!;
         const internals = app as unknown as {
             settings: typeof DEFAULT_SETTINGS;
             installCardPopoverHandlers(popover: HTMLElement, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
@@ -6430,6 +6515,11 @@ describe('reader helpers', () => {
         internals.installCardPopoverHandlers(popover, card, '食べる。', undefined, 'modal');
 
         try {
+            const providerClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 72, clientY: 180 });
+            providerToggle.dispatchEvent(providerClick);
+            expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+            expect(handle.getAttribute('aria-expanded')).toBe('false');
+
             const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 80, clientY: 180 });
             gutter.dispatchEvent(click);
             expect(click.defaultPrevented).toBe(true);

@@ -12398,6 +12398,13 @@ recommendedJiten	jiten.moe頻度データです。
       const touch = firstChangedTouch(event);
       return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
     };
+    const isInteractiveGutterChild = (eventTarget) => {
+      if (!(eventTarget instanceof Element)) return false;
+      const action = eventTarget.closest(POPOVER_BODY_ACTION_SELECTOR);
+      return Boolean(
+        action && root.contains(action) && !action.matches(MINING_DRAWER_HANDLE_SELECTOR) && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR)
+      );
+    };
     const miningDrag = createHandleDragController({
       tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
       updateOnEnd: true,
@@ -12433,6 +12440,7 @@ recommendedJiten	jiten.moe頻度データです。
     };
     function handleClick(event) {
       if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
       const handle = getHandleFromPointerEvent(event);
       if (!handle) return;
       event.preventDefault();
@@ -12445,12 +12453,14 @@ recommendedJiten	jiten.moe頻度データです。
     }
     function handlePointerDown(event) {
       if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
       const handle = getHandleFromPointerEvent(event);
       if (!handle) return;
       miningDrag.pointerDown(handle, event);
     }
     function handleTouchStart(event) {
       if (!rootIsConnected()) return;
+      if (isInteractiveGutterChild(event.target)) return;
       const handle = getHandleFromTouchEvent(event);
       if (!handle) return;
       miningDrag.touchStart(handle, event);
@@ -13566,12 +13576,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function apiGradingProviderPreference(settings) {
     return settings.apiGradingProvider === "jiten" ? "jiten" : "jpdb";
   }
-  function apiSrsProviderAvailability(card, settings, isJpdbBackedCard) {
-    return {
-      jpdb: hasJpdbApiCredential(settings) && isJpdbBackedCard(card),
-      jiten: hasJitenApiCredential(settings) && isJitenBackedCard(card)
-    };
-  }
   function apiSrsProviderView(id, settings) {
     return id === "jiten" ? { id: "jiten", label: "Jiten", deckSource: "jiten", hasApiKey: hasJitenApiCredential(settings) } : { id: "jpdb", label: "JPDB", deckSource: "jpdb", hasApiKey: hasJpdbApiCredential(settings) };
   }
@@ -14142,6 +14146,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     async performMiningAction(action, button2, card, sentence, context) {
       if (!action) return void 0;
+      if (action === "grade-provider-toggle") {
+        await this.toggleGradingProvider(card, sentence);
+        return false;
+      }
       const handler = this.miningActionHandler(action, button2, card, sentence, context);
       if (handler) return this.finishMiningAction(handler());
       return this.performApiDeckStateAction(action, card);
@@ -14152,25 +14160,36 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         anki: () => this.addToAnki(card, sentence, void 0, context),
         "anki-edit": () => this.openAnkiNote(button2),
         "anki-merge": () => this.mergeExistingAnkiCard(button2, card, sentence, context),
-        grade: () => this.gradeCard(button2, card, sentence),
-        "grade-provider-toggle": () => this.toggleGradingProvider(card, sentence)
+        grade: () => this.gradeCard(button2, card, sentence)
       };
       return handlers[action];
     }
     async toggleGradingProvider(card, sentence) {
       const settings = this.options.getSettings();
-      const supporting = this.apiProviders(settings).filter((provider) => provider.supportsCard(card) && provider.hasApiKey);
-      if (supporting.length < 2) return;
-      const next = apiGradingProviderPreference(settings) === "jiten" ? "jpdb" : "jiten";
+      const current = this.apiProviderForCard(card, settings);
+      if (!current?.hasApiKey) return;
+      const next = current.id === "jiten" ? "jpdb" : "jiten";
+      const nextProvider = this.apiProviders(settings).find((provider) => provider.id === next && provider.hasApiKey);
+      if (!nextProvider) return;
+      const targetCard = nextProvider.supportsCard(card) ? card : await this.resolveCardForGradingProvider(card, next);
+      if (!targetCard || !nextProvider.supportsCard(targetCard)) return;
       this.options.setApiGradingProvider?.(next);
-      await this.refreshGradingProviderState(card, next);
+      await this.refreshGradingProviderState(targetCard, next);
       this.options.invalidateCardData?.();
-      await this.options.showCard(card, sentence, this.options.getActivePopoverAnchor(), {
+      await this.options.showCard(targetCard, sentence, this.options.getActivePopoverAnchor(), {
         autoPlay: false,
         trigger: this.options.getActivePopoverMode() === "hover" ? "hover" : "modal",
         navigation: "preserve",
         preservePosition: true
       });
+    }
+    async resolveCardForGradingProvider(card, providerId) {
+      try {
+        const [tokens = []] = providerId === "jiten" ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([])) : await this.options.jpdb.parse([card.spelling]);
+        return exactParsedProviderCard(card, tokens);
+      } catch {
+        return null;
+      }
     }
     async refreshGradingProviderState(card, providerId) {
       try {
@@ -14572,6 +14591,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const target = reviewTargetKind(option?.dataset.reviewTarget ?? button2.dataset.reviewTarget);
     const ankiCardId = positiveNumber(option?.dataset.ankiCardId ?? button2.dataset.ankiCardId);
     return { kind: target, ankiCardId };
+  }
+  function exactParsedProviderCard(source, tokens) {
+    const spelling = source.spelling.trim();
+    const reading = source.reading.trim();
+    const candidates = tokens.map((token) => token.card).filter((card) => card.spelling.trim() === spelling);
+    return candidates.find((card) => !reading || card.reading.trim() === reading) ?? candidates[0] ?? null;
   }
   function reviewTargetKind(value) {
     if (value === "both" || value === "anki") return value;
@@ -20431,7 +20456,13 @@ ${entry.reading || ""}`;
       const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
       if (earlyResult !== void 0) return earlyResult;
       const targets = this.popoverReviewTargets(card, data, provider, language);
-      if (targets.length) return this.renderTargetedReviewButtons(targets, language);
+      if (targets.length) {
+        return this.renderTargetedReviewButtons(targets, language, {
+          canSwitchReviewTarget: targets.length > 1,
+          canSwitchGradingProvider: this.canSwitchGradingProvider(provider),
+          gradingProvider: provider
+        });
+      }
       if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
@@ -20456,6 +20487,12 @@ ${entry.reading || ""}`;
     canReviewWithApiProvider(provider) {
       const settings = this.settings();
       return Boolean(provider?.hasApiKey && isApiMiningEnabled(settings));
+    }
+    canSwitchGradingProvider(provider) {
+      const settings = this.settings();
+      return Boolean(
+        settings.enableReviews && isApiMiningEnabled(settings) && provider?.hasApiKey && hasJpdbApiCredential(settings) && hasJitenApiCredential(settings)
+      );
     }
     popoverReviewTargets(card, data, provider, language) {
       const apiTargets = this.apiReviewTargets(card, provider, language);
@@ -20519,13 +20556,13 @@ ${entry.reading || ""}`;
         shortLabel: compactAnkiReviewTargetLabel(label, cardId)
       }));
     }
-    renderTargetedReviewButtons(targets, language) {
+    renderTargetedReviewButtons(targets, language, gutterOptions) {
       const settings = this.settings();
       const grades = reviewButtonGrades(settings);
       const selected = targets[0];
       if (!selected || !grades.length) return "";
-      const selector = targets.length > 1 ? renderReviewTargetSelector(targets, language) : "";
-      const targetGutter = renderReviewTargetGutter(selected, language, targets.length > 1);
+      const selector = gutterOptions.canSwitchReviewTarget ? renderReviewTargetSelector(targets, language) : "";
+      const targetGutter = renderReviewTargetGutter(selected, language, gutterOptions);
       const targetLabel = renderReviewTargetLabel(selected);
       const targetAttrs = reviewTargetButtonAttrs(selected);
       return `
@@ -20543,12 +20580,10 @@ ${entry.reading || ""}`;
     renderMetaItems(card, provider, state2, data) {
       const settings = this.settings();
       const canShowProviderStatus = Boolean(provider?.hasApiKey);
-      const availability = apiSrsProviderAvailability(card, settings, this.dependencies.isJpdbBackedCard);
-      const canSwitchProvider = canShowProviderStatus && availability.jpdb && availability.jiten;
       return [
         renderMetaReading(card, settings),
         card.frequencyRank && !canShowProviderStatus ? `<span>#${card.frequencyRank}</span>` : "",
-        canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}${canSwitchProvider ? renderGradingProviderToggle(provider, settings.interfaceLanguage) : ""}</span>` : "",
+        canShowProviderStatus ? `<span class="jpdb-reader-provider-status"><span class="jpdb-reader-state-dot jpdb-${state2}"></span>${escapeHtml$1(provider?.label ?? "API")} ${escapeHtml$1(cardStateLabel(state2, settings.interfaceLanguage))}</span>` : "",
         renderAnkiMeta(data.ankiLookup, settings)
       ].filter(Boolean);
     }
@@ -20612,12 +20647,18 @@ ${entry.reading || ""}`;
   function reviewButtonsIncludeTargetGutter(reviewButtons) {
     return reviewButtons.includes("data-review-target-gutter");
   }
-  function renderReviewTargetGutter(target, language, canSwitch) {
+  function renderReviewTargetGutter(target, language, options) {
     const label = uiText(language, "showMiningActions");
     const switchLabel = uiText(language, "switchReviewTarget");
+    const showCurrentTarget = options.canSwitchGradingProvider || options.canSwitchReviewTarget;
+    const gradingToggle = options.canSwitchGradingProvider ? renderGradingProviderToggle(options.gradingProvider, language) : "";
+    const targetCluster = showCurrentTarget ? `<span class="jpdb-reader-review-target-cluster">
+            ${gradingToggle}
+            <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$1(target.label)}" aria-label="${escapeHtml$1(target.label)}">${escapeHtml$1(target.shortLabel)}</span>
+        </span>` : "";
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
-        <span class="jpdb-reader-review-target-current" data-review-target-current title="${escapeHtml$1(target.label)}" aria-label="${escapeHtml$1(target.label)}">${escapeHtml$1(target.shortLabel)}</span>
-        ${canSwitch ? `<button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="${escapeHtml$1(switchLabel)}" aria-label="${escapeHtml$1(switchLabel)}">⇄</button>` : ""}
+        ${targetCluster}
+        ${options.canSwitchReviewTarget ? `<button class="jpdb-reader-review-target-toggle" type="button" data-action="review-target-toggle" title="${escapeHtml$1(switchLabel)}" aria-label="${escapeHtml$1(switchLabel)}">⇄</button>` : ""}
         <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml$1(label)}" aria-label="${escapeHtml$1(label)}"></button>
     </div>`;
   }

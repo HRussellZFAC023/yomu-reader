@@ -751,6 +751,16 @@ export function installMiningDrawerHandle(
         const touch = firstChangedTouch(event);
         return touch ? getHandleFromPoint(touch.clientX, touch.clientY) : null;
     };
+    const isInteractiveGutterChild = (eventTarget: EventTarget | null): boolean => {
+        if (!(eventTarget instanceof Element)) return false;
+        const action = eventTarget.closest<HTMLElement>(POPOVER_BODY_ACTION_SELECTOR);
+        return Boolean(
+            action
+            && root.contains(action)
+            && !action.matches(MINING_DRAWER_HANDLE_SELECTOR)
+            && action.closest(MINING_DRAWER_POINTER_TARGET_SELECTOR),
+        );
+    };
     const miningDrag = createHandleDragController<HTMLButtonElement>({
         tapMovementPx: MINING_DRAWER_TAP_MOVEMENT_PX,
         updateOnEnd: true,
@@ -787,6 +797,7 @@ export function installMiningDrawerHandle(
     };
     function handleClick(event: MouseEvent): void {
         if (!rootIsConnected()) return;
+        if (isInteractiveGutterChild(event.target)) return;
         const handle = getHandleFromPointerEvent(event);
         if (!handle) return;
         event.preventDefault();
@@ -799,12 +810,14 @@ export function installMiningDrawerHandle(
     }
     function handlePointerDown(event: PointerEvent): void {
         if (!rootIsConnected()) return;
+        if (isInteractiveGutterChild(event.target)) return;
         const handle = getHandleFromPointerEvent(event);
         if (!handle) return;
         miningDrag.pointerDown(handle, event);
     }
     function handleTouchStart(event: TouchEvent): void {
         if (!rootIsConnected()) return;
+        if (isInteractiveGutterChild(event.target)) return;
         const handle = getHandleFromTouchEvent(event);
         if (!handle) return;
         miningDrag.touchStart(handle, event);
