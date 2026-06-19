@@ -56,6 +56,18 @@ export default {
       if (hit) return withCors(request, hit, target);
     }
 
+    // Honor the upstream's rate limit at the proxy layer. After a 429 from a
+    // host, short-circuit further requests to it for a cooldown (Retry-After if
+    // the server gave one) and return 429 immediately. This shared proxy then
+    // stops forwarding requests it already knows the origin is rejecting,
+    // protecting the origin from every hosted client collectively — not just
+    // the one that happened to see the 429. (Cache hits above still serve,
+    // since they never touch the origin.)
+    const rateLimitedUntil = upstreamRateLimitBackoff.get(target.hostname) ?? 0;
+    if (Date.now() < rateLimitedUntil) {
+      return withCors(request, rateLimitResponse(rateLimitedUntil - Date.now()), target);
+    }
+
     // Coalesce concurrent identical cacheable GETs: a burst of clients looking
     // up the same word collapses to ONE upstream request instead of N. This
     // protects the origin even where the edge cache is unavailable (e.g. a
@@ -64,6 +76,11 @@ export default {
     const response = edgeCache
       ? await coalesceOriginRequest(target.href, () => fetchProxyTarget(request, target))
       : await fetchProxyTarget(request, target);
+
+    if (response.status === 429) {
+      const cooldown = retryAfterMsFromResponse(response) ?? UPSTREAM_RATE_LIMIT_BACKOFF_MS;
+      upstreamRateLimitBackoff.set(target.hostname, Date.now() + cooldown);
+    }
 
     if (edgeCache && isCacheableUpstreamResponse(response)) {
       const stored = new Response(response.clone().body, response);
@@ -89,10 +106,35 @@ interface OriginRequestEntry {
 
 const originRequestCache = new Map<string, OriginRequestEntry>();
 
-// Test-only: the cache is module-level and lives ~60s, so tests reset it
-// between cases so one case's entry can't satisfy the next.
+// Per-upstream-host cooldown after a 429. Per-isolate (best-effort), but during
+// a sustained rate-limit each isolate learns within one request and stops
+// forwarding to that host until the cooldown lapses.
+const UPSTREAM_RATE_LIMIT_BACKOFF_MS = 30_000;
+const upstreamRateLimitBackoff = new Map<string, number>();
+
+// Test-only: both maps are module-level and outlive a single request, so tests
+// reset them between cases so one case's state can't affect the next.
 export function resetProxyWorkerCacheForTests(): void {
   originRequestCache.clear();
+  upstreamRateLimitBackoff.clear();
+}
+
+function rateLimitResponse(remainingMs: number): Response {
+  return new Response("Upstream is rate-limiting; backing off.", {
+    status: 429,
+    headers: {
+      "content-type": "text/plain; charset=utf-8",
+      "retry-after": String(Math.max(1, Math.ceil(remainingMs / 1000))),
+      "x-yomu-proxy-error": "rate-limited",
+    },
+  });
+}
+
+function retryAfterMsFromResponse(response: Response): number | undefined {
+  const header = response.headers?.get?.("retry-after");
+  if (!header) return undefined;
+  const seconds = Number(header.trim());
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : undefined;
 }
 
 // Coalesce concurrent identical upstream GETs AND briefly reuse the result

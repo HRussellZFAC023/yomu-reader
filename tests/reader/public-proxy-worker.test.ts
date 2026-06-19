@@ -387,4 +387,38 @@ describe("Yomu public proxy Worker", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("stops forwarding to an upstream after it returns 429 (honors the rate limit)", async () => {
+    const upstream = vi.fn(async () =>
+      new Response("rate limited", {
+        status: 429,
+        headers: { "retry-after": "30" },
+      }),
+    );
+    vi.stubGlobal("fetch", upstream);
+    const proxyUrl =
+      "https://yomu-jpdb-public-proxy.example/?url=" +
+      encodeURIComponent("https://api.jiten.moe/api/vocabulary/9/0/info");
+    const call = () =>
+      PublicProxyWorker.fetch(
+        new Request(proxyUrl, { headers: { origin: "https://hrussellzfac023.github.io" } }),
+        {},
+        { waitUntil: vi.fn() },
+      );
+
+    try {
+      const first = await call();
+      expect(first.status).toBe(429); // forwarded the origin's 429
+
+      const second = await call();
+      expect(second.status).toBe(429);
+      // Synthetic response — the proxy short-circuited instead of re-hitting the
+      // origin that just rate-limited it.
+      expect(second.headers.get("x-yomu-proxy-error")).toBe("rate-limited");
+      expect(second.headers.get("retry-after")).toBeTruthy();
+      expect(upstream).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
