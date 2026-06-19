@@ -23,6 +23,7 @@ import {
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+const YOUTUBE_READER_OWNED_SELECTOR = `${YOUTUBE_READER_ROOT_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-word`;
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
 const YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE = 3;
@@ -177,9 +178,16 @@ function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
 }
 
+function isInsideReaderOwnedNode(node: ParentNode | Node): boolean {
+    if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    return false;
+}
+
 export { isProbablyJapaneseYouTubeText };
 
 export function collectYouTubeVideoCards(root: ParentNode = document): HTMLElement[] {
+    if (isInsideReaderOwnedNode(root)) return [];
     const cards = new Set<HTMLElement>();
     root.querySelectorAll<HTMLElement>(VIDEO_CARD_SELECTOR).forEach(card => {
         const normalized = normalizeYouTubeVideoCard(card);
@@ -2146,6 +2154,7 @@ function feedScrollAnchorElement(mutated: HTMLElement): HTMLElement | null {
 }
 
 function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
+    if (isInsideReaderOwnedNode(root)) return [];
     const items = new Set<HTMLElement>(collectYouTubeVideoCards(root));
     root.querySelectorAll<HTMLElement>(`${VIDEO_CARD_SELECTOR},${NON_VIDEO_CONTAINER_SELECTOR}`).forEach(element => {
         const normalized = normalizeYouTubeFilterItem(element);
@@ -2299,24 +2308,7 @@ function shouldIgnoreYouTubeCardElement(element: HTMLElement): boolean {
     if (!element.isConnected) return true;
     if (element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return true;
 
-    // Ignore native YouTube shell and main page components to prevent them from
-    // being incorrectly matched as video cards or playlist shelves.
-    const ignoredShellSelector = [
-        'ytd-watch-metadata',
-        'ytm-watch',
-        '#movie_player',
-        '.html5-video-player',
-        'ytd-comments',
-        '#comments',
-        'ytd-masthead',
-        '#masthead',
-        'ytd-guide-renderer',
-        '#guide',
-        'ytd-playlist-header-renderer',
-        'ytm-playlist-header-renderer',
-        'ytd-c4-tabbed-header-renderer',
-        'ytd-channel-sub-menu-renderer',
-    ].join(',');
+    const ignoredShellSelector = 'ytd-watch-metadata,ytm-watch,#movie_player,.html5-video-player,ytd-comments,#comments,ytd-masthead,#masthead,ytd-guide-renderer,#guide,ytd-playlist-header-renderer,ytm-playlist-header-renderer,ytd-c4-tabbed-header-renderer,ytd-channel-sub-menu-renderer';
     if (closestCrossingShadow(element, ignoredShellSelector)) return true;
 
     return false;
@@ -2554,7 +2546,7 @@ function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
     const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
     return nodes.every(node => {
         const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
-        return Boolean(element?.closest?.(YOUTUBE_READER_ROOT_SELECTOR));
+        return Boolean(element?.closest?.(YOUTUBE_READER_OWNED_SELECTOR));
     });
 }
 
@@ -2573,7 +2565,7 @@ function nodeMayAffectYouTubeCards(node: Node): boolean {
 
 function elementForYouTubeCardMutation(node: Node): Element | null {
     const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
-    if (!element || element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return null;
+    if (!element || isInsideReaderOwnedNode(element)) return null;
     return element;
 }
 

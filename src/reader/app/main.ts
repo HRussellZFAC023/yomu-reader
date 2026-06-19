@@ -329,43 +329,13 @@ type ReaderLifecycleSurface = {
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
-const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
-    '.textBox',
-    '.ocr-line',
-    'p',
-    'li',
-    'blockquote',
-    'td',
-    'th',
-    'article',
-    'main',
-    '[data-jpdb-reader-root]',
-    'a[href]',
-    'button',
-    'summary',
-    '[role="link"]',
-    '[role="button"]',
-    '[role="tab"]',
-    '[role="menuitem"]',
-].join(',');
+const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = '.textBox,.ocr-line,p,li,blockquote,td,th,article,main,[data-jpdb-reader-root],a[href],button,summary,[role="link"],[role="button"],[role="tab"],[role="menuitem"]';
 const JPDB_REVIEW_EXAMPLES_VISIBLE_STORAGE_KEY = 'yomu:jpdb-review-examples-visible:v1';
-const READER_POINTER_SURFACE_SELECTOR = [
-    '.jpdb-reader-popover',
-    '.jpdb-reader-settings',
-    '.jpdb-subtitle-player',
-    '.jpdb-subtitle-list',
-    '.jpdb-ocr-layer',
-    '[data-jpdb-reader-root]',
-].join(',');
+const READER_POINTER_SURFACE_SELECTOR = '.jpdb-reader-popover,.jpdb-reader-settings,.jpdb-subtitle-player,.jpdb-subtitle-list,.jpdb-ocr-layer,[data-jpdb-reader-root]';
 
 // Interactive controls the selection/token-list popover handles itself. A click
 // on any of these must not be re-resolved to a page word by point geometry.
-const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
-    '.jpdb-reader-popover button[data-token-choice]',
-    '.jpdb-reader-popover [data-action]',
-    '.jpdb-reader-popover a.jpdb-reader-pill',
-    '.jpdb-reader-popover .jpdb-reader-action-pill',
-].join(',');
+const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = '.jpdb-reader-popover button[data-token-choice],.jpdb-reader-popover [data-action],.jpdb-reader-popover a.jpdb-reader-pill,.jpdb-reader-popover .jpdb-reader-action-pill';
 
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
@@ -379,21 +349,8 @@ function createNoopImageOcrController(): ImageOcrController {
         captureSourceImageForElement: () => undefined,
     } as unknown as ImageOcrController;
 }
-const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
-    '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
-    '.jpdb-ocr-layer',
-    '.jpdb-subtitle-player',
-    '.jpdb-subtitle-list',
-    '.jpdb-reader-toast',
-].join(',');
-const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
-    '.review-reveal',
-    '.answer-box',
-    '.review-hidden',
-    'form[action*="/review"]',
-    'button[name="r"]',
-    'input[name="r"]',
-].join(',');
+const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop),.jpdb-ocr-layer,.jpdb-subtitle-player,.jpdb-subtitle-list,.jpdb-reader-toast';
+const REVIEW_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = '.review-reveal,.answer-box,.review-hidden,form[action*="/review"],button[name="r"],input[name="r"]';
 
 type FullscreenDocument = Document & {
     webkitFullscreenElement?: Element | null;
@@ -1923,18 +1880,27 @@ export class ReaderApp {
     }
 
     private readerWordClickSurfaces(event: MouseEvent, word: HTMLElement): { insideReaderPopup: boolean; insideSubtitlePlayer: boolean } | null {
-        if (!this.canLookupReaderWord(word)) return null;
-        if (word.dataset.jpdbReaderPassive === 'true') return null;
+        const passiveMirrorLookup = this.canClickPassiveMirrorWord(word);
+        if (!this.canLookupReaderWord(word) && !passiveMirrorLookup) return null;
+        if (word.dataset.jpdbReaderPassive === 'true' && !passiveMirrorLookup) return null;
         if (this.consumeSuppressedReaderWordClick(event, word)) return null;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
         if (!insideReaderPopup && !insideSubtitlePlayer
             && nativeClickableAncestor(word)
+            && !passiveMirrorLookup
             && !this.clickForcesReaderWordLookup(event)) {
             return null;
         }
         if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return null;
         return { insideReaderPopup, insideSubtitlePlayer };
+    }
+
+    private canClickPassiveMirrorWord(word: HTMLElement): boolean {
+        return isYouTubeRuntimeHost()
+            && word.dataset.jpdbReaderPassive === 'true'
+            && Boolean(word.closest('.jpdb-reader-text-mirror'))
+            && !word.closest(PASSIVE_MIRROR_CLICK_CONTROL_SELECTOR);
     }
 
     private consumeSuppressedReaderWordClick(event: MouseEvent, word: HTMLElement): boolean {
@@ -2563,7 +2529,7 @@ export class ReaderApp {
     }
 
     private canLookupReaderWord(word: HTMLElement): boolean {
-        return canLookupReaderWordElement(word);
+        return canLookupReaderWordElement(word) || this.canClickPassiveMirrorWord(word);
     }
 
     private canHoverLookupReaderWord(word: HTMLElement): boolean {
@@ -7583,6 +7549,7 @@ function pitchEnrichmentQueueOptions(
 }
 
 const SUBSTANTIVE_PUBLIC_PITCH_LOOKUP_RE = /[\u3400-\u9fff々〆ヵヶ]|[\u30a0-\u30ffー]{2,}|[\u3040-\u309fー]{2,}/u;
+const PASSIVE_MIRROR_CLICK_CONTROL_SELECTOR = 'button,input,label,select,textarea,summary,[role="button"],[role="checkbox"],[role="menuitem"],[role="option"],[role="radio"],[role="switch"],[role="tab"],[data-action]';
 
 function isSubstantivePublicPitchLookupToken(token: JPDBToken): boolean {
     const surface = token.sentence?.slice(token.start, token.end) ?? '';

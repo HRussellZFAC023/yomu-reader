@@ -41,48 +41,11 @@ const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         .split(''),
 );
-// Shared building blocks for the four skip-selector lists below. Each list composes the common
-// BASE entries with whichever extra clusters apply; the joined string must stay set-equal to the
-// hand-written original for each list (entry order does not affect matching).
-const BASE_SKIP_SELECTOR_ENTRIES = [
-    'script',
-    'style',
-    'noscript',
-    'textarea',
-    'input',
-    'select',
-    'option',
-    'svg',
-    'use',
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
-    '[data-jpdb-reader-surface-ignore="true"]',
-    '[data-audio]',
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="voice" i]',
-    '.jpdb-reader-text-mirror',
-    '.jpdb-reader-word',
-    // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
-    // letter soup, but "Kanji used" spellings are real JPDB links and should
-    // keep the same ruby/color treatment as other dictionary terms.
-    '.subsection-pitch-accent .subsection',
-];
-const FORM_BOUNDARY_SKIP_ENTRIES = ['form', 'label', 'fieldset', 'legend'];
-const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
-
-const SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    'button',
-    'summary',
-    'rt',
-    'rp',
-].join(',');
+const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden="true"],[contenteditable="true"],[role="checkbox"],[role="radio"],[role="tab"],[data-jpdb-reader-surface-ignore="true"],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role="tab"]', '');
+const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
+const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
+const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
 const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku']);
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
@@ -105,58 +68,11 @@ function furiganaHiddenStates(settings: ReaderSettings): Set<CardState> {
     return states;
 }
 
-const FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    'button',
-    'summary',
-    '[data-jpdb-reader-root]',
-].join(',');
-const HARD_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    '[data-jpdb-reader-root]',
-].join(',');
-const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES.filter(entry => entry !== '[role="tab"]'),
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    '[data-jpdb-reader-root]',
-].join(',');
-const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    'button',
-    'summary',
-    'a[href]',
-    '[role="button"]',
-].join(',');
-const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = [
-    'script',
-    'style',
-    'noscript',
-    'textarea',
-    'input',
-    'select',
-    'option',
-    'svg',
-    'use',
-    '[hidden]',
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    // The reader's own furigana mirror must never be re-ingested by a rescan.
-    // BASE_SKIP_SELECTOR_ENTRIES already skips it, but the passive-interaction
-    // path (used for every site profile root, incl. YouTube) did not — so a
-    // rescan of a mirror host re-collected the mirror's bare gap text nodes
-    // (punctuation/ASCII like （Googleによる翻訳）) ALONGSIDE the still-hidden
-    // original host text, doubling target.text and self-perpetuating into a
-    // rebuild loop (the duplicated, flashing caption strip).
-    '.jpdb-reader-text-mirror',
-    '.jpdb-reader-word',
-    '.subsection-pitch-accent .subsection',
-    '[data-jpdb-reader-root]',
-].join(',');
+const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
+const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
 const FORM_CHROME_BOUNDARY_TAGS = new Set(['FORM', 'LABEL', 'FIELDSET', 'LEGEND']);
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
@@ -164,91 +80,13 @@ const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(
 const READABLE_PROSE_CONTAINER_SELECTOR = 'article, main, [role="main"], [role="article"]';
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
-const PASSIVE_INTERACTION_SELECTOR = [
-    'a[href]',
-    'button',
-    'summary',
-    'label',
-    '[role="button"]',
-    '[role="link"]',
-    '[role="menuitem"]',
-    '[role="option"]',
-    '[role="tab"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="switch"]',
-    '[aria-controls]',
-    '[aria-expanded]',
-    '[slot="more-button"]',
-    '.more-button',
-    '#more',
-    '#less',
-].join(',');
-const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
-    '[onclick]',
-    '[tabindex]:not([tabindex="-1"])',
-    '[class*="audio" i]',
-    '[class*="button" i]',
-    '[class*="control" i]',
-    '[class*="play" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="toggle" i]',
-].join(',');
-const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = [
-    PASSIVE_INTERACTION_SELECTOR,
-    COMPACT_PASSIVE_INTERACTION_SELECTOR,
-].join(',');
-const COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR = [
-    'yt-lockup-view-model',
-    'ytd-rich-grid-renderer',
-    'ytd-rich-item-renderer',
-    'ytd-video-renderer',
-    'ytd-compact-video-renderer',
-    'ytd-watch-next-secondary-results-renderer',
-    'ytm-rich-grid-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-shorts-lockup-view-model',
-    'ytm-shorts-lockup-view-model-v2',
-    'ytm-item-section-renderer',
-].join(',');
-const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = [
-    'ytd-watch-metadata',
-    'ytm-watch-metadata',
-    'ytm-slim-video-metadata-section-renderer',
-    'ytm-expandable-video-description-body-renderer',
-    'ytm-structured-description-content-renderer',
-    'ytd-comment-view-model',
-    'ytd-comments',
-    'ytd-transcript-segment-renderer',
-    'ytm-transcript-segment-renderer',
-    'yt-live-chat-renderer',
-    'yt-live-chat-text-message-renderer',
-    'yt-live-chat-paid-message-renderer',
-    'yt-live-chat-membership-item-renderer',
-].join(',');
-const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = [
-    '[class*="card" i]',
-    '[class*="grid" i]',
-    '[class*="item" i]',
-    '[class*="lockup" i]',
-    '[class*="movie" i]',
-    '[class*="poster" i]',
-    '[class*="thumb" i]',
-    '[class*="tile" i]',
-    '[class*="video" i]',
-].join(',');
-const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
-    'canvas',
-    'img',
-    'picture',
-    'svg',
-    'video',
-    '[class*="cover" i]',
-    '[class*="image" i]',
-    '[class*="poster" i]',
-    '[class*="thumb" i]',
-].join(',');
+const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less';
+const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
+const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`;
+const COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR = 'yt-lockup-view-model,ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer,ytm-rich-grid-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2,ytm-item-section-renderer';
+const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
+const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
+const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = 'canvas,img,picture,svg,video,[class*="cover" i],[class*="image" i],[class*="poster" i],[class*="thumb" i]';
 const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
 const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
@@ -390,6 +228,9 @@ interface RenderedScanHost {
 interface TextMirrorHostState {
     observer: MutationObserver;
     sourceText: string;
+    staleTimer?: number;
+    staleText?: string;
+    missingTimer?: number;
     visibility: string;
     visibilityPriority: string;
     position: string;
@@ -402,31 +243,15 @@ interface TextMirrorHostState {
 
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
-const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
-    'yt-formatted-string',
-    'yt-attributed-string',
-    '.ytAttributedStringHost',
-    '.yt-core-attributed-string',
-    '.yt-core-attributed-string--white-space-pre-wrap',
-].join(',');
-const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
-    'script',
-    'style',
-    'noscript',
-    'template',
-    '[hidden]',
-    '[aria-hidden="true"]',
-].join(',');
-const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
-    '[hidden]',
-    '[aria-hidden="true"]',
-].join(',');
+const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = 'yt-formatted-string,yt-attributed-string,.ytAttributedStringHost,.yt-core-attributed-string,.yt-core-attributed-string--white-space-pre-wrap';
+const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},script,style,noscript,template,[hidden],[aria-hidden="true"]`;
+const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},[hidden],[aria-hidden="true"]`;
 const RENDERED_SCAN_HOST_MAX_TEXT = 1000;
 const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15000;
 const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 60000;
 const RENDERED_SCAN_HOST_RESCAN_DELAYS_MS = [700, 1600, 4000, 10000];
+const MIRROR_STALE_DELAY_MS = 80;
+const MIRROR_MISSING_GRACE_MS = 1600;
 export const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = 'jpdb-reader-text-mirror-stale';
 const renderedScanHosts = new WeakMap<HTMLElement, RenderedScanHost>();
 const textMirrorHosts = new WeakMap<HTMLElement, TextMirrorHostState>();
@@ -1086,15 +911,7 @@ function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
         && text.join('') === target.text;
 }
 
-// Some single-page apps (e.g. the mokuro.moe catalog) reconcile their own DOM
-// and strip the word/ruby spans the reader paints into a text node — so the
-// reader re-paints, the app strips again, and the title visibly flips between
-// plain and annotated ("no space above the text it glitches": adding furigana
-// grows the line, the app's resize/reconcile reaction wipes it, repeat).
-// Detect a host whose SAME source text we have re-painted several times in a
-// short window and permanently switch it to the non-destructive text mirror,
-// which overlays an absolutely-positioned copy and never mutates the app's node
-// (no text-diff, no height change) — breaking the loop for any such site.
+// Break SPA repaint loops by switching repeated same-text renders to a mirror.
 const REPAINT_LOOP_THRESHOLD = 4;
 const REPAINT_LOOP_WINDOW_MS = 3000;
 const loopingScanHosts = new WeakSet<HTMLElement>();
@@ -1189,15 +1006,17 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
         if (state) reassertTextMirrorHostStyles(host, state);
         return;
     }
-    removeTextMirror(host);
-    if (!safeTokens.length) return;
+    if (!safeTokens.length) {
+        removeTextMirror(host);
+        return;
+    }
 
     const mirror = document.createElement('span');
     mirror.className = 'jpdb-reader-text-mirror';
     mirror.dataset.jpdbReaderTextMirror = 'true';
     mirror.dataset.sourceText = text;
     mirror.dataset.renderSignature = signature;
-    const state = styleTextMirrorHost(host);
+    const state = existing ? textMirrorHosts.get(host) ?? styleTextMirrorHost(host) : styleTextMirrorHost(host);
     try {
         styleTextMirror(mirror, host);
         mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
@@ -1210,7 +1029,10 @@ function applyTokensToNonDestructiveScanTarget(target: ScanTextTarget, tokens: J
             removeTextMirror(host);
             return;
         }
-        host.append(mirror);
+        state.observer.disconnect();
+        clearMirrorTimers(state);
+        if (existing?.parentElement === host) existing.replaceWith(mirror);
+        else host.append(mirror);
         hideTextMirrorHost(host, state);
         observeTextMirrorHost(host, text);
     } catch (error) {
@@ -1405,23 +1227,78 @@ function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
     const state = textMirrorHosts.get(host);
     if (!state) return;
     state.sourceText = normalizedMirrorHostText(sourceText);
+    state.staleText = undefined;
+    clearMirrorTimers(state);
     state.observer = new MutationObserver(mutations => {
         if (mutations.every(mutationInsideTextMirror)) return;
         if (!currentTextMirror(host)) {
             removeTextMirror(host);
             return;
         }
-        const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-        if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
+        if (!host.isConnected) {
             removeTextMirror(host);
             return;
         }
+        const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
+        if (!HAS_JAPANESE.test(currentText)) {
+            reassertTextMirrorHostStyles(host, state);
+            scheduleMirrorRemoval(host, state);
+            return;
+        }
+        clearMissing(state);
         if (currentText !== state.sourceText) {
             reassertTextMirrorHostStyles(host, state);
-            dispatchTextMirrorStale(host);
+            scheduleMirrorStale(host, state, currentText);
+            return;
         }
+        state.staleText = undefined;
+        clearStale(state);
     });
     state.observer.observe(host, { childList: true, characterData: true, subtree: true });
+}
+
+function scheduleMirrorStale(host: HTMLElement, state: TextMirrorHostState, staleText: string): void {
+    if (state.staleText === staleText) return;
+    state.staleText = staleText;
+    clearStale(state);
+    state.staleTimer = window.setTimeout(() => {
+        state.staleTimer = undefined;
+        const expected = state.staleText;
+        if (!expected) return;
+        if (!host.isConnected || !currentTextMirror(host)) return;
+        const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
+        if (currentText !== expected || currentText === state.sourceText || !HAS_JAPANESE.test(currentText)) return;
+        dispatchTextMirrorStale(host);
+    }, MIRROR_STALE_DELAY_MS);
+}
+
+function scheduleMirrorRemoval(host: HTMLElement, state: TextMirrorHostState): void {
+    clearStale(state);
+    state.staleText = undefined;
+    if (state.missingTimer !== undefined) return;
+    state.missingTimer = window.setTimeout(() => {
+        state.missingTimer = undefined;
+        if (!host.isConnected || !currentTextMirror(host)) return;
+        const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
+        if (!HAS_JAPANESE.test(currentText)) removeTextMirror(host);
+    }, MIRROR_MISSING_GRACE_MS);
+}
+
+function clearMirrorTimers(state: TextMirrorHostState): void {
+    clearStale(state);
+    clearMissing(state);
+}
+
+function clearStale(state: TextMirrorHostState): void {
+    if (state.staleTimer === undefined) return;
+    window.clearTimeout(state.staleTimer);
+    state.staleTimer = undefined;
+}
+
+function clearMissing(state: TextMirrorHostState): void {
+    if (state.missingTimer === undefined) return;
+    window.clearTimeout(state.missingTimer);
+    state.missingTimer = undefined;
 }
 
 function dispatchTextMirrorStale(host: HTMLElement): void {
@@ -1460,6 +1337,7 @@ function normalizedMirrorHostText(text: string): string {
 function removeTextMirror(host: HTMLElement): void {
     const state = textMirrorHosts.get(host);
     state?.observer.disconnect();
+    if (state) clearMirrorTimers(state);
     Array.from(host.children)
         .filter((child): child is HTMLElement => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR))
         .forEach(mirror => mirror.remove());
@@ -2995,13 +2873,10 @@ function isInsideControlLikeLink(element: HTMLElement, text: string): boolean {
     const link = element.closest('a[href]') as HTMLElement | null;
     if (!link) return false;
     if (isLikelyProseLink(link, element)) return false;
-    // UT-52: a link that carries media AND real text (channel avatar + name)
-    // is content, not an icon button, so it is scanned instead of skipped.
     const iconOnlyMediaLink = linkHasControlMedia(link) && compactLength(text) <= 2;
     return [isExplicitControlLink(link), iconOnlyMediaLink, linkHasControlShape(link, text)].some(Boolean);
 }
 
-// UT-52 soft tier: media-bearing text links annotate without being interactive.
 function isInsideMediaTextLink(element: HTMLElement, text: string): boolean {
     const link = element.closest('a[href]') as HTMLElement | null;
     if (!link || isLikelyProseLink(link, element)) return false;
@@ -3078,49 +2953,8 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
         || style.borderBottomStyle !== 'none';
 }
 
-// UT-70: late-clamp reconciliation. Hosts that hydrate progressively
-// (YouTube custom elements on iPad Safari) can apply -webkit-line-clamp /
-// ellipsis styles AFTER we annotated, so scan-time layout sensitivity missed
-// them and the grown ruby line gets cropped — base text vanishes while the
-// furigana sliver stays. Sweep rendered words and strip ruby (keep color +
-// lookup) wherever an ancestor is, by now, a layout-sensitive text box.
-// UT-70/79 (user direction): when ruby makes a clamped/fixed-height row
-// overflow, do NOT strip the furigana — give the box room instead. Crop
-// detection stays measurement-based (computed styles + actual overflow, no
-// per-site lists); the room is the smallest honest fix per box kind:
-// line-clamp boxes keep their line count but lose the plain-text max-height,
-// other clipped boxes get their active height cap raised to the real content
-// height.
-// Containers we must never reserve ruby room on: cards the YouTube filter has
-// collapsed/hidden (sizing them un-collapses the filter into giant gaps) and
-// any aria-hidden subtree. Scanned words can live inside a collapsed card; room
-// must skip them.
-const RUBY_ROOM_SKIP_SELECTOR = [
-    '[data-yomu-youtube-filtered]',
-    '[data-yomu-youtube-pending]',
-    '[data-yomu-youtube-aria-hidden]',
-    '.jpdb-youtube-filter-collapsed',
-    '.jpdb-youtube-pending',
-    // YouTube's Polymer/view-model hosts own their measured height. Reserving
-    // ruby room on them writes inline height/max-height that YouTube treats as
-    // authoritative, causing watch descriptions to balloon and compact metadata
-    // rows/action chips to stack or flicker.
-    'ytd-text-inline-expander',
-    'yt-attributed-string',
-    'yt-formatted-string',
-    '.ytAttributedStringHost',
-    '.yt-core-attributed-string',
-    '.ytContentMetadataViewModelMetadataRow',
-    'yt-content-metadata-view-model',
-    'yt-button-shape',
-    'yt-button-view-model',
-    'button',
-    '[role="button"]',
-].join(',');
-// A clamped/ellipsis text row's furigana never needs more than a few lines of
-// extra height. A room far larger than this means we measured a container (a
-// collapsed card, a virtualized list) rather than a text row — refuse it so a
-// mis-measure can never blow the layout up to hundreds of px.
+// Give late-clamped ruby rows room without disturbing filtered/hidden cards.
+const RUBY_ROOM_SKIP_SELECTOR = '[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending,ytd-text-inline-expander,yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string,.ytContentMetadataViewModelMetadataRow,yt-content-metadata-view-model,yt-button-shape,yt-button-view-model,button,[role="button"]';
 const RUBY_ROOM_MAX_PX = 400;
 
 export function makeRoomForRubyInCroppedRows(root: ParentNode = document): number {
@@ -3146,15 +2980,8 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
 
 function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, roomHeight: number): void {
     if (hasLineClamp(style)) {
-        // -webkit-line-clamp itself limits LINES; the crop comes from a height
-        // cap sized for plain lines. Lifting it keeps the host's "N lines"
-        // semantics with taller ruby lines.
         box.style.setProperty('max-height', 'none', 'important');
         if (hasDefiniteCssSize(style.height)) box.style.setProperty('height', 'auto', 'important');
-        // The furigana lives in the out-of-flow absolute mirror, so height:auto
-        // collapses to the furigana-less in-flow text and an ancestor with
-        // overflow:hidden still crops the ruby. Reserve the real furigana'd
-        // height so the box (and content below it) actually accommodates it.
         if (box.querySelector('.jpdb-reader-text-mirror')) {
             box.style.setProperty('min-height', `${roomHeight}px`, 'important');
         }

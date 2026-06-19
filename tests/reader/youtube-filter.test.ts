@@ -402,6 +402,24 @@ describe('YouTube immersion filter', () => {
         expect(cards).toEqual([card('outer-video')]);
     });
 
+    it('does not collect YouTube cards from reader text mirrors', () => {
+        document.body.innerHTML = `
+            <main>
+                <ytd-rich-item-renderer data-case="outer-video">
+                    <a id="video-title" href="/watch?v=grid">東京散歩</a>
+                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true">
+                        <a href="/watch?v=grid"><span class="jpdb-reader-word">東京</span></a>
+                    </span>
+                </ytd-rich-item-renderer>
+            </main>
+        `;
+
+        const mirror = document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+
+        expect(collectYouTubeVideoCards(mirror)).toEqual([]);
+        expect(collectYouTubeVideoCards(document)).toEqual([card('outer-video')]);
+    });
+
     it('collects and filters mobile video-with-context media items', async () => {
         const { filter } = await startYoutubeFilter({
             oEmbedTitles: {

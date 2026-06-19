@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.14] - 2026-06-19
+
+### Fixed
+
+- YouTube annotations now keep their coloured/furigana mirror visible through short title/metadata hydration gaps, coalesce repeated stale rescans, ignore よむ's own mirror markup in the YouTube filter observer to reduce self-triggered work, and open mirrored title words directly on click.
+- The settings dialog now closes immediately after Save while persistence and refresh work finishes in the background.
+
 ## [1.4.10] - 2026-06-19
 
 ### Fixed

@@ -40,6 +40,7 @@ interface HoverLookupInternals {
     handlePointerTextHover(event: PointerEvent): void;
     lookupCandidateFromPoint(x: number, y: number, eventTarget: EventTarget | null, options?: unknown): { text: string; offset: number; start: number; end: number; anchor: HTMLElement } | null;
     readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null;
+    prepareModalLookupFromPointer(event: MouseEvent): void;
     isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
     navigateLookupWord(direction: -1 | 1): Promise<void>;
@@ -685,6 +686,59 @@ describe('hover lookup', () => {
         } finally {
             controller.abort();
             cleanupReaderApp(app);
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('opens passive YouTube title mirror words on click before the native video link runs', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=jp-title',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/watch',
+        });
+        document.body.innerHTML = `
+            <ytd-rich-item-renderer>
+                <a id="video-title-link" href="/watch?v=jp-title">
+                    <span class="ytAttributedStringHost" style="visibility:hidden">
+                        日本語タイトル
+                        <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="日本語タイトル">
+                            <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="1" data-sid="2" data-sentence="日本語タイトル">日本語</span>
+                        </span>
+                    </span>
+                </a>
+            </ytd-rich-item-renderer>
+        `;
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const link = document.querySelector<HTMLAnchorElement>('#video-title-link')!;
+        const linkClick = vi.fn();
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const prepareModalLookupFromPointer = vi.fn();
+        const controller = new AbortController();
+
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.showWord = showWord;
+        internals.prepareModalLookupFromPointer = prepareModalLookupFromPointer;
+        document.addEventListener('click', event => internals.handleDocumentClick(event), { capture: true, signal: controller.signal });
+        link.addEventListener('click', linkClick);
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 18 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(linkClick).not.toHaveBeenCalled();
+            expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(click);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+        } finally {
+            controller.abort();
+            cleanupReaderApp(app);
+            document.body.replaceChildren();
             vi.unstubAllGlobals();
         }
     });

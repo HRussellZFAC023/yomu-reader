@@ -33067,9 +33067,14 @@ describe('reader helpers', () => {
         expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
         expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
 
-        titleHost.firstChild!.textContent = '更新後の日本語タイトル';
-        await new Promise(resolve => setTimeout(resolve, 0));
-        document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        vi.useFakeTimers();
+        try {
+            titleHost.firstChild!.textContent = '更新後の日本語タイトル';
+            await vi.advanceTimersByTimeAsync(100);
+        } finally {
+            vi.useRealTimers();
+            document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        }
 
         expect(staleEvents).toHaveLength(1);
         expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
@@ -33100,6 +33105,92 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(titleHost.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('更新');
         expect(document.querySelector('.jpdb-reader-word .jpdb-reader-word')).toBeNull();
         expect(document.querySelector('ruby ruby')).toBeNull();
+    });
+
+    it('keeps non-destructive YouTube title mirrors through transient native text clears', async () => {
+        const targets = collectYouTubeWatchTargets(`
+            <ytd-watch-metadata>
+                <h1><yt-formatted-string>日本語タイトルを読む</yt-formatted-string></h1>
+            </ytd-watch-metadata>
+        `);
+        const title = targets.find(target => target.text === '日本語タイトルを読む')!;
+        applyTokensToScanTarget(title, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語タイトルを読む',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const titleHost = document.querySelector<HTMLElement>('yt-formatted-string')!;
+        const staleEvents: Event[] = [];
+        const recordStaleEvent = (event: Event) => staleEvents.push(event);
+        document.addEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+
+        vi.useFakeTimers();
+        try {
+            titleHost.firstChild!.textContent = '';
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(staleEvents).toHaveLength(0);
+            expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+            expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
+            expect(readerWordSurfaceText(titleHost.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('日本語');
+
+            titleHost.firstChild!.textContent = '更新後の日本語タイトル';
+            await vi.advanceTimersByTimeAsync(100);
+        } finally {
+            vi.useRealTimers();
+            document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        }
+
+        expect(staleEvents).toHaveLength(1);
+        expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+        expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
+    });
+
+    it('coalesces repeated stale events while a YouTube mirror waits for rescan', async () => {
+        const targets = collectYouTubeWatchTargets(`
+            <ytd-watch-metadata>
+                <h1><yt-formatted-string>日本語タイトルを読む</yt-formatted-string></h1>
+            </ytd-watch-metadata>
+        `);
+        const title = targets.find(target => target.text === '日本語タイトルを読む')!;
+        applyTokensToScanTarget(title, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語タイトルを読む',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const titleHost = document.querySelector<HTMLElement>('yt-formatted-string')!;
+        const staleEvents: Event[] = [];
+        const recordStaleEvent = (event: Event) => staleEvents.push(event);
+        document.addEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+
+        vi.useFakeTimers();
+        try {
+            titleHost.firstChild!.textContent = '更新後の日本語タイトル';
+            await vi.advanceTimersByTimeAsync(100);
+            expect(staleEvents).toHaveLength(1);
+
+            const feedback = document.createElement('span');
+            feedback.setAttribute('aria-hidden', 'true');
+            feedback.textContent = '押下中';
+            titleHost.append(feedback);
+            await vi.advanceTimersByTimeAsync(100);
+        } finally {
+            vi.useRealTimers();
+            document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        }
+
+        expect(staleEvents).toHaveLength(1);
+        expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
     });
 
     it('keeps YouTube generic scans off while allowing frequent site-parser rescans', () => {

@@ -657,6 +657,7 @@ describe('settings dialog keyboard dismissal', () => {
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         await waitForCondition(() => dismiss.mock.calls.length === 1);
+        await waitForCondition(() => refreshDictionaryStyles.mock.calls.length === 1);
 
         expect(refreshDictionaryStyles).toHaveBeenCalled();
         expect(dependencies.toast).toHaveBeenCalledWith('Settings saved.');
@@ -664,7 +665,23 @@ describe('settings dialog keyboard dismissal', () => {
         refresh.resolve();
     });
 
-    it('does not dismiss or toast from a stale save after settings is reopened', async () => {
+    it('dismisses before a slow settings storage save finishes', async () => {
+        const storage = deferred<void>();
+        const setValue = vi.fn(() => storage.promise);
+        vi.stubGlobal('GM_setValue', setValue);
+        const { dependencies, dismiss, form } = createSettingsDialog();
+
+        form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        await waitForCondition(() => setValue.mock.calls.length === 1);
+
+        expect(dismiss).toHaveBeenCalledTimes(1);
+        expect(dependencies.toast).not.toHaveBeenCalledWith('Settings saved.');
+
+        storage.resolve();
+        await waitForCondition(() => dependencies.toast.mock.calls.some((call: unknown[]) => call[0] === 'Settings saved.'));
+    });
+
+    it('does not dismiss the reopened settings dialog or toast from a stale save', async () => {
         const storage = deferred<void>();
         const setValue = vi.fn(() => storage.promise);
         vi.stubGlobal('GM_setValue', setValue);
@@ -672,8 +689,10 @@ describe('settings dialog keyboard dismissal', () => {
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
         await waitForCondition(() => setValue.mock.calls.length === 1);
+        expect(dismiss).toHaveBeenCalledTimes(1);
         form.remove();
         controller.open();
+        dismiss.mockClear();
 
         storage.resolve();
         await flushPromises();

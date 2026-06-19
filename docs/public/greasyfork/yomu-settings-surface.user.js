@@ -9915,20 +9915,8 @@ recommendedJiten	jiten.moe頻度データです。
   const AUTO_REPLACE_ANKI_DECK_NAMES = /* @__PURE__ */ new Set(["", "よむ", "Yomu"]);
   const ANKI_FIELD_MAPPING_ROLES = /* @__PURE__ */ new Set(["expression", "reading", "meaning", "sentence", "audio", "image"]);
   const ANKI_SCAN_CONFIDENCE_VALUES = /* @__PURE__ */ new Set(["high", "medium", "low"]);
-  const SETTINGS_FOCUSABLE_SELECTOR = [
-    "button:not([disabled])",
-    "input:not([disabled])",
-    "select:not([disabled])",
-    "textarea:not([disabled])",
-    "a[href]",
-    "summary",
-    '[tabindex]:not([tabindex="-1"])'
-  ].join(",");
-  const SETTINGS_FOCUS_SCROLL_SELECTOR = [
-    'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"])',
-    "select",
-    "textarea"
-  ].join(",");
+  const SETTINGS_FOCUSABLE_SELECTOR = 'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],summary,[tabindex]:not([tabindex="-1"])';
+  const SETTINGS_FOCUS_SCROLL_SELECTOR = 'input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="hidden"]),select,textarea';
   const SETTINGS_FOCUS_SCROLL_MARGIN_PX = 16;
   const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
   function settingsStatusSetter(status) {
@@ -10280,9 +10268,11 @@ recommendedJiten	jiten.moe頻度データです。
           this.dependencies.clearDictionarySourceOpenOverrides();
         }
         const saveRequestId = ++this.saveRequestId;
-        void saveSettings(this.settings).then(() => this.afterSettingsSaved(form, saveRequestId)).catch((error) => {
+        const savedSettings = this.settings;
+        this.afterSettingsSubmitted(form, saveRequestId, savedSettings);
+        void saveSettings(savedSettings).then(() => this.afterSettingsSaved(saveRequestId, savedSettings)).catch((error) => {
           log.error("Settings save failed", error);
-          this.dependencies.toast(errorMessage(error, uiText(this.settings.interfaceLanguage, "settingsSaveFailed")));
+          this.dependencies.toast(errorMessage(error, uiText(savedSettings.interfaceLanguage, "settingsSaveFailed")));
         });
       });
       form.querySelector('[data-action="cancel"]')?.addEventListener("click", () => this.dismissSettings());
@@ -10385,20 +10375,28 @@ recommendedJiten	jiten.moe頻度データです。
         activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? "api");
       });
     }
-    afterSettingsSaved(form, saveRequestId) {
-      if (this.currentForm !== form || !form.isConnected || this.saveRequestId !== saveRequestId) return;
-      log.info("Settings saved", loggingSettingsSummary(this.settings));
+    afterSettingsSubmitted(form, saveRequestId, settings) {
+      if (this.currentForm !== form || this.saveRequestId !== saveRequestId) return;
+      this.dependencies.clearSettingsPreview();
+      this.dismissSettings();
+      window.setTimeout(() => this.applySavedSettingsEffects(saveRequestId, settings), 0);
+    }
+    applySavedSettingsEffects(saveRequestId, settings) {
+      if (this.saveRequestId !== saveRequestId) return;
       this.dependencies.jpdb.clear();
       this.dependencies.applyTheme();
       this.dependencies.installFab();
       this.dependencies.subtitles.refresh();
       this.dependencies.ocr.refresh();
       this.dependencies.youtube.refresh();
-      this.dependencies.clearSettingsPreview();
-      this.dismissSettings();
       this.dependencies.scheduleDictionaryRescan();
       this.dependencies.refreshNewTabIfCurrent();
-      this.dependencies.toast(uiText(this.settings.interfaceLanguage, "settingsSaved"));
+      log.info("Settings applied", loggingSettingsSummary(settings));
+    }
+    afterSettingsSaved(saveRequestId, settings) {
+      if (this.saveRequestId !== saveRequestId || this.currentForm?.isConnected) return;
+      log.info("Settings saved", loggingSettingsSummary(settings));
+      this.dependencies.toast(uiText(settings.interfaceLanguage, "settingsSaved"));
       void this.refreshDictionaryStylesAfterSave();
     }
     async refreshDictionaryStylesAfterSave() {
