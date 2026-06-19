@@ -19,8 +19,13 @@ const PROXY_CONTROL_REQUEST_HEADERS = new Set([
   "access-control-request-method",
 ]);
 const BROWSER_FETCH_METADATA_RE = /^(?:cf-|sec-fetch-)/i;
+// Transient gateway / connection / TLS failures where a single retry helps.
+// Deliberately EXCLUDES 500 (the app itself errored) and 503 (the server is
+// explicitly overloaded / rate-limiting) — retrying those just piles more load
+// onto a struggling origin, which is the opposite of what a polite proxy should
+// do. Those statuses are returned immediately so the client backs off.
 const RETRYABLE_UPSTREAM_STATUSES = new Set([
-  500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526, 527,
+  502, 504, 520, 521, 522, 523, 524, 525, 526, 527,
 ]);
 const JISHO_SEARCH_RETRY_COUNT = 3;
 

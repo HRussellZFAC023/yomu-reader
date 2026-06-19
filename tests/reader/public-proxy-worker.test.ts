@@ -260,4 +260,25 @@ describe("Yomu public proxy Worker", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("does not retry an explicitly-overloaded upstream (503)", async () => {
+    const upstream = vi.fn(async () => new Response("overloaded", { status: 503 }));
+    vi.stubGlobal("fetch", upstream);
+    try {
+      const response = await PublicProxyWorker.fetch(
+        new Request(
+          "https://yomu-jpdb-public-proxy.example/?url=" +
+            encodeURIComponent("https://jpdb.io/search?q=%E6%97%A5%E6%9C%AC"),
+          { headers: { origin: "https://hrussellzfac023.github.io" } },
+        ),
+        {},
+        { waitUntil: vi.fn() },
+      );
+      expect(response.status).toBe(503);
+      // No retry — an overloaded server should not be hit twice.
+      expect(upstream).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
