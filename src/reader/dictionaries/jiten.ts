@@ -10,6 +10,47 @@ export const JITEN_API_BASE_URL = 'https://api.jiten.moe/api';
 const REQUEST_TIMEOUT_MS = 30_000;
 const MISSING_API_KEY_MESSAGE = 'Jiten API key is not set.';
 
+// Honor Jiten's rate limit (reader/parse meters 200k chars/user/60s). After a
+// 429 we pause ALL Jiten requests for a cooldown — Retry-After if the server
+// gave one, else an exponential backoff — instead of re-hitting the server on
+// every subsequent line and piling onto a limit it already told us we hit.
+// Shared across client instances because they share one per-user server limit.
+const JITEN_RATE_LIMIT_BACKOFF_INITIAL_MS = 30_000;
+const JITEN_RATE_LIMIT_BACKOFF_MAX_MS = 5 * 60_000;
+let sharedJitenRateLimitBackoffUntil = 0;
+let sharedJitenRateLimitBackoffMs = JITEN_RATE_LIMIT_BACKOFF_INITIAL_MS;
+
+export function resetJitenApiBackoffForTests(): void {
+    sharedJitenRateLimitBackoffUntil = 0;
+    sharedJitenRateLimitBackoffMs = JITEN_RATE_LIMIT_BACKOFF_INITIAL_MS;
+}
+
+function jitenRateLimitBackoffActive(): boolean {
+    return Date.now() < sharedJitenRateLimitBackoffUntil;
+}
+
+function noteJitenRateLimitSuccess(): void {
+    sharedJitenRateLimitBackoffMs = JITEN_RATE_LIMIT_BACKOFF_INITIAL_MS;
+}
+
+// Records a 429 and arms the cooldown. retryAfterMs (parsed from a Retry-After
+// header when available) takes precedence over the exponential fallback.
+function noteJitenRateLimit(error: unknown, retryAfterMs?: number): void {
+    if (!(error instanceof JitenApiError) || error.status !== 429) return;
+    const backoff = retryAfterMs && retryAfterMs > 0
+        ? retryAfterMs
+        : sharedJitenRateLimitBackoffMs;
+    sharedJitenRateLimitBackoffUntil = Date.now() + backoff;
+    sharedJitenRateLimitBackoffMs = Math.min(sharedJitenRateLimitBackoffMs * 2, JITEN_RATE_LIMIT_BACKOFF_MAX_MS);
+}
+
+function retryAfterMsFromResponse(response: Response): number | undefined {
+    const header = response.headers?.get?.('Retry-After');
+    if (!header) return undefined;
+    const seconds = Number(header.trim());
+    return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1000 : undefined;
+}
+
 export interface JitenReaderStudyDeck {
     userStudyDeckId: number;
     name: string;
@@ -551,6 +592,9 @@ export class JitenApiClient {
         const apiKey = this.getApiKey().trim();
         const requiresAuth = endpoint.startsWith('reader/') || endpoint.startsWith('srs/');
         if (requiresAuth && !apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
+        if (jitenRateLimitBackoffActive()) {
+            throw new JitenApiError('Jiten is rate-limiting; backing off before retrying.', 429);
+        }
         const method = options.method ?? 'POST';
         const data = method === 'GET' ? undefined : body === undefined ? undefined : JSON.stringify(body);
         const url = endpointUrl(this.options.baseUrl, endpoint, options.query);
@@ -567,7 +611,14 @@ export class JitenApiClient {
                 this.options.timeoutMs ?? REQUEST_TIMEOUT_MS,
             );
 
-            return parseJitenResponse<T>(response);
+            try {
+                const result = await parseJitenResponse<T>(response);
+                noteJitenRateLimitSuccess();
+                return result;
+            } catch (error) {
+                noteJitenRateLimit(error, retryAfterMsFromResponse(response));
+                throw error;
+            }
         }
 
         try {
@@ -587,9 +638,13 @@ export class JitenApiClient {
                 allowPublicProxies: false,
                 preferFetch: true,
             });
-            return parseJitenPayload<T>(payload);
+            const result = parseJitenPayload<T>(payload);
+            noteJitenRateLimitSuccess();
+            return result;
         } catch (error) {
-            throw normalizeJitenRequestError(error);
+            const normalized = normalizeJitenRequestError(error);
+            noteJitenRateLimit(normalized);
+            throw normalized;
         }
     }
 
