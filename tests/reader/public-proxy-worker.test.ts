@@ -205,4 +205,59 @@ describe("Yomu public proxy Worker", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("coalesces concurrent identical cacheable GETs into one upstream request", async () => {
+    let releaseUpstream: () => void = () => {};
+    const upstreamGate = new Promise<void>((resolve) => {
+      releaseUpstream = resolve;
+    });
+    let inFlight = 0;
+    const upstream = vi.fn(async () => {
+      inFlight += 1;
+      await upstreamGate;
+      return new Response("info", {
+        status: 200,
+        headers: { "cache-control": "public, max-age=3600" },
+      });
+    });
+    vi.stubGlobal("fetch", upstream);
+    const store = new Map<string, Response>();
+    vi.stubGlobal("caches", {
+      default: {
+        match: async (request: Request) => store.get(request.url)?.clone(),
+        put: async (request: Request, response: Response) => {
+          store.set(request.url, response.clone());
+        },
+      },
+    });
+    const proxyUrl =
+      "https://yomu-jpdb-public-proxy.example/?url=" +
+      encodeURIComponent("https://api.jiten.moe/api/vocabulary/123/0/info");
+    const call = () =>
+      PublicProxyWorker.fetch(
+        new Request(proxyUrl, {
+          headers: { origin: "https://hrussellzfac023.github.io" },
+        }),
+        {},
+        { waitUntil: vi.fn() },
+      );
+
+    try {
+      const first = call();
+      const second = call();
+      // Let both requests reach the shared in-flight fetch, then release it.
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      releaseUpstream();
+      const [r1, r2] = await Promise.all([first, second]);
+      expect(r1.status).toBe(200);
+      expect(r2.status).toBe(200);
+      expect(await r1.text()).toBe("info");
+      expect(await r2.text()).toBe("info");
+      // Two concurrent identical lookups → exactly one upstream request.
+      expect(upstream).toHaveBeenCalledTimes(1);
+      expect(inFlight).toBe(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

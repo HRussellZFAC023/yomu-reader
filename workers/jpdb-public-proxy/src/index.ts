@@ -51,7 +51,14 @@ export default {
       if (hit) return withCors(request, hit, target);
     }
 
-    const response = await fetchProxyTarget(request, target);
+    // Coalesce concurrent identical cacheable GETs: a burst of clients looking
+    // up the same word collapses to ONE upstream request instead of N. This
+    // protects the origin even where the edge cache is unavailable (e.g. a
+    // workers.dev subdomain, where the Cache API is best-effort). Each caller
+    // receives an independent clone of the shared response.
+    const response = edgeCache
+      ? await coalesceOriginRequest(target.href, () => fetchProxyTarget(request, target))
+      : await fetchProxyTarget(request, target);
 
     if (edgeCache && isCacheableUpstreamResponse(response)) {
       const stored = new Response(response.clone().body, response);
@@ -63,6 +70,27 @@ export default {
     return withCors(request, response, target);
   },
 };
+
+// In-flight de-duplication of identical upstream GETs. Keyed by target URL; the
+// entry is cleared once the shared fetch settles, so it only collapses requests
+// that overlap in time. Per-isolate (best-effort) but needs no external state,
+// so it works everywhere the Worker runs.
+const inflightOriginRequests = new Map<string, Promise<Response>>();
+
+async function coalesceOriginRequest(
+  key: string,
+  run: () => Promise<Response>,
+): Promise<Response> {
+  const existing = inflightOriginRequests.get(key);
+  if (existing) return (await existing).clone();
+  const promise = run();
+  inflightOriginRequests.set(key, promise);
+  try {
+    return (await promise).clone();
+  } finally {
+    inflightOriginRequests.delete(key);
+  }
+}
 
 const EDGE_CACHE_TTL_SECONDS = 3600;
 const SHORT_EDGE_CACHE_TTL_SECONDS = 600;
