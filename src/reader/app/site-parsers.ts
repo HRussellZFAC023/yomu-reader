@@ -335,6 +335,18 @@ const YOUTUBE_CHROME_ROOTS = [
     'ytd-masthead .ytAttributedStringHost',
     'ytd-masthead yt-attributed-string',
 ];
+const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
+    'button',
+    '[role="button"]',
+    '[aria-controls]',
+    '[aria-expanded]',
+    '[slot*="button" i]',
+    '[class*="button" i]',
+];
+const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
+    'ytd-comment-view-model #content-text',
+    ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map(selector => `ytd-comment-view-model ${selector}`),
+].join(',');
 const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
     'ytd-watch-info-text',
 ].join(',');
@@ -733,7 +745,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-slim-video-metadata-section-renderer #title',
             'ytm-expandable-video-description-body-renderer',
             'ytm-structured-description-content-renderer',
-            '#content-text',
+            YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS,
             'yt-live-chat-text-message-renderer #author-name',
             'yt-live-chat-text-message-renderer #message',
             'yt-live-chat-paid-message-renderer #author-name',

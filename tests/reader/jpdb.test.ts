@@ -33126,18 +33126,32 @@ describe('reader helpers', () => {
         expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
     });
 
-    it('keeps YouTube comment chrome out of hover targets while comment text remains active', () => {
+    it('scans YouTube comment action controls as passive hover targets while comment text remains active', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-comment-view-model>
                 <yt-attributed-string id="content-text">今夜も配信見なかったごめんね。</yt-attributed-string>
-                <span class="more-button" slot="more-button"><span>続きを読む</span></span>
+                <span class="more-button style-scope ytd-comment-view-model" slot="more-button">詳細</span>
+                <ytd-tri-state-button-view-model class="translate-button style-scope ytd-comment-view-model" state="untoggled">
+                    <tp-yt-paper-button noink class="style-scope ytd-tri-state-button-view-model" role="button" tabindex="0" aria-disabled="false">
+                        英語に翻訳
+                    </tp-yt-paper-button>
+                </ytd-tri-state-button-view-model>
+                <button type="button">
+                    <yt-touch-feedback-shape aria-hidden="true"><div>押下中</div></yt-touch-feedback-shape>
+                    <span>返信</span>
+                </button>
             </ytd-comment-view-model>
         `);
 
         const comment = targets.find(target => target.text === '今夜も配信見なかったごめんね。');
-        const more = targets.find(target => target.text === '続きを読む');
+        const more = targets.find(target => target.text === '詳細');
+        const translate = targets.find(target => target.text === '英語に翻訳');
+        const reply = targets.find(target => target.text === '返信');
         expect(comment).toBeTruthy();
-        expect(more).toBeUndefined();
+        expect(more).toMatchObject({ passiveInteraction: true, nonDestructive: true });
+        expect(translate).toMatchObject({ passiveInteraction: true, nonDestructive: true });
+        expect(reply).toMatchObject({ passiveInteraction: true, nonDestructive: true });
+        expect(targets.map(target => target.text)).not.toContain('押下中');
         expect('passiveInteraction' in comment! && comment.passiveInteraction).not.toBe(true);
 
         applyTokensToScanTarget(comment!, [{
@@ -33149,10 +33163,42 @@ describe('reader helpers', () => {
             pitchClass: '',
             sentence: '今夜も配信見なかったごめんね。',
         }], DEFAULT_SETTINGS);
+        applyTokensToScanTarget(more!, [{
+            card: { ...card, cardState: ['known'], spelling: '詳細', reading: 'しょうさい', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'しょうさい', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '詳細',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(translate!, [{
+            card: { ...card, cardState: ['known'], spelling: '英語', reading: 'えいご', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'えいご', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '英語に翻訳',
+        }, {
+            card: { ...card, vid: card.vid + 1, sid: card.sid + 1, cardState: ['known'], spelling: '翻訳', reading: 'ほんやく', source: 'jpdb' },
+            start: 3,
+            end: 5,
+            length: 2,
+            rubies: [{ text: 'ほんやく', start: 3, end: 5, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '英語に翻訳',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(commentWord.tabIndex).toBe(-1);
-        expect(document.querySelector('.more-button .jpdb-reader-word')).toBeNull();
+        const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(moreWord)).toBe('詳細');
+        expect(moreWord.dataset.jpdbReaderPassive).toBe('true');
+        const translateWords = Array.from(document.querySelectorAll<HTMLElement>('ytd-tri-state-button-view-model .jpdb-reader-word'));
+        expect(translateWords.map(word => readerWordSurfaceText(word))).toEqual(['英語', '翻訳']);
+        expect(translateWords.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(document.querySelector('yt-touch-feedback-shape .jpdb-reader-word')).toBeNull();
     });
 
     it('scans long YouTube watch comment threads while keeping the video title scan target', () => {

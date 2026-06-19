@@ -192,7 +192,10 @@ function youtubeWatchHtml() {
         <section id="comments">
           <ytd-comment-view-model>
             <yt-attributed-string id="content-text">先生いつもありがとうございました。✨</yt-attributed-string>
-            <span class="more-button" slot="more-button"><span>続きを読む</span></span>
+            <span class="more-button style-scope ytd-comment-view-model" slot="more-button">詳細</span>
+            <ytd-tri-state-button-view-model class="translate-button style-scope ytd-comment-view-model" state="untoggled">
+              <tp-yt-paper-button noink class="style-scope ytd-tri-state-button-view-model" role="button" tabindex="0" aria-disabled="false">英語に翻訳</tp-yt-paper-button>
+            </ytd-tri-state-button-view-model>
           </ytd-comment-view-model>
         </section>
         <yt-live-chat-app>
@@ -657,6 +660,7 @@ async function installUserscriptContext(context) {
                 descriptionWords: queryCount('ytd-watch-metadata #description-inline-expander .jpdb-reader-word'),
                 commentWords: queryCount('ytd-comment-view-model #content-text .jpdb-reader-word'),
                 commentMorePassive: element('ytd-comment-view-model .more-button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
+                commentTranslatePassive: element('ytd-comment-view-model ytd-tri-state-button-view-model .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
                 liveChatWords: queryCount('yt-live-chat-text-message-renderer .jpdb-reader-word'),
                 liveChatButtonPassive: element('yt-live-chat-text-message-renderer button .jpdb-reader-word')?.dataset.jpdbReaderPassive === 'true',
                 titleWords: queryCount('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word'),
@@ -1090,7 +1094,8 @@ function assertWatchTranscriptState(initial) {
 function assertWatchPageParsing(initial) {
     assert(initial.descriptionWords > 0, 'YouTube watch description was not parsed', initial);
     assert(initial.commentWords > 0, 'YouTube comment text was not parsed', initial);
-    assert(initial.commentMorePassive === false, 'Yomu wrapped a YouTube comment UI control', initial);
+    assert(initial.commentMorePassive === true, 'Yomu did not passively annotate the YouTube comment more control', initial);
+    assert(initial.commentTranslatePassive === true, 'Yomu did not passively annotate the YouTube comment translate control', initial);
     assert(initial.liveChatWords > 0, 'YouTube live chat text was not parsed', initial);
     assert(initial.liveChatButtonPassive === false, 'Yomu wrapped a YouTube live chat button', initial);
 }
