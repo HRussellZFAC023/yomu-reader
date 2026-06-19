@@ -1074,14 +1074,8 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-review-target-gutter > .jpdb-reader-provider-toggle {
   grid-column: 1;
   justify-self: end;
-  display: flex;
-  align-items: center;
-  width: auto;
 }
 .jpdb-reader-review-target-current {
-  grid-column: 1;
-  align-self: center;
-  justify-self: end;
   min-width: 0;
   max-width: min(180px, 34cqi);
   color: var(--jpdb-reader-muted);
@@ -1091,7 +1085,6 @@ html.jpdb-reader-doodle-active * {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  pointer-events: none;
 }
 .jpdb-reader-review-target-gutter .jpdb-reader-mining-collapse {
   grid-column: 3;

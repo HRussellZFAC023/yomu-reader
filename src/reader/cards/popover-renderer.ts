@@ -24,8 +24,6 @@ import { newTabText } from '../newtab/i18n';
 interface MiningActionState {
     isNeverForget: boolean;
     isBlacklisted: boolean;
-    neverForgetTitle: string;
-    blacklistTitle: string;
     neverForgetLabel: string;
     blacklistLabel: string;
 }
@@ -503,8 +501,8 @@ function renderReviewTargetGutter(
     const targetControl = canSwitchProvider ? renderProviderToggle(provider, language, currentTarget) : currentTarget;
     return `<div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
         ${targetControl}
-        ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" title="${escapeHtml(switchLabel)}" aria-label="${escapeHtml(switchLabel)}">⇄</button>` : ''}
-        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button>
+        ${canSwitchTarget ? `<button class="jpdb-reader-review-target-toggle" data-action="review-target-toggle" aria-label="${escapeHtml(switchLabel)}">⇄</button>` : ''}
+        <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml(label)}"></button>
     </div>`;
 }
 
@@ -548,8 +546,6 @@ function miningActionState(cardStates: ReturnType<typeof normalizeCardStates>, l
     return {
         isNeverForget,
         isBlacklisted,
-        neverForgetTitle: isNeverForget ? uiText(language, 'forgetHint') : uiText(language, 'neverHint'),
-        blacklistTitle: isBlacklisted ? uiText(language, 'unlistHint') : uiText(language, 'blacklistHint'),
         neverForgetLabel: isNeverForget ? uiText(language, 'forget') : uiText(language, 'never'),
         blacklistLabel: isBlacklisted ? uiText(language, 'unlist') : uiText(language, 'blacklist'),
     };
@@ -594,9 +590,9 @@ function renderApiMiningActionDetails(language: InterfaceLanguage, state: Mining
     return `
                 <div class="jpdb-reader-mining-details" role="group" aria-label="${escapeHtml(uiText(language, 'deckActions'))}">
                     <div class="jpdb-reader-row jpdb-reader-mining-action-row" style="--cols: 3">
-                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" title="${escapeHtml(uiText(language, 'addToDeckHint'))}" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
-                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" title="${escapeHtml(state.neverForgetTitle)}" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
-                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" title="${escapeHtml(state.blacklistTitle)}" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
+                        <button class="jpdb-reader-btn add jpdb-reader-mining-title" data-action="deck-picker" aria-expanded="false">${escapeHtml(addToDeckLabel)}</button>
+                        <button class="jpdb-reader-btn nf${state.isNeverForget ? ' danger' : ''}" data-action="neverforget" aria-pressed="${state.isNeverForget}">${state.neverForgetLabel}</button>
+                        <button class="jpdb-reader-btn blacklist" data-action="blacklist" aria-pressed="${state.isBlacklisted}">${state.blacklistLabel}</button>
                     </div>
                     ${addDeckSelect}
                 </div>
@@ -627,13 +623,13 @@ function renderMeta(metaItems: string[]): string {
 function renderProviderToggle(provider: ApiSrsProviderView | null, language: InterfaceLanguage, content = ''): string {
     const target = provider?.id === 'jiten' ? 'JPDB' : 'Jiten';
     const label = `${uiText(language, 'switchGradingProvider')} (${target})`;
-    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml(label)}">⇄${content}</button>`;
+    return `<button class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="${escapeHtml(label)}">⇄ ${content}</button>`;
 }
 
 function renderMiningGutter(miningActions: string, language: InterfaceLanguage): string {
     const label = uiText(language, 'showMiningActions');
     return miningActions
-        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}"></button></div>`
+        ? `<div class="jpdb-reader-actions-gutter"><button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" data-action="mining-collapse" aria-expanded="false" aria-label="${escapeHtml(label)}"></button></div>`
         : '';
 }
 

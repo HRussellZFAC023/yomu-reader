@@ -1362,11 +1362,10 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   gap: 2px;
 }
 .jpdb-reader-provider-toggle {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   height: 20px;
-  margin: 0;
   padding: 0;
   border: 0;
   border-radius: 999px;
@@ -1374,8 +1373,6 @@ button.jpdb-reader-jiten-audio.jpdb-reader-icon-mini:active {
   color: var(--jpdb-reader-muted);
   font: 760 13px/1 var(--jpdb-reader-font);
   cursor: pointer;
-  pointer-events: auto;
-  vertical-align: middle;
 }
 .jpdb-reader-provider-toggle:hover,
 .jpdb-reader-provider-toggle:focus-visible {
