@@ -53019,6 +53019,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const fresh = (tokens ?? []).find((token) => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card ?? (tokens ?? [])[0]?.card;
       if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
     }
+    // Batch parity for refreshCardState: refresh the known/SRS state of many
+    // cards in ONE reader/lookup-vocabulary request instead of re-parsing each
+    // word. After a mass review, grading 60 visible words costs one request, not
+    // 60 parses. Mutates each card's cardState in place; returns how many words
+    // were looked up.
+    async refreshCardStates(cards) {
+      const entries = cards.map((card) => {
+        try {
+          return { card, ref: jitenCardReference(card) };
+        } catch {
+          return null;
+        }
+      }).filter((entry) => entry !== null);
+      if (!entries.length) return 0;
+      const response = await this.request("reader/lookup-vocabulary", {
+        words: entries.map((entry) => [entry.ref.wordId, entry.ref.readingIndex])
+      });
+      const states = isJsonRecord(response) && Array.isArray(response.result) ? response.result : [];
+      entries.forEach((entry, index) => {
+        const cardStates = jitenKnownStateToCardStates(states[index]);
+        if (cardStates.length) entry.card.cardState = cardStates;
+      });
+      return entries.length;
+    }
     async setVocabularyState(card, deck, action) {
       await this.request("srs/set-vocabulary-state", {
         ...jitenCardReference(card),

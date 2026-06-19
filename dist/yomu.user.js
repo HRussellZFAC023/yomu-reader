@@ -26036,6 +26036,25 @@ ${spelling}`);
       const fresh = (tokens ?? []).find((token) => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card ?? (tokens ?? [])[0]?.card;
       if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
     }
+    async refreshCardStates(cards) {
+      const entries = cards.map((card) => {
+        try {
+          return { card, ref: jitenCardReference(card) };
+        } catch {
+          return null;
+        }
+      }).filter((entry) => entry !== null);
+      if (!entries.length) return 0;
+      const response = await this.request("reader/lookup-vocabulary", {
+        words: entries.map((entry) => [entry.ref.wordId, entry.ref.readingIndex])
+      });
+      const states = isJsonRecord$1(response) && Array.isArray(response.result) ? response.result : [];
+      entries.forEach((entry, index) => {
+        const cardStates = jitenKnownStateToCardStates(states[index]);
+        if (cardStates.length) entry.card.cardState = cardStates;
+      });
+      return entries.length;
+    }
     async setVocabularyState(card, deck, action) {
       await this.request("srs/set-vocabulary-state", {
         ...jitenCardReference(card),
@@ -39167,10 +39186,9 @@ ${normalizedReading}`;
       }
     }
     async refreshMassReviewedWordStates(cards) {
-      for (const card of cards.slice(0, 30)) {
-        await this.jiten.refreshCardState(card).catch(() => void 0);
-        publishCardStateSignal(card);
-      }
+      const batch = cards.slice(0, 60);
+      await this.jiten.refreshCardStates(batch).catch(() => void 0);
+      for (const card of batch) publishCardStateSignal(card);
     }
     handleAudioShortcut(event) {
       if (!this.lastCard || !this.activePopover) return false;
@@ -40260,7 +40278,7 @@ ${normalizedReading}`;
       const entries = uniqueFallbackLookupEntries(cards, options.publicLookupTermLimit);
       if (!entries.length) return result;
       const jitenTerms = [...new Set(entries.flatMap((entry) => entry.terms))];
-      const jitenCards = await this.jitenPublicVocabulary.lookupMany(jitenTerms).catch((error) => {
+      const jitenCards = this.isJitenApiActive() ? await this.batchJitenFallbackCards(jitenTerms) : await this.jitenPublicVocabulary.lookupMany(jitenTerms).catch((error) => {
         log.warn("Jiten fallback failed", { terms: jitenTerms.length }, error);
         return /* @__PURE__ */ new Map();
       });
@@ -40283,6 +40301,21 @@ ${normalizedReading}`;
         }
       });
       return result;
+    }
+    async batchJitenFallbackCards(terms) {
+      const cards = /* @__PURE__ */ new Map();
+      const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
+      if (!uniqueTerms.length) return cards;
+      const parsed = await this.jiten.parse(uniqueTerms).catch((error) => {
+        log.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+        return [];
+      });
+      uniqueTerms.forEach((term, index) => {
+        const tokens = parsed[index] ?? [];
+        const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card ?? tokens.find((token) => token.card.source === "jiten")?.card;
+        if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
+      });
+      return cards;
     }
     async publicJitenLookupCandidateCards(terms) {
       const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
