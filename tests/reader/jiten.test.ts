@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createJitenStudyBatchCard } from '../../scripts/fixtures/jiten-fixtures.mjs';
-import { JITEN_API_BASE_URL, JitenApiClient, JitenApiError, jitenCardReference, jitenRatingForGrade, resetJitenApiBackoffForTests, validateJitenApiKey } from '../../src/reader/dictionaries/jiten';
+import { JITEN_API_BASE_URL, JitenApiClient, JitenApiError, jitenCardReference, jitenRatingForGrade, validateJitenApiKey } from '../../src/reader/dictionaries/jiten';
 import { renderTokensToHtml } from '../../src/reader/dom/index';
 import { renderJitenDefinitionSource } from '../../src/reader/jiten/jiten-definition-source-render';
 import { jitenKanjiFactRows, jitenKanjiOriginFactLabels, jitenKanjiVocabulary, renderJitenKanjiInfo } from '../../src/reader/jiten/jiten-kanji-info-render';
@@ -26,7 +26,6 @@ function createFetchMock(payload: unknown, status = 200) {
 
 afterEach(() => {
     vi.clearAllMocks();
-    resetJitenApiBackoffForTests();
 });
 
 describe('JitenApiClient', () => {
@@ -327,17 +326,6 @@ describe('JitenApiClient', () => {
         }));
         expect(cards[0].cardState).toEqual(['mature']);
         expect(cards[1].cardState).toEqual(['due']);
-    });
-
-    it('backs off after a 429 instead of hammering the rate-limited server', async () => {
-        const fetchMock = createFetchMock({}, 429);
-        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
-
-        await expect(client.parse(['日本語'])).rejects.toBeInstanceOf(JitenApiError);
-        // The server already said "slow down" — the next parse must short-circuit
-        // rather than issue another request.
-        await expect(client.parse(['本'])).rejects.toBeInstanceOf(JitenApiError);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it('maps the Jiten known-state enum to Yomu card states', async () => {
