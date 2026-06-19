@@ -1440,16 +1440,26 @@ export class SubtitlePlayerController {
     private updateFromLoadedCues(): void {
         if (!this.video) return;
         const time = this.video.currentTime;
-        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time) : undefined;
         const secondary = this.secondaryTrackId
             ? (findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time))
             : undefined;
+        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
         else this.warmParseOnGapAnchorJump();
     }
 
-    private findRenderablePrimaryCue(time: number): SubtitleCue | undefined {
-        return findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+    // Auto-generated YouTube captions and their `&tlang=` translations are
+    // segmented independently, so the primary (JP) cue often begins a beat
+    // after — or falls into a gap relative to — the native (EN) line that's
+    // already active. That left no primary cue at the playhead while a native
+    // cue was active, showing the native line alone (user-reported). When the
+    // direct lookup misses but a native cue is active, surface the primary
+    // aligned to it so the pair appears together. Mirrors
+    // primaryHeldByActiveSecondary for the not-yet-shown direction.
+    private findRenderablePrimaryCue(time: number, activeSecondary?: SubtitleCue): SubtitleCue | undefined {
+        const direct = findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+        if (direct || !activeSecondary || !this.cues.length) return direct;
+        return findAlignedCue(this.cues, activeSecondary);
     }
 
     // A repeated seek that lands in another inter-cue gap changes no cue

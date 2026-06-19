@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.14] - 2026-06-19
+
+### Fixed
+
+- On YouTube, the Japanese subtitle line no longer goes missing while the English (native) line shows alone. Auto-generated captions and their auto-translated Japanese track are segmented independently, so the Japanese cue can start a beat after — or fall into a gap relative to — the English line that's already on screen; the pair now appears together by surfacing the Japanese cue aligned to the active English one. This also steadies the transcript side panel, which flickered when the active line momentarily had no Japanese cue.
+
 ## [1.4.13] - 2026-06-19
 
 ### Fixed
