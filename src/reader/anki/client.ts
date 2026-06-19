@@ -1,4 +1,5 @@
 import { runLimited } from '../core/async-utils';
+import { chunkArray, unique } from '../core/array-utils';
 import { escapeHtml } from '../dom';
 import type { AnkiWordAudioMedia } from './audio';
 import { formatPartOfSpeech, formatPartOfSpeechDetails } from '../lookup/pos';
@@ -2486,15 +2487,7 @@ function visibleArea(element: HTMLElement): number {
     return width * height;
 }
 
-function unique<T>(items: T[]): T[] {
-    return [...new Set(items)];
-}
 
-function chunkArray<T>(items: T[], size: number): T[][] {
-    const chunks: T[][] = [];
-    for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
-    return chunks;
-}
 
 function ankiEaseFromGrade(grade: JPDBGrade): number {
     return ANKI_EASE_BY_GRADE[grade] ?? 3;

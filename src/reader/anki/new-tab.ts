@@ -1,4 +1,5 @@
 import type { AnkiConnectClient } from './index';
+import { unique } from '../core/array-utils';
 import { ankiCardTemplateLabel, applyComputedAnkiNextReviews, pickPrimaryCard, reviewGradeIntervalsFromAnkiCards, stateFromAnkiCards } from './card-details';
 import { ANKI_EXPRESSION_FIELD_NAMES, ANKI_MEANING_FIELD_NAMES, ANKI_READING_FIELD_NAMES, ANKI_SENTENCE_FIELD_NAMES, flattenNoteFields, normalizeAnkiFieldName } from './field-mapping';
 import { quoteAnkiSearch } from './search-escape';
@@ -680,6 +681,3 @@ function isDueReviewAnkiCard(card: AnkiCardInfo): boolean {
     return card.queue === 2 && card.isDue === true;
 }
 
-function unique<T>(items: T[]): T[] {
-    return [...new Set(items)];
-}

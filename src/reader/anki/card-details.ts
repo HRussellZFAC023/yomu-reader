@@ -1,4 +1,5 @@
 import type { CardState, JPDBGrade, ReviewGradeInterval, ReviewGradeIntervals } from '../app/types';
+import { unique } from '../core/array-utils';
 import {
     type AnkiCardInfo,
     type AnkiExistingNote,
@@ -296,9 +297,6 @@ function sumAnkiCardMetric(cards: AnkiCardInfo[], metric: 'reps' | 'lapses'): nu
     return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
 }
 
-function unique<T>(items: T[]): T[] {
-    return [...new Set(items)];
-}
 
 const ANKI_MEDIA_MIME_TYPES: Record<string, string> = {
     'png': 'image/png',

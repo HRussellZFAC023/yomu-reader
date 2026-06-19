@@ -1,5 +1,5 @@
 import { parseHtmlDocument } from '../dom';
-import { unique } from './jpdb-public-lookup';
+import { unique } from '../core/array-utils';
 import { parseJpdbAudioData } from './jpdb-audio-ids';
 import { parseJpdbVocabularyUrl } from './jpdb-text';
 import { vocabularyRoot } from './jpdb-vocabulary-root';

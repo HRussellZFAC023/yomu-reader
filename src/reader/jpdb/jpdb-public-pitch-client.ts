@@ -4,8 +4,8 @@ import {
     JpdbPublicLookupBackoff,
     jpdbSearchUrl,
     requestPublicJpdbText,
-    unique,
 } from './jpdb-public-lookup';
+import { unique } from '../core/array-utils';
 import { readPublicJpdbCache, writePublicJpdbCache } from './jpdb-public-cache';
 import { parseJpdbPublicPitchHtml } from './jpdb-public-pitch-parser';
 
