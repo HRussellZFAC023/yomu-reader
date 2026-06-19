@@ -398,7 +398,6 @@ function newTabAnkiQuery(deckNames: string[], model: string, kind: AnkiNewTabQue
     ].filter(Boolean).join(' ');
 }
 
-
 function ankiCandidateIds(ids: number[]): number[] {
     const uniqueIds = unique(ids).filter(id => Number.isFinite(Number(id)));
     return uniqueIds;
@@ -680,4 +679,3 @@ function meaningToGlosses(value: string): string[] {
 function isDueReviewAnkiCard(card: AnkiCardInfo): boolean {
     return card.queue === 2 && card.isDue === true;
 }
-

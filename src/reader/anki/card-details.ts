@@ -297,7 +297,6 @@ function sumAnkiCardMetric(cards: AnkiCardInfo[], metric: 'reps' | 'lapses'): nu
     return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
 }
 
-
 const ANKI_MEDIA_MIME_TYPES: Record<string, string> = {
     'png': 'image/png',
     'jpg': 'image/jpeg',
