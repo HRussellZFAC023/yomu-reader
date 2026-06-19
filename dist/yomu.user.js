@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.17
+// @version      1.4.19
 // @description  Japanese popup reader.
 // @license      MIT
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.17#sha256-kz0y68XxcEn0ylji18xo7iE3RzuyHKBwEjYjbiUExes=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.17#sha256-XNV25RbMcKq+McsxkdJWYp4NaxdeDSkuqb5Gq9YY4F4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.17#sha256-EDW9+0hqa2sOZYsbK4tG2FOBrZZNNa/cXxXYoYlPSK0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.17#sha256-t5ilyOVPxORNS9jCaDMUxczb58CZOUCaqRYYZ0TM4Yw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.19#sha256-kz0y68XxcEn0ylji18xo7iE3RzuyHKBwEjYjbiUExes=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.19#sha256-XNV25RbMcKq+McsxkdJWYp4NaxdeDSkuqb5Gq9YY4F4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.19#sha256-EDW9+0hqa2sOZYsbK4tG2FOBrZZNNa/cXxXYoYlPSK0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.19#sha256-t5ilyOVPxORNS9jCaDMUxczb58CZOUCaqRYYZ0TM4Yw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -34846,6 +34846,15 @@ ${normalizedReading}`;
   function supplementSettingsFallbackTokens(targets, parsed) {
     return targets.map((target, index) => supplementSettingsTargetTokens(target.text, parsed[index] ?? []));
   }
+  function parsedSettingsTargetsForCurrentPlan(previousPlan, previousParsed, currentPlan) {
+    let parsedByText = new Map();
+    previousPlan.targets.forEach((target, index) => {
+      let queue = parsedByText.get(target.text) ?? [];
+      queue.push(previousParsed[index] ?? []);
+      parsedByText.set(target.text, queue);
+    });
+    return currentPlan.targets.map((target) => parsedByText.get(target.text)?.shift() ?? []);
+  }
   function supplementSettingsTargetTokens(text2, tokens) {
     let protectedRanges = tokens.filter(isHydratedSettingsToken).map(tokenRange);
     let generated = [];
@@ -42499,19 +42508,35 @@ ${reading}`);
       return Boolean(root.isConnected && root.matches("[data-yomu-jpdb-addon]"));
     }
     async parseSettingsJapanese(form) {
-      let plan = this.settingsJapaneseParsePlan(form);
-      if (!plan) return;
-      let parseLoadingId = `${Date.now()}:${Math.random()}`;
-      form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-      form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
+      if (!this.isCurrentSettingsRoot(form)) return;
+      if (form.dataset.yomuSettingsSelfEnhancing === "true") {
+        form.dataset.yomuSettingsSelfEnhancePending = "true";
+        return;
+      }
+      form.dataset.yomuSettingsSelfEnhancing = "true";
+      let plan = null;
+      let parseLoadingId = "";
       try {
+        plan = this.settingsJapaneseParsePlan(form);
+        if (!plan) return;
+        parseLoadingId = `${Date.now()}:${Math.random()}`;
+        form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         let parsed = await this.loadSettingsParsedJapaneseContent(plan);
         if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-        let supplemented = supplementSettingsFallbackTokens(plan.targets, parsed);
-        this.applySettingsJapaneseParse(form, plan, supplemented);
+        let currentPlan = nestedSettingsTextParsePlan(form, 640);
+        if (!currentPlan) return;
+        let currentParsed = parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan);
+        let supplemented = supplementSettingsFallbackTokens(currentPlan.targets, currentParsed);
+        this.applySettingsJapaneseParse(form, currentPlan, supplemented);
       } catch {
       } finally {
-        clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+        if (plan) clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+        delete form.dataset.yomuSettingsSelfEnhancing;
+        if (form.dataset.yomuSettingsSelfEnhancePending === "true") {
+          delete form.dataset.yomuSettingsSelfEnhancePending;
+          void this.parseSettingsJapanese(form);
+        }
       }
     }
     settingsJapaneseParsePlan(form) {

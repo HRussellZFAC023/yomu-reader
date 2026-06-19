@@ -68,6 +68,20 @@ export function supplementSettingsFallbackTokens(
     return targets.map((target, index) => supplementSettingsTargetTokens(target.text, parsed[index] ?? []));
 }
 
+export function parsedSettingsTargetsForCurrentPlan(
+    previousPlan: NestedParsePlan,
+    previousParsed: JPDBToken[][],
+    currentPlan: NestedParsePlan,
+): JPDBToken[][] {
+    const parsedByText = new Map<string, JPDBToken[][]>();
+    previousPlan.targets.forEach((target, index) => {
+        const queue = parsedByText.get(target.text) ?? [];
+        queue.push(previousParsed[index] ?? []);
+        parsedByText.set(target.text, queue);
+    });
+    return currentPlan.targets.map(target => parsedByText.get(target.text)?.shift() ?? []);
+}
+
 function supplementSettingsTargetTokens(text: string, tokens: JPDBToken[]): JPDBToken[] {
     const protectedRanges = tokens.filter(isHydratedSettingsToken).map(tokenRange);
     const generated: JPDBToken[] = [];

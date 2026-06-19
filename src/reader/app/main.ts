@@ -239,7 +239,7 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffect
 import { NativeTitleGuard } from './native-title-guard';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
-import { supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
+import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 
@@ -6013,19 +6013,35 @@ export class ReaderApp {
     }
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
-        const plan = this.settingsJapaneseParsePlan(form);
-        if (!plan) return;
-        const parseLoadingId = `${Date.now()}:${Math.random()}`;
-        form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-        form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
+        if (!this.isCurrentSettingsRoot(form)) return;
+        if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
+            form.dataset.yomuSettingsSelfEnhancePending = 'true';
+            return;
+        }
+        form.dataset.yomuSettingsSelfEnhancing = 'true';
+        let plan: NestedParsePlan | null = null;
+        let parseLoadingId = '';
         try {
+            plan = this.settingsJapaneseParsePlan(form);
+            if (!plan) return;
+            parseLoadingId = `${Date.now()}:${Math.random()}`;
+            form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+            form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
             const parsed = await this.loadSettingsParsedJapaneseContent(plan);
             if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-            const supplemented = supplementSettingsFallbackTokens(plan.targets, parsed);
-            this.applySettingsJapaneseParse(form, plan, supplemented);
+            const currentPlan = nestedSettingsTextParsePlan(form, 640);
+            if (!currentPlan) return;
+            const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan);
+            const supplemented = supplementSettingsFallbackTokens(currentPlan.targets, currentParsed);
+            this.applySettingsJapaneseParse(form, currentPlan, supplemented);
         } catch {
         } finally {
-            clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+            if (plan) clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+            delete form.dataset.yomuSettingsSelfEnhancing;
+            if (form.dataset.yomuSettingsSelfEnhancePending === 'true') {
+                delete form.dataset.yomuSettingsSelfEnhancePending;
+                void this.parseSettingsJapanese(form);
+            }
         }
     }
 

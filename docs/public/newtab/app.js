@@ -69608,6 +69608,15 @@ ${entry.url}`),
   function supplementSettingsFallbackTokens(targets, parsed) {
     return targets.map((target, index) => supplementSettingsTargetTokens(target.text, parsed[index] ?? []));
   }
+  function parsedSettingsTargetsForCurrentPlan(previousPlan, previousParsed, currentPlan) {
+    const parsedByText = /* @__PURE__ */ new Map();
+    previousPlan.targets.forEach((target, index) => {
+      const queue = parsedByText.get(target.text) ?? [];
+      queue.push(previousParsed[index] ?? []);
+      parsedByText.set(target.text, queue);
+    });
+    return currentPlan.targets.map((target) => parsedByText.get(target.text)?.shift() ?? []);
+  }
   function supplementSettingsTargetTokens(text2, tokens) {
     const protectedRanges = tokens.filter(isHydratedSettingsToken).map(tokenRange);
     const generated = [];
@@ -72523,12 +72532,14 @@ ${reading}`);
           requireJpdb: false,
           skipJpdb: true
         });
-        const supplemented = supplementSettingsFallbackTokens(plan.targets, parsed);
-        await this.hydrateSettingsFallbackTokens(supplemented);
         if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
         const currentPlan = nestedSettingsTextParsePlan(form, 640);
         if (!currentPlan) return;
-        const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, supplemented, currentPlan);
+        const currentParsed = supplementSettingsFallbackTokens(
+          currentPlan.targets,
+          parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan)
+        );
+        await this.hydrateSettingsFallbackTokens(currentParsed);
         const renderSettings = settingsForSettingsFormParse(form, this.settings);
         applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
         addSettingsRubyFromRenderedReadings(form, renderSettings);
@@ -72575,15 +72586,6 @@ ${reading}`);
   }
   function markNewTabRuntime() {
     window.__YOMU_READER_RUNTIME__ = "newtab";
-  }
-  function parsedSettingsTargetsForCurrentPlan(previousPlan, previousParsed, currentPlan) {
-    const parsedByText = /* @__PURE__ */ new Map();
-    previousPlan.targets.forEach((target, index) => {
-      const queue = parsedByText.get(target.text) ?? [];
-      queue.push(previousParsed[index] ?? []);
-      parsedByText.set(target.text, queue);
-    });
-    return currentPlan.targets.map((target) => parsedByText.get(target.text)?.shift() ?? []);
   }
   function uniqueFallbackLookupEntries(cards) {
     const seen = /* @__PURE__ */ new Set();

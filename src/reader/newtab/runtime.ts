@@ -88,7 +88,7 @@ import {
 } from '../popup/render';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
 import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
-import { supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
+import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
@@ -2241,14 +2241,16 @@ export class NewTabRuntime {
                 requireJpdb: false,
                 skipJpdb: true,
             });
-            const supplemented = supplementSettingsFallbackTokens(plan.targets, parsed);
-            await this.hydrateSettingsFallbackTokens(supplemented);
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             const currentPlan = nestedSettingsTextParsePlan(form, 640);
             if (!currentPlan) return;
-            const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, supplemented, currentPlan);
+            const currentParsed = supplementSettingsFallbackTokens(
+                currentPlan.targets,
+                parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
+            );
+            await this.hydrateSettingsFallbackTokens(currentParsed);
             const renderSettings = settingsForSettingsFormParse(form, this.settings);
             applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
             addSettingsRubyFromRenderedReadings(form, renderSettings);
@@ -2298,20 +2300,6 @@ export class NewTabRuntime {
 
 function markNewTabRuntime(): void {
     (window as YomuNewTabWindow).__YOMU_READER_RUNTIME__ = 'newtab';
-}
-
-function parsedSettingsTargetsForCurrentPlan(
-    previousPlan: NonNullable<ReturnType<typeof nestedSettingsTextParsePlan>>,
-    previousParsed: JPDBToken[][],
-    currentPlan: NonNullable<ReturnType<typeof nestedSettingsTextParsePlan>>,
-): JPDBToken[][] {
-    const parsedByText = new Map<string, JPDBToken[][]>();
-    previousPlan.targets.forEach((target, index) => {
-        const queue = parsedByText.get(target.text) ?? [];
-        queue.push(previousParsed[index] ?? []);
-        parsedByText.set(target.text, queue);
-    });
-    return currentPlan.targets.map(target => parsedByText.get(target.text)?.shift() ?? []);
 }
 
 interface FallbackLookupEntry {
