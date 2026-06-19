@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.11
+// @version      1.4.12
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.11#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.11#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.11#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.11#sha256-yWpQa22MFkJMEkhopYSD2naF2L9QUZLv86x3huzMNJo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.12#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.12#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.12#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.12#sha256-yWpQa22MFkJMEkhopYSD2naF2L9QUZLv86x3huzMNJo=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -38701,7 +38701,8 @@ ${normalizedReading}`;
         kanji: () => this.showJpdbPageAddonKanji(actionButton, fallbackCard),
         "similar-word": () => this.lookupTextFromAddonAction(actionButton),
         lookup: () => this.lookupTextFromAddonAction(actionButton),
-        "jpdb-example-audio": () => this.playJpdbPageAddonExampleAudio(actionButton)
+        "jpdb-example-audio": () => this.playJpdbPageAddonExampleAudio(actionButton),
+        "jiten-audio": () => this.playJpdbPageAddonJitenAudio(actionButton, fallbackCard)
       };
       handlers[actionButton.dataset.action ?? ""]?.();
     }
@@ -38718,6 +38719,9 @@ ${normalizedReading}`;
     }
     playJpdbPageAddonExampleAudio(actionButton) {
       void this.audioActions.playJpdbExampleAudio(actionButton.dataset.jpdbAudio ?? "", actionButton.dataset.jpdbExampleSentence ?? "");
+    }
+    playJpdbPageAddonJitenAudio(actionButton, fallbackCard) {
+      void this.handleCardAction(actionButton, fallbackCard, fallbackCard.spelling);
     }
     isCurrentJpdbPageEnhancement(generation) {
       return !this.isDestroyed && isPageEnhancementHost() && this.settings.jpdbPageEnhancementsEnabled && generation === this.jpdbPageEnhancementGeneration;

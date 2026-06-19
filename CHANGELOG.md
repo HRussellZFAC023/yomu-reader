@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.12] - 2026-06-19
+
+### Fixed
+
+- Jiten speaker buttons embedded in JPDB page add-ons now play audio again, matching the same Jiten audio behavior already available inside lookup popovers.
+
 ## [1.4.11] - 2026-06-19
 
 ### Fixed

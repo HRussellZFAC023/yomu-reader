@@ -25255,6 +25255,38 @@ describe('reader helpers', () => {
         }
     });
 
+    it('routes Jiten audio buttons in JPDB page addons through card actions', () => {
+        const app = new ReaderApp();
+        const root = document.createElement('div');
+        root.dataset.jpdbReaderRoot = 'true';
+        root.dataset.yomuJpdbAddon = 'word';
+        root.innerHTML = `
+            <button type="button" data-action="jiten-audio" data-study-sentence="サッカーをする。" data-jiten-audio-urls='["https://audio.example.test/soccer.mp3"]'>audio</button>
+        `;
+        document.body.append(root);
+        const fallbackCard = { ...card, spelling: 'サッカー', reading: 'サッカー' };
+        const handleCardAction = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            handleCardAction(button: HTMLButtonElement, actionCard: JPDBCard, sentence?: string): Promise<void>;
+            handleJpdbPageAddonClick(event: MouseEvent, pageAddonRoot: HTMLElement, actionCard: JPDBCard): void;
+        };
+        internals.handleCardAction = handleCardAction;
+
+        try {
+            root.addEventListener('click', event => internals.handleJpdbPageAddonClick(event as MouseEvent, root, fallbackCard));
+            const button = root.querySelector<HTMLButtonElement>('[data-action="jiten-audio"]')!;
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+
+            button.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(handleCardAction).toHaveBeenCalledWith(button, fallbackCard, 'サッカー');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('sanitizes stroke-order SVGs before embedding them', () => {
         const info = parseKanjiVGSvg(`
             <svg xmlns="http://www.w3.org/2000/svg" xmlns:kvg="http://kanjivg.tagaini.net" viewBox="0 0 109 109">

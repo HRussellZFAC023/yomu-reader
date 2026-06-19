@@ -1423,6 +1423,7 @@ export class ReaderApp {
             'similar-word': () => this.lookupTextFromAddonAction(actionButton),
             lookup: () => this.lookupTextFromAddonAction(actionButton),
             'jpdb-example-audio': () => this.playJpdbPageAddonExampleAudio(actionButton),
+            'jiten-audio': () => this.playJpdbPageAddonJitenAudio(actionButton, fallbackCard),
         };
         handlers[actionButton.dataset.action ?? '']?.();
     }
@@ -1442,6 +1443,10 @@ export class ReaderApp {
 
     private playJpdbPageAddonExampleAudio(actionButton: HTMLButtonElement): void {
         void this.audioActions.playJpdbExampleAudio(actionButton.dataset.jpdbAudio ?? '', actionButton.dataset.jpdbExampleSentence ?? '');
+    }
+
+    private playJpdbPageAddonJitenAudio(actionButton: HTMLButtonElement, fallbackCard: JPDBCard): void {
+        void this.handleCardAction(actionButton, fallbackCard, fallbackCard.spelling);
     }
 
     private isCurrentJpdbPageEnhancement(generation: number): boolean {
