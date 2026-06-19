@@ -6069,11 +6069,11 @@
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "Review Jiten, JPDB, Anki, and optional kanji cards in order on the built-in study page.",
+      featureStudyBody: "Review Jiten, JPDB, Anki, and kanji cards.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
-      pageCoverageSummary: "Coverage {percent}% known · {known}/{total} words · {unknown} new · {iPlusOne} i+1",
+      pageCoverageSummary: "{percent}% · {known}/{total} · {unknown} new · {iPlusOne} i+1",
       settings: "Settings",
       settingsSaved: "Settings saved.",
       settingsSaveFailed: "Settings save failed.",
@@ -6184,10 +6184,10 @@
       newTabJpdbReviewMode: "API review mode",
       newTabJpdbReviewAuto: "Auto: live kanji + API vocabulary",
       newTabLiveReview: "Live JPDB review session",
-      newTabApiVocabulary: "API vocabulary only (deck order, not JPDB’s review order)",
+      newTabApiVocabulary: "API vocabulary only",
       corsProxyUrl: "Cross-origin proxy URL",
       newTabKanjiKeywordSource: "Kanji keyword source",
-      newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
+      newTabKanjiKeywordAuto: "Auto: RTK, {service}, local",
       newTabKanjiKeywordRtk: "RTK / Heisig",
       newTabKanjiKeywordApiFacts: "{service} kanji facts (Jiten / JPDB)",
       newTabKanjiKeywordLocal: "Local card meaning",
@@ -6203,7 +6203,7 @@
       newTabSwipeReviews: "Swipe cards to grade (left = fail, right = pass)",
       newTabUrl: "Study address",
       newTabOfflineHelp: "Caches due cards and queued grades.",
-      newTabAddressHelp: "Use as a start page or add to iPad Home Screen.",
+      newTabAddressHelp: "Use as a start page or iPad shortcut.",
       newTabJpdbDeck: "Study JPDB deck",
       openNewTabPage: "Open Study",
       copyAddress: "Copy address",
@@ -6369,12 +6369,12 @@
       immersionKitRequestFailed: "Immersion Kit request failed.",
       immersionKitRequestFailedWithStatus: "Immersion Kit request failed ({status}).",
       immersionKitRequestTimedOut: "Immersion Kit request timed out.",
-      immersionKitSearchBlocked: "Immersion Kit blocked. Configure CORS or use fallback.",
+      immersionKitSearchBlocked: "Immersion Kit blocked. Configure CORS.",
       immersionKitMediaRequest: "Media request",
       immersionKitMediaRequestFailed: "Media request failed.",
       immersionKitMediaRequestFailedWithStatus: "Media request failed ({status}).",
       immersionKitMediaRequestTimedOut: "Media request timed out.",
-      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error document instead of audio or image.",
+      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error document.",
       immersionKitNoMediaCandidate: "No Immersion Kit media loaded.",
       nadeshikoRequest: "Nadeshiko request",
       nadeshikoRequestFailed: "Nadeshiko request failed.",
@@ -6493,7 +6493,7 @@
       recallHighlightedWord: "Recall the highlighted word from context.",
       imageOnFront: "Image appears on the front when available.",
       recallMeaning: "Recall the meaning first.",
-      ankiBackIncludes: "Includes dictionary, kanji, pitch, frequency, source, image.",
+      ankiBackIncludes: "Includes dictionary, kanji, pitch, source, image.",
       exampleMeaning: "to read",
       scanAnkiFirst: "Connect Anki first",
       notMapped: "Not mapped",
@@ -6518,7 +6518,7 @@
       ankiScanNoModels: "Found {decks} decks. Note types unavailable.",
       ankiScanFieldSummary: "Fields: {fields}",
       ankiUnreachable: "Open desktop Anki and check again.",
-      ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList, then restart Anki.',
+      ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList; restart Anki.',
       ankiSettingsUnreachable: "AnkiConnect not reached. Open Anki and retry.",
       ankiHostedBridgeMissing: `Enable ${APP_NAME}, refresh, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
@@ -6529,16 +6529,16 @@
       ankiStatusRefreshAndCheck: "Refresh, then check again",
       ankiHostedCorsHint: "Direct access needs {origin} in webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
-      ankiLibraryAdapterStatus: "Scans decks and note types, then suggests mappings.",
+      ankiLibraryAdapterStatus: "Scans decks/types and suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
       ankiLibraryChoicesHelp: "From AnkiConnect. Pick where mining saves notes.",
       ankiTemplateSettings: "Yomu card template",
-      ankiTemplateSettingsHelp: "For Yomu note types. Imported templates stay in Anki.",
-      ankiMappingConfidenceHelp: "Based on fields/samples. Edit low-confidence mappings.",
+      ankiTemplateSettingsHelp: "For Yomu note types. Templates stay in Anki.",
+      ankiMappingConfidenceHelp: "Based on fields/samples. Edit weak mappings.",
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Full Anki uses desktop AnkiConnect over LAN/Tailscale. Handoff only creates new notes.",
+      ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -6547,9 +6547,9 @@
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
       exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import Yomitan settings, ZIPs, or backups.",
+      dictionaryImportHelp: "Import settings, ZIPs, or backups.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links. Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "Links. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -6561,7 +6561,6 @@
       termDictionaries: "Term dictionaries",
       kanjiDictionaries: "Kanji dictionaries",
       frequencyDictionaries: "Frequency dictionaries",
-      homepage: "Homepage",
       install: "Install",
       installing: "Installing",
       queued: "Queued",
@@ -6569,13 +6568,13 @@
       download: "Download",
       downloadAndImport: "Download and import",
       update: "Update",
-      noLocalDictionaries: "No local dictionaries yet. Download or import a ZIP.",
+      noLocalDictionaries: "No local dictionaries yet.",
       checkingDictionaries: "Checking imported dictionaries...",
-      dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local results.",
+      dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
       dictionaryCheckingIndex: "Checking dictionary index...",
-      dictionaryBanksFound: "{count} dictionary bank{plural} found.",
+      dictionaryBanksFound: "{count} bank{plural} found.",
       dictionaryRemovingExisting: "removing old entries",
       dictionaryReadingBank: "Reading",
       dictionaryParsingBank: "Parsing",
@@ -6583,45 +6582,45 @@
       dictionaryImporting: "Importing",
       importingBundledDictionaries: "Importing bundled dictionaries...",
       dictionaryImported: "Imported",
-      dictionaryPreparingImport: "Preparing to import",
+      dictionaryPreparingImport: "Preparing import",
       dictionaryRecords: "dictionary records",
       dictionaryEntries: "entries",
       dictionaryTotal: "total",
-      dictionaryDownloadProgress: "Downloading dictionary",
-      dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.",
-      dictionaryStatusUnavailable: "Dictionary status unavailable.",
-      noLocalDictionariesImported: "No local dictionaries imported yet.",
+      dictionaryDownloadProgress: "Downloading",
+      dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
+      dictionaryStatusUnavailable: "Unavailable.",
+      noLocalDictionariesImported: "No dictionaries imported yet.",
       dictionaryDownloadFailed: "Dictionary download failed.",
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Download was not a ZIP.",
-      dictionaryDownloadNeedsBridge: "Download needs the bridge; else import the ZIP.",
-      dictionaryDownloadBlocked: "Download is blocked. Import the ZIP manually.",
-      dictionaryManualDownloadHint: "Enable the userscript or import the ZIP.",
+      dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
+      dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
+      dictionaryManualDownloadHint: "Enable userscript or import ZIP.",
       dictionaryInstallQueueHelp: "Installs take a few minutes.",
       dictionaryInstallQueued: "{dictionary} queued after current install.",
-      dictionaryInstallSaveBlocked: "Dictionary import is running. Save unlocks when done.",
+      dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
       dictionaryImportQueueStatus: "{count} install{plural} running.",
-      dictionaryRemoveConfirm: 'Remove "{dictionary}" and all of its imported entries?',
+      dictionaryRemoveConfirm: 'Remove "{dictionary}" and its entries?',
       dictionaryRemoving: "Removing {dictionary}...",
       dictionaryRemoved: "Removed {dictionary}.",
-      dictionaryImportComplete: "Imported {records} records from {sources} source{plural}.",
-      dictionaryRecordsImported: "{dictionary}: {records} records imported.",
+      dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
+      dictionaryRecordsImported: "{dictionary}: {records} records.",
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
       settingsExported: "Settings exported.",
       restoredStoredChoices: "restored {count} stored choice{plural}",
       importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
-      dictionaryNoSupportedBanks: "No supported Yomitan dictionary banks found.",
-      dictionaryUnsupportedJson: "Use Yomitan Dexie, ZIP, or reader export.",
-      dictionaryZipMissingIndex: "Yomitan dictionary ZIP is missing index.json.",
-      yomitanSettingsInvalid: "This does not look like a Yomitan settings export.",
+      dictionaryNoSupportedBanks: "No supported dictionary banks found.",
+      dictionaryUnsupportedJson: "Use Dexie, ZIP, or reader export.",
+      dictionaryZipMissingIndex: "Dictionary ZIP is missing index.json.",
+      yomitanSettingsInvalid: "Not a Yomitan settings export.",
       localDictionaryText: "Dictionary text",
       localSenseSingular: "meaning",
       localSensePlural: "meanings",
       localWordSingular: "entry",
       localWordPlural: "entries",
       decksLoaded: "Decks are loaded from your JPDB account.",
-      decksUnavailable: "Could not load decks yet; saved IDs are kept.",
+      decksUnavailable: "Could not load decks; saved IDs kept.",
       addApiKeyChooseDecks: "Add your JPDB API key to choose decks.",
       miningDeck: "Mining deck",
       neverForgetDeck: "Never forget deck",
@@ -6644,16 +6643,16 @@
       noSentenceToRead: "No sentence to read aloud.",
       noTextToRead: "No text to read aloud.",
       jpdbExampleAudioUnavailable: "No JPDB audio is available for this example.",
-      jpdbAudioPlayableFileMissing: "JPDB audio did not return a playable file.",
-      jpdbAudioResponseNotPlayable: "JPDB audio response was not a playable audio file.",
+      jpdbAudioPlayableFileMissing: "JPDB audio returned no playable file.",
+      jpdbAudioResponseNotPlayable: "JPDB audio was not playable.",
       audioSourceReturnedNoAudio: "Audio source did not return audio.",
-      audioJsonMissingPlayableUrl: "Audio JSON did not include a playable URL.",
-      textToSpeechUnavailable: "Text-to-speech is not available in this browser.",
+      audioJsonMissingPlayableUrl: "Audio JSON had no playable URL.",
+      textToSpeechUnavailable: "Text-to-speech is unavailable.",
       textToSpeechFailed: "Text-to-speech failed.",
       audioRequest: "Audio request",
       audioRequestTimedOut: "Audio request timed out.",
-      audioRequestReturnedNonAudio: "Audio request returned a non-audio response",
-      audioRequestReturnedNonAudioWithType: "Audio request returned a non-audio response: {type}.",
+      audioRequestReturnedNonAudio: "Audio request returned non-audio",
+      audioRequestReturnedNonAudioWithType: "Audio request returned non-audio: {type}.",
       audioUnknownContentType: "an unknown content type",
       japanesePod101NoAudio: "JapanesePod101 has no audio for this term.",
       invalidJpdbAudioId: "Invalid JPDB audio id.",
@@ -6694,9 +6693,9 @@
       hideSubtitleTranslation: "Hide translation",
       loadingSubtitleLines: "Loading subtitle lines",
       waitingForCaptionLines: "Waiting for caption lines",
-      subtitleCurrentLineWillAppear: "The current line appears when captions are available.",
+      subtitleCurrentLineWillAppear: "Current line appears when captions load.",
       seekSubtitleLine: "Seek subtitle line",
-      subtitleTracksHint: "Choose a primary track. Use Lines to browse and jump.",
+      subtitleTracksHint: "Choose a primary track. Use Lines to jump.",
       noAutoDetectedSubtitleTracks: "",
       autoDetectedTracksWillAppear: "Subtitle tracks appear here.",
       autoDetectedOptionSingular: "1 subtitle option",
@@ -6853,8 +6852,8 @@
       factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dictionaries.",
       factoryResetFailed: "Reset failed.",
       factoryResetDictionaryWarning: "Settings reset. Close other tabs before dictionaries.",
-      factoryResetOtherTabReloading: "よむ reset in another tab. Reloading...",
-      factoryResetDeleteSettingsFailed: "Could not delete settings. Close other tabs and retry.",
+      factoryResetOtherTabReloading: "よむ reset elsewhere. Reloading...",
+      factoryResetDeleteSettingsFailed: "Could not delete settings. Close other tabs.",
       issues: "Issues",
       donate: "Donate",
       discord: "Discord",
@@ -6946,7 +6945,7 @@
       openedInAnki: "Opened in Anki.",
       addedToDeckAndReviewed: "Added to deck and reviewed.",
       sentToAnki: "Sent to Anki.",
-      openedMobileAnkiHandoff: "Opened mobile Anki handoff. Continue in Anki to create the new note.",
+      openedMobileAnkiHandoff: "Opened Anki handoff. Continue in Anki.",
       alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
@@ -6965,9 +6964,9 @@
       ankiConnectRequestFailed: "AnkiConnect request failed.",
       ankiConnectTimedOut: "AnkiConnect timed out.",
       ankiConnectNeedsBridge: "AnkiConnect needs the userscript bridge.",
-      mobileAnkiReady: "Anki is not connected. Mobile handoff can still create notes.",
+      mobileAnkiReady: "Anki offline. Handoff can create notes.",
       ankiConnectionReady: "Connected. AnkiConnect is reachable.",
-      ankiConnectedReady: 'Connected. Deck "{deck}" and note type "{model}" are ready.',
+      ankiConnectedReady: 'Connected. "{deck}" / "{model}" ready.',
       ankiPromptRecallWord: "Recall the highlighted word.",
       ankiMeaningHeading: "Meaning",
       ankiPitchHeading: "Pitch",
@@ -7028,10 +7027,10 @@
       remove: "Remove",
       removeImportedDictionary: "Remove imported dictionary",
       customAdvanced: "{label} (advanced)",
-      importLocalDefinitionsHelp: "Import Yomitan dictionaries for local definitions.",
+      importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
-      sourceHelpJiten: "Jiten meanings, examples, and related vocabulary from the current card.",
+      sourceHelpJiten: "Jiten meanings, examples, and related words.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -7047,7 +7046,7 @@
       sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
       sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
       sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
-      sourceHelpJitenKanjiFacts: "Jiten kanji facts, exact frequency, readings, and vocabulary.",
+      sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
       sourceHelpRtk: "RTK keywords, elements, and stories.",
       sourceHelpUchisen: "Uchisen mnemonic image carousel.",
       uchisenMnemonicImages: "Uchisen mnemonic images",
@@ -7066,18 +7065,19 @@
       noStoryAvailable: "No story available",
       sourceHelpImportedKanjiDictionaries: "Imported Yomitan kanji entries.",
       sourceHelpWordsUsingKanji: "Related vocabulary.",
-      sourceHelpComponentGraph: "Kanji facts, component graph, and radical images.",
-      recommendedJitendex: "Japanese-English dictionary with examples and notes.",
-      recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
-      recommendedJmnedict: "Japanese proper names dictionary.",
-      recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
-      recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
-      recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
-      recommendedBccwj: "BCCWJ frequency data.",
-      recommendedJiten: "Frequency data from jiten.moe media stats.",
+      sourceHelpComponentGraph: "Kanji facts, components, radical images.",
+      recommendedJitendex: "J-E with examples.",
+      recommendedJmdict: "Core J-E dictionary.",
+      recommendedJmnedict: "Proper names.",
+      recommendedWtyJapaneseJapanese: "JA-JA Wiktionary.",
+      recommendedPixivLight: "Pixiv terms.",
+      recommendedKanjidic: "Kanji facts.",
+      recommendedJpdbKanji: "JPDB kanji.",
+      recommendedJpdbv2Kana: "JPDB frequency.",
+      recommendedBccwj: "BCCWJ frequency.",
+      recommendedJiten: "Jiten frequency.",
       fallbackSetupTitle: "Public lookup",
-      fallbackSetupCopy: "Search works without a JPDB key. Add dictionaries for offline results.",
+      fallbackSetupCopy: "Search without a JPDB key. Add dictionaries offline.",
       fallbackSetupDictionaries: "Add dictionaries",
       fallbackSetupJpdb: "Add JPDB key",
       getApp: `Get ${APP_NAME}`,
@@ -7174,7 +7174,7 @@ featureVideoBody	字幕がある場合、字幕内の単語もタップできま
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJiten・JPDB・Anki・任意の漢字カードを順番に復習できます。
+featureStudyBody	Jiten・JPDB・Anki・漢字を復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -7226,7 +7226,7 @@ saveAfterInstall	インストール後に保存
 dictionaryDownloading	ダウンロード中
 dictionaryReadingZip	辞書ZIPを読み取り中...
 dictionaryCheckingIndex	辞書インデックスを確認中...
-dictionaryBanksFound	{count}件の辞書バンクが見つかりました。
+dictionaryBanksFound	{count}件のバンクを検出
 dictionaryRemovingExisting	既存項目を削除中
 dictionaryReadingBank	読み取り中
 dictionaryParsingBank	解析中
@@ -7239,47 +7239,47 @@ dictionaryRecords	辞書レコード
 dictionaryEntries	件
 dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
-dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
+dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
-dictionaryDownloadNeedsBridge	ダウンロードにはブリッジが必要です。失敗時はZIPを追加してください。
+dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加してください。
 dictionaryDownloadBlocked	ダウンロードがブロックされています。ZIPを追加してください。
 dictionaryManualDownloadHint	ユーザースクリプトを有効にするか、ZIPを追加してください。
 dictionaryInstallQueueHelp	インストールには数分かかります。完了後に保存できます。
 dictionaryInstallQueued	{dictionary}を待機中です。
 dictionaryInstallSaveBlocked	辞書インポート中です。完了すると保存できます。
 dictionaryImportQueueStatus	{count}件インストール中です。完了後に保存できます。
-dictionaryRemoveConfirm	「{dictionary}」を削除しますか？
+dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
-dictionaryImportComplete	{sources}ソースから{records}件インポートしました。
-dictionaryRecordsImported	{dictionary}: {records}件インポートしました。
+dictionaryImportComplete	{sources}から{records}件インポートしました。
+dictionaryRecordsImported	{dictionary}: {records}件
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
 settingsExported	設定をエクスポートしました。
 restoredStoredChoices	保存済み選択肢を{count}件復元
 importedDictionaryRecordCount	辞書レコードを{count}件インポート
-dictionaryNoSupportedBanks	対応しているYomitan辞書バンクが見つかりません。
-dictionaryUnsupportedJson	Yomitan Dexie、辞書ZIP、リーダー出力を使ってください。
-dictionaryZipMissingIndex	Yomitan辞書ZIPにindex.jsonがありません。
-yomitanSettingsInvalid	Yomitan設定エクスポートではないようです。
+dictionaryNoSupportedBanks	対応辞書バンクがありません。
+dictionaryUnsupportedJson	Dexie、辞書ZIP、リーダー出力を使ってください。
+dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
+yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
-pageCoverageSummary	既知率{percent}%・{known}/{total}語・新規{unknown}・i+1 {iPlusOne}
+pageCoverageSummary	{percent}%・{known}/{total}・新規{unknown}・i+1 {iPlusOne}
 noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
-noLocalDictionaries	ローカル辞書は未導入です。JMdictかYomitan ZIPを追加してください。
+noLocalDictionaries	JMdictかYomitan ZIPを追加してください。
 kanjiMapData	漢字マップデータ
 kanjiAlive	カンジアライブ
 wiktionary	ウィクショナリー
 fallbackSetupTitle	辞書から始める
-fallbackSetupCopy	JPDBキーなしでも検索できます。辞書でオフライン対応。
+fallbackSetupCopy	JPDBキーなしで検索。辞書でオフライン対応。
 fallbackSetupDictionaries	辞書を追加
 fallbackSetupJpdb	JPDBキーを追加
 offlineCacheGradesDisabled	オフラインです。採点は再接続時に同期されます。
@@ -7365,7 +7365,7 @@ immersionKitRequest	Immersion Kitリクエスト
 immersionKitRequestFailed	Immersion Kitリクエストに失敗しました。
 immersionKitRequestFailedWithStatus	Immersion Kitリクエストに失敗しました（{status}）。
 immersionKitRequestTimedOut	Immersion Kitリクエストがタイムアウトしました。
-immersionKitSearchBlocked	Immersion Kit検索がブロック中です。CORSか代替設定を使ってください。
+immersionKitSearchBlocked	Immersion Kit検索がブロック中です。CORSを設定してください。
 immersionKitMediaRequest	メディアリクエスト
 immersionKitMediaRequestFailed	メディアリクエストに失敗しました。
 immersionKitMediaRequestFailedWithStatus	メディアリクエストに失敗しました（{status}）。
@@ -7403,7 +7403,7 @@ textToSpeechUnavailable	このブラウザーでは読み上げ機能を利用�
 textToSpeechFailed	読み上げに失敗しました。
 audioRequest	音声リクエスト
 audioRequestTimedOut	音声リクエストがタイムアウトしました。
-audioRequestReturnedNonAudio	音声リクエストが音声ではない応答を返しました
+audioRequestReturnedNonAudio	音声ではない応答です
 audioRequestReturnedNonAudioWithType	音声ではない応答です: {type}。
 audioUnknownContentType	不明なコンテンツ種別
 japanesePod101NoAudio	JapanesePod101にこの語の音声はありません。
@@ -7441,11 +7441,11 @@ peekSubtitleTranslation	翻訳を表示
 hideSubtitleTranslation	翻訳を隠す
 loadingSubtitleLines	字幕行を読み込み中
 waitingForCaptionLines	字幕行を待機中
-subtitleCurrentLineWillAppear	字幕が利用可能になると現在行が表示されます。
+subtitleCurrentLineWillAppear	字幕が来ると現在行を表示します。
 seekSubtitleLine	字幕行へ移動
-subtitleTracksHint	主字幕を選び、「行」で一覧と移動を使います。
-noAutoDetectedSubtitleTracks	自動検出された字幕トラックはありません。
-autoDetectedTracksWillAppear	字幕トラックはここに表示されます。
+subtitleTracksHint	主字幕を選び、「行」で移動します。
+noAutoDetectedSubtitleTracks	自動検出字幕はありません。
+autoDetectedTracksWillAppear	字幕トラックはここに出ます。
 autoDetectedOptionSingular	字幕オプション1件
 autoDetectedOptions	件の字幕オプション
 detected	検出済み
@@ -7513,7 +7513,7 @@ reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
-reviewBlockedRedundant	JPDBで冗長（他のカードでカバー済み）のため、レビューできません。
+reviewBlockedRedundant	JPDBで冗長のためレビューできません。
 ankiCardsSuspended	Ankiで保留にしました（ブラックリストと同様の扱い）。
 ankiCardsUnsuspended	Ankiの保留を解除しました。
 ankiNeverForgetTagAdded	Ankiにyomu-never-forgetタグを付けました。
@@ -7576,7 +7576,7 @@ alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
 apiDeckMediaNotSupported	キャプチャメディアはYomuに残ります（メディアAPIなし）。
-sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
+sentToAnkiWithContextImageAndAudio	画像と音声付きでAnkiに送信しました。
 sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。
 ankiMergeNoNewData	Ankiノートに利用可能なYomuデータは反映済みです。
@@ -7716,8 +7716,8 @@ light	ライト
 popupMode	ポップアップ表示
 bottomSheet	下部シート
 popover	ポップオーバー
-stickyBottomSheet	検索後もシートを開いたままにする
-popoverBackdropEnabled	ポップオーバーの背後を暗くする
+stickyBottomSheet	検索後もシートを開く
+popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
 popoverHeightMode	ポップオーバー高さの動作
@@ -7749,7 +7749,7 @@ dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順・JPDBの復習順とは異なります）
+newTabApiVocabulary	API語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
@@ -7767,8 +7767,8 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	復習カードと未送信採点を保存し、再接続時に同期します。
-newTabAddressHelp	開始/新規タブページに設定するか、iPadのホーム画面に追加します。
+newTabOfflineHelp	復習カードと未送信採点を保存します。
+newTabAddressHelp	開始/新規タブやiPadホーム画面に使えます。
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -7974,7 +7974,7 @@ subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
-subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後に自動スクロールを再開するまで (秒)
+subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
@@ -8055,7 +8055,7 @@ ankiScanning	Ankiデッキ、ノートタイプ、フィールドを読み込み
 ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{fields}
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
-ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
+ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
 ankiCorsBlocked	webCorsOriginListに「{origin}」を追加し再起動してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
 ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
@@ -8070,12 +8070,12 @@ ankiLibraryAdapterStatus	既存デッキとノートタイプから対応付け�
 ankiLibraryChoices	デッキとノートタイプ
 ankiLibraryChoicesHelp	AnkiConnectから読み込み、作成・更新先を選びます。
 ankiTemplateSettings	よむカードテンプレート
-ankiTemplateSettingsHelp	よむノートタイプ用。既存テンプレートはAnkiに残ります。
-ankiMappingConfidenceHelp	フィールド名とサンプルで判断。低信頼度は変更できます。
+ankiTemplateSettingsHelp	よむノートタイプ用。テンプレートはAnkiに残ります。
+ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	完全なAnki機能にはデスクトップAnkiConnectが必要です。受け渡しは新規ノートのみ。
+ankiHelp	完全なAnki機能にはAnkiConnectが必要です。受け渡しは新規ノートのみ。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -8098,7 +8098,6 @@ recommendedDownloads	おすすめ辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 frequencyDictionaries	頻度辞書
-homepage	ホームページ
 install	インストール
 installing	インストール中
 queued	待機中
@@ -8111,7 +8110,7 @@ localDictionaryText	辞書テキスト
 localSenseSingular	意味
 localSensePlural	意味
 decksLoaded	JPDBアカウントからデッキを読み込みました。
-decksUnavailable	まだデッキを読み込めません。保存済みIDは保持します。
+decksUnavailable	デッキを読み込めません。保存IDは保持します。
 addApiKeyChooseDecks	デッキを選ぶにはJPDB APIキーを追加してください。
 miningDeck	採掘デッキ
 neverForgetDeck	忘れないデッキ
@@ -8189,10 +8188,10 @@ moveDown	下へ移動
 remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
-importLocalDefinitionsHelp	ローカル定義にはYomitan辞書をインポートします。
+importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
-sourceHelpJiten	現在のカードのJiten定義、例文、関連語です。
+sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -8208,7 +8207,7 @@ sourceNameJitenKanjiFacts	Jiten漢字情報
 sourceHelpImportedKanjiDictionary	インポート済みYomitan漢字辞書です。
 sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
-sourceHelpJitenKanjiFacts	Jitenの漢字情報、正確な頻度、読み、使用語です。
+sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
 sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 uchisenMnemonicImages	Uchisen語呂合わせ画像
@@ -8227,16 +8226,17 @@ uchisenLoginRequired	画像生成にはUchisenへのログインが必要です�
 noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
-sourceHelpComponentGraph	漢字情報、部品グラフ、部首画像です。
-recommendedJitendex	例文とメモ付きの日英辞書です。
-recommendedJmdict	Yomitan向けの基本日英辞書です。
-recommendedJmnedict	日本語固有名詞辞書です。
+sourceHelpComponentGraph	漢字情報、部品、部首画像です。
+recommendedJitendex	例文付き日英辞書です。
+recommendedJmdict	基本日英辞書です。
+recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
-recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
-recommendedJpdbv2Kana	JPDB頻度データです。
-recommendedBccwj	BCCWJ頻度データです。
-recommendedJiten	jiten.moe頻度データです。
+recommendedPixivLight	Pixiv用語辞書です。
+recommendedKanjidic	漢字情報です。
+recommendedJpdbKanji	JPDB漢字情報です。
+recommendedJpdbv2Kana	JPDB頻度です。
+recommendedBccwj	BCCWJ頻度です。
+recommendedJiten	Jiten頻度です。
 `);
   const JA_GRAMMAR_RULE_COPY_URL = `${DOCS_BASE_URL}data/ja-grammar-rule-copy.json`;
   let jaGrammarRuleCopyPromise;
@@ -22958,7 +22958,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       category: "terms",
       name: "Jitendex",
       descriptionKey: "recommendedJitendex",
-      homepage: "https://jitendex.org",
       downloadUrl: "https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip"
     },
     {
@@ -22966,7 +22965,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       category: "terms",
       name: "JMdict",
       descriptionKey: "recommendedJmdict",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan",
       downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip"
     },
     {
@@ -22974,7 +22972,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       category: "terms",
       name: "JMnedict",
       descriptionKey: "recommendedJmnedict",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan",
       downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip"
     },
     {
@@ -22982,29 +22979,34 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       category: "terms",
       name: "WTY JA-JA",
       descriptionKey: "recommendedWtyJapaneseJapanese",
-      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan"
+      downloadUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip"
     },
     {
-      id: "marvnc-monolingual",
+      id: "pixiv-light",
       category: "terms",
-      name: "MarvNC JA-JA",
-      descriptionKey: "recommendedMarvncMonolingual",
-      homepage: "https://github.com/MarvNC/yomitan-dictionaries"
+      name: "Pixiv Light",
+      descriptionKey: "recommendedPixivLight",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"
     },
     {
       id: "kanjidic",
       category: "kanji",
       name: "KANJIDIC",
       descriptionKey: "recommendedKanjidic",
-      homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
       downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdb-kanji",
+      category: "kanji",
+      name: "JPDB Kanji",
+      descriptionKey: "recommendedJpdbKanji",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"
     },
     {
       id: "jiten",
       category: "frequency",
       name: "Jiten",
       descriptionKey: "recommendedJiten",
-      homepage: "https://jiten.moe/other",
       downloadUrl: "https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan"
     },
     {
@@ -23012,7 +23014,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       category: "frequency",
       name: "JPDBv2㋕",
       descriptionKey: "recommendedJpdbv2Kana",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency",
       downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip"
     },
     {
@@ -23020,7 +23021,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       category: "frequency",
       name: "BCCWJ",
       descriptionKey: "recommendedBccwj",
-      homepage: "https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined",
       downloadUrl: "https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip"
     }
   ];
@@ -26925,9 +26925,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     form.querySelector('[data-action="lookup-link-add"]')?.replaceChildren(text2("add"));
     form.querySelector(".jpdb-reader-recommended-title")?.replaceChildren(text2("recommendedDownloads"));
     form.querySelector("[data-recommended-dictionary-help]")?.replaceChildren(text2("dictionaryInstallQueueHelp"));
-    form.querySelectorAll(".jpdb-reader-recommended-name a").forEach((link) => {
-      link.textContent = text2("homepage");
-    });
     localizeOrderButtons(form, text2);
     localizeLookupLinkEditor(form, text2);
     localizeDeckControls(form, text2);
@@ -27745,13 +27742,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const alreadyInstalled = isRecommendedDictionaryInstalled(dictionary, installed);
     const action = dictionary.downloadUrl ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml$1(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? "Update" : "Install"}
-            </button>` : `<a class="jpdb-reader-btn" href="${dictionary.homepage}" target="_blank" rel="noopener">Open</a>`;
+            </button>` : "";
     return `
         <div class="jpdb-reader-recommended-item">
             <div>
                 <div class="jpdb-reader-recommended-name">
                     <span>${escapeHtml$1(dictionary.name)}</span>
-                    <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
                 </div>
                 <div class="jpdb-reader-help">${escapedUiText("en", dictionary.descriptionKey)}</div>
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>
@@ -43046,6 +43042,63 @@ ${spelling}`);
   const FILTERABLE_VIDEO_SHELF_SELECTOR = SHELF_SELECTOR;
   const CHANNEL_LISTING_CONTENT_SELECTOR = "ytd-channel-renderer,ytd-grid-channel-renderer,ytm-channel-list-item-renderer,ytm-compact-channel-renderer";
   const SHORTS_WATCH_ITEM_SELECTOR = "ytd-shorts,ytd-reel-video-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2";
+  const YT_TITLE = 0;
+  const YT_EXPANDED = 1;
+  const YT_COMPACT = 2;
+  const YT_RECOMMENDATIONS = 3;
+  const YT_SUBSCRIBE_VISIBLE = 4;
+  const YT_SUBSCRIBE_ALL = 5;
+  const YT_ALL_SUBSCRIBED = 6;
+  const YT_BROWSE_ALL = 7;
+  const YT_COLLAPSE = 8;
+  const YT_SUBSCRIBE = 9;
+  const YT_SUBSCRIBED = 10;
+  const YT_SUBSCRIBE_TO = 11;
+  const YT_SUBSCRIBED_TO = 12;
+  const YT_ALREADY_SUBSCRIBED = 13;
+  const YT_PARTIAL_STATUS = 14;
+  const YT_STATUS_ONE = 15;
+  const YT_STATUS_MANY = 16;
+  const YOUTUBE_SHELF_COPY = {
+    en: [
+      "Start your Japanese YouTube feed",
+      "{shown} shown from {total} curated channels.",
+      "{total} curated channels, shown as compact YouTube-style rows.",
+      "Japanese channel recommendations",
+      "Subscribe visible ({count})",
+      "Subscribe all {count}",
+      "All {total} subscribed",
+      "Browse all channels",
+      "Collapse",
+      "Subscribe",
+      "Subscribed",
+      "Subscribe to {name}",
+      "Subscribed to {name}",
+      "All of these channels are already subscribed.",
+      "Subscribed to {subscribed}; {failed} could not be completed by YouTube.",
+      "Subscribed to {count} channel.",
+      "Subscribed to {count} channels."
+    ],
+    ja: [
+      "日本語YouTubeを始める",
+      "{shown}/{total}件を表示",
+      "厳選{total}件を表示",
+      "日本語チャンネル",
+      "表示中を登録({count})",
+      "全{count}件登録",
+      "{total}件すべて登録済み",
+      "すべて見る",
+      "折りたたむ",
+      "登録",
+      "登録済み",
+      "{name}を登録",
+      "{name}を登録済み",
+      "すべて登録済みです。",
+      "{subscribed}件登録、{failed}件失敗。",
+      "{count}件登録しました。",
+      "{count}件登録しました。"
+    ]
+  };
   const COMMUNITY_POST_SELECTOR = "ytd-post-renderer,ytd-backstage-post-thread-renderer,ytm-backstage-post-thread-renderer,ytm-post-renderer,ytm-backstage-post-renderer";
   const COMMUNITY_POST_TEXT_SELECTOR = '#content-text,[class*="BackstagePostRendererHostContentText"]';
   const TITLE_SELECTORS = [
@@ -43111,6 +43164,10 @@ ${spelling}`);
     if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_ROOT_SELECTOR));
     if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_ROOT_SELECTOR));
     return false;
+  }
+  function youtubeShelfText(language, key, values = {}) {
+    const copy = YOUTUBE_SHELF_COPY[language === "ja" ? "ja" : "en"][key];
+    return copy.replace(/\{(\w+)\}/g, (_match, name) => String(values[name] ?? ""));
   }
   function collectYouTubeVideoCards(root = document) {
     if (isInsideReaderRoot(root)) return [];
@@ -43689,7 +43746,7 @@ ${spelling}`);
       shelf.className = "jpdb-youtube-channel-shelf";
       shelf.dataset.jpdbReaderRoot = "true";
       shelf.setAttribute("role", "region");
-      shelf.setAttribute("aria-label", "Japanese channel recommendations");
+      shelf.setAttribute("aria-label", youtubeShelfText(this.options.getSettings().interfaceLanguage, YT_RECOMMENDATIONS));
       const header = document.createElement("div");
       header.className = "jpdb-youtube-channel-shelf-head";
       const copy = document.createElement("div");
@@ -43761,14 +43818,18 @@ ${spelling}`);
       this.hydrateRenderedChannelPreviews(renderedRecommendations);
     }
     updateChannelShelfChrome(elements, recommendations, renderedRecommendations) {
-      elements.title.textContent = "Start your Japanese YouTube feed";
-      elements.copy.textContent = this.channelShelfExpanded ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.` : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+      const language = this.options.getSettings().interfaceLanguage;
+      elements.title.textContent = youtubeShelfText(language, YT_TITLE);
+      elements.copy.textContent = this.channelShelfExpanded ? youtubeShelfText(language, YT_EXPANDED, {
+        shown: recommendations.length,
+        total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT
+      }) : youtubeShelfText(language, YT_COMPACT, { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
       const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
-      elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
+      elements.subscribeVisible.textContent = youtubeShelfText(language, YT_SUBSCRIBE_VISIBLE, { count: renderedRecommendations.length });
       elements.subscribeVisible.hidden = !renderedRecommendations.length;
-      elements.subscribeAll.textContent = remainingChannels ? `Subscribe all ${remainingChannels}` : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
-      elements.never.textContent = "Hide";
-      elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
+      elements.subscribeAll.textContent = remainingChannels ? youtubeShelfText(language, YT_SUBSCRIBE_ALL, { count: remainingChannels }) : youtubeShelfText(language, YT_ALL_SUBSCRIBED, { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
+      elements.never.textContent = uiText(language, "hide");
+      elements.expand.textContent = youtubeShelfText(language, this.channelShelfExpanded ? YT_COLLAPSE : YT_BROWSE_ALL);
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
       if (!this.subscriptionBusy) elements.status.textContent = this.channelShelfStatusOverride;
     }
@@ -43869,8 +43930,9 @@ ${spelling}`);
     renderChannelSubscribeButton(channel) {
       const subscribe = channelShelfButton("subscribe-one");
       subscribe.dataset.handle = channel.handle;
-      subscribe.textContent = "Subscribe";
-      subscribe.setAttribute("aria-label", `Subscribe to ${channel.name}`);
+      const language = this.options.getSettings().interfaceLanguage;
+      subscribe.textContent = youtubeShelfText(language, YT_SUBSCRIBE);
+      subscribe.setAttribute("aria-label", youtubeShelfText(language, YT_SUBSCRIBE_TO, { name: channel.name }));
       return subscribe;
     }
     placeChannelShelf(shelf) {
@@ -44041,7 +44103,7 @@ ${spelling}`);
       if (this.subscriptionBusy) return;
       const elements = this.channelShelfElements(this.ensureChannelShelf());
       if (!channels.length) {
-        this.setChannelShelfStatus(elements, "All of these channels are already subscribed.");
+        this.setChannelShelfStatus(elements, youtubeShelfText(this.options.getSettings().interfaceLanguage, YT_ALREADY_SUBSCRIBED));
         return;
       }
       const config = readYouTubeClientConfig();
@@ -44079,7 +44141,8 @@ ${spelling}`);
       this.markChannelSubscriptionCompleteIfReady({ keepShelf: true });
       this.subscriptionBusy = false;
       this.setChannelShelfBusy(false);
-      this.setChannelShelfStatus(elements, failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`);
+      const language = this.options.getSettings().interfaceLanguage;
+      this.setChannelShelfStatus(elements, failed ? youtubeShelfText(language, YT_PARTIAL_STATUS, { subscribed, failed }) : youtubeShelfText(language, subscribed === 1 ? YT_STATUS_ONE : YT_STATUS_MANY, { count: subscribed }));
       if (subscribed) this.scheduleChannelShelfRefresh();
     }
     setChannelShelfStatus(elements, status) {
@@ -44096,8 +44159,9 @@ ${spelling}`);
       row?.classList.add("is-subscribed");
       if (!button) return;
       button.disabled = true;
-      button.textContent = "Subscribed ✓";
-      button.setAttribute("aria-label", `Subscribed to ${channel.name}`);
+      const language = this.options.getSettings().interfaceLanguage;
+      button.textContent = youtubeShelfText(language, YT_SUBSCRIBED);
+      button.setAttribute("aria-label", youtubeShelfText(language, YT_SUBSCRIBED_TO, { name: channel.name }));
     }
     scheduleChannelShelfRefresh(delayMs = 1800) {
       window.clearTimeout(this.channelShelfRefreshTimer);

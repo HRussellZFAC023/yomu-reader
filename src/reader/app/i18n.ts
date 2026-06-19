@@ -27,11 +27,11 @@ const COPY = {
         featureControl: 'Control',
         featureControlBody: 'Tune features, shortcuts, and color.',
         featureStudy: 'Study',
-        featureStudyBody: 'Review Jiten, JPDB, Anki, and kanji cards on the Study page.',
+        featureStudyBody: 'Review Jiten, JPDB, Anki, and kanji cards.',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
         jpdbScanFailed: 'Page scan failed.',
-        pageCoverageSummary: '{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1',
+        pageCoverageSummary: '{percent}% · {known}/{total} · {unknown} new · {iPlusOne} i+1',
         settings: 'Settings',
         settingsSaved: 'Settings saved.',
         settingsSaveFailed: 'Settings save failed.',
@@ -145,7 +145,7 @@ const COPY = {
         newTabApiVocabulary: 'API vocabulary only',
         corsProxyUrl: 'Cross-origin proxy URL',
         newTabKanjiKeywordSource: 'Kanji keyword source',
-        newTabKanjiKeywordAuto: 'Auto: RTK, then {service} kanji facts, then local',
+        newTabKanjiKeywordAuto: 'Auto: RTK, {service}, local',
         newTabKanjiKeywordRtk: 'RTK / Heisig',
         newTabKanjiKeywordApiFacts: '{service} kanji facts (Jiten / JPDB)',
         newTabKanjiKeywordLocal: 'Local card meaning',
@@ -327,12 +327,12 @@ const COPY = {
         immersionKitRequestFailed: 'Immersion Kit request failed.',
         immersionKitRequestFailedWithStatus: 'Immersion Kit request failed ({status}).',
         immersionKitRequestTimedOut: 'Immersion Kit request timed out.',
-        immersionKitSearchBlocked: 'Immersion Kit blocked. Configure CORS or use fallback.',
+        immersionKitSearchBlocked: 'Immersion Kit blocked. Configure CORS.',
         immersionKitMediaRequest: 'Media request',
         immersionKitMediaRequestFailed: 'Media request failed.',
         immersionKitMediaRequestFailedWithStatus: 'Media request failed ({status}).',
         immersionKitMediaRequestTimedOut: 'Media request timed out.',
-        immersionKitMediaRequestReturnedNonMedia: 'Media request returned an error document instead of audio or image.',
+        immersionKitMediaRequestReturnedNonMedia: 'Media request returned an error document.',
         immersionKitNoMediaCandidate: 'No Immersion Kit media loaded.',
         nadeshikoRequest: 'Nadeshiko request',
         nadeshikoRequestFailed: 'Nadeshiko request failed.',
@@ -451,7 +451,7 @@ const COPY = {
         recallHighlightedWord: 'Recall the highlighted word from context.',
         imageOnFront: 'Image appears on the front when available.',
         recallMeaning: 'Recall the meaning first.',
-        ankiBackIncludes: 'Includes dictionary, kanji, pitch, frequency, source, image.',
+        ankiBackIncludes: 'Includes dictionary, kanji, pitch, source, image.',
         exampleMeaning: 'to read',
         scanAnkiFirst: 'Connect Anki first',
         notMapped: 'Not mapped',
@@ -476,7 +476,7 @@ const COPY = {
         ankiScanNoModels: 'Found {decks} decks. Note types unavailable.',
         ankiScanFieldSummary: 'Fields: {fields}',
         ankiUnreachable: 'Open desktop Anki and check again.',
-        ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList, then restart Anki.',
+        ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList; restart Anki.',
         ankiSettingsUnreachable: 'AnkiConnect not reached. Open Anki and retry.',
         ankiHostedBridgeMissing: `Enable ${APP_NAME}, refresh, then check again.`,
         ankiStatusOpenDesktop: 'Open desktop Anki',
@@ -487,7 +487,7 @@ const COPY = {
         ankiStatusRefreshAndCheck: 'Refresh, then check again',
         ankiHostedCorsHint: 'Direct access needs {origin} in webCorsOriginList.',
         ankiLibraryAdapter: 'Existing library adapter',
-        ankiLibraryAdapterStatus: 'Scans decks and note types, then suggests mappings.',
+        ankiLibraryAdapterStatus: 'Scans decks/types and suggests mappings.',
         ankiLibraryChoices: 'Deck and note type',
         ankiLibraryChoicesHelp: 'From AnkiConnect. Pick where mining saves notes.',
         ankiTemplateSettings: 'Yomu card template',
@@ -496,7 +496,7 @@ const COPY = {
         ankiMappingHighConfidence: 'High',
         ankiMappingMediumConfidence: 'Medium',
         ankiMappingLowConfidence: 'Low',
-        ankiHelp: 'Full Anki uses desktop AnkiConnect. Handoff creates notes.',
+        ankiHelp: 'Full Anki uses AnkiConnect. Handoff creates notes.',
         jpdbDefinitionsEnabled: 'Show JPDB definitions',
         localDictionariesEnabled: 'Show imported dictionary definitions',
         dictionarySourcesInitiallyExpanded: 'Open sources by default',
@@ -507,7 +507,7 @@ const COPY = {
         exportDictionaries: 'Export dictionaries',
         dictionaryImportHelp: 'Import settings, ZIPs, or backups.',
         lookupPills: 'Lookup pills',
-        lookupPillsHelp: 'External links. Tokens: {query}, {word}, {reading}.',
+        lookupPillsHelp: 'Links. Tokens: {query}, {word}, {reading}.',
         copiesCurrentWord: 'Copies the current word',
         lookupPillLabel: 'Lookup pill label',
         lookupPillLabelNumber: 'Lookup pill {number} label',
@@ -519,7 +519,6 @@ const COPY = {
         termDictionaries: 'Term dictionaries',
         kanjiDictionaries: 'Kanji dictionaries',
         frequencyDictionaries: 'Frequency dictionaries',
-        homepage: 'Homepage',
         install: 'Install',
         installing: 'Installing',
         queued: 'Queued',
@@ -529,7 +528,7 @@ const COPY = {
         update: 'Update',
         noLocalDictionaries: 'No local dictionaries yet.',
         checkingDictionaries: 'Checking imported dictionaries...',
-        dictionaryOnlyJpdb: 'Only JPDB is enabled. Import Yomitan for local results.',
+        dictionaryOnlyJpdb: 'Only JPDB is enabled. Import Yomitan for local.',
         dictionaryDownloading: 'Downloading',
         dictionaryReadingZip: 'Reading dictionary ZIP...',
         dictionaryCheckingIndex: 'Checking dictionary index...',
@@ -546,7 +545,7 @@ const COPY = {
         dictionaryEntries: 'entries',
         dictionaryTotal: 'total',
         dictionaryDownloadProgress: 'Downloading',
-        dictionaryStatusSummary: 'Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.',
+        dictionaryStatusSummary: 'Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}',
         dictionaryStatusUnavailable: 'Unavailable.',
         noLocalDictionariesImported: 'No dictionaries imported yet.',
         dictionaryDownloadFailed: 'Dictionary download failed.',
@@ -904,7 +903,7 @@ const COPY = {
         openedInAnki: 'Opened in Anki.',
         addedToDeckAndReviewed: 'Added to deck and reviewed.',
         sentToAnki: 'Sent to Anki.',
-        openedMobileAnkiHandoff: 'Opened mobile Anki handoff. Continue in Anki to create the new note.',
+        openedMobileAnkiHandoff: 'Opened Anki handoff. Continue in Anki.',
         alreadyInAnki: 'Already in Anki. Use Edit in Anki instead.',
         removedFromDeck: 'Removed from deck.',
         addedToDeckToast: 'Added to deck.',
@@ -923,9 +922,9 @@ const COPY = {
         ankiConnectRequestFailed: 'AnkiConnect request failed.',
         ankiConnectTimedOut: 'AnkiConnect timed out.',
         ankiConnectNeedsBridge: 'AnkiConnect needs the userscript bridge.',
-        mobileAnkiReady: 'Anki is not connected. Mobile handoff can still create notes.',
+        mobileAnkiReady: 'Anki offline. Handoff can create notes.',
         ankiConnectionReady: 'Connected. AnkiConnect is reachable.',
-        ankiConnectedReady: 'Connected. Deck "{deck}" and note type "{model}" are ready.',
+        ankiConnectedReady: 'Connected. "{deck}" / "{model}" ready.',
         ankiPromptRecallWord: 'Recall the highlighted word.',
         ankiMeaningHeading: 'Meaning',
         ankiPitchHeading: 'Pitch',
@@ -986,10 +985,10 @@ const COPY = {
         remove: 'Remove',
         removeImportedDictionary: 'Remove imported dictionary',
         customAdvanced: '{label} (advanced)',
-        importLocalDefinitionsHelp: 'Import Yomitan dictionaries for local definitions.',
+        importLocalDefinitionsHelp: 'Import Yomitan for local definitions.',
         frequencyMetadataHelp: 'Frequency, pitch, and kanji metadata for badges.',
         sourceHelpJpdb: 'JPDB meanings from the current card.',
-        sourceHelpJiten: 'Jiten meanings, examples, and related vocabulary from the current card.',
+        sourceHelpJiten: 'Jiten meanings, examples, and related words.',
         sourceHelpAnki: 'Matching Anki card content and status.',
         sourceHelpTranslation: 'Sentence translation.',
         sourceHelpGrammar: 'Local grammar hints.',
@@ -1005,7 +1004,7 @@ const COPY = {
         sourceHelpImportedKanjiDictionary: 'Imported Yomitan kanji dictionary.',
         sourceHelpStrokePractice: 'Stroke order preview and drawing pad.',
         sourceHelpReadingsComponents: 'JPDB readings, components, and mnemonic.',
-        sourceHelpJitenKanjiFacts: 'Jiten kanji facts, exact frequency, readings, and vocabulary.',
+        sourceHelpJitenKanjiFacts: 'Jiten kanji facts, frequency, readings, words.',
         sourceHelpRtk: 'RTK keywords, elements, and stories.',
         sourceHelpUchisen: 'Uchisen mnemonic image carousel.',
         uchisenMnemonicImages: 'Uchisen mnemonic images',
@@ -1024,18 +1023,19 @@ const COPY = {
         noStoryAvailable: 'No story available',
         sourceHelpImportedKanjiDictionaries: 'Imported Yomitan kanji entries.',
         sourceHelpWordsUsingKanji: 'Related vocabulary.',
-        sourceHelpComponentGraph: 'Kanji facts, component graph, and radical images.',
-        recommendedJitendex: 'Japanese-English dictionary with examples and notes.',
-        recommendedJmdict: 'Core Japanese-English dictionary packaged for Yomitan.',
-        recommendedJmnedict: 'Japanese proper names dictionary.',
-        recommendedWtyJapaneseJapanese: 'Monolingual Wiktionary.',
-        recommendedMarvncMonolingual: 'Monolingual collection.',
-        recommendedKanjidic: 'Kanji readings, meanings, strokes, levels, frequency.',
-        recommendedJpdbv2Kana: 'JPDB frequency data for local frequency chips.',
-        recommendedBccwj: 'BCCWJ frequency data.',
-        recommendedJiten: 'Frequency data from jiten.moe media stats.',
+        sourceHelpComponentGraph: 'Kanji facts, components, radical images.',
+        recommendedJitendex: 'J-E with examples.',
+        recommendedJmdict: 'Core J-E dictionary.',
+        recommendedJmnedict: 'Proper names.',
+        recommendedWtyJapaneseJapanese: 'JA-JA Wiktionary.',
+        recommendedPixivLight: 'Pixiv terms.',
+        recommendedKanjidic: 'Kanji facts.',
+        recommendedJpdbKanji: 'JPDB kanji.',
+        recommendedJpdbv2Kana: 'JPDB frequency.',
+        recommendedBccwj: 'BCCWJ frequency.',
+        recommendedJiten: 'Jiten frequency.',
         fallbackSetupTitle: 'Public lookup',
-        fallbackSetupCopy: 'Search works without a JPDB key. Add dictionaries for offline results.',
+        fallbackSetupCopy: 'Search without a JPDB key. Add dictionaries offline.',
         fallbackSetupDictionaries: 'Add dictionaries',
         fallbackSetupJpdb: 'Add JPDB key',
         getApp: `Get ${APP_NAME}`,
@@ -1137,7 +1137,7 @@ featureVideoBody	字幕がある場合、字幕内の単語もタップできま
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	学習ページでJiten・JPDB・Anki・漢字カードを復習できます。
+featureStudyBody	Jiten・JPDB・Anki・漢字を復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -1202,7 +1202,7 @@ dictionaryRecords	辞書レコード
 dictionaryEntries	件
 dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
-dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}。
+dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
 dictionaryStatusUnavailable	辞書状態を取得できません。
 noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
@@ -1234,7 +1234,7 @@ dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
-pageCoverageSummary	既知{percent}%・{known}/{total}・新規{unknown}・i+1 {iPlusOne}
+pageCoverageSummary	{percent}%・{known}/{total}・新規{unknown}・i+1 {iPlusOne}
 noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
 noLocalDictionaries	JMdictかYomitan ZIPを追加してください。
@@ -1242,7 +1242,7 @@ kanjiMapData	漢字マップデータ
 kanjiAlive	カンジアライブ
 wiktionary	ウィクショナリー
 fallbackSetupTitle	辞書から始める
-fallbackSetupCopy	JPDBキーなしでも検索できます。辞書でオフライン対応。
+fallbackSetupCopy	JPDBキーなしで検索。辞書でオフライン対応。
 fallbackSetupDictionaries	辞書を追加
 fallbackSetupJpdb	JPDBキーを追加
 offlineCacheGradesDisabled	オフラインです。採点は再接続時に同期されます。
@@ -1328,7 +1328,7 @@ immersionKitRequest	Immersion Kitリクエスト
 immersionKitRequestFailed	Immersion Kitリクエストに失敗しました。
 immersionKitRequestFailedWithStatus	Immersion Kitリクエストに失敗しました（{status}）。
 immersionKitRequestTimedOut	Immersion Kitリクエストがタイムアウトしました。
-immersionKitSearchBlocked	Immersion Kit検索がブロック中です。CORSか代替設定を使ってください。
+immersionKitSearchBlocked	Immersion Kit検索がブロック中です。CORSを設定してください。
 immersionKitMediaRequest	メディアリクエスト
 immersionKitMediaRequestFailed	メディアリクエストに失敗しました。
 immersionKitMediaRequestFailedWithStatus	メディアリクエストに失敗しました（{status}）。
@@ -2039,7 +2039,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	完全なAnki機能にはデスクトップAnkiConnectが必要です。受け渡しは新規ノートのみ。
+ankiHelp	完全なAnki機能にはAnkiConnectが必要です。受け渡しは新規ノートのみ。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
@@ -2062,7 +2062,6 @@ recommendedDownloads	おすすめ辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 frequencyDictionaries	頻度辞書
-homepage	ホームページ
 install	インストール
 installing	インストール中
 queued	待機中
@@ -2153,10 +2152,10 @@ moveDown	下へ移動
 remove	削除
 removeImportedDictionary	インポート済み辞書を削除
 customAdvanced	{label} (詳細)
-importLocalDefinitionsHelp	ローカル定義にはYomitan辞書をインポートします。
+importLocalDefinitionsHelp	ローカル定義にはYomitan辞書を使います。
 frequencyMetadataHelp	頻度、ピッチ、漢字メタデータをバッジや漢字データに表示。
 sourceHelpJpdb	現在のカードのJPDB定義です。
-sourceHelpJiten	現在のカードのJiten定義、例文、関連語です。
+sourceHelpJiten	Jiten定義、例文、関連語です。
 sourceHelpAnki	一致するAnkiカード内容と状態です。
 sourceHelpTranslation	文の自動翻訳です。
 sourceHelpGrammar	ローカル文法ヒントです。
@@ -2172,7 +2171,7 @@ sourceNameJitenKanjiFacts	Jiten漢字情報
 sourceHelpImportedKanjiDictionary	インポート済みYomitan漢字辞書です。
 sourceHelpStrokePractice	筆順プレビューと書き取りパッドです。
 sourceHelpReadingsComponents	JPDBの読み、部品、語呂合わせです。
-sourceHelpJitenKanjiFacts	Jitenの漢字情報、正確な頻度、読み、使用語です。
+sourceHelpJitenKanjiFacts	Jitenの漢字情報、頻度、読み、使用語です。
 sourceHelpRtk	RTKキーワード、要素、ストーリーです。
 sourceHelpUchisen	Uchisen語呂合わせ画像カルーセルです。
 uchisenMnemonicImages	Uchisen語呂合わせ画像
@@ -2191,16 +2190,17 @@ uchisenLoginRequired	画像生成にはUchisenへのログインが必要です�
 noStoryAvailable	ストーリーはありません
 sourceHelpImportedKanjiDictionaries	インポート済み漢字項目です。
 sourceHelpWordsUsingKanji	関連語彙です。
-sourceHelpComponentGraph	漢字情報、部品グラフ、部首画像です。
-recommendedJitendex	例文とメモ付きの日英辞書です。
-recommendedJmdict	Yomitan向けの基本日英辞書です。
-recommendedJmnedict	日本語固有名詞辞書です。
+sourceHelpComponentGraph	漢字情報、部品、部首画像です。
+recommendedJitendex	例文付き日英辞書です。
+recommendedJmdict	基本日英辞書です。
+recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
-recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
-recommendedJpdbv2Kana	JPDB頻度データです。
-recommendedBccwj	BCCWJ頻度データです。
-recommendedJiten	jiten.moe頻度データです。
+recommendedPixivLight	Pixiv用語辞書です。
+recommendedKanjidic	漢字情報です。
+recommendedJpdbKanji	JPDB漢字情報です。
+recommendedJpdbv2Kana	JPDB頻度です。
+recommendedBccwj	BCCWJ頻度です。
+recommendedJiten	Jiten頻度です。
 `);
 
 export interface GrammarRuleCopy {

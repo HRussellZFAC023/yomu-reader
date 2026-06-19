@@ -29,9 +29,9 @@ export interface RadialMenuHost {
 
 const ITEM_EXIT_MS = 180;
 const PI = Math.PI;
-const MIN_ITEM_CENTER_DISTANCE = 62;
-const MAX_ITEM_RADIUS = 248;
-const VIEWPORT_ITEM_MARGIN = 32;
+const MIN_GAP = 62;
+const MAX_R = 248;
+const EDGE = 32;
 
 /**
  * A floating radial menu that grows out of the Yomu puck. Items spring out along
@@ -165,59 +165,25 @@ export class RadialMenuController {
         });
     }
 
-    private radiusForLayout(
-        cx: number,
-        cy: number,
-        vw: number,
-        vh: number,
-        vAngle: number,
-        hAngle: number,
-        count: number,
-        pad: number,
-    ): number {
+    private radiusForLayout(cx: number, cy: number, vw: number, vh: number, vAngle: number, hAngle: number, count: number, pad: number): number {
         const comfortRadius = 116 + count * 11;
-        if (count <= 1) return Math.min(MAX_ITEM_RADIUS, comfortRadius);
+        if (count <= 1) return Math.min(MAX_R, comfortRadius);
         const usableArc = Math.abs(hAngle - vAngle) * (1 - 2 * pad);
         const step = usableArc / (count - 1);
-        const desiredRadius = MIN_ITEM_CENTER_DISTANCE / (2 * Math.sin(step / 2));
-        const maxRadius = this.maxRadiusInViewport(cx, cy, vw, vh, vAngle, hAngle, count, pad);
-        const targetRadius = Math.max(comfortRadius, Math.min(MAX_ITEM_RADIUS, desiredRadius));
-        return Math.max(0, Math.min(maxRadius, targetRadius));
-    }
-
-    private maxRadiusInViewport(
-        cx: number,
-        cy: number,
-        vw: number,
-        vh: number,
-        vAngle: number,
-        hAngle: number,
-        count: number,
-        pad: number,
-    ): number {
-        let maxRadius = MAX_ITEM_RADIUS;
+        const targetRadius = Math.max(comfortRadius, Math.min(MAX_R, MIN_GAP / (2 * Math.sin(step / 2))));
+        let maxRadius = MAX_R;
         for (let index = 0; index < count; index += 1) {
             const t = count > 1 ? pad + (1 - 2 * pad) * (index / (count - 1)) : 0.5;
             const angle = vAngle + (hAngle - vAngle) * t;
-            maxRadius = Math.min(maxRadius, this.maxRadiusForAngle(cx, cy, vw, vh, angle));
+            const cos = Math.cos(angle);
+            const sin = Math.sin(angle);
+            maxRadius = Math.min(
+                maxRadius,
+                cos > 0 ? (vw - EDGE - cx) / cos : cos < 0 ? (cx - EDGE) / -cos : Number.POSITIVE_INFINITY,
+                sin > 0 ? (vh - EDGE - cy) / sin : sin < 0 ? (cy - EDGE) / -sin : Number.POSITIVE_INFINITY,
+            );
         }
-        return Math.max(0, maxRadius);
-    }
-
-    private maxRadiusForAngle(cx: number, cy: number, vw: number, vh: number, angle: number): number {
-        const cos = Math.cos(angle);
-        const sin = Math.sin(angle);
-        const horizontal = cos > 0
-            ? (vw - VIEWPORT_ITEM_MARGIN - cx) / cos
-            : cos < 0
-                ? (cx - VIEWPORT_ITEM_MARGIN) / -cos
-                : Number.POSITIVE_INFINITY;
-        const vertical = sin > 0
-            ? (vh - VIEWPORT_ITEM_MARGIN - cy) / sin
-            : sin < 0
-                ? (cy - VIEWPORT_ITEM_MARGIN) / -sin
-                : Number.POSITIVE_INFINITY;
-        return Math.min(horizontal, vertical);
+        return Math.max(0, Math.min(maxRadius, targetRadius));
     }
 
     private createItem(action: RadialAction, index: number): HTMLButtonElement {

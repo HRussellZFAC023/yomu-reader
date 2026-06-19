@@ -1391,7 +1391,6 @@ function localizeSettingsEditorChrome(form: HTMLFormElement, text: SettingsText)
     form.querySelector<HTMLButtonElement>('[data-action="lookup-link-add"]')?.replaceChildren(text('add'));
     form.querySelector('.jpdb-reader-recommended-title')?.replaceChildren(text('recommendedDownloads'));
     form.querySelector('[data-recommended-dictionary-help]')?.replaceChildren(text('dictionaryInstallQueueHelp'));
-    form.querySelectorAll<HTMLAnchorElement>('.jpdb-reader-recommended-name a').forEach(link => { link.textContent = text('homepage'); });
     localizeOrderButtons(form, text);
     localizeLookupLinkEditor(form, text);
     localizeDeckControls(form, text);
@@ -2179,13 +2178,12 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
         ? `<button class="jpdb-reader-btn" type="button" data-action="download-recommended-dictionary" data-dictionary-id="${escapeHtml(dictionary.id)}" data-installed="${alreadyInstalled}">
                 ${alreadyInstalled ? 'Update' : 'Install'}
             </button>`
-        : `<a class="jpdb-reader-btn" href="${dictionary.homepage}" target="_blank" rel="noopener">Open</a>`;
+        : '';
     return `
         <div class="jpdb-reader-recommended-item">
             <div>
                 <div class="jpdb-reader-recommended-name">
                     <span>${escapeHtml(dictionary.name)}</span>
-                    <a href="${dictionary.homepage}" target="_blank" rel="noopener">Homepage</a>
                 </div>
                 <div class="jpdb-reader-help">${escapedUiText('en', dictionary.descriptionKey)}</div>
                 <div class="jpdb-reader-recommended-status" data-recommended-dictionary-status role="status" aria-live="polite" hidden></div>

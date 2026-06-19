@@ -7,7 +7,6 @@ export interface RecommendedDictionary {
     category: RecommendedDictionaryCategory;
     name: string;
     descriptionKey: UiCopyKey;
-    homepage: string;
     downloadUrl?: string;
 }
 
@@ -17,7 +16,6 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         category: 'terms',
         name: 'Jitendex',
         descriptionKey: 'recommendedJitendex',
-        homepage: 'https://jitendex.org',
         downloadUrl: 'https://github.com/stephenmk/stephenmk.github.io/releases/latest/download/jitendex-yomitan.zip',
     },
     {
@@ -25,7 +23,6 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         category: 'terms',
         name: 'JMdict',
         descriptionKey: 'recommendedJmdict',
-        homepage: 'https://github.com/yomidevs/jmdict-yomitan#jmdict-for-yomitan',
         downloadUrl: 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMdict_english.zip',
     },
     {
@@ -33,7 +30,6 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         category: 'terms',
         name: 'JMnedict',
         descriptionKey: 'recommendedJmnedict',
-        homepage: 'https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#jmnedict-for-yomitan',
         downloadUrl: 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/JMnedict.zip',
     },
     {
@@ -41,29 +37,34 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         category: 'terms',
         name: 'WTY JA-JA',
         descriptionKey: 'recommendedWtyJapaneseJapanese',
-        homepage: 'https://github.com/yomidevs/wiktionary-to-yomitan',
+        downloadUrl: 'https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip',
     },
     {
-        id: 'marvnc-monolingual',
+        id: 'pixiv-light',
         category: 'terms',
-        name: 'MarvNC JA-JA',
-        descriptionKey: 'recommendedMarvncMonolingual',
-        homepage: 'https://github.com/MarvNC/yomitan-dictionaries',
+        name: 'Pixiv Light',
+        descriptionKey: 'recommendedPixivLight',
+        downloadUrl: 'https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip',
     },
     {
         id: 'kanjidic',
         category: 'kanji',
         name: 'KANJIDIC',
         descriptionKey: 'recommendedKanjidic',
-        homepage: 'https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan',
         downloadUrl: 'https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip',
+    },
+    {
+        id: 'jpdb-kanji',
+        category: 'kanji',
+        name: 'JPDB Kanji',
+        descriptionKey: 'recommendedJpdbKanji',
+        downloadUrl: 'https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip',
     },
     {
         id: 'jiten',
         category: 'frequency',
         name: 'Jiten',
         descriptionKey: 'recommendedJiten',
-        homepage: 'https://jiten.moe/other',
         downloadUrl: 'https://api.jiten.moe/api/frequency-list/download?downloadType=yomitan',
     },
     {
@@ -71,7 +72,6 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         category: 'frequency',
         name: 'JPDBv2㋕',
         descriptionKey: 'recommendedJpdbv2Kana',
-        homepage: 'https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#jpdb-v22-frequency',
         downloadUrl: 'https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/JPDB_v2.2_Frequency_Kana.zip',
     },
     {
@@ -79,7 +79,6 @@ export const RECOMMENDED_JAPANESE_DICTIONARIES: RecommendedDictionary[] = [
         category: 'frequency',
         name: 'BCCWJ',
         descriptionKey: 'recommendedBccwj',
-        homepage: 'https://github.com/Kuuuube/yomitan-dictionaries?tab=readme-ov-file#bccwj-suw-luw-combined',
         downloadUrl: 'https://github.com/Kuuuube/yomitan-dictionaries/releases/download/yomitan-permalink/BCCWJ_SUW_LUW_combined.zip',
     },
 ];
