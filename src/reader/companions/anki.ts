@@ -2,11 +2,13 @@ import {
     AnkiConnectClient,
     AnkiDuplicateNoteError,
     ankiLookupWithUnavailableDetails,
-    buildYomuAnkiFields,
-    buildYomuAnkiPreviewFields,
     captureActiveVideoFrame,
     isAnkiDuplicateNoteError,
 } from '../anki/client';
+import {
+    buildYomuAnkiFields,
+    buildYomuAnkiPreviewFields,
+} from '../anki/field-render';
 import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName } from '../anki/mobile-handoff';
 import { resolveAnkiWordAudio } from '../anki/audio';
 import {

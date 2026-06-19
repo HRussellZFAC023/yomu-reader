@@ -21,7 +21,7 @@ export type {
     AnkiMergeYomuResult,
     AnkiRenderedCard,
 } from './types';
-export type { AnkiNoteFieldTargetPlan } from './client';
+export type { AnkiNoteFieldTargetPlan } from './field-render';
 
 export const YOMU_MODEL_FIELDS = [
     'Expression',
@@ -49,7 +49,7 @@ export interface AnkiConnectClient {
     isAvailableForBackground(): Promise<boolean>;
     deckNames(): Promise<string[]>;
     modelNames(): Promise<string[]>;
-    noteFieldTargetPlan(): Promise<import('./client').AnkiNoteFieldTargetPlan | null>;
+    noteFieldTargetPlan(): Promise<import('./field-render').AnkiNoteFieldTargetPlan | null>;
     scanLibrary(): Promise<AnkiLibraryScanResult>;
     warmStatusIndex(): Promise<AnkiStatusIndex | null>;
     findExistingCards(card: JPDBCard): Promise<AnkiLookupResult>;
@@ -83,7 +83,7 @@ class DisabledAnkiConnectClient implements AnkiConnectClient {
     isAvailableForBackground(): Promise<boolean> { return Promise.resolve(false); }
     deckNames(): Promise<string[]> { return Promise.resolve([]); }
     modelNames(): Promise<string[]> { return Promise.resolve([]); }
-    noteFieldTargetPlan(): Promise<import('./client').AnkiNoteFieldTargetPlan | null> { return Promise.resolve(null); }
+    noteFieldTargetPlan(): Promise<import('./field-render').AnkiNoteFieldTargetPlan | null> { return Promise.resolve(null); }
     scanLibrary(): Promise<AnkiLibraryScanResult> { return Promise.resolve({ deckNames: [], models: [], suggestedModel: null }); }
     warmStatusIndex(): Promise<AnkiStatusIndex | null> { return Promise.resolve(null); }
     findExistingCards(_card: JPDBCard): Promise<AnkiLookupResult> { return Promise.resolve(untrustedAnkiLookupResult()); }
@@ -170,7 +170,7 @@ export function buildYomuAnkiPreviewFields(
     sentence: string,
     settings: ReaderSettings,
     context: AnkiCardContext = {},
-    fieldTargetPlan?: import('./client').AnkiNoteFieldTargetPlan | null,
+    fieldTargetPlan?: import('./field-render').AnkiNoteFieldTargetPlan | null,
 ): Record<string, string> {
     return yomuAnkiCompanion()?.buildYomuAnkiPreviewFields(card, sentence, settings, context, fieldTargetPlan) ?? {};
 }
