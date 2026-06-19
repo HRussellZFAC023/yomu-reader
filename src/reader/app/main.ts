@@ -2079,10 +2079,11 @@ export class ReaderApp {
     }
 
     private async refreshMassReviewedWordStates(cards: JPDBCard[]): Promise<void> {
-        for (const card of cards.slice(0, 30)) {
-            await this.jiten.refreshCardState(card).catch(() => undefined);
-            publishCardStateSignal(card);
-        }
+        // One batched reader/lookup-vocabulary request refreshes every reviewed
+        // word's state — previously this re-parsed each word in its own request.
+        const batch = cards.slice(0, 60);
+        await this.jiten.refreshCardStates(batch).catch(() => undefined);
+        for (const card of batch) publishCardStateSignal(card);
     }
 
     private handleAudioShortcut(event: KeyboardEvent): boolean {
@@ -3453,11 +3454,19 @@ export class ReaderApp {
         const entries = uniqueFallbackLookupEntries(cards, options.publicLookupTermLimit);
         if (!entries.length) return result;
 
+        // Keyed users resolve EVERY fallback term through one batched
+        // reader/parse (full vocabulary in a single request, metered per-user) —
+        // this replaces the per-word /info fan-out that hammered the server.
+        // Keyless keeps the public lookup (capped + cached) so it can no longer
+        // fan out into the hundreds-of-requests storm. Mirrors the hosted
+        // newtab runtime, which already routes keyed fallbacks this way.
         const jitenTerms = [...new Set(entries.flatMap(entry => entry.terms))];
-        const jitenCards = await this.jitenPublicVocabulary.lookupMany(jitenTerms).catch(error => {
-            log.warn('Jiten fallback failed', { terms: jitenTerms.length }, error);
-            return new Map<string, JPDBCard>();
-        });
+        const jitenCards = this.isJitenApiActive()
+            ? await this.batchJitenFallbackCards(jitenTerms)
+            : await this.jitenPublicVocabulary.lookupMany(jitenTerms).catch(error => {
+                log.warn('Jiten fallback failed', { terms: jitenTerms.length }, error);
+                return new Map<string, JPDBCard>();
+            });
         for (const entry of entries) {
             for (const term of entry.terms) {
                 const card = jitenCards.get(normalizedJitenLookupKey(term));
@@ -3478,6 +3487,28 @@ export class ReaderApp {
             }
         });
         return result;
+    }
+
+    // Resolve fallback terms through Jiten with ZERO per-word requests: ALL
+    // terms go through one batched reader/parse (each term as its own line),
+    // which returns full vocabulary in a single request and is metered by
+    // Jiten's per-user parse budget. Only called for keyed users; keyless never
+    // bulk-hits Jiten this way (that path was the per-word /info request storm).
+    private async batchJitenFallbackCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
+        const cards = new Map<string, JPDBCard>();
+        const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
+        if (!uniqueTerms.length) return cards;
+        const parsed = await this.jiten.parse(uniqueTerms).catch(error => {
+            log.warn('Jiten batch fallback parse failed', { terms: uniqueTerms.length }, error);
+            return [] as JPDBToken[][];
+        });
+        uniqueTerms.forEach((term, index) => {
+            const tokens = parsed[index] ?? [];
+            const card = tokens.find(token => jitenFallbackTokenMatches(term, token))?.card
+                ?? tokens.find(token => token.card.source === 'jiten')?.card;
+            if (card?.source === 'jiten') cards.set(normalizedJitenLookupKey(term), card);
+        });
+        return cards;
     }
 
     private async publicJitenLookupCandidateCards(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
