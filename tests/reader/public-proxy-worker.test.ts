@@ -1,7 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
-import PublicProxyWorker from "../../workers/jpdb-public-proxy/src/index";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import PublicProxyWorker, {
+  resetProxyWorkerCacheForTests,
+} from "../../workers/jpdb-public-proxy/src/index";
 
 describe("Yomu public proxy Worker", () => {
+  afterEach(() => {
+    resetProxyWorkerCacheForTests();
+  });
+
   it("retries transient upstream failures with minimal headers", async () => {
     const fetchMock = vi.fn((_request: Request) =>
       Promise.resolve(new Response("ok", { status: 200 })),
@@ -276,6 +282,45 @@ describe("Yomu public proxy Worker", () => {
       );
       expect(response.status).toBe(503);
       // No retry — an overloaded server should not be hit twice.
+      expect(upstream).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("reuses a recent cacheable response for near-sequential identical lookups (workers.dev micro-cache)", async () => {
+    const upstream = vi.fn(async () =>
+      new Response("info", {
+        status: 200,
+        headers: { "cache-control": "public, max-age=3600" },
+      }),
+    );
+    vi.stubGlobal("fetch", upstream);
+    // No-op edge cache (as on workers.dev) so any de-duplication must come from
+    // the in-isolate micro-cache, not the Cache API.
+    vi.stubGlobal("caches", {
+      default: { match: async () => undefined, put: async () => {} },
+    });
+    const proxyUrl =
+      "https://yomu-jpdb-public-proxy.example/?url=" +
+      encodeURIComponent("https://api.jiten.moe/api/vocabulary/777/0/info");
+    const call = () =>
+      PublicProxyWorker.fetch(
+        new Request(proxyUrl, {
+          headers: { origin: "https://hrussellzfac023.github.io" },
+        }),
+        {},
+        { waitUntil: vi.fn() },
+      );
+
+    try {
+      const first = await call();
+      const second = await call();
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(200);
+      expect(await first.text()).toBe("info");
+      expect(await second.text()).toBe("info");
+      // Two sequential identical lookups → exactly one upstream request.
       expect(upstream).toHaveBeenCalledTimes(1);
     } finally {
       vi.unstubAllGlobals();

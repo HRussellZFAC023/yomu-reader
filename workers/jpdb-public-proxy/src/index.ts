@@ -76,24 +76,71 @@ export default {
   },
 };
 
-// In-flight de-duplication of identical upstream GETs. Keyed by target URL; the
-// entry is cleared once the shared fetch settles, so it only collapses requests
-// that overlap in time. Per-isolate (best-effort) but needs no external state,
-// so it works everywhere the Worker runs.
-const inflightOriginRequests = new Map<string, Promise<Response>>();
+const MICRO_CACHE_TTL_MS = 60_000;
+const MICRO_CACHE_MAX_ENTRIES = 256;
 
+interface OriginRequestEntry {
+  promise: Promise<Response>;
+  // A resolved, undisturbed clone kept for the brief reuse window. Cloned again
+  // per caller so the stored copy's body is never consumed directly.
+  response?: Response;
+  expiresAt: number;
+}
+
+const originRequestCache = new Map<string, OriginRequestEntry>();
+
+// Test-only: the cache is module-level and lives ~60s, so tests reset it
+// between cases so one case's entry can't satisfy the next.
+export function resetProxyWorkerCacheForTests(): void {
+  originRequestCache.clear();
+}
+
+// Coalesce concurrent identical upstream GETs AND briefly reuse the result
+// (per-isolate, ~60s). This dedups not just simultaneous requests but the
+// common burst of many clients looking up the same popular word within seconds
+// — and it works on workers.dev, where the Cache API is only best-effort. Only
+// user-agnostic, cacheable responses are retained; anything else falls straight
+// through. Each caller receives an independent clone.
 async function coalesceOriginRequest(
   key: string,
   run: () => Promise<Response>,
 ): Promise<Response> {
-  const existing = inflightOriginRequests.get(key);
-  if (existing) return (await existing).clone();
+  const now = Date.now();
+  const cached = originRequestCache.get(key);
+  if (cached && cached.expiresAt > now) {
+    const shared = cached.response ?? (await cached.promise);
+    return shared.clone();
+  }
+  if (cached) originRequestCache.delete(key);
+
   const promise = run();
-  inflightOriginRequests.set(key, promise);
+  const entry: OriginRequestEntry = { promise, expiresAt: now + MICRO_CACHE_TTL_MS };
+  originRequestCache.set(key, entry);
+  pruneOriginRequestCache(now);
   try {
-    return (await promise).clone();
-  } finally {
-    inflightOriginRequests.delete(key);
+    const response = await promise;
+    if (isCacheableUpstreamResponse(response)) {
+      entry.response = response.clone();
+      entry.expiresAt = Date.now() + MICRO_CACHE_TTL_MS;
+    } else {
+      originRequestCache.delete(key);
+    }
+    return response.clone();
+  } catch (error) {
+    originRequestCache.delete(key);
+    throw error;
+  }
+}
+
+function pruneOriginRequestCache(now: number): void {
+  if (originRequestCache.size <= MICRO_CACHE_MAX_ENTRIES) return;
+  for (const [key, entry] of originRequestCache) {
+    if (entry.expiresAt <= now) originRequestCache.delete(key);
+  }
+  while (originRequestCache.size > MICRO_CACHE_MAX_ENTRIES) {
+    const oldest = originRequestCache.keys().next().value;
+    if (typeof oldest !== "string") break;
+    originRequestCache.delete(oldest);
   }
 }
 
