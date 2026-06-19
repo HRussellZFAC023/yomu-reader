@@ -42,6 +42,12 @@ import {
     isAnkiConnectAvailabilityError,
     postAnkiJson,
 } from './transport';
+import { resolvedAnkiDeckName, resolvedAnkiModelName } from './anki-settings';
+import {
+    noteLooksLikeYomuModel,
+    shouldTreatExistingModelAsYomuManaged,
+    yomuFieldAlias,
+} from './model-fields';
 import {
     ankiFieldMappingForModel,
     ankiFieldMappingsSettingsKey,
@@ -50,7 +56,6 @@ import {
     lookupKeyTermsForCard,
     mappedRoleForField,
     noteLooksLikeCard,
-    normalizeAnkiFieldName,
     scanAnkiModelFields,
     yomuFieldForRole,
 } from './field-mapping';
@@ -2072,14 +2077,6 @@ export function captureActiveVideoFrame(): string | undefined {
     }
 }
 
-function resolvedAnkiDeckName(deckOverride: string | undefined, settings: ReaderSettings): string {
-    return deckOverride?.trim() || settings.ankiDeck || 'よむ';
-}
-
-function resolvedAnkiModelName(settings: ReaderSettings): string {
-    return settings.ankiModel || 'よむ Japanese';
-}
-
 function isMobileHandoffRecoverableAddError(error: unknown): boolean {
     if (isAnkiConnectAvailabilityError(error)) return true;
     if (error instanceof Error && error.cause && error.cause !== error) {
@@ -2289,46 +2286,6 @@ function yomuValueForExistingField(fieldName: string, yomuFields: Record<string,
     const alias = yomuFieldAlias(fieldName);
     if (alias && !canOwnYomuFields) return yomuFields[alias] ?? '';
     return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? '' : '');
-}
-
-function yomuFieldAlias(fieldName: string): string {
-    return YOMU_FIELD_ALIASES[normalizeAnkiFieldName(fieldName)] ?? '';
-}
-
-const YOMU_FIELD_ALIASES: Record<string, string> = Object.fromEntries([
-    ...yomuAliasEntries('Expression', 'baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front'),
-    ...yomuAliasEntries('Reading', 'expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi'),
-    ...yomuAliasEntries('Meaning', 'def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back'),
-    ...yomuAliasEntries('Sentence', 'example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext'),
-    ...yomuAliasEntries('Url', 'sourceurl|url'),
-    ...yomuAliasEntries('PartOfSpeech', 'pos|partofspeech'),
-    ...yomuAliasEntries('Pitch', 'pitchaccent'),
-    ...yomuAliasEntries('DictionaryDefinitions', 'dictionary|dictionaries|dictionarydefinition|dictionarydefinitions'),
-]);
-
-function yomuAliasEntries(field: string, aliases: string): Array<[string, string]> {
-    return aliases.split('|').map(alias => [alias, field]);
-}
-
-function noteLooksLikeYomuModel(modelName: string, settings: ReaderSettings, fieldNames: string[]): boolean {
-    const configuredModel = resolvedAnkiModelName(settings);
-    if (modelName === configuredModel) return true;
-    return yomuModelFieldSet(fieldNames);
-}
-
-function shouldTreatExistingModelAsYomuManaged(modelName: string, settings: ReaderSettings, fieldNames: string[]): boolean {
-    const configuredModel = resolvedAnkiModelName(settings);
-    if (modelName === configuredModel && isDefaultYomuModelName(configuredModel)) return true;
-    return yomuModelFieldSet(fieldNames);
-}
-
-function isDefaultYomuModelName(modelName: string): boolean {
-    return modelName === 'よむ Japanese' || modelName === 'Yomu Japanese';
-}
-
-function yomuModelFieldSet(fieldNames: string[]): boolean {
-    const fieldSet = new Set(fieldNames);
-    return ['Expression', 'Meaning', 'Sentence', 'DictionaryDefinitions'].every(field => fieldSet.has(field));
 }
 
 function visibleArea(element: HTMLElement): number {
