@@ -1,6 +1,6 @@
 import { APP_NAME } from '../app/constants';
 import { uiText } from '../app/i18n';
-import type { ReaderSettings } from '../app/types';
+import type { InterfaceLanguage, ReaderSettings } from '../app/types';
 import {
     YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
     YOUTUBE_CHANNEL_RECOMMENDATION_FILTERS,
@@ -48,6 +48,63 @@ const FILTERABLE_VIDEO_SHELF_SELECTOR = SHELF_SELECTOR;
 const CHANNEL_LISTING_CONTENT_SELECTOR = 'ytd-channel-renderer,ytd-grid-channel-renderer,ytm-channel-list-item-renderer,ytm-compact-channel-renderer';
 
 const SHORTS_WATCH_ITEM_SELECTOR = 'ytd-shorts,ytd-reel-video-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2';
+const YT_TITLE = 0;
+const YT_EXPANDED = 1;
+const YT_COMPACT = 2;
+const YT_RECOMMENDATIONS = 3;
+const YT_SUBSCRIBE_VISIBLE = 4;
+const YT_SUBSCRIBE_ALL = 5;
+const YT_ALL_SUBSCRIBED = 6;
+const YT_BROWSE_ALL = 7;
+const YT_COLLAPSE = 8;
+const YT_SUBSCRIBE = 9;
+const YT_SUBSCRIBED = 10;
+const YT_SUBSCRIBE_TO = 11;
+const YT_SUBSCRIBED_TO = 12;
+const YT_ALREADY_SUBSCRIBED = 13;
+const YT_PARTIAL_STATUS = 14;
+const YT_STATUS_ONE = 15;
+const YT_STATUS_MANY = 16;
+const YOUTUBE_SHELF_COPY = {
+    en: [
+        'Start your Japanese YouTube feed',
+        '{shown} shown from {total} curated channels.',
+        '{total} curated channels, shown as compact YouTube-style rows.',
+        'Japanese channel recommendations',
+        'Subscribe visible ({count})',
+        'Subscribe all {count}',
+        'All {total} subscribed',
+        'Browse all channels',
+        'Collapse',
+        'Subscribe',
+        'Subscribed',
+        'Subscribe to {name}',
+        'Subscribed to {name}',
+        'All of these channels are already subscribed.',
+        'Subscribed to {subscribed}; {failed} could not be completed by YouTube.',
+        'Subscribed to {count} channel.',
+        'Subscribed to {count} channels.',
+    ],
+    ja: [
+        '日本語YouTubeを始める',
+        '{shown}/{total}件を表示',
+        '厳選{total}件を表示',
+        '日本語チャンネル',
+        '表示中を登録({count})',
+        '全{count}件登録',
+        '{total}件すべて登録済み',
+        'すべて見る',
+        '折りたたむ',
+        '登録',
+        '登録済み',
+        '{name}を登録',
+        '{name}を登録済み',
+        'すべて登録済みです。',
+        '{subscribed}件登録、{failed}件失敗。',
+        '{count}件登録しました。',
+        '{count}件登録しました。',
+    ],
+} as const;
 
 // Community posts surfaced in feeds (home/subscriptions). Captured live
 // 2026-06-12: desktop posts carry their text in
@@ -181,6 +238,11 @@ function isInsideReaderRoot(node: ParentNode | Node): boolean {
     if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_ROOT_SELECTOR));
     if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_ROOT_SELECTOR));
     return false;
+}
+
+function youtubeShelfText(language: InterfaceLanguage, key: number, values: Record<string, string | number> = {}): string {
+    const copy = YOUTUBE_SHELF_COPY[language === 'ja' ? 'ja' : 'en'][key];
+    return copy.replace(/\{(\w+)\}/g, (_match, name: string) => String(values[name] ?? ''));
 }
 
 export { isProbablyJapaneseYouTubeText };
@@ -891,7 +953,7 @@ export class YoutubeImmersionFilter {
         shelf.className = 'jpdb-youtube-channel-shelf';
         shelf.dataset.jpdbReaderRoot = 'true';
         shelf.setAttribute('role', 'region');
-        shelf.setAttribute('aria-label', 'Japanese channel recommendations');
+        shelf.setAttribute('aria-label', youtubeShelfText(this.options.getSettings().interfaceLanguage, YT_RECOMMENDATIONS));
 
         const header = document.createElement('div');
         header.className = 'jpdb-youtube-channel-shelf-head';
@@ -977,18 +1039,22 @@ export class YoutubeImmersionFilter {
         recommendations: YouTubeChannelRecommendation[],
         renderedRecommendations: YouTubeChannelRecommendation[],
     ): void {
-        elements.title.textContent = 'Start your Japanese YouTube feed';
+        const language = this.options.getSettings().interfaceLanguage;
+        elements.title.textContent = youtubeShelfText(language, YT_TITLE);
         elements.copy.textContent = this.channelShelfExpanded
-            ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`
-            : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+            ? youtubeShelfText(language, YT_EXPANDED, {
+                shown: recommendations.length,
+                total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
+            })
+            : youtubeShelfText(language, YT_COMPACT, { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
         const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
-        elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
+        elements.subscribeVisible.textContent = youtubeShelfText(language, YT_SUBSCRIBE_VISIBLE, { count: renderedRecommendations.length });
         elements.subscribeVisible.hidden = !renderedRecommendations.length;
         elements.subscribeAll.textContent = remainingChannels
-            ? `Subscribe all ${remainingChannels}`
-            : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
-        elements.never.textContent = 'Hide';
-        elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
+            ? youtubeShelfText(language, YT_SUBSCRIBE_ALL, { count: remainingChannels })
+            : youtubeShelfText(language, YT_ALL_SUBSCRIBED, { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
+        elements.never.textContent = uiText(language, 'hide');
+        elements.expand.textContent = youtubeShelfText(language, this.channelShelfExpanded ? YT_COLLAPSE : YT_BROWSE_ALL);
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
         if (!this.subscriptionBusy) elements.status.textContent = this.channelShelfStatusOverride;
     }
@@ -1107,8 +1173,9 @@ export class YoutubeImmersionFilter {
     private renderChannelSubscribeButton(channel: YouTubeChannelRecommendation): HTMLButtonElement {
         const subscribe = channelShelfButton('subscribe-one');
         subscribe.dataset.handle = channel.handle;
-        subscribe.textContent = 'Subscribe';
-        subscribe.setAttribute('aria-label', `Subscribe to ${channel.name}`);
+        const language = this.options.getSettings().interfaceLanguage;
+        subscribe.textContent = youtubeShelfText(language, YT_SUBSCRIBE);
+        subscribe.setAttribute('aria-label', youtubeShelfText(language, YT_SUBSCRIBE_TO, { name: channel.name }));
         return subscribe;
     }
 
@@ -1312,7 +1379,7 @@ export class YoutubeImmersionFilter {
         const elements = this.channelShelfElements(this.ensureChannelShelf());
         if (!channels.length) {
             // Never leave the button looking dead: say why nothing happened.
-            this.setChannelShelfStatus(elements, 'All of these channels are already subscribed.');
+            this.setChannelShelfStatus(elements, youtubeShelfText(this.options.getSettings().interfaceLanguage, YT_ALREADY_SUBSCRIBED));
             return;
         }
         const config = readYouTubeClientConfig();
@@ -1356,9 +1423,10 @@ export class YoutubeImmersionFilter {
         this.markChannelSubscriptionCompleteIfReady({ keepShelf: true });
         this.subscriptionBusy = false;
         this.setChannelShelfBusy(false);
+        const language = this.options.getSettings().interfaceLanguage;
         this.setChannelShelfStatus(elements, failed
-            ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.`
-            : `Subscribed to ${subscribed} channel${subscribed === 1 ? '' : 's'}.`);
+            ? youtubeShelfText(language, YT_PARTIAL_STATUS, { subscribed, failed })
+            : youtubeShelfText(language, subscribed === 1 ? YT_STATUS_ONE : YT_STATUS_MANY, { count: subscribed }));
         if (subscribed) this.scheduleChannelShelfRefresh();
     }
 
@@ -1378,8 +1446,9 @@ export class YoutubeImmersionFilter {
         row?.classList.add('is-subscribed');
         if (!button) return;
         button.disabled = true;
-        button.textContent = 'Subscribed ✓';
-        button.setAttribute('aria-label', `Subscribed to ${channel.name}`);
+        const language = this.options.getSettings().interfaceLanguage;
+        button.textContent = youtubeShelfText(language, YT_SUBSCRIBED);
+        button.setAttribute('aria-label', youtubeShelfText(language, YT_SUBSCRIBED_TO, { name: channel.name }));
     }
 
     private scheduleChannelShelfRefresh(delayMs = 1800): void {

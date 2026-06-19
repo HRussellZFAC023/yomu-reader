@@ -27,11 +27,11 @@ const COPY = {
         featureControl: 'Control',
         featureControlBody: 'Tune features, shortcuts, and color.',
         featureStudy: 'Study',
-        featureStudyBody: 'Review Jiten, JPDB, Anki, and optional kanji cards in order on the built-in study page.',
+        featureStudyBody: 'Review Jiten, JPDB, Anki, and kanji cards on the Study page.',
         scanPage: 'Scan page',
         noUnscannedJapaneseText: 'No unscanned Japanese text found.',
         jpdbScanFailed: 'Page scan failed.',
-        pageCoverageSummary: 'Coverage {percent}% known · {known}/{total} words · {unknown} new · {iPlusOne} i+1',
+        pageCoverageSummary: '{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1',
         settings: 'Settings',
         settingsSaved: 'Settings saved.',
         settingsSaveFailed: 'Settings save failed.',
@@ -142,7 +142,7 @@ const COPY = {
         newTabJpdbReviewMode: 'API review mode',
         newTabJpdbReviewAuto: 'Auto: live kanji + API vocabulary',
         newTabLiveReview: 'Live JPDB review session',
-        newTabApiVocabulary: 'API vocabulary only (deck order, not JPDB\u2019s review order)',
+        newTabApiVocabulary: 'API vocabulary only',
         corsProxyUrl: 'Cross-origin proxy URL',
         newTabKanjiKeywordSource: 'Kanji keyword source',
         newTabKanjiKeywordAuto: 'Auto: RTK, then {service} kanji facts, then local',
@@ -161,7 +161,7 @@ const COPY = {
         newTabSwipeReviews: 'Swipe cards to grade (left = fail, right = pass)',
         newTabUrl: 'Study address',
         newTabOfflineHelp: 'Caches due cards and queued grades.',
-        newTabAddressHelp: 'Use as a start page or add to iPad Home Screen.',
+        newTabAddressHelp: 'Use as a start page or iPad shortcut.',
         newTabJpdbDeck: 'Study JPDB deck',
         openNewTabPage: 'Open Study',
         copyAddress: 'Copy address',
@@ -491,12 +491,12 @@ const COPY = {
         ankiLibraryChoices: 'Deck and note type',
         ankiLibraryChoicesHelp: 'From AnkiConnect. Pick where mining saves notes.',
         ankiTemplateSettings: 'Yomu card template',
-        ankiTemplateSettingsHelp: 'For Yomu note types. Imported templates stay in Anki.',
-        ankiMappingConfidenceHelp: 'Based on fields/samples. Edit low-confidence mappings.',
+        ankiTemplateSettingsHelp: 'For Yomu note types. Templates stay in Anki.',
+        ankiMappingConfidenceHelp: 'Based on fields/samples. Edit weak mappings.',
         ankiMappingHighConfidence: 'High',
         ankiMappingMediumConfidence: 'Medium',
         ankiMappingLowConfidence: 'Low',
-        ankiHelp: 'Full Anki uses desktop AnkiConnect over LAN/Tailscale. Handoff only creates new notes.',
+        ankiHelp: 'Full Anki uses desktop AnkiConnect. Handoff creates notes.',
         jpdbDefinitionsEnabled: 'Show JPDB definitions',
         localDictionariesEnabled: 'Show imported dictionary definitions',
         dictionarySourcesInitiallyExpanded: 'Open sources by default',
@@ -505,7 +505,7 @@ const COPY = {
         exportSettings: 'Export settings JSON',
         importDictionaries: 'Import dictionaries',
         exportDictionaries: 'Export dictionaries',
-        dictionaryImportHelp: 'Import Yomitan settings, ZIPs, or backups.',
+        dictionaryImportHelp: 'Import settings, ZIPs, or backups.',
         lookupPills: 'Lookup pills',
         lookupPillsHelp: 'External links. Tokens: {query}, {word}, {reading}.',
         copiesCurrentWord: 'Copies the current word',
@@ -527,13 +527,13 @@ const COPY = {
         download: 'Download',
         downloadAndImport: 'Download and import',
         update: 'Update',
-        noLocalDictionaries: 'No local dictionaries yet. Download or import a ZIP.',
+        noLocalDictionaries: 'No local dictionaries yet.',
         checkingDictionaries: 'Checking imported dictionaries...',
         dictionaryOnlyJpdb: 'Only JPDB is enabled. Import Yomitan for local results.',
         dictionaryDownloading: 'Downloading',
         dictionaryReadingZip: 'Reading dictionary ZIP...',
         dictionaryCheckingIndex: 'Checking dictionary index...',
-        dictionaryBanksFound: '{count} dictionary bank{plural} found.',
+        dictionaryBanksFound: '{count} bank{plural} found.',
         dictionaryRemovingExisting: 'removing old entries',
         dictionaryReadingBank: 'Reading',
         dictionaryParsingBank: 'Parsing',
@@ -541,45 +541,45 @@ const COPY = {
         dictionaryImporting: 'Importing',
         importingBundledDictionaries: 'Importing bundled dictionaries...',
         dictionaryImported: 'Imported',
-        dictionaryPreparingImport: 'Preparing to import',
+        dictionaryPreparingImport: 'Preparing import',
         dictionaryRecords: 'dictionary records',
         dictionaryEntries: 'entries',
         dictionaryTotal: 'total',
-        dictionaryDownloadProgress: 'Downloading dictionary',
+        dictionaryDownloadProgress: 'Downloading',
         dictionaryStatusSummary: 'Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}.',
-        dictionaryStatusUnavailable: 'Dictionary status unavailable.',
-        noLocalDictionariesImported: 'No local dictionaries imported yet.',
+        dictionaryStatusUnavailable: 'Unavailable.',
+        noLocalDictionariesImported: 'No dictionaries imported yet.',
         dictionaryDownloadFailed: 'Dictionary download failed.',
         dictionaryDownloadTimedOut: 'Dictionary download timed out.',
         dictionaryDownloadNotZip: 'Download was not a ZIP.',
-        dictionaryDownloadNeedsBridge: 'Download needs the bridge; else import the ZIP.',
-        dictionaryDownloadBlocked: 'Download is blocked. Import the ZIP manually.',
-        dictionaryManualDownloadHint: 'Enable the userscript or import the ZIP.',
+        dictionaryDownloadNeedsBridge: 'Download needs bridge; else import ZIP.',
+        dictionaryDownloadBlocked: 'Download blocked. Import the ZIP.',
+        dictionaryManualDownloadHint: 'Enable userscript or import ZIP.',
         dictionaryInstallQueueHelp: 'Installs take a few minutes.',
         dictionaryInstallQueued: '{dictionary} queued after current install.',
-        dictionaryInstallSaveBlocked: 'Dictionary import is running. Save unlocks when done.',
+        dictionaryInstallSaveBlocked: 'Import running. Save unlocks when done.',
         dictionaryImportQueueStatus: '{count} install{plural} running.',
-        dictionaryRemoveConfirm: 'Remove "{dictionary}" and all of its imported entries?',
+        dictionaryRemoveConfirm: 'Remove "{dictionary}" and its entries?',
         dictionaryRemoving: 'Removing {dictionary}...',
         dictionaryRemoved: 'Removed {dictionary}.',
-        dictionaryImportComplete: 'Imported {records} records from {sources} source{plural}.',
-        dictionaryRecordsImported: '{dictionary}: {records} records imported.',
+        dictionaryImportComplete: 'Imported {records} from {sources} source{plural}.',
+        dictionaryRecordsImported: '{dictionary}: {records} records.',
         settingsImported: 'Settings imported.',
         settingsImportedWithDetails: 'Settings imported; {details}.',
         settingsExported: 'Settings exported.',
         restoredStoredChoices: 'restored {count} stored choice{plural}',
         importedDictionaryRecordCount: 'imported {count} dictionary record{plural}',
-        dictionaryNoSupportedBanks: 'No supported Yomitan dictionary banks found.',
-        dictionaryUnsupportedJson: 'Use Yomitan Dexie, ZIP, or reader export.',
-        dictionaryZipMissingIndex: 'Yomitan dictionary ZIP is missing index.json.',
-        yomitanSettingsInvalid: 'This does not look like a Yomitan settings export.',
+        dictionaryNoSupportedBanks: 'No supported dictionary banks found.',
+        dictionaryUnsupportedJson: 'Use Dexie, ZIP, or reader export.',
+        dictionaryZipMissingIndex: 'Dictionary ZIP is missing index.json.',
+        yomitanSettingsInvalid: 'Not a Yomitan settings export.',
         localDictionaryText: 'Dictionary text',
         localSenseSingular: 'meaning',
         localSensePlural: 'meanings',
         localWordSingular: 'entry',
         localWordPlural: 'entries',
         decksLoaded: 'Decks are loaded from your JPDB account.',
-        decksUnavailable: 'Could not load decks yet; saved IDs are kept.',
+        decksUnavailable: 'Could not load decks; saved IDs kept.',
         addApiKeyChooseDecks: 'Add your JPDB API key to choose decks.',
         miningDeck: 'Mining deck',
         neverForgetDeck: 'Never forget deck',
@@ -602,16 +602,16 @@ const COPY = {
         noSentenceToRead: 'No sentence to read aloud.',
         noTextToRead: 'No text to read aloud.',
         jpdbExampleAudioUnavailable: 'No JPDB audio is available for this example.',
-        jpdbAudioPlayableFileMissing: 'JPDB audio did not return a playable file.',
-        jpdbAudioResponseNotPlayable: 'JPDB audio response was not a playable audio file.',
+        jpdbAudioPlayableFileMissing: 'JPDB audio returned no playable file.',
+        jpdbAudioResponseNotPlayable: 'JPDB audio was not playable.',
         audioSourceReturnedNoAudio: 'Audio source did not return audio.',
-        audioJsonMissingPlayableUrl: 'Audio JSON did not include a playable URL.',
-        textToSpeechUnavailable: 'Text-to-speech is not available in this browser.',
+        audioJsonMissingPlayableUrl: 'Audio JSON had no playable URL.',
+        textToSpeechUnavailable: 'Text-to-speech is unavailable.',
         textToSpeechFailed: 'Text-to-speech failed.',
         audioRequest: 'Audio request',
         audioRequestTimedOut: 'Audio request timed out.',
-        audioRequestReturnedNonAudio: 'Audio request returned a non-audio response',
-        audioRequestReturnedNonAudioWithType: 'Audio request returned a non-audio response: {type}.',
+        audioRequestReturnedNonAudio: 'Audio request returned non-audio',
+        audioRequestReturnedNonAudioWithType: 'Audio request returned non-audio: {type}.',
         audioUnknownContentType: 'an unknown content type',
         japanesePod101NoAudio: 'JapanesePod101 has no audio for this term.',
         invalidJpdbAudioId: 'Invalid JPDB audio id.',
@@ -652,9 +652,9 @@ const COPY = {
         hideSubtitleTranslation: 'Hide translation',
         loadingSubtitleLines: 'Loading subtitle lines',
         waitingForCaptionLines: 'Waiting for caption lines',
-        subtitleCurrentLineWillAppear: 'The current line appears when captions are available.',
+        subtitleCurrentLineWillAppear: 'Current line appears when captions load.',
         seekSubtitleLine: 'Seek subtitle line',
-        subtitleTracksHint: 'Choose a primary track. Use Lines to browse and jump.',
+        subtitleTracksHint: 'Choose a primary track. Use Lines to jump.',
         noAutoDetectedSubtitleTracks: '',
         autoDetectedTracksWillAppear: 'Subtitle tracks appear here.',
         autoDetectedOptionSingular: '1 subtitle option',
@@ -811,8 +811,8 @@ const COPY = {
         factoryResetConfirm: 'Reset all {appName} data?\n\nDeletes settings, keys, cache, dictionaries.',
         factoryResetFailed: 'Reset failed.',
         factoryResetDictionaryWarning: 'Settings reset. Close other tabs before dictionaries.',
-        factoryResetOtherTabReloading: 'よむ reset in another tab. Reloading...',
-        factoryResetDeleteSettingsFailed: 'Could not delete settings. Close other tabs and retry.',
+        factoryResetOtherTabReloading: 'よむ reset elsewhere. Reloading...',
+        factoryResetDeleteSettingsFailed: 'Could not delete settings. Close other tabs.',
         issues: 'Issues',
         donate: 'Donate',
         discord: 'Discord',
@@ -1137,7 +1137,7 @@ featureVideoBody	字幕がある場合、字幕内の単語もタップできま
 featureControl	調整
 featureControlBody	機能、ショートカット、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJiten・JPDB・Anki・任意の漢字カードを順番に復習できます。
+featureStudyBody	学習ページでJiten・JPDB・Anki・漢字カードを復習できます。
 automatic	自動
 english	英語
 japanese	日本語
@@ -1189,7 +1189,7 @@ saveAfterInstall	インストール後に保存
 dictionaryDownloading	ダウンロード中
 dictionaryReadingZip	辞書ZIPを読み取り中...
 dictionaryCheckingIndex	辞書インデックスを確認中...
-dictionaryBanksFound	{count}件の辞書バンクが見つかりました。
+dictionaryBanksFound	{count}件のバンクを検出
 dictionaryRemovingExisting	既存項目を削除中
 dictionaryReadingBank	読み取り中
 dictionaryParsingBank	解析中
@@ -1208,36 +1208,36 @@ noLocalDictionariesImported	ローカル辞書はまだインポートされて�
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
-dictionaryDownloadNeedsBridge	ダウンロードにはブリッジが必要です。失敗時はZIPを追加してください。
+dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加してください。
 dictionaryDownloadBlocked	ダウンロードがブロックされています。ZIPを追加してください。
 dictionaryManualDownloadHint	ユーザースクリプトを有効にするか、ZIPを追加してください。
 dictionaryInstallQueueHelp	インストールには数分かかります。完了後に保存できます。
 dictionaryInstallQueued	{dictionary}を待機中です。
 dictionaryInstallSaveBlocked	辞書インポート中です。完了すると保存できます。
 dictionaryImportQueueStatus	{count}件インストール中です。完了後に保存できます。
-dictionaryRemoveConfirm	「{dictionary}」を削除しますか？
+dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
-dictionaryImportComplete	{sources}ソースから{records}件インポートしました。
-dictionaryRecordsImported	{dictionary}: {records}件インポートしました。
+dictionaryImportComplete	{sources}から{records}件インポートしました。
+dictionaryRecordsImported	{dictionary}: {records}件
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
 settingsExported	設定をエクスポートしました。
 restoredStoredChoices	保存済み選択肢を{count}件復元
 importedDictionaryRecordCount	辞書レコードを{count}件インポート
-dictionaryNoSupportedBanks	対応しているYomitan辞書バンクが見つかりません。
-dictionaryUnsupportedJson	Yomitan Dexie、辞書ZIP、リーダー出力を使ってください。
-dictionaryZipMissingIndex	Yomitan辞書ZIPにindex.jsonがありません。
-yomitanSettingsInvalid	Yomitan設定エクスポートではないようです。
+dictionaryNoSupportedBanks	対応辞書バンクがありません。
+dictionaryUnsupportedJson	Dexie、辞書ZIP、リーダー出力を使ってください。
+dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
+yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
 dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
-pageCoverageSummary	既知率{percent}%・{known}/{total}語・新規{unknown}・i+1 {iPlusOne}
+pageCoverageSummary	既知{percent}%・{known}/{total}・新規{unknown}・i+1 {iPlusOne}
 noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
-noLocalDictionaries	ローカル辞書は未導入です。JMdictかYomitan ZIPを追加してください。
+noLocalDictionaries	JMdictかYomitan ZIPを追加してください。
 kanjiMapData	漢字マップデータ
 kanjiAlive	カンジアライブ
 wiktionary	ウィクショナリー
@@ -1366,7 +1366,7 @@ textToSpeechUnavailable	このブラウザーでは読み上げ機能を利用�
 textToSpeechFailed	読み上げに失敗しました。
 audioRequest	音声リクエスト
 audioRequestTimedOut	音声リクエストがタイムアウトしました。
-audioRequestReturnedNonAudio	音声リクエストが音声ではない応答を返しました
+audioRequestReturnedNonAudio	音声ではない応答です
 audioRequestReturnedNonAudioWithType	音声ではない応答です: {type}。
 audioUnknownContentType	不明なコンテンツ種別
 japanesePod101NoAudio	JapanesePod101にこの語の音声はありません。
@@ -1404,11 +1404,11 @@ peekSubtitleTranslation	翻訳を表示
 hideSubtitleTranslation	翻訳を隠す
 loadingSubtitleLines	字幕行を読み込み中
 waitingForCaptionLines	字幕行を待機中
-subtitleCurrentLineWillAppear	字幕が利用可能になると現在行が表示されます。
+subtitleCurrentLineWillAppear	字幕が来ると現在行を表示します。
 seekSubtitleLine	字幕行へ移動
-subtitleTracksHint	主字幕を選び、「行」で一覧と移動を使います。
-noAutoDetectedSubtitleTracks	自動検出された字幕トラックはありません。
-autoDetectedTracksWillAppear	字幕トラックはここに表示されます。
+subtitleTracksHint	主字幕を選び、「行」で移動します。
+noAutoDetectedSubtitleTracks	自動検出字幕はありません。
+autoDetectedTracksWillAppear	字幕トラックはここに出ます。
 autoDetectedOptionSingular	字幕オプション1件
 autoDetectedOptions	件の字幕オプション
 detected	検出済み
@@ -1476,7 +1476,7 @@ reviewAddsToDeck	レビューすると新しい単語を追加します:
 reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレビューできます。
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
-reviewBlockedRedundant	JPDBで冗長（他のカードでカバー済み）のため、レビューできません。
+reviewBlockedRedundant	JPDBで冗長のためレビューできません。
 ankiCardsSuspended	Ankiで保留にしました（ブラックリストと同様の扱い）。
 ankiCardsUnsuspended	Ankiの保留を解除しました。
 ankiNeverForgetTagAdded	Ankiにyomu-never-forgetタグを付けました。
@@ -1539,7 +1539,7 @@ alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
 apiDeckMediaNotSupported	キャプチャメディアはYomuに残ります（メディアAPIなし）。
-sentToAnkiWithContextImageAndAudio	文脈画像と音声付きでAnkiに送信しました。
+sentToAnkiWithContextImageAndAudio	画像と音声付きでAnkiに送信しました。
 sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。
 ankiMergeNoNewData	Ankiノートに利用可能なYomuデータは反映済みです。
@@ -1680,8 +1680,8 @@ light	ライト
 popupMode	ポップアップ表示
 bottomSheet	下部シート
 popover	ポップオーバー
-stickyBottomSheet	検索後もシートを開いたままにする
-popoverBackdropEnabled	ポップオーバーの背後を暗くする
+stickyBottomSheet	検索後もシートを開く
+popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
 popoverHeightMode	ポップオーバー高さの動作
@@ -1713,7 +1713,7 @@ dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順・JPDBの復習順とは異なります）
+newTabApiVocabulary	API語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
 newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
@@ -1731,8 +1731,8 @@ newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
 newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	復習カードと未送信採点を保存し、再接続時に同期します。
-newTabAddressHelp	開始/新規タブページに設定するか、iPadのホーム画面に追加します。
+newTabOfflineHelp	復習カードと未送信採点を保存します。
+newTabAddressHelp	開始/新規タブやiPadホーム画面に使えます。
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -1938,7 +1938,7 @@ subtitleTranscriptVisible	文字起こしパネルを標準で開く
 subtitlePausePanel	一時停止時にサイドパネルを開く
 subtitleTranscriptPlacement	文字起こしパネル位置
 subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロール
-subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後に自動スクロールを再開するまで (秒)
+subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
 subtitleControlsMode	字幕コントロール
@@ -2019,7 +2019,7 @@ ankiScanning	Ankiデッキ、ノートタイプ、フィールドを読み込み
 ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{fields}
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
-ankiUnreachable	デスクトップAnkiを開き、AnkiConnectを有効にして再確認してください。
+ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
 ankiCorsBlocked	webCorsOriginListに「{origin}」を追加し再起動してください。
 ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
 ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
@@ -2034,8 +2034,8 @@ ankiLibraryAdapterStatus	既存デッキとノートタイプから対応付け�
 ankiLibraryChoices	デッキとノートタイプ
 ankiLibraryChoicesHelp	AnkiConnectから読み込み、作成・更新先を選びます。
 ankiTemplateSettings	よむカードテンプレート
-ankiTemplateSettingsHelp	よむノートタイプ用。既存テンプレートはAnkiに残ります。
-ankiMappingConfidenceHelp	フィールド名とサンプルで判断。低信頼度は変更できます。
+ankiTemplateSettingsHelp	よむノートタイプ用。テンプレートはAnkiに残ります。
+ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
@@ -2075,7 +2075,7 @@ localDictionaryText	辞書テキスト
 localSenseSingular	意味
 localSensePlural	意味
 decksLoaded	JPDBアカウントからデッキを読み込みました。
-decksUnavailable	まだデッキを読み込めません。保存済みIDは保持します。
+decksUnavailable	デッキを読み込めません。保存IDは保持します。
 addApiKeyChooseDecks	デッキを選ぶにはJPDB APIキーを追加してください。
 miningDeck	採掘デッキ
 neverForgetDeck	忘れないデッキ

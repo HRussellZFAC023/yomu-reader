@@ -71,6 +71,19 @@ describe('interface language resolution', () => {
         expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
+    it('keeps hosted tools overview covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const toolsSource = readFileSync('docs/tools/index.md', 'utf8');
+        const toolsCopy = [
+            ...markdownHeadings(toolsSource),
+            ...markdownParagraphs(toolsSource),
+            ...htmlCardCopy(toolsSource),
+            ...htmlLinkCopy(toolsSource),
+        ];
+
+        expect(toolsCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+    });
+
     it('keeps dynamic hosted docs attributes covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const dynamicCopy = [
@@ -110,9 +123,40 @@ function expectCopyKeysSynced(englishKeys: string[], japaneseKeys: Set<string>, 
 }
 
 function hasHostedDocsJaCopy(source: string, copy: string): boolean {
-    return source.includes(`'${copy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}':`);
+    const singleQuoted = `'${copy.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}':`;
+    const doubleQuoted = `"${copy.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}":`;
+    return source.includes(singleQuoted) || source.includes(doubleQuoted);
 }
 
 function decodeMarkdownHtml(value: string): string {
     return value.replaceAll('&amp;', '&');
+}
+
+function markdownHeadings(source: string): string[] {
+    return [...source.matchAll(/^#{1,6}\s+(.+)$/gm)].map(match => match[1].trim());
+}
+
+function markdownParagraphs(source: string): string[] {
+    return source
+        .split(/\n{2,}/)
+        .map(block => block.trim())
+        .filter(block => block && !block.startsWith('---') && !block.startsWith('#') && !block.startsWith('<') && !block.startsWith('- '))
+        .map(block => decodeMarkdownLinks(block).replace(/\*\*(.*?)\*\*/g, '$1'))
+        .filter(Boolean);
+}
+
+function htmlCardCopy(source: string): string[] {
+    return [...source.matchAll(/<(?:strong|span)>(.*?)<\/(?:strong|span)>/g)]
+        .map(match => decodeMarkdownHtml(match[1].trim()))
+        .filter(Boolean);
+}
+
+function htmlLinkCopy(source: string): string[] {
+    return [...source.matchAll(/<a\b[^>]*>(.*?)<\/a>/g)]
+        .map(match => decodeMarkdownHtml(match[1].trim()))
+        .filter(Boolean);
+}
+
+function decodeMarkdownLinks(value: string): string {
+    return value.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
 }

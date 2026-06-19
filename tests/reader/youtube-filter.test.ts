@@ -955,6 +955,32 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
+    it('localizes channel suggestion shelf chrome in Japanese', async () => {
+        expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(100);
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({
+            location: YOUTUBE_RESULTS_LOCATION,
+            settings: youtubeFilterSettings({ interfaceLanguage: 'ja' }),
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        const shelf = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
+        expect(shelf.textContent).toContain('日本語YouTubeを始める');
+        expect(shelf.textContent).toContain('厳選100件');
+        expect(shelf.textContent).toContain('表示中を登録(8)');
+        expect(shelf.textContent).toContain('全100件登録');
+        expect(shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-one"]')?.textContent).toBe('登録');
+        expect(shelf.getAttribute('aria-label')).toBe('日本語チャンネル');
+
+        filter.destroy();
+    });
+
     it('does not show the channel suggestion shelf on the YouTube home feed', async () => {
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
