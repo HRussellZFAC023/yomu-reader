@@ -246,19 +246,19 @@ export class CardActionController {
         const current = this.apiProviderForCard(card, settings);
         if (!current?.hasApiKey) return;
         const next: ApiSrsProviderId = current.id === 'jiten' ? 'jpdb' : 'jiten';
-        const nextProvider = this.apiProviders(settings).find(provider => provider.id === next && provider.hasApiKey);
-        if (!nextProvider) return;
-        const targetCard = nextProvider.supportsCard(card)
+        const provider = this.apiProviders(settings).find(p => p.id === next && p.hasApiKey);
+        if (!provider) return;
+        const target = provider.supportsCard(card)
             ? card
-            : await this.resolveCardForGradingProvider(card, next);
-        if (!targetCard || !nextProvider.supportsCard(targetCard)) return;
+            : await this.resolveProviderCard(card, next);
+        if (!target || !provider.supportsCard(target)) return;
         this.options.setApiGradingProvider?.(next);
         // The card's SRS state is a single shared field; refresh the newly chosen
         // service so the status dot and the Never forget / Blacklist pressed-state
         // (and their add-vs-remove decisions) reflect that service, not the old one.
-        await this.refreshGradingProviderState(targetCard, next);
+        await this.refreshProviderState(target, next);
         this.options.invalidateCardData?.();
-        await this.options.showCard(targetCard, sentence, this.options.getActivePopoverAnchor(), {
+        await this.options.showCard(target, sentence, this.options.getActivePopoverAnchor(), {
             autoPlay: false,
             trigger: this.options.getActivePopoverMode() === 'hover' ? 'hover' : 'modal',
             navigation: 'preserve',
@@ -266,18 +266,18 @@ export class CardActionController {
         });
     }
 
-    private async resolveCardForGradingProvider(card: JPDBCard, providerId: ApiSrsProviderId): Promise<JPDBCard | null> {
+    private async resolveProviderCard(card: JPDBCard, id: ApiSrsProviderId): Promise<JPDBCard | null> {
         try {
-            const [tokens = []] = providerId === 'jiten'
+            const [tokens = []] = id === 'jiten'
                 ? await (this.options.jiten?.parse?.([card.spelling]) ?? Promise.resolve([] as JPDBToken[][]))
                 : await this.options.jpdb.parse([card.spelling]);
-            return exactParsedProviderCard(card, tokens);
+            return exactCard(card, tokens);
         } catch {
             return null;
         }
     }
 
-    private async refreshGradingProviderState(card: JPDBCard, providerId: ApiSrsProviderId): Promise<void> {
+    private async refreshProviderState(card: JPDBCard, providerId: ApiSrsProviderId): Promise<void> {
         try {
             if (providerId === 'jiten') await this.options.jiten?.refreshCardState?.(card);
             else await this.options.jpdb.refreshCardState?.(card);
@@ -777,14 +777,11 @@ function selectedPopoverReviewTarget(button: HTMLButtonElement): PopoverReviewTa
     return { kind: target, ankiCardId };
 }
 
-function exactParsedProviderCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
-    const spelling = source.spelling.trim();
-    const reading = source.reading.trim();
-    const candidates = tokens
-        .map(token => token.card)
-        .filter(card => card.spelling.trim() === spelling);
-    return candidates.find(card => !reading || card.reading.trim() === reading)
-        ?? candidates[0]
+function exactCard(source: JPDBCard, tokens: JPDBToken[]): JPDBCard | null {
+    const s = source.spelling.trim();
+    const r = source.reading.trim();
+    return tokens.find(({ card }) => card.spelling.trim() === s && (!r || card.reading.trim() === r))?.card
+        ?? tokens.find(({ card }) => card.spelling.trim() === s)?.card
         ?? null;
 }
 

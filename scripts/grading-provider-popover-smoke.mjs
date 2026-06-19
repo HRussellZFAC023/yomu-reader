@@ -98,7 +98,7 @@ try {
     await page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 });
     const initialState = await readPopoverState(page);
     assert(initialState.toggleInTargetGutter, 'Provider toggle is not in the review target gutter', initialState);
-    assert(initialState.toggleBeforeCurrentTarget, 'Provider toggle is not immediately left of the current target label', initialState);
+    assert(initialState.labelInsideProviderToggle, 'Provider label is not part of the provider-toggle touch surface', initialState);
 
     const jpdbState = await ensureProvider(page, word, 'JPDB');
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'jpdb-grading.png'), fullPage: false });
@@ -117,7 +117,7 @@ try {
     assert(jitenState.providerLabel.includes('Jiten'), 'Toggled provider label is not Jiten', jitenState);
     assert(jitenState.gradeTargets.every(target => target === 'jiten'), 'After toggle, grade buttons are not targeting Jiten', jitenState);
     assert(jitenState.toggleInTargetGutter, 'Provider toggle left the review target gutter after switching', jitenState);
-    assert(jitenState.toggleBeforeCurrentTarget, 'Provider toggle is not immediately left of the Jiten target label', jitenState);
+    assert(jitenState.labelInsideProviderToggle, 'Jiten label is not part of the provider-toggle touch surface', jitenState);
     // No second provider switcher on the grade row — the review target gutter toggle is the only one.
     assert(!jitenState.hasReviewTargetSelect, 'Unexpected second provider selector on the grade row', jitenState);
     // The jiten popover follows the JPDB pattern: no Mining/Suspended/Forget row.
@@ -183,8 +183,9 @@ async function waitForProviderReady(page, providerLabel) {
         label => {
             const providerReady = (document.querySelector('.jpdb-reader-provider-status')?.textContent ?? '').includes(label);
             const hasGrades = document.querySelectorAll('.jpdb-reader-actions [data-action="grade"][data-grade]').length >= 4;
-            const hasProviderToggle = Boolean(document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]'));
-            return providerReady && hasGrades && hasProviderToggle;
+            const toggle = document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
+            const current = document.querySelector('[data-review-target-current]');
+            return providerReady && hasGrades && Boolean(toggle && current && toggle.contains(current));
         },
         providerLabel,
         { timeout: 8_000 },
@@ -194,11 +195,13 @@ async function waitForProviderReady(page, providerLabel) {
 async function readPopoverState(page) {
     return page.evaluate(() => {
         const grades = [...document.querySelectorAll('.jpdb-reader-actions [data-action="grade"][data-grade]')];
+        const toggle = document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
+        const current = document.querySelector('[data-review-target-current]');
         return {
             providerLabel: document.querySelector('.jpdb-reader-provider-status')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
             hasToggle: Boolean(document.querySelector('[data-action="grade-provider-toggle"]')),
             toggleInTargetGutter: Boolean(document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]')),
-            toggleBeforeCurrentTarget: document.querySelector('[data-review-target-gutter] [data-action="grade-provider-toggle"]')?.nextElementSibling?.matches('[data-review-target-current]') ?? false,
+            labelInsideProviderToggle: Boolean(toggle && current && toggle.contains(current)),
             gradeCount: grades.length,
             gradeTargets: grades.map(button => button.dataset.reviewTarget ?? ''),
             hasReviewTargetSelect: Boolean(document.querySelector('[data-review-target-select]')),

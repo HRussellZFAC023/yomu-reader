@@ -4997,9 +4997,11 @@ describe('reader helpers', () => {
 
         document.body.innerHTML = renderModalCard(renderer, dualCard, '食べる。');
         const providerToggle = document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
+        const currentTarget = document.querySelector<HTMLElement>('[data-review-target-current]');
         expect(providerToggle).not.toBeNull();
-        expect(providerToggle?.parentElement?.classList.contains('jpdb-reader-review-target-cluster')).toBe(true);
-        expect(providerToggle?.nextElementSibling).toBe(document.querySelector('[data-review-target-current]'));
+        expect(providerToggle?.parentElement?.matches('[data-review-target-gutter]')).toBe(true);
+        expect(currentTarget?.parentElement).toBe(providerToggle);
+        expect(providerToggle?.textContent).toContain('Jiten');
         expect(document.querySelector('.jpdb-reader-provider-status [data-action="grade-provider-toggle"]')).toBeNull();
         expect(readerMetaText()).toContain('Jiten');
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jiten')).toBe(true);
@@ -5042,8 +5044,10 @@ describe('reader helpers', () => {
         document.body.innerHTML = renderModalCard(renderer, jitenTestCard(), '読む。');
 
         const providerToggle = document.querySelector<HTMLButtonElement>('[data-review-target-gutter] [data-action="grade-provider-toggle"]');
+        const currentTarget = document.querySelector<HTMLElement>('[data-review-target-current]');
         expect(providerToggle).not.toBeNull();
-        expect(providerToggle?.nextElementSibling).toBe(document.querySelector('[data-review-target-current]'));
+        expect(currentTarget?.parentElement).toBe(providerToggle);
+        expect(providerToggle?.textContent).toContain('Jiten');
         expect(providerToggle?.getAttribute('aria-label')).toBe('Switch grading provider (JPDB)');
         expect(popoverGradeTargetCurrentText()).toBe('Jiten');
     });
@@ -5091,7 +5095,8 @@ describe('reader helpers', () => {
         document.body.innerHTML = jpdbOnly;
         expect(popoverGradeButtons()).toHaveLength(5);
         expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jpdb')).toBe(true);
-        expect(popoverGradeTargetCurrentText()).toBe('JPDB');
+        expect(popoverGradeTargetCurrentText()).toBe('');
+        expect(document.querySelector('[data-review-target-current]')).toBeNull();
         expect(popoverGradeTargetText()).toBe('Grades JPDB');
         expect(popoverGradeTargetOptions()).toEqual([]);
         expect(document.querySelector('.jpdb-reader-popover-grade-target-selector')).toBeNull();
@@ -6495,10 +6500,7 @@ describe('reader helpers', () => {
         const { app, popover, actions, handle } = createMiningDrawerTestSurface(`
             <div class="jpdb-reader-actions jpdb-reader-actions-has-mining jpdb-reader-actions-mining-collapsed">
                 <div class="jpdb-reader-actions-gutter jpdb-reader-review-target-gutter" data-review-target-gutter>
-                    <span class="jpdb-reader-review-target-cluster">
-                        <button type="button" class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="Switch grading provider (Jiten)">⇄</button>
-                        <span class="jpdb-reader-review-target-current" data-review-target-current aria-label="Grades JPDB">JPDB</span>
-                    </span>
+                    <button type="button" class="jpdb-reader-provider-toggle" data-action="grade-provider-toggle" aria-label="Switch grading provider (Jiten)">⇄<span class="jpdb-reader-review-target-current" data-review-target-current aria-label="Grades JPDB">JPDB</span></button>
                     <button class="jpdb-reader-mining-collapse jpdb-reader-mining-drawer-handle" type="button" data-action="mining-collapse" aria-expanded="false" title="Show mining actions" aria-label="Show mining actions"></button>
                 </div>
                 <div class="jpdb-reader-mining-panel"></div>
@@ -6517,6 +6519,12 @@ describe('reader helpers', () => {
         try {
             const providerClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 72, clientY: 180 });
             providerToggle.dispatchEvent(providerClick);
+            expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+            expect(handle.getAttribute('aria-expanded')).toBe('false');
+
+            const providerLabel = popover.querySelector<HTMLElement>('[data-review-target-current]')!;
+            const labelClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 90, clientY: 180 });
+            providerLabel.dispatchEvent(labelClick);
             expect(actions.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
             expect(handle.getAttribute('aria-expanded')).toBe('false');
 
