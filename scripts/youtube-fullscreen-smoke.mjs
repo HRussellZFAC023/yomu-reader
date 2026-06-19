@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { chromium, devices } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
@@ -16,6 +16,15 @@ const WATCH_URL = process.argv[2] ?? 'https://www.youtube.com/watch?v=f2Q5tPfiSA
 const ARTIFACT_DIR = process.env.YOMU_YOUTUBE_FULLSCREEN_ARTIFACTS ?? '/tmp/yomu-youtube-fullscreen-smoke';
 const REQUEST_BRIDGE_NAME = '__yomuYoutubeFullscreenRequest';
 const SMOKE_VTT_URL = 'https://yomu.invalid/yomu-fullscreen-smoke.vtt';
+const PERSISTENT_PROFILE_DIR = process.env.YOMU_YOUTUBE_FULLSCREEN_USER_DATA_DIR?.trim()
+    || process.env.YOMU_HOME_PROFILE_USER_DATA_DIR?.trim()
+    || process.env.YOMU_CAPTURE_PROFILE?.trim()
+    || '';
+const PERSISTENT_CHANNEL = process.env.YOMU_YOUTUBE_FULLSCREEN_CHANNEL
+    || process.env.YOMU_HOME_PROFILE_CHANNEL
+    || process.env.YOMU_PLAYWRIGHT_CHANNEL
+    || 'chrome';
+const HEADED = process.env.YOMU_YOUTUBE_FULLSCREEN_HEADED === '1';
 const SMOKE_VTT = `WEBVTT
 
 00:00:00.000 --> 00:00:30.000
@@ -45,6 +54,7 @@ const settings = {
     subtitleOverlayVisible: true,
     subtitleTranscriptVisible: false,
     subtitleControlsMode: 'always',
+    subtitleBottomOffset: 2,
     subtitleTextColorSource: 'off',
     subtitleUnderlineColorSource: 'off',
     subtitleHighlightColorSource: 'off',
@@ -65,7 +75,9 @@ const viewports = [
     },
 ];
 
-const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
+const browser = PERSISTENT_PROFILE_DIR
+    ? undefined
+    : await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 const results = [];
 
 try {
@@ -73,37 +85,37 @@ try {
         results.push(await runViewport(viewport));
     }
 } finally {
-    await browser.close();
+    await browser?.close();
 }
 
 for (const result of results) {
     assert(result.normal.hasRoot, `${result.name}: missing Yomu subtitle root in normal mode`, result.normal);
     assert(result.normal.hasRail, `${result.name}: missing Yomu control rail in normal mode`, result.normal);
     assert(result.normal.lineText, `${result.name}: missing Yomu subtitle text in normal mode`, result.normal);
+    assertYoutubeControlsNotBlocked(result, 'normal');
     assert(result.fullscreen.hasRoot, `${result.name}: missing Yomu subtitle root in fullscreen mode`, result.fullscreen);
     assert(result.fullscreen.hostedInPlayer || result.fullscreen.mobileBodyOverlayVisible, `${result.name}: Yomu root was not visible in a fullscreen host`, result.fullscreen);
     assert(result.fullscreen.hasRail, `${result.name}: missing Yomu control rail in fullscreen mode`, result.fullscreen);
     assert(result.fullscreen.lineText, `${result.name}: missing Yomu subtitle text in fullscreen mode`, result.fullscreen);
+    assertYoutubeControlsNotBlocked(result, 'fullscreen');
 }
 
 console.log(JSON.stringify({
     url: WATCH_URL,
+    persistentProfileDir: PERSISTENT_PROFILE_DIR || null,
     settings: {
         subtitlePlayerEnabled: settings.subtitlePlayerEnabled,
         subtitleOverlayVisible: settings.subtitleOverlayVisible,
         subtitleControlsMode: settings.subtitleControlsMode,
         subtitleTranscriptVisible: settings.subtitleTranscriptVisible,
+        subtitleBottomOffset: settings.subtitleBottomOffset,
     },
     artifacts: ARTIFACT_DIR,
     results,
 }, null, 2));
 
 async function runViewport(viewport) {
-    const context = await browser.newContext({
-        ...viewport.context,
-        bypassCSP: true,
-        locale: 'ja-JP',
-    });
+    const { context, close } = await openViewportContext(viewport);
     await context.exposeFunction(REQUEST_BRIDGE_NAME, bridgeRequest);
     await context.addCookies([
         { name: 'CONSENT', value: 'YES+cb.20240101-08-p0.ja+FX+667', domain: '.youtube.com', path: '/' },
@@ -134,12 +146,14 @@ async function runViewport(viewport) {
         await installDiagnosticCaption(page);
         await waitForYomuSubtitle(page, errors);
 
+        await forceYoutubeControlsVisible(page);
         const normalPath = join(ARTIFACT_DIR, `${viewport.name}-normal.png`);
         await page.screenshot({ path: normalPath, fullPage: false });
         const normal = await collectEvidence(page, 'normal');
 
         await enterYoutubeCssFullscreen(page);
         await waitForYomuFullscreenHost(page);
+        await forceYoutubeControlsVisible(page);
         const fullscreenPath = join(ARTIFACT_DIR, `${viewport.name}-fullscreen.png`);
         await page.screenshot({ path: fullscreenPath, fullPage: false });
         const fullscreen = await collectEvidence(page, 'fullscreen');
@@ -154,8 +168,43 @@ async function runViewport(viewport) {
             errors: errors.slice(0, 5),
         };
     } finally {
-        await context.close();
+        await close();
     }
+}
+
+async function openViewportContext(viewport) {
+    const options = {
+        ...viewport.context,
+        bypassCSP: true,
+        locale: 'ja-JP',
+    };
+    if (!PERSISTENT_PROFILE_DIR) {
+        const context = await browser.newContext(options);
+        return { context, close: () => context.close().catch(() => undefined) };
+    }
+    const context = await launchPersistentContextWithFallback(resolve(PERSISTENT_PROFILE_DIR), options);
+    for (const page of context.pages()) await page.close().catch(() => undefined);
+    return { context, close: () => context.close().catch(() => undefined) };
+}
+
+async function launchPersistentContextWithFallback(profileDir, options) {
+    try {
+        return await chromium.launchPersistentContext(profileDir, {
+            ...options,
+            channel: PERSISTENT_CHANNEL,
+            headless: !HEADED,
+        });
+    } catch (error) {
+        if (PERSISTENT_CHANNEL === 'chrome' && isMissingBrowserExecutable(error)) {
+            return await chromium.launchPersistentContext(profileDir, { ...options, headless: !HEADED });
+        }
+        throw error;
+    }
+}
+
+function isMissingBrowserExecutable(error) {
+    const message = String(error?.message ?? '');
+    return message.includes("Executable doesn't exist") || /playwright install/i.test(message);
 }
 
 async function dismissConsent(page) {
@@ -166,6 +215,25 @@ async function dismissConsent(page) {
             await page.waitForTimeout(1500);
         }
     }
+}
+
+async function forceYoutubeControlsVisible(page) {
+    await page.evaluate(() => {
+        const players = document.querySelectorAll('#movie_player, .html5-video-player, ytm-player');
+        for (const player of players) {
+            player.classList.remove('ytp-autohide', 'ytp-hide-controls', 'ytp-player-minimized');
+            player.classList.add('ytp-show-cards-title');
+        }
+        for (const chrome of document.querySelectorAll('.ytp-chrome-bottom, .ytp-chrome-controls, #player-control-overlay')) {
+            if (!(chrome instanceof HTMLElement)) continue;
+            chrome.style.setProperty('display', 'block', 'important');
+            chrome.style.setProperty('visibility', 'visible', 'important');
+            chrome.style.setProperty('opacity', '1', 'important');
+            chrome.style.setProperty('pointer-events', 'auto', 'important');
+        }
+    });
+    await page.mouse.move(24, 24).catch(() => undefined);
+    await page.waitForTimeout(250);
 }
 
 async function installDiagnosticCaption(page) {
@@ -343,6 +411,7 @@ async function collectEvidence(page, mode) {
         return {
             mode: currentMode,
             href: location.href,
+            signedIn: Boolean(document.querySelector('#avatar-btn, button#avatar-btn, ytd-masthead #buttons img, ytm-topbar-menu-button-renderer img')),
             fullscreenElement: document.fullscreenElement?.tagName ?? null,
             ytdFullscreen: Boolean(document.querySelector('ytd-watch-flexy[fullscreen]')),
             playerFullscreenClass: Boolean(document.querySelector('#movie_player.ytp-fullscreen, .html5-video-player.ytp-fullscreen, ytm-player[fullscreen], ytm-player.fullscreen, ytm-player.ytp-fullscreen')),
@@ -360,8 +429,71 @@ async function collectEvidence(page, mode) {
             rootRect: rootRect ? roundedRect(rootRect) : null,
             railRect: railRect ? roundedRect(railRect) : null,
             playerRect: playerRect ? roundedRect(playerRect) : null,
+            youtubeControlHits: youtubeControlHits(),
         };
+
+        function youtubeControlHits() {
+            return {
+                play: controlHit('.ytp-play-button, button.ytp-play-button, button[aria-label*="Play"], button[aria-label*="Pause"]'),
+                fullscreen: controlHit('.ytp-fullscreen-button, button.ytp-fullscreen-button, button[title*="full screen" i], button[aria-label*="full screen" i]'),
+            };
+        }
+
+        function controlHit(selector) {
+            const control = document.querySelector(selector);
+            if (!(control instanceof HTMLElement)) return { found: false };
+            const rect = control.getBoundingClientRect();
+            if (rect.width <= 1 || rect.height <= 1) return { found: false, rect: roundedRect(rect) };
+            const point = {
+                x: Math.round(rect.left + rect.width / 2),
+                y: Math.round(rect.top + rect.height / 2),
+            };
+            const top = document.elementFromPoint(point.x, point.y);
+            const blocker = top instanceof Element ? top.closest('.jpdb-subtitle-player, .jpdb-subtitle-list') : null;
+            const topInsideControl = top instanceof Node && control.contains(top);
+            return {
+                found: true,
+                rect: roundedRect(rect),
+                point,
+                top: describeElement(top),
+                yomuBlocker: describeElement(blocker),
+                blockedByYomu: Boolean(blocker && !topInsideControl),
+            };
+        }
+
+        function describeElement(element) {
+            if (!(element instanceof Element)) return null;
+            const classes = typeof element.className === 'string'
+                ? element.className
+                : element.getAttribute('class') ?? '';
+            return {
+                tag: element.tagName.toLowerCase(),
+                id: element.id || '',
+                classes: classes.split(/\s+/).filter(Boolean).slice(0, 8),
+                text: element.textContent?.replace(/\s+/g, ' ').trim().slice(0, 80) ?? '',
+            };
+        }
     }, mode);
+}
+
+function assertYoutubeControlsNotBlocked(result, mode) {
+    const hits = result[mode].youtubeControlHits ?? {};
+    for (const name of ['play', 'fullscreen']) {
+        const hit = hits[name];
+        if (!hit?.found) {
+            if (result.name === 'desktop' && mode === 'normal') {
+                assert(false, `${result.name}: missing YouTube ${name} control hit target in ${mode} mode`, result[mode]);
+            }
+            continue;
+        }
+        assert(!hit.blockedByYomu, `${result.name}: Yomu subtitle overlay blocks YouTube ${name} control in ${mode} mode`, {
+            mode,
+            control: name,
+            hit,
+            rootRect: result[mode].rootRect,
+            playerRect: result[mode].playerRect,
+        });
+    }
 }
 
 async function bridgeRequest(request) {
