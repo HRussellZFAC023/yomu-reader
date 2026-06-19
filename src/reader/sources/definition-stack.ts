@@ -85,7 +85,7 @@ export function renderDefinitionSourceImmersionMount(settings: ReaderSettings, s
     if (!settings.immersionKitEnabled) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
-            <summary class="jpdb-reader-local-title">${uiText(settings.interfaceLanguage, 'immersionKit')}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${uiText(settings.interfaceLanguage, 'immersionKit')}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, 'loadingExamples')}</div>
         </details>
     `;

@@ -12894,7 +12894,31 @@ describe('reader helpers', () => {
         expect(disabledListReaderStudyDecks).not.toHaveBeenCalled();
     });
 
-    it('loads public JPDB vocabulary details for Jiten-backed cards when JPDB definitions are enabled', async () => {
+    it('skips public JPDB vocabulary details for Jiten-backed cards without a JPDB key', async () => {
+        const keylessLookup = vi.fn(async () => ({
+            meanings: ['hidden'],
+            compounds: [],
+            usedInVocabulary: [],
+            examples: [],
+        }));
+        const keylessLoader = testCardRenderDataLoader({
+            settings: cardDetailLoaderSettings({
+                apiKey: '',
+                jitenApiKey: 'jiten-key',
+                jpdbDefinitionsEnabled: true,
+                jitenDefinitionsEnabled: true,
+                jpdbMiningEnabled: false,
+            }),
+            jpdbVocabulary: { lookup: keylessLookup },
+            isJpdbBackedCard: () => false,
+        });
+        const jitenCard = jitenTestCard({ spelling: '復習', reading: 'ふくしゅう' });
+
+        await expect(keylessLoader.load(jitenCard).jpdbVocabularyInfo).resolves.toBeNull();
+        expect(keylessLookup).not.toHaveBeenCalled();
+    });
+
+    it('loads public JPDB vocabulary details for Jiten-backed cards when a JPDB key is present', async () => {
         const lookup = vi.fn(async () => ({
             meanings: ['JPDB public meaning'],
             compounds: [],
@@ -12903,7 +12927,7 @@ describe('reader helpers', () => {
         }));
         const enabledLoader = testCardRenderDataLoader({
             settings: cardDetailLoaderSettings({
-                apiKey: '',
+                apiKey: 'jpdb-key',
                 jitenApiKey: 'jiten-key',
                 jpdbDefinitionsEnabled: true,
                 jitenDefinitionsEnabled: true,
@@ -12939,6 +12963,22 @@ describe('reader helpers', () => {
 
         await expect(disabledLoader.load(jitenCard).jpdbVocabularyInfo).resolves.toBeNull();
         expect(disabledLookup).not.toHaveBeenCalled();
+    });
+
+    it('skips public JPDB pitch enrichment without a JPDB key', async () => {
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const loader = testCardRenderDataLoader({
+            settings: cardDetailLoaderSettings({
+                apiKey: '',
+                jitenApiKey: 'jiten-key',
+                showPitchAccent: true,
+            }),
+            dictionaries: { lookupTermMeta: vi.fn(async () => []) },
+            jpdbPublicPitch: { lookup: publicPitch },
+        });
+
+        await expect(loader.load({ ...card, pitchAccent: [] }).pitchAccent).resolves.toEqual([]);
+        expect(publicPitch).not.toHaveBeenCalled();
     });
 
     it('promotes JPDB not-in-deck cards when pooled deck membership finds them', async () => {
@@ -13060,6 +13100,7 @@ describe('reader helpers', () => {
             const findExistingCards = vi.fn(() => never);
             const settings = {
                 ...DEFAULT_SETTINGS,
+                apiKey: 'jpdb-key',
                 ankiEnabled: true,
                 localDictionariesEnabled: false,
                 showPitchAccent: false,
@@ -13458,7 +13499,7 @@ describe('reader helpers', () => {
             }));
             const settings = {
                 ...DEFAULT_SETTINGS,
-                apiKey: '',
+                apiKey: 'jpdb-key',
                 localDictionariesEnabled: false,
                 showPitchAccent: true,
                 ankiEnabled: false,
@@ -13498,7 +13539,7 @@ describe('reader helpers', () => {
                 window.setTimeout(() => resolve(['HLL']), 250);
             }));
             const settings = cardDetailLoaderSettings({
-                apiKey: '',
+                apiKey: 'jpdb-key',
                 localDictionariesEnabled: false,
                 showPitchAccent: true,
                 ankiEnabled: false,
@@ -13587,7 +13628,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('loads public JPDB vocabulary details for local cards without an API key', async () => {
+    it('skips public JPDB vocabulary details for local cards without a JPDB key', async () => {
         const lookup = vi.fn(async () => ({ meanings: ['to read'], compounds: [], examples: [] }));
         const settings = cardDetailLoaderSettings({
             apiKey: '',
@@ -13616,12 +13657,12 @@ describe('reader helpers', () => {
         const load = loader.load(localCard);
 
         await expect(load.all).resolves.toMatchObject({
-            jpdbVocabularyInfo: { meanings: ['to read'] },
+            jpdbVocabularyInfo: null,
         });
-        expect(lookup).toHaveBeenCalledWith(-1, '読む', 'よむ');
+        expect(lookup).not.toHaveBeenCalled();
     });
 
-    it('loads JPDB vocabulary details for Jiten cards when a Jiten key is configured', async () => {
+    it('loads Jiten vocabulary details without scraping JPDB when only a Jiten key is configured', async () => {
         const lookup = vi.fn(async () => ({ meanings: ['JPDB page definition'], compounds: [], examples: [] }));
         const lookupVocabularyInfoForCard = vi.fn(async () => ({
             wordId: 42,
@@ -13655,10 +13696,10 @@ describe('reader helpers', () => {
         const load = loader.load(lookupCard);
 
         await expect(load.all).resolves.toMatchObject({
-            jpdbVocabularyInfo: { meanings: ['JPDB page definition'] },
+            jpdbVocabularyInfo: null,
             jitenVocabularyInfo: { wordId: 42 },
         });
-        expect(lookup).toHaveBeenCalledWith(lookupCard.vid, lookupCard.spelling, lookupCard.reading);
+        expect(lookup).not.toHaveBeenCalled();
         expect(lookupVocabularyInfoForCard).toHaveBeenCalledWith(lookupCard);
     });
 
@@ -28458,6 +28499,47 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps keyless OCR urgent enrichment out of JPDB public search and pitch fan-out', async () => {
+        const app = new ReaderApp();
+        const fallbackCard = testFallbackCard({
+            vid: -441001,
+            sid: -441001,
+            spelling: '未解析語',
+            reading: '',
+        });
+        const publicSearch = vi.fn(async () => []);
+        const publicPitch = vi.fn(async () => ['LHHH']);
+        const jitenLookupMany = vi.fn(async () => new Map<string, JPDBCard>());
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            jpdbVocabulary: { search: typeof publicSearch };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            jitenPublicVocabulary: { lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> };
+            enrichOcrTokensBeforeRender(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: '',
+            showPitchAccent: true,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: true,
+        };
+        internals.jpdbVocabulary = { search: publicSearch };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+        internals.jitenPublicVocabulary = { lookupMany: jitenLookupMany };
+
+        try {
+            await internals.enrichOcrTokensBeforeRender([testTokenForCard(fallbackCard, '未解析語')]);
+
+            expect(jitenLookupMany).toHaveBeenCalledWith(['未解析語']);
+            expect(publicSearch).not.toHaveBeenCalled();
+            expect(publicPitch).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
         }
     });
 

@@ -1677,10 +1677,11 @@ export class NewTabRuntime {
     private async lookupCard(term: string, reading: string): Promise<JPDBCard> {
         const localEntry = await this.localLookupEntry(term, reading);
         if (localEntry) return this.parser.localCardFromEntry(localEntry);
-        const publicCard = await this.publicLookupCard(term, true);
+        const allowJpdbPublicLookup = Boolean(effectiveJpdbApiKey(this.settings));
+        const publicCard = allowJpdbPublicLookup ? await this.publicLookupCard(term, true) : undefined;
         if (publicCard) return publicCard;
         const fallbackCard = this.parser.fallbackCardFromText(term);
-        const fallbackPublicCard = await this.publicLookupFallbackCard(fallbackCard);
+        const fallbackPublicCard = await this.publicLookupFallbackCard(fallbackCard, allowJpdbPublicLookup ? {} : { jpdbPublicLookup: false });
         if (fallbackPublicCard) return fallbackPublicCard;
         const parsed = await this.parser.parse([term], jpdbFirstParseOptions()).catch(() => [[]]);
         const token = pickTokenForSelection(parsed[0] ?? [], term);

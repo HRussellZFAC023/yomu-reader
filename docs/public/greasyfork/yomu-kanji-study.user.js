@@ -5820,7 +5820,7 @@ recommendedJiten	jiten.moe頻度データです。
     const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
                 ${readingsSection}
@@ -6633,7 +6633,7 @@ recommendedJiten	jiten.moe頻度データです。
     const map = sourceInfo?.kanjiMap;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
             ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
             ${renderKanjiFactPills(facts, language, excludeFactLabels)}
@@ -6737,7 +6737,7 @@ recommendedJiten	jiten.moe頻度データです。
     const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml(kanji)}</div>`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>

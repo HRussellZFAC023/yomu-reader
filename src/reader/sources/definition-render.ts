@@ -35,7 +35,7 @@ export function renderLocalDefinitionSourcesSection(
     ].join(' · ');
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey('__local_dictionaries__'))}>
-            <summary class="jpdb-reader-local-title">
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
                 <span>${uiText(settings.interfaceLanguage, 'dictionaries')}</span>
                 <span class="jpdb-reader-source-status">${escapeHtml(status)}</span>
             </summary>
@@ -58,7 +58,7 @@ export function renderKanjiDefinitions(
     const heading = title ?? uiText(language, 'kanjiDictionaries');
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(heading)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(heading)}</summary>
             ${entries.map(entry => `
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">
@@ -114,7 +114,7 @@ function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup
     const entryCount = groups.length;
     return `
         <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml(dictionaryLabel(dictionary))}">
+            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore="true">
                 <span>${escapeHtml(dictionaryLabel(dictionary))}</span>
                 <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml(uiText(language, entryCount === 1 ? 'localWordSingular' : 'localWordPlural'))}</span>
             </summary>

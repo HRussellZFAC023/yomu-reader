@@ -197,6 +197,23 @@ describe('nested text parse plans', () => {
         expect(details.open).toBe(false);
     });
 
+    it('skips surface-ignored source labels inside parseable reader content', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <div class="jpdb-reader-parseable">
+                    <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" open>
+                        <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">イマージョンキット</summary>
+                        <div class="jpdb-reader-local-glossary">青空の下で本を読みます。</div>
+                    </details>
+                </div>
+            </div>
+        `;
+        const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+        const plan = nestedTextParsePlan(popover, 24);
+
+        expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。']);
+    });
+
     it('parses dictionary example summaries as passive render-only words', () => {
         document.body.innerHTML = `
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true">

@@ -531,7 +531,7 @@ function newTabPublicFallbackController(
     });
 }
 
-function newTabBuiltInFallbackFixture(source: 'auto' | 'anki' | 'dictionary') {
+function newTabBuiltInFallbackFixture(source: 'auto' | 'anki' | 'dictionary', settings: Partial<NewTabSettings> = {}) {
     resetNewTabReviewStorage();
     const publicSearch = vi.fn(async () => []);
     const fallbackCardFromText = vi.fn((text: string) => newTabTestCard({
@@ -547,32 +547,11 @@ function newTabBuiltInFallbackFixture(source: 'auto' | 'anki' | 'dictionary') {
         newTabAnkiEnabled: false,
         newTabSource: source,
         immersionKitEnabled: false,
+        ...settings,
     }), publicSearch, {
         parser: { fallbackCardFromText } as never,
     });
     return { controller, publicSearch, fallbackCardFromText };
-}
-
-function newTabPublicJpdbFallbackFixture(settings: Partial<NewTabSettings> = {}) {
-    resetNewTabReviewStorage();
-    const publicSearch = vi.fn(async () => [newTabTestCard({ spelling: '公開', reading: 'こうかい', source: 'jpdb' })]);
-    const controller = newTabPublicFallbackController(() => ({
-        ...DEFAULT_SETTINGS,
-        apiKey: '',
-        ankiEnabled: false,
-        newTabAnkiEnabled: false,
-        newTabSource: 'auto',
-        ...settings,
-    }), publicSearch);
-    return { controller, publicSearch };
-}
-
-async function expectPublicJpdbFallback(controller: NewTabController, publicSearch: unknown) {
-    const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> }).loadWords();
-    expect(result.cards.map(card => card.spelling)).toEqual(['公開']);
-    expect(result.sourceLabel).toBe('JPDB');
-    expect(publicSearch).toHaveBeenCalled();
-    return result;
 }
 
 async function expectBuiltInFallbackWords(controller: NewTabController, fallbackCardFromText: unknown) {
@@ -1767,7 +1746,7 @@ describe('new tab review helpers', () => {
     it('fronts JPDB-backed cards with the JPDB example sentence, not Immersion Kit (SH-5)', async () => {
         const jpdbLookup = vi.fn(async () => ({ examples: [{ sentence: '日本語を勉強します。' }] }));
         const immersionSearch = vi.fn(async () => [{ sentence: '勉強の鬼になる。' } as ImmersionKitExample]);
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: true, jpdbDefinitionsEnabled: true }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitEnabled: true, jpdbDefinitionsEnabled: true }, {
             jpdbVocabulary: { lookup: jpdbLookup, search: vi.fn(async () => []) } as never,
             immersionKit: { search: immersionSearch, mediaUrls: vi.fn(() => []) } as never,
         });
@@ -1779,6 +1758,29 @@ describe('new tab review helpers', () => {
             // Non-JPDB cards keep the Immersion Kit-first superset behavior.
             const localCard = newTabTestCard({ spelling: '勉強', reading: 'べんきょう', source: 'local' });
             await expect(internals.fetchFrontSentence(localCard)).resolves.toContain('勉強の鬼になる');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not scrape JPDB example sentences for keyless study cards', async () => {
+        const jpdbLookup = vi.fn(async () => ({ examples: [{ sentence: '日本語を勉強します。' }] }));
+        const immersionSearch = vi.fn(async () => [{ sentence: '勉強の鬼になる。' } as ImmersionKitExample]);
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            immersionKitEnabled: true,
+            jpdbDefinitionsEnabled: true,
+        }, {
+            jpdbVocabulary: { lookup: jpdbLookup, search: vi.fn(async () => []) } as never,
+            immersionKit: { search: immersionSearch, mediaUrls: vi.fn(() => []) } as never,
+        });
+        try {
+            const internals = controller as unknown as { fetchFrontSentence(card: JPDBCard): Promise<string> };
+            const jpdbCard = newTabTestCard({ spelling: '勉強', reading: 'べんきょう', source: 'jpdb', cardState: ['due'] });
+
+            await expect(internals.fetchFrontSentence(jpdbCard)).resolves.toContain('勉強の鬼になる');
+            expect(jpdbLookup).not.toHaveBeenCalled();
         } finally {
             controller.destroy();
         }
@@ -6183,7 +6185,7 @@ describe('new tab review helpers', () => {
         expect(listDecks).not.toHaveBeenCalled();
     });
 
-    it('seeds no-key JPDB new-tab words from public kanji vocabulary instead of fixed starter words', async () => {
+    it('uses built-in starter words for no-key JPDB new-tab fallback without public JPDB requests', async () => {
         const lookup = vi.fn(async (kanji: string) => ({
             kanji,
             keyword: `${kanji} keyword`,
@@ -6207,6 +6209,12 @@ describe('new tab review helpers', () => {
             kanjiReviewsEnabled: false,
         }));
         const publicSearch = vi.fn(async () => []);
+        const fallbackCardFromText = vi.fn((text: string) => newTabTestCard({
+            spelling: text,
+            reading: '',
+            source: 'fallback',
+            reviewSource: 'dictionary',
+        }));
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
@@ -6226,7 +6234,7 @@ describe('new tab review helpers', () => {
             jpdbReviewBridge: {
                 onUpdate: () => () => {},
             } as never,
-            parser: {} as never,
+            parser: { fallbackCardFromText } as never,
             dictionaries: {
                 summary: vi.fn(async () => newTabEmptyDictionarySummary()),
             } as never,
@@ -6238,16 +6246,16 @@ describe('new tab review helpers', () => {
 
         const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
 
-        expect(result.sourceLabel).toBe('JPDB');
+        expect(result.sourceLabel).toBe('Starter words');
         expect(result.reviewCountMode).toBe(false);
         expect(result.cards.length).toBeGreaterThan(0);
-        expect(result.cards.every(card => card.source === 'jpdb')).toBe(true);
-        expect(result.cards[0]?.spelling).toMatch(/語$/u);
-        expect(lookup).toHaveBeenCalled();
-        expect(publicSearch).not.toHaveBeenCalledWith('読む', expect.any(Number));
+        expect(result.cards.every(card => card.source === 'fallback')).toBe(true);
+        expect(lookup).not.toHaveBeenCalled();
+        expect(publicSearch).not.toHaveBeenCalled();
+        expect(fallbackCardFromText).toHaveBeenCalled();
     });
 
-    it('mixes public JPDB and local dictionary words when no API key is configured', async () => {
+    it('uses local dictionary fallback without public JPDB when no API key is configured', async () => {
         const publicSearch = vi.fn(async (query: string) => [
             newTabTestCard({
                 vid: query.charCodeAt(0),
@@ -6285,13 +6293,11 @@ describe('new tab review helpers', () => {
         const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string }> }).loadWords();
 
         expect(listRandomTopTerms).toHaveBeenCalledWith(180, 2000, DEFAULT_SETTINGS.dictionaryPreferences, expect.objectContaining({ fallbackToRandom: false }));
-        expect(publicSearch).toHaveBeenCalledWith('書く', 1);
-        expect(publicSearch).toHaveBeenCalledWith('見る', 1);
+        expect(publicSearch).not.toHaveBeenCalled();
         expect(kanjiLookup).not.toHaveBeenCalled();
-        expect(result.sourceLabel).toBe('JPDB + Dictionary');
-        expect(result.cards.some(card => card.source === 'jpdb')).toBe(true);
-        expect(result.cards.some(card => card.source === 'local')).toBe(true);
-        expect(result.cards.map(card => card.spelling)).toEqual(expect.arrayContaining(['書く', '見る']));
+        expect(result.sourceLabel).toBe('Dictionary');
+        expect(result.cards.every(card => card.source === 'local')).toBe(true);
+        expect(result.cards.map(card => card.spelling)).toEqual(['書く', '見る']);
     });
 
     it('shows dictionary fallback cards without waiting for slow public JPDB cards', async () => {
@@ -6325,6 +6331,7 @@ describe('new tab review helpers', () => {
 
             expect(result.sourceLabel).toBe('Dictionary');
             expect(result.cards.map(card => card.spelling)).toEqual(['書く']);
+            expect(publicSearch).not.toHaveBeenCalled();
 
             await vi.advanceTimersByTimeAsync(3000);
         } finally {
@@ -7872,7 +7879,7 @@ describe('new tab review helpers', () => {
         const localMeta = deferred<never[]>();
         const lookupTermMeta = vi.fn(() => localMeta.promise);
         const publicPitch = vi.fn(async () => ['HLL']);
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, showPitchAccent: true }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitEnabled: false, showPitchAccent: true }, {
             dictionaries: { lookupTermMeta } as never,
             jpdbPublicPitch: { lookup: publicPitch },
         });
@@ -7892,11 +7899,41 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('does not preload public JPDB pitch on keyless new-tab cards', async () => {
+        vi.useFakeTimers();
+        const card = newTabTestCard({ spelling: '読む', reading: 'よむ', source: 'jpdb', pitchAccent: [] });
+        const localMeta = deferred<never[]>();
+        const lookupTermMeta = vi.fn(() => localMeta.promise);
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const controller = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            immersionKitEnabled: false,
+            showPitchAccent: true,
+        }, {
+            dictionaries: { lookupTermMeta } as never,
+            jpdbPublicPitch: { lookup: publicPitch },
+        });
+        const root = renderNewTabWordFront(controller, card);
+        const word = root.querySelector<HTMLElement>('[data-newtab-prompt] .jpdb-reader-word')!;
+
+        try {
+            expect(word.classList.contains('jpdb-pitch-unknown')).toBe(true);
+            await vi.advanceTimersByTimeAsync(1_000);
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(card.pitchAccent).toEqual([]);
+        } finally {
+            localMeta.resolve([]);
+            vi.useRealTimers();
+            root.remove();
+        }
+    });
+
     it('prefetches lookahead word pitch before the next card is shown', async () => {
         const first = newTabTestCard({ vid: 1, sid: 1, spelling: '軽い', reading: 'かるい', pitchAccent: [] });
         const second = newTabTestCard({ vid: 2, sid: 2, spelling: '椅子', reading: 'いす', pitchAccent: [] });
         const publicPitch = vi.fn(async () => ['LHH']);
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, showPitchAccent: true }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitEnabled: false, showPitchAccent: true }, {
             jpdbPublicPitch: { lookup: publicPitch },
         });
         const root = renderSeededNewTabWord(controller, first, {
@@ -7934,7 +7971,7 @@ describe('new tab review helpers', () => {
     it('does not expose stale JPDB supplemental slugs as new-tab readings', async () => {
         const publicPitch = vi.fn(async () => ['LHHH']);
         const card = newTabTestCard({ spelling: '日本語', reading: 'used-in', source: 'jpdb', pitchAccent: [] });
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, showPitchAccent: true }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitEnabled: false, showPitchAccent: true }, {
             jpdbPublicPitch: { lookup: publicPitch },
         });
 
@@ -8358,7 +8395,7 @@ describe('new tab review helpers', () => {
             compounds: [],
             examples: [{ sentence: '辞書を引く。', translation: '' }],
         }));
-        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false }, {
+        const controller = newTabPromptController({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitEnabled: false }, {
             jpdbVocabulary: { lookup },
         });
         const root = renderNewTabWordFront(controller, card);
@@ -8738,7 +8775,7 @@ describe('new tab review helpers', () => {
         const controller = new NewTabController({
             getSettings: () => ({
                 ...DEFAULT_SETTINGS,
-                apiKey: '',
+                apiKey: 'jpdb-key',
                 localDictionariesEnabled: false,
                 immersionKitEnabled: false,
                 furiganaMode: 'all',
@@ -13213,7 +13250,7 @@ describe('new tab review helpers', () => {
             examples: [],
         }));
         const { controller, root } = newTabVisibleWordFixture(
-            () => ({ ...DEFAULT_SETTINGS, immersionKitShowImages: false }),
+            () => ({ ...DEFAULT_SETTINGS, apiKey: 'jpdb-key', immersionKitShowImages: false }),
             {
                 card,
                 index: 0,
@@ -14097,9 +14134,10 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('uses public JPDB fallback when auto has no local dictionaries installed', async () => {
-        const { controller, publicSearch } = newTabPublicJpdbFallbackFixture();
-        await expectPublicJpdbFallback(controller, publicSearch);
+    it('uses built-in study words when auto has no local dictionaries installed without public JPDB fallback', async () => {
+        const { controller, publicSearch, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto');
+        await expectBuiltInFallbackWords(controller, fallbackCardFromText);
+        expect(publicSearch).not.toHaveBeenCalled();
     });
 
     it('uses built-in study words when auto has no local dictionaries and public JPDB is unavailable', async () => {
@@ -14186,14 +14224,20 @@ describe('new tab review helpers', () => {
         }
     });
 
-    it('uses public JPDB fallback when auto local dictionaries are disabled', async () => {
-        const { controller, publicSearch } = newTabPublicJpdbFallbackFixture({
+    it('uses built-in study words when auto local dictionaries are disabled without public JPDB fallback', async () => {
+        const { controller, publicSearch, fallbackCardFromText } = newTabBuiltInFallbackFixture('auto', {
             localDictionariesEnabled: false,
         });
-        await expectPublicJpdbFallback(controller, publicSearch);
+        const internals = controller as unknown as {
+            loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }>;
+        };
+        const result = await internals.loadWords();
+        expect(result.cards.length).toBeGreaterThan(0);
+        expect(result.sourceLabel).toBe('Starter words');
+        expect(fallbackCardFromText).toHaveBeenCalled();
+        expect(publicSearch).not.toHaveBeenCalled();
 
         await controller.renderPage();
-        expect(document.querySelector('[data-newtab-prompt]')?.textContent).toBe('公開');
         expect(document.querySelector('[data-newtab-answer]')?.textContent).not.toBe('No review cards ready.');
         resetNewTabReviewStorage();
     });

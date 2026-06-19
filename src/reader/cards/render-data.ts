@@ -184,7 +184,7 @@ export class CardRenderDataLoader {
 
     private loadPublicPitch(card: JPDBCard): Promise<string[]> {
         const settings = this.settings();
-        if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
+        if (!settings.showPitchAccent || card.pitchAccent.length || !hasJpdbApiCredential(settings)) return Promise.resolve([]);
         return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, 'JPDB public pitch', this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch(error => {
             log.warn('Public pitch lookup failed', { term: card.spelling }, error);
             return [];
@@ -198,7 +198,7 @@ export class CardRenderDataLoader {
 
     private loadJpdbVocabularyInfo(card: JPDBCard): Promise<JpdbVocabularyInfo | null> {
         const settings = this.settings();
-        if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+        if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
         return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, 'JPDB vocabulary details', this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch(error => {
             log.warn('JPDB page lookup failed', { term: card.spelling }, error);
             return null;

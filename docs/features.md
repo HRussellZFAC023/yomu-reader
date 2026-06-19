@@ -11,7 +11,7 @@ New to the words? **Lookup** is opening the popup. **Mining** is saving a word f
 
 ## Popup Lookup And Mining
 
-Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: Jiten/JPDB definitions, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
+Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: Jiten definitions, optional JPDB data, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
 Keyboard shortcuts can move lookup to the previous or next parsed word, and if you have selected a piece of text, navigation stays inside that selection. Popup Japanese font family and weight are configurable, and the default stack matches jpdb.io for kanji, readings, example sentences, grammar snippets, and dictionary terms.
 
@@ -39,7 +39,7 @@ This is useful if you want native-language dictionaries, monolingual Japanese de
 
 ## Audio And Examples
 
-The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, Jiten/JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
+The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, Jiten and optional JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
 
 Example sentences can come from JPDB's public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 
@@ -52,7 +52,7 @@ Examples can show Japanese, translations, thumbnails, audio, and source filters.
 
 ## Kanji Drilldown
 
-Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show Jiten/JPDB facts, stroke count, grade, JLPT level, RTK data, related words, component hints, KanjiVG stroke tracing, and a small drawing pad.
+Click a kanji inside the popup headword to open a focused kanji panel. Depending on your settings and imported data, it can show Jiten and optional JPDB facts, stroke count, grade, JLPT level, RTK data, related words, component hints, KanjiVG stroke tracing, and a small drawing pad.
 
 Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
 
@@ -123,7 +123,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 ## New Tab Study Page
 
-よむ includes an optional [study page](/newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then Jiten/JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
+よむ includes an optional [study page](/newtab/index.html). Use the full address after opening that local or hosted page as a browser home page, new-tab page, or iPad Home Screen shortcut. It uses your accent color and tries Anki study words when AnkiConnect is reachable, then Jiten, then JPDB, then local dictionary words. A new install starts by sending you to Settings > Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local browser storage.
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 

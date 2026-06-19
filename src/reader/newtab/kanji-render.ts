@@ -20,7 +20,7 @@ export function renderNewTabKanjiInfoSection(
 ): HTMLElement {
     const section = htmlToFirstElement(`
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-newtab-kanji-info-source" ${sourceAttributes(kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID))}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
         </details>
     `) as HTMLDetailsElement | null;
     if (!section) return el('div');

@@ -14,7 +14,7 @@
 // @match        *://*/*
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.6#sha256-IYKUAFMMFmkCDutS5EugdV5EBsJH9GPSo4BJmZuamGQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.6#sha256-ZBYrsUXRSciTdmDxXgdtjQaf1QrUTQWZrlZfoxkt5wM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.6#sha256-RuaTZbBraYQ6JvhNbydYVvClXVu4N39BbZmJNsu/NRw=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.6#sha256-BOFEm5UGST3VCyYPwukoV1L9wAi8tsvAa6MJ/wYA0H4=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.6#sha256-vhedJ6TFYguqrY+3Ep8+H79pp51UPA9yKN5jvxgc9Lw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
@@ -636,7 +636,7 @@
       }
       if (node.nodeType !== Node.ELEMENT_NODE) return;
       const child = node;
-      if (isSurfaceIgnoredElement(child)) return;
+      if (isSurfaceIgnoredElement$1(child)) return;
       text2 += readerWordChildSurfaceText(child);
     });
     return text2;
@@ -843,9 +843,9 @@
     return range;
   }
   function isIgnoredReadableElement(element2) {
-    return isSurfaceIgnoredElement(element2) || element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
+    return isSurfaceIgnoredElement$1(element2) || element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
   }
-  function isSurfaceIgnoredElement(element2) {
+  function isSurfaceIgnoredElement$1(element2) {
     return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi');
   }
   function cleanReadableSentence(value) {
@@ -3634,6 +3634,7 @@
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
+    '[data-jpdb-reader-surface-ignore="true"]',
     "[data-audio]",
     '[class*="audio" i]',
     '[class*="sound" i]',
@@ -4126,10 +4127,13 @@
     flushFragmentBlockBoundary(isBlock, state2);
   }
   function shouldIgnoreFragmentElement(element2, options) {
-    return isRubyAnnotationElement(element2) || isExcludedReaderRootElement(element2, options);
+    return isRubyAnnotationElement(element2) || isSurfaceIgnoredElement(element2) || isExcludedReaderRootElement(element2, options);
   }
   function isRubyAnnotationElement(element2) {
     return element2.tagName === "RT" || element2.tagName === "RP";
+  }
+  function isSurfaceIgnoredElement(element2) {
+    return element2.matches('[data-jpdb-reader-surface-ignore="true"]');
   }
   function isExcludedReaderRootElement(element2, options) {
     return !options.includeReaderRoot && Boolean(element2.closest(READER_ROOT_SELECTOR$2));
@@ -19463,7 +19467,7 @@ ${entry.reading || ""}`;
     ].join(" · ");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey$1("__local_dictionaries__"))}>
-            <summary class="jpdb-reader-local-title">
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
                 <span>${uiText(settings.interfaceLanguage, "dictionaries")}</span>
                 <span class="jpdb-reader-source-status">${escapeHtml$1(status)}</span>
             </summary>
@@ -19478,7 +19482,7 @@ ${entry.reading || ""}`;
     const heading = title ?? uiText(language, "kanjiDictionaries");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
-            <summary class="jpdb-reader-local-title">${escapeHtml$1(heading)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(heading)}</summary>
             ${entries.map((entry) => `
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">
@@ -19520,7 +19524,7 @@ ${entry.reading || ""}`;
     const entryCount = groups.length;
     return `
         <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel(dictionary))}">
+            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore="true">
                 <span>${escapeHtml$1(dictionaryLabel(dictionary))}</span>
                 <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
             </summary>
@@ -20865,7 +20869,7 @@ ${entry.reading || ""}`;
     }
     loadPublicPitch(card) {
       const settings = this.settings();
-      if (!settings.showPitchAccent || card.pitchAccent.length) return Promise.resolve([]);
+      if (!settings.showPitchAccent || card.pitchAccent.length || !hasJpdbApiCredential(settings)) return Promise.resolve([]);
       return this.withFallback(card, CARD_RENDER_PITCH_TIMEOUT_MS, "JPDB public pitch", this.dependencies.jpdbPublicPitch.lookup(card.spelling, card.reading).catch((error) => {
         log$f.warn("Public pitch lookup failed", { term: card.spelling }, error);
         return [];
@@ -20877,7 +20881,7 @@ ${entry.reading || ""}`;
     }
     loadJpdbVocabularyInfo(card) {
       const settings = this.settings();
-      if (!settings.jpdbDefinitionsEnabled) return Promise.resolve(null);
+      if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings)) return Promise.resolve(null);
       return this.withFallback(card, CARD_RENDER_JPDB_DETAIL_TIMEOUT_MS, "JPDB vocabulary details", this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading).catch((error) => {
         log$f.warn("JPDB page lookup failed", { term: card.spelling }, error);
         return null;
@@ -22268,7 +22272,7 @@ ${glossaryKey}`;
     if (!settings.immersionKitEnabled) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey$1(IMMERSION_KIT_SOURCE_ID), false)}>
-            <summary class="jpdb-reader-local-title">${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
         </details>
     `;
@@ -24810,7 +24814,7 @@ ${spelling}`);
       container.removeAttribute("open");
       container.dataset.immersionEmpty = "true";
       setInnerHtml(container, `
-            <summary class="jpdb-reader-local-title">
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
                 <span>${uiText(settings.interfaceLanguage, "immersionKit")}</span>
                 <span class="jpdb-reader-source-status">${uiText(settings.interfaceLanguage, "noImmersionExamplesCompact")}</span>
             </summary>
@@ -28277,7 +28281,7 @@ ${spelling}`);
     if (!info) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji jpdb-reader-jiten-kanji" data-source="jiten-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${renderJitenKanjiFacts(info, language)}
                 ${renderJitenKanjiReadings(info, language)}
@@ -36506,7 +36510,7 @@ ${normalizedReading}`;
     const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
-            <summary class="jpdb-reader-local-title">${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
         </details>
     `;
@@ -36527,7 +36531,7 @@ ${normalizedReading}`;
     const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
-            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(title)}</summary>
             <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
@@ -36850,7 +36854,7 @@ ${normalizedReading}`;
       if (!sentence || !settings.studyTranslationEnabled) return "";
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title">${escapeHtml$1(uiText(settings.interfaceLanguage, "translation"))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(uiText(settings.interfaceLanguage, "translation"))}</summary>
                 ${this.renderTranslationPanel(sentence)}
             </details>
         `;
@@ -36860,7 +36864,7 @@ ${normalizedReading}`;
       if (!sentence || !settings.studyGrammarEnabled) return "";
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title">${escapeHtml$1(uiText(settings.interfaceLanguage, "grammar"))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(uiText(settings.interfaceLanguage, "grammar"))}</summary>
                 ${this.renderGrammarPanel()}
             </details>
         `;
@@ -42133,11 +42137,20 @@ ${normalizedReading}`;
       if (!tokens.length) return;
       this.preloadTermAudioForTokens(tokens);
       await this.resolveOcrFallbackTokens(tokens);
-      await this.enrichPitchWords(tokens, { urgent: true });
+      await this.enrichPitchWords(tokens, this.ocrBeforeRenderPitchEnrichmentOptions());
     }
     async enrichSubtitleTokensBeforeRender(tokens) {
       if (!tokens.length) return;
       await this.enrichPitchWords(tokens, this.subtitleBeforeRenderPitchEnrichmentOptions());
+    }
+    ocrBeforeRenderPitchEnrichmentOptions() {
+      const hasJpdbKey = hasJpdbApiCredential(this.settings);
+      const hasAnyApiKey = hasJpdbKey || hasJitenApiCredential(this.settings);
+      return {
+        urgent: true,
+        ...hasJpdbKey ? {} : { jpdbPublicLookup: false },
+        ...hasAnyApiKey ? {} : { publicLookup: false }
+      };
     }
     subtitleBeforeRenderPitchEnrichmentOptions() {
       const background = this.backgroundPitchEnrichmentOptions();
@@ -42666,7 +42679,7 @@ ${normalizedReading}`;
         this.rememberUnresolvedFallbackVocabulary(key);
         return void 0;
       }
-      if (!publicCard.pitchAccent.length) {
+      if (!publicCard.pitchAccent.length && options.jpdbPublicLookup !== false) {
         publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
       }
       this.rememberResolvedFallbackVocabulary(card, publicCard);

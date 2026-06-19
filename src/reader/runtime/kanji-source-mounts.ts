@@ -47,7 +47,7 @@ export function renderKanjiImmersionKitMount(settings: ReaderSettings, sourceAtt
     const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
-            <summary class="jpdb-reader-local-title">${uiText(settings.interfaceLanguage, 'immersionKit')}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${uiText(settings.interfaceLanguage, 'immersionKit')}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, 'loadingExamples')}</div>
         </details>
     `;
@@ -73,7 +73,7 @@ function renderKanjiPracticeShell(options: KanjiSourceMountRendererOptions, sour
     const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml(options.kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml(options.kanji)}</div></div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(options.language, 'practiceDrawing')} ${options.kanji}`)}"></canvas>

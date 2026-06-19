@@ -59,6 +59,7 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
     '[role="checkbox"]',
     '[role="radio"]',
     '[role="tab"]',
+    '[data-jpdb-reader-surface-ignore="true"]',
     '[data-audio]',
     '[class*="audio" i]',
     '[class*="sound" i]',
@@ -742,11 +743,16 @@ function shouldIgnoreFragmentElement(
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
     return isRubyAnnotationElement(element)
+        || isSurfaceIgnoredElement(element)
         || isExcludedReaderRootElement(element, options);
 }
 
 function isRubyAnnotationElement(element: HTMLElement): boolean {
     return element.tagName === 'RT' || element.tagName === 'RP';
+}
+
+function isSurfaceIgnoredElement(element: HTMLElement): boolean {
+    return element.matches('[data-jpdb-reader-surface-ignore="true"]');
 }
 
 function isExcludedReaderRootElement(

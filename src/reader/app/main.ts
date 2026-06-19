@@ -5948,12 +5948,22 @@ export class ReaderApp {
         if (!tokens.length) return;
         this.preloadTermAudioForTokens(tokens);
         await this.resolveOcrFallbackTokens(tokens);
-        await this.enrichPitchWords(tokens, { urgent: true });
+        await this.enrichPitchWords(tokens, this.ocrBeforeRenderPitchEnrichmentOptions());
     }
 
     private async enrichSubtitleTokensBeforeRender(tokens: JPDBToken[]): Promise<void> {
         if (!tokens.length) return;
         await this.enrichPitchWords(tokens, this.subtitleBeforeRenderPitchEnrichmentOptions());
+    }
+
+    private ocrBeforeRenderPitchEnrichmentOptions(): PitchEnrichmentOptions {
+        const hasJpdbKey = hasJpdbApiCredential(this.settings);
+        const hasAnyApiKey = hasJpdbKey || hasJitenApiCredential(this.settings);
+        return {
+            urgent: true,
+            ...(hasJpdbKey ? {} : { jpdbPublicLookup: false }),
+            ...(hasAnyApiKey ? {} : { publicLookup: false }),
+        };
     }
 
     private subtitleBeforeRenderPitchEnrichmentOptions(): PitchEnrichmentOptions {
@@ -6571,7 +6581,7 @@ export class ReaderApp {
             this.rememberUnresolvedFallbackVocabulary(key);
             return undefined;
         }
-        if (!publicCard.pitchAccent.length) {
+        if (!publicCard.pitchAccent.length && options.jpdbPublicLookup !== false) {
             publicCard.pitchAccent = await this.jpdbPublicPitch.lookup(publicCard.spelling, publicCard.reading).catch(() => []);
         }
         this.rememberResolvedFallbackVocabulary(card, publicCard);

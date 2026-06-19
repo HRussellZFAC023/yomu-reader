@@ -2608,7 +2608,7 @@ export class NewTabController {
         const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
         const fallback = jitenOnlyApiFallback
             ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress)
-            : await this.loadFreshStudyWords(onProgress);
+            : await this.loadFreshStudyWords(onProgress, { allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallback() });
         if (fallback.cards.length && !this.currentModeStudyCardCount(accumulator.cards)) {
             accumulator.labels = jitenOnlyApiFallback ? ['Jiten'] : [];
             accumulator.reviewCountMode = false;
@@ -2865,16 +2865,18 @@ export class NewTabController {
 
     private async loadFreshStudyWords(
         onProgress?: (message: string) => void,
-        options: { requireDictionaryBeforePublicFallback?: boolean } = {},
+        options: { requireDictionaryBeforePublicFallback?: boolean; allowPublicJpdbFallback?: boolean } = {},
     ): Promise<NewTabLoadResult> {
         if (options.requireDictionaryBeforePublicFallback) {
             const dictionaryResult = await this.loadDictionaryWords(onProgress);
             if (dictionaryResult.cards.length) return dictionaryResult;
-            return this.loadPublicFreshStudyWords(dictionaryResult);
+            return options.allowPublicJpdbFallback ? this.loadPublicFreshStudyWords(dictionaryResult) : this.loadBuiltInFreshStudyWords();
         }
-        const publicJpdbPromise = this.loadPublicJpdbWords();
+        const publicJpdbPromise = options.allowPublicJpdbFallback ? this.loadPublicJpdbWords() : Promise.resolve(emptyNewTabLoadResult('JPDB'));
         const dictionaryResult = await this.loadDictionaryWords(onProgress);
-        return this.loadPublicFreshStudyWords(dictionaryResult, publicJpdbPromise);
+        return options.allowPublicJpdbFallback
+            ? this.loadPublicFreshStudyWords(dictionaryResult, publicJpdbPromise)
+            : dictionaryResult.cards.length ? dictionaryResult : this.loadBuiltInFreshStudyWords();
     }
 
     private async loadPublicFreshStudyWords(
@@ -3003,13 +3005,17 @@ export class NewTabController {
     }
 
     private loadJpdbWordsFallback(hasJpdbKey: boolean, allowPublicFallback: boolean | undefined): Promise<NewTabLoadResult> | NewTabLoadResult {
-        if (allowPublicFallback !== false) return this.loadFreshStudyWords();
+        if (allowPublicFallback !== false) return this.loadFreshStudyWords(undefined, { allowPublicJpdbFallback: hasJpdbKey });
         return {
             cards: [],
             sourceLabel: this.apiReviewSourceLabel(),
             reviewCountMode: true,
             ...(hasJpdbKey ? { emptyMessageKey: 'couldNotLoadWords' as const } : {}),
         };
+    }
+
+    private shouldAllowPublicJpdbStudyFallback(settings = this.dependencies.getSettings()): boolean {
+        return hasJpdbApiCredential(settings);
     }
 
     private mergeApiReviewSourceResults(results: NewTabLoadResult[]): NewTabLoadResult {
@@ -4689,7 +4695,7 @@ export class NewTabController {
 
     private async loadJpdbFrontSentence(card: JPDBCard): Promise<string> {
         const settings = this.dependencies.getSettings();
-        if (!settings.jpdbDefinitionsEnabled || !this.dependencies.jpdbVocabulary) return '';
+        if (!settings.jpdbDefinitionsEnabled || !hasJpdbApiCredential(settings) || !this.dependencies.jpdbVocabulary) return '';
         const info = await this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, newTabCardReading(card)).catch(() => null);
         return jpdbExampleSentenceForPrompt(info, card);
     }
@@ -5341,7 +5347,7 @@ export class NewTabController {
 
     private async addNewTabJpdbImmersionFallbackQueries(candidates: string[], card: JPDBCard, exactQuery: string): Promise<void> {
         const settings = this.dependencies.getSettings();
-        const jpdbInfo = settings.jpdbDefinitionsEnabled && this.dependencies.jpdbVocabulary
+        const jpdbInfo = settings.jpdbDefinitionsEnabled && hasJpdbApiCredential(settings) && this.dependencies.jpdbVocabulary
             ? await this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, newTabCardReading(card)).catch(() => null)
             : null;
         this.addNewTabImmersionFallbackQueries(
@@ -5570,7 +5576,7 @@ export class NewTabController {
                     newtabKanjiImmersionDetails: true,
                 },
             },
-            el('summary', { class: 'jpdb-reader-local-title' }, uiText(settings.interfaceLanguage, 'immersionKit')),
+            el('summary', { class: 'jpdb-reader-local-title', dataset: { jpdbReaderSurfaceIgnore: true } }, uiText(settings.interfaceLanguage, 'immersionKit')),
             el('div', { class: 'jpdb-reader-help', dataset: { newtabKanjiImmersionBody: true } }, uiText(settings.interfaceLanguage, 'loadingExamples'))),
         );
     }
@@ -7016,7 +7022,7 @@ export class NewTabController {
     }
 
     private loadSearchJpdbVocabularyInfo(card: JPDBCard): Promise<JpdbVocabularyInfo | null> {
-        if (!this.dependencies.jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
+        if (!hasJpdbApiCredential(this.dependencies.getSettings()) || !this.dependencies.jpdbVocabulary?.lookup || card.vid <= 0) return Promise.resolve(null);
         return promiseWithTimeout(
             this.dependencies.jpdbVocabulary.lookup(card.vid, card.spelling, card.reading),
             NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS,
@@ -8413,6 +8419,7 @@ export class NewTabController {
     }
 
     private fetchPublicWordPitch(card: JPDBCard): Promise<string[]> {
+        if (!hasJpdbApiCredential(this.dependencies.getSettings())) return Promise.resolve([]);
         return this.dependencies.jpdbPublicPitch?.lookup(card.spelling, newTabCardReading(card)).catch(() => []) ?? Promise.resolve([]);
     }
 

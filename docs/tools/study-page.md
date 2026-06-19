@@ -50,7 +50,7 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
 
 ## Questions
 
-**What is the new-tab study page?** A study screen that reviews your Anki, Jiten, JPDB, or imported-dictionary cards, meant to live on your new-tab page.
+**What is the new-tab study page?** A study screen that reviews your Jiten, JPDB, Anki, or imported-dictionary cards, meant to live on your new-tab page.
 
 **Do I need an account?** No — it works with a local dictionary. Connect Jiten, JPDB, or Anki for more.
 

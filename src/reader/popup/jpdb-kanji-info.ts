@@ -20,7 +20,7 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
     const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
                 ${readingsSection}

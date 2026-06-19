@@ -628,7 +628,7 @@ export class ImmersionPopoverController {
         container.removeAttribute('open');
         container.dataset.immersionEmpty = 'true';
         setInnerHtml(container, `
-            <summary class="jpdb-reader-local-title">
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
                 <span>${uiText(settings.interfaceLanguage, 'immersionKit')}</span>
                 <span class="jpdb-reader-source-status">${uiText(settings.interfaceLanguage, 'noImmersionExamplesCompact')}</span>
             </summary>
