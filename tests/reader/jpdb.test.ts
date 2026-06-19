@@ -2321,7 +2321,7 @@ function configurePublicVocabularyEnrichment(app: ReaderApp, options: {
     if (options.pitch) internals.jpdbPublicPitch = { lookup: options.pitch };
     internals.jitenPublicVocabulary = {
         lookup: options.jitenLookup ?? vi.fn(async () => null),
-        ...(options.jitenLookupMany ? { lookupMany: options.jitenLookupMany } : {}),
+        lookupMany: options.jitenLookupMany ?? vi.fn(async () => new Map<string, JPDBCard>()),
     };
     internals.parser = { cacheCards };
     return { cacheCards, internals };
