@@ -34709,24 +34709,53 @@ ${spelling}`);
     return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
   }
   function requestBlob$2(url) {
+    const fallbackType = imageMimeTypeFromUrl(url);
     const userscriptRequest = requestViaUserscript({
       method: "GET",
       url,
       responseType: "arraybuffer"
-    }, (response) => blobFromUserscriptResponse(response), (status) => `Image fetch returned ${status}.`);
+    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`);
     if (userscriptRequest) return userscriptRequest;
     return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
   }
-  function blobFromUserscriptResponse(response) {
-    if (response.response instanceof Blob) return response.response;
-    if (response.response instanceof ArrayBuffer) return new Blob([response.response]);
-    if (ArrayBuffer.isView(response.response)) {
-      const source = new Uint8Array(response.response.buffer, response.response.byteOffset, response.response.byteLength);
+  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
+    const value = response.response;
+    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
+    if (value instanceof ArrayBuffer) {
+      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
+      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
+    }
+    if (ArrayBuffer.isView(value)) {
+      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
       const copy = new Uint8Array(source.byteLength);
       copy.set(source);
-      return new Blob([copy.buffer]);
+      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
     }
-    return new Blob([response.response]);
+    return new Blob([value], { type: fallbackType });
+  }
+  function imageMimeTypeFromUrl(url) {
+    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
+    switch (extension) {
+      case "png":
+        return "image/png";
+      case "gif":
+        return "image/gif";
+      case "webp":
+        return "image/webp";
+      case "avif":
+        return "image/avif";
+      case "bmp":
+        return "image/bmp";
+      default:
+        return "image/jpeg";
+    }
+  }
+  function sniffImageMimeType(bytes) {
+    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
+    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
+    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
+    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
+    return void 0;
   }
   function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();

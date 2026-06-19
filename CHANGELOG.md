@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.10] - 2026-06-19
+
+### Fixed
+
+- BookWalker (and any cross-origin "tainted" image) OCR now works again on iPad/Safari. The clean source image fetched for the canvas mirror was wrapped in a Blob with no MIME type, and WebKit refuses to decode an `<img>` from such a blob URL — so on iPad the rebuild produced nothing and no OCR overlay, highlights, or spinner ever appeared (Chrome content-sniffs and was unaffected). The fetched image now carries an image MIME type, detected from its magic bytes and falling back to the URL extension.
+
 ## [1.4.9] - 2026-06-19
 
 ### Fixed

@@ -3061,25 +3061,60 @@ function requestTextForm(url: string, data: FormData, timeout: number, headers?:
 }
 
 function requestBlob(url: string): Promise<Blob> {
+    const fallbackType = imageMimeTypeFromUrl(url);
     const userscriptRequest = requestViaUserscript<Blob>({
         method: 'GET',
         url,
         responseType: 'arraybuffer',
-    }, response => blobFromUserscriptResponse(response), status => `Image fetch returned ${status}.`);
+    }, response => blobFromUserscriptResponse(response, fallbackType), status => `Image fetch returned ${status}.`);
     if (userscriptRequest) return userscriptRequest;
     return fetch(url).then(response => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
 }
 
-function blobFromUserscriptResponse(response: UserscriptHttpResponse): Blob {
-    if (response.response instanceof Blob) return response.response;
-    if (response.response instanceof ArrayBuffer) return new Blob([response.response]);
-    if (ArrayBuffer.isView(response.response)) {
-        const source = new Uint8Array(response.response.buffer, response.response.byteOffset, response.response.byteLength);
+// GM_xmlhttpRequest now returns an arraybuffer (not a typed Blob), and the reader turns
+// these bytes into a blob: object-URL <img> to decode (loadCleanMirrorImage, used by the
+// BookWalker canvas mirror, and imageBlobToCanvas for any tainted cross-origin image).
+// WebKit/Safari REFUSES to decode an <img> whose backing Blob has no (or a non-image)
+// MIME type — Chrome/Firefox content-sniff and tolerate it — so a typeless Blob silently
+// breaks tainted-canvas OCR on iPad (no frame, no spinner, no overlay). Carry an image
+// MIME type: sniff the magic bytes (most reliable), else infer from the URL extension.
+export function blobFromUserscriptResponse(response: UserscriptHttpResponse, fallbackType = 'image/jpeg'): Blob {
+    const value = response.response;
+    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
+    if (value instanceof ArrayBuffer) {
+        const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
+        return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
+    }
+    if (ArrayBuffer.isView(value)) {
+        const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
         const copy = new Uint8Array(source.byteLength);
         copy.set(source);
-        return new Blob([copy.buffer]);
+        return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
     }
-    return new Blob([response.response as BlobPart]);
+    return new Blob([value as BlobPart], { type: fallbackType });
+}
+
+export function imageMimeTypeFromUrl(url: string): string {
+    const extension = url.split(/[?#]/, 1)[0].split('.').pop()?.toLowerCase();
+    switch (extension) {
+        case 'png': return 'image/png';
+        case 'gif': return 'image/gif';
+        case 'webp': return 'image/webp';
+        case 'avif': return 'image/avif';
+        case 'bmp': return 'image/bmp';
+        default: return 'image/jpeg';
+    }
+}
+
+// Detect an image type from leading magic bytes (URL extensions and headers can lie or be
+// absent). Returns undefined when the bytes match no known image signature.
+export function sniffImageMimeType(bytes: Uint8Array): string | undefined {
+    if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg';
+    if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png';
+    if (bytes.length >= 4 && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38) return 'image/gif';
+    if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+        && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+    return undefined;
 }
 
 function requestViaUserscript<T>(
