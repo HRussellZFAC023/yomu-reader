@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.18
+// @version      1.4.20
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.18#sha256-z0k83uRPr34NTwNbRUC3mHV9WgE/G+iGrlc8lclL/OA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.18#sha256-zxH/5Viev3VHCFLE9815llrZHyNG44FQSJGi2Gy2tbU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.18#sha256-HjBSet+hy5yDVJ+dhsnaChQncCGlxqnqa5vsZ8GKSoQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.18#sha256-MOJYA4K/Xyc3EHeD8rTNc+MkXgkQxJcw2Ll6vBzdkHg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.20#sha256-kTbkeJ1hrcy2MrRTe94bgH6aFtYvLDXiSSvJyYC6qNo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.20#sha256-64TJtVlvRRqkuTyx/XstnmM53M5+MKACWXbhEo3VzzU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.20#sha256-IRd+BJNaf7RZ7KDmismb9ez5rYaiPqOXfzJU95OZNg8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.20#sha256-DQk1/vgaT5L5rf6xSuPI6FpC+tW/O32v0Sy/Nj4buv4=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6789,7 +6789,7 @@
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "Review Jiten, JPDB, Anki, and kanji cards.",
+      featureStudyBody: "Review Jiten, JPDB, Anki, and optional kanji cards in order on the built-in study page.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
@@ -7249,7 +7249,7 @@
       ankiStatusRefreshAndCheck: "Refresh and check",
       ankiHostedCorsHint: "Add {origin} to webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
-      ankiLibraryAdapterStatus: "Scans decks/types and suggests mappings.",
+      ankiLibraryAdapterStatus: "Scans decks and note types, then suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
       ankiLibraryChoicesHelp: "Pick where mining saves notes.",
       ankiTemplateSettings: "Yomu card template",
@@ -7258,7 +7258,7 @@
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
+      ankiHelp: "Full Anki uses desktop AnkiConnect over LAN/Tailscale. Handoff only creates new notes.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -7315,10 +7315,10 @@
       dictionaryDownloadNotZip: "Download was not a ZIP.",
       dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
       dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
-      dictionaryManualDownloadHint: "Enable userscript or import ZIP.",
+      dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
       dictionaryInstallQueueHelp: "Installs take a few minutes.",
       dictionaryInstallQueued: "{dictionary} queued.",
-      dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
+      dictionaryInstallSaveBlocked: "Dictionary import is running. Save unlocks when done.",
       dictionaryImportQueueStatus: "{count} install{plural} running.",
       dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
       dictionaryRemoving: "Removing {dictionary}...",
@@ -31667,7 +31667,9 @@ ${normalizedReading}`;
   ];
   const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
     "ytd-comment-view-model #content-text",
-    ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytd-comment-view-model ${selector}`)
+    "ytm-comment-renderer #content-text",
+    ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytd-comment-view-model ${selector}`),
+    ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map((selector) => `ytm-comment-renderer ${selector}`)
   ].join(",");
   const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
     "ytd-watch-info-text"
@@ -31696,6 +31698,7 @@ ${normalizedReading}`;
     "ytm-expandable-video-description-body-renderer",
     "ytm-structured-description-content-renderer",
     "ytd-comment-view-model",
+    "ytm-comment-renderer",
     "ytd-comments",
     "ytd-transcript-segment-renderer",
     "ytm-transcript-segment-renderer",

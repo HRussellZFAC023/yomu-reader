@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.20] - 2026-06-20
+
+### Fixed
+
+- Recommended local dictionaries now publish with direct Yomitan ZIP install links, including WTY JA-JA, Pixiv Light, and JPDB Kanji, while dropping the homepage-only MarvNC collection card.
+- Mobile YouTube comment text keeps its reader parsing and scan coverage while preserving the settings copy required by the generated form checks.
+
 ## [1.4.18] - 2026-06-20
 
 ### Fixed
