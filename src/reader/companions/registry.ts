@@ -23,13 +23,13 @@ export type BuildYomuAnkiFieldsFn = typeof import('../anki/client').buildYomuAnk
 // Consumed by the registry slot type below and the companion build.
 export type BuildYomuAnkiPreviewFieldsFn = typeof import('../anki/client').buildYomuAnkiPreviewFields;
 // Consumed by the registry slot type below and the companion build.
-export type CanUseMobileAnkiHandoffFn = typeof import('../anki/client').canUseMobileAnkiHandoff;
+export type CanUseMobileAnkiHandoffFn = typeof import('../anki/mobile-handoff').canUseMobileAnkiHandoff;
 // Consumed by the registry slot type below and the companion build.
 export type CaptureActiveVideoFrameFn = typeof import('../anki/client').captureActiveVideoFrame;
 // Consumed by the registry slot type below and the companion build.
 export type IsAnkiDuplicateNoteErrorFn = typeof import('../anki/client').isAnkiDuplicateNoteError;
 // Consumed by the registry slot type below and the companion build.
-export type MobileAnkiHandoffAppNameFn = typeof import('../anki/client').mobileAnkiHandoffAppName;
+export type MobileAnkiHandoffAppNameFn = typeof import('../anki/mobile-handoff').mobileAnkiHandoffAppName;
 // Consumed by the registry slot type below and the companion build.
 export type ResolveAnkiWordAudioFn = typeof import('../anki/audio').resolveAnkiWordAudio;
 

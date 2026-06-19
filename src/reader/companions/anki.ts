@@ -4,11 +4,10 @@ import {
     ankiLookupWithUnavailableDetails,
     buildYomuAnkiFields,
     buildYomuAnkiPreviewFields,
-    canUseMobileAnkiHandoff,
     captureActiveVideoFrame,
     isAnkiDuplicateNoteError,
-    mobileAnkiHandoffAppName,
 } from '../anki/client';
+import { canUseMobileAnkiHandoff, mobileAnkiHandoffAppName } from '../anki/mobile-handoff';
 import { resolveAnkiWordAudio } from '../anki/audio';
 import {
     pruneRedundantAnkiGlyphRepeats,
