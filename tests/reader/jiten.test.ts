@@ -293,6 +293,41 @@ describe('JitenApiClient', () => {
         expect(card.cardState).toEqual(['due']);
     });
 
+    it('refreshes many card states in ONE batched reader/lookup-vocabulary request', async () => {
+        // Jiten known-state enum → Yomu card state: 2 = mature, 4 = due.
+        const fetchMock = createFetchMock({ result: [[2], [4]] });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+        const makeCard = (wordId: number, readingIndex: number) => ({
+            vid: wordId,
+            sid: readingIndex,
+            rid: 0,
+            spelling: '',
+            reading: '',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [],
+            cardState: ['new'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'jiten' as const,
+            jitenWordId: wordId,
+            jitenReadingIndex: readingIndex,
+        });
+        const cards = [makeCard(11, 0), makeCard(22, 1)];
+
+        const count = await client.refreshCardStates(cards as never);
+
+        // The whole batch costs a single request — not one parse per card.
+        expect(count).toBe(2);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledWith(`${JITEN_API_BASE_URL}/reader/lookup-vocabulary`, expect.objectContaining({
+            method: 'POST',
+            body: JSON.stringify({ words: [[11, 0], [22, 1]] }),
+        }));
+        expect(cards[0].cardState).toEqual(['mature']);
+        expect(cards[1].cardState).toEqual(['due']);
+    });
+
     it('maps the Jiten known-state enum to Yomu card states', async () => {
         const fetchMock = createFetchMock({
             vocabulary: [
