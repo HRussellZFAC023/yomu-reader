@@ -38092,6 +38092,58 @@ ${spelling}`);
   ];
   const CAPTION_SELECTORS = CAPTION_SELECTOR_LIST.join(",");
   const CAPTION_CONTAINER_SELECTORS = '.caption-visual-line,.captions-text,[data-purpose="captions-text"],.caption-window,.ytp-caption-segment';
+  const PLAYER_CHROME_CONTAINER_SELECTOR = [
+    "#player-control-overlay",
+    ".ytp-chrome-bottom",
+    ".ytp-chrome-controls",
+    ".ytp-gradient-bottom",
+    ".vjs-control-bar",
+    ".video-js .vjs-control",
+    ".plyr__controls",
+    ".jw-controls",
+    ".jw-controlbar",
+    ".mejs__controls",
+    '[class*="control-bar" i]',
+    '[class*="controls" i]',
+    "[data-jpdb-reader-surface-ignore]"
+  ].join(",");
+  const PLAYER_CHROME_INTERACTIVE_SELECTOR = [
+    "button",
+    '[role="button"]',
+    "input",
+    "select",
+    "textarea",
+    '[aria-label*="play" i]',
+    '[aria-label*="pause" i]',
+    '[aria-label*="mute" i]',
+    '[aria-label*="fullscreen" i]',
+    '[aria-label*="full screen" i]',
+    '[aria-label*="settings" i]',
+    '[title*="play" i]',
+    '[title*="pause" i]',
+    '[title*="mute" i]',
+    '[title*="fullscreen" i]',
+    '[title*="full screen" i]',
+    '[title*="settings" i]'
+  ].join(",");
+  const PLAYER_CHROME_TEXT_PATTERNS = [
+    /\bplay\b/iu,
+    /\bpause\b/iu,
+    /\bskip\b/iu,
+    /\bmute\b/iu,
+    /\bunmute\b/iu,
+    /\bloop\b/iu,
+    /\bsettings\b/iu,
+    /\bairplay\b/iu,
+    /\bexit fullscreen\b/iu,
+    /\benter fullscreen\b/iu,
+    /\bfull ?screen\b/iu,
+    /\bpicture in picture\b/iu
+  ];
+  const READER_STATUS_TEXT_PATTERNS = [
+    /\b(?:subtitle track|subtitle tracks).*\b(?:detected|not detected)\b/iu,
+    /字幕トラック.*検出/iu
+  ];
   function readPageCaptionText(video, readerRoot, options = {}) {
     const direct = readDirectPageCaptionText(video, readerRoot, options);
     if (direct || !video) return direct;
@@ -38163,7 +38215,7 @@ ${spelling}`);
     return isCaptionNearVideo(rect, videoRect, nearVideoOnly);
   }
   function isCaptionElementExcluded(element, readerRoot) {
-    return !element.isConnected || Boolean(readerRoot && (element === readerRoot || readerRoot.contains(element))) || Boolean(element.closest([
+    return !element.isConnected || Boolean(readerRoot && (element === readerRoot || readerRoot.contains(element) || element.contains(readerRoot))) || Boolean(element.closest([
       "[data-jpdb-reader-root]",
       ".asbplayer-offscreen",
       ".asbplayer-subtitles-container-bottom",
@@ -38182,8 +38234,20 @@ ${spelling}`);
   function isCaptionTextShape(element, text2, options) {
     const allowsChildText = element.matches(CAPTION_CONTAINER_SELECTORS);
     if (!isAllowedCaptionText(text2, options)) return false;
+    if (isLikelyPlayerChromeText(text2) || isLikelyReaderStatusText(text2)) return false;
+    if (containsReaderRootOrPlayerChrome(element)) return false;
     if (text2.split("\n").length > 4) return false;
     return allowsChildText || !hasCaptionChildText(element, options);
+  }
+  function containsReaderRootOrPlayerChrome(element) {
+    return Boolean(element.querySelector("[data-jpdb-reader-root]")) || Boolean(element.matches(PLAYER_CHROME_CONTAINER_SELECTOR) || element.closest(PLAYER_CHROME_CONTAINER_SELECTOR)) || Boolean(element.querySelector(PLAYER_CHROME_INTERACTIVE_SELECTOR));
+  }
+  function isLikelyPlayerChromeText(text2) {
+    const hits = PLAYER_CHROME_TEXT_PATTERNS.filter((pattern) => pattern.test(text2)).length;
+    return hits >= 3;
+  }
+  function isLikelyReaderStatusText(text2) {
+    return READER_STATUS_TEXT_PATTERNS.some((pattern) => pattern.test(text2));
   }
   function isAllowedCaptionText(text2, options) {
     return hasCaptionTextLength(text2) && (options.allowNonJapanese || isJapaneseCaptionText(text2));

@@ -2389,6 +2389,86 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('keeps mobile YouTube fullscreen captions readable beside the Yomu overlay', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <ytm-player fullscreen>
+                <video></video>
+                <div class="caption-window"><span class="ytp-caption-segment">今日は読む。</span></div>
+                <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                    <div class="jpdb-subtitle-status">字幕トラックはまだ検出されていません。</div>
+                </div>
+            </ytm-player>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const caption = document.querySelector('.ytp-caption-segment') as HTMLElement;
+        const readerRoot = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 1024, top: 0, bottom: 768, width: 1024, height: 768 }),
+        });
+        Object.defineProperty(caption, 'innerText', { value: caption.textContent ?? '' });
+        Object.defineProperty(caption, 'getBoundingClientRect', {
+            value: () => ({ left: 360, right: 664, top: 610, bottom: 648, width: 304, height: 38 }),
+        });
+
+        try {
+            expect(readPageCaptionText(video, readerRoot)).toBe('今日は読む。');
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
+    it('does not mirror fullscreen player chrome and Yomu status as captions', () => {
+        document.body.innerHTML = `
+            <video></video>
+            <div class="captions-text">
+                Pause Skip 00:00 -00:12 Mute Loop Settings AirPlay Exit fullscreen
+                <span>字幕トラックはまだ検出されていません。</span>
+                <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                    <button type="button">‹</button>
+                    <button type="button">›</button>
+                </div>
+            </div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const chrome = document.querySelector('.captions-text') as HTMLElement;
+        const readerRoot = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 1024, top: 0, bottom: 768, width: 1024, height: 768 }),
+        });
+        Object.defineProperty(chrome, 'innerText', { value: chrome.textContent ?? '' });
+        Object.defineProperty(chrome, 'getBoundingClientRect', {
+            value: () => ({ left: 40, right: 984, top: 650, bottom: 730, width: 944, height: 80 }),
+        });
+
+        expect(readPageCaptionText(video, readerRoot, { allowNonJapanese: true })).toBe('');
+    });
+
+    it('does not treat text-only fullscreen control labels as non-Japanese captions', () => {
+        document.body.innerHTML = `
+            <video></video>
+            <div class="captions-text">Pause Skip 00:00 -00:12 Mute Loop Settings AirPlay Exit fullscreen</div>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const chrome = document.querySelector('.captions-text') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 1024, top: 0, bottom: 768, width: 1024, height: 768 }),
+        });
+        Object.defineProperty(chrome, 'innerText', { value: chrome.textContent ?? '' });
+        Object.defineProperty(chrome, 'getBoundingClientRect', {
+            value: () => ({ left: 40, right: 984, top: 650, bottom: 700, width: 944, height: 50 }),
+        });
+
+        expect(readPageCaptionText(video, undefined, { allowNonJapanese: true })).toBe('');
+    });
+
     it('detects Japanese page captions near a video without site-specific selectors', () => {
         document.body.innerHTML = '<video></video><div class="lesson-player"><span>今日は花を見ます。</span></div>';
         const video = document.querySelector('video') as HTMLVideoElement;
