@@ -902,7 +902,8 @@
     FACTORY_RESET_SIGNAL_KEY
   ];
   const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
-    FACTORY_RESET_SIGNAL_KEY
+    FACTORY_RESET_SIGNAL_KEY,
+    "yomu:google-drive-oauth:v1"
   ]);
   async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
@@ -1787,7 +1788,7 @@
     return parts.filter((part, index) => parts.indexOf(part) === index);
   }
   const SETTINGS_STORAGE_KEY = "jpdb-popup-reader-settings";
-  const log$4 = Logger.scope("Settings");
+  const log$5 = Logger.scope("Settings");
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
   const DEFAULT_OVERLAY_TEXT_COLOR = OVERLAY_COLOR_TOKENS.text;
@@ -1921,6 +1922,7 @@
   const NEW_TAB_SOURCES = ["jpdb", "anki", "auto", "dictionary"];
   const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
   const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
+  const CLOUD_SYNC_PROVIDERS = ["google-drive", "dropbox", "onedrive", "yandex-disk", "webdav"];
   const LEGACY_COLOR_CHANNEL_DEFAULTS = {
     wordHighlightColorSource: "auto",
     wordUnderlineColorSource: "auto",
@@ -2075,6 +2077,8 @@
     dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
+    cloudSyncProvider: "google-drive",
+    googleDriveClientId: "",
     subtitlePlayerEnabled: true,
     subtitleAutoDetect: true,
     subtitleOverlayVisible: false,
@@ -2209,6 +2213,7 @@
       ...normalizePresentationSettings(settingsValue),
       ...normalizeMiningSettings(settingsValue),
       ...normalizeRemovedDictionarySettings(settingsValue),
+      ...normalizeCloudSyncSettings(settingsValue),
       dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
@@ -2351,6 +2356,15 @@
       localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
       localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };
+  }
+  function normalizeCloudSyncSettings(value) {
+    return {
+      cloudSyncProvider: normalizeCloudSyncProvider(value?.cloudSyncProvider),
+      googleDriveClientId: trimmedStringSetting(value, "googleDriveClientId", DEFAULT_SETTINGS.googleDriveClientId)
+    };
+  }
+  function normalizeCloudSyncProvider(value) {
+    return normalizeOption(value, CLOUD_SYNC_PROVIDERS, DEFAULT_SETTINGS.cloudSyncProvider);
   }
   function normalizeNewTabSettings(value) {
     return {
@@ -2775,7 +2789,7 @@
       await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
       dispatchSettingsChange(storedSettings);
     } catch (error) {
-      log$4.warn("Settings save failed", { error });
+      log$5.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -2874,14 +2888,16 @@
       category: "terms",
       name: "WTY JA-JA",
       descriptionKey: "recommendedWtyJapaneseJapanese",
-      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan"
+      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan",
+      downloadUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip?download=true"
     },
     {
-      id: "marvnc-monolingual",
+      id: "pixiv-light",
       category: "terms",
-      name: "MarvNC JA-JA",
-      descriptionKey: "recommendedMarvncMonolingual",
-      homepage: "https://github.com/MarvNC/yomitan-dictionaries"
+      name: "Pixiv Light",
+      descriptionKey: "recommendedPixivLight",
+      homepage: "https://github.com/MarvNC/pixiv-yomitan",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"
     },
     {
       id: "kanjidic",
@@ -2890,6 +2906,14 @@
       descriptionKey: "recommendedKanjidic",
       homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
       downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdb-kanji",
+      category: "kanji",
+      name: "JPDB Kanji",
+      descriptionKey: "recommendedJpdbKanji",
+      homepage: "https://github.com/MarvNC/yomitan-dictionaries#kanji-info",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"
     },
     {
       id: "jiten",
@@ -2959,6 +2983,10 @@
       cancel: "Cancel",
       show: "Show",
       hide: "Hide",
+      dismiss: "Dismiss",
+      collapse: "Collapse",
+      subscribe: "Subscribe",
+      subscribed: "Subscribed",
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
@@ -3422,7 +3450,7 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import Yomitan settings, ZIPs, or backups.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links. Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "Frequency badges and external links. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -3482,6 +3510,24 @@
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
       settingsExported: "Settings exported.",
+      cloud: "Cloud",
+      cloudType: "Type",
+      googleDriveClientId: "Google OAuth client ID",
+      cloudSyncHelp: "Back up settings, stored choices, and imported dictionaries to Google Drive app data. Create a Google OAuth client for TVs and Limited Input devices, then paste its client ID here.",
+      cloudExport: "Export",
+      cloudShowBackups: "Show backups",
+      cloudRevokeToken: "Revoke access token",
+      cloudBackupsTitle: "Please select a file",
+      cloudNoBackups: "No Google Drive backups found.",
+      cloudImportBackup: "Import",
+      cloudDeleteBackup: "Delete",
+      cloudSaveBackup: "Save to disk",
+      cloudBackupUploaded: "Backup uploaded to Google Drive.",
+      cloudBackupDeleted: "Backup deleted.",
+      cloudBackupImported: "Google Drive backup imported.",
+      cloudBackupSaved: "Backup saved to disk.",
+      cloudDeleteConfirm: 'Delete "{file}" from Google Drive?',
+      cloudUnsupportedProvider: "Only Google Drive sync is available right now.",
       restoredStoredChoices: "restored {count} stored choice{plural}",
       importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
       dictionaryNoSupportedBanks: "No supported Yomitan dictionary banks found.",
@@ -3604,6 +3650,20 @@
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
+      youtubeChannelShelfTitle: "Start your Japanese YouTube feed",
+      youtubeChannelShelfExpandedCopy: "{shown} shown from {total} curated channels.",
+      youtubeChannelShelfCompactCopy: "{total} curated channels, shown as compact YouTube-style rows.",
+      youtubeChannelRecommendations: "Japanese channel recommendations",
+      youtubeChannelSubscribeVisible: "Subscribe visible ({count})",
+      youtubeChannelSubscribeAll: "Subscribe all {count}",
+      youtubeChannelAllSubscribed: "All {total} subscribed",
+      youtubeChannelBrowseAll: "Browse all channels",
+      subscribeToChannel: "Subscribe to {name}",
+      subscribedToChannel: "Subscribed to {name}",
+      youtubeChannelAlreadySubscribed: "All of these channels are already subscribed.",
+      youtubeChannelSubscribePartialStatus: "Subscribed to {subscribed}; {failed} could not be completed by YouTube.",
+      youtubeChannelSubscribeStatusSingular: "Subscribed to {count} channel.",
+      youtubeChannelSubscribeStatusPlural: "Subscribed to {count} channels.",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
       studyReveal: "Study: reveal card",
@@ -3944,8 +4004,9 @@
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
       recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
+      recommendedPixivLight: "Lightweight Pixiv Encyclopedia dictionary.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
+      recommendedJpdbKanji: "JPDB kanji dictionary for local kanji details.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
@@ -4114,6 +4175,24 @@ dictionaryRecordsImported	{dictionary}: {records}件インポートしました�
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
 settingsExported	設定をエクスポートしました。
+cloud	クラウド
+cloudType	種類
+googleDriveClientId	Google OAuthクライアントID
+cloudSyncHelp	設定、保存済み選択肢、インポート済み辞書をGoogle Driveのアプリデータにバックアップします。Google OAuthクライアント（テレビ・入力制限デバイス）を作成し、クライアントIDを貼ってください。
+cloudExport	エクスポート
+cloudShowBackups	バックアップを表示
+cloudRevokeToken	アクセストークンを取り消す
+cloudBackupsTitle	ファイルを選択してください
+cloudNoBackups	Google Driveバックアップが見つかりません。
+cloudImportBackup	インポート
+cloudDeleteBackup	削除
+cloudSaveBackup	ディスクに保存
+cloudBackupUploaded	Google Driveにバックアップしました。
+cloudBackupDeleted	バックアップを削除しました。
+cloudBackupImported	Google Driveバックアップをインポートしました。
+cloudBackupSaved	バックアップをディスクに保存しました。
+cloudDeleteConfirm	Google Driveから「{file}」を削除しますか？
+cloudUnsupportedProvider	現在利用できる同期先はGoogle Driveのみです。
 restoredStoredChoices	保存済み選択肢を{count}件復元
 importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応しているYomitan辞書バンクが見つかりません。
@@ -4513,6 +4592,10 @@ save	保存
 cancel	キャンセル
 show	表示
 hide	隠す
+dismiss	閉じる
+collapse	折りたたむ
+subscribe	登録
+subscribed	登録済み
 appearance	外観
 reading	読解
 sources	ソース
@@ -4940,7 +5023,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンク。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	頻度バッジと外部リンク。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -4990,6 +5073,20 @@ copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
+youtubeChannelShelfTitle	日本語YouTubeフィードを始める
+youtubeChannelShelfExpandedCopy	厳選チャンネル{total}件中{shown}件を表示しています。
+youtubeChannelShelfCompactCopy	厳選チャンネル{total}件をYouTube風のコンパクト行で表示しています。
+youtubeChannelRecommendations	日本語チャンネルのおすすめ
+youtubeChannelSubscribeVisible	表示中を登録（{count}件）
+youtubeChannelSubscribeAll	すべて登録（{count}件）
+youtubeChannelAllSubscribed	{total}件すべて登録済み
+youtubeChannelBrowseAll	すべてのチャンネルを見る
+subscribeToChannel	{name}を登録
+subscribedToChannel	{name}を登録済み
+youtubeChannelAlreadySubscribed	これらのチャンネルはすべて登録済みです。
+youtubeChannelSubscribePartialStatus	{subscribed}件を登録しました。{failed}件はYouTube側で完了できませんでした。
+youtubeChannelSubscribeStatusSingular	{count}件のチャンネルを登録しました。
+youtubeChannelSubscribeStatusPlural	{count}件のチャンネルを登録しました。
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
 massReviewNoWords	画面内に復習対象のJiten単語がありません。
@@ -5086,8 +5183,9 @@ recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
+recommendedPixivLight	軽量版Pixiv百科事典辞書です。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
+recommendedJpdbKanji	JPDB漢字情報のローカル辞書です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
 recommendedJiten	jiten.moe頻度データです。
@@ -5720,7 +5818,7 @@ recommendedJiten	jiten.moe頻度データです。
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
-  const log$3 = Logger.scope("SettingsForm");
+  const log$4 = Logger.scope("SettingsForm");
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_SOURCE_OPTIONS = [
@@ -5840,6 +5938,7 @@ recommendedJiten	jiten.moe頻度データです。
       ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
       dictionaryPreferences,
       dictionaryLookupLinks: readDictionaryLookupLinks(data),
+      ...readCloudSyncFormSettings(reader, current),
       ...readSubtitleFormSettings(reader, current),
       ...readYoutubeFormSettings(reader),
       ...readAnkiFormSettings(reader, current),
@@ -5850,7 +5949,7 @@ recommendedJiten	jiten.moe頻度データです。
       shortcuts: readShortcutFormSettings(reader, current)
     };
     const normalized = normalizeReaderSettings(settings);
-    log$3.info("Read settings form data", {
+    log$4.info("Read settings form data", {
       enableLogging: normalized.enableLogging,
       dictionaries: normalized.dictionaryPreferences.length,
       lookupLinks: normalized.dictionaryLookupLinks.length,
@@ -5860,6 +5959,12 @@ recommendedJiten	jiten.moe頻度データです。
       ankiEnabled: normalized.ankiEnabled
     });
     return normalized;
+  }
+  function readCloudSyncFormSettings(reader, current) {
+    return {
+      cloudSyncProvider: readOption(reader.get("cloudSyncProvider"), ["google-drive", "dropbox", "onedrive", "yandex-disk", "webdav"], current.cloudSyncProvider),
+      googleDriveClientId: reader.get("googleDriveClientId").trim()
+    };
   }
   function colorSourceFallback(key, fallback) {
     if (fallback !== "auto") return fallback;
@@ -7150,10 +7255,7 @@ recommendedJiten	jiten.moe頻度データです。
     ];
     return [
       ...builtInRows,
-      ...settings.dictionaryPreferences.filter((preference) => {
-        const type = preference.type ?? "terms";
-        return type === "terms" || type === "kanji";
-      }).map((preference) => ({
+      ...settings.dictionaryPreferences.filter((preference) => (preference.type ?? "terms") === "terms").map((preference) => ({
         id: preference.name,
         name: preference.name,
         alias: preference.alias,
@@ -7162,7 +7264,7 @@ recommendedJiten	jiten.moe頻度データです。
         prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
         readonly: false,
         removable: true,
-        dictionaryType: preference.type === "kanji" ? "kanji" : "terms",
+        dictionaryType: "terms",
         help: ""
       }))
     ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
@@ -7789,7 +7891,7 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function renderReaderSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
+            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader">
                 <legend>Reader</legend>
                 <div class="grid">
                     ${checkbox("parseSelection", "Look up selected text", settings.parseSelection)}
@@ -7955,10 +8057,10 @@ recommendedJiten	jiten.moe頻度データです。
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
-                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
+                    <div class="jpdb-reader-help">Frequency badges and external links. Tokens: {query}, {word}, {reading}.</div>
+                    ${renderFrequencyDictionaryEditor(settings)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -7975,8 +8077,89 @@ recommendedJiten	jiten.moe頻度データです。
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
+                ${renderCloudSyncSettings(settings)}
             </fieldset>
     `;
+  }
+  function renderCloudSyncSettings(settings) {
+    const language = settings.interfaceLanguage;
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-cloud-sync" data-cloud-sync>
+                    <div class="jpdb-reader-local-title" data-cloud-sync-title>${escapedUiText(language, "cloud")}</div>
+                    <div class="grid">
+                        ${cloudSyncProviderSelect(settings)}
+                        ${input("googleDriveClientId", uiText(language, "googleDriveClientId"), settings.googleDriveClientId, "text", { ...API_KEY_INPUT_ATTRIBUTES, placeholder: "1234567890-abc.apps.googleusercontent.com" })}
+                    </div>
+                    <div class="jpdb-reader-settings-actions">
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-export-settings">${escapedUiText(language, "cloudExport")}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-show-backups">${escapedUiText(language, "cloudShowBackups")}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-revoke-token">${escapedUiText(language, "cloudRevokeToken")}</button>
+                    </div>
+                    <div class="jpdb-reader-help" data-cloud-sync-status data-cloud-sync-default-status>${escapedUiText(language, "cloudSyncHelp")}</div>
+                    <div class="jpdb-reader-cloud-backups" data-cloud-backups hidden></div>
+                </div>
+    `;
+  }
+  function cloudSyncProviderSelect(settings) {
+    const language = settings.interfaceLanguage;
+    const option = (value, label, disabled = false) => `<option value="${escapeHtml(value)}" ${settings.cloudSyncProvider === value ? "selected" : ""}${disabled ? " disabled" : ""}>${escapeHtml(label)}</option>`;
+    return `
+                        <label>${escapedUiText(language, "cloudType")}
+                            <select name="cloudSyncProvider">
+                                ${option("google-drive", "Google Drive")}
+                                ${option("dropbox", "Dropbox", true)}
+                                ${option("onedrive", "OneDrive", true)}
+                                ${option("yandex-disk", "Yandex.Disk", true)}
+                                ${option("webdav", "WebDAV", true)}
+                            </select>
+                        </label>`;
+  }
+  function renderCloudBackupList(files, language) {
+    if (!files.length) {
+      return `
+                    <div class="jpdb-reader-cloud-backups-panel" role="dialog" aria-label="${escapedUiText(language, "cloudBackupsTitle")}">
+                        <div class="jpdb-reader-local-title">${escapedUiText(language, "cloudBackupsTitle")}</div>
+                        <div class="jpdb-reader-help">${escapedUiText(language, "cloudNoBackups")}</div>
+                        <div class="jpdb-reader-settings-actions">
+                            <button class="jpdb-reader-btn" type="button" data-action="cloud-hide-backups">${escapedUiText(language, "cancel")}</button>
+                        </div>
+                    </div>`;
+    }
+    return `
+                    <div class="jpdb-reader-cloud-backups-panel" role="dialog" aria-label="${escapedUiText(language, "cloudBackupsTitle")}">
+                        <div class="jpdb-reader-local-title">${escapedUiText(language, "cloudBackupsTitle")}</div>
+                        <div class="jpdb-reader-cloud-backup-list">
+                            ${files.map((file) => renderCloudBackupRow(file, language)).join("")}
+                        </div>
+                        <div class="jpdb-reader-settings-actions">
+                            <button class="jpdb-reader-btn" type="button" data-action="cloud-hide-backups">${escapedUiText(language, "cancel")}</button>
+                        </div>
+                    </div>`;
+  }
+  function renderCloudBackupRow(file, language) {
+    const id = escapeHtml(file.id);
+    const name = escapeHtml(file.name);
+    return `
+                            <div class="jpdb-reader-cloud-backup-row" data-cloud-backup-file="${id}">
+                                <div class="jpdb-reader-cloud-backup-name" title="${name}">${name}</div>
+                                <div class="jpdb-reader-cloud-backup-size">${escapeHtml(formatCloudBackupSize(file.size))}</div>
+                                <div class="jpdb-reader-cloud-backup-date">${escapeHtml(formatCloudBackupDate(file.modifiedTime))}</div>
+                                <div class="jpdb-reader-cloud-backup-actions">
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-import-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, "cloudImportBackup")}</button>
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-delete-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, "cloudDeleteBackup")}</button>
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-save-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, "cloudSaveBackup")}</button>
+                                </div>
+                            </div>`;
+  }
+  function formatCloudBackupSize(size) {
+    if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
+    if (size >= 1024) return `${(size / 1024).toFixed(2)} KB`;
+    return `${size} B`;
+  }
+  function formatCloudBackupDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString();
   }
   function renderShortcutSettingsPanel(settings) {
     return `
@@ -8133,7 +8316,8 @@ recommendedJiten	jiten.moe頻度データです。
     [/Color channels|色チャンネル/, "colorChannels"],
     [/Study|学習|New tab|新規タブ/, "newTab"],
     [/Dictionary site enhancements|辞書サイト拡張|JPDB page enhancements|JPDBページ拡張/, "jpdbPageEnhancements"],
-    [/Lookup pills|検索ピル/, "lookupPills"]
+    [/Lookup pills|検索ピル/, "lookupPills"],
+    [/Cloud|クラウド/, "cloud"]
   ];
   const SELECTOR_TEXT_KEYS = [
     ["[data-hover-lookup-title]", "hoverLookupSettings"],
@@ -8144,7 +8328,8 @@ recommendedJiten	jiten.moe頻度データです。
     ["[data-settings-preview-title]", "preview"],
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
     ["[data-proxy-guide-show]", "show"],
-    ["[data-proxy-guide-hide]", "hide"]
+    ["[data-proxy-guide-hide]", "hide"],
+    ["[data-cloud-sync-title]", "cloud"]
   ];
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
@@ -8155,6 +8340,13 @@ recommendedJiten	jiten.moe頻度データです。
     ['[data-action="export-reader-settings"]', "exportSettings"],
     ['[data-action="import-yomitan-dictionary"]', "importDictionaries"],
     ['[data-action="export-yomitan-dictionary"]', "exportDictionaries"],
+    ['[data-action="cloud-export-settings"]', "cloudExport"],
+    ['[data-action="cloud-show-backups"]', "cloudShowBackups"],
+    ['[data-action="cloud-revoke-token"]', "cloudRevokeToken"],
+    ['[data-action="cloud-import-backup"]', "cloudImportBackup"],
+    ['[data-action="cloud-delete-backup"]', "cloudDeleteBackup"],
+    ['[data-action="cloud-save-backup"]', "cloudSaveBackup"],
+    ['[data-action="cloud-hide-backups"]', "cancel"],
     ['[data-action="audio-source-add"]', "addAudioSource"],
     ['[data-action="cancel"]', "cancel"]
   ];
@@ -8488,6 +8680,8 @@ recommendedJiten	jiten.moe頻度データです。
   function localizeLookupPillsHelp(form, text) {
     const lookupLinks = form.querySelector(".jpdb-reader-lookup-links");
     lookupLinks?.closest(".jpdb-reader-settings-subsection")?.querySelector(":scope > .jpdb-reader-help")?.replaceChildren(text("lookupPillsHelp"));
+    const cloudStatus = form.querySelector("[data-cloud-sync-default-status]");
+    if (cloudStatus) cloudStatus.replaceChildren(text("cloudSyncHelp"));
   }
   function localizeDictionaryImportHelp(form, text) {
     const importStatus = form.querySelector("[data-import-status]");
@@ -8621,7 +8815,7 @@ recommendedJiten	jiten.moe頻度データです。
   function localizeSourceHead(head, text) {
     const spans = head.querySelectorAll("span");
     spans[0]?.replaceChildren(text("enabledHeader"));
-    const sourceLabel = spans[1]?.textContent === "Kanji section" ? text("kanjiSection") : text("definitionSource");
+    const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? "", text);
     spans[1]?.replaceChildren(sourceLabel);
     if (spans.length === 5) {
       spans[2]?.replaceChildren(text("displayName"));
@@ -8630,6 +8824,11 @@ recommendedJiten	jiten.moe頻度データです。
     } else {
       spans[2]?.replaceChildren(text("orderHeader"));
     }
+  }
+  function sourceHeadLabel(label, text) {
+    if (label === "Frequency dictionary" || label === "Frequency dictionaries" || label === "頻度辞書") return text("frequencyDictionaries");
+    if (label === "Kanji section" || label === "Kanji source" || label === "漢字セクション") return text("kanjiSection");
+    return text("definitionSource");
   }
   function replaceSourceHelp(form, pattern, value) {
     form.querySelectorAll(".jpdb-reader-help, .jpdb-reader-dictionary-row-help").forEach((help) => {
@@ -8773,6 +8972,7 @@ recommendedJiten	jiten.moe頻度データです。
     "subtitleTextColorSource",
     "parseSelection",
     "lookupOnClick",
+    "googleDriveClientId",
     "lookupOnHover",
     "lookupOnMiddleMouse",
     "showFloatingButton",
@@ -8869,6 +9069,7 @@ recommendedJiten	jiten.moe頻度データです。
     ["twoButtonReviews", "reviewRatingScale"],
     ["interfaceLanguage", "settingsLanguage"],
     ["ocrCloudVisionApiKey", "cloudVisionApiKey"],
+    ["cloudSyncProvider", "cloudType"],
     ["ankiMobileHandoff", "mobileAnkiHandoff"],
     ["shortcuts.hoverLookup", "holdWhileHovering"],
     ["shortcuts.scanPage", "scanPage"],
@@ -9273,7 +9474,8 @@ recommendedJiten	jiten.moe頻度データです。
     const showAlias = rows.some((row) => !row.readonly);
     const visibleNames = /* @__PURE__ */ new Set([
       ...rows.filter((row) => row.removable).map((row) => row.name),
-      ...frequencySourceRows(settings).map((row) => row.name)
+      ...frequencySourceRows(settings).map((row) => row.name),
+      ...kanjiSourceRows(settings).filter((row) => row.removable).map((row) => row.name)
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map((preference) => {
@@ -9286,7 +9488,7 @@ recommendedJiten	jiten.moe頻度データです。
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml(preference.type ?? "terms")}">
         `;
     }).join("");
-    const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
+    const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges.</div>' : "";
     if (!rows.some((row) => row.removable)) return `
         <div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>
         ${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}
@@ -9296,20 +9498,20 @@ recommendedJiten	jiten.moe頻度データです。
     return `${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}${metadataHelp}${hidden}`;
   }
   function renderKanjiSourceRows(settings) {
-    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: false });
+    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji source", showAlias: false });
+  }
+  function renderFrequencyDictionaryEditor(settings) {
+    const rows = renderFrequencyDictionaryRows(settings);
+    return `
+        <div class="jpdb-reader-frequency-lookup-pills jpdb-reader-dictionary-priorities" data-source-editor data-frequency-dictionaries ${rows ? "" : "hidden"}>
+            ${rows}
+        </div>
+    `;
   }
   function renderFrequencyDictionaryRows(settings) {
     const rows = frequencySourceRows(settings);
     if (!rows.length) return "";
-    return `
-        <div class="jpdb-reader-settings-subsection">
-            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
-            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
-            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
-                ${renderSourceRowsList(rows, { sourceLabel: "Frequency dictionary", showAlias: true })}
-            </div>
-        </div>
-    `;
+    return renderSourceRowsList(rows, { sourceLabel: "Frequency dictionary", showAlias: true });
   }
   function renderRecommendedDictionaries(installed) {
     const groups = [
@@ -9357,6 +9559,374 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function normalizedDictionaryName(value) {
     return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, "");
+  }
+  const GOOGLE_DRIVE_TOKEN_STORAGE_KEY = "yomu:google-drive-oauth:v1";
+  const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+  const DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code";
+  const TOKEN_URL = "https://oauth2.googleapis.com/token";
+  const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
+  const DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
+  const DRIVE_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files";
+  const BACKUP_MIME_TYPE = "application/json";
+  const BACKUP_NAME_PREFIX = "backup-";
+  const TOKEN_REFRESH_SKEW_MS = 6e4;
+  const DEFAULT_TIMEOUT_MS = 3e4;
+  const log$3 = Logger.scope("CloudSync");
+  async function createReaderSettingsBackupBlob(settings, dictionaries) {
+    const bundle = {
+      formatName: "yomu-reader-settings",
+      formatVersion: 3,
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      settings,
+      storage: await exportManagedStoredValues(),
+      ...dictionaries ? { dictionaries } : {}
+    };
+    return new Blob([JSON.stringify(bundle, null, 2)], { type: BACKUP_MIME_TYPE });
+  }
+  function googleDriveBackupFileName(date = /* @__PURE__ */ new Date(), userAgent = navigator.userAgent) {
+    return `${BACKUP_NAME_PREFIX}${browserSlug(userAgent)}-${date.toISOString().replace(/[:.]/g, "-")}.json`;
+  }
+  class GoogleDriveSyncClient {
+    constructor(clientId, options = {}) {
+      this.clientId = clientId;
+      this.now = options.now ?? (() => Date.now());
+      this.openUrl = options.openUrl ?? openExternalUrl;
+      this.sleep = options.sleep ?? delay;
+    }
+    now;
+    openUrl;
+    sleep;
+    async uploadBackup(blob, filename = googleDriveBackupFileName(), onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Uploading backup to Google Drive...");
+      const boundary = `yomu-drive-${this.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const metadata = JSON.stringify({
+        name: filename,
+        mimeType: BACKUP_MIME_TYPE,
+        parents: ["appDataFolder"],
+        appProperties: { yomuBackup: "settings-v3" }
+      });
+      const body = new Blob([
+        `--${boundary}\r
+Content-Type: application/json; charset=UTF-8\r
+\r
+`,
+        metadata,
+        `\r
+--${boundary}\r
+Content-Type: ${BACKUP_MIME_TYPE}\r
+\r
+`,
+        blob,
+        `\r
+--${boundary}--`
+      ], { type: `multipart/related; boundary=${boundary}` });
+      const response = await authorizedGoogleJson(
+        `${DRIVE_UPLOAD_URL}?${new URLSearchParams({
+          uploadType: "multipart",
+          fields: "id,name,size,createdTime,modifiedTime"
+        })}`,
+        accessToken,
+        {
+          method: "POST",
+          headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+          data: body,
+          timeoutMs: Math.max(DEFAULT_TIMEOUT_MS, Math.min(3e5, Math.max(blob.size / 1024, 3e4)))
+        }
+      );
+      const file = normalizeBackupFile(response.body);
+      onStatus(`Uploaded ${file.name} to Google Drive.`);
+      return file;
+    }
+    async listBackups(onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Loading Google Drive backups...");
+      const query = [
+        "trashed = false",
+        "name contains 'backup-'"
+      ].join(" and ");
+      const params = new URLSearchParams({
+        spaces: "appDataFolder",
+        q: query,
+        pageSize: "100",
+        orderBy: "modifiedTime desc",
+        fields: "files(id,name,size,createdTime,modifiedTime)"
+      });
+      const response = await authorizedGoogleJson(`${DRIVE_FILES_URL}?${params}`, accessToken);
+      return (response.body.files ?? []).map(normalizeBackupFile).filter((file) => file.id && isBackupFileName(file.name)).sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime));
+    }
+    async downloadBackup(fileId, onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Downloading backup from Google Drive...");
+      const response = await googleRequest(`${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?alt=media`, {
+        accessToken,
+        responseType: "blob",
+        timeoutMs: 12e4
+      });
+      return response.body;
+    }
+    async deleteBackup(fileId, onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Deleting Google Drive backup...");
+      await googleRequest(`${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}`, {
+        accessToken,
+        method: "DELETE",
+        responseType: "text"
+      });
+    }
+    async revoke(onStatus = noopStatus) {
+      const token = await readGoogleDriveToken(this.clientId);
+      if (!token) {
+        onStatus("No Google Drive token is stored.");
+        return;
+      }
+      const revokeToken = token.refreshToken || token.accessToken;
+      try {
+        await googleRequest(REVOKE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          data: new URLSearchParams({ token: revokeToken }).toString(),
+          responseType: "text"
+        });
+      } finally {
+        await gmStorageDelete(GOOGLE_DRIVE_TOKEN_STORAGE_KEY);
+      }
+      onStatus("Google Drive access token revoked.");
+    }
+    async ensureAccessToken(onStatus = noopStatus) {
+      if (!this.clientId.trim()) {
+        throw new Error("Add a Google OAuth client ID before using Google Drive sync.");
+      }
+      const token = await readGoogleDriveToken(this.clientId);
+      if (token?.accessToken && token.expiresAt - TOKEN_REFRESH_SKEW_MS > this.now()) return token.accessToken;
+      if (token?.refreshToken) {
+        try {
+          return await this.refreshAccessToken(token);
+        } catch (error) {
+          log$3.warn("Google Drive token refresh failed; requesting a new device authorization", { error });
+        }
+      }
+      return this.authorizeWithDeviceFlow(onStatus);
+    }
+    async refreshAccessToken(token) {
+      const response = await googleJson(TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: new URLSearchParams({
+          client_id: this.clientId,
+          refresh_token: token.refreshToken,
+          grant_type: "refresh_token"
+        }).toString()
+      });
+      const state = tokenStateFromResponse(response.body, this.clientId, this.now(), token.refreshToken);
+      await writeGoogleDriveToken(state);
+      return state.accessToken;
+    }
+    async authorizeWithDeviceFlow(onStatus) {
+      const device = await googleJson(DEVICE_CODE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: new URLSearchParams({
+          client_id: this.clientId,
+          scope: GOOGLE_DRIVE_SCOPE
+        }).toString()
+      });
+      const verificationUrl = device.body.verification_url_complete || device.body.verification_url;
+      onStatus(`Open ${verificationUrl} and enter code ${device.body.user_code}. Waiting for Google authorization...`);
+      this.openUrl(verificationUrl);
+      const token = await this.pollDeviceToken(device.body, onStatus);
+      await writeGoogleDriveToken(token);
+      onStatus("Google Drive authorized.");
+      return token.accessToken;
+    }
+    async pollDeviceToken(device, onStatus) {
+      let intervalMs = Math.max(1, device.interval ?? 5) * 1e3;
+      const expiresAt = this.now() + Math.max(1, device.expires_in) * 1e3;
+      while (this.now() < expiresAt) {
+        await this.sleep(intervalMs);
+        const response = await googleJson(TOKEN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          data: new URLSearchParams({
+            client_id: this.clientId,
+            device_code: device.device_code,
+            grant_type: "urn:ietf:params:oauth:grant-type:device_code"
+          }).toString(),
+          timeoutMs: DEFAULT_TIMEOUT_MS
+        }, { allowErrorBody: true });
+        if (response.status >= 200 && response.status < 300) {
+          return tokenStateFromResponse(response.body, this.clientId, this.now());
+        }
+        const error = response.body.error ?? "";
+        if (error === "authorization_pending") {
+          onStatus(`Waiting for Google authorization code ${device.user_code}...`);
+          continue;
+        }
+        if (error === "slow_down") {
+          intervalMs += 5e3;
+          continue;
+        }
+        throw googleError(response.body, response.status);
+      }
+      throw new Error("Google Drive authorization timed out.");
+    }
+  }
+  async function authorizedGoogleJson(url, accessToken, options = {}) {
+    return googleJson(url, { ...options, accessToken });
+  }
+  async function googleJson(url, options = {}, behavior = {}) {
+    const response = await googleRequest(url, { ...options, responseType: "json", allowErrorStatus: behavior.allowErrorBody });
+    if (behavior.allowErrorBody || response.status >= 200 && response.status < 300) return response;
+    throw googleError(response.body, response.status);
+  }
+  async function googleRequest(url, options = {}) {
+    const headers = requestHeaders(options);
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+      return new Promise((resolve, reject) => {
+        const result = userscriptRequest({
+          method: options.method ?? "GET",
+          url,
+          headers,
+          data: options.data,
+          responseType: options.responseType,
+          timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+          anonymous: true,
+          onload: (response) => {
+            try {
+              const body = normalizeResponseBody(response.response, response.responseText, options.responseType);
+              if (options.allowErrorStatus || response.status >= 200 && response.status < 300) resolve({ status: response.status, body });
+              else reject(googleError(body, response.status));
+            } catch (error) {
+              reject(error);
+            }
+          },
+          onerror: (error) => reject(error instanceof Error ? error : new Error("Google Drive request failed.")),
+          ontimeout: () => reject(new Error("Google Drive request timed out."))
+        });
+        if (result && typeof result.then === "function") {
+          result.then((response) => {
+            const body = normalizeResponseBody(response.response, response.responseText, options.responseType);
+            if (options.allowErrorStatus || response.status >= 200 && response.status < 300) resolve({ status: response.status, body });
+            else reject(googleError(body, response.status));
+          }, (error) => reject(error instanceof Error ? error : new Error("Google Drive request failed.")));
+        }
+      });
+    }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        method: options.method ?? "GET",
+        headers,
+        body: options.data,
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+        signal: controller.signal
+      });
+      const body = await readFetchBody(response, options.responseType);
+      if (options.allowErrorStatus || response.ok) return { status: response.status, body };
+      throw googleError(body, response.status);
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+  function requestHeaders(options) {
+    return {
+      ...options.headers ?? {},
+      ...options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}
+    };
+  }
+  async function readFetchBody(response, responseType) {
+    if (response.status === 204) return "";
+    if (responseType === "blob") return await response.blob();
+    if (responseType === "text") return await response.text();
+    return await response.json();
+  }
+  function normalizeResponseBody(response, responseText, responseType) {
+    if (responseType === "blob") return response;
+    if (responseType === "text") return String(responseText ?? response ?? "");
+    if (response !== void 0 && typeof response !== "string") return response;
+    return JSON.parse(String(responseText ?? response ?? "null"));
+  }
+  function tokenStateFromResponse(response, clientId, now, fallbackRefreshToken = "") {
+    if (!response.access_token) throw googleError(response, 400);
+    return {
+      accessToken: response.access_token,
+      clientId,
+      expiresAt: now + Math.max(1, response.expires_in ?? 3600) * 1e3,
+      refreshToken: response.refresh_token || fallbackRefreshToken,
+      scope: response.scope ?? GOOGLE_DRIVE_SCOPE,
+      tokenType: response.token_type ?? "Bearer"
+    };
+  }
+  async function readGoogleDriveToken(clientId) {
+    const token = normalizeStoredGoogleDriveToken(await gmStorageGet(GOOGLE_DRIVE_TOKEN_STORAGE_KEY, null));
+    return token?.clientId === clientId ? token : null;
+  }
+  async function writeGoogleDriveToken(token) {
+    await gmStorageSet(GOOGLE_DRIVE_TOKEN_STORAGE_KEY, token);
+  }
+  function normalizeStoredGoogleDriveToken(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    if (typeof record.clientId !== "string" || typeof record.accessToken !== "string") return null;
+    return {
+      accessToken: record.accessToken,
+      clientId: record.clientId,
+      expiresAt: typeof record.expiresAt === "number" ? record.expiresAt : 0,
+      refreshToken: typeof record.refreshToken === "string" ? record.refreshToken : "",
+      scope: typeof record.scope === "string" ? record.scope : GOOGLE_DRIVE_SCOPE,
+      tokenType: typeof record.tokenType === "string" ? record.tokenType : "Bearer"
+    };
+  }
+  function normalizeBackupFile(file) {
+    return {
+      id: file.id ?? "",
+      name: file.name ?? "",
+      size: Number(file.size ?? 0) || 0,
+      createdTime: file.createdTime ?? "",
+      modifiedTime: file.modifiedTime ?? file.createdTime ?? ""
+    };
+  }
+  function isBackupFileName(name) {
+    return name.startsWith(BACKUP_NAME_PREFIX) || name.startsWith("yomu-backup-");
+  }
+  function browserSlug(userAgent) {
+    if (/firefox/i.test(userAgent)) return "firefox";
+    if (/edg\//i.test(userAgent)) return "edge";
+    if (/chrome|chromium|crios/i.test(userAgent)) return "chrome";
+    if (/safari/i.test(userAgent)) return "safari";
+    return "browser";
+  }
+  function googleError(body, status) {
+    const record = body && typeof body === "object" ? body : {};
+    const nested = record.error && typeof record.error === "object" ? record.error : {};
+    const message = stringOrEmpty(nested.message) || stringOrEmpty(record.error_description) || stringOrEmpty(nested.error_description) || stringOrEmpty(record.message) || stringOrEmpty(record.error) || `Google Drive request failed (${status}).`;
+    return new Error(message);
+  }
+  function stringOrEmpty(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : "";
+  }
+  function openExternalUrl(url) {
+    try {
+      if (typeof GM_openInTab === "function") {
+        GM_openInTab(url, { active: true });
+        return;
+      }
+      if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") {
+        GM.openInTab(url, { active: true });
+        return;
+      }
+      window.open(url, "_blank", "noopener");
+    } catch {
+      window.open(url, "_blank", "noopener");
+    }
+  }
+  function delay(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+  function noopStatus() {
   }
   const log$2 = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
@@ -9936,6 +10506,15 @@ recommendedJiten	jiten.moe頻度データです。
       if (status) status.textContent = message;
     };
   }
+  function settingsActionStatusSetter(form, action) {
+    if (!isCloudSyncAction(action)) return settingsStatusSetter(form.querySelector("[data-import-status]"));
+    const status = form.querySelector("[data-cloud-sync-status]");
+    return (message) => {
+      if (!status) return;
+      delete status.dataset.cloudSyncDefaultStatus;
+      status.textContent = message;
+    };
+  }
   function focusPreviewAudioSource(form, button, previewSettings) {
     const row = button?.closest("[data-audio-source-row]");
     if (!row) return;
@@ -10157,21 +10736,45 @@ recommendedJiten	jiten.moe頻度データです。
     return message;
   }
   function shouldReenableSettingsAction(action) {
-    return action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
+    return action.startsWith("cloud-") || action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
   }
   function dictionaryStatusElements(form) {
     return {
       status: form.querySelector("[data-dictionary-status]"),
       priorities: form.querySelector(".jpdb-reader-dictionary-priorities"),
       frequency: form.querySelector("[data-frequency-dictionaries]"),
+      kanjiPriorities: form.querySelector(".jpdb-reader-kanji-priorities"),
       recommended: form.querySelector("[data-recommended-dictionaries]")
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
+    if (elements.frequency) {
+      const frequencyRows = renderFrequencyDictionaryRows(settings);
+      setInnerHtml(elements.frequency, frequencyRows);
+      elements.frequency.hidden = !frequencyRows;
+    }
+    if (elements.kanjiPriorities) setInnerHtml(elements.kanjiPriorities, renderKanjiSourceRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
+  }
+  function removeDictionaryFromSettingsPanel(form, dictionary) {
+    const rows = Array.from(form.querySelectorAll("[data-dictionary-source-row]")).filter((row) => {
+      const rowName = row.querySelector('input[name$=".name"]')?.value;
+      const removeButton = row.querySelector('[data-action="delete-yomitan-dictionary"]');
+      return rowName === dictionary || removeButton?.dataset.dictionaryName === dictionary;
+    });
+    if (!rows.length) return false;
+    const editors = new Set(rows.flatMap((row) => {
+      const editor = row.closest("[data-source-editor]");
+      return editor ? [editor] : [];
+    }));
+    rows.forEach((row) => row.remove());
+    editors.forEach((editor) => {
+      syncSourceRowOrder(editor);
+      if (editor.matches("[data-frequency-dictionaries]")) editor.hidden = !editor.querySelector("[data-source-row]");
+    });
+    return true;
   }
   function dictionaryStatusText(summary, language) {
     if (summary.dictionaries.length) {
@@ -11031,8 +11634,7 @@ recommendedJiten	jiten.moe頻度データです。
       });
     }
     async handleSettingsAction(form, action, control) {
-      const status = form.querySelector("[data-import-status]");
-      const setStatus = settingsStatusSetter(status);
+      const setStatus = settingsActionStatusSetter(form, action);
       try {
         await this.runSettingsAction(form, action, control, setStatus);
       } catch (error) {
@@ -11042,7 +11644,7 @@ recommendedJiten	jiten.moe頻度データです。
       }
     }
     async runSettingsAction(form, action, control, setStatus) {
-      const handled = this.handleSettingsEditorAction(form, action, control) || await this.handleSettingsAudioAction(form, action, control) || await this.handleSettingsDictionaryAction(form, action, control, setStatus) || await this.handleSettingsImportExportAction(form, action, setStatus);
+      const handled = this.handleSettingsEditorAction(form, action, control) || await this.handleSettingsAudioAction(form, action, control) || await this.handleSettingsDictionaryAction(form, action, control, setStatus) || await this.handleSettingsImportExportAction(form, action, setStatus) || await this.handleSettingsCloudAction(form, action, control, setStatus);
       if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
     async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
@@ -11138,19 +11740,103 @@ recommendedJiten	jiten.moe頻度データです。
       }
       if (action === "export-reader-settings") {
         const dictionaries = await this.exportReaderDictionaryBackup();
-        downloadBlob(new Blob([JSON.stringify({
-          formatName: "yomu-reader-settings",
-          formatVersion: 3,
-          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          settings: this.settings,
-          storage: await exportManagedStoredValues(),
-          ...dictionaries ? { dictionaries } : {}
-        }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
+        downloadBlob(await createReaderSettingsBackupBlob(this.settings, dictionaries), `yomu-settings-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "settingsExported"));
         log.info("Settings exported");
         return true;
       }
       return false;
+    }
+    async handleSettingsCloudAction(form, action, control, setStatus) {
+      if (!isCloudSyncAction(action)) return false;
+      if (action === "cloud-hide-backups") {
+        this.hideCloudBackups(form);
+        return true;
+      }
+      const button = settingsActionButton(control);
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      const formSettings = readFormSettings(new FormData(form), this.settings);
+      const client = this.googleDriveSyncClient(formSettings, language);
+      button?.setAttribute("disabled", "true");
+      try {
+        if (action === "cloud-export-settings") {
+          await this.uploadCloudSettingsBackup(client, formSettings, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-show-backups") {
+          await this.showCloudBackups(form, client, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-import-backup") {
+          await this.importCloudBackup(client, control, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-delete-backup") {
+          await this.deleteCloudBackup(form, client, control, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-save-backup") {
+          await this.saveCloudBackup(client, control, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-revoke-token") {
+          await client.revoke(setStatus);
+          return true;
+        }
+      } finally {
+        button?.removeAttribute("disabled");
+      }
+      return false;
+    }
+    googleDriveSyncClient(settings, language) {
+      if (settings.cloudSyncProvider !== "google-drive") throw new Error(uiText(language, "cloudUnsupportedProvider"));
+      return new GoogleDriveSyncClient(settings.googleDriveClientId);
+    }
+    async uploadCloudSettingsBackup(client, settings, setStatus, language) {
+      const dictionaries = await this.exportReaderDictionaryBackup();
+      const blob = await createReaderSettingsBackupBlob(settings, dictionaries);
+      await client.uploadBackup(blob, googleDriveBackupFileName(), setStatus);
+      setStatus(uiText(language, "cloudBackupUploaded"));
+      this.dependencies.toast(uiText(language, "cloudBackupUploaded"));
+    }
+    async showCloudBackups(form, client, setStatus, language) {
+      const files = await client.listBackups(setStatus);
+      this.renderCloudBackups(form, files, language);
+      setStatus(files.length ? uiText(language, "cloudBackupsTitle") : uiText(language, "cloudNoBackups"));
+    }
+    async importCloudBackup(client, control, setStatus, language) {
+      const fileId = cloudBackupFileId(control);
+      const blob = await client.downloadBackup(fileId, setStatus);
+      const json = JSON.parse(await blob.text());
+      await this.importReaderSettingsJson(json, setStatus);
+      this.dependencies.toast(uiText(language, "cloudBackupImported"));
+    }
+    async deleteCloudBackup(form, client, control, setStatus, language) {
+      const fileId = cloudBackupFileId(control);
+      const fileName = cloudBackupFileName(control);
+      if (!window.confirm(formatUiTemplate(uiText(language, "cloudDeleteConfirm"), { file: fileName }))) return;
+      await client.deleteBackup(fileId, setStatus);
+      setStatus(uiText(language, "cloudBackupDeleted"));
+      this.dependencies.toast(uiText(language, "cloudBackupDeleted"));
+      await this.showCloudBackups(form, client, setStatus, language);
+    }
+    async saveCloudBackup(client, control, setStatus, language) {
+      const fileName = cloudBackupFileName(control);
+      const blob = await client.downloadBackup(cloudBackupFileId(control), setStatus);
+      downloadBlob(blob, fileName);
+      setStatus(uiText(language, "cloudBackupSaved"));
+    }
+    renderCloudBackups(form, files, language) {
+      const container = form.querySelector("[data-cloud-backups]");
+      if (!container) throw new Error("Cloud backup list is unavailable.");
+      setInnerHtml(container, renderCloudBackupList(files, language));
+      container.hidden = false;
+    }
+    hideCloudBackups(form) {
+      const container = form.querySelector("[data-cloud-backups]");
+      if (!container) return;
+      container.hidden = true;
+      container.replaceChildren();
     }
     async exportReaderDictionaryBackup() {
       const summary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
@@ -11443,16 +12129,22 @@ recommendedJiten	jiten.moe頻度データです。
       if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoveConfirm"), { dictionary }))) return;
       control?.setAttribute("disabled", "true");
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoving"), { dictionary }));
-      await this.dependencies.dictionaries.deleteDictionary(dictionary);
-      await clearNewTabOfflineCache().catch(() => void 0);
-      this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-      await saveSettings(this.settings);
-      await this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
-      await this.refreshDictionaryStatus(form);
-      this.dependencies.refreshNewTabIfCurrent();
-      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
-      log.info("Dictionary removed", { dictionary });
+      const removedFromPanel = removeDictionaryFromSettingsPanel(form, dictionary);
+      try {
+        await this.dependencies.dictionaries.deleteDictionary(dictionary);
+        await clearNewTabOfflineCache().catch(() => void 0);
+        this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
+        await saveSettings(this.settings);
+        await this.dependencies.refreshDictionaryStyles();
+        this.dependencies.scheduleDictionaryRescan();
+        await this.refreshDictionaryStatus(form);
+        this.dependencies.refreshNewTabIfCurrent();
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
+        log.info("Dictionary removed", { dictionary });
+      } catch (error) {
+        if (removedFromPanel) await this.refreshDictionaryStatus(form).catch((refreshError) => log.warn("Dictionary status refresh after failed remove failed", refreshError));
+        throw error;
+      }
     }
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
@@ -11557,6 +12249,9 @@ recommendedJiten	jiten.moe頻度データです。
       const file = await pickFile(form, "settings");
       if (!file) return;
       const json = JSON.parse(await file.text());
+      await this.importReaderSettingsJson(json, setStatus);
+    }
+    async importReaderSettingsJson(json, setStatus) {
       const readerSettings = getReaderSettingsExport(json);
       this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
       const restoredValues = await importStoredValues(getReaderStorageExport(json));
@@ -11598,6 +12293,17 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function isLookupLinkEditorAction(action) {
     return action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down";
+  }
+  function isCloudSyncAction(action) {
+    return action.startsWith("cloud-");
+  }
+  function cloudBackupFileId(control) {
+    const fileId = control?.dataset.fileId?.trim();
+    if (!fileId) throw new Error("Google Drive backup file is missing.");
+    return fileId;
+  }
+  function cloudBackupFileName(control) {
+    return control?.dataset.fileName?.trim() || googleDriveBackupFileName();
   }
   function getReaderStorageExport(value) {
     if (!value || typeof value !== "object") return null;

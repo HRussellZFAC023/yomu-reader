@@ -102,10 +102,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
 
     return [
         ...builtInRows,
-        ...settings.dictionaryPreferences.filter(preference => {
-            const type = preference.type ?? 'terms';
-            return type === 'terms' || type === 'kanji';
-        }).map(preference => ({
+        ...settings.dictionaryPreferences.filter(preference => (preference.type ?? 'terms') === 'terms').map(preference => ({
             id: preference.name,
             name: preference.name,
             alias: preference.alias,
@@ -114,7 +111,7 @@ export function definitionSourceRows(settings: ReaderSettings): SettingsSourceRo
             prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
             readonly: false,
             removable: true,
-            dictionaryType: preference.type === 'kanji' ? 'kanji' as const : 'terms' as const,
+            dictionaryType: 'terms' as const,
             help: '',
         })),
     ].filter(row => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled)

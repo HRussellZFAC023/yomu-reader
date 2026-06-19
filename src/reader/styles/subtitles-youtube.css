@@ -865,9 +865,16 @@ html.jpdb-subtitle-video-inset-right ytd-watch-flexy #primary {
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #primary {
   margin-right: 0 !important;
 }
-html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,
 html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   display: none !important;
+}
+/* In fullscreen the player container is promoted to the browser top layer and
+   the subtitle overlay — plus the transcript drawer — is re-parented into it
+   (see syncSubtitleRootParent) so it paints above the video. The JS layout pass
+   is skipped while fullscreen, so the drawer keeps its base right-edge dock; we
+   only lift it above the overlay (z-index 2147483644) and any in-player chrome. */
+html.jpdb-subtitle-fullscreen .jpdb-subtitle-list:not([hidden]) {
+  z-index: 2147483646;
 }
 .jpdb-subtitle-resize {
   position: absolute;

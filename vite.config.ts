@@ -15,25 +15,10 @@ const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
 const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${pkg.name}/`;
 const rawReaderCssUrl = `${docsUrl}yomu.css`;
-const userscriptIcon = `${docsUrl}yomu-icon.svg`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
-const userscriptConnect = [
-    'jpdb.io',
-    'apiv2express.immersionkit.com',
-    'apiv2.immersionkit.com',
-    'api.nadeshiko.co',
-    'cdn.nadeshiko.co',
-    'us-southeast-1.linodeobjects.com',
-    'raw.githubusercontent.com',
-    'en.wiktionary.org',
-    'media.kanjialive.com',
-    'localhost',
-    '127.0.0.1',
-    '*.ts.net',
-    // Required for user-configured audio, OCR, proxy, dictionary,
-    // AnkiConnect-compatible, Tailnet, and local service URLs.
-    '*',
-];
+// Required for user-configured audio, OCR, proxy, dictionary,
+// AnkiConnect-compatible, Tailnet, and local service URLs.
+const userscriptConnect = ['*'];
 const userscriptGrant: NonNullable<MonkeyUserScript['grant']> = [
     'GM.xmlHttpRequest',
     'GM.setValue',
@@ -45,10 +30,7 @@ const userscriptGrant: NonNullable<MonkeyUserScript['grant']> = [
     'GM_getValue',
     'GM_deleteValue',
     'GM_listValues',
-    'GM_addValueChangeListener',
-    'GM_removeValueChangeListener',
     'GM_getResourceText',
-    'GM_registerMenuCommand',
 ];
 
 const userscriptMatchForCommand = (command: string) =>
@@ -102,7 +84,7 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         namespace: repoUrl,
         version: pkg.version,
         description: 'Japanese popup reader.',
-        author: 'Henry',
+        author: null as unknown as string,
         // See docs/store-review-notes.md before narrowing these; broad page
         // access is Yomu's core "read Japanese anywhere" behavior.
         match: userscriptMatchForCommand(command),
@@ -111,10 +93,11 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         'inject-into': 'content',
         'run-at': 'document-start',
         license: 'MIT',
-        icon: userscriptIcon,
-        icon64: userscriptIcon,
-        homepageURL: repoUrl,
-        supportURL: `${repoUrl}/issues`,
+        icon: null as unknown as string,
+        homepage: null as unknown as string,
+        homepageURL: null as unknown as string,
+        source: null as unknown as string,
+        supportURL: null as unknown as string,
         ...(splitCompanions ? { require: greasyForkLibraryUrls() } : {}),
         resource: {
             yomuCss: rawReaderCssUrl,

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ANKI_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../../src/reader/app/constants';
 import { applyNestedParsePlan, nestedSettingsTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS, effectiveFuriganaMode, effectiveReaderTextColorSource, normalizeReaderSettings, shouldLookupAnkiStatus } from '../../src/reader/settings/index';
-import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
+import { activateSettingsPanel, applySettingsSearch, installShortcutCapture, localizeSettingsForm, readFormSettings, renderCloudBackupList, renderHelpLinksPanel, renderSettingsForm, syncSubtitlePreview } from '../../src/reader/settings/form';
 import { CUSTOM_FONT_FAMILY_VALUE } from '../../src/reader/settings/form-read';
 import { reconcileApiCredentialInputs } from '../../src/reader/settings/dialog-controller';
 import { KANJI_SIMILAR_WORDS_SOURCE_ID, orderedDefinitionSourceIds, orderedKanjiSourceIds } from '../../src/reader/sources/sections';
@@ -21,6 +21,15 @@ const frequencySettings = {
         { name: 'JMdict', alias: 'JMdict', enabled: true, priority: 0, type: 'terms' as const },
         { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 1, type: 'frequency' as const },
         { name: 'JPDB Freq', alias: 'JPDB Freq', enabled: false, priority: 2, type: 'frequency' as const },
+    ],
+};
+
+const mixedDictionarySettings = {
+    ...DEFAULT_SETTINGS,
+    dictionaryPreferences: [
+        { name: 'Jitendex', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' as const },
+        { name: 'KANJIDIC [2026-133]', alias: 'KANJIDIC [2026-133]', enabled: true, priority: 1, type: 'kanji' as const },
+        { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 2, type: 'frequency' as const },
     ],
 };
 
@@ -75,6 +84,12 @@ function selectValue(form: HTMLFormElement, controlName: string): string | undef
     return form.querySelector<HTMLSelectElement>(`select[name="${controlName}"]`)?.value;
 }
 
+function controlFieldsetVisible(form: HTMLFormElement, controlName: string): boolean {
+    const control = form.querySelector<HTMLElement>(`[name="${controlName}"]`);
+    const fieldset = control?.closest<HTMLFieldSetElement>('fieldset[data-settings-panel]');
+    return Boolean(control && fieldset && !fieldset.hidden);
+}
+
 function renderSettingsTestForm(settings: typeof DEFAULT_SETTINGS): HTMLFormElement {
     const form = document.createElement('form');
     form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
@@ -101,8 +116,12 @@ function renderImportedAnkiFieldMappingsForm(): HTMLFormElement {
     });
 }
 
-function settingsText(form: HTMLFormElement, selector: string): string {
-    return form.querySelector<HTMLElement>(selector)?.textContent ?? '';
+function settingsText(container: ParentNode, selector: string): string {
+    return container.querySelector<HTMLElement>(selector)?.textContent ?? '';
+}
+
+function settingsInputValue(form: HTMLFormElement, selector: string): string | undefined {
+    return form.querySelector<HTMLInputElement>(selector)?.value;
 }
 
 function settingsTone(form: HTMLFormElement, selector: string): string | undefined {
@@ -186,11 +205,15 @@ describe('settings help panel', () => {
 });
 
 describe('frequency dictionary preferences', () => {
-    it('renders frequency dictionaries with toggle, reorder, and remove controls', () => {
+    it('renders frequency dictionaries inside the lookup pills section', () => {
         const form = renderSettingsTestForm(frequencySettings);
         const editor = form.querySelector<HTMLElement>('[data-frequency-dictionaries]')!;
+        const lookupSection = editor.closest<HTMLElement>('.jpdb-reader-settings-subsection')!;
 
         const rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-source-row]'));
+        expect(lookupSection.querySelector<HTMLElement>('.jpdb-reader-local-title')?.textContent).toBe('Lookup pills');
+        expect(Array.from(form.querySelectorAll<HTMLElement>('.jpdb-reader-local-title'), title => title.textContent))
+            .not.toContain('Frequency dictionaries');
         expect(rows.map(row => row.dataset.sourceId)).toEqual(['BCCWJ', 'JPDB Freq']);
         for (const row of rows) {
             expect(row.querySelector('[data-source-enable-toggle]')).not.toBeNull();
@@ -213,6 +236,82 @@ describe('frequency dictionary preferences', () => {
 
         expect(frequency.map(preference => preference.name)).toEqual(['BCCWJ', 'JPDB Freq']);
         expect(frequency.every(preference => preference.enabled)).toBe(true);
+    });
+});
+
+describe('cloud sync settings', () => {
+    it('renders Google Drive controls and reads the selected provider settings', () => {
+        const form = renderSettingsTestForm({
+            ...DEFAULT_SETTINGS,
+            cloudSyncProvider: 'google-drive',
+            googleDriveClientId: 'saved-client.apps.googleusercontent.com',
+        });
+
+        expect(settingsText(form, '[data-cloud-sync-title]')).toBe('Cloud');
+        expect(labelForControl(form, 'cloudSyncProvider')).toContain('Type');
+        expect(selectValue(form, 'cloudSyncProvider')).toBe('google-drive');
+        expect(optionText(form, 'cloudSyncProvider', 'google-drive')).toBe('Google Drive');
+        expect(form.querySelector<HTMLOptionElement>('select[name="cloudSyncProvider"] option[value="dropbox"]')?.disabled).toBe(true);
+        expect(labelForControl(form, 'googleDriveClientId')).toContain('Google OAuth client ID');
+        expect(settingsInputValue(form, 'input[name="googleDriveClientId"]')).toBe('saved-client.apps.googleusercontent.com');
+        expect(settingsText(form, '[data-cloud-sync-status]')).toContain('Google Drive app data');
+        expect(form.querySelector('[data-action="cloud-export-settings"]')).not.toBeNull();
+        expect(form.querySelector('[data-action="cloud-show-backups"]')).not.toBeNull();
+        expect(form.querySelector('[data-action="cloud-revoke-token"]')).not.toBeNull();
+
+        form.querySelector<HTMLInputElement>('input[name="googleDriveClientId"]')!.value = '  new-client.apps.googleusercontent.com  ';
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.cloudSyncProvider).toBe('google-drive');
+        expect(saved.googleDriveClientId).toBe('new-client.apps.googleusercontent.com');
+    });
+
+    it('renders Google Drive backup picker rows with import, delete, and save actions', () => {
+        const container = document.createElement('div');
+        container.innerHTML = renderCloudBackupList([
+            {
+                id: 'file-1',
+                name: 'backup-chrome-2026-01-24T19-11-26-691Z.json',
+                size: 393_369,
+                createdTime: '2026-01-24T19:10:59.000Z',
+                modifiedTime: '2026-01-24T19:10:59.000Z',
+            },
+        ], 'en');
+
+        expect(settingsText(container, '.jpdb-reader-local-title')).toBe('Please select a file');
+        expect(settingsText(container, '.jpdb-reader-cloud-backup-name')).toContain('backup-chrome');
+        expect(settingsText(container, '.jpdb-reader-cloud-backup-size')).toBe('384.15 KB');
+        expect(container.querySelector('[data-action="cloud-import-backup"][data-file-id="file-1"]')).not.toBeNull();
+        expect(container.querySelector('[data-action="cloud-delete-backup"][data-file-id="file-1"]')).not.toBeNull();
+        expect(container.querySelector('[data-action="cloud-save-backup"][data-file-id="file-1"]')).not.toBeNull();
+    });
+});
+
+describe('kanji dictionary preferences', () => {
+    it('renders imported kanji dictionaries only in the kanji source editor', () => {
+        const form = renderSettingsTestForm(mixedDictionarySettings);
+        const definitionEditor = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries > .jpdb-reader-dictionary-priorities')!;
+        const kanjiPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')!;
+
+        expect(Array.from(definitionEditor.querySelectorAll<HTMLElement>('[data-source-row]')).map(row => row.dataset.sourceId))
+            .toContain('Jitendex');
+        expect(definitionEditor.querySelector('input[name="dictionaryPreferences.1.name"]')).toBeNull();
+        expect(kanjiPanel.querySelector<HTMLInputElement>('input[name="dictionaryPreferences.1.name"]')?.value).toBe('KANJIDIC [2026-133]');
+        expect(kanjiPanel.textContent).toContain('KANJIDIC [2026-133]');
+        expect(form.querySelectorAll('input[name="dictionaryPreferences.1.name"]').length).toBe(1);
+    });
+
+    it('round-trips kanji dictionary toggles from the kanji source editor', () => {
+        const form = renderSettingsTestForm(mixedDictionarySettings);
+        const kanjiToggle = form.querySelector<HTMLInputElement>('#jpdb-reader-settings-panel-kanji input[name="dictionaryPreferences.1.enabled"]')!;
+
+        kanjiToggle.checked = false;
+
+        const saved = readFormSettings(new FormData(form), mixedDictionarySettings);
+        const kanjiPreference = saved.dictionaryPreferences.find(preference => preference.name === 'KANJIDIC [2026-133]');
+
+        expect(kanjiPreference).toMatchObject({ type: 'kanji', enabled: false });
+        expect(saved.localDictionaryShowKanji).toBe(false);
     });
 });
 
@@ -272,6 +371,16 @@ describe('settings form localization', () => {
         expect(buttons.slice(1).every(button => button.getAttribute('aria-selected') === 'false' && button.tabIndex === -1)).toBe(true);
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="appearance"]')?.hidden).toBe(false);
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(true);
+    });
+
+    it('keeps parsing, furigana, and underline controls visible on the default settings panel', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(controlFieldsetVisible(form, 'parseSelection')).toBe(true);
+        expect(controlFieldsetVisible(form, 'furiganaMode')).toBe(true);
+        expect(controlFieldsetVisible(form, 'wordUnderlineColorSource')).toBe(true);
+        expect(controlFieldsetVisible(form, 'subtitleUnderlineColorSource')).toBe(true);
     });
 
     it('gives Study settings their own top-level section', () => {

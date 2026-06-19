@@ -88,6 +88,7 @@ import {
 } from '../popup/render';
 import { applyPublicVocabularyFurigana, updateRenderedPitch } from '../app/dom-helpers';
 import { ReaderParser, fallbackLookupTermsForCard, jpdbFirstParseOptions } from '../lookup/parser';
+import { supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import {
     DEFAULT_SETTINGS,
     loadSettings,
@@ -1162,8 +1163,9 @@ export class NewTabRuntime {
                 rtkInfo,
                 buildRtkComponentSummaries(rtkInfo, jpdbInfo, kanjiEntries),
                 this.settings.interfaceLanguage,
-                this.dictionarySourceState.isOpen(sourceStateKey),
+                this.settings.dictionarySourcesInitiallyExpanded,
                 sourceStateKey,
+                (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
             ));
         };
 
@@ -1957,7 +1959,14 @@ export class NewTabRuntime {
         const sections: string[] = [];
         const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
         if (jpdbInfo) {
-            sections.push(renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, kanjiFactProviderTitle('jpdb')));
+            sections.push(renderJpdbKanjiInfo(
+                jpdbInfo,
+                this.settings.interfaceLanguage,
+                this.settings.dictionarySourcesInitiallyExpanded,
+                jpdbKey,
+                kanjiFactProviderTitle('jpdb'),
+                (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+            ));
         }
         if (jitenInfo) {
             const jitenKey = `${jpdbKey}:jiten`;
@@ -2232,13 +2241,14 @@ export class NewTabRuntime {
                 requireJpdb: false,
                 skipJpdb: true,
             });
-            await this.hydrateSettingsFallbackTokens(parsed);
+            const supplemented = supplementSettingsFallbackTokens(plan.targets, parsed);
+            await this.hydrateSettingsFallbackTokens(supplemented);
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             const currentPlan = nestedSettingsTextParsePlan(form, 640);
             if (!currentPlan) return;
-            const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan);
+            const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, supplemented, currentPlan);
             const renderSettings = settingsForSettingsFormParse(form, this.settings);
             applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
             addSettingsRubyFromRenderedReadings(form, renderSettings);

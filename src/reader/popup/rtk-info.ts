@@ -8,6 +8,8 @@ import type { YomitanKanjiEntry } from '../dictionaries/yomitan';
 import { isKanjiCharacter } from './pitch';
 import { sourceStateAttribute } from './source-state';
 
+type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
+
 export interface RtkComponentSummary {
     kanji: string;
     keyword: string;
@@ -143,14 +145,22 @@ function nextAnchoredRtkChip(chips: RtkElementChip[], afterIndex: number): RtkEl
     return null;
 }
 
-export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSummary[], language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string): string {
+export function renderRtkInfo(
+    info: RtkInfo | null,
+    components: RtkComponentSummary[],
+    language: InterfaceLanguage,
+    initiallyExpanded = true,
+    sourceStateKey?: string,
+    sourceAttributes?: SourceAttributes,
+): string {
     if (!info) return '';
     const elementChips = buildRtkElementChips(info, components);
     const readings = renderRtkReadings(info, language);
     const elementSection = renderRtkElementSection(elementChips, language);
-    const stories = renderRtkStories(info, language);
+    const stories = renderRtkStories(info, language, sourceStateKey, sourceAttributes);
+    const detailsAttributes = sourceStateDetailsAttribute(sourceStateKey, initiallyExpanded, sourceAttributes);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${detailsAttributes}>
             <summary class="jpdb-reader-local-title">RTK</summary>
             <div class="jpdb-reader-local-entry">
                 <div class="jpdb-reader-rtk-head">
@@ -163,6 +173,15 @@ export function renderRtkInfo(info: RtkInfo | null, components: RtkComponentSumm
             </div>
         </details>
     `;
+}
+
+function sourceStateDetailsAttribute(
+    sourceStateKey: string | undefined,
+    initiallyExpanded: boolean,
+    sourceAttributes: SourceAttributes | undefined,
+): string {
+    if (sourceStateKey && sourceAttributes) return sourceAttributes(sourceStateKey, initiallyExpanded);
+    return `${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}`;
 }
 
 function renderRtkReadings(info: RtkInfo, language: InterfaceLanguage): string {
@@ -186,10 +205,42 @@ function renderRtkElementChip(chip: ReturnType<typeof buildRtkElementChips>[numb
         : `<span>${content}</span>`;
 }
 
-function renderRtkStories(info: RtkInfo, language: InterfaceLanguage): string {
+function renderRtkStories(
+    info: RtkInfo,
+    language: InterfaceLanguage,
+    sourceStateKey: string | undefined,
+    sourceAttributes: SourceAttributes | undefined,
+): string {
     return [
-        info.heisigStory ? `<details><summary>${uiText(language, 'heisigStory')}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : '',
-        info.heisigComment ? `<details open><summary>${uiText(language, 'heisigComment')}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : '',
-        info.koohiiStories.length ? `<details><summary>${uiText(language, 'koohiiStories')}</summary>${info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join('')}</details>` : '',
+        renderRtkStorySection(info.heisigStory, uiText(language, 'heisigStory'), sourceStateKey, 'heisig-story', false, sourceAttributes),
+        renderRtkStorySection(info.heisigComment, uiText(language, 'heisigComment'), sourceStateKey, 'heisig-comment', true, sourceAttributes),
+        info.koohiiStories.length
+            ? renderRtkStorySection(
+                info.koohiiStories.map(story => `<p>${escapeHtml(story)}</p>`).join(''),
+                uiText(language, 'koohiiStories'),
+                sourceStateKey,
+                'koohii-stories',
+                false,
+                sourceAttributes,
+                true,
+            )
+            : '',
     ].join('');
+}
+
+function renderRtkStorySection(
+    content: string | undefined,
+    title: string,
+    sourceStateKey: string | undefined,
+    keySuffix: string,
+    initiallyExpanded: boolean,
+    sourceAttributes: SourceAttributes | undefined,
+    contentIsHtml = false,
+): string {
+    if (!content) return '';
+    const attributes = sourceStateKey
+        ? sourceStateDetailsAttribute(`${sourceStateKey}:${keySuffix}`, initiallyExpanded, sourceAttributes)
+        : initiallyExpanded ? 'open' : '';
+    const body = contentIsHtml ? content : `<p>${escapeHtml(content)}</p>`;
+    return `<details ${attributes}><summary>${title}</summary>${body}</details>`;
 }

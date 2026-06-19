@@ -33,6 +33,7 @@ const MANAGED_INDEXED_DB_NAMES = [
 ];
 const EXCLUDED_BACKUP_STORAGE_KEYS = new Set([
     FACTORY_RESET_SIGNAL_KEY,
+    'yomu:google-drive-oauth:v1',
 ]);
 
 type SyncStorageRead<T> = { kind: 'found'; value: T } | { kind: 'fallback' };

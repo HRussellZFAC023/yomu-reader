@@ -8,7 +8,7 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up Japanese text inside images and manga?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ's OCR detects Japanese text inside images and overlays invisible touch targets, so you can tap a word in a manga panel or screenshot and open the same popup dictionary you use on normal text."}},{"@type":"Question","name":"Is the manga OCR free?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ is a free userscript. Image OCR works with embedded OCR metadata when a site provides it, or with a local OCR engine such as MangaOCR, PaddleOCR, or YomiNinja-shaped servers that you run on your own computer."}},{"@type":"Question","name":"Is my image sent to a server?","acceptedAnswer":{"@type":"Answer","text":"The image is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings. Embedded OCR metadata is read directly from the page."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up Japanese text inside images and manga?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ's OCR detects Japanese text inside images and overlays invisible touch targets, so you can tap a word in a manga panel or screenshot and open the same popup dictionary you use on normal text."}},{"@type":"Question","name":"Is the manga OCR free?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ is a free userscript. Image OCR works with embedded OCR metadata when a site provides it, or with a local OCR engine such as MangaOCR, PaddleOCR, or YomiNinja-shaped servers that you run on your own computer."}}]}
 ---
 
 # Japanese OCR & Manga Text Reader
@@ -27,7 +27,7 @@ When you open an image, よむ finds the Japanese text and lays invisible touch 
 
 There are two ways よむ gets the text:
 
-- **Embedded OCR metadata.** Some sites and tools (for example Mokuro-processed manga) ship the recognized text alongside the image. よむ uses it directly — instant, accurate, and nothing leaves your device.
+- **Embedded OCR metadata.** Some sites and tools (for example Mokuro-processed manga) ship the recognized text alongside the image. よむ uses it directly for fast, accurate targets.
 - **A local OCR engine.** Point よむ at a local OCR app or server and it can recognize text on demand. It understands engines such as **MangaOCR**, **PaddleOCR**, Apple Vision–style results, and **YomiNinja**-shaped responses.
 
 ## Good for
@@ -41,10 +41,6 @@ There are two ways よむ gets the text:
   <figcaption>Image OCR settings for manga and embedded image text.</figcaption>
 </figure>
 
-## Privacy
-
-The image itself is **not** uploaded anywhere unless you turn on a local OCR endpoint — and that endpoint is the one you choose in settings, usually running on your own computer. Embedded OCR metadata is read straight from the page.
-
 ## Set it up
 
 1. Install the free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js) (see the [setup guide](/getting-started)).
@@ -56,8 +52,6 @@ The image itself is **not** uploaded anywhere unless you turn on a local OCR end
 **Can I look up Japanese inside manga images?** Yes — tap any word in the panel and the dictionary opens over it.
 
 **Is it free?** Yes. よむ is a free userscript; the local OCR engines it talks to are also free, open-source projects.
-
-**Does my image get uploaded?** Only if you enable a local OCR endpoint you control. Otherwise nothing leaves your device.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>

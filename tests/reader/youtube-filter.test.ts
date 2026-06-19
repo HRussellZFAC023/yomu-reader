@@ -396,6 +396,24 @@ describe('YouTube immersion filter', () => {
         expect(cards).toEqual([card('outer-video')]);
     });
 
+    it('does not collect YouTube cards from reader text mirrors', () => {
+        document.body.innerHTML = `
+            <main>
+                <ytd-rich-item-renderer data-case="outer-video">
+                    <a id="video-title" href="/watch?v=grid">東京散歩</a>
+                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true">
+                        <a href="/watch?v=grid"><span class="jpdb-reader-word">東京</span></a>
+                    </span>
+                </ytd-rich-item-renderer>
+            </main>
+        `;
+
+        const mirror = document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+
+        expect(collectYouTubeVideoCards(mirror)).toEqual([]);
+        expect(collectYouTubeVideoCards(document)).toEqual([card('outer-video')]);
+    });
+
     it('collects and filters mobile video-with-context media items', async () => {
         const { filter } = await startYoutubeFilter({
             oEmbedTitles: {
@@ -943,6 +961,32 @@ describe('YouTube immersion filter', () => {
         const filtered = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
         expect(filtered.textContent).toContain('しまじろうチャンネル');
         expect(filtered.querySelector<HTMLButtonElement>('[data-filter="kids"]')?.getAttribute('aria-pressed')).toBe('true');
+
+        filter.destroy();
+    });
+
+    it('localizes channel suggestion shelf chrome in Japanese', async () => {
+        expect(YOUTUBE_CHANNEL_RECOMMENDATION_COUNT).toBe(100);
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({
+            location: YOUTUBE_RESULTS_LOCATION,
+            settings: youtubeFilterSettings({ interfaceLanguage: 'ja' }),
+            oEmbedTitles: {
+                jp: '日本語で花の名前を覚える',
+                en: '10 habits for studying',
+                channel: 'study with me',
+                translated: '37,000 Lines of Slop',
+                modern: '東京カフェで朝ごはん',
+            },
+        });
+
+        const shelf = document.querySelector<HTMLElement>('.jpdb-youtube-channel-shelf')!;
+        expect(shelf.textContent).toContain('日本語YouTubeフィードを始める');
+        expect(shelf.textContent).toContain('厳選チャンネル100件');
+        expect(shelf.textContent).toContain('表示中を登録（8件）');
+        expect(shelf.textContent).toContain('すべて登録（100件）');
+        expect(shelf.textContent).toContain('閉じる');
+        expect(shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-one"]')?.textContent).toBe('登録');
 
         filter.destroy();
     });
@@ -1942,6 +1986,59 @@ describe('YouTube immersion filter', () => {
 
             expect(disconnect).toHaveBeenCalledTimes(1);
             expect(card('english').classList.contains('jpdb-youtube-filtered')).toBe(false);
+        } finally {
+            filter.destroy();
+            vi.stubGlobal('MutationObserver', OriginalMutationObserver);
+        }
+    });
+
+    it('ignores reader roots appended to the YouTube body without scheduling a rescan', () => {
+        vi.useFakeTimers();
+        renderYouTubeCards();
+        const OriginalMutationObserver = MutationObserver;
+        let callback: MutationCallback | undefined;
+        const MutationObserverMock = vi.fn((observerCallback: MutationCallback) => {
+            callback = observerCallback;
+            return {
+                observe: vi.fn(),
+                disconnect: vi.fn(),
+                takeRecords: () => [],
+            } as unknown as MutationObserver;
+        });
+        vi.stubGlobal('MutationObserver', MutationObserverMock);
+        const filter = createYoutubeFilter(() => youtubeFilterSettings());
+        const scheduleSpy = vi.spyOn(filter as unknown as { schedule(delay: number): void }, 'schedule');
+
+        try {
+            filter.init();
+            expect(callback).toBeDefined();
+            scheduleSpy.mockClear();
+
+            const settingsRoot = document.createElement('form');
+            settingsRoot.className = 'jpdb-reader-settings';
+            settingsRoot.dataset.jpdbReaderRoot = 'true';
+            settingsRoot.innerHTML = `
+                <a href="/watch?v=settings-link">Settings help link</a>
+                <button type="button">保存</button>
+                <div>字幕と辞書の設定</div>
+            `;
+            callback!([{
+                type: 'childList',
+                target: document.body,
+                addedNodes: [settingsRoot] as unknown as NodeList,
+                removedNodes: [] as unknown as NodeList,
+            } as unknown as MutationRecord], {} as MutationObserver);
+            expect(scheduleSpy).not.toHaveBeenCalled();
+
+            const cardRoot = document.createElement('ytd-rich-item-renderer');
+            cardRoot.innerHTML = '<a id="video-title" href="/watch?v=new-card">Desk setup tour</a>';
+            callback!([{
+                type: 'childList',
+                target: document.body,
+                addedNodes: [cardRoot] as unknown as NodeList,
+                removedNodes: [] as unknown as NodeList,
+            } as unknown as MutationRecord], {} as MutationObserver);
+            expect(scheduleSpy).toHaveBeenCalledWith(90);
         } finally {
             filter.destroy();
             vi.stubGlobal('MutationObserver', OriginalMutationObserver);

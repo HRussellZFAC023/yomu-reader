@@ -26,7 +26,7 @@ export class DictionarySourceStateController {
 
     attributes(sourceStateKey: string, initiallyExpanded = this.dependencies.getSettings().dictionarySourcesInitiallyExpanded): string {
         const isOpen = this.isOpen(sourceStateKey, initiallyExpanded);
-        return `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? ' open' : ''}`;
+        return `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"${isOpen ? ' open' : ''}`;
     }
 
     installTracking(popover: HTMLElement): void {

@@ -67,6 +67,7 @@ import {
     shouldReplaceWaitingNativeTrack,
 } from './subtitle-track-metadata';
 import { renderSubtitleTrackPanel, subtitleDrawerMetaText } from './subtitle-track-panel';
+import { installSubtitleFullscreenRedirect } from './subtitle-fullscreen-redirect';
 import {
     hasSelectedSubtitleTrackOrLines,
     subtitleDrawerButtonState,
@@ -679,6 +680,12 @@ export class SubtitlePlayerController {
         this.destroyed = false;
         this.abortController = new AbortController();
         this.install();
+        // Players that fullscreen the bare <video> (YouTube mobile / narrow
+        // layout) promote it to the top layer where it occludes our overlay;
+        // redirect that fullscreen to the player container so subtitles show.
+        if (isYouTubePage() || document.querySelector('[data-yomu-video-frame]')) {
+            installSubtitleFullscreenRedirect();
+        }
         this.observer = new MutationObserver(mutations => {
             if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
                 this.syncFullscreenState();
@@ -1440,16 +1447,26 @@ export class SubtitlePlayerController {
     private updateFromLoadedCues(): void {
         if (!this.video) return;
         const time = this.video.currentTime;
-        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time) : undefined;
         const secondary = this.secondaryTrackId
             ? (findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time))
             : undefined;
+        const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : undefined;
         if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
         else this.warmParseOnGapAnchorJump();
     }
 
-    private findRenderablePrimaryCue(time: number): SubtitleCue | undefined {
-        return findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+    // Auto-generated YouTube captions and their `&tlang=` translations are
+    // segmented independently, so the primary (JP) cue often begins a beat
+    // after — or falls into a gap relative to — the native (EN) line that's
+    // already active. That left no primary cue at the playhead while a native
+    // cue was active, showing the native line alone (user-reported). When the
+    // direct lookup misses but a native cue is active, surface the primary
+    // aligned to it so the pair appears together. Mirrors
+    // primaryHeldByActiveSecondary for the not-yet-shown direction.
+    private findRenderablePrimaryCue(time: number, activeSecondary?: SubtitleCue): SubtitleCue | undefined {
+        const direct = findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+        if (direct || !activeSecondary || !this.cues.length) return direct;
+        return findAlignedCue(this.cues, activeSecondary);
     }
 
     // A repeated seek that lands in another inter-cue gap changes no cue
@@ -4606,6 +4623,7 @@ export class SubtitlePlayerController {
     } = {}): void {
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
+            this.clearTranscriptPanelInlineLayout();
             return;
         }
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {
@@ -4832,6 +4850,7 @@ export class SubtitlePlayerController {
     }
 
     private syncFullscreenState(): void {
+        const wasFullscreen = this.fullscreen;
         const fullscreenElement = currentFullscreenElement();
         const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
         this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));
@@ -4840,10 +4859,27 @@ export class SubtitlePlayerController {
         this.root?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
+            // The drawer's JS layout is skipped in fullscreen, so drop any inline
+            // geometry left over from a windowed open and let the base CSS dock it
+            // as a top-layer overlay over the player.
+            this.clearTranscriptPanelInlineLayout();
             return;
         }
         this.transcriptLayoutReferenceRect = undefined;
         this.transcriptLayoutReferenceViewport = '';
+        // Just left fullscreen with the drawer still open: re-run the JS layout so
+        // it returns to its windowed dock (and re-applies the player inset) instead
+        // of keeping the cleared fullscreen overlay position. Gate on the transition
+        // so the common refresh()-driven sync stays cheap.
+        if (wasFullscreen && this.isTranscriptPanelOpen()) this.positionTranscriptPanel({ realignAfterInset: true });
+    }
+
+    private clearTranscriptPanelInlineLayout(): void {
+        const panel = this.transcriptPanel;
+        if (!panel) return;
+        for (const prop of ['position', 'left', 'top', 'right', 'bottom', 'width', 'height', 'max-height', 'z-index']) {
+            panel.style.removeProperty(prop);
+        }
     }
 
     private syncSubtitleRootParent(fullscreenHost: HTMLElement | null = this.subtitleFullscreenHost()): void {
@@ -4856,8 +4892,14 @@ export class SubtitlePlayerController {
         const parent = !fullscreenHost || fullscreenHost === document.documentElement
             ? document.body
             : fullscreenHost;
-        if (this.root.parentElement === parent) return;
-        parent.appendChild(this.root);
+        if (this.root.parentElement !== parent) parent.appendChild(this.root);
+        // The transcript drawer is a body-level sibling of the overlay (kept out
+        // of the overlay box so it isn't clipped). It must follow the overlay
+        // into the fullscreen top-layer host — otherwise an opened drawer renders
+        // under <body>, below the top-layer player, and is occluded by the video.
+        if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) {
+            parent.appendChild(this.transcriptPanel);
+        }
     }
 
     private subtitleFullscreenHost(fullscreenElement: Element | null = currentFullscreenElement()): HTMLElement | null {

@@ -622,7 +622,10 @@ describe('SubtitlePlayerController', () => {
                 internals.alignToVideo();
 
                 expect(root.parentElement).toBe(frame);
-                expect(panel.parentElement).toBe(document.body);
+                // The transcript drawer must follow the overlay into the fullscreen
+                // frame; otherwise it stays under <body>, below the top-layer
+                // player, and an opened drawer is occluded by the video.
+                expect(panel.parentElement).toBe(frame);
                 expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
                 expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
                 expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
@@ -635,6 +638,8 @@ describe('SubtitlePlayerController', () => {
                 internals.syncFullscreenState();
 
                 expect(root.parentElement).toBe(document.body);
+                // Drawer returns to <body> alongside the overlay when leaving fullscreen.
+                expect(panel.parentElement).toBe(document.body);
                 expect(document.documentElement.classList.contains('jpdb-subtitle-fullscreen')).toBe(false);
                 expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(false);
             } finally {
@@ -4361,6 +4366,49 @@ describe('SubtitlePlayerController', () => {
         (video as { currentTime: number }).currentTime = 3.5;
         internals.updateFromLoadedCues();
         expect(internals.currentCue?.text).toBe('こんにちは');
+        expect(document.querySelector('.jpdb-subtitle-secondary')?.textContent).toContain('Hello');
+
+        controller.destroy();
+    });
+
+    it('surfaces the aligned primary line when its auto-translated native cue starts first', () => {
+        // Mirror of the hold case for the not-yet-shown direction: independent
+        // normalization can make the Japanese cue START a beat after its English
+        // translation, so the playhead sits inside the English cue while the
+        // Japanese cue's own start is still ahead. The English line used to
+        // appear alone until the Japanese cue began (user-reported); surface the
+        // aligned Japanese cue so the pair shows together from the first frame.
+        const settings = makeSubtitleSettings({ subtitleSecondaryVisible: true });
+        const { controller } = createSubtitleController(settings);
+        installController(controller);
+        const video = attachVideo(controller, { currentTime: 0.5 });
+        const cues = [
+            { start: 0, end: 1, text: 'おはよう', transcriptEligible: true },
+            { start: 3.3, end: 4.2, text: 'こんにちは', transcriptEligible: true },
+        ];
+        const secondaryCues = [
+            { start: 0, end: 1, text: 'Good morning', transcriptEligible: true },
+            { start: 3.0, end: 4.2, text: 'Hello', transcriptEligible: true },
+        ];
+        const internals = controllerInternals<{
+            cues: typeof cues;
+            secondaryCues: typeof secondaryCues;
+            currentCue: typeof cues[number] | undefined;
+            selectedTrackId: string;
+            secondaryTrackId: string;
+            updateFromLoadedCues: () => void;
+        }>(controller);
+        internals.selectedTrackId = 'yt-ja';
+        internals.secondaryTrackId = 'yt-en';
+        internals.cues = cues;
+        internals.secondaryCues = secondaryCues;
+
+        // English cue [3.0,4.2] is active; the Japanese cue starts later (3.3)
+        // and is in a gap relative to the playhead, yet the pair must show.
+        (video as { currentTime: number }).currentTime = 3.1;
+        internals.updateFromLoadedCues();
+        expect(internals.currentCue?.text).toBe('こんにちは');
+        expect(document.querySelector('.jpdb-subtitle-primary')?.textContent).toContain('こんにちは');
         expect(document.querySelector('.jpdb-subtitle-secondary')?.textContent).toContain('Hello');
 
         controller.destroy();

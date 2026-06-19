@@ -2351,6 +2351,10 @@
       cancel: "Cancel",
       show: "Show",
       hide: "Hide",
+      dismiss: "Dismiss",
+      collapse: "Collapse",
+      subscribe: "Subscribe",
+      subscribed: "Subscribed",
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
@@ -2814,7 +2818,7 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import Yomitan settings, ZIPs, or backups.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links. Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "Frequency badges and external links. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -2874,6 +2878,24 @@
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
       settingsExported: "Settings exported.",
+      cloud: "Cloud",
+      cloudType: "Type",
+      googleDriveClientId: "Google OAuth client ID",
+      cloudSyncHelp: "Back up settings, stored choices, and imported dictionaries to Google Drive app data. Create a Google OAuth client for TVs and Limited Input devices, then paste its client ID here.",
+      cloudExport: "Export",
+      cloudShowBackups: "Show backups",
+      cloudRevokeToken: "Revoke access token",
+      cloudBackupsTitle: "Please select a file",
+      cloudNoBackups: "No Google Drive backups found.",
+      cloudImportBackup: "Import",
+      cloudDeleteBackup: "Delete",
+      cloudSaveBackup: "Save to disk",
+      cloudBackupUploaded: "Backup uploaded to Google Drive.",
+      cloudBackupDeleted: "Backup deleted.",
+      cloudBackupImported: "Google Drive backup imported.",
+      cloudBackupSaved: "Backup saved to disk.",
+      cloudDeleteConfirm: 'Delete "{file}" from Google Drive?',
+      cloudUnsupportedProvider: "Only Google Drive sync is available right now.",
       restoredStoredChoices: "restored {count} stored choice{plural}",
       importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
       dictionaryNoSupportedBanks: "No supported Yomitan dictionary banks found.",
@@ -2996,6 +3018,20 @@
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
+      youtubeChannelShelfTitle: "Start your Japanese YouTube feed",
+      youtubeChannelShelfExpandedCopy: "{shown} shown from {total} curated channels.",
+      youtubeChannelShelfCompactCopy: "{total} curated channels, shown as compact YouTube-style rows.",
+      youtubeChannelRecommendations: "Japanese channel recommendations",
+      youtubeChannelSubscribeVisible: "Subscribe visible ({count})",
+      youtubeChannelSubscribeAll: "Subscribe all {count}",
+      youtubeChannelAllSubscribed: "All {total} subscribed",
+      youtubeChannelBrowseAll: "Browse all channels",
+      subscribeToChannel: "Subscribe to {name}",
+      subscribedToChannel: "Subscribed to {name}",
+      youtubeChannelAlreadySubscribed: "All of these channels are already subscribed.",
+      youtubeChannelSubscribePartialStatus: "Subscribed to {subscribed}; {failed} could not be completed by YouTube.",
+      youtubeChannelSubscribeStatusSingular: "Subscribed to {count} channel.",
+      youtubeChannelSubscribeStatusPlural: "Subscribed to {count} channels.",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
       studyReveal: "Study: reveal card",
@@ -3336,8 +3372,9 @@
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
       recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
+      recommendedPixivLight: "Lightweight Pixiv Encyclopedia dictionary.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
+      recommendedJpdbKanji: "JPDB kanji dictionary for local kanji details.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
@@ -3506,6 +3543,24 @@ dictionaryRecordsImported	{dictionary}: {records}件インポートしました�
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
 settingsExported	設定をエクスポートしました。
+cloud	クラウド
+cloudType	種類
+googleDriveClientId	Google OAuthクライアントID
+cloudSyncHelp	設定、保存済み選択肢、インポート済み辞書をGoogle Driveのアプリデータにバックアップします。Google OAuthクライアント（テレビ・入力制限デバイス）を作成し、クライアントIDを貼ってください。
+cloudExport	エクスポート
+cloudShowBackups	バックアップを表示
+cloudRevokeToken	アクセストークンを取り消す
+cloudBackupsTitle	ファイルを選択してください
+cloudNoBackups	Google Driveバックアップが見つかりません。
+cloudImportBackup	インポート
+cloudDeleteBackup	削除
+cloudSaveBackup	ディスクに保存
+cloudBackupUploaded	Google Driveにバックアップしました。
+cloudBackupDeleted	バックアップを削除しました。
+cloudBackupImported	Google Driveバックアップをインポートしました。
+cloudBackupSaved	バックアップをディスクに保存しました。
+cloudDeleteConfirm	Google Driveから「{file}」を削除しますか？
+cloudUnsupportedProvider	現在利用できる同期先はGoogle Driveのみです。
 restoredStoredChoices	保存済み選択肢を{count}件復元
 importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応しているYomitan辞書バンクが見つかりません。
@@ -3905,6 +3960,10 @@ save	保存
 cancel	キャンセル
 show	表示
 hide	隠す
+dismiss	閉じる
+collapse	折りたたむ
+subscribe	登録
+subscribed	登録済み
 appearance	外観
 reading	読解
 sources	ソース
@@ -4332,7 +4391,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンク。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	頻度バッジと外部リンク。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -4382,6 +4441,20 @@ copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
+youtubeChannelShelfTitle	日本語YouTubeフィードを始める
+youtubeChannelShelfExpandedCopy	厳選チャンネル{total}件中{shown}件を表示しています。
+youtubeChannelShelfCompactCopy	厳選チャンネル{total}件をYouTube風のコンパクト行で表示しています。
+youtubeChannelRecommendations	日本語チャンネルのおすすめ
+youtubeChannelSubscribeVisible	表示中を登録（{count}件）
+youtubeChannelSubscribeAll	すべて登録（{count}件）
+youtubeChannelAllSubscribed	{total}件すべて登録済み
+youtubeChannelBrowseAll	すべてのチャンネルを見る
+subscribeToChannel	{name}を登録
+subscribedToChannel	{name}を登録済み
+youtubeChannelAlreadySubscribed	これらのチャンネルはすべて登録済みです。
+youtubeChannelSubscribePartialStatus	{subscribed}件を登録しました。{failed}件はYouTube側で完了できませんでした。
+youtubeChannelSubscribeStatusSingular	{count}件のチャンネルを登録しました。
+youtubeChannelSubscribeStatusPlural	{count}件のチャンネルを登録しました。
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
 massReviewNoWords	画面内に復習対象のJiten単語がありません。
@@ -4478,8 +4551,9 @@ recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
+recommendedPixivLight	軽量版Pixiv百科事典辞書です。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
+recommendedJpdbKanji	JPDB漢字情報のローカル辞書です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
 recommendedJiten	jiten.moe頻度データです。
@@ -4617,14 +4691,15 @@ recommendedJiten	jiten.moe頻度データです。
     }
     return null;
   }
-  function renderRtkInfo(info, components2, language, initiallyExpanded = true, sourceStateKey) {
+  function renderRtkInfo(info, components2, language, initiallyExpanded = true, sourceStateKey, sourceAttributes) {
     if (!info) return "";
     const elementChips = buildRtkElementChips(info, components2);
     const readings2 = renderRtkReadings(info, language);
     const elementSection = renderRtkElementSection(elementChips, language);
-    const stories = renderRtkStories(info, language);
+    const stories = renderRtkStories(info, language, sourceStateKey, sourceAttributes);
+    const detailsAttributes = sourceStateDetailsAttribute$1(sourceStateKey, initiallyExpanded, sourceAttributes);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${detailsAttributes}>
             <summary class="jpdb-reader-local-title">RTK</summary>
             <div class="jpdb-reader-local-entry">
                 <div class="jpdb-reader-rtk-head">
@@ -4637,6 +4712,10 @@ recommendedJiten	jiten.moe頻度データです。
             </div>
         </details>
     `;
+  }
+  function sourceStateDetailsAttribute$1(sourceStateKey, initiallyExpanded, sourceAttributes) {
+    if (sourceStateKey && sourceAttributes) return sourceAttributes(sourceStateKey, initiallyExpanded);
+    return `${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}`;
   }
   function renderRtkReadings(info, language) {
     if (!info.onYomi && !info.kunYomi) return "";
@@ -4652,12 +4731,26 @@ recommendedJiten	jiten.moe頻度データです。
     const content = `${chip.glyph ? `<strong>${escapeHtml(chip.glyph)}</strong>` : ""}<span>${escapeHtml(chip.keyword)}</span>`;
     return chip.kanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml(chip.kanji)}" title="${escapeHtml(`${uiText(language, "showKanji")}: ${chip.kanji}`)}">${content}</button>` : `<span>${content}</span>`;
   }
-  function renderRtkStories(info, language) {
+  function renderRtkStories(info, language, sourceStateKey, sourceAttributes) {
     return [
-      info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml(info.heisigStory)}</p></details>` : "",
-      info.heisigComment ? `<details open><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml(info.heisigComment)}</p></details>` : "",
-      info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml(story)}</p>`).join("")}</details>` : ""
+      renderRtkStorySection(info.heisigStory, uiText(language, "heisigStory"), sourceStateKey, "heisig-story", false, sourceAttributes),
+      renderRtkStorySection(info.heisigComment, uiText(language, "heisigComment"), sourceStateKey, "heisig-comment", true, sourceAttributes),
+      info.koohiiStories.length ? renderRtkStorySection(
+        info.koohiiStories.map((story) => `<p>${escapeHtml(story)}</p>`).join(""),
+        uiText(language, "koohiiStories"),
+        sourceStateKey,
+        "koohii-stories",
+        false,
+        sourceAttributes,
+        true
+      ) : ""
     ].join("");
+  }
+  function renderRtkStorySection(content, title, sourceStateKey, keySuffix, initiallyExpanded, sourceAttributes, contentIsHtml = false) {
+    if (!content) return "";
+    const attributes = sourceStateKey ? sourceStateDetailsAttribute$1(`${sourceStateKey}:${keySuffix}`, initiallyExpanded, sourceAttributes) : initiallyExpanded ? "open" : "";
+    const body = contentIsHtml ? content : `<p>${escapeHtml(content)}</p>`;
+    return `<details ${attributes}><summary>${title}</summary>${body}</details>`;
   }
   function graphEllipseOffset(dx, dy, rx, ry) {
     const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
@@ -5830,7 +5923,7 @@ recommendedJiten	jiten.moe頻度データです。
       return void 0;
     }
   }
-  function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents")) {
+  function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents"), sourceAttributes) {
     if (!info) return "";
     const facts = [
       [uiText(language, "factKeyword"), info.keyword],
@@ -5843,9 +5936,10 @@ recommendedJiten	jiten.moe頻度データです。
     const factSection = renderJpdbKanjiFactSection(facts);
     const readingsSection = renderJpdbKanjiReadings(info);
     const componentSection = renderJpdbKanjiComponents(info, language);
-    const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
+    const mnemonicSection = renderJpdbKanjiMnemonic(info, language, sourceStateKey, sourceAttributes);
+    const detailsAttributes = sourceStateDetailsAttribute(sourceStateKey, initiallyExpanded, sourceAttributes);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${detailsAttributes}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
@@ -5856,8 +5950,9 @@ recommendedJiten	jiten.moe頻度データです。
         </details>
     `;
   }
-  function expandedAttribute(initiallyExpanded) {
-    return initiallyExpanded ? "open" : "";
+  function sourceStateDetailsAttribute(sourceStateKey, initiallyExpanded, sourceAttributes) {
+    if (sourceStateKey && sourceAttributes) return sourceAttributes(sourceStateKey, initiallyExpanded);
+    return `${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}`;
   }
   function renderJpdbKanjiFactSection(facts) {
     if (!facts.length) return "";
@@ -5880,8 +5975,10 @@ recommendedJiten	jiten.moe頻度データです。
         </button>`).join("")}
     </div>`;
   }
-  function renderJpdbKanjiMnemonic(info, language) {
-    return info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : "";
+  function renderJpdbKanjiMnemonic(info, language, sourceStateKey, sourceAttributes) {
+    if (!info.mnemonic) return "";
+    const attributes = sourceStateKey ? sourceStateDetailsAttribute(`${sourceStateKey}:mnemonic`, false, sourceAttributes) : "";
+    return `<details ${attributes}><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml(info.mnemonic)}</p></details>`;
   }
   function renderJpdbKanjiMiningControls(info, language) {
     const actions = visibleJpdbKanjiActions(info);

@@ -1,5 +1,5 @@
 import { APP_NAME } from '../app/constants';
-import { uiText } from '../app/i18n';
+import { formatUiText, uiText } from '../app/i18n';
 import type { ReaderSettings } from '../app/types';
 import {
     YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
@@ -23,6 +23,7 @@ import {
 
 const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
 const YOUTUBE_READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+const YOUTUBE_READER_OWNED_SELECTOR = `${YOUTUBE_READER_ROOT_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-word`;
 const YOUTUBE_FILTERED_CLASS = 'jpdb-youtube-filtered';
 const YOUTUBE_UNRENDERED_SLOT_CLASS = 'jpdb-youtube-unrendered-slot';
 const YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE = 3;
@@ -178,9 +179,16 @@ function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
 }
 
+function isInsideReaderRoot(node: ParentNode | Node): boolean {
+    if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    return false;
+}
+
 export { isProbablyJapaneseYouTubeText };
 
 export function collectYouTubeVideoCards(root: ParentNode = document): HTMLElement[] {
+    if (isInsideReaderRoot(root)) return [];
     const cards = new Set<HTMLElement>();
     root.querySelectorAll<HTMLElement>(VIDEO_CARD_SELECTOR).forEach(card => {
         const normalized = normalizeYouTubeVideoCard(card);
@@ -887,7 +895,7 @@ export class YoutubeImmersionFilter {
         shelf.className = 'jpdb-youtube-channel-shelf';
         shelf.dataset.jpdbReaderRoot = 'true';
         shelf.setAttribute('role', 'region');
-        shelf.setAttribute('aria-label', 'Japanese channel recommendations');
+        shelf.setAttribute('aria-label', uiText(this.options.getSettings().interfaceLanguage, 'youtubeChannelRecommendations'));
 
         const header = document.createElement('div');
         header.className = 'jpdb-youtube-channel-shelf-head';
@@ -975,19 +983,23 @@ export class YoutubeImmersionFilter {
         recommendations: YouTubeChannelRecommendation[],
         renderedRecommendations: YouTubeChannelRecommendation[],
     ): void {
-        elements.title.textContent = 'Start your Japanese YouTube feed';
+        const language = this.options.getSettings().interfaceLanguage;
+        elements.title.textContent = uiText(language, 'youtubeChannelShelfTitle');
         elements.copy.textContent = this.channelShelfExpanded
-            ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.`
-            : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+            ? formatUiText(language, 'youtubeChannelShelfExpandedCopy', {
+                shown: recommendations.length,
+                total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT,
+            })
+            : formatUiText(language, 'youtubeChannelShelfCompactCopy', { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
         const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
-        elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
+        elements.subscribeVisible.textContent = formatUiText(language, 'youtubeChannelSubscribeVisible', { count: renderedRecommendations.length });
         elements.subscribeVisible.hidden = !renderedRecommendations.length;
         elements.subscribeAll.textContent = remainingChannels
-            ? `Subscribe all ${remainingChannels}`
-            : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
-        elements.dismiss.textContent = 'Dismiss';
-        elements.never.textContent = 'Hide';
-        elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
+            ? formatUiText(language, 'youtubeChannelSubscribeAll', { count: remainingChannels })
+            : formatUiText(language, 'youtubeChannelAllSubscribed', { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
+        elements.dismiss.textContent = uiText(language, 'dismiss');
+        elements.never.textContent = uiText(language, 'hide');
+        elements.expand.textContent = uiText(language, this.channelShelfExpanded ? 'collapse' : 'youtubeChannelBrowseAll');
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
         if (!this.subscriptionBusy) elements.status.textContent = this.channelShelfStatusOverride;
     }
@@ -1106,8 +1118,9 @@ export class YoutubeImmersionFilter {
     private renderChannelSubscribeButton(channel: YouTubeChannelRecommendation): HTMLButtonElement {
         const subscribe = channelShelfButton('subscribe-one');
         subscribe.dataset.handle = channel.handle;
-        subscribe.textContent = 'Subscribe';
-        subscribe.setAttribute('aria-label', `Subscribe to ${channel.name}`);
+        const language = this.options.getSettings().interfaceLanguage;
+        subscribe.textContent = uiText(language, 'subscribe');
+        subscribe.setAttribute('aria-label', formatUiText(language, 'subscribeToChannel', { name: channel.name }));
         return subscribe;
     }
 
@@ -1316,7 +1329,7 @@ export class YoutubeImmersionFilter {
         const elements = this.channelShelfElements(this.ensureChannelShelf());
         if (!channels.length) {
             // Never leave the button looking dead: say why nothing happened.
-            this.setChannelShelfStatus(elements, 'All of these channels are already subscribed.');
+            this.setChannelShelfStatus(elements, uiText(this.options.getSettings().interfaceLanguage, 'youtubeChannelAlreadySubscribed'));
             return;
         }
         const config = readYouTubeClientConfig();
@@ -1360,9 +1373,10 @@ export class YoutubeImmersionFilter {
         this.markChannelSubscriptionCompleteIfReady({ keepShelf: true });
         this.subscriptionBusy = false;
         this.setChannelShelfBusy(false);
+        const language = this.options.getSettings().interfaceLanguage;
         this.setChannelShelfStatus(elements, failed
-            ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.`
-            : `Subscribed to ${subscribed} channel${subscribed === 1 ? '' : 's'}.`);
+            ? formatUiText(language, 'youtubeChannelSubscribePartialStatus', { subscribed, failed })
+            : formatUiText(language, subscribed === 1 ? 'youtubeChannelSubscribeStatusSingular' : 'youtubeChannelSubscribeStatusPlural', { count: subscribed }));
         if (subscribed) this.scheduleChannelShelfRefresh();
     }
 
@@ -1382,8 +1396,9 @@ export class YoutubeImmersionFilter {
         row?.classList.add('is-subscribed');
         if (!button) return;
         button.disabled = true;
-        button.textContent = 'Subscribed ✓';
-        button.setAttribute('aria-label', `Subscribed to ${channel.name}`);
+        const language = this.options.getSettings().interfaceLanguage;
+        button.textContent = uiText(language, 'subscribed');
+        button.setAttribute('aria-label', formatUiText(language, 'subscribedToChannel', { name: channel.name }));
     }
 
     private scheduleChannelShelfRefresh(delayMs = 1800): void {
@@ -2143,6 +2158,7 @@ function feedScrollAnchorElement(mutated: HTMLElement): HTMLElement | null {
 }
 
 function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
+    if (isInsideReaderRoot(root)) return [];
     const items = new Set<HTMLElement>(collectYouTubeVideoCards(root));
     root.querySelectorAll<HTMLElement>(`${VIDEO_CARD_SELECTOR},${NON_VIDEO_CONTAINER_SELECTOR}`).forEach(element => {
         const normalized = normalizeYouTubeFilterItem(element);
@@ -2551,12 +2567,15 @@ function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
     const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
     return nodes.every(node => {
         const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
-        return Boolean(element?.closest?.(YOUTUBE_READER_ROOT_SELECTOR));
+        return Boolean(element?.closest?.(YOUTUBE_READER_OWNED_SELECTOR));
     });
 }
 
 function mutationMayAffectYouTubeCards(mutation: MutationRecord): boolean {
-    const nodes = [mutation.target, ...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const nodes = mutation.type === 'childList' && changedNodes.length
+        ? changedNodes
+        : [mutation.target, ...changedNodes];
     return nodes.some(nodeMayAffectYouTubeCards);
 }
 
@@ -2570,7 +2589,7 @@ function nodeMayAffectYouTubeCards(node: Node): boolean {
 
 function elementForYouTubeCardMutation(node: Node): Element | null {
     const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
-    if (!element || element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return null;
+    if (!element || isInsideReaderRoot(element)) return null;
     return element;
 }
 

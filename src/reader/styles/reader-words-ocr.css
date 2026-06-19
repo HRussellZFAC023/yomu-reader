@@ -6,9 +6,9 @@
   --jpdb-reader-word-inline-gap: 0.08em;
   --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap));
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
-  --jpdb-reader-word-underline-offset: 0.16em;
+  --jpdb-reader-word-underline-offset: 0.12em;
   --jpdb-reader-word-underline-style: solid;
-  --jpdb-reader-word-underline-thickness: 2px;
+  --jpdb-reader-word-underline-thickness: 1px;
   --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, currentColor));
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
   --jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);
@@ -736,7 +736,7 @@
 
 /* UT-47: hover-only furigana — ruby is rendered but only visible while the
    word is hovered (visibility keeps the line height stable). */
-.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi {
+.yomu-furi-hover .jpdb-reader-word:not(:hover):not(.jpdb-reader-hover-active) .jpdb-reader-furi {
   visibility: hidden;
 }
 

@@ -982,6 +982,7 @@ describe('OCR sentence focus', () => {
             await waitForExpect(() => {
                 expect(fetchMock).toHaveBeenCalledTimes(1);
                 expect(document.querySelector('.jpdb-ocr-status')).toBeNull();
+                expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
             });
 
             dispatchPointerEvent(second, 'pointerover');
@@ -989,6 +990,7 @@ describe('OCR sentence focus', () => {
             await new Promise(resolve => setTimeout(resolve, 20));
             expect(fetchMock).toHaveBeenCalledTimes(1);
             expect(document.querySelector('.jpdb-ocr-status')).toBeNull();
+            expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
         } finally {
             controller.destroy();
             restoreCanvas();

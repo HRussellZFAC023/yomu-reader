@@ -5796,7 +5796,14 @@ export class NewTabController {
         if (!settings.rtkEnabled || !rtk) return null;
         const componentSummaries = buildRtkComponentSummaries(rtk, fullInfo, localEntries);
         const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
-        const section = htmlToFirstElement(renderRtkInfo(rtk, componentSummaries, settings.interfaceLanguage, this.isSourceOpen(sourceStateKey), sourceStateKey));
+        const section = htmlToFirstElement(renderRtkInfo(
+            rtk,
+            componentSummaries,
+            settings.interfaceLanguage,
+            settings.dictionarySourcesInitiallyExpanded,
+            sourceStateKey,
+            (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded),
+        ));
         section?.classList.add('jpdb-reader-newtab-rtk-source');
         return section;
     }

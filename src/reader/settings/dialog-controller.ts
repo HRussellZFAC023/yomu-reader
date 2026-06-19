@@ -12,7 +12,7 @@ import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '..
 import { installSettingsDrawerHandle } from '../popup/shell';
 import { mergeDictionaryPreferences, normalizeReaderSettings, saveSettings } from './index';
 import { effectiveJpdbApiKey, hasJitenApiCredential, mergeApiCredentialValues } from './api-credential';
-import { exportManagedStoredValues, importStoredValues } from '../app/storage';
+import { importStoredValues } from '../app/storage';
 import {
     activateSettingsPanel,
     applySettingsSearch,
@@ -33,6 +33,8 @@ import {
     renderDeckControls,
     renderDictionarySourceRows,
     renderFrequencyDictionaryRows,
+    renderCloudBackupList,
+    renderKanjiSourceRows,
     renderRecommendedDictionaries,
     appearancePreviewContentHtml,
     renderSettingsForm,
@@ -45,11 +47,13 @@ import {
     syncReviewSettingsVisibility,
     syncStickyBottomSheetAvailability,
     syncSubtitlePreview,
+    syncSourceRowOrder,
     updateAudioSourceEditor,
     updateDictionaryLookupLinkEditor,
     updateSourceRowEditor,
 } from './form';
 import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
+import { createReaderSettingsBackupBlob, googleDriveBackupFileName, GoogleDriveSyncClient } from './cloud-sync';
 import { updateAnkiTagsEditor } from './form-tags';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult } from '../anki/types';
@@ -98,6 +102,7 @@ interface DictionaryStatusElements {
     status: HTMLElement | null;
     priorities: HTMLElement | null;
     frequency: HTMLElement | null;
+    kanjiPriorities: HTMLElement | null;
     recommended: HTMLElement | null;
 }
 
@@ -155,6 +160,16 @@ const SETTINGS_FOCUS_SCROLL_RETRY_MS = 320;
 function settingsStatusSetter(status: HTMLElement | null): SettingsStatusSetter {
     return message => {
         if (status) status.textContent = message;
+    };
+}
+
+function settingsActionStatusSetter(form: HTMLFormElement, action: string): SettingsStatusSetter {
+    if (!isCloudSyncAction(action)) return settingsStatusSetter(form.querySelector<HTMLElement>('[data-import-status]'));
+    const status = form.querySelector<HTMLElement>('[data-cloud-sync-status]');
+    return message => {
+        if (!status) return;
+        delete status.dataset.cloudSyncDefaultStatus;
+        status.textContent = message;
     };
 }
 
@@ -444,7 +459,9 @@ function handleSettingsActionError(
 }
 
 function shouldReenableSettingsAction(action: string): boolean {
-    return action === 'download-recommended-dictionary' || action === 'delete-yomitan-dictionary';
+    return action.startsWith('cloud-')
+        || action === 'download-recommended-dictionary'
+        || action === 'delete-yomitan-dictionary';
 }
 
 function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElements {
@@ -452,6 +469,7 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
         status: form.querySelector<HTMLElement>('[data-dictionary-status]'),
         priorities: form.querySelector<HTMLElement>('.jpdb-reader-dictionary-priorities'),
         frequency: form.querySelector<HTMLElement>('[data-frequency-dictionaries]'),
+        kanjiPriorities: form.querySelector<HTMLElement>('.jpdb-reader-kanji-priorities'),
         recommended: form.querySelector<HTMLElement>('[data-recommended-dictionaries]'),
     };
 }
@@ -459,8 +477,33 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
 function renderDictionaryStatusElements(elements: DictionaryStatusElements, summary: DictionarySummary, settings: ReaderSettings): void {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
+    if (elements.frequency) {
+        const frequencyRows = renderFrequencyDictionaryRows(settings);
+        setInnerHtml(elements.frequency, frequencyRows);
+        elements.frequency.hidden = !frequencyRows;
+    }
+    if (elements.kanjiPriorities) setInnerHtml(elements.kanjiPriorities, renderKanjiSourceRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
+}
+
+function removeDictionaryFromSettingsPanel(form: HTMLFormElement, dictionary: string): boolean {
+    const rows = Array.from(form.querySelectorAll<HTMLElement>('[data-dictionary-source-row]')).filter(row => {
+        const rowName = row.querySelector<HTMLInputElement>('input[name$=".name"]')?.value;
+        const removeButton = row.querySelector<HTMLButtonElement>('[data-action="delete-yomitan-dictionary"]');
+        return rowName === dictionary || removeButton?.dataset.dictionaryName === dictionary;
+    });
+    if (!rows.length) return false;
+
+    const editors = new Set(rows.flatMap(row => {
+        const editor = row.closest<HTMLElement>('[data-source-editor]');
+        return editor ? [editor] : [];
+    }));
+    rows.forEach(row => row.remove());
+    editors.forEach(editor => {
+        syncSourceRowOrder(editor);
+        if (editor.matches('[data-frequency-dictionaries]')) editor.hidden = !editor.querySelector('[data-source-row]');
+    });
+    return true;
 }
 
 function dictionaryStatusText(summary: DictionarySummary, language: InterfaceLanguage): string {
@@ -1400,8 +1443,7 @@ export class SettingsDialogController {
     }
 
     private async handleSettingsAction(form: HTMLFormElement, action: string, control?: HTMLElement | null): Promise<void> {
-        const status = form.querySelector<HTMLElement>('[data-import-status]');
-        const setStatus = settingsStatusSetter(status);
+        const setStatus = settingsActionStatusSetter(form, action);
 
         try {
             await this.runSettingsAction(form, action, control, setStatus);
@@ -1416,7 +1458,8 @@ export class SettingsDialogController {
         const handled = this.handleSettingsEditorAction(form, action, control)
             || await this.handleSettingsAudioAction(form, action, control)
             || await this.handleSettingsDictionaryAction(form, action, control, setStatus)
-            || await this.handleSettingsImportExportAction(form, action, setStatus);
+            || await this.handleSettingsImportExportAction(form, action, setStatus)
+            || await this.handleSettingsCloudAction(form, action, control, setStatus);
         if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
 
@@ -1521,19 +1564,139 @@ export class SettingsDialogController {
         }
         if (action === 'export-reader-settings') {
             const dictionaries = await this.exportReaderDictionaryBackup();
-            downloadBlob(new Blob([JSON.stringify({
-                formatName: 'yomu-reader-settings',
-                formatVersion: 3,
-                exportedAt: new Date().toISOString(),
-                settings: this.settings,
-                storage: await exportManagedStoredValues(),
-                ...(dictionaries ? { dictionaries } : {}),
-            }, null, 2)], { type: 'application/json' }), `yomu-settings-${dateStamp()}.json`);
+            downloadBlob(await createReaderSettingsBackupBlob(this.settings, dictionaries), `yomu-settings-${dateStamp()}.json`);
             setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), 'settingsExported'));
             log.info('Settings exported');
             return true;
         }
         return false;
+    }
+
+    private async handleSettingsCloudAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
+        if (!isCloudSyncAction(action)) return false;
+        if (action === 'cloud-hide-backups') {
+            this.hideCloudBackups(form);
+            return true;
+        }
+
+        const button = settingsActionButton(control);
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        const formSettings = readFormSettings(new FormData(form), this.settings);
+        const client = this.googleDriveSyncClient(formSettings, language);
+        button?.setAttribute('disabled', 'true');
+        try {
+            if (action === 'cloud-export-settings') {
+                await this.uploadCloudSettingsBackup(client, formSettings, setStatus, language);
+                return true;
+            }
+            if (action === 'cloud-show-backups') {
+                await this.showCloudBackups(form, client, setStatus, language);
+                return true;
+            }
+            if (action === 'cloud-import-backup') {
+                await this.importCloudBackup(client, control, setStatus, language);
+                return true;
+            }
+            if (action === 'cloud-delete-backup') {
+                await this.deleteCloudBackup(form, client, control, setStatus, language);
+                return true;
+            }
+            if (action === 'cloud-save-backup') {
+                await this.saveCloudBackup(client, control, setStatus, language);
+                return true;
+            }
+            if (action === 'cloud-revoke-token') {
+                await client.revoke(setStatus);
+                return true;
+            }
+        } finally {
+            button?.removeAttribute('disabled');
+        }
+        return false;
+    }
+
+    private googleDriveSyncClient(settings: ReaderSettings, language: InterfaceLanguage): GoogleDriveSyncClient {
+        if (settings.cloudSyncProvider !== 'google-drive') throw new Error(uiText(language, 'cloudUnsupportedProvider'));
+        return new GoogleDriveSyncClient(settings.googleDriveClientId);
+    }
+
+    private async uploadCloudSettingsBackup(
+        client: GoogleDriveSyncClient,
+        settings: ReaderSettings,
+        setStatus: SettingsStatusSetter,
+        language: InterfaceLanguage,
+    ): Promise<void> {
+        const dictionaries = await this.exportReaderDictionaryBackup();
+        const blob = await createReaderSettingsBackupBlob(settings, dictionaries);
+        await client.uploadBackup(blob, googleDriveBackupFileName(), setStatus);
+        setStatus(uiText(language, 'cloudBackupUploaded'));
+        this.dependencies.toast(uiText(language, 'cloudBackupUploaded'));
+    }
+
+    private async showCloudBackups(
+        form: HTMLFormElement,
+        client: GoogleDriveSyncClient,
+        setStatus: SettingsStatusSetter,
+        language: InterfaceLanguage,
+    ): Promise<void> {
+        const files = await client.listBackups(setStatus);
+        this.renderCloudBackups(form, files, language);
+        setStatus(files.length ? uiText(language, 'cloudBackupsTitle') : uiText(language, 'cloudNoBackups'));
+    }
+
+    private async importCloudBackup(
+        client: GoogleDriveSyncClient,
+        control: HTMLElement | null | undefined,
+        setStatus: SettingsStatusSetter,
+        language: InterfaceLanguage,
+    ): Promise<void> {
+        const fileId = cloudBackupFileId(control);
+        const blob = await client.downloadBackup(fileId, setStatus);
+        const json = JSON.parse(await blob.text()) as unknown;
+        await this.importReaderSettingsJson(json, setStatus);
+        this.dependencies.toast(uiText(language, 'cloudBackupImported'));
+    }
+
+    private async deleteCloudBackup(
+        form: HTMLFormElement,
+        client: GoogleDriveSyncClient,
+        control: HTMLElement | null | undefined,
+        setStatus: SettingsStatusSetter,
+        language: InterfaceLanguage,
+    ): Promise<void> {
+        const fileId = cloudBackupFileId(control);
+        const fileName = cloudBackupFileName(control);
+        if (!window.confirm(formatUiTemplate(uiText(language, 'cloudDeleteConfirm'), { file: fileName }))) return;
+        await client.deleteBackup(fileId, setStatus);
+        setStatus(uiText(language, 'cloudBackupDeleted'));
+        this.dependencies.toast(uiText(language, 'cloudBackupDeleted'));
+        await this.showCloudBackups(form, client, setStatus, language);
+    }
+
+    private async saveCloudBackup(
+        client: GoogleDriveSyncClient,
+        control: HTMLElement | null | undefined,
+        setStatus: SettingsStatusSetter,
+        language: InterfaceLanguage,
+    ): Promise<void> {
+        const fileName = cloudBackupFileName(control);
+        const blob = await client.downloadBackup(cloudBackupFileId(control), setStatus);
+        downloadBlob(blob, fileName);
+        setStatus(uiText(language, 'cloudBackupSaved'));
+    }
+
+    private renderCloudBackups(form: HTMLFormElement, files: Parameters<typeof renderCloudBackupList>[0], language: InterfaceLanguage): void {
+        const container = form.querySelector<HTMLElement>('[data-cloud-backups]');
+        if (!container) throw new Error('Cloud backup list is unavailable.');
+        setInnerHtml(container, renderCloudBackupList(files, language));
+        container.hidden = false;
+    }
+
+    private hideCloudBackups(form: HTMLFormElement): void {
+        const container = form.querySelector<HTMLElement>('[data-cloud-backups]');
+        if (!container) return;
+        container.hidden = true;
+        container.replaceChildren();
     }
 
     private async exportReaderDictionaryBackup(): Promise<unknown | undefined> {
@@ -1879,16 +2042,22 @@ export class SettingsDialogController {
         if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoveConfirm'), { dictionary }))) return;
         control?.setAttribute('disabled', 'true');
         setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoving'), { dictionary }));
-        await this.dependencies.dictionaries.deleteDictionary(dictionary);
-        await clearNewTabOfflineCache().catch(() => undefined);
-        this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
-        await saveSettings(this.settings);
-        await this.dependencies.refreshDictionaryStyles();
-        this.dependencies.scheduleDictionaryRescan();
-        await this.refreshDictionaryStatus(form);
-        this.dependencies.refreshNewTabIfCurrent();
-        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoved'), { dictionary }));
-        log.info('Dictionary removed', { dictionary });
+        const removedFromPanel = removeDictionaryFromSettingsPanel(form, dictionary);
+        try {
+            await this.dependencies.dictionaries.deleteDictionary(dictionary);
+            await clearNewTabOfflineCache().catch(() => undefined);
+            this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter(item => item.name !== dictionary);
+            await saveSettings(this.settings);
+            await this.dependencies.refreshDictionaryStyles();
+            this.dependencies.scheduleDictionaryRescan();
+            await this.refreshDictionaryStatus(form);
+            this.dependencies.refreshNewTabIfCurrent();
+            setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, 'dictionaryRemoved'), { dictionary }));
+            log.info('Dictionary removed', { dictionary });
+        } catch (error) {
+            if (removedFromPanel) await this.refreshDictionaryStatus(form).catch(refreshError => log.warn('Dictionary status refresh after failed remove failed', refreshError));
+            throw error;
+        }
     }
 
     private async importDictionaryFromSettings(form: HTMLFormElement, setStatus: SettingsStatusSetter): Promise<void> {
@@ -2013,6 +2182,10 @@ export class SettingsDialogController {
         const file = await pickFile(form, 'settings');
         if (!file) return;
         const json = JSON.parse(await file.text()) as unknown;
+        await this.importReaderSettingsJson(json, setStatus);
+    }
+
+    private async importReaderSettingsJson(json: unknown, setStatus: SettingsStatusSetter): Promise<void> {
         const readerSettings = getReaderSettingsExport(json);
         this.settings = readerSettings
             ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } })
@@ -2061,6 +2234,20 @@ function isAudioSourceEditorAction(action: string): boolean {
 
 function isLookupLinkEditorAction(action: string): boolean {
     return action === 'lookup-link-add' || action === 'lookup-link-remove' || action === 'lookup-link-up' || action === 'lookup-link-down';
+}
+
+function isCloudSyncAction(action: string): boolean {
+    return action.startsWith('cloud-');
+}
+
+function cloudBackupFileId(control: HTMLElement | null | undefined): string {
+    const fileId = control?.dataset.fileId?.trim();
+    if (!fileId) throw new Error('Google Drive backup file is missing.');
+    return fileId;
+}
+
+function cloudBackupFileName(control: HTMLElement | null | undefined): string {
+    return control?.dataset.fileName?.trim() || googleDriveBackupFileName();
 }
 
 function getReaderStorageExport(value: unknown): unknown {

@@ -239,6 +239,7 @@ import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffect
 import { NativeTitleGuard } from './native-title-guard';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 
@@ -329,6 +330,8 @@ type ReaderLifecycleSurface = {
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
+const PASSIVE_TOUCH_TAP_MOVEMENT_PX = 12;
+const ACTIVE_HOVER_WORD_CLASS = 'jpdb-reader-hover-active';
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.textBox',
     '.ocr-line',
@@ -400,6 +403,20 @@ type FullscreenDocument = Document & {
     mozFullScreenElement?: Element | null;
     msFullscreenElement?: Element | null;
 };
+
+interface PassiveTouchLookupState {
+    pointerId: number;
+    startX: number;
+    startY: number;
+    word: HTMLElement;
+}
+
+interface SuppressedPassiveTouchClick {
+    until: number;
+    host: HTMLElement | null;
+    lookupKey: string;
+    word: HTMLElement;
+}
 
 function currentFullscreenElement(): Element | null {
     const fullscreenDocument = document as FullscreenDocument;
@@ -682,6 +699,8 @@ export class ReaderApp {
     private pageHasJapaneseText = false;
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
+    private passiveTouchLookup?: PassiveTouchLookupState;
+    private suppressedPassiveTouchClick?: SuppressedPassiveTouchClick;
     private suppressMiddleAuxClickUntil = 0;
 
     constructor() {
@@ -1423,6 +1442,7 @@ export class ReaderApp {
             'similar-word': () => this.lookupTextFromAddonAction(actionButton),
             lookup: () => this.lookupTextFromAddonAction(actionButton),
             'jpdb-example-audio': () => this.playJpdbPageAddonExampleAudio(actionButton),
+            'jiten-audio': () => this.playJpdbPageAddonJitenAudio(actionButton, fallbackCard),
         };
         handlers[actionButton.dataset.action ?? '']?.();
     }
@@ -1442,6 +1462,10 @@ export class ReaderApp {
 
     private playJpdbPageAddonExampleAudio(actionButton: HTMLButtonElement): void {
         void this.audioActions.playJpdbExampleAudio(actionButton.dataset.jpdbAudio ?? '', actionButton.dataset.jpdbExampleSentence ?? '');
+    }
+
+    private playJpdbPageAddonJitenAudio(actionButton: HTMLButtonElement, fallbackCard: JPDBCard): void {
+        void this.handleCardAction(actionButton, fallbackCard, fallbackCard.spelling);
     }
 
     private isCurrentJpdbPageEnhancement(generation: number): boolean {
@@ -1599,6 +1623,7 @@ export class ReaderApp {
         this.pendingHoverPointerMove = undefined;
         this.activePopoverResizeObserver?.disconnect();
         this.nativeTitleGuard.restore();
+        this.clearActiveHoverWord();
         
         this.floatingButton.destroy();
         // If we tear down (e.g. a re-boot) while settings is open, release the
@@ -1771,18 +1796,22 @@ export class ReaderApp {
             if (this.handleOcrReaderWordPointerDown(event)) return;
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
+            this.beginPassiveTouchLookup(event);
             this.beginPressLookup(event);
         }, { capture: true, passive: false });
 
         document.addEventListener('pointermove', event => {
+            this.updatePassiveTouchLookup(event);
             this.updatePressLookup(event);
         }, { capture: true, passive: false });
 
         document.addEventListener('pointerup', event => {
+            if (this.endPassiveTouchLookup(event)) return;
             this.endPressLookup(event);
         }, { capture: true });
 
         document.addEventListener('pointercancel', event => {
+            this.cancelPassiveTouchLookup(event);
             this.endPressLookup(event);
         }, { capture: true });
 
@@ -1850,6 +1879,7 @@ export class ReaderApp {
         if (this.isDestroyed) return;
         if (this.isMiningDrawerHandlePointerEvent(event)) return;
         const target = event.target as HTMLElement;
+        if (this.consumeSuppressedPassiveTouchClick(event, target)) return;
         if (shouldIgnoreDocumentClickTarget(target)) return;
 
         // The selection/token-list popover installs its own click handlers for
@@ -1913,6 +1943,125 @@ export class ReaderApp {
             ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
             : { trigger: 'click', userGesture: true });
         return true;
+    }
+
+    private beginPassiveTouchLookup(event: PointerEvent): void {
+        this.passiveTouchLookup = undefined;
+        if (!this.canBeginPassiveTouchLookup(event)) return;
+        const word = this.passiveTouchReaderWordForEvent(event);
+        if (!word) return;
+        this.passiveTouchLookup = {
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            startY: event.clientY,
+            word,
+        };
+    }
+
+    private canBeginPassiveTouchLookup(event: PointerEvent): boolean {
+        return !this.isDestroyed
+            && this.settings.lookupOnClick
+            && event.button === 0
+            && (event.pointerType === 'touch' || event.pointerType === 'pen')
+            && !this.isInsideActivePopover(event.target as Node | null);
+    }
+
+    private updatePassiveTouchLookup(event: PointerEvent): void {
+        const lookup = this.matchingPassiveTouchLookup(event);
+        if (!lookup) return;
+        if (this.passiveTouchMoved(lookup, event)) this.passiveTouchLookup = undefined;
+    }
+
+    private endPassiveTouchLookup(event: PointerEvent): boolean {
+        const lookup = this.matchingPassiveTouchLookup(event);
+        this.passiveTouchLookup = undefined;
+        if (!lookup || this.passiveTouchMoved(lookup, event)) return false;
+        const word = this.releasedPassiveTouchWord(lookup, event);
+        if (!word) return false;
+
+        event.preventDefault();
+        event.stopPropagation();
+        this.prepareModalLookupFromPointer(event);
+        const now = Date.now();
+        this.suppressSelectionLookupUntil = now + 350;
+        this.suppressWordClickUntil = now + 700;
+        this.suppressedPassiveTouchClick = {
+            until: now + 700,
+            host: nativeClickableAncestor(word),
+            lookupKey: this.hoverLookupKeyForWord(word),
+            word,
+        };
+        void this.showWord(word, { trigger: 'click', userGesture: true });
+        return true;
+    }
+
+    private cancelPassiveTouchLookup(event: PointerEvent): void {
+        if (this.matchingPassiveTouchLookup(event)) this.passiveTouchLookup = undefined;
+    }
+
+    private matchingPassiveTouchLookup(event: PointerEvent): PassiveTouchLookupState | undefined {
+        return this.passiveTouchLookup?.pointerId === event.pointerId ? this.passiveTouchLookup : undefined;
+    }
+
+    private passiveTouchMoved(lookup: PassiveTouchLookupState, event: PointerEvent): boolean {
+        return Math.hypot(event.clientX - lookup.startX, event.clientY - lookup.startY) > PASSIVE_TOUCH_TAP_MOVEMENT_PX;
+    }
+
+    private releasedPassiveTouchWord(lookup: PassiveTouchLookupState, event: PointerEvent): HTMLElement | null {
+        if (!lookup.word.isConnected) return null;
+        const current = this.passiveTouchReaderWordForEvent(event);
+        if (!current) return null;
+        if (current === lookup.word) return current;
+        return this.hoverLookupKeyForWord(current) === this.hoverLookupKeyForWord(lookup.word) ? current : null;
+    }
+
+    private passiveTouchReaderWordForEvent(event: MouseEvent): HTMLElement | null {
+        const target = event.target instanceof Element ? event.target : null;
+        const surface = this.readerPointerSurfaceForTarget(target);
+        const canUseWord = (word: HTMLElement): boolean => this.canTouchLookupPassiveReaderWord(word);
+        const direct = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
+        if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct)) return direct;
+        return this.passiveWordFromPoint(event.clientX, event.clientY, surface)
+            ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY, canUseWord);
+    }
+
+    private passiveWordFromPoint(x: number, y: number, surface: HTMLElement | null = null): HTMLElement | null {
+        if (typeof document.elementsFromPoint !== 'function') return null;
+        for (const element of document.elementsFromPoint(x, y)) {
+            const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
+            if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canTouchLookupPassiveReaderWord(word)) return word;
+        }
+        return null;
+    }
+
+    private canTouchLookupPassiveReaderWord(word: HTMLElement): boolean {
+        if (isOcrLineFrameWord(word)) return false;
+        if (word.dataset.jpdbReaderPassive !== 'true') return false;
+        if (word.closest('.jpdb-reader-popover, .jpdb-reader-settings, .jpdb-reader-newtab')) return false;
+        return !word.closest('[data-jpdb-reader-root]')
+            || Boolean(word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .yomu-jpdb-page-addon'));
+    }
+
+    private consumeSuppressedPassiveTouchClick(event: MouseEvent, target: HTMLElement | null): boolean {
+        const suppression = this.suppressedPassiveTouchClick;
+        if (!suppression) return false;
+        if (Date.now() >= suppression.until) {
+            this.suppressedPassiveTouchClick = undefined;
+            return false;
+        }
+        if (!this.isSuppressedPassiveTouchClickTarget(suppression, target)) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        return true;
+    }
+
+    private isSuppressedPassiveTouchClickTarget(suppression: SuppressedPassiveTouchClick, target: HTMLElement | null): boolean {
+        if (!target) return false;
+        if (suppression.host?.contains(target)) return true;
+        const word = target.closest<HTMLElement>('.jpdb-reader-word');
+        if (!word) return false;
+        if (word === suppression.word) return true;
+        return Boolean(suppression.lookupKey && this.hoverLookupKeyForWord(word) === suppression.lookupKey);
     }
 
     private ocrPointerDownReaderWord(event: PointerEvent): HTMLElement | null {
@@ -2206,6 +2355,15 @@ export class ReaderApp {
     private prepareModalLookupFromPointer(event: MouseEvent): void {
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         this.cancelPendingHoverLookup();
+        if (this.activePopoverMode === 'hover' && this.activePopover) {
+            window.clearTimeout(this.hoverWatchTimer);
+            this.hoverWatchTimer = undefined;
+            this.hoverPopoverPointerPosition = undefined;
+            this.activePopoverMode = 'modal';
+            this.clearActiveHoverWord();
+            this.activeHoverLookupKey = '';
+            this.activePointerTextLookup = undefined;
+        }
         this.cancelHoverClose();
         this.primeLookupAudioFromGesture();
     }
@@ -3245,9 +3403,21 @@ export class ReaderApp {
         if (!this.canRefreshActiveHoverAnchor(anchor)) return;
         if (this.activePopoverAnchor === anchor && (this.activePointerTextLookup || this.activeHoverWord === anchor)) return;
         this.activePopoverAnchor = anchor;
-        if (!this.activePointerTextLookup) this.activeHoverWord = anchor;
+        if (!this.activePointerTextLookup) this.setActiveHoverWord(anchor);
         this.captureActiveHoverAnchorRect(anchor);
         this.repositionActivePopover();
+    }
+
+    private setActiveHoverWord(word: HTMLElement | undefined): void {
+        if (this.activeHoverWord && this.activeHoverWord !== word) {
+            this.activeHoverWord.classList.remove(ACTIVE_HOVER_WORD_CLASS);
+        }
+        this.activeHoverWord = word;
+        word?.classList.add(ACTIVE_HOVER_WORD_CLASS);
+    }
+
+    private clearActiveHoverWord(): void {
+        this.setActiveHoverWord(undefined);
     }
 
     private canRefreshActiveHoverAnchor(anchor: HTMLElement): boolean {
@@ -4580,6 +4750,7 @@ export class ReaderApp {
         }
 
         try {
+            if (trigger === 'hover') renderData = loadRenderData();
             if (trigger === 'hover') {
                 await waitForHoverCardInitialPaint();
                 if (!this.isCurrentCardRender(popover, mounted.requestId, isCurrentHoverCard)) return;
@@ -5098,6 +5269,7 @@ export class ReaderApp {
     private handleCardPopoverClick(event: MouseEvent, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void {
         if (handleReaderActionPillLink(event)) return;
         if (this.handleDictionaryLookupLink(event, anchor, trigger)) return;
+        if (this.handleCardPopoverParsedWord(event, trigger)) return;
         const target = event.target as HTMLElement;
         const kanjiButton = target.closest<HTMLButtonElement>('[data-action="kanji"]');
         if (kanjiButton) {
@@ -5187,6 +5359,29 @@ export class ReaderApp {
             navigation: 'preserve',
             preservePosition: true,
         });
+    }
+
+    private handleCardPopoverParsedWord(event: MouseEvent, trigger: 'modal' | 'hover'): boolean {
+        const word = this.cardPopoverParsedWord(event);
+        if (!word) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        this.prepareModalLookupFromPointer(event);
+        this.suppressSelectionLookupUntil = Date.now() + 350;
+        void this.showWord(word, {
+            trigger: 'click',
+            navigation: trigger === 'modal' ? 'push-current' : 'reset',
+            userGesture: true,
+        });
+        return true;
+    }
+
+    private cardPopoverParsedWord(event: MouseEvent): HTMLElement | null {
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        if (!target || target.closest('[data-action="kanji"][data-kanji]')) return null;
+        const word = target.closest<HTMLElement>('.jpdb-reader-parseable .jpdb-reader-word');
+        if (!word || word.dataset.jpdbReaderPassive === 'true') return null;
+        return this.activePopover?.contains(word) ? word : null;
     }
 
     private async showPreviousKanji(anchor?: HTMLElement): Promise<void> {
@@ -5484,7 +5679,14 @@ export class ReaderApp {
             }
             const componentSummaries = companion.buildRtkComponentSummaries(rtkInfo, jpdbInfo, kanjiEntries);
             const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
-            setInnerHtml(rtkMount, companion.renderRtkInfo(rtkInfo, componentSummaries, language, this.dictionarySourceState.isOpen(sourceStateKey), sourceStateKey));
+            setInnerHtml(rtkMount, companion.renderRtkInfo(
+                rtkInfo,
+                componentSummaries,
+                language,
+                this.settings.dictionarySourcesInitiallyExpanded,
+                sourceStateKey,
+                (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+            ));
             this.repositionActivePopover();
         };
 
@@ -5819,7 +6021,8 @@ export class ReaderApp {
         try {
             const parsed = await this.loadSettingsParsedJapaneseContent(plan);
             if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-            this.applySettingsJapaneseParse(form, plan, parsed);
+            const supplemented = supplementSettingsFallbackTokens(plan.targets, parsed);
+            this.applySettingsJapaneseParse(form, plan, supplemented);
         } catch {
         } finally {
             clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
@@ -6693,7 +6896,14 @@ export class ReaderApp {
         const sections: string[] = [];
         const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
         if (jpdbInfo && this.kanjiCompanion) {
-            sections.push(this.kanjiCompanion.renderJpdbKanjiInfo(jpdbInfo, language, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, this.kanjiFactSourceTitle('jpdb')));
+            sections.push(this.kanjiCompanion.renderJpdbKanjiInfo(
+                jpdbInfo,
+                language,
+                this.settings.dictionarySourcesInitiallyExpanded,
+                jpdbKey,
+                this.kanjiFactSourceTitle('jpdb'),
+                (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded),
+            ));
         }
         // When both services answer for this kanji we show both cards (the reader
         // asked to see Jiten and JPDB facts side by side, not just the active one).
@@ -7149,7 +7359,7 @@ export class ReaderApp {
         this.activePopoverAnchor = state.resolvedAnchor;
         this.activePopoverAnchorRect = state.anchorRect;
         this.activePopoverPositionLocked = shouldLockMountedPopoverPosition(popover, state);
-        this.activeHoverWord = state.mode === 'hover' && !options.pointerTextLookup ? state.resolvedAnchor : undefined;
+        this.setActiveHoverWord(state.mode === 'hover' && !options.pointerTextLookup ? state.resolvedAnchor : undefined);
         this.activeHoverLookupKey = state.mode === 'hover' ? options.hoverLookupKey ?? '' : '';
         this.activePointerTextLookup = state.mode === 'hover' ? options.pointerTextLookup : undefined;
         this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
@@ -7421,6 +7631,7 @@ export class ReaderApp {
         this.hoverPendingWord = undefined;
         this.hoverPendingLookupKey = '';
         this.hoverLookupInFlightKey = '';
+        this.passiveTouchLookup = undefined;
         if (!options.preserveHoverGeneration) this.nextHoverLookupGeneration();
     }
 
@@ -7485,7 +7696,7 @@ export class ReaderApp {
         this.activePopoverAnchorRect = undefined;
         this.activePopoverMode = undefined;
         this.activePopoverAnchor = undefined;
-        this.activeHoverWord = undefined;
+        this.clearActiveHoverWord();
         this.activeHoverLookupKey = '';
         this.activePointerTextLookup = undefined;
         if (!options.preserveKeyboardActive) this.clearKeyboardActiveWord();

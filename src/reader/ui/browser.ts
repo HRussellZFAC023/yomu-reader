@@ -129,13 +129,14 @@ export async function copyText(text: string): Promise<void> {
 
 export function openUrlInNewTab(url: string): boolean {
     if (!isOpenableExternalUrl(url)) return false;
-
     const userscriptOpen = userscriptOpenInTab();
     if (userscriptOpen) {
         try {
             userscriptOpen(url, { active: true, insert: true, setParent: false });
             return true;
         } catch {
+            // Fall back to window.open below when a userscript manager exposes a
+            // partial or broken tab API.
         }
     }
 
@@ -150,10 +151,12 @@ export function openUrlInNewTab(url: string): boolean {
     return false;
 }
 
-function userscriptOpenInTab(): typeof GM_openInTab | undefined {
-    if (typeof GM_openInTab === 'function') return GM_openInTab;
-    if (typeof GM !== 'undefined' && typeof GM?.openInTab === 'function') return GM.openInTab;
-    return undefined;
+function userscriptOpenInTab(): ((url: string, options?: { active?: boolean; insert?: boolean; setParent?: boolean } | boolean) => unknown) | undefined {
+    const direct = (globalThis as typeof globalThis & {
+        GM_openInTab?: (url: string, options?: { active?: boolean; insert?: boolean; setParent?: boolean } | boolean) => unknown;
+    }).GM_openInTab;
+    if (typeof direct === 'function') return direct;
+    return typeof GM !== 'undefined' && typeof GM.openInTab === 'function' ? GM.openInTab : undefined;
 }
 
 function isOpenableExternalUrl(value: string): boolean {

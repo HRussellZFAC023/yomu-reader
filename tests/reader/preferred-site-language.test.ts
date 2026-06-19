@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyPreferredJapaneseSiteLanguage,
     installPreferredJapaneseSiteLanguageFromStoredSettings,
+    preferredJapaneseSiteUrl,
 } from '../../src/reader/app/preferred-site-language';
 import { SETTINGS_STORAGE_KEY } from '../../src/reader/settings/index';
 
@@ -81,6 +82,48 @@ describe('preferred Japanese site language', () => {
         expect(document.cookie).not.toContain('hl=ja');
         expect(document.cookie).not.toContain('gl=JP');
         expect(localStorage.getItem('yomu:prefer-japanese-site-language')).toBe('false');
+    });
+
+    it('redirects English Wikipedia hosts to Japanese Wikipedia', () => {
+        expect(preferredJapaneseSiteUrl('https://en.wikipedia.org/wiki/Japanese_language')).toBe(
+            'https://ja.wikipedia.org/wiki/Japanese_language',
+        );
+        expect(preferredJapaneseSiteUrl('https://en.m.wikipedia.org/wiki/Japanese_language')).toBe(
+            'https://ja.m.wikipedia.org/wiki/Japanese_language',
+        );
+    });
+
+    it('rewrites English Google locale parameters without changing the search query', () => {
+        expect(preferredJapaneseSiteUrl('https://www.google.com/search?q=en&hl=en&gl=US&lr=lang_en')).toBe(
+            'https://www.google.com/search?q=en&hl=ja&gl=JP&lr=lang_ja',
+        );
+    });
+
+    it('rewrites generic English site locale markers to Japanese', () => {
+        expect(preferredJapaneseSiteUrl('https://en.example.com/en-US/docs?locale=en-US&region=uk&q=en')).toBe(
+            'https://ja.example.com/ja/docs?locale=ja-JP&region=JP&q=en',
+        );
+    });
+
+    it('handles common i18n query keys and hash-route locale segments', () => {
+        expect(preferredJapaneseSiteUrl('https://example.com/app?languageCode=en_US&countryCode=gb&lng=en#/en-US/settings')).toBe(
+            'https://example.com/app?languageCode=ja_JP&countryCode=JP&lng=ja#/ja/settings',
+        );
+    });
+
+    it('uses location.replace for English site variants when the preference is enabled', () => {
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://en.wikipedia.org/wiki/Japanese_language',
+            hostname: 'en.wikipedia.org',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(true);
+
+        expect(replace).toHaveBeenCalledWith('https://ja.wikipedia.org/wiki/Japanese_language');
     });
 
     it('injects page-realm shims instead of patching a separate unsafeWindow directly', () => {

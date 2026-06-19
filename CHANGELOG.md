@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.17] - 2026-06-19
+
+### Fixed
+
+- The default Appearance settings panel now shows the Reader controls immediately, including selected-text parsing, furigana mode, and word/subtitle underline color settings.
+- Hosted Japanese settings text now keeps local fallback reader-word hydration, so furigana and pitch underline styling appear even when public vocabulary enrichment is unavailable.
+- Passive reader words inside native page controls now support direct touch and pen taps, so iPad users can pin a lookup from linked manga titles without accidentally following the host link. Dragging still leaves the native control alone.
+- Hover-only furigana no longer disappears while the hover lookup panel for that word is open.
+- Manga OCR clean-image fetches now send browser-like image request headers/credentials, improving protected image reads, and retryable OCR/image-read failures no longer leave a persistent red status dot on auto-scanned pages.
+
+## [1.4.7] - 2026-06-19
+
+### Changed
+
+- Local dictionary definitions now render inline without the repeated "Dictionaries · source/entry" wrapper or per-dictionary collapse rows, saving vertical space on every card.
+- Blacklisted and never-forget review-blocked cards now use a compact hover-revealed action icon instead of a full visible "Unlist before reviewing" sentence in the action rail.
+
 ## [1.4.6] - 2026-06-18
 
 ### Changed

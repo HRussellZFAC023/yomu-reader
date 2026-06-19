@@ -25,10 +25,11 @@ import type { RecommendedDictionary } from '../dictionaries/recommended';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from '../dictionaries/recommended';
 import { definitionSourceRows, frequencySourceRows, kanjiSourceRows } from '../sources/sections';
 import type { YomitanDictionaryInfo } from '../dictionaries/yomitan';
+import type { GoogleDriveBackupFile } from './cloud-sync';
 
 export { readDictionaryLookupLinks, readFormSettings } from './form-read';
 export { renderAudioSourceEditor, renderDictionaryLookupLinkEditor, syncAudioSourceRow, syncBrowserTtsVoiceOptions, updateAudioSourceEditor, updateDictionaryLookupLinkEditor } from './form-editors';
-export { installSourceRowDrag, updateSourceRowEditor } from './form-order';
+export { installSourceRowDrag, syncSourceRowOrder, updateSourceRowEditor } from './form-order';
 export { renderAnkiDeckLibraryOptions, renderAnkiFieldMappingEditor, renderAnkiLibraryOptions, renderAnkiTemplatePreview, renderDeckControls } from './anki-mining-panel';
 export { ankiStatusLineForSettings, formatSettingsStatusLine, jpdbStatusLineForSettings, renderAnkiStatusHtml } from './status-lines';
 export type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './status-lines';
@@ -603,7 +604,7 @@ function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
 
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
     return `
-            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
+            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader">
                 <legend>Reader</legend>
                 <div class="grid">
                     ${checkbox('parseSelection', 'Look up selected text', settings.parseSelection)}
@@ -779,10 +780,10 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
-                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
+                    <div class="jpdb-reader-help">Frequency badges and external links. Tokens: {query}, {word}, {reading}.</div>
+                    ${renderFrequencyDictionaryEditor(settings)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -799,8 +800,96 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
+                ${renderCloudSyncSettings(settings)}
             </fieldset>
     `;
+}
+
+function renderCloudSyncSettings(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-cloud-sync" data-cloud-sync>
+                    <div class="jpdb-reader-local-title" data-cloud-sync-title>${escapedUiText(language, 'cloud')}</div>
+                    <div class="grid">
+                        ${cloudSyncProviderSelect(settings)}
+                        ${input('googleDriveClientId', uiText(language, 'googleDriveClientId'), settings.googleDriveClientId, 'text', { ...API_KEY_INPUT_ATTRIBUTES, placeholder: '1234567890-abc.apps.googleusercontent.com' })}
+                    </div>
+                    <div class="jpdb-reader-settings-actions">
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-export-settings">${escapedUiText(language, 'cloudExport')}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-show-backups">${escapedUiText(language, 'cloudShowBackups')}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-revoke-token">${escapedUiText(language, 'cloudRevokeToken')}</button>
+                    </div>
+                    <div class="jpdb-reader-help" data-cloud-sync-status data-cloud-sync-default-status>${escapedUiText(language, 'cloudSyncHelp')}</div>
+                    <div class="jpdb-reader-cloud-backups" data-cloud-backups hidden></div>
+                </div>
+    `;
+}
+
+function cloudSyncProviderSelect(settings: ReaderSettings): string {
+    const language = settings.interfaceLanguage;
+    const option = (value: string, label: string, disabled = false) =>
+        `<option value="${escapeHtml(value)}" ${settings.cloudSyncProvider === value ? 'selected' : ''}${disabled ? ' disabled' : ''}>${escapeHtml(label)}</option>`;
+    return `
+                        <label>${escapedUiText(language, 'cloudType')}
+                            <select name="cloudSyncProvider">
+                                ${option('google-drive', 'Google Drive')}
+                                ${option('dropbox', 'Dropbox', true)}
+                                ${option('onedrive', 'OneDrive', true)}
+                                ${option('yandex-disk', 'Yandex.Disk', true)}
+                                ${option('webdav', 'WebDAV', true)}
+                            </select>
+                        </label>`;
+}
+
+export function renderCloudBackupList(files: GoogleDriveBackupFile[], language: InterfaceLanguage): string {
+    if (!files.length) {
+        return `
+                    <div class="jpdb-reader-cloud-backups-panel" role="dialog" aria-label="${escapedUiText(language, 'cloudBackupsTitle')}">
+                        <div class="jpdb-reader-local-title">${escapedUiText(language, 'cloudBackupsTitle')}</div>
+                        <div class="jpdb-reader-help">${escapedUiText(language, 'cloudNoBackups')}</div>
+                        <div class="jpdb-reader-settings-actions">
+                            <button class="jpdb-reader-btn" type="button" data-action="cloud-hide-backups">${escapedUiText(language, 'cancel')}</button>
+                        </div>
+                    </div>`;
+    }
+    return `
+                    <div class="jpdb-reader-cloud-backups-panel" role="dialog" aria-label="${escapedUiText(language, 'cloudBackupsTitle')}">
+                        <div class="jpdb-reader-local-title">${escapedUiText(language, 'cloudBackupsTitle')}</div>
+                        <div class="jpdb-reader-cloud-backup-list">
+                            ${files.map(file => renderCloudBackupRow(file, language)).join('')}
+                        </div>
+                        <div class="jpdb-reader-settings-actions">
+                            <button class="jpdb-reader-btn" type="button" data-action="cloud-hide-backups">${escapedUiText(language, 'cancel')}</button>
+                        </div>
+                    </div>`;
+}
+
+function renderCloudBackupRow(file: GoogleDriveBackupFile, language: InterfaceLanguage): string {
+    const id = escapeHtml(file.id);
+    const name = escapeHtml(file.name);
+    return `
+                            <div class="jpdb-reader-cloud-backup-row" data-cloud-backup-file="${id}">
+                                <div class="jpdb-reader-cloud-backup-name" title="${name}">${name}</div>
+                                <div class="jpdb-reader-cloud-backup-size">${escapeHtml(formatCloudBackupSize(file.size))}</div>
+                                <div class="jpdb-reader-cloud-backup-date">${escapeHtml(formatCloudBackupDate(file.modifiedTime))}</div>
+                                <div class="jpdb-reader-cloud-backup-actions">
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-import-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, 'cloudImportBackup')}</button>
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-delete-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, 'cloudDeleteBackup')}</button>
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-save-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, 'cloudSaveBackup')}</button>
+                                </div>
+                            </div>`;
+}
+
+function formatCloudBackupSize(size: number): string {
+    if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
+    if (size >= 1024) return `${(size / 1024).toFixed(2)} KB`;
+    return `${size} B`;
+}
+
+function formatCloudBackupDate(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return date.toLocaleString();
 }
 
 function renderShortcutSettingsPanel(settings: ReaderSettings): string {
@@ -974,6 +1063,7 @@ const LOCAL_TITLE_TEXT_KEYS = [
     [/Study|学習|New tab|新規タブ/, 'newTab'],
     [/Dictionary site enhancements|辞書サイト拡張|JPDB page enhancements|JPDBページ拡張/, 'jpdbPageEnhancements'],
     [/Lookup pills|検索ピル/, 'lookupPills'],
+    [/Cloud|クラウド/, 'cloud'],
 ] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
 const SELECTOR_TEXT_KEYS = [
     ['[data-hover-lookup-title]', 'hoverLookupSettings'],
@@ -985,6 +1075,7 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
     ['[data-proxy-guide-show]', 'show'],
     ['[data-proxy-guide-hide]', 'hide'],
+    ['[data-cloud-sync-title]', 'cloud'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],
@@ -995,6 +1086,13 @@ const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="export-reader-settings"]', 'exportSettings'],
     ['[data-action="import-yomitan-dictionary"]', 'importDictionaries'],
     ['[data-action="export-yomitan-dictionary"]', 'exportDictionaries'],
+    ['[data-action="cloud-export-settings"]', 'cloudExport'],
+    ['[data-action="cloud-show-backups"]', 'cloudShowBackups'],
+    ['[data-action="cloud-revoke-token"]', 'cloudRevokeToken'],
+    ['[data-action="cloud-import-backup"]', 'cloudImportBackup'],
+    ['[data-action="cloud-delete-backup"]', 'cloudDeleteBackup'],
+    ['[data-action="cloud-save-backup"]', 'cloudSaveBackup'],
+    ['[data-action="cloud-hide-backups"]', 'cancel'],
     ['[data-action="audio-source-add"]', 'addAudioSource'],
     ['[data-action="cancel"]', 'cancel'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
@@ -1359,6 +1457,8 @@ function localizeLookupPillsHelp(form: HTMLFormElement, text: SettingsText): voi
     lookupLinks?.closest<HTMLElement>('.jpdb-reader-settings-subsection')
         ?.querySelector<HTMLElement>(':scope > .jpdb-reader-help')
         ?.replaceChildren(text('lookupPillsHelp'));
+    const cloudStatus = form.querySelector<HTMLElement>('[data-cloud-sync-default-status]');
+    if (cloudStatus) cloudStatus.replaceChildren(text('cloudSyncHelp'));
 }
 
 function localizeDictionaryImportHelp(form: HTMLFormElement, text: SettingsText): void {
@@ -1506,7 +1606,7 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
 function localizeSourceHead(head: Element, text: SettingsText): void {
     const spans = head.querySelectorAll('span');
     spans[0]?.replaceChildren(text('enabledHeader'));
-    const sourceLabel = spans[1]?.textContent === 'Kanji section' ? text('kanjiSection') : text('definitionSource');
+    const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? '', text);
     spans[1]?.replaceChildren(sourceLabel);
     if (spans.length === 5) {
         spans[2]?.replaceChildren(text('displayName'));
@@ -1515,6 +1615,12 @@ function localizeSourceHead(head: Element, text: SettingsText): void {
     } else {
         spans[2]?.replaceChildren(text('orderHeader'));
     }
+}
+
+function sourceHeadLabel(label: string, text: SettingsText): string {
+    if (label === 'Frequency dictionary' || label === 'Frequency dictionaries' || label === '頻度辞書') return text('frequencyDictionaries');
+    if (label === 'Kanji section' || label === 'Kanji source' || label === '漢字セクション') return text('kanjiSection');
+    return text('definitionSource');
 }
 
 function replaceSourceHelp(form: HTMLFormElement, pattern: RegExp, value: string): void {
@@ -1628,6 +1734,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
+    'googleDriveClientId',
     'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'manualScanEnabled', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
@@ -1651,6 +1758,7 @@ const SETTINGS_CONTROL_LABEL_ALIASES = [
     ['twoButtonReviews', 'reviewRatingScale'],
     ['interfaceLanguage', 'settingsLanguage'],
     ['ocrCloudVisionApiKey', 'cloudVisionApiKey'],
+    ['cloudSyncProvider', 'cloudType'],
     ['ankiMobileHandoff', 'mobileAnkiHandoff'],
     ['shortcuts.hoverLookup', 'holdWhileHovering'],
     ['shortcuts.scanPage', 'scanPage'],
@@ -2108,6 +2216,7 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const visibleNames = new Set([
         ...rows.filter(row => row.removable).map(row => row.name),
         ...frequencySourceRows(settings).map(row => row.name),
+        ...kanjiSourceRows(settings).filter(row => row.removable).map(row => row.name),
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter(preference => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map(preference => {
@@ -2121,7 +2230,7 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
         `;
     }).join('');
     const metadataHelp = hiddenPreferences.length
-        ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>'
+        ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges.</div>'
         : '';
     if (!rows.some(row => row.removable)) return `
         <div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>
@@ -2133,21 +2242,22 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
 }
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
-    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: false });
+    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji source', showAlias: false });
+}
+
+function renderFrequencyDictionaryEditor(settings: ReaderSettings): string {
+    const rows = renderFrequencyDictionaryRows(settings);
+    return `
+        <div class="jpdb-reader-frequency-lookup-pills jpdb-reader-dictionary-priorities" data-source-editor data-frequency-dictionaries ${rows ? '' : 'hidden'}>
+            ${rows}
+        </div>
+    `;
 }
 
 export function renderFrequencyDictionaryRows(settings: ReaderSettings): string {
     const rows = frequencySourceRows(settings);
     if (!rows.length) return '';
-    return `
-        <div class="jpdb-reader-settings-subsection">
-            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
-            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
-            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
-                ${renderSourceRowsList(rows, { sourceLabel: 'Frequency dictionary', showAlias: true })}
-            </div>
-        </div>
-    `;
+    return renderSourceRowsList(rows, { sourceLabel: 'Frequency dictionary', showAlias: true });
 }
 
 export function renderRecommendedDictionaries(installed: YomitanDictionaryInfo[]): string {

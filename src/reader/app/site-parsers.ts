@@ -346,6 +346,8 @@ const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
 const YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS = [
     'ytd-comment-view-model #content-text',
     ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map(selector => `ytd-comment-view-model ${selector}`),
+    'ytm-comment-renderer #content-text',
+    ...YOUTUBE_COMMENT_CONTROL_SELECTORS.map(selector => `ytm-comment-renderer ${selector}`),
 ].join(',');
 const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
     'ytd-watch-info-text',

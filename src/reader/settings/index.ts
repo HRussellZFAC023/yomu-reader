@@ -7,7 +7,7 @@ import { hasJitenApiCredential, hasJpdbApiCredential, isJitenApiCredential } fro
 import { DEFAULT_DICTIONARY_LOOKUP_LINKS, normalizeDictionaryLookupLinkSettings, normalizeDictionaryPreferences } from './dictionary';
 import { hasOwn, stringValue, trimmedText } from './values';
 import { gmStorageDelete, gmStorageGet, gmStorageSet, storedValueExists, subscribeToStoredValueChanges } from '../app/storage';
-import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { AnkiTemplateMode, AudioAutoPlayMode, AudioSourceSetting, AudioSourceType, AudioTtsMode, CloudSyncProvider, FuriganaMode, ImmersionExampleSource, ImmersionKitCategory, ImmersionKitSort, InterfaceLanguage, OcrProvider, ReaderColorSource, ReaderSettings } from '../app/types';
 export { formatShortcutEvent, matchesShortcut, shortcutIsPressed } from './shortcuts';
 export { COPY_LOOKUP_LINK, MAX_DICTIONARY_LOOKUP_LINKS, defaultDictionaryLookupLinks, mergeDictionaryPreferences, normalizeDictionaryLookupLinks, normalizeDictionaryPreferences } from './dictionary';
 
@@ -180,6 +180,7 @@ const SUBTITLE_TRANSCRIPT_PLACEMENTS = ['left', 'bottom', 'right'] as const sati
 const NEW_TAB_SOURCES = ['jpdb', 'anki', 'auto', 'dictionary'] as const satisfies readonly ReaderSettings['newTabSource'][];
 const NEW_TAB_JPDB_REVIEW_MODES = ['auto', 'api-vocabulary', 'live-review'] as const satisfies readonly ReaderSettings['newTabJpdbReviewMode'][];
 const NEW_TAB_KANJI_KEYWORD_SOURCES = ['auto', 'rtk', 'jpdb', 'local'] as const satisfies readonly ReaderSettings['newTabKanjiKeywordSource'][];
+const CLOUD_SYNC_PROVIDERS = ['google-drive', 'dropbox', 'onedrive', 'yandex-disk', 'webdav'] as const satisfies readonly CloudSyncProvider[];
 
 const LEGACY_COLOR_CHANNEL_DEFAULTS: Record<ReaderColorChannelKey, ReaderColorSource> = {
     wordHighlightColorSource: 'auto',
@@ -338,6 +339,8 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map(link => ({ ...link })),
+    cloudSyncProvider: 'google-drive',
+    googleDriveClientId: '',
     subtitlePlayerEnabled: true,
     subtitleAutoDetect: true,
     subtitleOverlayVisible: false,
@@ -474,6 +477,7 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         ...normalizePresentationSettings(settingsValue),
         ...normalizeMiningSettings(settingsValue),
         ...normalizeRemovedDictionarySettings(settingsValue),
+        ...normalizeCloudSyncSettings(settingsValue),
         dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
         dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
         shortcuts: normalizeShortcutSettings(settingsValue),
@@ -666,6 +670,17 @@ function normalizeRemovedDictionarySettings(value: Partial<ReaderSettings> | nul
         localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
         localDictionaryShowKanji: booleanSetting(value, 'localDictionaryShowKanji'),
     };
+}
+
+function normalizeCloudSyncSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, 'cloudSyncProvider' | 'googleDriveClientId'> {
+    return {
+        cloudSyncProvider: normalizeCloudSyncProvider(value?.cloudSyncProvider),
+        googleDriveClientId: trimmedStringSetting(value, 'googleDriveClientId', DEFAULT_SETTINGS.googleDriveClientId),
+    };
+}
+
+function normalizeCloudSyncProvider(value: unknown): CloudSyncProvider {
+    return normalizeOption(value, CLOUD_SYNC_PROVIDERS, DEFAULT_SETTINGS.cloudSyncProvider);
 }
 
 function normalizeNewTabSettings(value: Partial<ReaderSettings> | null): Partial<ReaderSettings> {

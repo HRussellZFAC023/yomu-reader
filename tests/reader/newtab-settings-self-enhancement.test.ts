@@ -100,6 +100,102 @@ describe('hosted newtab settings self enhancement', () => {
         }
     });
 
+    it('renders local settings fallback words when hosted parsing returns no tokens', async () => {
+        const runtime = new NewTabRuntime();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja' as const,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+            showPitchAccent: true,
+        };
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.dataset.jpdbReaderRoot = 'true';
+        form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'ja');
+        document.body.append(form);
+        const parse = vi.fn(async (texts: string[]): Promise<JPDBToken[][]> => texts.map(() => []));
+        const internals = runtime as unknown as {
+            settings: typeof settings;
+            activeDialog?: HTMLElement;
+            parser: { canParse: () => boolean; parse: typeof parse; cacheCards?: (cards: unknown[]) => void };
+            parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+            publicLookupFallbackCards(cards: unknown[]): Promise<Map<string, unknown>>;
+            enrichPublicVocabularyWords(tokens: JPDBToken[]): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = settings;
+        internals.activeDialog = form;
+        internals.parser = { canParse: () => true, parse, cacheCards: vi.fn() };
+        internals.publicLookupFallbackCards = vi.fn(async () => new Map());
+        internals.enrichPublicVocabularyWords = vi.fn(async () => undefined);
+        internals.enrichPitchWords = vi.fn(async () => undefined);
+
+        try {
+            await internals.parseSettingsJapanese(form);
+
+            const titleWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
+            const searchWord = form.querySelector<HTMLElement>('.jpdb-reader-settings-search .jpdb-reader-word[data-expression="検索"]');
+            expect(titleWord).toBeTruthy();
+            expect(titleWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
+            expect(titleWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(searchWord).toBeTruthy();
+            expect(searchWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('けんさく');
+            expect(searchWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        } finally {
+            runtime.destroy();
+        }
+    });
+
+    it('replaces unhydrated hosted parser tokens with local settings fallback words', async () => {
+        const runtime = new NewTabRuntime();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'ja' as const,
+            showFurigana: true,
+            furiganaMode: 'all' as const,
+            showPitchAccent: true,
+        };
+        const form = document.createElement('form');
+        form.className = 'jpdb-reader-settings';
+        form.dataset.jpdbReaderRoot = 'true';
+        form.innerHTML = renderSettingsForm(settings, 'https://jpdb.io/settings');
+        localizeSettingsForm(form, 'ja');
+        document.body.append(form);
+        const parse = vi.fn(async (texts: string[]): Promise<JPDBToken[][]> => texts.map(text =>
+            settingsJapaneseUnhydratedTokenForText(text, ['設定', '検索']),
+        ));
+        const internals = runtime as unknown as {
+            settings: typeof settings;
+            activeDialog?: HTMLElement;
+            parser: { canParse: () => boolean; parse: typeof parse; cacheCards?: (cards: unknown[]) => void };
+            parseSettingsJapanese(form: HTMLFormElement): Promise<void>;
+            publicLookupFallbackCards(cards: unknown[]): Promise<Map<string, unknown>>;
+            enrichPublicVocabularyWords(tokens: JPDBToken[]): Promise<void>;
+            enrichPitchWords(tokens: JPDBToken[]): Promise<void>;
+        };
+        internals.settings = settings;
+        internals.activeDialog = form;
+        internals.parser = { canParse: () => true, parse, cacheCards: vi.fn() };
+        internals.publicLookupFallbackCards = vi.fn(async () => new Map());
+        internals.enrichPublicVocabularyWords = vi.fn(async () => undefined);
+        internals.enrichPitchWords = vi.fn(async () => undefined);
+
+        try {
+            await internals.parseSettingsJapanese(form);
+
+            const titleWord = form.querySelector<HTMLElement>('h2 .jpdb-reader-word[data-expression="設定"]');
+            const searchWord = form.querySelector<HTMLElement>('.jpdb-reader-settings-search .jpdb-reader-word[data-expression="検索"]');
+            expect(titleWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('せってい');
+            expect(titleWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(searchWord?.querySelector('.jpdb-reader-furi')?.textContent).toBe('けんさく');
+            expect(searchWord?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+        } finally {
+            runtime.destroy();
+        }
+    });
+
     it('renders settings labels when equivalent text nodes refresh while parsing', async () => {
         const runtime = new NewTabRuntime();
         const settings = {
@@ -227,6 +323,38 @@ function settingsJapaneseTokenForText(
             length: token.spelling.length,
             rubies: [{ text: token.reading, start, end, length: token.spelling.length }],
             pitchClass: 'heiban',
+            sentence: text,
+        });
+    }
+    return found.sort((left, right) => left.start - right.start);
+}
+
+function settingsJapaneseUnhydratedTokenForText(text: string, spellings: string[]): JPDBToken[] {
+    const found: JPDBToken[] = [];
+    for (const spelling of spellings) {
+        const start = text.indexOf(spelling);
+        if (start < 0) continue;
+        const end = start + spelling.length;
+        found.push({
+            card: {
+                vid: 15_000 + start,
+                sid: 0,
+                rid: 0,
+                spelling,
+                reading: spelling,
+                partOfSpeech: ['n'],
+                meanings: [],
+                frequencyRank: null,
+                cardState: ['not-in-deck'],
+                pitchAccent: [],
+                wordWithReading: null,
+                source: 'jpdb',
+            },
+            start,
+            end,
+            length: spelling.length,
+            rubies: [],
+            pitchClass: '',
             sentence: text,
         });
     }

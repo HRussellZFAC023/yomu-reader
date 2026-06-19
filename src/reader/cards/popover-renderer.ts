@@ -244,11 +244,11 @@ export class CardPopoverRenderer {
 
     private renderReviewButtons(options: ReviewButtonsRenderOptions): string {
         const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
-        const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
+        const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason, cardStates, language);
         if (earlyResult !== undefined) return earlyResult;
         const targets = this.popoverReviewTargets(card, data, provider, language);
         if (targets.length) return this.renderTargetedReviewButtons(targets, language);
-        if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
+        if (!this.shouldRenderReviewButtons(provider, reviewBlockReason)) {
             return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         }
         return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
@@ -258,9 +258,11 @@ export class CardPopoverRenderer {
         card: JPDBCard,
         data: CardRenderData & { loading: boolean },
         reviewBlockReason: string,
+        cardStates: ReturnType<typeof normalizeCardStates>,
+        language: InterfaceLanguage,
     ): string | undefined {
-        if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml(reviewBlockReason)}</div>`;
-        if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
+        if (reviewBlockReason) return renderReviewBlockedAction(cardStates, reviewBlockReason, language);
+        if (!this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? '';
         return undefined;
     }
 
@@ -280,8 +282,8 @@ export class CardPopoverRenderer {
         });
     }
 
-    private shouldRenderReviewButtons(data: CardRenderData & { loading: boolean }, provider: ApiSrsProviderView | null, reviewBlockReason: string): boolean {
-        if (reviewBlockReason || data.loading || !this.settings().enableReviews) return false;
+    private shouldRenderReviewButtons(provider: ApiSrsProviderView | null, reviewBlockReason: string): boolean {
+        if (reviewBlockReason || !this.settings().enableReviews) return false;
         return this.canReviewWithApiProvider(provider);
     }
 
@@ -483,6 +485,17 @@ export function togglePopoverReviewTargetSelection(button: HTMLButtonElement): v
 
 function reviewButtonsIncludeTargetGutter(reviewButtons: string): boolean {
     return reviewButtons.includes('data-review-target-gutter');
+}
+
+function renderReviewBlockedAction(
+    cardStates: ReturnType<typeof normalizeCardStates>,
+    reason: string,
+    language: InterfaceLanguage,
+): string {
+    const blacklisted = cardStates.includes('blacklisted');
+    const label = uiText(language, blacklisted ? 'unlist' : 'forget');
+    const title = uiText(language, blacklisted ? 'unlistHint' : 'forgetHint');
+    return `<button class="jpdb-reader-review-target-toggle jpdb-reader-review-blocked-action" type="button" data-action="${blacklisted ? 'blacklist' : 'neverforget'}" title="${escapeHtml(title)}" aria-label="${escapeHtml(`${label}. ${reason}`)}">&#8634;</button>`;
 }
 
 function renderReviewTargetGutter(target: PopoverReviewTarget, language: InterfaceLanguage, canSwitch: boolean): string {

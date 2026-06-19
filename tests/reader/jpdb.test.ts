@@ -12,7 +12,7 @@ import { CardRenderDataLoader, type CardRenderData } from '../../src/reader/card
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/lookup/deinflect';
-import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/sources/definition-render';
+import { definitionSourceStateKey, kanjiSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/sources/definition-render';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
 import { DictionarySourceStateController } from '../../src/reader/sources/state';
 import { NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, applyTokensToScanTarget, applyTokensToTextNode, collectFragmentTextTargetsIn, collectTextTargetsIn, mutationLooksLikeReaderRenderRejection, nearestReadableSentenceForElement, readerRenderRejectionRescanDelay, readerWordAtPointInScope, readerWordSurfaceText, renderTokensToHtml, unwrapReaderWords, type ScanTextTarget } from '../../src/reader/dom/index';
@@ -3610,7 +3610,7 @@ describe('reader helpers', () => {
         // UT-47: hiding is per state group now.
         expect(normalizedCss).toContain('.yomu-furi-hide-known .jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .jiten-known, .jiten-mature, .jiten-mastered, .jiten-never-forget, .jiten-redundant, .anki-known):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
         expect(normalizedCss).toContain('.yomu-furi-hide-due .jpdb-reader-word:is(.jpdb-due, .jiten-due, .anki-due):not(.jpdb-reader-example-target) .jpdb-reader-furi { display: none; }');
-        expect(normalizedCss).toContain('.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi { visibility: hidden; }');
+        expect(normalizedCss).toContain('.yomu-furi-hover .jpdb-reader-word:not(:hover):not(.jpdb-reader-hover-active) .jpdb-reader-furi { visibility: hidden; }');
         expect(normalizedCss).toContain('text-decoration-line: inherit !important;');
         expect(normalizedCss).toContain('text-decoration-color: inherit !important;');
         expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);');
@@ -4642,7 +4642,7 @@ describe('reader helpers', () => {
         expect(onStateChange).toHaveBeenCalledTimes(1);
         expect(controller.isOpen('definition-source:translation')).toBe(false);
         const attributes = controller.attributes('definition-source:translation');
-        expect(attributes).toContain('data-source-initial-open="false"');
+        expect(attributes).toContain('data-source-initial-open="true"');
         expect(attributes).not.toContain(' open');
     });
 
@@ -4682,7 +4682,7 @@ describe('reader helpers', () => {
             opened.innerHTML = internals.renderDefinitionSources(card, []);
             const openedDetails = opened.querySelector<HTMLDetailsElement>('[data-immersion-kit]');
 
-            expect(openedDetails?.dataset.sourceInitialOpen).toBe('true');
+            expect(openedDetails?.dataset.sourceInitialOpen).toBe('false');
             expect(openedDetails?.open).toBe(true);
 
             details!.open = false;
@@ -4725,6 +4725,40 @@ describe('reader helpers', () => {
         expect(normalizedKanjiCss).toContain('.jpdb-reader-mining-collapse::after { content: ""; position: absolute; inset: -16px 0 0; border-radius: 999px; }');
         expect(normalizedKanjiCss).not.toContain('.jpdb-reader-actions-has-mining { padding-top: 45px; }');
         expect(normalizedPopoverCss).toContain('.jpdb-reader-popover.jpdb-reader-sheet:has(.jpdb-reader-popover-body) .jpdb-reader-actions.jpdb-reader-actions-has-mining { padding-top: 31px; }');
+    });
+
+    it('keeps hover grading and mining controls available while card details load', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: 'test-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+        });
+
+        document.body.innerHTML = renderer.render(card, '食べる。', 'hover', emptyCardRenderData({ loading: true }));
+
+        expect(document.querySelector('[data-card-details-loading]')).not.toBeNull();
+        expect(document.querySelector('.jpdb-reader-mining-panel [data-action="deck-picker"]')).not.toBeNull();
+        expect(document.querySelector<HTMLElement>('.jpdb-reader-actions')?.classList.contains('jpdb-reader-actions-mining-collapsed')).toBe(true);
+        expect(popoverGradeButtons()).toHaveLength(5);
+        expect(popoverGradeButtons().every(button => button.dataset.reviewTarget === 'jpdb')).toBe(true);
+    });
+
+    it('renders blocked review states as a hover icon instead of a visible sentence', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: 'test-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, { ...card, cardState: ['blacklisted'] }, '食べる。');
+
+        const action = document.querySelector<HTMLButtonElement>('.jpdb-reader-review-blocked-action');
+        expect(action?.dataset.action).toBe('blacklist');
+        expect(action?.getAttribute('aria-label')).toContain('Blacklisted. Unlist before reviewing.');
+        expect(document.querySelector('.jpdb-reader-help.jpdb-reader-review-blocked')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-actions')?.textContent).not.toContain('Unlist before reviewing');
+        expect(popoverGradeButtons()).toHaveLength(0);
+        expect(KANJI_CSS).toContain('.jpdb-reader-actions:not(:hover):not(:focus-within)');
     });
 
     it('marks the card headword with its pitch class so it can show the pitch underline', () => {
@@ -11295,7 +11329,8 @@ describe('reader helpers', () => {
             card,
         );
 
-        expect(html).toContain('<span>Jitendex</span>');
+        expect(html).toContain('jpdb-reader-source-tag">Jitendex</span>');
+        expect(html).not.toContain('1 source');
         expect(html).toContain('data-dictionary="JITINDEX &lt;1-1-2020&gt;"');
 
         document.body.innerHTML = `<form>${renderKanjiSourceRows(settings)}</form>`;
@@ -12149,6 +12184,52 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             popover.remove();
+        }
+    });
+
+    it('looks up parsed study source words clicked inside the popover', () => {
+        const app = new ReaderApp();
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.innerHTML = `
+            <div class="jpdb-reader-study-original jpdb-reader-parseable">
+                <span class="jpdb-reader-word" data-expression="青空" data-reading="あおぞら">青空</span>
+            </div>
+        `;
+        document.body.append(popover);
+        const showWord = vi.fn(async (_word: HTMLElement, _options: { trigger?: 'click' | 'hover'; navigation?: string; userGesture?: boolean }) => undefined);
+        const internals = app as unknown as {
+            activePopover: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            showWord: typeof showWord;
+            handleCardPopoverClick(event: MouseEvent, card: JPDBCard, sentence: string | undefined, anchor: HTMLElement | undefined, trigger: 'modal' | 'hover'): void;
+        };
+        internals.activePopover = popover;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: false,
+            autoPlayAudio: false,
+        };
+        internals.showWord = showWord;
+
+        try {
+            popover.addEventListener('click', event => {
+                internals.handleCardPopoverClick(event as MouseEvent, card, '青空です。', popover, 'modal');
+            });
+            const word = popover.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 12, clientY: 8 });
+
+            word.dispatchEvent(event);
+
+            expect(event.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenCalledWith(word, {
+                trigger: 'click',
+                navigation: 'push-current',
+                userGesture: true,
+            });
+        } finally {
+            popover.remove();
+            app.destroy();
         }
     });
 
@@ -19224,6 +19305,66 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps an active hover popover pinned while a clicked word lookup renders', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.vid = '501';
+        word.dataset.sid = '501';
+        word.dataset.sentence = '日本語を読む';
+        word.textContent = '日本語';
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.innerHTML = '<div class="jpdb-reader-popover-body">日本語</div>';
+        document.body.append(word, popover);
+        const showWord = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            activePopover: HTMLElement;
+            activePopoverMode: 'hover' | 'modal';
+            activePopoverAnchor?: HTMLElement;
+            activeHoverWord?: HTMLElement;
+            activeHoverLookupKey: string;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activePopoverAnchor = word;
+        internals.activeHoverWord = word;
+        internals.activeHoverLookupKey = 'word:501:501';
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(internals.activePopoverMode).toBe('modal');
+            expect(internals.activeHoverWord).toBeUndefined();
+            expect(internals.activeHoverLookupKey).toBe('');
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+
+            const out = createPointerEvent('pointerout', { clientX: 240, clientY: 240 });
+            Object.defineProperty(out, 'relatedTarget', { configurable: true, value: document.body });
+            word.dispatchEvent(out);
+            await vi.advanceTimersByTimeAsync(DEFAULT_SETTINGS.hoverCloseDelayMs + 20);
+
+            expect(popover.isConnected).toBe(true);
+        } finally {
+            app.destroy();
+            vi.useRealTimers();
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not let popover action controls hit-test page words underneath', () => {
         const app = new ReaderApp();
         const pageWord = document.createElement('span');
@@ -19350,6 +19491,94 @@ describe('reader helpers', () => {
             expect(up.defaultPrevented).toBe(false);
             expect(buttonClick).toHaveBeenCalledTimes(1);
             expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('opens passive reader words from a touch tap and consumes the native link click', () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <a id="title-link" href="/g/next">
+                <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="501" data-sid="501" data-expression="日本語" data-reading="にほんご" data-sentence="日本語の漫画">日本語</span>
+            </a>
+        `;
+        const link = document.querySelector<HTMLAnchorElement>('#title-link')!;
+        const word = link.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const linkClick = vi.fn();
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const prepareModalLookupFromPointer = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            prepareModalLookupFromPointer: typeof prepareModalLookupFromPointer;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.prepareModalLookupFromPointer = prepareModalLookupFromPointer;
+        internals.showWord = showWord;
+        internals.bindEvents();
+        link.addEventListener('click', linkClick);
+
+        try {
+            const down = createPointerEvent('pointerdown', { pointerType: 'touch', clientX: 24, clientY: 24, button: 0, pointerId: 7 });
+            const up = createPointerEvent('pointerup', { pointerType: 'touch', clientX: 25, clientY: 24, button: 0, pointerId: 7 });
+            word.dispatchEvent(down);
+            word.dispatchEvent(up);
+
+            expect(down.defaultPrevented).toBe(false);
+            expect(up.defaultPrevented).toBe(true);
+            expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(up);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 25, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(linkClick).not.toHaveBeenCalled();
+            expect(showWord).toHaveBeenCalledTimes(1);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('leaves passive touch drags to the native link instead of opening lookup', () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <a id="title-link" href="/g/next">
+                <span class="jpdb-reader-word jpdb-reader-passive-word" data-jpdb-reader-passive="true" data-vid="501" data-sid="501" data-expression="日本語" data-reading="にほんご" data-sentence="日本語の漫画">日本語</span>
+            </a>
+        `;
+        const link = document.querySelector<HTMLAnchorElement>('#title-link')!;
+        const word = link.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const linkClick = vi.fn((event: MouseEvent) => event.preventDefault());
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.showWord = showWord;
+        internals.bindEvents();
+        link.addEventListener('click', linkClick);
+
+        try {
+            word.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', clientX: 24, clientY: 24, button: 0, pointerId: 7 }));
+            word.dispatchEvent(createPointerEvent('pointermove', { pointerType: 'touch', clientX: 48, clientY: 24, button: 0, pointerId: 7 }));
+            const up = createPointerEvent('pointerup', { pointerType: 'touch', clientX: 48, clientY: 24, button: 0, pointerId: 7 });
+            word.dispatchEvent(up);
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 48, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(up.defaultPrevented).toBe(false);
+            expect(showWord).not.toHaveBeenCalled();
+            expect(linkClick).toHaveBeenCalledTimes(1);
         } finally {
             app.destroy();
             document.body.replaceChildren();
@@ -19890,17 +20119,22 @@ describe('reader helpers', () => {
         }
     });
 
-    it('ships recommended dictionary downloads and monolingual homepages', () => {
+    it('ships recommended dictionary downloads for every install card', () => {
         const dictionary = findRecommendedDictionary('jmdict');
         expect(dictionary?.downloadUrl).toContain('JMdict_english.zip');
         expect(dictionary?.homepage).toContain('jmdict-yomitan');
+        expect(findRecommendedDictionary('wty-ja-ja')?.downloadUrl).toContain('wty-ja-ja.zip');
+        expect(findRecommendedDictionary('pixiv-light')?.downloadUrl).toContain('PixivLight.zip');
+        expect(findRecommendedDictionary('jpdb-kanji')?.downloadUrl).toContain('JPDB%20Kanji.zip');
+        expect(RECOMMENDED_JAPANESE_DICTIONARIES.every(item => Boolean(item.downloadUrl))).toBe(true);
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
             'Jitendex',
             'JMdict',
             'JMnedict',
             'WTY JA-JA',
-            'MarvNC JA-JA',
+            'Pixiv Light',
             'KANJIDIC',
+            'JPDB Kanji',
             'Jiten',
             'JPDBv2㋕',
             'BCCWJ',
@@ -24541,6 +24775,77 @@ describe('reader helpers', () => {
         expect(html).not.toContain('Jōyō kanji ?');
     });
 
+    it('remembers the nested JPDB kanji mnemonic section state', () => {
+        const sourceStateKey = kanjiSourceStateKey('__kanji_jpdb__');
+        const info = {
+            kanji: '読',
+            keyword: 'read',
+            frequency: '',
+            type: '',
+            kanken: '',
+            heisig: '',
+            oldForms: [],
+            readings: [],
+            components: [],
+            usedInKanji: [],
+            mnemonic: 'Picture a library sign.',
+            vocabulary: [],
+            actions: [],
+            loggedIn: false,
+            kanjiReviewsEnabled: false,
+        };
+        const controller = new DictionarySourceStateController({
+            getSettings: () => DEFAULT_SETTINGS,
+            onStateChange: () => undefined,
+        });
+        const root = document.createElement('div');
+        root.innerHTML = renderJpdbKanjiInfo(
+            info,
+            'en',
+            true,
+            sourceStateKey,
+            'JPDB',
+            (key, initiallyExpanded) => controller.attributes(key, initiallyExpanded),
+        );
+        controller.installTracking(root);
+        const mnemonic = root.querySelector<HTMLDetailsElement>('details[data-source-state-key$=":mnemonic"]')!;
+
+        expect(mnemonic.dataset.sourceStateKey).toBe(`${sourceStateKey}:mnemonic`);
+        expect(mnemonic.dataset.sourceInitialOpen).toBe('false');
+        expect(mnemonic.open).toBe(false);
+
+        mnemonic.open = true;
+        mnemonic.dispatchEvent(new Event('toggle'));
+
+        const rerendered = document.createElement('div');
+        rerendered.innerHTML = renderJpdbKanjiInfo(
+            info,
+            'en',
+            true,
+            sourceStateKey,
+            'JPDB',
+            (key, initiallyExpanded) => controller.attributes(key, initiallyExpanded),
+        );
+        const remembered = rerendered.querySelector<HTMLDetailsElement>('details[data-source-state-key$=":mnemonic"]')!;
+        expect(remembered.dataset.sourceInitialOpen).toBe('false');
+        expect(remembered.open).toBe(true);
+
+        controller.installTracking(rerendered);
+        remembered.open = false;
+        remembered.dispatchEvent(new Event('toggle'));
+
+        const collapsed = document.createElement('div');
+        collapsed.innerHTML = renderJpdbKanjiInfo(
+            info,
+            'en',
+            true,
+            sourceStateKey,
+            'JPDB',
+            (key, initiallyExpanded) => controller.attributes(key, initiallyExpanded),
+        );
+        expect(collapsed.querySelector<HTMLDetailsElement>('details[data-source-state-key$=":mnemonic"]')?.open).toBe(false);
+    });
+
     it('keeps RTK components in the compact elements row only', () => {
         const html = renderRtkInfo({
             kanji: '迎',
@@ -24560,6 +24865,59 @@ describe('reader helpers', () => {
 
         expect(html).toContain('jpdb-reader-rtk-elements');
         expect(html).not.toContain('jpdb-reader-component-grid');
+    });
+
+    it('tracks nested RTK story section state with stable defaults', () => {
+        const sourceStateKey = kanjiSourceStateKey('__kanji_rtk__');
+        const controller = new DictionarySourceStateController({
+            getSettings: () => DEFAULT_SETTINGS,
+            onStateChange: () => undefined,
+        });
+        const root = document.createElement('div');
+        root.innerHTML = renderRtkInfo({
+            kanji: '読',
+            keyword: 'read',
+            frameNumber: 'Frame number V4: 372',
+            onYomi: '',
+            kunYomi: '',
+            elements: '',
+            componentKanji: [],
+            heisigStory: 'A reading story.',
+            heisigComment: 'A remembered comment.',
+            koohiiStories: ['A shared story.'],
+        }, [], 'en', true, sourceStateKey, (key, initiallyExpanded) => controller.attributes(key, initiallyExpanded));
+        controller.installTracking(root);
+
+        const heisigStory = root.querySelector<HTMLDetailsElement>('details[data-source-state-key$=":heisig-story"]')!;
+        const heisigComment = root.querySelector<HTMLDetailsElement>('details[data-source-state-key$=":heisig-comment"]')!;
+        expect(heisigStory.dataset.sourceInitialOpen).toBe('false');
+        expect(heisigStory.open).toBe(false);
+        expect(heisigComment.dataset.sourceInitialOpen).toBe('true');
+        expect(heisigComment.open).toBe(true);
+
+        heisigStory.open = true;
+        heisigStory.dispatchEvent(new Event('toggle'));
+        heisigComment.open = false;
+        heisigComment.dispatchEvent(new Event('toggle'));
+
+        const rerendered = document.createElement('div');
+        rerendered.innerHTML = renderRtkInfo({
+            kanji: '読',
+            keyword: 'read',
+            frameNumber: 'Frame number V4: 372',
+            onYomi: '',
+            kunYomi: '',
+            elements: '',
+            componentKanji: [],
+            heisigStory: 'A reading story.',
+            heisigComment: 'A remembered comment.',
+            koohiiStories: ['A shared story.'],
+        }, [], 'en', true, sourceStateKey, (key, initiallyExpanded) => controller.attributes(key, initiallyExpanded));
+
+        expect(rerendered.querySelector<HTMLDetailsElement>('details[data-source-state-key$=":heisig-story"]')?.open).toBe(true);
+        const rememberedComment = rerendered.querySelector<HTMLDetailsElement>('details[data-source-state-key$=":heisig-comment"]');
+        expect(rememberedComment?.dataset.sourceInitialOpen).toBe('true');
+        expect(rememberedComment?.open).toBe(false);
     });
 
     it('maps RTK component aliases without showing the current keyword or plus separators', () => {
@@ -25227,6 +25585,38 @@ describe('reader helpers', () => {
         } finally {
             app.destroy();
             vi.unstubAllGlobals();
+        }
+    });
+
+    it('routes Jiten audio buttons in JPDB page addons through card actions', () => {
+        const app = new ReaderApp();
+        const root = document.createElement('div');
+        root.dataset.jpdbReaderRoot = 'true';
+        root.dataset.yomuJpdbAddon = 'word';
+        root.innerHTML = `
+            <button type="button" data-action="jiten-audio" data-study-sentence="サッカーをする。" data-jiten-audio-urls='["https://audio.example.test/soccer.mp3"]'>audio</button>
+        `;
+        document.body.append(root);
+        const fallbackCard = { ...card, spelling: 'サッカー', reading: 'サッカー' };
+        const handleCardAction = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            handleCardAction(button: HTMLButtonElement, actionCard: JPDBCard, sentence?: string): Promise<void>;
+            handleJpdbPageAddonClick(event: MouseEvent, pageAddonRoot: HTMLElement, actionCard: JPDBCard): void;
+        };
+        internals.handleCardAction = handleCardAction;
+
+        try {
+            root.addEventListener('click', event => internals.handleJpdbPageAddonClick(event as MouseEvent, root, fallbackCard));
+            const button = root.querySelector<HTMLButtonElement>('[data-action="jiten-audio"]')!;
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+
+            button.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(handleCardAction).toHaveBeenCalledWith(button, fallbackCard, 'サッカー');
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
         }
     });
 
@@ -29595,6 +29985,95 @@ describe('reader helpers', () => {
         }
     });
 
+    it('starts hover card detail loading as soon as the shell mounts', async () => {
+        const app = new ReaderApp();
+        const lookupCard = testAozoraCard();
+        const load = vi.fn(() => ({
+            localEntries: Promise.resolve([]),
+            all: Promise.resolve(emptyCardRenderData()),
+        }));
+        const updateWord = vi.fn();
+        const clearKanji = vi.fn();
+        const renderDeferredCardLocalEntries = vi.fn();
+        const renderCompletedCardPopover = vi.fn();
+        const renderHydratedCardAnkiLookup = vi.fn();
+        const frameCallbacks: FrameRequestCallback[] = [];
+        const raf = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(callback => {
+            frameCallbacks.push(callback);
+            return frameCallbacks.length;
+        });
+        const internals = app as unknown as {
+            activePopover?: HTMLElement;
+            settings: typeof DEFAULT_SETTINGS;
+            createPopover(): HTMLElement;
+            navigation: { updateWord: typeof updateWord; clearKanji: typeof clearKanji };
+            rememberCardMiningContext(): void;
+            maybePreloadLookupCardAudio(): void;
+            cardRenderData: { load: typeof load };
+            mountInitialCardShell(
+                popover: HTMLElement,
+                card: JPDBCard,
+                sentence: string | undefined,
+                anchor: HTMLElement | undefined,
+                context: { requestId: number },
+            ): Promise<{ instantLocalEntries: null; requestId: number } | null>;
+            renderDeferredCardLocalEntries: typeof renderDeferredCardLocalEntries;
+            renderCompletedCardPopover: typeof renderCompletedCardPopover;
+            renderHydratedCardAnkiLookup: typeof renderHydratedCardAnkiLookup;
+            showCard(
+                card: JPDBCard,
+                sentence?: string,
+                anchor?: HTMLElement,
+                options?: { trigger?: 'modal' | 'hover'; autoPlay?: boolean; skipInitialCardResolution?: boolean },
+            ): Promise<void>;
+        };
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: false,
+            localDictionariesEnabled: false,
+            jpdbDefinitionsEnabled: false,
+            jpdbMiningEnabled: false,
+            showPitchAccent: false,
+        };
+        internals.createPopover = () => document.createElement('div');
+        internals.navigation = { updateWord, clearKanji };
+        internals.rememberCardMiningContext = vi.fn();
+        internals.maybePreloadLookupCardAudio = vi.fn();
+        internals.cardRenderData = { load };
+        internals.mountInitialCardShell = vi.fn(async (popover, _card, _sentence, _anchor, context) => {
+            document.body.append(popover);
+            internals.activePopover = popover;
+            return { instantLocalEntries: null, requestId: context.requestId };
+        });
+        internals.renderDeferredCardLocalEntries = renderDeferredCardLocalEntries;
+        internals.renderCompletedCardPopover = renderCompletedCardPopover;
+        internals.renderHydratedCardAnkiLookup = renderHydratedCardAnkiLookup;
+
+        try {
+            const show = internals.showCard(lookupCard, '青空です。', undefined, {
+                trigger: 'hover',
+                autoPlay: false,
+                skipInitialCardResolution: true,
+            });
+
+            await waitForExpect(() => expect(load).toHaveBeenCalledWith(lookupCard));
+            expect(frameCallbacks).toHaveLength(1);
+            expect(renderDeferredCardLocalEntries).not.toHaveBeenCalled();
+
+            frameCallbacks.shift()?.(0);
+            await show;
+
+            expect(renderDeferredCardLocalEntries).toHaveBeenCalledTimes(1);
+            expect(renderCompletedCardPopover).toHaveBeenCalledWith(expect.any(HTMLElement), lookupCard, '青空です。', 'hover', expect.objectContaining({
+                loading: false,
+            }), undefined);
+        } finally {
+            raf.mockRestore();
+            internals.activePopover?.remove();
+            app.destroy();
+        }
+    });
+
     it('defers study and Immersion loaders until after the initial hover card shell paints', () => {
         const app = new ReaderApp();
         const lookupCard = testAozoraCard();
@@ -31677,6 +32156,40 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(['にほんごのじかん']);
     });
 
+    it('keeps generic chat prose furigana even when an avatar makes the row look media-like', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 420, height: 42 });
+        document.body.innerHTML = `
+            <main>
+                <div role="article" class="messageListItem" style="display:flex;overflow:hidden;max-height:44px">
+                    <img class="avatar" alt="" src="/avatar.png">
+                    <div class="messageContent" style="overflow:hidden;text-overflow:ellipsis;white-space:normal">
+                        <span class="markup messageContent_hash">今日は故郷を守るために戦います。</span>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://chat.example/channels/1/2');
+        rectSpy.mockRestore();
+        const target = targets.find(candidate => candidate.text === '今日は故郷を守るために戦います。')!;
+        expect(target).toBeTruthy();
+        expect(target).not.toMatchObject({ suppressRuby: true });
+
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '故郷', reading: 'こきょう' },
+            start: 3,
+            end: 5,
+            length: 2,
+            rubies: [{ text: 'こきょう', start: 3, end: 5, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '今日は故郷を守るために戦います。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.messageContent .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('故郷');
+        expect(word.querySelector('rt')?.textContent).toBe('こきょう');
+    });
+
     it('does not cap default page scans at two thousand targets', () => {
         const rectSpy = mockElementBoundingClientRect();
         const paragraphs = Array.from({ length: 2005 }, (_, index) => `<p>日本語の文章${index}</p>`).join('');
@@ -33008,9 +33521,14 @@ describe('reader helpers', () => {
         expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
         expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
 
-        titleHost.firstChild!.textContent = '更新後の日本語タイトル';
-        await new Promise(resolve => setTimeout(resolve, 0));
-        document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        vi.useFakeTimers();
+        try {
+            titleHost.firstChild!.textContent = '更新後の日本語タイトル';
+            await vi.advanceTimersByTimeAsync(100);
+        } finally {
+            vi.useRealTimers();
+            document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        }
 
         expect(staleEvents).toHaveLength(1);
         expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
@@ -33041,6 +33559,92 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(titleHost.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('更新');
         expect(document.querySelector('.jpdb-reader-word .jpdb-reader-word')).toBeNull();
         expect(document.querySelector('ruby ruby')).toBeNull();
+    });
+
+    it('keeps non-destructive YouTube title mirrors through transient native text clears', async () => {
+        const targets = collectYouTubeWatchTargets(`
+            <ytd-watch-metadata>
+                <h1><yt-formatted-string>日本語タイトルを読む</yt-formatted-string></h1>
+            </ytd-watch-metadata>
+        `);
+        const title = targets.find(target => target.text === '日本語タイトルを読む')!;
+        applyTokensToScanTarget(title, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語タイトルを読む',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const titleHost = document.querySelector<HTMLElement>('yt-formatted-string')!;
+        const staleEvents: Event[] = [];
+        const recordStaleEvent = (event: Event) => staleEvents.push(event);
+        document.addEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+
+        vi.useFakeTimers();
+        try {
+            titleHost.firstChild!.textContent = '';
+            await vi.advanceTimersByTimeAsync(0);
+
+            expect(staleEvents).toHaveLength(0);
+            expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+            expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
+            expect(readerWordSurfaceText(titleHost.querySelector<HTMLElement>('.jpdb-reader-word')!)).toBe('日本語');
+
+            titleHost.firstChild!.textContent = '更新後の日本語タイトル';
+            await vi.advanceTimersByTimeAsync(100);
+        } finally {
+            vi.useRealTimers();
+            document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        }
+
+        expect(staleEvents).toHaveLength(1);
+        expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
+        expect(titleHost.style.getPropertyValue('visibility')).toBe('hidden');
+    });
+
+    it('coalesces repeated stale events while a YouTube mirror waits for rescan', async () => {
+        const targets = collectYouTubeWatchTargets(`
+            <ytd-watch-metadata>
+                <h1><yt-formatted-string>日本語タイトルを読む</yt-formatted-string></h1>
+            </ytd-watch-metadata>
+        `);
+        const title = targets.find(target => target.text === '日本語タイトルを読む')!;
+        applyTokensToScanTarget(title, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語タイトルを読む',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const titleHost = document.querySelector<HTMLElement>('yt-formatted-string')!;
+        const staleEvents: Event[] = [];
+        const recordStaleEvent = (event: Event) => staleEvents.push(event);
+        document.addEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+
+        vi.useFakeTimers();
+        try {
+            titleHost.firstChild!.textContent = '更新後の日本語タイトル';
+            await vi.advanceTimersByTimeAsync(100);
+            expect(staleEvents).toHaveLength(1);
+
+            const feedback = document.createElement('span');
+            feedback.setAttribute('aria-hidden', 'true');
+            feedback.textContent = '押下中';
+            titleHost.append(feedback);
+            await vi.advanceTimersByTimeAsync(100);
+        } finally {
+            vi.useRealTimers();
+            document.removeEventListener('jpdb-reader-text-mirror-stale', recordStaleEvent);
+        }
+
+        expect(staleEvents).toHaveLength(1);
+        expect(titleHost.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
     });
 
     it('keeps YouTube generic scans off while allowing frequent site-parser rescans', () => {

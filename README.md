@@ -37,7 +37,7 @@
 
 ## Contents
 
-[Install](#install) · [Features](#features) · [Privacy](#privacy) · [Audio](#audio) · [Mining](#mining) · [Video Player](#video-player) · [PDF Reader](#pdf-reader) · [New Tab](#new-tab) · [OCR](#ocr) · [Development](#development) · [Deployment](#deployment) · [Support](#support) · [Credits](#credits-and-references) · [Licenses](#source-licenses)
+[Install](#install) · [Features](#features) · [Audio](#audio) · [Mining](#mining) · [Video Player](#video-player) · [PDF Reader](#pdf-reader) · [New Tab](#new-tab) · [OCR](#ocr) · [Development](#development) · [Deployment](#deployment) · [Support](#support) · [Credits](#credits-and-references) · [Licenses](#source-licenses)
 
 ## Install
 
@@ -59,10 +59,6 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - **Japanese that stays readable:** furigana modes, status/pitch/accent coloring, Jiten/JPDB kanji details, stroke tracing, Uchisen, RTK, origin graphs, and local kanji dictionaries.
 - **Examples and audio:** Immersion Kit, Nadeshiko, Jisho.org, Jiten/JPDB audio, browser voices, custom audio URLs, thumbnails, translations, and replay buttons.
 - **Immersion tools:** manga/image OCR, ASB-style subtitle overlay, transcript mining, local video player, YouTube Japanese-mode filtering, and touch-first mobile controls.
-
-## Privacy
-
-Selected Japanese text is sent to Jiten or JPDB only when parsing, showing their results, mining, or opening kanji details. Example searches send the looked-up term to the enabled example provider: Immersion Kit needs no key, while Nadeshiko requests include your saved Nadeshiko API key and do not use public proxy fallbacks. Example media is fetched only when examples are enabled. RTK details are fetched from the configured static RTK data source when enabled. Kanji origin details can fetch public per-kanji data from The Kanji Map on GitHub when enabled. Custom audio sources receive the term, reading, and language placeholders you configure. Image text uses embedded OCR metadata first when a page provides it; local OCR app mode sends image pixels only to the endpoint you configure. Imported Yomitan dictionaries stay local in IndexedDB; settings live in userscript storage. Anki mining talks only to your local AnkiConnect endpoint.
 
 ## Audio
 

@@ -1110,6 +1110,19 @@ html.jpdb-reader-doodle-active * {
   outline: none;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
 }
+.jpdb-reader-review-blocked-action {
+  position: absolute;
+  top: 1px;
+  right: 14px;
+  z-index: 2;
+}
+@media (hover: hover) {
+  .jpdb-reader-actions:not(:hover):not(:focus-within)
+    .jpdb-reader-review-blocked-action {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
 .jpdb-reader-actions-gutter[hidden] {
   display: none !important;
 }

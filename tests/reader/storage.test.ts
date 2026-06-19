@@ -227,6 +227,7 @@ describe('managed storage backup', () => {
         localStorage.setItem('jpdb-reader-newtab-ui', JSON.stringify({ mode: 'kanji' }));
         localStorage.setItem('unrelated-key', JSON.stringify({ keep: false }));
         localStorage.setItem('yomu:factory-reset-signal', JSON.stringify({ phase: 'prepare' }));
+        localStorage.setItem('yomu:google-drive-oauth:v1', JSON.stringify({ refreshToken: 'secret' }));
 
         await expect(exportManagedStoredValues()).resolves.toEqual({
             'jpdb-reader-newtab-ui': { mode: 'kanji' },

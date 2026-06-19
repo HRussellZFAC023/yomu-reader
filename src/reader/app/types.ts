@@ -86,6 +86,8 @@ export type FuriganaStateGroup = 'new' | 'learning' | 'known' | 'due' | 'failed'
 
 export type WordColorStates = 'all' | 'new-only';
 
+export type CloudSyncProvider = 'google-drive' | 'dropbox' | 'onedrive' | 'yandex-disk' | 'webdav';
+
 export interface AudioSourceSetting {
     type: AudioSourceType;
     url: string;
@@ -380,6 +382,8 @@ export interface ReaderSettings {
     dictionarySourcesInitiallyExpanded: boolean;
     dictionaryPreferences: DictionaryPreference[];
     dictionaryLookupLinks: DictionaryLookupLink[];
+    cloudSyncProvider: CloudSyncProvider;
+    googleDriveClientId: string;
     yomitanSettingsBackup?: unknown;
     subtitlePlayerEnabled: boolean;
     subtitleAutoDetect: boolean;

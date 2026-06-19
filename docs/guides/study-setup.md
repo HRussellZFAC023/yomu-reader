@@ -65,7 +65,7 @@ The point of よむ is that you do not have to choose a workflow up front — yo
 
 From a single lookup popup, よむ lets you:
 
-- **Use Yomitan dictionaries locally.** Import your Yomitan dictionary ZIPs or JMdict; the dictionaries stay in your browser and power instant definitions, with no upload anywhere.
+- **Use Yomitan dictionaries locally.** Import your Yomitan dictionary ZIPs or JMdict to power instant definitions.
 - **See and act on JPDB state.** The popup shows a word's JPDB state, and you can add the word, mark it never-forget, blacklist it, or send a review grade — all without leaving the page you are reading.
 - **Mine to Anki via AnkiConnect.** Turn a lookup, subtitle line, or OCR result into an Anki card with the word, reading, meaning, source sentence, audio, and an optional image.
 

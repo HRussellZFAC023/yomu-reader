@@ -1096,7 +1096,8 @@
     "yomu-anki-status-index"
   ];
   const EXCLUDED_BACKUP_STORAGE_KEYS = /* @__PURE__ */ new Set([
-    FACTORY_RESET_SIGNAL_KEY
+    FACTORY_RESET_SIGNAL_KEY,
+    "yomu:google-drive-oauth:v1"
   ]);
   async function gmStorageGet(key, fallback) {
     const getValue = asyncGmGetValue();
@@ -2214,7 +2215,7 @@
     SETTINGS_STORAGE_KEY,
     ...LEGACY_SETTINGS_STORAGE_KEYS
   ];
-  const log$B = Logger.scope("Settings");
+  const log$C = Logger.scope("Settings");
   let settingsResetInProgress = false;
   const DEFAULT_AUDIO_URL = "http://localhost:9090/?term={term}&reading={reading}";
   const DEFAULT_ACCENT_COLOR = BRAND_COLOR_TOKENS.accent;
@@ -2349,6 +2350,7 @@
   const NEW_TAB_SOURCES = ["jpdb", "anki", "auto", "dictionary"];
   const NEW_TAB_JPDB_REVIEW_MODES = ["auto", "api-vocabulary", "live-review"];
   const NEW_TAB_KANJI_KEYWORD_SOURCES = ["auto", "rtk", "jpdb", "local"];
+  const CLOUD_SYNC_PROVIDERS = ["google-drive", "dropbox", "onedrive", "yandex-disk", "webdav"];
   const LEGACY_COLOR_CHANNEL_DEFAULTS = {
     wordHighlightColorSource: "auto",
     wordUnderlineColorSource: "auto",
@@ -2503,6 +2505,8 @@
     dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link })),
+    cloudSyncProvider: "google-drive",
+    googleDriveClientId: "",
     subtitlePlayerEnabled: true,
     subtitleAutoDetect: true,
     subtitleOverlayVisible: false,
@@ -2637,6 +2641,7 @@
       ...normalizePresentationSettings(settingsValue),
       ...normalizeMiningSettings(settingsValue),
       ...normalizeRemovedDictionarySettings(settingsValue),
+      ...normalizeCloudSyncSettings(settingsValue),
       dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
       shortcuts: normalizeShortcutSettings(settingsValue)
@@ -2779,6 +2784,15 @@
       localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults,
       localDictionaryShowKanji: booleanSetting(value, "localDictionaryShowKanji")
     };
+  }
+  function normalizeCloudSyncSettings(value) {
+    return {
+      cloudSyncProvider: normalizeCloudSyncProvider(value?.cloudSyncProvider),
+      googleDriveClientId: trimmedStringSetting(value, "googleDriveClientId", DEFAULT_SETTINGS.googleDriveClientId)
+    };
+  }
+  function normalizeCloudSyncProvider(value) {
+    return normalizeOption(value, CLOUD_SYNC_PROVIDERS, DEFAULT_SETTINGS.cloudSyncProvider);
   }
   function normalizeNewTabSettings(value) {
     return {
@@ -3266,7 +3280,7 @@
       const settings = mergeSettings(await gmStorageGet(SETTINGS_STORAGE_KEY, null));
       return settings;
     } catch (error) {
-      log$B.warn("Settings load failed", { error });
+      log$C.warn("Settings load failed", { error });
       return mergeSettings(null);
     }
   }
@@ -3275,7 +3289,7 @@
   }
   async function saveSettings(settings) {
     if (settingsResetInProgress) {
-      log$B.warn("Skipped save during reset");
+      log$C.warn("Skipped save during reset");
       return;
     }
     try {
@@ -3284,7 +3298,7 @@
       await gmStorageSet(SETTINGS_STORAGE_KEY, storedSettings);
       dispatchSettingsChange(storedSettings);
     } catch (error) {
-      log$B.warn("Settings save failed", { error });
+      log$C.warn("Settings save failed", { error });
       throw error;
     }
   }
@@ -3500,6 +3514,9 @@
   ].join(",");
   const FORM_CHROME_BOUNDARY_TAGS = /* @__PURE__ */ new Set(["FORM", "LABEL", "FIELDSET", "LEGEND"]);
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+  const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
+  const CHAT_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
+  const READABLE_PROSE_CONTAINER_SELECTOR = 'article,main,[role="main"],[role="article"]';
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
   const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
   const PASSIVE_INTERACTION_SELECTOR = [
@@ -3636,7 +3653,7 @@
     "TR",
     "UL"
   ]);
-  const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
+  const M_SEL = ".jpdb-reader-text-mirror";
   const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
     "yt-formatted-string",
     "yt-attributed-string",
@@ -3644,8 +3661,8 @@
     ".yt-core-attributed-string",
     ".yt-core-attributed-string--white-space-pre-wrap"
   ].join(",");
-  const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
+  const M_NATIVE_SKIP = [
+    M_SEL,
     "script",
     "style",
     "noscript",
@@ -3653,13 +3670,15 @@
     "[hidden]",
     '[aria-hidden="true"]'
   ].join(",");
-  const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
+  const M_ARIA_SKIP = [
+    M_SEL,
     "[hidden]",
     '[aria-hidden="true"]'
   ].join(",");
   const RENDERED_SCAN_HOST_MAX_TEXT = 1e3;
   const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 6e4;
+  const M_STALE_MS = 80;
+  const M_MISSING_MS = 1600;
   const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = "jpdb-reader-text-mirror-stale";
   const renderedScanHosts = /* @__PURE__ */ new WeakMap();
   const textMirrorHosts = /* @__PURE__ */ new WeakMap();
@@ -3706,10 +3725,10 @@
     };
   }
   function fragmentTargetSuppressesCompactMediaRuby(parent, fragments) {
-    if (shouldSuppressCompactMediaRuby(parent)) return true;
+    if (mCompact(parent)) return true;
     return fragments.some((fragment2) => {
       const element = fragment2.node.parentElement;
-      return Boolean(element && shouldSuppressCompactMediaRuby(element));
+      return Boolean(element && mCompact(element));
     });
   }
   function isCollectableFragmentText(text2, fragments, options) {
@@ -3720,16 +3739,16 @@
   function compactFragmentTextLength(text2) {
     return text2.replace(/\s+/g, "").length;
   }
-  function visitFragmentNode(node, state2, hasNativeRuby = false, isRoot = false) {
+  function visitFragmentNode(node, state2, hasNativeRuby2 = false, isRoot = false) {
     if (fragmentCollectionComplete(state2)) return;
     if (node.nodeType === Node.TEXT_NODE) {
-      collectFragmentTextNode(node, state2, hasNativeRuby);
+      collectFragmentTextNode(node, state2, hasNativeRuby2);
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
-    visitFragmentElement(node, state2, hasNativeRuby, isRoot);
+    visitFragmentElement(node, state2, hasNativeRuby2, isRoot);
   }
-  function collectFragmentTextNode(node, state2, hasNativeRuby) {
+  function collectFragmentTextNode(node, state2, hasNativeRuby2) {
     const text2 = node.textContent ?? "";
     if (shouldIgnoreFragmentTextNode(text2, state2.options)) return;
     const parent = node.parentElement;
@@ -3737,7 +3756,7 @@
       node,
       start: 0,
       end: text2.length,
-      hasNativeRuby,
+      hasNativeRuby: hasNativeRuby2,
       layoutSensitive: parent ? isLayoutSensitiveScanElement(parent) : false,
       passiveInteraction: parent ? isFragmentPassiveInteractionElement(parent, state2.options) : false
     });
@@ -3745,7 +3764,7 @@
   function shouldIgnoreFragmentTextNode(text2, options) {
     return Boolean(options.mergeBlockFragments && !text2.trim());
   }
-  function visitFragmentElement(element, state2, hasNativeRuby, isRoot) {
+  function visitFragmentElement(element, state2, hasNativeRuby2, isRoot) {
     if (shouldIgnoreFragmentElement(element, state2.options)) return;
     if (shouldFlushAndSkipFragmentElement(element, state2, isRoot)) {
       flushFragmentTextTarget(state2);
@@ -3753,7 +3772,7 @@
     }
     const isBlock = isBlockFragmentElement(element, state2.options);
     flushFragmentBlockBoundary(isBlock, state2);
-    visitFragmentElementChildren(element, state2, nextFragmentRubyState(element, hasNativeRuby));
+    visitFragmentElementChildren(element, state2, nextFragmentRubyState(element, hasNativeRuby2));
     flushFragmentBlockBoundary(isBlock, state2);
   }
   function shouldIgnoreFragmentElement(element, options) {
@@ -3781,7 +3800,7 @@
     return visibleOnly && !isVisible(element) && !hasVisibleTextMirror(element);
   }
   function hasVisibleTextMirror(element) {
-    return Array.from(element.children).some((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && isVisible(child));
+    return Array.from(element.children).some((child) => child instanceof HTMLElement && child.matches(M_SEL) && isVisible(child));
   }
   function shouldSkipFragmentTextPresentation(element, options) {
     const text2 = element.textContent?.trim() ?? "";
@@ -3801,14 +3820,14 @@
   function flushFragmentBlockBoundary(isBlock, state2) {
     if (isBlock) flushFragmentTextTarget(state2);
   }
-  function visitFragmentElementChildren(element, state2, hasNativeRuby) {
+  function visitFragmentElementChildren(element, state2, hasNativeRuby2) {
     for (const child of Array.from(element.childNodes)) {
-      visitFragmentNode(child, state2, hasNativeRuby);
+      visitFragmentNode(child, state2, hasNativeRuby2);
       if (fragmentCollectionComplete(state2)) break;
     }
   }
-  function nextFragmentRubyState(element, hasNativeRuby) {
-    return hasNativeRuby || element.tagName === "RUBY" || element.tagName === "RB";
+  function nextFragmentRubyState(element, hasNativeRuby2) {
+    return hasNativeRuby2 || element.tagName === "RUBY" || element.tagName === "RB";
   }
   function fragmentCollectionComplete(state2) {
     return state2.targets.length >= state2.limit;
@@ -3984,8 +4003,8 @@
     return true;
   }
   function applyTokensToScanTarget(target, tokens, settings) {
-    if (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text)) {
-      applyTokensToNonDestructiveScanTarget(target, tokens, settings);
+    if (target.nonDestructive || scanHostIsRepaintLooping(mirrorHost(target), target.text)) {
+      mApply(target, tokens, settings);
       return;
     }
     if (isFragmentTextTarget(target)) applyTokensToFragmentTarget(target, tokens, settings);
@@ -4009,9 +4028,9 @@
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment2 = document.createDocumentFragment();
-    const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
+    const suppressRuby = mRuby(target.parent, target.suppressRuby);
     const passiveInteraction = target.passiveInteraction || suppressRuby;
-    const renderSettings = furiganaSettingsForTarget(settings, target.parent);
+    const renderSettings = mFuri(settings, target.parent);
     let offset = 0;
     const tokenPlans = tokens.map((token) => ({
       token,
@@ -4034,52 +4053,60 @@
     appendPlainTextBeforeToken(fragment2, text2, offset, text2.length);
     return fragment2;
   }
-  function applyTokensToNonDestructiveScanTarget(target, tokens, settings) {
-    const host = nonDestructiveScanHost(target);
+  function mApply(target, tokens, settings) {
+    const host = mirrorHost(target);
     if (!host.isConnected) return;
     const text2 = target.text;
-    const safeTokens = nonOverlappingTokens(tokens, text2.length);
-    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
-    const renderSettings = furiganaSettingsForTarget(settings, host);
-    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
-    const existing = currentTextMirror(host);
-    if (existing?.dataset.sourceText === text2 && existing.dataset.renderSignature === signature) {
+    const safe = nonOverlappingTokens(tokens, text2.length);
+    const ruby = mRuby(host, target.suppressRuby);
+    const render = mFuri(settings, host);
+    const sig = mSig(target, safe, render, ruby);
+    const old = currentTextMirror(host);
+    if (old?.dataset.sourceText === text2 && old.dataset.renderSignature === sig) {
       const state22 = textMirrorHosts.get(host);
-      if (state22) reassertTextMirrorHostStyles(host, state22);
+      if (state22) mReassert(host, state22);
       return;
     }
-    removeTextMirror(host);
-    if (!safeTokens.length) return;
+    if (!safe.length) {
+      mRemove(host);
+      return;
+    }
     const mirror = document.createElement("span");
     mirror.className = "jpdb-reader-text-mirror";
     mirror.dataset.jpdbReaderTextMirror = "true";
     mirror.dataset.sourceText = text2;
-    mirror.dataset.renderSignature = signature;
-    const state2 = styleTextMirrorHost(host);
+    mirror.dataset.renderSignature = sig;
+    const state2 = old ? textMirrorHosts.get(host) ?? mStyleHost(host) : mStyleHost(host);
     try {
-      styleTextMirror(mirror, host);
-      mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
+      mStyle(mirror, host);
+      mirror.append(renderTokenizedScanText(text2, safe, render, {
         parent: host,
-        hasNativeRuby: targetHasNativeRuby(target),
-        suppressRuby,
-        passiveInteraction: target.passiveInteraction || suppressRuby
+        hasNativeRuby: hasNativeRuby(target),
+        suppressRuby: ruby,
+        passiveInteraction: target.passiveInteraction || ruby
       }));
       if (!mirror.textContent?.trim()) {
-        removeTextMirror(host);
+        mRemove(host);
         return;
       }
-      host.append(mirror);
-      hideTextMirrorHost(host, state2);
-      observeTextMirrorHost(host, text2);
+      replaceCurrentTextMirror(host, old, mirror, state2);
+      mHideHost(host, state2);
+      mObserve(host, text2);
     } catch (error) {
-      removeTextMirror(host);
+      mRemove(host);
       throw error;
     }
   }
   function currentTextMirror(host) {
-    return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)) ?? null;
+    return Array.from(host.children).find((child) => child instanceof HTMLElement && child.matches(M_SEL)) ?? null;
   }
-  function nonDestructiveScanSignature(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby)) {
+  function replaceCurrentTextMirror(host, existing, mirror, state2) {
+    state2.observer.disconnect();
+    mClear(state2);
+    if (existing?.parentElement === host) existing.replaceWith(mirror);
+    else host.append(mirror);
+  }
+  function mSig(target, tokens, settings, suppressRuby = Boolean(target.suppressRuby)) {
     return JSON.stringify({
       ruby: !suppressRuby,
       mode: settings.furiganaMode,
@@ -4097,25 +4124,25 @@
       }))
     });
   }
-  function furiganaSettingsForTarget(settings, parent) {
-    if (!targetForcesAllFurigana(parent)) return settings;
+  function mFuri(settings, parent) {
+    if (!mAllFuri(parent)) return settings;
     if (settings.showFurigana && settings.furiganaMode === "all") return settings;
     return { ...settings, showFurigana: true, furiganaMode: "all" };
   }
-  function scanTargetSuppressesRuby(parent, suppressRuby) {
-    if (targetForcesAllFurigana(parent)) return false;
-    return Boolean(suppressRuby || shouldSuppressCompactMediaRuby(parent));
+  function mRuby(parent, suppressRuby) {
+    if (mAllFuri(parent)) return false;
+    return Boolean(suppressRuby || mCompact(parent));
   }
-  function targetForcesAllFurigana(parent) {
+  function mAllFuri(parent) {
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
-  function shouldSuppressCompactMediaRuby(parent) {
+  function mCompact(parent) {
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
       return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
     }
-    return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
+    return mLink(parent) || mFragile(parent);
   }
-  function isCompactMediaCardLinkText(parent) {
+  function mLink(parent) {
     const link = parent.closest("a[href]");
     if (!link || parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
     if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
@@ -4124,12 +4151,12 @@
     if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
     return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
   }
-  function isLayoutFragileMediaTileText(parent) {
-    if (isLikelyProseElement(parent) && parent.closest('article, [role="article"]')) return false;
-    if (!hasCompactMediaRubyRisk(parent)) return false;
-    return Boolean(closestCompactMediaContext(parent));
+  function mFragile(parent) {
+    if (isProseContext(parent)) return false;
+    if (!mRisk(parent)) return false;
+    return Boolean(mContext(parent));
   }
-  function hasCompactMediaRubyRisk(parent) {
+  function mRisk(parent) {
     if (isLayoutSensitiveScanElement(parent)) return true;
     let current = parent;
     for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 4; depth++) {
@@ -4139,11 +4166,11 @@
     }
     return false;
   }
-  function closestCompactMediaContext(parent) {
+  function mContext(parent) {
     let current = parent;
     for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-      if (isLikelyProseElement(current) && current.closest('article, [role="article"]')) return null;
-      if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
+      if (isProseContext(current)) return null;
+      if (hasMediaPeer(current, parent) && mIsContext(current)) return current;
       current = current.parentElement;
     }
     return null;
@@ -4155,7 +4182,7 @@
       return media !== textElement && !textElement.contains(media);
     });
   }
-  function isCompactMediaContext(element) {
+  function mIsContext(element) {
     const style = safeComputedStyle(element);
     const rect = element.getBoundingClientRect();
     if (element.matches('a[href], button, [role="link"], [role="button"]')) return true;
@@ -4165,18 +4192,18 @@
     const compact = rect.width === 0 || rect.width <= 560;
     return structured && compact;
   }
-  function nonDestructiveScanHost(target) {
+  function mirrorHost(target) {
     if (!isFragmentTextTarget(target)) return target.parent;
     const parents = target.fragments.map((fragment2) => fragment2.node.parentElement).filter((parent) => Boolean(parent));
-    return preferredNonDestructiveTextHost(parents) ?? commonFragmentTextHost(parents) ?? target.parent;
+    return mPrefHost(parents) ?? mCommonHost(parents) ?? target.parent;
   }
-  function preferredNonDestructiveTextHost(elements) {
+  function mPrefHost(elements) {
     if (!elements.length) return null;
     const preferred = elements[0]?.closest(NON_DESTRUCTIVE_TEXT_HOST_SELECTOR);
     if (!preferred || !elements.every((element) => preferred.contains(element))) return null;
     return preferred;
   }
-  function commonFragmentTextHost(elements) {
+  function mCommonHost(elements) {
     if (!elements.length) return null;
     let candidate = elements[0];
     while (candidate) {
@@ -4186,10 +4213,10 @@
     }
     return null;
   }
-  function targetHasNativeRuby(target) {
+  function hasNativeRuby(target) {
     return isFragmentTextTarget(target) ? target.fragments.some((fragment2) => fragment2.hasNativeRuby) : Boolean(target.hasNativeRuby);
   }
-  function styleTextMirrorHost(host) {
+  function mStyleHost(host) {
     const computed = safeComputedStyle(host);
     const state2 = {
       observer: new MutationObserver(() => void 0),
@@ -4208,13 +4235,13 @@
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
     return state2;
   }
-  function hideTextMirrorHost(host, state2) {
+  function mHideHost(host, state2) {
     textMirrorHosts.set(host, state2);
     host.style.setProperty("visibility", "hidden", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
-  function styleTextMirror(mirror, host) {
+  function mStyle(mirror, host) {
     const style = safeComputedStyle(host);
     mirror.style.setProperty("position", "absolute");
     mirror.style.setProperty("inset", "0 0 auto 0");
@@ -4232,64 +4259,110 @@
     mirror.style.setProperty("color", style.color);
     mirror.style.setProperty("z-index", "1");
   }
-  function observeTextMirrorHost(host, sourceText) {
+  function mObserve(host, source) {
     const state2 = textMirrorHosts.get(host);
     if (!state2) return;
-    state2.sourceText = normalizedMirrorHostText(sourceText);
+    state2.sourceText = mNormText(source);
+    state2.dt = void 0;
+    mClear(state2);
     state2.observer = new MutationObserver((mutations) => {
       if (mutations.every(mutationInsideTextMirror)) return;
       if (!currentTextMirror(host)) {
-        removeTextMirror(host);
+        mRemove(host);
         return;
       }
-      const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
-      if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
-        removeTextMirror(host);
+      if (!host.isConnected) {
+        mRemove(host);
         return;
       }
-      if (currentText !== state2.sourceText) {
-        reassertTextMirrorHostStyles(host, state2);
-        dispatchTextMirrorStale(host);
+      const text2 = mNormText(mNativeText(host));
+      if (!HAS_JAPANESE.test(text2)) {
+        mReassert(host, state2);
+        mRemoval(host, state2);
+        return;
       }
+      mClearMissing(state2);
+      if (text2 !== state2.sourceText) {
+        mReassert(host, state2);
+        mStale(host, state2);
+        return;
+      }
+      state2.dt = void 0;
+      mClearStale(state2);
     });
     state2.observer.observe(host, { childList: true, characterData: true, subtree: true });
   }
-  function dispatchTextMirrorStale(host) {
+  function mStale(host, state2) {
+    if (state2.st !== void 0) return;
+    state2.st = window.setTimeout(() => {
+      state2.st = void 0;
+      if (!host.isConnected || !currentTextMirror(host)) return;
+      const text2 = mNormText(mNativeText(host));
+      if (text2 === state2.sourceText || text2 === state2.dt || !HAS_JAPANESE.test(text2)) return;
+      state2.dt = text2;
+      mDispatch(host);
+    }, M_STALE_MS);
+  }
+  function mRemoval(host, state2) {
+    mClearStale(state2);
+    state2.dt = void 0;
+    if (state2.mt !== void 0) return;
+    state2.mt = window.setTimeout(() => {
+      state2.mt = void 0;
+      if (!host.isConnected || !currentTextMirror(host)) return;
+      const text2 = mNormText(mNativeText(host));
+      if (!HAS_JAPANESE.test(text2)) mRemove(host);
+    }, M_MISSING_MS);
+  }
+  function mClear(state2) {
+    mClearStale(state2);
+    mClearMissing(state2);
+  }
+  function mClearStale(state2) {
+    window.clearTimeout(state2.st);
+    state2.st = void 0;
+  }
+  function mClearMissing(state2) {
+    window.clearTimeout(state2.mt);
+    state2.mt = void 0;
+  }
+  function mDispatch(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
       bubbles: true
     }));
   }
   function mutationInsideTextMirror(mutation) {
     const target = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
-    return Boolean(target?.closest(READER_TEXT_MIRROR_SELECTOR));
+    return Boolean(target?.closest(M_SEL));
   }
-  function nativeTextMirrorHostText(host) {
+  function mNativeText(host) {
     let text2 = "";
     const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT, {
       acceptNode(node) {
         const parent = node.parentElement;
-        if (!parent || parent.closest(TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR)) return NodeFilter.FILTER_REJECT;
+        if (!parent || parent.closest(M_NATIVE_SKIP)) return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT;
       }
     });
     for (let node = walker.nextNode(); node; node = walker.nextNode()) text2 += node.textContent ?? "";
     if (HAS_JAPANESE.test(text2)) return text2;
-    const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element) => !element.closest(TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR)).map((element) => element.getAttribute("aria-label") ?? "").join(" • ");
+    const labelledText = Array.from(host.querySelectorAll("[aria-label]")).filter((element) => !element.closest(M_ARIA_SKIP)).map((element) => element.getAttribute("aria-label") ?? "").join(" • ");
     return HAS_JAPANESE.test(labelledText) ? labelledText : text2;
   }
-  function normalizedMirrorHostText(text2) {
+  function mNormText(text2) {
     return text2.replace(/\s+/g, " ").trim();
   }
-  function removeTextMirror(host) {
+  function mRemove(host) {
     const state2 = textMirrorHosts.get(host);
     state2?.observer.disconnect();
-    Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR)).forEach((mirror) => mirror.remove());
+    if (state2) mClear(state2);
+    Array.from(host.children).filter((child) => child instanceof HTMLElement && child.matches(M_SEL)).forEach((mirror) => mirror.remove());
     if (state2) restoreTextMirrorHost(host, state2);
     textMirrorHosts.delete(host);
   }
-  function reassertTextMirrorHostStyles(host, state2) {
+  function mReassert(host, state2) {
     if (!currentTextMirror(host)) {
-      removeTextMirror(host);
+      mRemove(host);
       return;
     }
     if (host.style.getPropertyValue("visibility") !== "hidden") {
@@ -4335,8 +4408,8 @@
     const safeTokens = nonOverlappingTokens(tokens, target.text.length);
     if (!safeTokens.length) return;
     const sentence = target.text.replace(/\s+/g, " ").trim();
-    const renderTarget = targetForcesAllFurigana(target.parent) ? { ...target, suppressRuby: false } : target;
-    applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, furiganaSettingsForTarget(settings, target.parent), sentence);
+    const renderTarget = mAllFuri(target.parent) ? { ...target, suppressRuby: false } : target;
+    applyTokensToIndexedFragmentTarget(renderTarget, safeTokens, mFuri(settings, target.parent), sentence);
     markRenderedScanTarget(target);
   }
   function hasFragmentTokenWork(target, tokens) {
@@ -4640,8 +4713,8 @@
     });
     replaceTextNodeRange(fragment2.node, start, end, rendered);
   }
-  function scanFragmentAllowsRuby(hasNativeRuby) {
-    return !hasNativeRuby;
+  function scanFragmentAllowsRuby(hasNativeRuby2) {
+    return !hasNativeRuby2;
   }
   function isInsideOwnedReaderRoot(element) {
     const readerRoot = element.closest(READER_ROOT_SELECTOR);
@@ -4895,13 +4968,13 @@
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
     const cardState = ` data-card-state="${escapeHtml$1(state2)}"`;
-    const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
+    const tokenRange2 = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
     const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -5235,7 +5308,18 @@
   }
   function isLikelyProseElement(element) {
     if (PROSE_TAGS.has(element.tagName)) return true;
-    return /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i.test(element.className || "");
+    const className = element.className || "";
+    return PROSE_CLASS_RE.test(className) || CHAT_TEXT_CLASS_RE.test(className);
+  }
+  function isProseContext(element) {
+    let current = element;
+    while (current && current !== document.body && current !== document.documentElement) {
+      const className = current.className || "";
+      if (CHAT_TEXT_CLASS_RE.test(className)) return true;
+      if ((PROSE_TAGS.has(current.tagName) || PROSE_CLASS_RE.test(className)) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+      current = current.parentElement;
+    }
+    return false;
   }
   function ancestorClassLooksLikeUi(element) {
     let current = element;
@@ -6065,6 +6149,10 @@
       cancel: "Cancel",
       show: "Show",
       hide: "Hide",
+      dismiss: "Dismiss",
+      collapse: "Collapse",
+      subscribe: "Subscribe",
+      subscribed: "Subscribed",
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
@@ -6528,7 +6616,7 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import Yomitan settings, ZIPs, or backups.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links. Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "Frequency badges and external links. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -6588,6 +6676,24 @@
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
       settingsExported: "Settings exported.",
+      cloud: "Cloud",
+      cloudType: "Type",
+      googleDriveClientId: "Google OAuth client ID",
+      cloudSyncHelp: "Back up settings, stored choices, and imported dictionaries to Google Drive app data. Create a Google OAuth client for TVs and Limited Input devices, then paste its client ID here.",
+      cloudExport: "Export",
+      cloudShowBackups: "Show backups",
+      cloudRevokeToken: "Revoke access token",
+      cloudBackupsTitle: "Please select a file",
+      cloudNoBackups: "No Google Drive backups found.",
+      cloudImportBackup: "Import",
+      cloudDeleteBackup: "Delete",
+      cloudSaveBackup: "Save to disk",
+      cloudBackupUploaded: "Backup uploaded to Google Drive.",
+      cloudBackupDeleted: "Backup deleted.",
+      cloudBackupImported: "Google Drive backup imported.",
+      cloudBackupSaved: "Backup saved to disk.",
+      cloudDeleteConfirm: 'Delete "{file}" from Google Drive?',
+      cloudUnsupportedProvider: "Only Google Drive sync is available right now.",
       restoredStoredChoices: "restored {count} stored choice{plural}",
       importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
       dictionaryNoSupportedBanks: "No supported Yomitan dictionary banks found.",
@@ -6710,6 +6816,20 @@
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
+      youtubeChannelShelfTitle: "Start your Japanese YouTube feed",
+      youtubeChannelShelfExpandedCopy: "{shown} shown from {total} curated channels.",
+      youtubeChannelShelfCompactCopy: "{total} curated channels, shown as compact YouTube-style rows.",
+      youtubeChannelRecommendations: "Japanese channel recommendations",
+      youtubeChannelSubscribeVisible: "Subscribe visible ({count})",
+      youtubeChannelSubscribeAll: "Subscribe all {count}",
+      youtubeChannelAllSubscribed: "All {total} subscribed",
+      youtubeChannelBrowseAll: "Browse all channels",
+      subscribeToChannel: "Subscribe to {name}",
+      subscribedToChannel: "Subscribed to {name}",
+      youtubeChannelAlreadySubscribed: "All of these channels are already subscribed.",
+      youtubeChannelSubscribePartialStatus: "Subscribed to {subscribed}; {failed} could not be completed by YouTube.",
+      youtubeChannelSubscribeStatusSingular: "Subscribed to {count} channel.",
+      youtubeChannelSubscribeStatusPlural: "Subscribed to {count} channels.",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
       studyReveal: "Study: reveal card",
@@ -7050,8 +7170,9 @@
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
       recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
+      recommendedPixivLight: "Lightweight Pixiv Encyclopedia dictionary.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
+      recommendedJpdbKanji: "JPDB kanji dictionary for local kanji details.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
@@ -7239,6 +7360,24 @@ dictionaryRecordsImported	{dictionary}: {records}件インポートしました�
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
 settingsExported	設定をエクスポートしました。
+cloud	クラウド
+cloudType	種類
+googleDriveClientId	Google OAuthクライアントID
+cloudSyncHelp	設定、保存済み選択肢、インポート済み辞書をGoogle Driveのアプリデータにバックアップします。Google OAuthクライアント（テレビ・入力制限デバイス）を作成し、クライアントIDを貼ってください。
+cloudExport	エクスポート
+cloudShowBackups	バックアップを表示
+cloudRevokeToken	アクセストークンを取り消す
+cloudBackupsTitle	ファイルを選択してください
+cloudNoBackups	Google Driveバックアップが見つかりません。
+cloudImportBackup	インポート
+cloudDeleteBackup	削除
+cloudSaveBackup	ディスクに保存
+cloudBackupUploaded	Google Driveにバックアップしました。
+cloudBackupDeleted	バックアップを削除しました。
+cloudBackupImported	Google Driveバックアップをインポートしました。
+cloudBackupSaved	バックアップをディスクに保存しました。
+cloudDeleteConfirm	Google Driveから「{file}」を削除しますか？
+cloudUnsupportedProvider	現在利用できる同期先はGoogle Driveのみです。
 restoredStoredChoices	保存済み選択肢を{count}件復元
 importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応しているYomitan辞書バンクが見つかりません。
@@ -7638,6 +7777,10 @@ save	保存
 cancel	キャンセル
 show	表示
 hide	隠す
+dismiss	閉じる
+collapse	折りたたむ
+subscribe	登録
+subscribed	登録済み
 appearance	外観
 reading	読解
 sources	ソース
@@ -8065,7 +8208,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンク。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	頻度バッジと外部リンク。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -8115,6 +8258,20 @@ copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
+youtubeChannelShelfTitle	日本語YouTubeフィードを始める
+youtubeChannelShelfExpandedCopy	厳選チャンネル{total}件中{shown}件を表示しています。
+youtubeChannelShelfCompactCopy	厳選チャンネル{total}件をYouTube風のコンパクト行で表示しています。
+youtubeChannelRecommendations	日本語チャンネルのおすすめ
+youtubeChannelSubscribeVisible	表示中を登録（{count}件）
+youtubeChannelSubscribeAll	すべて登録（{count}件）
+youtubeChannelAllSubscribed	{total}件すべて登録済み
+youtubeChannelBrowseAll	すべてのチャンネルを見る
+subscribeToChannel	{name}を登録
+subscribedToChannel	{name}を登録済み
+youtubeChannelAlreadySubscribed	これらのチャンネルはすべて登録済みです。
+youtubeChannelSubscribePartialStatus	{subscribed}件を登録しました。{failed}件はYouTube側で完了できませんでした。
+youtubeChannelSubscribeStatusSingular	{count}件のチャンネルを登録しました。
+youtubeChannelSubscribeStatusPlural	{count}件のチャンネルを登録しました。
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
 massReviewNoWords	画面内に復習対象のJiten単語がありません。
@@ -8211,8 +8368,9 @@ recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
+recommendedPixivLight	軽量版Pixiv百科事典辞書です。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
+recommendedJpdbKanji	JPDB漢字情報のローカル辞書です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
 recommendedJiten	jiten.moe頻度データです。
@@ -8955,7 +9113,7 @@ ${candidate.depth}`;
     }
     return -1;
   }
-  const log$A = Logger.scope("Yomitan");
+  const log$B = Logger.scope("Yomitan");
   function filenameFromUrl(url) {
     try {
       const parsed = new URL(url);
@@ -9003,7 +9161,7 @@ ${candidate.depth}`;
     return `${size.toFixed(precision)} ${units[unit]}`;
   }
   async function requestBlob$3(url, proxyUrl, onProgress, language = "en") {
-    const done = log$A.time("Dictionary download", { host: safeHost$3(url) });
+    const done = log$B.time("Dictionary download", { host: safeHost$3(url) });
     const userscriptRequest = getUserscriptHttpRequest();
     if (userscriptRequest) return requestBlobViaUserscript(url, userscriptRequest, done, onProgress, language);
     return await requestBlobViaFetch(url, proxyUrl, done, onProgress, language);
@@ -9012,18 +9170,18 @@ ${candidate.depth}`;
     return new Promise((resolve, reject) => {
       const handleLoad = (response) => {
         if (response.response instanceof Blob && (response.status === 0 || response.status >= 200 && response.status < 300)) {
-          log$A.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
+          log$B.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: response.response.size });
           done();
           resolve(response.response);
           return;
         }
         if (response.status < 200 || response.status >= 300) {
-          log$A.warn("Dictionary download HTTP error", { host: safeHost$3(url), status: response.status });
+          log$B.warn("Dictionary download HTTP error", { host: safeHost$3(url), status: response.status });
           done();
           reject(new Error(formatDictionaryDownloadFailed(language, response.status)));
           return;
         }
-        log$A.warn("Dictionary download payload failed", { host: safeHost$3(url), status: response.status });
+        log$B.warn("Dictionary download payload failed", { host: safeHost$3(url), status: response.status });
         done();
         reject(new Error(uiText(language, "dictionaryDownloadNotZip")));
       };
@@ -9040,19 +9198,19 @@ ${candidate.depth}`;
         },
         onload: handleLoad,
         onerror: () => {
-          log$A.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$B.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         },
         ontimeout: () => {
-          log$A.warn("Dictionary download timed out", { host: safeHost$3(url) });
+          log$B.warn("Dictionary download timed out", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadTimedOut")));
         }
       });
       if (result && typeof result.then === "function") {
         result.then(handleLoad, () => {
-          log$A.warn("Dictionary download failed", { host: safeHost$3(url) });
+          log$B.warn("Dictionary download failed", { host: safeHost$3(url) });
           done();
           reject(new Error(uiText(language, "dictionaryDownloadFailed")));
         });
@@ -9076,7 +9234,7 @@ ${candidate.depth}`;
     const response = await fetchWithCorsFallbacks(downloadUrl, proxyUrl, { credentials: "omit", redirect: "follow", referrerPolicy: "no-referrer", timeoutMs: 12e4 });
     if (!response.ok) throwDictionaryHttpError(url, response.status, language);
     const blob = await responseBlobWithProgress(response, onProgress, language);
-    log$A.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
+    log$B.info("Dictionary download completed", { host: safeHost$3(url), status: response.status, size: blob.size });
     done();
     return blob;
   }
@@ -9108,17 +9266,17 @@ ${candidate.depth}`;
     return `${label} ${formatBytes(loaded)}...`;
   }
   function throwDictionaryHttpError(url, status, language) {
-    log$A.warn("Dictionary download HTTP error", { host: safeHost$3(url), status });
+    log$B.warn("Dictionary download HTTP error", { host: safeHost$3(url), status });
     throw new Error(formatDictionaryDownloadFailed(language, status));
   }
   function handleDictionaryFetchError(url, downloadUrl, error, done, language) {
     const host = safeHost$3(url);
     if (isDictionaryCorsError(error)) {
-      log$A.warn("Dictionary download CORS failed", { host, downloadUrl });
+      log$B.warn("Dictionary download CORS failed", { host, downloadUrl });
       done();
       throw new Error(uiText(language, "dictionaryDownloadBlocked"));
     }
-    log$A.warn("Dictionary download fetch failed", { host, error });
+    log$B.warn("Dictionary download fetch failed", { host, error });
     done();
     throw language === "ja" ? new Error(uiText(language, "dictionaryDownloadFailed")) : error;
   }
@@ -10292,7 +10450,7 @@ ${scopedInner}
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
     return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
   }
-  const log$z = Logger.scope("YomitanSettingsImport");
+  const log$A = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
     { sourceKey: "autoPlay", targetKey: "autoPlayAudio" },
@@ -10302,11 +10460,11 @@ ${scopedInner}
     { sourceKey: "enable", targetKey: "ankiEnabled" }
   ];
   function parseYomitanSettingsExport(value, language = "en") {
-    const done = log$z.time("Yomitan settings export parse");
+    const done = log$A.time("Yomitan settings export parse");
     const profileOptions = getYomitanProfileOptions(value);
     if (!profileOptions) {
       done();
-      log$z.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
+      log$A.warn("Yomitan settings export rejected", { reason: "missing-profile-options" });
       throw new Error(uiText(language, "yomitanSettingsInvalid"));
     }
     const settings = {};
@@ -10321,7 +10479,7 @@ ${scopedInner}
     settings.yomitanSettingsBackup = value;
     applyInputShortcuts(settings, sections.inputs);
     done();
-    log$z.info("Yomitan settings import parsed", {
+    log$A.info("Yomitan settings import parsed", {
       hasAudioSources: Boolean(settings.audioSources?.length),
       parseSelection: settings.parseSelection,
       theme: settings.theme
@@ -10568,14 +10726,14 @@ ${scopedInner}
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
   const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$y = Logger.scope("Yomitan");
+  const log$z = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
     if (persistentStorageRequested) return;
     persistentStorageRequested = true;
     try {
       void navigator.storage?.persist?.().then((granted) => {
-        log$y.info("Persistent storage request", { granted });
+        log$z.info("Persistent storage request", { granted });
       }).catch(() => void 0);
     } catch {
     }
@@ -10600,7 +10758,7 @@ ${scopedInner}
     prepareTermSearchIndex() {
       if (this.termSearchIndexPromise) return this.termSearchIndexPromise;
       const promise = this.db().then((db) => this.ensureTermSearchIndex(db)).catch((error) => {
-        log$y.warn("Term search index preparation failed", { error });
+        log$z.warn("Term search index preparation failed", { error });
       }).finally(() => {
         if (this.termSearchIndexPromise === promise) this.termSearchIndexPromise = void 0;
       });
@@ -10634,7 +10792,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookup", [expression, reading, limit], preferences),
         async () => {
-          const done = log$y.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
+          const done = log$z.time("Term lookup", { expression, reading, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const entries = await this.getTermLookupEntries(
@@ -10659,7 +10817,7 @@ ${scopedInner}
             }).slice(0, limit);
             return results;
           } catch (error) {
-            log$y.warn("Term lookup failed", { expression, reading, error });
+            log$z.warn("Term lookup failed", { expression, reading, error });
             throw error;
           } finally {
             done();
@@ -10669,7 +10827,7 @@ ${scopedInner}
     }
     async searchTerms(query, limit, preferences = [], options = {}) {
       const normalizedQuery = normalizeTermSearchQuery(query);
-      const done = log$y.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
+      const done = log$z.time("Term search", { query: normalizedQuery, limit, dictionaries: preferences.length });
       if (!normalizedQuery) {
         done();
         return [];
@@ -10688,7 +10846,7 @@ ${scopedInner}
         ];
         return rankedTermSearchResults(candidates, normalizedQuery, limit, rank);
       } catch (error) {
-        log$y.warn("Term search failed", { query: normalizedQuery, error });
+        log$z.warn("Term search failed", { query: normalizedQuery, error });
         throw error;
       } finally {
         done();
@@ -10698,7 +10856,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupKanji", [text2, limit], preferences),
         async () => {
-          const done = log$y.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
+          const done = log$z.time("Kanji lookup", { length: text2.length, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -10707,7 +10865,7 @@ ${scopedInner}
             const results = rankedDictionaryEntries(entries, rank, limit);
             return results;
           } catch (error) {
-            log$y.warn("Kanji lookup failed", { length: text2.length, error });
+            log$z.warn("Kanji lookup failed", { length: text2.length, error });
             throw error;
           } finally {
             done();
@@ -10718,14 +10876,14 @@ ${scopedInner}
     // NewTabController loads dictionary kanji through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
-      const done = log$y.time("Kanji character list", { limit, dictionaries: preferences.length });
+      const done = log$z.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
         if (limit <= 0) return [];
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.getKanjiCharacters(db, limit, rank);
       } catch (error) {
-        log$y.warn("Kanji character list failed", { error });
+        log$z.warn("Kanji character list failed", { error });
         throw error;
       } finally {
         done();
@@ -10735,7 +10893,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupTermMeta", [expression, limit], preferences),
         async () => {
-          const done = log$y.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
+          const done = log$z.time("Term metadata lookup", { expression, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -10743,7 +10901,7 @@ ${scopedInner}
             const results = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort((a, b) => compareMetaEntries(a, b, rank)).slice(0, limit);
             return results;
           } catch (error) {
-            log$y.warn("Term metadata lookup failed", { expression, error });
+            log$z.warn("Term metadata lookup failed", { expression, error });
             throw error;
           } finally {
             done();
@@ -10755,7 +10913,7 @@ ${scopedInner}
       return this.getHotLookup(
         this.hotLookupCacheKey("lookupSimilarTermsByKanji", [character, limit], preferences),
         async () => {
-          const done = log$y.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
+          const done = log$z.time("Similar terms by kanji lookup", { character, limit, dictionaries: preferences.length });
           try {
             const db = await this.db();
             const rank = dictionaryRank(preferences);
@@ -10765,7 +10923,7 @@ ${scopedInner}
             ).slice(0, limit);
             return results;
           } catch (error) {
-            log$y.warn("Similar terms by kanji lookup failed", { character, error });
+            log$z.warn("Similar terms by kanji lookup failed", { character, error });
             throw error;
           } finally {
             done();
@@ -10774,7 +10932,7 @@ ${scopedInner}
       );
     }
     async findTermMatches(text2, limit = 32, preferences = []) {
-      const done = log$y.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
+      const done = log$z.time("Inline term match search", { length: text2.length, limit, dictionaries: preferences.length });
       const source = text2.slice(0, 240);
       if (!source.trim()) {
         done();
@@ -10790,7 +10948,7 @@ ${scopedInner}
         const results = nonOverlappingMatches(matches, limit);
         return results;
       } catch (error) {
-        log$y.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
+        log$z.warn("Inline term match search failed", { length: source.length, candidates: candidates.size, error });
         throw error;
       } finally {
         done();
@@ -10845,7 +11003,7 @@ ${scopedInner}
       });
     }
     async summary() {
-      const done = log$y.time("Dictionary summary");
+      const done = log$z.time("Dictionary summary");
       try {
         if (this.summaryPromise) {
           const summary2 = await this.summaryPromise;
@@ -10865,7 +11023,7 @@ ${scopedInner}
         const summary = await this.summaryPromise;
         return summary;
       } catch (error) {
-        log$y.warn("Dictionary summary failed", { error });
+        log$z.warn("Dictionary summary failed", { error });
         throw error;
       } finally {
         done();
@@ -10878,12 +11036,12 @@ ${scopedInner}
     // NewTabController checks local dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
-      const done = log$y.time("Dictionary presence check");
+      const done = log$z.time("Dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).length > 0;
       } catch (error) {
-        log$y.warn("Dictionary presence check failed", { error });
+        log$z.warn("Dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
@@ -10892,32 +11050,32 @@ ${scopedInner}
     // Lookup parsing checks term dictionary availability through this injected store.
     // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries() {
-      const done = log$y.time("Term dictionary presence check");
+      const done = log$z.time("Term dictionary presence check");
       try {
         const db = await this.db();
         return (await this.getAllDictionaryInfo(db)).some(hasTermDictionaryRows);
       } catch (error) {
-        log$y.warn("Term dictionary presence check failed", { error });
+        log$z.warn("Term dictionary presence check failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async listRandomTerms(limit, preferences = [], options = {}) {
-      const done = log$y.time("Random term listing", { limit, dictionaries: preferences.length });
+      const done = log$z.time("Random term listing", { limit, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
         return await this.collectRandomTermReservoir(db, limit, rank, options, addRandomListTermToReservoir);
       } catch (error) {
-        log$y.warn("Random term listing failed", { limit, error });
+        log$z.warn("Random term listing failed", { limit, error });
         return [];
       } finally {
         done();
       }
     }
     async listRandomTopTerms(limit, maxRank, preferences = [], options = {}) {
-      const done = log$y.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
+      const done = log$z.time("Random top term listing", { limit, maxRank, dictionaries: preferences.length });
       try {
         const db = await this.db();
         const rank = dictionaryRank(preferences);
@@ -10934,7 +11092,7 @@ ${scopedInner}
         }
         return results;
       } catch (error) {
-        log$y.warn("Random top term listing failed", { limit, error });
+        log$z.warn("Random top term listing failed", { limit, error });
         return [];
       } finally {
         done();
@@ -11016,27 +11174,27 @@ ${scopedInner}
       return reservoir;
     }
     async importFile(file, onProgress, sourceUrl = "") {
-      const done = log$y.time("Dictionary file import", fileSummary(file, sourceUrl));
+      const done = log$z.time("Dictionary file import", fileSummary(file, sourceUrl));
       try {
-        log$y.info("Dictionary file import started", fileSummary(file, sourceUrl));
+        log$z.info("Dictionary file import started", fileSummary(file, sourceUrl));
         requestPersistentDictionaryStorage();
         const summary = /\.zip$/i.test(file.name) ? await this.importZip(file, onProgress, sourceUrl) : await this.importJson(file, onProgress);
-        log$y.info("Dictionary file import completed", summary);
+        log$z.info("Dictionary file import completed", summary);
         return summary;
       } catch (error) {
-        log$y.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
+        log$z.warn("Dictionary file import failed", { ...fileSummary(file, sourceUrl), error });
         throw error;
       } finally {
         done();
       }
     }
     async importFromUrl(url, filename = filenameFromUrl(url), onProgress) {
-      log$y.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
+      log$z.info("Dictionary URL import started", { filename, host: safeHost$3(url) });
       onProgress?.(`${this.text("dictionaryDownloading")}: ${filename}...`);
       const blob = await requestBlob$3(url, this.getCorsProxyUrl(), onProgress, this.getInterfaceLanguage());
       const file = namedBlobFile(blob, filename, blob.type || "application/zip");
       const summary = await this.importFile(file, onProgress, url);
-      log$y.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
+      log$z.info("Dictionary URL import completed", { filename, host: safeHost$3(url), ...summary });
       return summary;
     }
     async importZip(file, onProgress, sourceUrl = "") {
@@ -11121,7 +11279,7 @@ ${scopedInner}
       info.type = dictionaryTypeFromCounts(info.counts);
       summary.dictionaryTypes = { [dictionary]: info.type };
       await this.putDictionaryInfo(info);
-      log$y.info("ZIP dictionary import parsed", summary);
+      log$z.info("ZIP dictionary import parsed", summary);
       return summary;
     }
     async importJson(file, onProgress) {
@@ -11149,7 +11307,7 @@ ${scopedInner}
         this.addToStore("kanjiMeta", json.kanjiMeta ?? [])
       ]);
       const summary = readerExportSummary(json, terms, dictionaryNames, dictionaryTypes);
-      log$y.info("JSON dictionary import parsed", summary);
+      log$z.info("JSON dictionary import parsed", summary);
       return summary;
     }
     async importDexieJson(file, onProgress) {
@@ -11248,13 +11406,13 @@ ${scopedInner}
         summary.dictionaryTypes[dictionary] = info.type;
         return this.putDictionaryInfo(info);
       }));
-      log$y.info("Dexie dictionary import parsed", summary);
+      log$z.info("Dexie dictionary import parsed", summary);
       return summary;
     }
     // SettingsDialogController exports dictionaries through the injected store dependency.
     // fallow-ignore-next-line unused-class-member
     async exportJson() {
-      const done = log$y.time("Dictionary export");
+      const done = log$z.time("Dictionary export");
       try {
         const db = await this.db();
         const [dictionaries, terms, kanji, termMeta, kanjiMeta] = await Promise.all([
@@ -11264,7 +11422,7 @@ ${scopedInner}
           this.getAllFromStore(db, "termMeta"),
           this.getAllFromStore(db, "kanjiMeta")
         ]);
-        log$y.info("Dictionary export prepared", {
+        log$z.info("Dictionary export prepared", {
           dictionaries: dictionaries.length,
           terms: terms.length,
           kanji: kanji.length,
@@ -11282,7 +11440,7 @@ ${scopedInner}
           kanjiMeta
         })], { type: "application/json" });
       } catch (error) {
-        log$y.warn("Dictionary export failed", { error });
+        log$z.warn("Dictionary export failed", { error });
         throw error;
       } finally {
         done();
@@ -11301,26 +11459,26 @@ ${scopedInner}
         this.dictionaryStyleCssCache.set(cacheKey, css);
         return css;
       } catch (error) {
-        log$y.warn("Dictionary stylesheet render failed", { error });
+        log$z.warn("Dictionary stylesheet render failed", { error });
         throw error;
       }
     }
     async clear() {
-      const done = log$y.time("Dictionary store clear");
+      const done = log$z.time("Dictionary store clear");
       try {
         const db = await this.db();
         await this.clearDictionaryStores(db);
         this.invalidateCaches();
-        log$y.info("Dictionary store cleared");
+        log$z.info("Dictionary store cleared");
       } catch (error) {
-        log$y.warn("Dictionary store clear failed", { error });
+        log$z.warn("Dictionary store clear failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async resetDatabase(options = {}) {
-      const done = log$y.time("Dictionary database factory reset");
+      const done = log$z.time("Dictionary database factory reset");
       let cleared = false;
       try {
         await this.clear();
@@ -11329,10 +11487,10 @@ ${scopedInner}
         return { cleared, deleted: true };
       } catch (error) {
         if (!cleared) {
-          log$y.warn("Dictionary reset pre-clear failed", { error });
+          log$z.warn("Dictionary reset pre-clear failed", { error });
           throw error;
         }
-        log$y.warn("Dictionary delete incomplete after clear", { error });
+        log$z.warn("Dictionary delete incomplete after clear", { error });
         return { cleared, deleted: false };
       } finally {
         done();
@@ -11346,12 +11504,12 @@ ${scopedInner}
       try {
         const db = await dbPromise;
         db.close();
-        log$y.info("Dictionary DB closed for reset", { name: DB_NAME });
+        log$z.info("Dictionary DB closed for reset", { name: DB_NAME });
       } catch {
       }
     }
     async deleteDatabase(options = {}) {
-      const done = log$y.time("Dictionary database delete");
+      const done = log$z.time("Dictionary database delete");
       try {
         const timeoutMs = options.timeoutMs ?? DB_DELETE_BLOCKED_TIMEOUT_MS;
         const db = this.dbPromise ? await this.dbPromise.catch(() => void 0) : void 0;
@@ -11377,30 +11535,30 @@ ${scopedInner}
           request.onerror = () => settle(() => reject(request.error ?? new Error("Dictionary database reset failed.")));
           request.onblocked = () => {
             blocked = true;
-            log$y.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
+            log$z.warn("Dictionary delete blocked by another tab", { name: DB_NAME });
           };
         });
-        log$y.info("Dictionary database deleted", { name: DB_NAME });
+        log$z.info("Dictionary database deleted", { name: DB_NAME });
       } catch (error) {
-        log$y.warn("Dictionary database delete failed", { error });
+        log$z.warn("Dictionary database delete failed", { error });
         throw error;
       } finally {
         done();
       }
     }
     async deleteDictionary(dictionary) {
-      const done = log$y.time("Dictionary delete", { dictionary });
+      const done = log$z.time("Dictionary delete", { dictionary });
       try {
         const db = await this.db();
         const dictionaries = await this.getAllDictionaryInfo(db);
         if (!dictionaries.some((item) => item.title === dictionary)) {
-          log$y.info("Dictionary delete skipped; not installed", { dictionary });
+          log$z.info("Dictionary delete skipped; not installed", { dictionary });
           return;
         }
         if (dictionaries.length === 1) {
           await this.clearDictionaryStores(db);
           this.invalidateCaches();
-          log$y.info("Only installed dictionary cleared", { dictionary });
+          log$z.info("Only installed dictionary cleared", { dictionary });
           return;
         }
         const stores = existingStores(db, ["terms", "kanji", "termMeta", "kanjiMeta"]);
@@ -11416,9 +11574,9 @@ ${scopedInner}
         });
         await this.clearDerivedTermIndexes(db);
         this.invalidateCaches();
-        log$y.info("Dictionary deleted", { dictionary });
+        log$z.info("Dictionary deleted", { dictionary });
       } catch (error) {
-        log$y.warn("Dictionary delete failed", { dictionary, error });
+        log$z.warn("Dictionary delete failed", { dictionary, error });
         throw error;
       } finally {
         done();
@@ -11745,7 +11903,7 @@ ${entry.reading}`;
       await this.termKanjiIndexPromise;
     }
     async rebuildTermSearchIndex(db) {
-      const done = log$y.time("Term search index rebuild");
+      const done = log$z.time("Term search index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermSearchIndex(db);
@@ -11762,13 +11920,13 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$y.info("Term search index rebuilt", { terms: indexedTerms });
+        log$z.info("Term search index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
     }
     async rebuildTermKanjiIndex(db) {
-      const done = log$y.time("Term kanji index rebuild");
+      const done = log$z.time("Term kanji index rebuild");
       const generation = this.termIndexGeneration;
       try {
         await this.clearTermKanjiIndex(db);
@@ -11785,7 +11943,7 @@ ${entry.reading}`;
           if (chunk.done) break;
           lastKey = chunk.lastKey;
         }
-        log$y.info("Term kanji index rebuilt", { terms: indexedTerms });
+        log$z.info("Term kanji index rebuilt", { terms: indexedTerms });
       } finally {
         done();
       }
@@ -11872,7 +12030,7 @@ ${entry.reading}`;
         request.onupgradeneeded = (event) => {
           const db = request.result;
           const tx = request.transaction;
-          log$y.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
+          log$z.info("Upgrading dictionary database", { oldVersion: event.oldVersion, newVersion: DB_VERSION });
           const terms = ensureStore(db, tx, "terms");
           ensureIndex(terms, "expression", "expression");
           ensureIndex(terms, "reading", "reading");
@@ -11902,7 +12060,7 @@ ${entry.reading}`;
           resolve(db);
         };
         request.onerror = () => {
-          log$y.warn("Dictionary database open failed", { error: request.error });
+          log$z.warn("Dictionary database open failed", { error: request.error });
           reject(request.error);
         };
       });
@@ -11910,7 +12068,7 @@ ${entry.reading}`;
     }
     installVersionChangeHandler(db) {
       db.onversionchange = (event) => {
-        log$y.info("Dictionary DB version change; closing", {
+        log$z.info("Dictionary DB version change; closing", {
           name: DB_NAME,
           oldVersion: event.oldVersion,
           newVersion: event.newVersion
@@ -13531,7 +13689,7 @@ ${entry.reading || ""}`;
   const ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE = 1e3;
   const ANKI_STATUS_INDEX_KEY_PART_SEPARATOR = /[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u;
   const ANKI_STATUS_INDEX_READING_KEY_PREFIX = "reading:";
-  const log$x = Logger.scope("Anki");
+  const log$y = Logger.scope("Anki");
   function activeAnkiStatusIndexRebuildLease(settingsKey, now = Date.now()) {
     const lease = gmStorageGetSync(ANKI_STATUS_INDEX_REBUILD_LEASE_STORAGE_KEY, null);
     if (!isAnkiStatusIndexRebuildLease(lease)) return null;
@@ -13574,7 +13732,7 @@ ${entry.reading || ""}`;
       await saveAnkiStatusIndexToIndexedDb(index);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, ankiStatusIndexMeta(index));
     } catch (error) {
-      log$x.warn("Anki status save fell back", error);
+      log$y.warn("Anki status save fell back", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, { ...index, entryStore: void 0 });
     }
   }
@@ -13588,7 +13746,7 @@ ${entry.reading || ""}`;
       await putStoredAnkiStatusIndexMeta(meta);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     } catch (error) {
-      log$x.warn("Anki status metadata failed", error);
+      log$y.warn("Anki status metadata failed", error);
       await gmStorageSet(ANKI_STATUS_INDEX_STORAGE_KEY, meta);
     }
   }
@@ -13915,7 +14073,7 @@ ${entry.reading || ""}`;
   const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
   const ANKI_MOBILE_FALLBACK_DECK$1 = "Default";
   const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);
-  const log$w = Logger.scope("Anki");
+  const log$x = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
     fail: 1,
@@ -14021,7 +14179,7 @@ ${entry.reading || ""}`;
         this.markAvailable();
         return true;
       } catch (error) {
-        log$w.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
+        log$x.warnOnce("connection-unavailable", "AnkiConnect unavailable", error);
         return false;
       }
     }
@@ -14036,7 +14194,7 @@ ${entry.reading || ""}`;
         this.markAvailable();
         return true;
       }).catch((error) => {
-        log$w.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
+        log$x.warnOnce("background-availability-unavailable", "AnkiConnect unavailable for background work", error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return false;
       }).finally(() => {
@@ -14219,7 +14377,7 @@ ${entry.reading || ""}`;
           this.applyLookupGroupResult(results, group.indexes, result);
         }
       } catch (error) {
-        log$w.warn("Exact Anki status lookup failed", error);
+        log$x.warn("Exact Anki status lookup failed", error);
       }
     }
     collectPendingLookupGroups(cards, results, readCache2) {
@@ -14249,7 +14407,7 @@ ${entry.reading || ""}`;
       if (!pending.length) return results;
       const batches = this.pendingLookupBatches(pending);
       try {
-        const done = log$w.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
+        const done = log$x.time("findExistingCardsBatch", { terms: pending.length, inFlight: batches.inFlight.length });
         if (batches.inFlight.length) await this.applyInFlightLookupResults(batches.inFlight, results);
         if (this.isDestroyed) return results;
         const resolved = await this.resolveUncachedLookupBatches(batches.uncached, empty);
@@ -14258,7 +14416,7 @@ ${entry.reading || ""}`;
         done();
         return results;
       } catch (error) {
-        log$w.warn("Anki batch lookup failed", { terms: pending.length }, error);
+        log$x.warn("Anki batch lookup failed", { terms: pending.length }, error);
         this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
         return results;
       }
@@ -14326,7 +14484,7 @@ ${entry.reading || ""}`;
     }
     async loadStoredStatusIndex() {
       const indexed = await loadAnkiStatusIndexFromIndexedDb().catch((error) => {
-        log$w.warn("Anki status load failed", error);
+        log$x.warn("Anki status load failed", error);
         return null;
       });
       const validIndexed = this.validStatusIndex(indexed);
@@ -14345,7 +14503,7 @@ ${entry.reading || ""}`;
       const keys = unique$2(cards.flatMap(statusIndexKeysForCard));
       if (!keys.length) return /* @__PURE__ */ new Map();
       return loadAnkiStatusIndexEntriesFromIndexedDb(keys).catch((error) => {
-        log$w.warn("Anki status entry failed", error);
+        log$x.warn("Anki status entry failed", error);
         return null;
       });
     }
@@ -14378,7 +14536,7 @@ ${entry.reading || ""}`;
       if (this.isDestroyed || this.isLookupCoolingDown()) return null;
       if (this.statusIndexRefresh) return this.statusIndexRefresh;
       this.statusIndexRefresh = this.runStatusIndexRefresh(options).catch((error) => {
-        log$w.warn("Anki status index refresh failed", error);
+        log$x.warn("Anki status index refresh failed", error);
         return null;
       }).finally(() => {
         this.statusIndexRefresh = void 0;
@@ -14424,7 +14582,7 @@ ${entry.reading || ""}`;
         const dirty = { ...index, syncedAt: 0, checkedAt: 0, dirtyAt: now };
         this.statusIndex = dirty;
         await saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$w.warn("Anki edited-sweep dirty marker failed", error);
+          log$x.warn("Anki edited-sweep dirty marker failed", error);
         });
         return { handled: false, index: dirty };
       }
@@ -14500,7 +14658,7 @@ ${entry.reading || ""}`;
         this.statusIndexRefreshQueued = false;
         if (this.isDestroyed) return;
         void this.refreshStatusIndexIfNeeded(options)?.catch((error) => {
-          log$w.warn("Queued Anki status index refresh failed", error);
+          log$x.warn("Queued Anki status index refresh failed", error);
           return null;
         });
       };
@@ -14569,7 +14727,7 @@ ${entry.reading || ""}`;
         rebuild.settingsKey,
         rebuild.rebuildLeaseOwner
       ).catch((error) => {
-        log$w.warn("Anki status rebuild fell back", error);
+        log$x.warn("Anki status rebuild fell back", error);
         return null;
       });
     }
@@ -14816,7 +14974,7 @@ ${entry.reading || ""}`;
         results.set(cacheKey, lookupResultFromExistingNotes(existing, empty));
       }
       await this.rememberStatusIndexNotes(unique$2([...matchingNotesByKey.values()].flatMap((notes) => notes)), cardsByNote).catch((error) => {
-        log$w.warn("Anki status cache update failed", error);
+        log$x.warn("Anki status cache update failed", error);
       });
       return results;
     }
@@ -14983,7 +15141,7 @@ ${entry.reading || ""}`;
           try {
             mediaDataUrls[filename] = await this.mediaFileDataUrl(filename);
           } catch (error) {
-            log$w.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
+            log$x.warnOnce(`rendered-media:${filename}`, "Could not load Anki rendered card media", { filename }, error);
           }
         });
         if (Object.keys(mediaDataUrls).length) card.mediaDataUrls = mediaDataUrls;
@@ -15009,7 +15167,7 @@ ${entry.reading || ""}`;
     // fallow-ignore-next-line unused-class-member
     async answerCard(cardId, grade) {
       const ease = ankiEaseFromGrade(grade);
-      log$w.info("Answering Anki card", { cardId, grade, ease });
+      log$x.info("Answering Anki card", { cardId, grade, ease });
       await this.invoke("answerCards", { answers: [{ cardId, ease }] });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -15021,7 +15179,7 @@ ${entry.reading || ""}`;
     // fallow-ignore-next-line unused-class-member
     async setCardsSuspended(cardIds, suspended) {
       if (!cardIds.length) return;
-      log$w.info("Setting Anki card suspension", { cardIds, suspended });
+      log$x.info("Setting Anki card suspension", { cardIds, suspended });
       await this.invoke(suspended ? "suspend" : "unsuspend", { cards: cardIds });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -15032,7 +15190,7 @@ ${entry.reading || ""}`;
     // fallow-ignore-next-line unused-class-member
     async setNotesTag(noteIds, tag, present) {
       if (!noteIds.length) return;
-      log$w.info("Setting Anki note tag", { noteIds, tag, present });
+      log$x.info("Setting Anki note tag", { noteIds, tag, present });
       await this.invoke(present ? "addTags" : "removeTags", { notes: noteIds, tags: tag });
       this.lookupCache.clear();
       this.statusLookupCache.clear();
@@ -15041,7 +15199,7 @@ ${entry.reading || ""}`;
     // Used by card action controls to open existing notes from rendered Anki status.
     // fallow-ignore-next-line unused-class-member
     async browseNote(noteId) {
-      log$w.info("Opening Anki note browser", { noteId });
+      log$x.info("Opening Anki note browser", { noteId });
       await this.invoke("guiBrowse", { query: `nid:${noteId}` });
     }
     async mediaFileDataUrl(filename) {
@@ -15168,7 +15326,7 @@ ${entry.reading || ""}`;
       if (audio.length) note.audio = audio;
     }
     logAnkiNoteAdd(card, note) {
-      log$w.info("Adding Anki note", {
+      log$x.info("Adding Anki note", {
         term: card.spelling,
         deck: note.deckName,
         model: note.modelName,
@@ -15182,7 +15340,7 @@ ${entry.reading || ""}`;
       await this.ensureAnkiNoteCanAdd(preparedNote);
       this.logAnkiNoteAdd(card, preparedNote);
       const noteId = await this.invoke("addNote", { note: preparedNote });
-      log$w.info("Anki note added", { term: card.spelling, noteId });
+      log$x.info("Anki note added", { term: card.spelling, noteId });
       await this.refreshLookupCacheAfterAdd(card, noteId);
       if (noteId === null) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
       return noteId;
@@ -15190,7 +15348,7 @@ ${entry.reading || ""}`;
     async ensureAnkiNoteCanAdd(note) {
       const [canAdd] = await this.invoke("canAddNotes", { notes: [ankiNoteForDuplicatePreflight(note)] }).catch((error) => {
         if (isAnkiConnectAvailabilityError$1(error)) throw error;
-        log$w.warn("Anki duplicate preflight failed", error);
+        log$x.warn("Anki duplicate preflight failed", error);
         return [true];
       });
       if (canAdd === false) throw new AnkiDuplicateNoteError$1(this.text("alreadyInAnki"));
@@ -15228,7 +15386,7 @@ ${entry.reading || ""}`;
         this.writeStatusLookupCache(cacheKey, result);
         this.markStatusIndexDirtyAfterMutation("add");
       } catch (error) {
-        log$w.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
+        log$x.warn("Anki lookup refresh after add failed", { term: card.spelling, noteId }, error);
         this.lookupCache.delete(cacheKey);
         this.statusLookupCache.delete(cacheKey);
         this.markStatusIndexDirtyAfterMutation("add");
@@ -15246,7 +15404,7 @@ ${entry.reading || ""}`;
         const dirty = { ...valid, syncedAt: 0, checkedAt: 0, dirtyAt: Date.now() };
         this.statusIndex = dirty;
         void saveAnkiStatusIndexDirtyMarker(dirty).catch((error) => {
-          log$w.warn("Anki dirty marker failed", { reason }, error);
+          log$x.warn("Anki dirty marker failed", { reason }, error);
         }).finally(() => {
           if (!this.isDestroyed) this.queueStatusIndexRefresh({ deferDirtyIfCountUnchanged: true });
         });
@@ -15260,12 +15418,12 @@ ${entry.reading || ""}`;
         if (this.isDestroyed) return;
         dirtyLoadedIndex(index);
       }).catch((error) => {
-        log$w.warn("Anki dirty marker failed", { reason }, error);
+        log$x.warn("Anki dirty marker failed", { reason }, error);
       });
     }
     addCardWithFallback(error, settings, note, card) {
       if (!canUseMobileAnkiHandoff$1(settings) || !isMobileHandoffRecoverableAddError(error)) throw error;
-      log$w.warn("AnkiConnect add failed", { term: card.spelling }, error);
+      log$x.warn("AnkiConnect add failed", { term: card.spelling }, error);
       if (!openMobileAnkiHandoff(retargetAnkiNoteForMobileHandoff(note, settings))) throw new Error(this.text("ankiHandoffCancelled"));
       return null;
     }
@@ -15297,7 +15455,7 @@ ${entry.reading || ""}`;
         css: yomuCardCss(),
         cardTemplates: Object.entries(yomuCardTemplates(settings)).map(([Name, template]) => ({ Name, ...template }))
       });
-      log$w.info("Anki model created", { modelName });
+      log$x.info("Anki model created", { modelName });
     }
     async ensureModelFields(modelName) {
       const fieldNames = await this.invokeOrDefault("modelFieldNames", { modelName }, []);
@@ -15324,7 +15482,7 @@ ${entry.reading || ""}`;
       });
       this.markAvailable();
       if (response.error) {
-        log$w.warn("AnkiConnect action returned error", { action, error: response.error });
+        log$x.warn("AnkiConnect action returned error", { action, error: response.error });
         throw new Error(resolveUiLanguage(settings.interfaceLanguage) === "ja" ? this.text("ankiConnectActionFailed") : response.error);
       }
       return response.result;
@@ -15336,11 +15494,11 @@ ${entry.reading || ""}`;
         return responses.map((response) => isAnkiMultiActionResponse(response) ? response.error ? void 0 : response.result : response);
       } catch (error) {
         if (isAnkiConnectAvailabilityError$1(error)) {
-          log$w.warn("AnkiConnect multi failed; cooling down", error);
+          log$x.warn("AnkiConnect multi failed; cooling down", error);
           this.unavailableUntil = Date.now() + ANKI_BACKGROUND_UNAVAILABLE_COOLDOWN_MS;
           return actions.map(() => void 0);
         }
-        log$w.warn("AnkiConnect multi failed; retrying solo", error);
+        log$x.warn("AnkiConnect multi failed; retrying solo", error);
         return Promise.all(actions.map(
           (action) => this.invoke(action.action, action.params ?? {}).catch(() => void 0)
         ));
@@ -15398,7 +15556,7 @@ ${entry.reading || ""}`;
       const dataUrl = canvas.toDataURL("image/jpeg", 0.84);
       return dataUrl;
     } catch (error) {
-      log$w.warn("Active video frame capture failed", error);
+      log$x.warn("Active video frame capture failed", error);
       return void 0;
     }
   }
@@ -17458,7 +17616,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
   ];
   const JPDB_AUDIO_UNAVAILABLE_TTL_MS = 10 * 60 * 1e3;
-  const log$v = Logger.scope("Audio");
+  const log$w = Logger.scope("Audio");
   class AudioPlaybackAttemptError extends Error {
     constructor(error) {
       super(error instanceof Error ? error.message : String(error));
@@ -17496,7 +17654,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const reservedAudio = this.takeGestureAudioElement(request) ?? this.reserveGestureAudioElement(request);
       this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
-      const done = log$v.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
+      const done = log$w.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
       const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
       done();
       return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
@@ -17549,14 +17707,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!settings.audioEnabled) throw new Error(uiText(settings.interfaceLanguage, "audioPlaybackDisabledToast"));
     }
     async playNoAudioSources(card, request) {
-      log$v.warn("No audio sources configured", { term: card.spelling });
+      log$w.warn("No audio sources configured", { term: card.spelling });
       return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
     }
     async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
-      log$v.warn("No playable audio found", { term: card.spelling, errors: result.errors });
+      log$w.warn("No playable audio found", { term: card.spelling, errors: result.errors });
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
     async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
@@ -17796,7 +17954,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
-          log$v.warn("JPDB grouped audio segment failed", { audioId }, error);
+          log$w.warn("JPDB grouped audio segment failed", { audioId }, error);
         });
       }, { once: true });
     }
@@ -19197,7 +19355,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   });
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$u = Logger.scope("KanjiOrigin");
+  const log$v = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     // Called through the nullable kanji-study companion slot (app/main.ts).
@@ -19216,9 +19374,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$u.time("Kanji origin lookup", { kanji });
+      const done = log$v.time("Kanji origin lookup", { kanji });
       const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$u.warn("Kanji Map origin lookup failed", { kanji, error });
+        log$v.warn("Kanji Map origin lookup failed", { kanji, error });
         return void 0;
       }) : void 0;
       const result = kanjiMap ? { kanjiMap } : null;
@@ -19233,7 +19391,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$u.time("Fetch Kanji Map info", { kanji });
+    const done = log$v.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson$1(await requestText$6(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -19829,7 +19987,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$u.warn("Kanji origin request failed", { host: safeHost$2(url), error });
+      log$v.warn("Kanji origin request failed", { host: safeHost$2(url), error });
       throw error;
     });
   }
@@ -20186,14 +20344,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     return null;
   }
-  function renderRtkInfo(info, components2, language, initiallyExpanded = true, sourceStateKey) {
+  function renderRtkInfo(info, components2, language, initiallyExpanded = true, sourceStateKey, sourceAttributes) {
     if (!info) return "";
     const elementChips = buildRtkElementChips(info, components2);
     const readings2 = renderRtkReadings(info, language);
     const elementSection = renderRtkElementSection(elementChips, language);
-    const stories = renderRtkStories(info, language);
+    const stories = renderRtkStories(info, language, sourceStateKey, sourceAttributes);
+    const detailsAttributes = sourceStateDetailsAttribute$1(sourceStateKey, initiallyExpanded, sourceAttributes);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-rtk" ${detailsAttributes}>
             <summary class="jpdb-reader-local-title">RTK</summary>
             <div class="jpdb-reader-local-entry">
                 <div class="jpdb-reader-rtk-head">
@@ -20206,6 +20365,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
             </div>
         </details>
     `;
+  }
+  function sourceStateDetailsAttribute$1(sourceStateKey, initiallyExpanded, sourceAttributes) {
+    if (sourceStateKey && sourceAttributes) return sourceAttributes(sourceStateKey, initiallyExpanded);
+    return `${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}`;
   }
   function renderRtkReadings(info, language) {
     if (!info.onYomi && !info.kunYomi) return "";
@@ -20221,12 +20384,26 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const content = `${chip.glyph ? `<strong>${escapeHtml$1(chip.glyph)}</strong>` : ""}<span>${escapeHtml$1(chip.keyword)}</span>`;
     return chip.kanji ? `<button type="button" data-action="kanji" data-kanji="${escapeHtml$1(chip.kanji)}" title="${escapeHtml$1(`${uiText(language, "showKanji")}: ${chip.kanji}`)}">${content}</button>` : `<span>${content}</span>`;
   }
-  function renderRtkStories(info, language) {
+  function renderRtkStories(info, language, sourceStateKey, sourceAttributes) {
     return [
-      info.heisigStory ? `<details><summary>${uiText(language, "heisigStory")}</summary><p>${escapeHtml$1(info.heisigStory)}</p></details>` : "",
-      info.heisigComment ? `<details open><summary>${uiText(language, "heisigComment")}</summary><p>${escapeHtml$1(info.heisigComment)}</p></details>` : "",
-      info.koohiiStories.length ? `<details><summary>${uiText(language, "koohiiStories")}</summary>${info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join("")}</details>` : ""
+      renderRtkStorySection(info.heisigStory, uiText(language, "heisigStory"), sourceStateKey, "heisig-story", false, sourceAttributes),
+      renderRtkStorySection(info.heisigComment, uiText(language, "heisigComment"), sourceStateKey, "heisig-comment", true, sourceAttributes),
+      info.koohiiStories.length ? renderRtkStorySection(
+        info.koohiiStories.map((story) => `<p>${escapeHtml$1(story)}</p>`).join(""),
+        uiText(language, "koohiiStories"),
+        sourceStateKey,
+        "koohii-stories",
+        false,
+        sourceAttributes,
+        true
+      ) : ""
     ].join("");
+  }
+  function renderRtkStorySection(content, title, sourceStateKey, keySuffix, initiallyExpanded, sourceAttributes, contentIsHtml = false) {
+    if (!content) return "";
+    const attributes = sourceStateKey ? sourceStateDetailsAttribute$1(`${sourceStateKey}:${keySuffix}`, initiallyExpanded, sourceAttributes) : initiallyExpanded ? "open" : "";
+    const body = contentIsHtml ? content : `<p>${escapeHtml$1(content)}</p>`;
+    return `<details ${attributes}><summary>${title}</summary>${body}</details>`;
   }
   function graphEllipseOffset(dx, dy, rx, ry) {
     const denominator = Math.sqrt(dx * dx / (rx * rx) + dy * dy / (ry * ry));
@@ -20529,7 +20706,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$t = Logger.scope("JpdbKanji");
+  const log$u = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -20550,7 +20727,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$t.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$u.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$5(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -20563,7 +20740,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$5(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$t.warn("Kanji page request failed", { kanji }, error);
+        log$u.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -21059,7 +21236,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$s = Logger.scope("KanjiVG");
+  const log$t = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -21080,7 +21257,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$4(url).catch((error) => {
-        log$s.warn("Stroke-order request failed", { kanji }, error);
+        log$t.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -21376,7 +21553,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       timeoutLabel: "Stroke-order request timed out."
     });
   }
-  function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents")) {
+  function renderJpdbKanjiInfo(info, language, initiallyExpanded = true, sourceStateKey, title = uiText(language, "readingsComponents"), sourceAttributes) {
     if (!info) return "";
     const facts = [
       [uiText(language, "factKeyword"), info.keyword],
@@ -21389,9 +21566,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const factSection = renderJpdbKanjiFactSection(facts);
     const readingsSection = renderJpdbKanjiReadings(info);
     const componentSection = renderJpdbKanjiComponents(info, language);
-    const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
+    const mnemonicSection = renderJpdbKanjiMnemonic(info, language, sourceStateKey, sourceAttributes);
+    const detailsAttributes = sourceStateDetailsAttribute(sourceStateKey, initiallyExpanded, sourceAttributes);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${detailsAttributes}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
@@ -21402,8 +21580,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         </details>
     `;
   }
-  function expandedAttribute(initiallyExpanded) {
-    return initiallyExpanded ? "open" : "";
+  function sourceStateDetailsAttribute(sourceStateKey, initiallyExpanded, sourceAttributes) {
+    if (sourceStateKey && sourceAttributes) return sourceAttributes(sourceStateKey, initiallyExpanded);
+    return `${sourceStateAttribute$1(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}`;
   }
   function renderJpdbKanjiFactSection(facts) {
     if (!facts.length) return "";
@@ -21426,8 +21605,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         </button>`).join("")}
     </div>`;
   }
-  function renderJpdbKanjiMnemonic(info, language) {
-    return info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>` : "";
+  function renderJpdbKanjiMnemonic(info, language, sourceStateKey, sourceAttributes) {
+    if (!info.mnemonic) return "";
+    const attributes = sourceStateKey ? sourceStateDetailsAttribute(`${sourceStateKey}:mnemonic`, false, sourceAttributes) : "";
+    return `<details ${attributes}><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml$1(info.mnemonic)}</p></details>`;
   }
   function renderJpdbKanjiMiningControls(info, language) {
     const actions = visibleJpdbKanjiActions(info);
@@ -22326,7 +22507,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE$1 = /[\u3400-\u9fff]/u;
-  const log$r = Logger.scope("RTK");
+  const log$s = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
@@ -22343,7 +22524,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     async fetchInfo(kanji) {
       const html = await requestText$3(`${RTK_BASE_URL}/${encodeURIComponent(kanji)}/index.html`).catch((error) => {
-        log$r.warn("RTK request failed", { kanji }, error);
+        log$s.warn("RTK request failed", { kanji }, error);
         return "";
       });
       if (!html) return null;
@@ -22634,9 +22815,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return false;
   }
   function userscriptOpenInTab() {
-    if (typeof GM_openInTab === "function") return GM_openInTab;
-    if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") return GM.openInTab;
-    return void 0;
+    const direct = globalThis.GM_openInTab;
+    if (typeof direct === "function") return direct;
+    return typeof GM !== "undefined" && typeof GM.openInTab === "function" ? GM.openInTab : void 0;
   }
   function isOpenableExternalUrl(value) {
     try {
@@ -22961,14 +23142,16 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       category: "terms",
       name: "WTY JA-JA",
       descriptionKey: "recommendedWtyJapaneseJapanese",
-      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan"
+      homepage: "https://github.com/yomidevs/wiktionary-to-yomitan",
+      downloadUrl: "https://huggingface.co/datasets/daxida/wty-release/resolve/main/latest/dict/ja/ja/wty-ja-ja.zip?download=true"
     },
     {
-      id: "marvnc-monolingual",
+      id: "pixiv-light",
       category: "terms",
-      name: "MarvNC JA-JA",
-      descriptionKey: "recommendedMarvncMonolingual",
-      homepage: "https://github.com/MarvNC/yomitan-dictionaries"
+      name: "Pixiv Light",
+      descriptionKey: "recommendedPixivLight",
+      homepage: "https://github.com/MarvNC/pixiv-yomitan",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BMonolingual%5D%20PixivLight.zip"
     },
     {
       id: "kanjidic",
@@ -22977,6 +23160,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       descriptionKey: "recommendedKanjidic",
       homepage: "https://github.com/yomidevs/jmdict-yomitan?tab=readme-ov-file#kanjidic-for-yomitan",
       downloadUrl: "https://github.com/yomidevs/jmdict-yomitan/releases/latest/download/KANJIDIC_english.zip"
+    },
+    {
+      id: "jpdb-kanji",
+      category: "kanji",
+      name: "JPDB Kanji",
+      descriptionKey: "recommendedJpdbKanji",
+      homepage: "https://github.com/MarvNC/yomitan-dictionaries#kanji-info",
+      downloadUrl: "https://raw.githubusercontent.com/MarvNC/yomitan-dictionaries/master/dl/%5BKanji%5D%20JPDB%20Kanji.zip"
     },
     {
       id: "jiten",
@@ -24027,7 +24218,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
-  const log$q = Logger.scope("SettingsForm");
+  const log$r = Logger.scope("SettingsForm");
   const CUSTOM_FONT_FAMILY_VALUE = "__custom_font_family__";
   const COLOR_SOURCE_VALUES = ["status", "jpdb", "anki", "pitch", "off"];
   const COLOR_SOURCE_OPTIONS = [
@@ -24147,6 +24338,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
       dictionaryPreferences,
       dictionaryLookupLinks: readDictionaryLookupLinks(data),
+      ...readCloudSyncFormSettings(reader, current),
       ...readSubtitleFormSettings(reader, current),
       ...readYoutubeFormSettings(reader),
       ...readAnkiFormSettings(reader, current),
@@ -24157,7 +24349,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       shortcuts: readShortcutFormSettings(reader, current)
     };
     const normalized = normalizeReaderSettings(settings);
-    log$q.info("Read settings form data", {
+    log$r.info("Read settings form data", {
       enableLogging: normalized.enableLogging,
       dictionaries: normalized.dictionaryPreferences.length,
       lookupLinks: normalized.dictionaryLookupLinks.length,
@@ -24167,6 +24359,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       ankiEnabled: normalized.ankiEnabled
     });
     return normalized;
+  }
+  function readCloudSyncFormSettings(reader, current) {
+    return {
+      cloudSyncProvider: readOption(reader.get("cloudSyncProvider"), ["google-drive", "dropbox", "onedrive", "yandex-disk", "webdav"], current.cloudSyncProvider),
+      googleDriveClientId: reader.get("googleDriveClientId").trim()
+    };
   }
   function colorSourceFallback(key, fallback) {
     if (fallback !== "auto") return fallback;
@@ -25455,10 +25653,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ];
     return [
       ...builtInRows,
-      ...settings.dictionaryPreferences.filter((preference) => {
-        const type = preference.type ?? "terms";
-        return type === "terms" || type === "kanji";
-      }).map((preference) => ({
+      ...settings.dictionaryPreferences.filter((preference) => (preference.type ?? "terms") === "terms").map((preference) => ({
         id: preference.name,
         name: preference.name,
         alias: preference.alias,
@@ -25467,7 +25662,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
         readonly: false,
         removable: true,
-        dictionaryType: preference.type === "kanji" ? "kanji" : "terms",
+        dictionaryType: "terms",
         help: ""
       }))
     ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
@@ -26167,7 +26362,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function renderReaderSettingsPanel(settings) {
     return `
-            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
+            <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader">
                 <legend>Reader</legend>
                 <div class="grid">
                     ${checkbox("parseSelection", "Look up selected text", settings.parseSelection)}
@@ -26333,10 +26528,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
-                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
+                    <div class="jpdb-reader-help">Frequency badges and external links. Tokens: {query}, {word}, {reading}.</div>
+                    ${renderFrequencyDictionaryEditor(settings)}
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -26353,8 +26548,89 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <input hidden type="file" data-file="settings" accept="application/json,.json">
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
+                ${renderCloudSyncSettings(settings)}
             </fieldset>
     `;
+  }
+  function renderCloudSyncSettings(settings) {
+    const language = settings.interfaceLanguage;
+    return `
+                <div class="jpdb-reader-settings-subsection jpdb-reader-cloud-sync" data-cloud-sync>
+                    <div class="jpdb-reader-local-title" data-cloud-sync-title>${escapedUiText(language, "cloud")}</div>
+                    <div class="grid">
+                        ${cloudSyncProviderSelect(settings)}
+                        ${input("googleDriveClientId", uiText(language, "googleDriveClientId"), settings.googleDriveClientId, "text", { ...API_KEY_INPUT_ATTRIBUTES, placeholder: "1234567890-abc.apps.googleusercontent.com" })}
+                    </div>
+                    <div class="jpdb-reader-settings-actions">
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-export-settings">${escapedUiText(language, "cloudExport")}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-show-backups">${escapedUiText(language, "cloudShowBackups")}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="cloud-revoke-token">${escapedUiText(language, "cloudRevokeToken")}</button>
+                    </div>
+                    <div class="jpdb-reader-help" data-cloud-sync-status data-cloud-sync-default-status>${escapedUiText(language, "cloudSyncHelp")}</div>
+                    <div class="jpdb-reader-cloud-backups" data-cloud-backups hidden></div>
+                </div>
+    `;
+  }
+  function cloudSyncProviderSelect(settings) {
+    const language = settings.interfaceLanguage;
+    const option = (value, label, disabled = false) => `<option value="${escapeHtml$1(value)}" ${settings.cloudSyncProvider === value ? "selected" : ""}${disabled ? " disabled" : ""}>${escapeHtml$1(label)}</option>`;
+    return `
+                        <label>${escapedUiText(language, "cloudType")}
+                            <select name="cloudSyncProvider">
+                                ${option("google-drive", "Google Drive")}
+                                ${option("dropbox", "Dropbox", true)}
+                                ${option("onedrive", "OneDrive", true)}
+                                ${option("yandex-disk", "Yandex.Disk", true)}
+                                ${option("webdav", "WebDAV", true)}
+                            </select>
+                        </label>`;
+  }
+  function renderCloudBackupList(files, language) {
+    if (!files.length) {
+      return `
+                    <div class="jpdb-reader-cloud-backups-panel" role="dialog" aria-label="${escapedUiText(language, "cloudBackupsTitle")}">
+                        <div class="jpdb-reader-local-title">${escapedUiText(language, "cloudBackupsTitle")}</div>
+                        <div class="jpdb-reader-help">${escapedUiText(language, "cloudNoBackups")}</div>
+                        <div class="jpdb-reader-settings-actions">
+                            <button class="jpdb-reader-btn" type="button" data-action="cloud-hide-backups">${escapedUiText(language, "cancel")}</button>
+                        </div>
+                    </div>`;
+    }
+    return `
+                    <div class="jpdb-reader-cloud-backups-panel" role="dialog" aria-label="${escapedUiText(language, "cloudBackupsTitle")}">
+                        <div class="jpdb-reader-local-title">${escapedUiText(language, "cloudBackupsTitle")}</div>
+                        <div class="jpdb-reader-cloud-backup-list">
+                            ${files.map((file) => renderCloudBackupRow(file, language)).join("")}
+                        </div>
+                        <div class="jpdb-reader-settings-actions">
+                            <button class="jpdb-reader-btn" type="button" data-action="cloud-hide-backups">${escapedUiText(language, "cancel")}</button>
+                        </div>
+                    </div>`;
+  }
+  function renderCloudBackupRow(file, language) {
+    const id = escapeHtml$1(file.id);
+    const name = escapeHtml$1(file.name);
+    return `
+                            <div class="jpdb-reader-cloud-backup-row" data-cloud-backup-file="${id}">
+                                <div class="jpdb-reader-cloud-backup-name" title="${name}">${name}</div>
+                                <div class="jpdb-reader-cloud-backup-size">${escapeHtml$1(formatCloudBackupSize(file.size))}</div>
+                                <div class="jpdb-reader-cloud-backup-date">${escapeHtml$1(formatCloudBackupDate(file.modifiedTime))}</div>
+                                <div class="jpdb-reader-cloud-backup-actions">
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-import-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, "cloudImportBackup")}</button>
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-delete-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, "cloudDeleteBackup")}</button>
+                                    <button class="jpdb-reader-btn" type="button" data-action="cloud-save-backup" data-file-id="${id}" data-file-name="${name}">${escapedUiText(language, "cloudSaveBackup")}</button>
+                                </div>
+                            </div>`;
+  }
+  function formatCloudBackupSize(size) {
+    if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(2)} MB`;
+    if (size >= 1024) return `${(size / 1024).toFixed(2)} KB`;
+    return `${size} B`;
+  }
+  function formatCloudBackupDate(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    return date.toLocaleString();
   }
   function renderShortcutSettingsPanel(settings) {
     return `
@@ -26511,7 +26787,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     [/Color channels|色チャンネル/, "colorChannels"],
     [/Study|学習|New tab|新規タブ/, "newTab"],
     [/Dictionary site enhancements|辞書サイト拡張|JPDB page enhancements|JPDBページ拡張/, "jpdbPageEnhancements"],
-    [/Lookup pills|検索ピル/, "lookupPills"]
+    [/Lookup pills|検索ピル/, "lookupPills"],
+    [/Cloud|クラウド/, "cloud"]
   ];
   const SELECTOR_TEXT_KEYS = [
     ["[data-hover-lookup-title]", "hoverLookupSettings"],
@@ -26522,7 +26799,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["[data-settings-preview-title]", "preview"],
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
     ["[data-proxy-guide-show]", "show"],
-    ["[data-proxy-guide-hide]", "hide"]
+    ["[data-proxy-guide-hide]", "hide"],
+    ["[data-cloud-sync-title]", "cloud"]
   ];
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],
@@ -26533,6 +26811,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ['[data-action="export-reader-settings"]', "exportSettings"],
     ['[data-action="import-yomitan-dictionary"]', "importDictionaries"],
     ['[data-action="export-yomitan-dictionary"]', "exportDictionaries"],
+    ['[data-action="cloud-export-settings"]', "cloudExport"],
+    ['[data-action="cloud-show-backups"]', "cloudShowBackups"],
+    ['[data-action="cloud-revoke-token"]', "cloudRevokeToken"],
+    ['[data-action="cloud-import-backup"]', "cloudImportBackup"],
+    ['[data-action="cloud-delete-backup"]', "cloudDeleteBackup"],
+    ['[data-action="cloud-save-backup"]', "cloudSaveBackup"],
+    ['[data-action="cloud-hide-backups"]', "cancel"],
     ['[data-action="audio-source-add"]', "addAudioSource"],
     ['[data-action="cancel"]', "cancel"]
   ];
@@ -26866,6 +27151,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function localizeLookupPillsHelp(form, text2) {
     const lookupLinks = form.querySelector(".jpdb-reader-lookup-links");
     lookupLinks?.closest(".jpdb-reader-settings-subsection")?.querySelector(":scope > .jpdb-reader-help")?.replaceChildren(text2("lookupPillsHelp"));
+    const cloudStatus = form.querySelector("[data-cloud-sync-default-status]");
+    if (cloudStatus) cloudStatus.replaceChildren(text2("cloudSyncHelp"));
   }
   function localizeDictionaryImportHelp(form, text2) {
     const importStatus = form.querySelector("[data-import-status]");
@@ -26999,7 +27286,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function localizeSourceHead(head, text2) {
     const spans = head.querySelectorAll("span");
     spans[0]?.replaceChildren(text2("enabledHeader"));
-    const sourceLabel = spans[1]?.textContent === "Kanji section" ? text2("kanjiSection") : text2("definitionSource");
+    const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? "", text2);
     spans[1]?.replaceChildren(sourceLabel);
     if (spans.length === 5) {
       spans[2]?.replaceChildren(text2("displayName"));
@@ -27008,6 +27295,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     } else {
       spans[2]?.replaceChildren(text2("orderHeader"));
     }
+  }
+  function sourceHeadLabel(label, text2) {
+    if (label === "Frequency dictionary" || label === "Frequency dictionaries" || label === "頻度辞書") return text2("frequencyDictionaries");
+    if (label === "Kanji section" || label === "Kanji source" || label === "漢字セクション") return text2("kanjiSection");
+    return text2("definitionSource");
   }
   function replaceSourceHelp(form, pattern, value) {
     form.querySelectorAll(".jpdb-reader-help, .jpdb-reader-dictionary-row-help").forEach((help) => {
@@ -27151,6 +27443,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "subtitleTextColorSource",
     "parseSelection",
     "lookupOnClick",
+    "googleDriveClientId",
     "lookupOnHover",
     "lookupOnMiddleMouse",
     "showFloatingButton",
@@ -27247,6 +27540,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["twoButtonReviews", "reviewRatingScale"],
     ["interfaceLanguage", "settingsLanguage"],
     ["ocrCloudVisionApiKey", "cloudVisionApiKey"],
+    ["cloudSyncProvider", "cloudType"],
     ["ankiMobileHandoff", "mobileAnkiHandoff"],
     ["shortcuts.hoverLookup", "holdWhileHovering"],
     ["shortcuts.scanPage", "scanPage"],
@@ -27651,7 +27945,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const showAlias = rows.some((row) => !row.readonly);
     const visibleNames = /* @__PURE__ */ new Set([
       ...rows.filter((row) => row.removable).map((row) => row.name),
-      ...frequencySourceRows(settings).map((row) => row.name)
+      ...frequencySourceRows(settings).map((row) => row.name),
+      ...kanjiSourceRows(settings).filter((row) => row.removable).map((row) => row.name)
     ]);
     const hiddenPreferences = settings.dictionaryPreferences.filter((preference) => !visibleNames.has(preference.name));
     const hidden = hiddenPreferences.map((preference) => {
@@ -27664,7 +27959,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
             <input type="hidden" name="dictionaryPreferences.${index}.type" value="${escapeHtml$1(preference.type ?? "terms")}">
         `;
     }).join("");
-    const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges or kanji data.</div>' : "";
+    const metadataHelp = hiddenPreferences.length ? '<div class="jpdb-reader-help">Metadata dictionaries appear as badges.</div>' : "";
     if (!rows.some((row) => row.removable)) return `
         <div class="jpdb-reader-help">Import Yomitan dictionaries for local definitions.</div>
         ${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}
@@ -27674,20 +27969,20 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}${metadataHelp}${hidden}`;
   }
   function renderKanjiSourceRows(settings) {
-    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: false });
+    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji source", showAlias: false });
+  }
+  function renderFrequencyDictionaryEditor(settings) {
+    const rows = renderFrequencyDictionaryRows(settings);
+    return `
+        <div class="jpdb-reader-frequency-lookup-pills jpdb-reader-dictionary-priorities" data-source-editor data-frequency-dictionaries ${rows ? "" : "hidden"}>
+            ${rows}
+        </div>
+    `;
   }
   function renderFrequencyDictionaryRows(settings) {
     const rows = frequencySourceRows(settings);
     if (!rows.length) return "";
-    return `
-        <div class="jpdb-reader-settings-subsection">
-            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
-            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
-            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
-                ${renderSourceRowsList(rows, { sourceLabel: "Frequency dictionary", showAlias: true })}
-            </div>
-        </div>
-    `;
+    return renderSourceRowsList(rows, { sourceLabel: "Frequency dictionary", showAlias: true });
   }
   function renderRecommendedDictionaries(installed) {
     const groups = [
@@ -27735,6 +28030,374 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function normalizedDictionaryName(value) {
     return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, "");
+  }
+  const GOOGLE_DRIVE_TOKEN_STORAGE_KEY = "yomu:google-drive-oauth:v1";
+  const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+  const DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code";
+  const TOKEN_URL = "https://oauth2.googleapis.com/token";
+  const REVOKE_URL = "https://oauth2.googleapis.com/revoke";
+  const DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files";
+  const DRIVE_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3/files";
+  const BACKUP_MIME_TYPE = "application/json";
+  const BACKUP_NAME_PREFIX = "backup-";
+  const TOKEN_REFRESH_SKEW_MS = 6e4;
+  const DEFAULT_TIMEOUT_MS = 3e4;
+  const log$q = Logger.scope("CloudSync");
+  async function createReaderSettingsBackupBlob(settings, dictionaries) {
+    const bundle = {
+      formatName: "yomu-reader-settings",
+      formatVersion: 3,
+      exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      settings,
+      storage: await exportManagedStoredValues(),
+      ...dictionaries ? { dictionaries } : {}
+    };
+    return new Blob([JSON.stringify(bundle, null, 2)], { type: BACKUP_MIME_TYPE });
+  }
+  function googleDriveBackupFileName(date = /* @__PURE__ */ new Date(), userAgent = navigator.userAgent) {
+    return `${BACKUP_NAME_PREFIX}${browserSlug(userAgent)}-${date.toISOString().replace(/[:.]/g, "-")}.json`;
+  }
+  class GoogleDriveSyncClient {
+    constructor(clientId, options = {}) {
+      this.clientId = clientId;
+      this.now = options.now ?? (() => Date.now());
+      this.openUrl = options.openUrl ?? openExternalUrl;
+      this.sleep = options.sleep ?? delay$3;
+    }
+    now;
+    openUrl;
+    sleep;
+    async uploadBackup(blob, filename = googleDriveBackupFileName(), onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Uploading backup to Google Drive...");
+      const boundary = `yomu-drive-${this.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const metadata = JSON.stringify({
+        name: filename,
+        mimeType: BACKUP_MIME_TYPE,
+        parents: ["appDataFolder"],
+        appProperties: { yomuBackup: "settings-v3" }
+      });
+      const body = new Blob([
+        `--${boundary}\r
+Content-Type: application/json; charset=UTF-8\r
+\r
+`,
+        metadata,
+        `\r
+--${boundary}\r
+Content-Type: ${BACKUP_MIME_TYPE}\r
+\r
+`,
+        blob,
+        `\r
+--${boundary}--`
+      ], { type: `multipart/related; boundary=${boundary}` });
+      const response = await authorizedGoogleJson(
+        `${DRIVE_UPLOAD_URL}?${new URLSearchParams({
+          uploadType: "multipart",
+          fields: "id,name,size,createdTime,modifiedTime"
+        })}`,
+        accessToken,
+        {
+          method: "POST",
+          headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+          data: body,
+          timeoutMs: Math.max(DEFAULT_TIMEOUT_MS, Math.min(3e5, Math.max(blob.size / 1024, 3e4)))
+        }
+      );
+      const file = normalizeBackupFile(response.body);
+      onStatus(`Uploaded ${file.name} to Google Drive.`);
+      return file;
+    }
+    async listBackups(onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Loading Google Drive backups...");
+      const query = [
+        "trashed = false",
+        "name contains 'backup-'"
+      ].join(" and ");
+      const params = new URLSearchParams({
+        spaces: "appDataFolder",
+        q: query,
+        pageSize: "100",
+        orderBy: "modifiedTime desc",
+        fields: "files(id,name,size,createdTime,modifiedTime)"
+      });
+      const response = await authorizedGoogleJson(`${DRIVE_FILES_URL}?${params}`, accessToken);
+      return (response.body.files ?? []).map(normalizeBackupFile).filter((file) => file.id && isBackupFileName(file.name)).sort((a, b) => b.modifiedTime.localeCompare(a.modifiedTime));
+    }
+    async downloadBackup(fileId, onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Downloading backup from Google Drive...");
+      const response = await googleRequest(`${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}?alt=media`, {
+        accessToken,
+        responseType: "blob",
+        timeoutMs: 12e4
+      });
+      return response.body;
+    }
+    async deleteBackup(fileId, onStatus = noopStatus) {
+      const accessToken = await this.ensureAccessToken(onStatus);
+      onStatus("Deleting Google Drive backup...");
+      await googleRequest(`${DRIVE_FILES_URL}/${encodeURIComponent(fileId)}`, {
+        accessToken,
+        method: "DELETE",
+        responseType: "text"
+      });
+    }
+    async revoke(onStatus = noopStatus) {
+      const token = await readGoogleDriveToken(this.clientId);
+      if (!token) {
+        onStatus("No Google Drive token is stored.");
+        return;
+      }
+      const revokeToken = token.refreshToken || token.accessToken;
+      try {
+        await googleRequest(REVOKE_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          data: new URLSearchParams({ token: revokeToken }).toString(),
+          responseType: "text"
+        });
+      } finally {
+        await gmStorageDelete(GOOGLE_DRIVE_TOKEN_STORAGE_KEY);
+      }
+      onStatus("Google Drive access token revoked.");
+    }
+    async ensureAccessToken(onStatus = noopStatus) {
+      if (!this.clientId.trim()) {
+        throw new Error("Add a Google OAuth client ID before using Google Drive sync.");
+      }
+      const token = await readGoogleDriveToken(this.clientId);
+      if (token?.accessToken && token.expiresAt - TOKEN_REFRESH_SKEW_MS > this.now()) return token.accessToken;
+      if (token?.refreshToken) {
+        try {
+          return await this.refreshAccessToken(token);
+        } catch (error) {
+          log$q.warn("Google Drive token refresh failed; requesting a new device authorization", { error });
+        }
+      }
+      return this.authorizeWithDeviceFlow(onStatus);
+    }
+    async refreshAccessToken(token) {
+      const response = await googleJson(TOKEN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: new URLSearchParams({
+          client_id: this.clientId,
+          refresh_token: token.refreshToken,
+          grant_type: "refresh_token"
+        }).toString()
+      });
+      const state2 = tokenStateFromResponse(response.body, this.clientId, this.now(), token.refreshToken);
+      await writeGoogleDriveToken(state2);
+      return state2.accessToken;
+    }
+    async authorizeWithDeviceFlow(onStatus) {
+      const device = await googleJson(DEVICE_CODE_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        data: new URLSearchParams({
+          client_id: this.clientId,
+          scope: GOOGLE_DRIVE_SCOPE
+        }).toString()
+      });
+      const verificationUrl = device.body.verification_url_complete || device.body.verification_url;
+      onStatus(`Open ${verificationUrl} and enter code ${device.body.user_code}. Waiting for Google authorization...`);
+      this.openUrl(verificationUrl);
+      const token = await this.pollDeviceToken(device.body, onStatus);
+      await writeGoogleDriveToken(token);
+      onStatus("Google Drive authorized.");
+      return token.accessToken;
+    }
+    async pollDeviceToken(device, onStatus) {
+      let intervalMs = Math.max(1, device.interval ?? 5) * 1e3;
+      const expiresAt2 = this.now() + Math.max(1, device.expires_in) * 1e3;
+      while (this.now() < expiresAt2) {
+        await this.sleep(intervalMs);
+        const response = await googleJson(TOKEN_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          data: new URLSearchParams({
+            client_id: this.clientId,
+            device_code: device.device_code,
+            grant_type: "urn:ietf:params:oauth:grant-type:device_code"
+          }).toString(),
+          timeoutMs: DEFAULT_TIMEOUT_MS
+        }, { allowErrorBody: true });
+        if (response.status >= 200 && response.status < 300) {
+          return tokenStateFromResponse(response.body, this.clientId, this.now());
+        }
+        const error = response.body.error ?? "";
+        if (error === "authorization_pending") {
+          onStatus(`Waiting for Google authorization code ${device.user_code}...`);
+          continue;
+        }
+        if (error === "slow_down") {
+          intervalMs += 5e3;
+          continue;
+        }
+        throw googleError(response.body, response.status);
+      }
+      throw new Error("Google Drive authorization timed out.");
+    }
+  }
+  async function authorizedGoogleJson(url, accessToken, options = {}) {
+    return googleJson(url, { ...options, accessToken });
+  }
+  async function googleJson(url, options = {}, behavior = {}) {
+    const response = await googleRequest(url, { ...options, responseType: "json", allowErrorStatus: behavior.allowErrorBody });
+    if (behavior.allowErrorBody || response.status >= 200 && response.status < 300) return response;
+    throw googleError(response.body, response.status);
+  }
+  async function googleRequest(url, options = {}) {
+    const headers = requestHeaders(options);
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) {
+      return new Promise((resolve, reject) => {
+        const result = userscriptRequest({
+          method: options.method ?? "GET",
+          url,
+          headers,
+          data: options.data,
+          responseType: options.responseType,
+          timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+          anonymous: true,
+          onload: (response) => {
+            try {
+              const body = normalizeResponseBody(response.response, response.responseText, options.responseType);
+              if (options.allowErrorStatus || response.status >= 200 && response.status < 300) resolve({ status: response.status, body });
+              else reject(googleError(body, response.status));
+            } catch (error) {
+              reject(error);
+            }
+          },
+          onerror: (error) => reject(error instanceof Error ? error : new Error("Google Drive request failed.")),
+          ontimeout: () => reject(new Error("Google Drive request timed out."))
+        });
+        if (result && typeof result.then === "function") {
+          result.then((response) => {
+            const body = normalizeResponseBody(response.response, response.responseText, options.responseType);
+            if (options.allowErrorStatus || response.status >= 200 && response.status < 300) resolve({ status: response.status, body });
+            else reject(googleError(body, response.status));
+          }, (error) => reject(error instanceof Error ? error : new Error("Google Drive request failed.")));
+        }
+      });
+    }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        method: options.method ?? "GET",
+        headers,
+        body: options.data,
+        credentials: "omit",
+        referrerPolicy: "no-referrer",
+        signal: controller.signal
+      });
+      const body = await readFetchBody(response, options.responseType);
+      if (options.allowErrorStatus || response.ok) return { status: response.status, body };
+      throw googleError(body, response.status);
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  }
+  function requestHeaders(options) {
+    return {
+      ...options.headers ?? {},
+      ...options.accessToken ? { Authorization: `Bearer ${options.accessToken}` } : {}
+    };
+  }
+  async function readFetchBody(response, responseType) {
+    if (response.status === 204) return "";
+    if (responseType === "blob") return await response.blob();
+    if (responseType === "text") return await response.text();
+    return await response.json();
+  }
+  function normalizeResponseBody(response, responseText, responseType) {
+    if (responseType === "blob") return response;
+    if (responseType === "text") return String(responseText ?? response ?? "");
+    if (response !== void 0 && typeof response !== "string") return response;
+    return JSON.parse(String(responseText ?? response ?? "null"));
+  }
+  function tokenStateFromResponse(response, clientId, now, fallbackRefreshToken = "") {
+    if (!response.access_token) throw googleError(response, 400);
+    return {
+      accessToken: response.access_token,
+      clientId,
+      expiresAt: now + Math.max(1, response.expires_in ?? 3600) * 1e3,
+      refreshToken: response.refresh_token || fallbackRefreshToken,
+      scope: response.scope ?? GOOGLE_DRIVE_SCOPE,
+      tokenType: response.token_type ?? "Bearer"
+    };
+  }
+  async function readGoogleDriveToken(clientId) {
+    const token = normalizeStoredGoogleDriveToken(await gmStorageGet(GOOGLE_DRIVE_TOKEN_STORAGE_KEY, null));
+    return token?.clientId === clientId ? token : null;
+  }
+  async function writeGoogleDriveToken(token) {
+    await gmStorageSet(GOOGLE_DRIVE_TOKEN_STORAGE_KEY, token);
+  }
+  function normalizeStoredGoogleDriveToken(value) {
+    if (!value || typeof value !== "object") return null;
+    const record = value;
+    if (typeof record.clientId !== "string" || typeof record.accessToken !== "string") return null;
+    return {
+      accessToken: record.accessToken,
+      clientId: record.clientId,
+      expiresAt: typeof record.expiresAt === "number" ? record.expiresAt : 0,
+      refreshToken: typeof record.refreshToken === "string" ? record.refreshToken : "",
+      scope: typeof record.scope === "string" ? record.scope : GOOGLE_DRIVE_SCOPE,
+      tokenType: typeof record.tokenType === "string" ? record.tokenType : "Bearer"
+    };
+  }
+  function normalizeBackupFile(file) {
+    return {
+      id: file.id ?? "",
+      name: file.name ?? "",
+      size: Number(file.size ?? 0) || 0,
+      createdTime: file.createdTime ?? "",
+      modifiedTime: file.modifiedTime ?? file.createdTime ?? ""
+    };
+  }
+  function isBackupFileName(name) {
+    return name.startsWith(BACKUP_NAME_PREFIX) || name.startsWith("yomu-backup-");
+  }
+  function browserSlug(userAgent) {
+    if (/firefox/i.test(userAgent)) return "firefox";
+    if (/edg\//i.test(userAgent)) return "edge";
+    if (/chrome|chromium|crios/i.test(userAgent)) return "chrome";
+    if (/safari/i.test(userAgent)) return "safari";
+    return "browser";
+  }
+  function googleError(body, status) {
+    const record = body && typeof body === "object" ? body : {};
+    const nested = record.error && typeof record.error === "object" ? record.error : {};
+    const message = stringOrEmpty(nested.message) || stringOrEmpty(record.error_description) || stringOrEmpty(nested.error_description) || stringOrEmpty(record.message) || stringOrEmpty(record.error) || `Google Drive request failed (${status}).`;
+    return new Error(message);
+  }
+  function stringOrEmpty(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : "";
+  }
+  function openExternalUrl(url) {
+    try {
+      if (typeof GM_openInTab === "function") {
+        GM_openInTab(url, { active: true });
+        return;
+      }
+      if (typeof GM !== "undefined" && typeof GM?.openInTab === "function") {
+        GM.openInTab(url, { active: true });
+        return;
+      }
+      window.open(url, "_blank", "noopener");
+    } catch {
+      window.open(url, "_blank", "noopener");
+    }
+  }
+  function delay$3(ms) {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
+  }
+  function noopStatus() {
   }
   const log$p = Logger.scope("SettingsFileIO");
   function recommendedDictionaryFilename(dictionary) {
@@ -27835,6 +28498,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function settingsStatusSetter(status) {
     return (message) => {
       if (status) status.textContent = message;
+    };
+  }
+  function settingsActionStatusSetter(form, action) {
+    if (!isCloudSyncAction(action)) return settingsStatusSetter(form.querySelector("[data-import-status]"));
+    const status = form.querySelector("[data-cloud-sync-status]");
+    return (message) => {
+      if (!status) return;
+      delete status.dataset.cloudSyncDefaultStatus;
+      status.textContent = message;
     };
   }
   function focusPreviewAudioSource(form, button, previewSettings) {
@@ -28058,21 +28730,45 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return message;
   }
   function shouldReenableSettingsAction(action) {
-    return action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
+    return action.startsWith("cloud-") || action === "download-recommended-dictionary" || action === "delete-yomitan-dictionary";
   }
   function dictionaryStatusElements(form) {
     return {
       status: form.querySelector("[data-dictionary-status]"),
       priorities: form.querySelector(".jpdb-reader-dictionary-priorities"),
       frequency: form.querySelector("[data-frequency-dictionaries]"),
+      kanjiPriorities: form.querySelector(".jpdb-reader-kanji-priorities"),
       recommended: form.querySelector("[data-recommended-dictionaries]")
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
+    if (elements.frequency) {
+      const frequencyRows = renderFrequencyDictionaryRows(settings);
+      setInnerHtml(elements.frequency, frequencyRows);
+      elements.frequency.hidden = !frequencyRows;
+    }
+    if (elements.kanjiPriorities) setInnerHtml(elements.kanjiPriorities, renderKanjiSourceRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
+  }
+  function removeDictionaryFromSettingsPanel(form, dictionary) {
+    const rows = Array.from(form.querySelectorAll("[data-dictionary-source-row]")).filter((row) => {
+      const rowName = row.querySelector('input[name$=".name"]')?.value;
+      const removeButton = row.querySelector('[data-action="delete-yomitan-dictionary"]');
+      return rowName === dictionary || removeButton?.dataset.dictionaryName === dictionary;
+    });
+    if (!rows.length) return false;
+    const editors = new Set(rows.flatMap((row) => {
+      const editor = row.closest("[data-source-editor]");
+      return editor ? [editor] : [];
+    }));
+    rows.forEach((row) => row.remove());
+    editors.forEach((editor) => {
+      syncSourceRowOrder(editor);
+      if (editor.matches("[data-frequency-dictionaries]")) editor.hidden = !editor.querySelector("[data-source-row]");
+    });
+    return true;
   }
   function dictionaryStatusText(summary, language) {
     if (summary.dictionaries.length) {
@@ -28932,8 +29628,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       });
     }
     async handleSettingsAction(form, action, control) {
-      const status = form.querySelector("[data-import-status]");
-      const setStatus = settingsStatusSetter(status);
+      const setStatus = settingsActionStatusSetter(form, action);
       try {
         await this.runSettingsAction(form, action, control, setStatus);
       } catch (error) {
@@ -28943,7 +29638,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     }
     async runSettingsAction(form, action, control, setStatus) {
-      const handled = this.handleSettingsEditorAction(form, action, control) || await this.handleSettingsAudioAction(form, action, control) || await this.handleSettingsDictionaryAction(form, action, control, setStatus) || await this.handleSettingsImportExportAction(form, action, setStatus);
+      const handled = this.handleSettingsEditorAction(form, action, control) || await this.handleSettingsAudioAction(form, action, control) || await this.handleSettingsDictionaryAction(form, action, control, setStatus) || await this.handleSettingsImportExportAction(form, action, setStatus) || await this.handleSettingsCloudAction(form, action, control, setStatus);
       if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
     async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
@@ -29039,19 +29734,103 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
       if (action === "export-reader-settings") {
         const dictionaries = await this.exportReaderDictionaryBackup();
-        downloadBlob(new Blob([JSON.stringify({
-          formatName: "yomu-reader-settings",
-          formatVersion: 3,
-          exportedAt: (/* @__PURE__ */ new Date()).toISOString(),
-          settings: this.settings,
-          storage: await exportManagedStoredValues(),
-          ...dictionaries ? { dictionaries } : {}
-        }, null, 2)], { type: "application/json" }), `yomu-settings-${dateStamp()}.json`);
+        downloadBlob(await createReaderSettingsBackupBlob(this.settings, dictionaries), `yomu-settings-${dateStamp()}.json`);
         setStatus(uiText(getFormInterfaceLanguage(form, this.settings.interfaceLanguage), "settingsExported"));
         log$o.info("Settings exported");
         return true;
       }
       return false;
+    }
+    async handleSettingsCloudAction(form, action, control, setStatus) {
+      if (!isCloudSyncAction(action)) return false;
+      if (action === "cloud-hide-backups") {
+        this.hideCloudBackups(form);
+        return true;
+      }
+      const button = settingsActionButton(control);
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      const formSettings = readFormSettings(new FormData(form), this.settings);
+      const client = this.googleDriveSyncClient(formSettings, language);
+      button?.setAttribute("disabled", "true");
+      try {
+        if (action === "cloud-export-settings") {
+          await this.uploadCloudSettingsBackup(client, formSettings, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-show-backups") {
+          await this.showCloudBackups(form, client, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-import-backup") {
+          await this.importCloudBackup(client, control, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-delete-backup") {
+          await this.deleteCloudBackup(form, client, control, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-save-backup") {
+          await this.saveCloudBackup(client, control, setStatus, language);
+          return true;
+        }
+        if (action === "cloud-revoke-token") {
+          await client.revoke(setStatus);
+          return true;
+        }
+      } finally {
+        button?.removeAttribute("disabled");
+      }
+      return false;
+    }
+    googleDriveSyncClient(settings, language) {
+      if (settings.cloudSyncProvider !== "google-drive") throw new Error(uiText(language, "cloudUnsupportedProvider"));
+      return new GoogleDriveSyncClient(settings.googleDriveClientId);
+    }
+    async uploadCloudSettingsBackup(client, settings, setStatus, language) {
+      const dictionaries = await this.exportReaderDictionaryBackup();
+      const blob = await createReaderSettingsBackupBlob(settings, dictionaries);
+      await client.uploadBackup(blob, googleDriveBackupFileName(), setStatus);
+      setStatus(uiText(language, "cloudBackupUploaded"));
+      this.dependencies.toast(uiText(language, "cloudBackupUploaded"));
+    }
+    async showCloudBackups(form, client, setStatus, language) {
+      const files = await client.listBackups(setStatus);
+      this.renderCloudBackups(form, files, language);
+      setStatus(files.length ? uiText(language, "cloudBackupsTitle") : uiText(language, "cloudNoBackups"));
+    }
+    async importCloudBackup(client, control, setStatus, language) {
+      const fileId = cloudBackupFileId(control);
+      const blob = await client.downloadBackup(fileId, setStatus);
+      const json = JSON.parse(await blob.text());
+      await this.importReaderSettingsJson(json, setStatus);
+      this.dependencies.toast(uiText(language, "cloudBackupImported"));
+    }
+    async deleteCloudBackup(form, client, control, setStatus, language) {
+      const fileId = cloudBackupFileId(control);
+      const fileName = cloudBackupFileName(control);
+      if (!window.confirm(formatUiTemplate(uiText(language, "cloudDeleteConfirm"), { file: fileName }))) return;
+      await client.deleteBackup(fileId, setStatus);
+      setStatus(uiText(language, "cloudBackupDeleted"));
+      this.dependencies.toast(uiText(language, "cloudBackupDeleted"));
+      await this.showCloudBackups(form, client, setStatus, language);
+    }
+    async saveCloudBackup(client, control, setStatus, language) {
+      const fileName = cloudBackupFileName(control);
+      const blob = await client.downloadBackup(cloudBackupFileId(control), setStatus);
+      downloadBlob(blob, fileName);
+      setStatus(uiText(language, "cloudBackupSaved"));
+    }
+    renderCloudBackups(form, files, language) {
+      const container = form.querySelector("[data-cloud-backups]");
+      if (!container) throw new Error("Cloud backup list is unavailable.");
+      setInnerHtml(container, renderCloudBackupList(files, language));
+      container.hidden = false;
+    }
+    hideCloudBackups(form) {
+      const container = form.querySelector("[data-cloud-backups]");
+      if (!container) return;
+      container.hidden = true;
+      container.replaceChildren();
     }
     async exportReaderDictionaryBackup() {
       const summary = await this.dependencies.dictionaries.summary().catch(() => ({ dictionaries: [] }));
@@ -29344,16 +30123,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!window.confirm(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoveConfirm"), { dictionary }))) return;
       control?.setAttribute("disabled", "true");
       setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoving"), { dictionary }));
-      await this.dependencies.dictionaries.deleteDictionary(dictionary);
-      await clearNewTabOfflineCache().catch(() => void 0);
-      this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
-      await saveSettings(this.settings);
-      await this.dependencies.refreshDictionaryStyles();
-      this.dependencies.scheduleDictionaryRescan();
-      await this.refreshDictionaryStatus(form);
-      this.dependencies.refreshNewTabIfCurrent();
-      setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
-      log$o.info("Dictionary removed", { dictionary });
+      const removedFromPanel = removeDictionaryFromSettingsPanel(form, dictionary);
+      try {
+        await this.dependencies.dictionaries.deleteDictionary(dictionary);
+        await clearNewTabOfflineCache().catch(() => void 0);
+        this.settings.dictionaryPreferences = this.settings.dictionaryPreferences.filter((item) => item.name !== dictionary);
+        await saveSettings(this.settings);
+        await this.dependencies.refreshDictionaryStyles();
+        this.dependencies.scheduleDictionaryRescan();
+        await this.refreshDictionaryStatus(form);
+        this.dependencies.refreshNewTabIfCurrent();
+        setStatus(formatUiTemplate(uiText(this.settings.interfaceLanguage, "dictionaryRemoved"), { dictionary }));
+        log$o.info("Dictionary removed", { dictionary });
+      } catch (error) {
+        if (removedFromPanel) await this.refreshDictionaryStatus(form).catch((refreshError) => log$o.warn("Dictionary status refresh after failed remove failed", refreshError));
+        throw error;
+      }
     }
     async importDictionaryFromSettings(form, setStatus) {
       const file = await pickFile(form, "dictionary");
@@ -29458,6 +30243,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const file = await pickFile(form, "settings");
       if (!file) return;
       const json = JSON.parse(await file.text());
+      await this.importReaderSettingsJson(json, setStatus);
+    }
+    async importReaderSettingsJson(json, setStatus) {
       const readerSettings = getReaderSettingsExport(json);
       this.settings = readerSettings ? normalizeReaderSettings({ ...this.settings, ...readerSettings, shortcuts: { ...this.settings.shortcuts, ...readerSettings.shortcuts } }) : importedYomitanSettings(json, this.settings);
       const restoredValues = await importStoredValues(getReaderStorageExport(json));
@@ -29499,6 +30287,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function isLookupLinkEditorAction(action) {
     return action === "lookup-link-add" || action === "lookup-link-remove" || action === "lookup-link-up" || action === "lookup-link-down";
+  }
+  function isCloudSyncAction(action) {
+    return action.startsWith("cloud-");
+  }
+  function cloudBackupFileId(control) {
+    const fileId = control?.dataset.fileId?.trim();
+    if (!fileId) throw new Error("Google Drive backup file is missing.");
+    return fileId;
+  }
+  function cloudBackupFileName(control) {
+    return control?.dataset.fileName?.trim() || googleDriveBackupFileName();
   }
   function getReaderStorageExport(value) {
     if (!value || typeof value !== "object") return null;
@@ -32835,6 +33634,11 @@ ${spelling}`);
         return;
       }
       logOcrFailure(state2, provider, manualRequested, error);
+      if (shouldSuppressFailedOcrStatus(manualRequested, error)) {
+        renderNoOcrLines(state2);
+        this.updateOcrStatus(image, "empty");
+        return;
+      }
       this.updateOcrStatus(image, "failed");
     }
     recognizeImage(image, settings) {
@@ -34688,24 +35492,76 @@ ${spelling}`);
     return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
   }
   function requestBlob$2(url) {
+    const fallbackType = imageMimeTypeFromUrl(url);
+    const headers = imageRequestHeaders(url);
     const userscriptRequest = requestViaUserscript({
       method: "GET",
       url,
-      responseType: "arraybuffer"
-    }, (response) => blobFromUserscriptResponse(response), (status) => `Image fetch returned ${status}.`);
+      headers,
+      responseType: "arraybuffer",
+      withCredentials: true
+    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`);
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    return fetch(url, { headers: fetchImageRequestHeaders(), credentials: "include" }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
   }
-  function blobFromUserscriptResponse(response) {
-    if (response.response instanceof Blob) return response.response;
-    if (response.response instanceof ArrayBuffer) return new Blob([response.response]);
-    if (ArrayBuffer.isView(response.response)) {
-      const source = new Uint8Array(response.response.buffer, response.response.byteOffset, response.response.byteLength);
+  function imageRequestHeaders(url) {
+    const headers = {
+      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+    };
+    if (shouldSendPageRefererForImageRequest(url)) headers.Referer = location.href;
+    return headers;
+  }
+  function fetchImageRequestHeaders() {
+    return {
+      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+    };
+  }
+  function shouldSendPageRefererForImageRequest(url) {
+    try {
+      const target = new URL(url, location.href);
+      return target.protocol === "http:" || target.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
+    const value = response.response;
+    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
+    if (value instanceof ArrayBuffer) {
+      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
+      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
+    }
+    if (ArrayBuffer.isView(value)) {
+      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
       const copy = new Uint8Array(source.byteLength);
       copy.set(source);
-      return new Blob([copy.buffer]);
+      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
     }
-    return new Blob([response.response]);
+    return new Blob([value], { type: fallbackType });
+  }
+  function imageMimeTypeFromUrl(url) {
+    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
+    switch (extension) {
+      case "png":
+        return "image/png";
+      case "gif":
+        return "image/gif";
+      case "webp":
+        return "image/webp";
+      case "avif":
+        return "image/avif";
+      case "bmp":
+        return "image/bmp";
+      default:
+        return "image/jpeg";
+    }
+  }
+  function sniffImageMimeType(bytes) {
+    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
+    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
+    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
+    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
+    return void 0;
   }
   function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();
@@ -34775,6 +35631,12 @@ ${spelling}`);
   }
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
+  }
+  function shouldSuppressFailedOcrStatus(manualRequested, error) {
+    return !manualRequested || isLocalOcrUnavailableError(error) || isLocalOcrConnectionError(error) || isImageReadError(error);
+  }
+  function isImageReadError(error) {
+    return error instanceof Error && /image (?:cannot be read|decode failed|encoding failed|fetch returned)|canvas unavailable/i.test(error.message);
   }
   function isAbortError$3(error) {
     return error instanceof Error && error.name === "AbortError";
@@ -37671,6 +38533,87 @@ ${spelling}`);
       secondary ? `${uiText(language, "nativeSubtitles")}: ${secondary}` : ""
     ];
   }
+  const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
+  const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
+  function fullscreenRedirectBootstrap(win) {
+    const flag = "__yomuSubtitleFullscreenRedirect";
+    if (win[flag]) return;
+    const selector = "#movie_player, .html5-video-player, [data-yomu-video-frame]";
+    const elementCtor = win.HTMLElement;
+    const videoCtor = win.HTMLVideoElement;
+    const proto = elementCtor?.prototype;
+    if (!proto || !videoCtor) return;
+    const methods = ["requestFullscreen", "webkitRequestFullscreen", "webkitRequestFullScreen", "mozRequestFullScreen", "msRequestFullscreen"];
+    for (const name of methods) {
+      const original = proto[name];
+      if (typeof original !== "function") continue;
+      const native = original;
+      proto[name] = function patchedRequestFullscreen(...args) {
+        const container = this instanceof videoCtor ? this.closest(selector) : null;
+        const target = container && container !== this && typeof container[name] === "function" ? container : this;
+        return native.apply(target, args);
+      };
+    }
+    win[flag] = true;
+  }
+  function fullscreenRedirectStyleText() {
+    const fill = "width:100%!important;height:100%!important;left:0!important;top:0!important;";
+    return [
+      `#movie_player:fullscreen video.html5-main-video{${fill}}`,
+      `#movie_player:fullscreen .html5-video-container{width:100%!important;height:100%!important;}`,
+      `#movie_player:-webkit-full-screen video.html5-main-video{${fill}}`,
+      `#movie_player:-webkit-full-screen .html5-video-container{width:100%!important;height:100%!important;}`,
+      `[data-yomu-video-frame]:fullscreen video{${fill}}`,
+      `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`
+    ].join("\n");
+  }
+  function injectFullscreenRedirectStyle() {
+    const parent = document.head || document.documentElement;
+    if (!parent || document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = fullscreenRedirectStyleText();
+    parent.append(style);
+  }
+  function injectFullscreenRedirectScript() {
+    const parent = document.head || document.documentElement;
+    if (!parent) return false;
+    const source = `;(${fullscreenRedirectBootstrap.toString()})(window);`;
+    try {
+      const script = document.createElement("script");
+      const nonce = [...document.querySelectorAll("script[nonce]")].map((el2) => el2.getAttribute("nonce")).find(Boolean);
+      if (nonce) script.setAttribute("nonce", nonce);
+      const trusted = createTrustedRedirectScript(source);
+      if (trusted) script.textContent = trusted;
+      else script.textContent = source;
+      parent.append(script);
+      script.remove();
+    } catch {
+      return false;
+    }
+    const pageWin = globalThis.unsafeWindow ?? window;
+    return Boolean(pageWin[REDIRECT_FLAG]);
+  }
+  function createTrustedRedirectScript(code) {
+    try {
+      const factory = globalThis.trustedTypes;
+      if (!factory?.createPolicy) return null;
+      const policy = factory.createPolicy("yomu-subtitle-fullscreen-redirect", { createScript: (value) => value });
+      return policy?.createScript ? policy.createScript(code) : null;
+    } catch {
+      return null;
+    }
+  }
+  function installSubtitleFullscreenRedirect() {
+    injectFullscreenRedirectStyle();
+    const uw = globalThis.unsafeWindow;
+    const differentRealm = Boolean(uw) && uw !== globalThis;
+    if (differentRealm && uw) {
+      if (uw[REDIRECT_FLAG]) return;
+      if (injectFullscreenRedirectScript()) return;
+    }
+    fullscreenRedirectBootstrap(uw ?? window);
+  }
   function hasSelectedSubtitleTrackOrLines(selectedTrackId, hasLines) {
     return Boolean(selectedTrackId || hasLines);
   }
@@ -39100,6 +40043,9 @@ ${spelling}`);
       this.destroyed = false;
       this.abortController = new AbortController();
       this.install();
+      if (isYouTubePage() || document.querySelector("[data-yomu-video-frame]")) {
+        installSubtitleFullscreenRedirect();
+      }
       this.observer = new MutationObserver((mutations) => {
         if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
           this.syncFullscreenState();
@@ -39757,13 +40703,23 @@ ${spelling}`);
     updateFromLoadedCues() {
       if (!this.video) return;
       const time = this.video.currentTime;
-      const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time) : void 0;
       const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time) : void 0;
+      const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : void 0;
       if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
       else this.warmParseOnGapAnchorJump();
     }
-    findRenderablePrimaryCue(time) {
-      return findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+    // Auto-generated YouTube captions and their `&tlang=` translations are
+    // segmented independently, so the primary (JP) cue often begins a beat
+    // after — or falls into a gap relative to — the native (EN) line that's
+    // already active. That left no primary cue at the playhead while a native
+    // cue was active, showing the native line alone (user-reported). When the
+    // direct lookup misses but a native cue is active, surface the primary
+    // aligned to it so the pair appears together. Mirrors
+    // primaryHeldByActiveSecondary for the not-yet-shown direction.
+    findRenderablePrimaryCue(time, activeSecondary) {
+      const direct = findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+      if (direct || !activeSecondary || !this.cues.length) return direct;
+      return findAlignedCue(this.cues, activeSecondary);
     }
     // A repeated seek that lands in another inter-cue gap changes no cue
     // state, so afterLoadedCueStateChanged never fires; re-anchor the parse
@@ -42430,6 +43386,7 @@ ${spelling}`);
     positionTranscriptPanel(options = {}) {
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
+        this.clearTranscriptPanelInlineLayout();
         return;
       }
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {
@@ -42595,6 +43552,7 @@ ${spelling}`);
       return layout.placement === "left" ? viewportWidth - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
+      const wasFullscreen = this.fullscreen;
       const fullscreenElement = currentFullscreenElement();
       const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
       this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));
@@ -42603,16 +43561,27 @@ ${spelling}`);
       this.root?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
+        this.clearTranscriptPanelInlineLayout();
         return;
       }
       this.transcriptLayoutReferenceRect = void 0;
       this.transcriptLayoutReferenceViewport = "";
+      if (wasFullscreen && this.isTranscriptPanelOpen()) this.positionTranscriptPanel({ realignAfterInset: true });
+    }
+    clearTranscriptPanelInlineLayout() {
+      const panel = this.transcriptPanel;
+      if (!panel) return;
+      for (const prop of ["position", "left", "top", "right", "bottom", "width", "height", "max-height", "z-index"]) {
+        panel.style.removeProperty(prop);
+      }
     }
     syncSubtitleRootParent(fullscreenHost = this.subtitleFullscreenHost()) {
       if (!this.root) return;
       const parent = !fullscreenHost || fullscreenHost === document.documentElement ? document.body : fullscreenHost;
-      if (this.root.parentElement === parent) return;
-      parent.appendChild(this.root);
+      if (this.root.parentElement !== parent) parent.appendChild(this.root);
+      if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) {
+        parent.appendChild(this.transcriptPanel);
+      }
     }
     subtitleFullscreenHost(fullscreenElement = currentFullscreenElement()) {
       if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
@@ -42898,6 +43867,7 @@ ${spelling}`);
   }
   const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+  const YOUTUBE_READER_OWNED_SELECTOR = `${YOUTUBE_READER_ROOT_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-word`;
   const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
   const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
   const YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE = 3;
@@ -42979,7 +43949,13 @@ ${spelling}`);
   function isYouTubeHost(hostname = location.hostname) {
     return YOUTUBE_HOST_RE.test(hostname);
   }
+  function isInsideReaderRoot(node) {
+    if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    return false;
+  }
   function collectYouTubeVideoCards(root = document) {
+    if (isInsideReaderRoot(root)) return [];
     const cards = /* @__PURE__ */ new Set();
     root.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((card) => {
       const normalized = normalizeYouTubeVideoCard(card);
@@ -43557,7 +44533,7 @@ ${spelling}`);
       shelf.className = "jpdb-youtube-channel-shelf";
       shelf.dataset.jpdbReaderRoot = "true";
       shelf.setAttribute("role", "region");
-      shelf.setAttribute("aria-label", "Japanese channel recommendations");
+      shelf.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "youtubeChannelRecommendations"));
       const header = document.createElement("div");
       header.className = "jpdb-youtube-channel-shelf-head";
       const copy = document.createElement("div");
@@ -43631,15 +44607,19 @@ ${spelling}`);
       this.hydrateRenderedChannelPreviews(renderedRecommendations);
     }
     updateChannelShelfChrome(elements, recommendations, renderedRecommendations) {
-      elements.title.textContent = "Start your Japanese YouTube feed";
-      elements.copy.textContent = this.channelShelfExpanded ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.` : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+      const language = this.options.getSettings().interfaceLanguage;
+      elements.title.textContent = uiText(language, "youtubeChannelShelfTitle");
+      elements.copy.textContent = this.channelShelfExpanded ? formatUiText(language, "youtubeChannelShelfExpandedCopy", {
+        shown: recommendations.length,
+        total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT
+      }) : formatUiText(language, "youtubeChannelShelfCompactCopy", { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
       const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
-      elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
+      elements.subscribeVisible.textContent = formatUiText(language, "youtubeChannelSubscribeVisible", { count: renderedRecommendations.length });
       elements.subscribeVisible.hidden = !renderedRecommendations.length;
-      elements.subscribeAll.textContent = remainingChannels ? `Subscribe all ${remainingChannels}` : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
-      elements.dismiss.textContent = "Dismiss";
-      elements.never.textContent = "Hide";
-      elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
+      elements.subscribeAll.textContent = remainingChannels ? formatUiText(language, "youtubeChannelSubscribeAll", { count: remainingChannels }) : formatUiText(language, "youtubeChannelAllSubscribed", { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
+      elements.dismiss.textContent = uiText(language, "dismiss");
+      elements.never.textContent = uiText(language, "hide");
+      elements.expand.textContent = uiText(language, this.channelShelfExpanded ? "collapse" : "youtubeChannelBrowseAll");
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
       if (!this.subscriptionBusy) elements.status.textContent = this.channelShelfStatusOverride;
     }
@@ -43740,8 +44720,9 @@ ${spelling}`);
     renderChannelSubscribeButton(channel) {
       const subscribe = channelShelfButton("subscribe-one");
       subscribe.dataset.handle = channel.handle;
-      subscribe.textContent = "Subscribe";
-      subscribe.setAttribute("aria-label", `Subscribe to ${channel.name}`);
+      const language = this.options.getSettings().interfaceLanguage;
+      subscribe.textContent = uiText(language, "subscribe");
+      subscribe.setAttribute("aria-label", formatUiText(language, "subscribeToChannel", { name: channel.name }));
       return subscribe;
     }
     placeChannelShelf(shelf) {
@@ -43917,7 +44898,7 @@ ${spelling}`);
       if (this.subscriptionBusy) return;
       const elements = this.channelShelfElements(this.ensureChannelShelf());
       if (!channels.length) {
-        this.setChannelShelfStatus(elements, "All of these channels are already subscribed.");
+        this.setChannelShelfStatus(elements, uiText(this.options.getSettings().interfaceLanguage, "youtubeChannelAlreadySubscribed"));
         return;
       }
       const config = readYouTubeClientConfig();
@@ -43955,7 +44936,8 @@ ${spelling}`);
       this.markChannelSubscriptionCompleteIfReady({ keepShelf: true });
       this.subscriptionBusy = false;
       this.setChannelShelfBusy(false);
-      this.setChannelShelfStatus(elements, failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`);
+      const language = this.options.getSettings().interfaceLanguage;
+      this.setChannelShelfStatus(elements, failed ? formatUiText(language, "youtubeChannelSubscribePartialStatus", { subscribed, failed }) : formatUiText(language, subscribed === 1 ? "youtubeChannelSubscribeStatusSingular" : "youtubeChannelSubscribeStatusPlural", { count: subscribed }));
       if (subscribed) this.scheduleChannelShelfRefresh();
     }
     setChannelShelfStatus(elements, status) {
@@ -43972,8 +44954,9 @@ ${spelling}`);
       row?.classList.add("is-subscribed");
       if (!button) return;
       button.disabled = true;
-      button.textContent = "Subscribed ✓";
-      button.setAttribute("aria-label", `Subscribed to ${channel.name}`);
+      const language = this.options.getSettings().interfaceLanguage;
+      button.textContent = uiText(language, "subscribed");
+      button.setAttribute("aria-label", formatUiText(language, "subscribedToChannel", { name: channel.name }));
     }
     scheduleChannelShelfRefresh(delayMs = 1800) {
       window.clearTimeout(this.channelShelfRefreshTimer);
@@ -44584,6 +45567,7 @@ ${spelling}`);
     return null;
   }
   function collectYouTubeFilterItems(root = document) {
+    if (isInsideReaderRoot(root)) return [];
     const items = new Set(collectYouTubeVideoCards(root));
     root.querySelectorAll(`${VIDEO_CARD_SELECTOR},${NON_VIDEO_CONTAINER_SELECTOR}`).forEach((element) => {
       const normalized = normalizeYouTubeFilterItem(element);
@@ -44889,11 +45873,12 @@ ${spelling}`);
     const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
     return nodes.every((node) => {
       const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean(element?.closest?.(YOUTUBE_READER_ROOT_SELECTOR));
+      return Boolean(element?.closest?.(YOUTUBE_READER_OWNED_SELECTOR));
     });
   }
   function mutationMayAffectYouTubeCards(mutation) {
-    const nodes = [mutation.target, ...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const nodes = mutation.type === "childList" && changedNodes.length ? changedNodes : [mutation.target, ...changedNodes];
     return nodes.some(nodeMayAffectYouTubeCards);
   }
   function nodeMayAffectYouTubeCards(node) {
@@ -44905,7 +45890,7 @@ ${spelling}`);
   }
   function elementForYouTubeCardMutation(node) {
     const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-    if (!element || element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return null;
+    if (!element || isInsideReaderRoot(element)) return null;
     return element;
   }
   function isYouTubeCardOrFeedElement(element) {
@@ -47911,26 +48896,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function definitionSourceStateKey$2(sourceId) {
     return `definition-source:${sourceId}`;
   }
-  function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
+  function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, _sourceAttributes, dictionaryLabel2, reference) {
     const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
-    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, settings.interfaceLanguage, reference)).filter(Boolean);
+    const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, dictionaryLabel2, settings.interfaceLanguage, reference)).filter(Boolean);
     if (!dictionarySections.length) return "";
-    const sourceCount = groupsByDictionary.length;
-    const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-    const status = [
-      `${sourceCount} ${uiText(settings.interfaceLanguage, sourceCount === 1 ? "sourceSingular" : "sourcePlural")}`,
-      `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? "localWordSingular" : "localWordPlural")}`
-    ].join(" · ");
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey$1("__local_dictionaries__"))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
-                <span>${uiText(settings.interfaceLanguage, "dictionaries")}</span>
-                <span class="jpdb-reader-source-status">${escapeHtml$1(status)}</span>
-            </summary>
+        <div class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)}>
             <div class="jpdb-reader-dictionary-source-list">
                 ${dictionarySections.join("")}
             </div>
-        </details>
+        </div>
     `;
   }
   function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel2, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
@@ -47967,27 +48942,19 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function definitionSourceStateKey$1(sourceId) {
     return `definition-source:${sourceId}`;
   }
-  function localDictionaryStateKey(dictionary) {
-    return `definition-dictionary:${dictionary}`;
-  }
   function kanjiSourceStateKey(sourceId) {
     return `kanji:${sourceId}`;
   }
   function kanjiFactProviderTitle(source) {
     return source === "jiten" ? "Jiten" : "JPDB";
   }
-  function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, language, reference) {
-    const entryCount = groups.length;
+  function renderLocalDictionaryGroup(dictionary, groups, dictionaryLabel2, language, reference) {
     return `
-        <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}" data-jpdb-reader-surface-ignore="true">
-                <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
-                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
-            </summary>
+        <div class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}">
             <div class="jpdb-reader-local-terms">
-                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, { showDictionaryTag: false })).join("")}
+                ${groups.map((group) => renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, { showDictionaryTag: true })).join("")}
             </div>
-        </details>
+        </div>
     `;
   }
   function renderLocalTermGroup(dictionary, group, dictionaryLabel2, language, reference, options = {}) {
@@ -48498,18 +49465,18 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     renderReviewButtons(options) {
       const { card, cardStates, data, provider, selectedDeckLabel, reviewBlockReason, language } = options;
-      const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason);
+      const earlyResult = this.reviewButtonsEarlyResult(card, data, reviewBlockReason, cardStates, language);
       if (earlyResult !== void 0) return earlyResult;
       const targets = this.popoverReviewTargets(card, data, provider, language);
       if (targets.length) return this.renderTargetedReviewButtons(targets, language);
-      if (!this.shouldRenderReviewButtons(data, provider, reviewBlockReason)) {
+      if (!this.shouldRenderReviewButtons(provider, reviewBlockReason)) {
         return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       }
       return this.renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language);
     }
-    reviewButtonsEarlyResult(card, data, reviewBlockReason) {
-      if (reviewBlockReason) return `<div class="jpdb-reader-help jpdb-reader-review-blocked">${escapeHtml$1(reviewBlockReason)}</div>`;
-      if (data.loading || !this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
+    reviewButtonsEarlyResult(card, data, reviewBlockReason, cardStates, language) {
+      if (reviewBlockReason) return renderReviewBlockedAction(cardStates, reviewBlockReason, language);
+      if (!this.settings().enableReviews) return this.dependencies.renderReviewButtonsFallback?.(card, data) ?? "";
       return void 0;
     }
     renderApiReviewButtons(card, provider, data, cardStates, selectedDeckLabel, language) {
@@ -48520,8 +49487,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         intervals: card.reviewGradeIntervals
       });
     }
-    shouldRenderReviewButtons(data, provider, reviewBlockReason) {
-      if (reviewBlockReason || data.loading || !this.settings().enableReviews) return false;
+    shouldRenderReviewButtons(provider, reviewBlockReason) {
+      if (reviewBlockReason || !this.settings().enableReviews) return false;
       return this.canReviewWithApiProvider(provider);
     }
     canReviewWithApiProvider(provider) {
@@ -48686,6 +49653,12 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function reviewButtonsIncludeTargetGutter(reviewButtons) {
     return reviewButtons.includes("data-review-target-gutter");
+  }
+  function renderReviewBlockedAction(cardStates, reason, language) {
+    const blacklisted = cardStates.includes("blacklisted");
+    const label = uiText(language, blacklisted ? "unlist" : "forget");
+    const title = uiText(language, blacklisted ? "unlistHint" : "forgetHint");
+    return `<button class="jpdb-reader-review-target-toggle jpdb-reader-review-blocked-action" type="button" data-action="${blacklisted ? "blacklist" : "neverforget"}" title="${escapeHtml$1(title)}" aria-label="${escapeHtml$1(`${label}. ${reason}`)}">&#8634;</button>`;
   }
   function renderReviewTargetGutter(target, language, canSwitch) {
     const label = uiText(language, "showMiningActions");
@@ -49818,7 +50791,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     attributes(sourceStateKey, initiallyExpanded = this.dependencies.getSettings().dictionarySourcesInitiallyExpanded) {
       const isOpen = this.isOpen(sourceStateKey, initiallyExpanded);
-      return `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(isOpen)}"${isOpen ? " open" : ""}`;
+      return `data-source-state-key="${escapeHtml$1(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}"${isOpen ? " open" : ""}`;
     }
     installTracking(popover) {
       installDictionarySourceTracking(popover, (details) => this.remember(details));
@@ -65344,7 +66317,14 @@ ${entry.url}`),
       if (!settings.rtkEnabled || !rtk) return null;
       const componentSummaries = buildRtkComponentSummaries(rtk, fullInfo, localEntries);
       const sourceStateKey = kanjiSourceStateKey(KANJI_RTK_SOURCE_ID);
-      const section = htmlToFirstElement(renderRtkInfo(rtk, componentSummaries, settings.interfaceLanguage, this.isSourceOpen(sourceStateKey), sourceStateKey));
+      const section = htmlToFirstElement(renderRtkInfo(
+        rtk,
+        componentSummaries,
+        settings.interfaceLanguage,
+        settings.dictionarySourcesInitiallyExpanded,
+        sourceStateKey,
+        (key, initiallyExpanded) => this.sourceAttributes(key, initiallyExpanded)
+      ));
       section?.classList.add("jpdb-reader-newtab-rtk-source");
       return section;
     }
@@ -68569,6 +69549,127 @@ ${entry.url}`),
     if (!shouldRenderRuby(surface, token, settings)) return false;
     return !surfaceMatchesSpelling || Array.from(card.spelling).some(isKanjiCharacter$1);
   }
+  const SETTINGS_FALLBACK_READINGS = [
+    ["日本語", "にほんご"],
+    ["読み取り", "よみとり"],
+    ["読み上げ", "よみあげ"],
+    ["忘れない", "わすれない"],
+    ["変更", "へんこう"],
+    ["検索", "けんさく"],
+    ["設定", "せってい"],
+    ["外観", "がいかん"],
+    ["音声", "おんせい"],
+    ["表示", "ひょうじ"],
+    ["再生", "さいせい"],
+    ["翻訳", "ほんやく"],
+    ["画像", "がぞう"],
+    ["例文", "れいぶん"],
+    ["単語", "たんご"],
+    ["漢字", "かんじ"],
+    ["採掘", "さいくつ"],
+    ["学習", "がくしゅう"],
+    ["復習", "ふくしゅう"],
+    ["評価", "ひょうか"],
+    ["辞書", "じしょ"],
+    ["拡張", "かくちょう"],
+    ["選択", "せんたく"],
+    ["保存", "ほぞん"],
+    ["有効", "ゆうこう"],
+    ["追加", "ついか"],
+    ["新規", "しんき"],
+    ["既知", "きち"],
+    ["失敗", "しっぱい"],
+    ["下線", "かせん"],
+    ["字幕", "じまく"],
+    ["語句", "ごく"],
+    ["動画", "どうが"],
+    ["自動", "じどう"],
+    ["文脈", "ぶんみゃく"],
+    ["作成", "さくせい"],
+    ["表面", "おもてめん"],
+    ["裏面", "うらめん"],
+    ["意味", "いみ"],
+    ["前", "まえ"],
+    ["次", "つぎ"],
+    ["診断", "しんだん"],
+    ["便利", "べんり"],
+    ["寄付", "きふ"],
+    ["言葉", "ことば"],
+    ["毎日", "まいにち"],
+    ["勉強", "べんきょう"],
+    ["上手", "じょうず"],
+    ["新しい", "あたらしい"],
+    ["読む", "よむ"],
+    ["選ぶ", "えらぶ"],
+    ["開く", "ひらく"],
+    ["色", "いろ"]
+  ];
+  const SORTED_SETTINGS_FALLBACK_READINGS = [...SETTINGS_FALLBACK_READINGS].sort((left, right) => right[0].length - left[0].length || left[0].localeCompare(right[0]));
+  function supplementSettingsFallbackTokens(targets, parsed) {
+    return targets.map((target, index) => supplementSettingsTargetTokens(target.text, parsed[index] ?? []));
+  }
+  function supplementSettingsTargetTokens(text2, tokens) {
+    const protectedRanges = tokens.filter(isHydratedSettingsToken).map(tokenRange);
+    const generated = [];
+    const occupied = [...protectedRanges];
+    for (const [surface, reading] of SORTED_SETTINGS_FALLBACK_READINGS) {
+      let start = text2.indexOf(surface);
+      while (start >= 0) {
+        const end = start + surface.length;
+        const range = { start, end };
+        if (!rangesOverlapAny(range, occupied)) {
+          generated.push(settingsFallbackToken(surface, reading, start, text2));
+          occupied.push(range);
+        }
+        start = text2.indexOf(surface, start + surface.length);
+      }
+    }
+    if (!generated.length) return tokens;
+    const kept = tokens.filter((token) => isHydratedSettingsToken(token) || !rangesOverlapAny(tokenRange(token), generated.map(tokenRange)));
+    return [...kept, ...generated].sort((left, right) => left.start - right.start || right.length - left.length);
+  }
+  function isHydratedSettingsToken(token) {
+    return Boolean(token.rubies.length || token.card.reading && token.card.reading !== token.card.spelling || token.pitchClass);
+  }
+  function settingsFallbackToken(surface, reading, start, sentence) {
+    const card = settingsFallbackCard(surface, reading);
+    const end = start + surface.length;
+    return {
+      card,
+      start,
+      end,
+      length: surface.length,
+      rubies: reading !== surface ? [{ text: reading, start, end, length: surface.length }] : [],
+      pitchClass: "heiban",
+      sentence
+    };
+  }
+  function settingsFallbackCard(surface, reading) {
+    const id = -stablePositiveHashId(`settings-fallback
+${surface}
+${reading}`);
+    return {
+      vid: id,
+      sid: id,
+      rid: 0,
+      spelling: surface,
+      reading,
+      frequencyRank: null,
+      partOfSpeech: ["n"],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "fallback",
+      fallbackLookupTerms: [surface]
+    };
+  }
+  function tokenRange(token) {
+    return { start: token.start, end: token.end };
+  }
+  function rangesOverlapAny(range, ranges) {
+    return ranges.some((candidate) => range.start < candidate.end && candidate.start < range.end);
+  }
   const PAGE_WORD_SELECTOR = ".jpdb-reader-word";
   const YOMU_SURFACE_SELECTOR = "[data-jpdb-reader-root], .jpdb-ocr-layer, .jpdb-subtitle-player, .jpdb-subtitle-list, .asbplayer-subtitles-container-bottom, .asbplayer-offscreen";
   const TEXT_CONTRAST = 4.5;
@@ -70505,8 +71606,9 @@ ${entry.url}`),
           rtkInfo,
           buildRtkComponentSummaries(rtkInfo, jpdbInfo, kanjiEntries),
           this.settings.interfaceLanguage,
-          this.dictionarySourceState.isOpen(sourceStateKey),
-          sourceStateKey
+          this.settings.dictionarySourcesInitiallyExpanded,
+          sourceStateKey,
+          (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded)
         ));
       };
       const renderDefinitions = () => {
@@ -71166,7 +72268,14 @@ ${entry.url}`),
       const sections = [];
       const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
       if (jpdbInfo) {
-        sections.push(renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, kanjiFactProviderTitle("jpdb")));
+        sections.push(renderJpdbKanjiInfo(
+          jpdbInfo,
+          this.settings.interfaceLanguage,
+          this.settings.dictionarySourcesInitiallyExpanded,
+          jpdbKey,
+          kanjiFactProviderTitle("jpdb"),
+          (key, initiallyExpanded) => this.dictionarySourceState.attributes(key, initiallyExpanded)
+        ));
       }
       if (jitenInfo) {
         const jitenKey = `${jpdbKey}:jiten`;
@@ -71414,11 +72523,12 @@ ${entry.url}`),
           requireJpdb: false,
           skipJpdb: true
         });
-        await this.hydrateSettingsFallbackTokens(parsed);
+        const supplemented = supplementSettingsFallbackTokens(plan.targets, parsed);
+        await this.hydrateSettingsFallbackTokens(supplemented);
         if (!this.isCurrentSettingsRoot(form) || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
         const currentPlan = nestedSettingsTextParsePlan(form, 640);
         if (!currentPlan) return;
-        const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan);
+        const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, supplemented, currentPlan);
         const renderSettings = settingsForSettingsFormParse(form, this.settings);
         applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
         addSettingsRubyFromRenderedReadings(form, renderSettings);

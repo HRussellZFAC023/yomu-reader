@@ -3085,6 +3085,10 @@
       cancel: "Cancel",
       show: "Show",
       hide: "Hide",
+      dismiss: "Dismiss",
+      collapse: "Collapse",
+      subscribe: "Subscribe",
+      subscribed: "Subscribed",
       appearance: "Appearance",
       reading: "Reading",
       dictionaries: "Dictionaries",
@@ -3548,7 +3552,7 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import Yomitan settings, ZIPs, or backups.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links. Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "Frequency badges and external links. Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -3608,6 +3612,24 @@
       settingsImported: "Settings imported.",
       settingsImportedWithDetails: "Settings imported; {details}.",
       settingsExported: "Settings exported.",
+      cloud: "Cloud",
+      cloudType: "Type",
+      googleDriveClientId: "Google OAuth client ID",
+      cloudSyncHelp: "Back up settings, stored choices, and imported dictionaries to Google Drive app data. Create a Google OAuth client for TVs and Limited Input devices, then paste its client ID here.",
+      cloudExport: "Export",
+      cloudShowBackups: "Show backups",
+      cloudRevokeToken: "Revoke access token",
+      cloudBackupsTitle: "Please select a file",
+      cloudNoBackups: "No Google Drive backups found.",
+      cloudImportBackup: "Import",
+      cloudDeleteBackup: "Delete",
+      cloudSaveBackup: "Save to disk",
+      cloudBackupUploaded: "Backup uploaded to Google Drive.",
+      cloudBackupDeleted: "Backup deleted.",
+      cloudBackupImported: "Google Drive backup imported.",
+      cloudBackupSaved: "Backup saved to disk.",
+      cloudDeleteConfirm: 'Delete "{file}" from Google Drive?',
+      cloudUnsupportedProvider: "Only Google Drive sync is available right now.",
       restoredStoredChoices: "restored {count} stored choice{plural}",
       importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
       dictionaryNoSupportedBanks: "No supported Yomitan dictionary banks found.",
@@ -3730,6 +3752,20 @@
       toggleImageReading: "Toggle image reading",
       toggleSubtitleOverlay: "Toggle subtitle overlay",
       toggleYoutubeImmersion: "Toggle YouTube filter",
+      youtubeChannelShelfTitle: "Start your Japanese YouTube feed",
+      youtubeChannelShelfExpandedCopy: "{shown} shown from {total} curated channels.",
+      youtubeChannelShelfCompactCopy: "{total} curated channels, shown as compact YouTube-style rows.",
+      youtubeChannelRecommendations: "Japanese channel recommendations",
+      youtubeChannelSubscribeVisible: "Subscribe visible ({count})",
+      youtubeChannelSubscribeAll: "Subscribe all {count}",
+      youtubeChannelAllSubscribed: "All {total} subscribed",
+      youtubeChannelBrowseAll: "Browse all channels",
+      subscribeToChannel: "Subscribe to {name}",
+      subscribedToChannel: "Subscribed to {name}",
+      youtubeChannelAlreadySubscribed: "All of these channels are already subscribed.",
+      youtubeChannelSubscribePartialStatus: "Subscribed to {subscribed}; {failed} could not be completed by YouTube.",
+      youtubeChannelSubscribeStatusSingular: "Subscribed to {count} channel.",
+      youtubeChannelSubscribeStatusPlural: "Subscribed to {count} channels.",
       readImagesNow: "Read images now",
       massReviewVisible: "Mass review visible words (Jiten)",
       studyReveal: "Study: reveal card",
@@ -4070,8 +4106,9 @@
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
       recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
+      recommendedPixivLight: "Lightweight Pixiv Encyclopedia dictionary.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
+      recommendedJpdbKanji: "JPDB kanji dictionary for local kanji details.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
@@ -4240,6 +4277,24 @@ dictionaryRecordsImported	{dictionary}: {records}件インポートしました�
 settingsImported	設定をインポートしました。
 settingsImportedWithDetails	設定をインポートしました。{details}
 settingsExported	設定をエクスポートしました。
+cloud	クラウド
+cloudType	種類
+googleDriveClientId	Google OAuthクライアントID
+cloudSyncHelp	設定、保存済み選択肢、インポート済み辞書をGoogle Driveのアプリデータにバックアップします。Google OAuthクライアント（テレビ・入力制限デバイス）を作成し、クライアントIDを貼ってください。
+cloudExport	エクスポート
+cloudShowBackups	バックアップを表示
+cloudRevokeToken	アクセストークンを取り消す
+cloudBackupsTitle	ファイルを選択してください
+cloudNoBackups	Google Driveバックアップが見つかりません。
+cloudImportBackup	インポート
+cloudDeleteBackup	削除
+cloudSaveBackup	ディスクに保存
+cloudBackupUploaded	Google Driveにバックアップしました。
+cloudBackupDeleted	バックアップを削除しました。
+cloudBackupImported	Google Driveバックアップをインポートしました。
+cloudBackupSaved	バックアップをディスクに保存しました。
+cloudDeleteConfirm	Google Driveから「{file}」を削除しますか？
+cloudUnsupportedProvider	現在利用できる同期先はGoogle Driveのみです。
 restoredStoredChoices	保存済み選択肢を{count}件復元
 importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応しているYomitan辞書バンクが見つかりません。
@@ -4639,6 +4694,10 @@ save	保存
 cancel	キャンセル
 show	表示
 hide	隠す
+dismiss	閉じる
+collapse	折りたたむ
+subscribe	登録
+subscribed	登録済み
 appearance	外観
 reading	読解
 sources	ソース
@@ -5066,7 +5125,7 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンク。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	頻度バッジと外部リンク。トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -5116,6 +5175,20 @@ copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
 toggleYoutubeImmersion	YouTubeフィルターを切り替え
+youtubeChannelShelfTitle	日本語YouTubeフィードを始める
+youtubeChannelShelfExpandedCopy	厳選チャンネル{total}件中{shown}件を表示しています。
+youtubeChannelShelfCompactCopy	厳選チャンネル{total}件をYouTube風のコンパクト行で表示しています。
+youtubeChannelRecommendations	日本語チャンネルのおすすめ
+youtubeChannelSubscribeVisible	表示中を登録（{count}件）
+youtubeChannelSubscribeAll	すべて登録（{count}件）
+youtubeChannelAllSubscribed	{total}件すべて登録済み
+youtubeChannelBrowseAll	すべてのチャンネルを見る
+subscribeToChannel	{name}を登録
+subscribedToChannel	{name}を登録済み
+youtubeChannelAlreadySubscribed	これらのチャンネルはすべて登録済みです。
+youtubeChannelSubscribePartialStatus	{subscribed}件を登録しました。{failed}件はYouTube側で完了できませんでした。
+youtubeChannelSubscribeStatusSingular	{count}件のチャンネルを登録しました。
+youtubeChannelSubscribeStatusPlural	{count}件のチャンネルを登録しました。
 readImagesNow	今すぐ画像を読む
 massReviewVisible	画面内の単語を一括レビュー（Jiten）
 massReviewNoWords	画面内に復習対象のJiten単語がありません。
@@ -5212,8 +5285,9 @@ recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
+recommendedPixivLight	軽量版Pixiv百科事典辞書です。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
+recommendedJpdbKanji	JPDB漢字情報のローカル辞書です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
 recommendedJiten	jiten.moe頻度データです。
@@ -5234,6 +5308,12 @@ recommendedJiten	jiten.moe頻度データです。
   }
   function uiText(language, key) {
     return resolveUiLanguage(language) === "ja" ? JA_SETTINGS_COPY[key] ?? JA_COPY[key] ?? "未翻訳" : COPY.en[key];
+  }
+  function formatUiText(language, key, values) {
+    return Object.entries(values).reduce(
+      (text, [name, value]) => text.replaceAll(`{${name}}`, String(value)),
+      uiText(language, key)
+    );
   }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -7268,6 +7348,11 @@ ${candidate.depth}`;
         return;
       }
       logOcrFailure(state2, provider, manualRequested, error);
+      if (shouldSuppressFailedOcrStatus(manualRequested, error)) {
+        renderNoOcrLines(state2);
+        this.updateOcrStatus(image, "empty");
+        return;
+      }
       this.updateOcrStatus(image, "failed");
     }
     recognizeImage(image, settings) {
@@ -9121,24 +9206,76 @@ ${spelling}`);
     return fetch(url, { method: "POST", body: data }).then((response) => response.ok ? response.text() : Promise.reject(new Error(`Google Lens upload returned ${response.status}.`)));
   }
   function requestBlob(url) {
+    const fallbackType = imageMimeTypeFromUrl(url);
+    const headers = imageRequestHeaders(url);
     const userscriptRequest = requestViaUserscript({
       method: "GET",
       url,
-      responseType: "arraybuffer"
-    }, (response) => blobFromUserscriptResponse(response), (status) => `Image fetch returned ${status}.`);
+      headers,
+      responseType: "arraybuffer",
+      withCredentials: true
+    }, (response) => blobFromUserscriptResponse(response, fallbackType), (status) => `Image fetch returned ${status}.`);
     if (userscriptRequest) return userscriptRequest;
-    return fetch(url).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
+    return fetch(url, { headers: fetchImageRequestHeaders(), credentials: "include" }).then((response) => response.ok ? response.blob() : Promise.reject(new Error(`Image fetch returned ${response.status}.`)));
   }
-  function blobFromUserscriptResponse(response) {
-    if (response.response instanceof Blob) return response.response;
-    if (response.response instanceof ArrayBuffer) return new Blob([response.response]);
-    if (ArrayBuffer.isView(response.response)) {
-      const source = new Uint8Array(response.response.buffer, response.response.byteOffset, response.response.byteLength);
+  function imageRequestHeaders(url) {
+    const headers = {
+      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+    };
+    if (shouldSendPageRefererForImageRequest(url)) headers.Referer = location.href;
+    return headers;
+  }
+  function fetchImageRequestHeaders() {
+    return {
+      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8"
+    };
+  }
+  function shouldSendPageRefererForImageRequest(url) {
+    try {
+      const target = new URL(url, location.href);
+      return target.protocol === "http:" || target.protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  function blobFromUserscriptResponse(response, fallbackType = "image/jpeg") {
+    const value = response.response;
+    if (value instanceof Blob) return value.type ? value : new Blob([value], { type: fallbackType });
+    if (value instanceof ArrayBuffer) {
+      const head = new Uint8Array(value, 0, Math.min(16, value.byteLength));
+      return new Blob([value], { type: sniffImageMimeType(head) ?? fallbackType });
+    }
+    if (ArrayBuffer.isView(value)) {
+      const source = new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
       const copy = new Uint8Array(source.byteLength);
       copy.set(source);
-      return new Blob([copy.buffer]);
+      return new Blob([copy.buffer], { type: sniffImageMimeType(copy.subarray(0, 16)) ?? fallbackType });
     }
-    return new Blob([response.response]);
+    return new Blob([value], { type: fallbackType });
+  }
+  function imageMimeTypeFromUrl(url) {
+    const extension = url.split(/[?#]/, 1)[0].split(".").pop()?.toLowerCase();
+    switch (extension) {
+      case "png":
+        return "image/png";
+      case "gif":
+        return "image/gif";
+      case "webp":
+        return "image/webp";
+      case "avif":
+        return "image/avif";
+      case "bmp":
+        return "image/bmp";
+      default:
+        return "image/jpeg";
+    }
+  }
+  function sniffImageMimeType(bytes) {
+    if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255) return "image/jpeg";
+    if (bytes.length >= 8 && bytes[0] === 137 && bytes[1] === 80 && bytes[2] === 78 && bytes[3] === 71) return "image/png";
+    if (bytes.length >= 4 && bytes[0] === 71 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 56) return "image/gif";
+    if (bytes.length >= 12 && bytes[0] === 82 && bytes[1] === 73 && bytes[2] === 70 && bytes[3] === 70 && bytes[8] === 87 && bytes[9] === 69 && bytes[10] === 66 && bytes[11] === 80) return "image/webp";
+    return void 0;
   }
   function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();
@@ -9208,6 +9345,12 @@ ${spelling}`);
   }
   function isLocalOcrUnavailableError(error) {
     return error instanceof LocalOcrUnavailableError;
+  }
+  function shouldSuppressFailedOcrStatus(manualRequested, error) {
+    return !manualRequested || isLocalOcrUnavailableError(error) || isLocalOcrConnectionError(error) || isImageReadError(error);
+  }
+  function isImageReadError(error) {
+    return error instanceof Error && /image (?:cannot be read|decode failed|encoding failed|fetch returned)|canvas unavailable/i.test(error.message);
   }
   function isAbortError(error) {
     return error instanceof Error && error.name === "AbortError";
@@ -12120,6 +12263,87 @@ ${spelling}`);
       secondary ? `${uiText(language, "nativeSubtitles")}: ${secondary}` : ""
     ];
   }
+  const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
+  const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
+  function fullscreenRedirectBootstrap(win) {
+    const flag = "__yomuSubtitleFullscreenRedirect";
+    if (win[flag]) return;
+    const selector = "#movie_player, .html5-video-player, [data-yomu-video-frame]";
+    const elementCtor = win.HTMLElement;
+    const videoCtor = win.HTMLVideoElement;
+    const proto = elementCtor?.prototype;
+    if (!proto || !videoCtor) return;
+    const methods = ["requestFullscreen", "webkitRequestFullscreen", "webkitRequestFullScreen", "mozRequestFullScreen", "msRequestFullscreen"];
+    for (const name of methods) {
+      const original = proto[name];
+      if (typeof original !== "function") continue;
+      const native = original;
+      proto[name] = function patchedRequestFullscreen(...args) {
+        const container = this instanceof videoCtor ? this.closest(selector) : null;
+        const target = container && container !== this && typeof container[name] === "function" ? container : this;
+        return native.apply(target, args);
+      };
+    }
+    win[flag] = true;
+  }
+  function fullscreenRedirectStyleText() {
+    const fill = "width:100%!important;height:100%!important;left:0!important;top:0!important;";
+    return [
+      `#movie_player:fullscreen video.html5-main-video{${fill}}`,
+      `#movie_player:fullscreen .html5-video-container{width:100%!important;height:100%!important;}`,
+      `#movie_player:-webkit-full-screen video.html5-main-video{${fill}}`,
+      `#movie_player:-webkit-full-screen .html5-video-container{width:100%!important;height:100%!important;}`,
+      `[data-yomu-video-frame]:fullscreen video{${fill}}`,
+      `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`
+    ].join("\n");
+  }
+  function injectFullscreenRedirectStyle() {
+    const parent = document.head || document.documentElement;
+    if (!parent || document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = fullscreenRedirectStyleText();
+    parent.append(style);
+  }
+  function injectFullscreenRedirectScript() {
+    const parent = document.head || document.documentElement;
+    if (!parent) return false;
+    const source = `;(${fullscreenRedirectBootstrap.toString()})(window);`;
+    try {
+      const script = document.createElement("script");
+      const nonce = [...document.querySelectorAll("script[nonce]")].map((el) => el.getAttribute("nonce")).find(Boolean);
+      if (nonce) script.setAttribute("nonce", nonce);
+      const trusted = createTrustedRedirectScript(source);
+      if (trusted) script.textContent = trusted;
+      else script.textContent = source;
+      parent.append(script);
+      script.remove();
+    } catch {
+      return false;
+    }
+    const pageWin = globalThis.unsafeWindow ?? window;
+    return Boolean(pageWin[REDIRECT_FLAG]);
+  }
+  function createTrustedRedirectScript(code) {
+    try {
+      const factory = globalThis.trustedTypes;
+      if (!factory?.createPolicy) return null;
+      const policy = factory.createPolicy("yomu-subtitle-fullscreen-redirect", { createScript: (value) => value });
+      return policy?.createScript ? policy.createScript(code) : null;
+    } catch {
+      return null;
+    }
+  }
+  function installSubtitleFullscreenRedirect() {
+    injectFullscreenRedirectStyle();
+    const uw = globalThis.unsafeWindow;
+    const differentRealm = Boolean(uw) && uw !== globalThis;
+    if (differentRealm && uw) {
+      if (uw[REDIRECT_FLAG]) return;
+      if (injectFullscreenRedirectScript()) return;
+    }
+    fullscreenRedirectBootstrap(uw ?? window);
+  }
   function hasSelectedSubtitleTrackOrLines(selectedTrackId, hasLines) {
     return Boolean(selectedTrackId || hasLines);
   }
@@ -13359,6 +13583,9 @@ ${spelling}`);
       this.destroyed = false;
       this.abortController = new AbortController();
       this.install();
+      if (isYouTubePage() || document.querySelector("[data-yomu-video-frame]")) {
+        installSubtitleFullscreenRedirect();
+      }
       this.observer = new MutationObserver((mutations) => {
         if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
           this.syncFullscreenState();
@@ -14016,13 +14243,23 @@ ${spelling}`);
     updateFromLoadedCues() {
       if (!this.video) return;
       const time = this.video.currentTime;
-      const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time) : void 0;
       const secondary = this.secondaryTrackId ? findActiveSubtitleCue(this.secondaryCues, time) ?? findInitialLeadInCue(this.secondaryCues, time) : void 0;
+      const cue = this.selectedTrackId ? this.findRenderablePrimaryCue(time, secondary) : void 0;
       if (this.updateLoadedCueState(cue, secondary, time)) this.afterLoadedCueStateChanged();
       else this.warmParseOnGapAnchorJump();
     }
-    findRenderablePrimaryCue(time) {
-      return findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+    // Auto-generated YouTube captions and their `&tlang=` translations are
+    // segmented independently, so the primary (JP) cue often begins a beat
+    // after — or falls into a gap relative to — the native (EN) line that's
+    // already active. That left no primary cue at the playhead while a native
+    // cue was active, showing the native line alone (user-reported). When the
+    // direct lookup misses but a native cue is active, surface the primary
+    // aligned to it so the pair appears together. Mirrors
+    // primaryHeldByActiveSecondary for the not-yet-shown direction.
+    findRenderablePrimaryCue(time, activeSecondary) {
+      const direct = findActiveSubtitleCue(this.cues, time) ?? findInitialLeadInCue(this.cues, time);
+      if (direct || !activeSecondary || !this.cues.length) return direct;
+      return findAlignedCue(this.cues, activeSecondary);
     }
     // A repeated seek that lands in another inter-cue gap changes no cue
     // state, so afterLoadedCueStateChanged never fires; re-anchor the parse
@@ -16689,6 +16926,7 @@ ${spelling}`);
     positionTranscriptPanel(options = {}) {
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
+        this.clearTranscriptPanelInlineLayout();
         return;
       }
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {
@@ -16854,6 +17092,7 @@ ${spelling}`);
       return layout.placement === "left" ? viewportWidth - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
+      const wasFullscreen = this.fullscreen;
       const fullscreenElement = currentFullscreenElement();
       const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
       this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));
@@ -16862,16 +17101,27 @@ ${spelling}`);
       this.root?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
+        this.clearTranscriptPanelInlineLayout();
         return;
       }
       this.transcriptLayoutReferenceRect = void 0;
       this.transcriptLayoutReferenceViewport = "";
+      if (wasFullscreen && this.isTranscriptPanelOpen()) this.positionTranscriptPanel({ realignAfterInset: true });
+    }
+    clearTranscriptPanelInlineLayout() {
+      const panel = this.transcriptPanel;
+      if (!panel) return;
+      for (const prop of ["position", "left", "top", "right", "bottom", "width", "height", "max-height", "z-index"]) {
+        panel.style.removeProperty(prop);
+      }
     }
     syncSubtitleRootParent(fullscreenHost = this.subtitleFullscreenHost()) {
       if (!this.root) return;
       const parent = !fullscreenHost || fullscreenHost === document.documentElement ? document.body : fullscreenHost;
-      if (this.root.parentElement === parent) return;
-      parent.appendChild(this.root);
+      if (this.root.parentElement !== parent) parent.appendChild(this.root);
+      if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) {
+        parent.appendChild(this.transcriptPanel);
+      }
     }
     subtitleFullscreenHost(fullscreenElement = currentFullscreenElement()) {
       if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
@@ -17157,6 +17407,7 @@ ${spelling}`);
   }
   const YOUTUBE_HOST_RE = /(^|\.)youtube\.com$/i;
   const YOUTUBE_READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+  const YOUTUBE_READER_OWNED_SELECTOR = `${YOUTUBE_READER_ROOT_SELECTOR},.jpdb-reader-text-mirror,.jpdb-reader-word`;
   const YOUTUBE_FILTERED_CLASS = "jpdb-youtube-filtered";
   const YOUTUBE_UNRENDERED_SLOT_CLASS = "jpdb-youtube-unrendered-slot";
   const YOUTUBE_SHELF_BACKFILL_MIN_VISIBLE = 3;
@@ -17238,7 +17489,13 @@ ${spelling}`);
   function isYouTubeHost(hostname = location.hostname) {
     return YOUTUBE_HOST_RE.test(hostname);
   }
+  function isInsideReaderRoot(node) {
+    if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_OWNED_SELECTOR));
+    return false;
+  }
   function collectYouTubeVideoCards(root = document) {
+    if (isInsideReaderRoot(root)) return [];
     const cards = /* @__PURE__ */ new Set();
     root.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((card) => {
       const normalized = normalizeYouTubeVideoCard(card);
@@ -17816,7 +18073,7 @@ ${spelling}`);
       shelf.className = "jpdb-youtube-channel-shelf";
       shelf.dataset.jpdbReaderRoot = "true";
       shelf.setAttribute("role", "region");
-      shelf.setAttribute("aria-label", "Japanese channel recommendations");
+      shelf.setAttribute("aria-label", uiText(this.options.getSettings().interfaceLanguage, "youtubeChannelRecommendations"));
       const header = document.createElement("div");
       header.className = "jpdb-youtube-channel-shelf-head";
       const copy = document.createElement("div");
@@ -17890,15 +18147,19 @@ ${spelling}`);
       this.hydrateRenderedChannelPreviews(renderedRecommendations);
     }
     updateChannelShelfChrome(elements, recommendations, renderedRecommendations) {
-      elements.title.textContent = "Start your Japanese YouTube feed";
-      elements.copy.textContent = this.channelShelfExpanded ? `${recommendations.length} shown from ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels.` : `${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} curated channels, shown as compact YouTube-style rows.`;
+      const language = this.options.getSettings().interfaceLanguage;
+      elements.title.textContent = uiText(language, "youtubeChannelShelfTitle");
+      elements.copy.textContent = this.channelShelfExpanded ? formatUiText(language, "youtubeChannelShelfExpandedCopy", {
+        shown: recommendations.length,
+        total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT
+      }) : formatUiText(language, "youtubeChannelShelfCompactCopy", { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
       const remainingChannels = this.unsubscribedChannels(allYouTubeChannelRecommendations()).length;
-      elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
+      elements.subscribeVisible.textContent = formatUiText(language, "youtubeChannelSubscribeVisible", { count: renderedRecommendations.length });
       elements.subscribeVisible.hidden = !renderedRecommendations.length;
-      elements.subscribeAll.textContent = remainingChannels ? `Subscribe all ${remainingChannels}` : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
-      elements.dismiss.textContent = "Dismiss";
-      elements.never.textContent = "Hide";
-      elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
+      elements.subscribeAll.textContent = remainingChannels ? formatUiText(language, "youtubeChannelSubscribeAll", { count: remainingChannels }) : formatUiText(language, "youtubeChannelAllSubscribed", { total: YOUTUBE_CHANNEL_RECOMMENDATION_COUNT });
+      elements.dismiss.textContent = uiText(language, "dismiss");
+      elements.never.textContent = uiText(language, "hide");
+      elements.expand.textContent = uiText(language, this.channelShelfExpanded ? "collapse" : "youtubeChannelBrowseAll");
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
       if (!this.subscriptionBusy) elements.status.textContent = this.channelShelfStatusOverride;
     }
@@ -17999,8 +18260,9 @@ ${spelling}`);
     renderChannelSubscribeButton(channel) {
       const subscribe = channelShelfButton("subscribe-one");
       subscribe.dataset.handle = channel.handle;
-      subscribe.textContent = "Subscribe";
-      subscribe.setAttribute("aria-label", `Subscribe to ${channel.name}`);
+      const language = this.options.getSettings().interfaceLanguage;
+      subscribe.textContent = uiText(language, "subscribe");
+      subscribe.setAttribute("aria-label", formatUiText(language, "subscribeToChannel", { name: channel.name }));
       return subscribe;
     }
     placeChannelShelf(shelf) {
@@ -18176,7 +18438,7 @@ ${spelling}`);
       if (this.subscriptionBusy) return;
       const elements = this.channelShelfElements(this.ensureChannelShelf());
       if (!channels.length) {
-        this.setChannelShelfStatus(elements, "All of these channels are already subscribed.");
+        this.setChannelShelfStatus(elements, uiText(this.options.getSettings().interfaceLanguage, "youtubeChannelAlreadySubscribed"));
         return;
       }
       const config = readYouTubeClientConfig();
@@ -18214,7 +18476,8 @@ ${spelling}`);
       this.markChannelSubscriptionCompleteIfReady({ keepShelf: true });
       this.subscriptionBusy = false;
       this.setChannelShelfBusy(false);
-      this.setChannelShelfStatus(elements, failed ? `Subscribed to ${subscribed}; ${failed} could not be completed by YouTube.` : `Subscribed to ${subscribed} channel${subscribed === 1 ? "" : "s"}.`);
+      const language = this.options.getSettings().interfaceLanguage;
+      this.setChannelShelfStatus(elements, failed ? formatUiText(language, "youtubeChannelSubscribePartialStatus", { subscribed, failed }) : formatUiText(language, subscribed === 1 ? "youtubeChannelSubscribeStatusSingular" : "youtubeChannelSubscribeStatusPlural", { count: subscribed }));
       if (subscribed) this.scheduleChannelShelfRefresh();
     }
     setChannelShelfStatus(elements, status) {
@@ -18231,8 +18494,9 @@ ${spelling}`);
       row?.classList.add("is-subscribed");
       if (!button) return;
       button.disabled = true;
-      button.textContent = "Subscribed ✓";
-      button.setAttribute("aria-label", `Subscribed to ${channel.name}`);
+      const language = this.options.getSettings().interfaceLanguage;
+      button.textContent = uiText(language, "subscribed");
+      button.setAttribute("aria-label", formatUiText(language, "subscribedToChannel", { name: channel.name }));
     }
     scheduleChannelShelfRefresh(delayMs = 1800) {
       window.clearTimeout(this.channelShelfRefreshTimer);
@@ -18843,6 +19107,7 @@ ${spelling}`);
     return null;
   }
   function collectYouTubeFilterItems(root = document) {
+    if (isInsideReaderRoot(root)) return [];
     const items = new Set(collectYouTubeVideoCards(root));
     root.querySelectorAll(`${VIDEO_CARD_SELECTOR},${NON_VIDEO_CONTAINER_SELECTOR}`).forEach((element) => {
       const normalized = normalizeYouTubeFilterItem(element);
@@ -19148,11 +19413,12 @@ ${spelling}`);
     const nodes = [mutation.target, ...Array.from(mutation.addedNodes)];
     return nodes.every((node) => {
       const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-      return Boolean(element?.closest?.(YOUTUBE_READER_ROOT_SELECTOR));
+      return Boolean(element?.closest?.(YOUTUBE_READER_OWNED_SELECTOR));
     });
   }
   function mutationMayAffectYouTubeCards(mutation) {
-    const nodes = [mutation.target, ...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const nodes = mutation.type === "childList" && changedNodes.length ? changedNodes : [mutation.target, ...changedNodes];
     return nodes.some(nodeMayAffectYouTubeCards);
   }
   function nodeMayAffectYouTubeCards(node) {
@@ -19164,7 +19430,7 @@ ${spelling}`);
   }
   function elementForYouTubeCardMutation(node) {
     const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-    if (!element || element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return null;
+    if (!element || isInsideReaderRoot(element)) return null;
     return element;
   }
   function isYouTubeCardOrFeedElement(element) {

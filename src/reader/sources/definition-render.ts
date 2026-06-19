@@ -16,7 +16,7 @@ export function renderLocalDefinitionSourcesSection(
     dictionaries: string[],
     grouped: Map<string, YomitanTermEntry[]>,
     settings: ReaderSettings,
-    sourceAttributes: SourceAttributes,
+    _sourceAttributes: SourceAttributes,
     dictionaryLabel: DictionaryLabel,
     reference?: CardHighlightTarget,
 ): string {
@@ -24,25 +24,15 @@ export function renderLocalDefinitionSourcesSection(
         .map(dictionary => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) }))
         .filter(source => source.groups.length);
     const dictionarySections = groupsByDictionary
-        .map(source => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel, settings.interfaceLanguage, reference))
+        .map(source => renderLocalDictionaryGroup(source.dictionary, source.groups, dictionaryLabel, settings.interfaceLanguage, reference))
         .filter(Boolean);
     if (!dictionarySections.length) return '';
-    const sourceCount = groupsByDictionary.length;
-    const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-    const status = [
-        `${sourceCount} ${uiText(settings.interfaceLanguage, sourceCount === 1 ? 'sourceSingular' : 'sourcePlural')}`,
-        `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? 'localWordSingular' : 'localWordPlural')}`,
-    ].join(' · ');
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey('__local_dictionaries__'))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
-                <span>${uiText(settings.interfaceLanguage, 'dictionaries')}</span>
-                <span class="jpdb-reader-source-status">${escapeHtml(status)}</span>
-            </summary>
+        <div class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)}>
             <div class="jpdb-reader-dictionary-source-list">
                 ${dictionarySections.join('')}
             </div>
-        </details>
+        </div>
     `;
 }
 
@@ -95,10 +85,6 @@ export function definitionSourceStateKey(sourceId: string): string {
     return `definition-source:${sourceId}`;
 }
 
-function localDictionaryStateKey(dictionary: string): string {
-    return `definition-dictionary:${dictionary}`;
-}
-
 export function kanjiSourceStateKey(sourceId: string): string {
     return `kanji:${sourceId}`;
 }
@@ -110,18 +96,13 @@ export function kanjiFactProviderTitle(source: 'jpdb' | 'jiten'): string {
     return source === 'jiten' ? 'Jiten' : 'JPDB';
 }
 
-function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], sourceAttributes: SourceAttributes, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget): string {
-    const entryCount = groups.length;
+function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget): string {
     return `
-        <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore="true">
-                <span>${escapeHtml(dictionaryLabel(dictionary))}</span>
-                <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml(uiText(language, entryCount === 1 ? 'localWordSingular' : 'localWordPlural'))}</span>
-            </summary>
+        <div class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}">
             <div class="jpdb-reader-local-terms">
-                ${groups.map(group => renderLocalTermGroup(dictionary, group, dictionaryLabel, language, reference, { showDictionaryTag: false })).join('')}
+                ${groups.map(group => renderLocalTermGroup(dictionary, group, dictionaryLabel, language, reference, { showDictionaryTag: true })).join('')}
             </div>
-        </details>
+        </div>
     `;
 }
 

@@ -303,6 +303,36 @@ function expectNoHoverLookup({
 }
 
 describe('hover lookup', () => {
+    it('marks the active hover word so furigana stays visible while its hover panel is open', () => {
+        const app = new ReaderApp();
+        const first = readerWordFixture('今日は読む', '読む');
+        const second = readerWordFixture('明日は見る', '見る');
+        const internals = app as unknown as {
+            activeHoverWord?: HTMLElement;
+            setActiveHoverWord(word: HTMLElement | undefined): void;
+            clearActiveHoverWord(): void;
+        };
+
+        try {
+            internals.setActiveHoverWord(first);
+
+            expect(internals.activeHoverWord).toBe(first);
+            expect(first.classList.contains('jpdb-reader-hover-active')).toBe(true);
+
+            internals.setActiveHoverWord(second);
+
+            expect(first.classList.contains('jpdb-reader-hover-active')).toBe(false);
+            expect(second.classList.contains('jpdb-reader-hover-active')).toBe(true);
+
+            internals.clearActiveHoverWord();
+
+            expect(internals.activeHoverWord).toBeUndefined();
+            expect(second.classList.contains('jpdb-reader-hover-active')).toBe(false);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('lets middle-button scanning show a hover-style popup when click and hover lookup are off', () => {
         const app = new ReaderApp();
         const word = readerWordFixture('今日は読む', '今日');

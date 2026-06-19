@@ -4,7 +4,16 @@ import { jpdbKanjiActionClass, visibleJpdbKanjiActions, type JpdbKanjiAction, ty
 import type { InterfaceLanguage } from '../app/types';
 import { sourceStateAttribute } from './source-state';
 
-export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: InterfaceLanguage, initiallyExpanded = true, sourceStateKey?: string, title = uiText(language, 'readingsComponents')): string {
+type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
+
+export function renderJpdbKanjiInfo(
+    info: JpdbKanjiInfo | null,
+    language: InterfaceLanguage,
+    initiallyExpanded = true,
+    sourceStateKey?: string,
+    title = uiText(language, 'readingsComponents'),
+    sourceAttributes?: SourceAttributes,
+): string {
     if (!info) return '';
     const facts = [
         [uiText(language, 'factKeyword'), info.keyword],
@@ -17,9 +26,10 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
     const factSection = renderJpdbKanjiFactSection(facts);
     const readingsSection = renderJpdbKanjiReadings(info);
     const componentSection = renderJpdbKanjiComponents(info, language);
-    const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
+    const mnemonicSection = renderJpdbKanjiMnemonic(info, language, sourceStateKey, sourceAttributes);
+    const detailsAttributes = sourceStateDetailsAttribute(sourceStateKey, initiallyExpanded, sourceAttributes);
     return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${detailsAttributes}>
             <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
@@ -31,8 +41,13 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
     `;
 }
 
-function expandedAttribute(initiallyExpanded: boolean): string {
-    return initiallyExpanded ? 'open' : '';
+function sourceStateDetailsAttribute(
+    sourceStateKey: string | undefined,
+    initiallyExpanded: boolean,
+    sourceAttributes: SourceAttributes | undefined,
+): string {
+    if (sourceStateKey && sourceAttributes) return sourceAttributes(sourceStateKey, initiallyExpanded);
+    return `${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? 'open' : ''}`;
 }
 
 function renderJpdbKanjiFactSection(facts: string[][]): string {
@@ -59,8 +74,17 @@ function renderJpdbKanjiComponents(info: JpdbKanjiInfo, language: InterfaceLangu
     </div>`;
 }
 
-function renderJpdbKanjiMnemonic(info: JpdbKanjiInfo, language: InterfaceLanguage): string {
-    return info.mnemonic ? `<details><summary>${uiText(language, 'jpdbMnemonic')}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : '';
+function renderJpdbKanjiMnemonic(
+    info: JpdbKanjiInfo,
+    language: InterfaceLanguage,
+    sourceStateKey: string | undefined,
+    sourceAttributes: SourceAttributes | undefined,
+): string {
+    if (!info.mnemonic) return '';
+    const attributes = sourceStateKey
+        ? sourceStateDetailsAttribute(`${sourceStateKey}:mnemonic`, false, sourceAttributes)
+        : '';
+    return `<details ${attributes}><summary>${uiText(language, 'jpdbMnemonic')}</summary><p>${escapeHtml(info.mnemonic)}</p></details>`;
 }
 
 export function renderJpdbKanjiMiningControls(info: JpdbKanjiInfo | null, language: InterfaceLanguage): string {

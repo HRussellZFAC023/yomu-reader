@@ -147,6 +147,7 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ...readLocalDictionaryFormSettings(reader, current, kanjiDictionaryPreferences),
         dictionaryPreferences,
         dictionaryLookupLinks: readDictionaryLookupLinks(data),
+        ...readCloudSyncFormSettings(reader, current),
         ...readSubtitleFormSettings(reader, current),
         ...readYoutubeFormSettings(reader),
         ...readAnkiFormSettings(reader, current),
@@ -167,6 +168,13 @@ export function readFormSettings(data: FormData, current: ReaderSettings): Reade
         ankiEnabled: normalized.ankiEnabled,
     });
     return normalized;
+}
+
+function readCloudSyncFormSettings(reader: SettingsFormReader, current: ReaderSettings): Pick<ReaderSettings, 'cloudSyncProvider' | 'googleDriveClientId'> {
+    return {
+        cloudSyncProvider: readOption(reader.get('cloudSyncProvider'), ['google-drive', 'dropbox', 'onedrive', 'yandex-disk', 'webdav'] as const, current.cloudSyncProvider),
+        googleDriveClientId: reader.get('googleDriveClientId').trim(),
+    };
 }
 
 function colorSourceFallback(key: string, fallback: ReaderColorSource): SelectableReaderColorSource {

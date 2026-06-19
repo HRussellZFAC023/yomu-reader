@@ -111,7 +111,7 @@ function canMoveSourceRow(index: number, targetIndex: number, rowCount: number):
         && index !== targetIndex;
 }
 
-function syncSourceRowOrder(container: HTMLElement): void {
+export function syncSourceRowOrder(container: HTMLElement): void {
     const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-source-row]'));
     rows.forEach((row, index) => {
         const priority = row.querySelector<HTMLInputElement>('input[name$=".priority"]');

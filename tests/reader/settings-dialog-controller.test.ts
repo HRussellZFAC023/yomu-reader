@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
+import { gmStorageSet } from '../../src/reader/app/storage';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
+import { GOOGLE_DRIVE_SCOPE, GOOGLE_DRIVE_TOKEN_STORAGE_KEY } from '../../src/reader/settings/cloud-sync';
 import type { SettingsDialogController as SettingsDialogControllerInstance } from '../../src/reader/settings/dialog-controller';
 
 // These tests assert English UI copy; pin the interface language since the
@@ -258,6 +260,13 @@ async function waitForCondition(predicate: () => boolean): Promise<void> {
         if (predicate()) return;
     }
     throw new Error('Condition was not met.');
+}
+
+function jsonResponse(body: unknown, status = 200): Response {
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+    });
 }
 
 function importSummary(dictionary: string): ImportSummary {
@@ -1257,6 +1266,82 @@ describe('settings dialog keyboard dismissal', () => {
     });
 });
 
+describe('settings dialog cloud sync', () => {
+    afterEach(() => {
+        document.body.replaceChildren();
+        localStorage.clear();
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
+
+    it('lists and imports Google Drive backups through the Cloud controls', async () => {
+        await gmStorageSet(GOOGLE_DRIVE_TOKEN_STORAGE_KEY, {
+            accessToken: 'valid-access',
+            clientId: 'client-id',
+            expiresAt: Date.now() + 120_000,
+            refreshToken: 'refresh-token',
+            scope: GOOGLE_DRIVE_SCOPE,
+            tokenType: 'Bearer',
+        });
+        const backup = {
+            formatName: 'yomu-reader-settings',
+            formatVersion: 3,
+            exportedAt: '2026-01-24T19:11:26.691Z',
+            settings: { ...DEFAULT_SETTINGS, theme: 'dark', googleDriveClientId: 'client-id' },
+            storage: {},
+            dictionaries: {
+                formatName: 'yomu-yomitan-dictionaries',
+                dictionaries: [{ title: 'Jitendex' }],
+            },
+        };
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            const url = String(input);
+            expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer valid-access');
+            if (url.startsWith('https://www.googleapis.com/drive/v3/files?')) {
+                return jsonResponse({
+                    files: [{
+                        id: 'file-1',
+                        name: 'backup-chrome-2026-01-24T19-11-26-691Z.json',
+                        size: '393369',
+                        createdTime: '2026-01-24T19:10:59.000Z',
+                        modifiedTime: '2026-01-24T19:10:59.000Z',
+                    }],
+                });
+            }
+            if (url === 'https://www.googleapis.com/drive/v3/files/file-1?alt=media') {
+                return jsonResponse(backup);
+            }
+            throw new Error(`Unexpected request: ${url}`);
+        });
+        const importFile = vi.fn().mockResolvedValue(importSummary('Jitendex'));
+        const { dependencies, form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
+                importFile,
+            },
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        form.querySelector<HTMLInputElement>('input[name="googleDriveClientId"]')!.value = 'client-id';
+
+        settingsElement<HTMLButtonElement>(form, '[data-action="cloud-show-backups"]').click();
+
+        await waitForCondition(() => form.querySelector('[data-cloud-backup-file="file-1"]') != null);
+
+        expect(form.querySelector<HTMLElement>('[data-cloud-backups]')?.hidden).toBe(false);
+        expect(form.querySelector<HTMLElement>('[data-cloud-sync-status]')?.textContent).toBe('Please select a file');
+        expect(form.querySelector<HTMLElement>('.jpdb-reader-cloud-backup-name')?.textContent).toContain('backup-chrome');
+
+        form.querySelector<HTMLButtonElement>('[data-action="cloud-import-backup"][data-file-id="file-1"]')!.click();
+
+        await waitForCondition(() => dependencies.getSettings().theme === 'dark');
+
+        expect(importFile).toHaveBeenCalledOnce();
+        expect(importFile.mock.calls[0][0]).toBeInstanceOf(File);
+        expect(dependencies.getSettings().googleDriveClientId).toBe('client-id');
+        expect(dependencies.toast).toHaveBeenCalledWith('Google Drive backup imported.');
+    });
+});
+
 describe('settings dialog dictionary imports', () => {
     afterEach(() => {
         document.body.replaceChildren();
@@ -1316,6 +1401,83 @@ describe('settings dialog dictionary imports', () => {
         expect(form.querySelector<HTMLElement>('[data-settings-save-status]')?.hidden).toBe(true);
         expect(form.querySelector<HTMLButtonElement>('button[type="submit"]')?.textContent).toBe('Save');
     }, 30_000);
+
+    it('refreshes the kanji source editor after installing a kanji dictionary', async () => {
+        const importFromUrl = vi.fn().mockResolvedValue({
+            dictionaries: ['KANJIDIC'],
+            dictionaryTypes: { KANJIDIC: 'kanji' },
+            entries: 1,
+            terms: 0,
+            kanji: 1,
+            termMeta: 0,
+            kanjiMeta: 0,
+        } satisfies ImportSummary);
+        const { form } = createSettingsDialog({
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({
+                    dictionaries: [{ title: 'KANJIDIC', alias: 'KANJIDIC', enabled: true, priority: 0, type: 'kanji' }],
+                    terms: 0,
+                    kanji: 1,
+                    termMeta: 0,
+                    kanjiMeta: 0,
+                }),
+                importFromUrl,
+            },
+        });
+
+        recommendedButton(form, 'kanjidic').click();
+
+        await waitForCondition(() =>
+            form.querySelector<HTMLInputElement>('#jpdb-reader-settings-panel-kanji input[name="dictionaryPreferences.0.name"]')?.value === 'KANJIDIC',
+        );
+
+        const definitionEditor = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries > .jpdb-reader-dictionary-priorities')!;
+        expect(importFromUrl).toHaveBeenCalledOnce();
+        expect(definitionEditor.querySelector('input[name="dictionaryPreferences.0.name"]')).toBeNull();
+        expect(form.querySelectorAll('input[name="dictionaryPreferences.0.name"]').length).toBe(1);
+    });
+
+    it('removes imported dictionary rows from the settings panel immediately', async () => {
+        const deleteDictionary = deferred<void>();
+        let settings: ReaderSettings = {
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [
+                { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 0, type: 'frequency' },
+                { name: 'JPDB Freq', alias: 'JPDB Freq', enabled: true, priority: 1, type: 'frequency' },
+            ],
+        };
+        vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { dependencies, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings: (next: ReaderSettings) => { settings = next; },
+            dictionaries: {
+                summary: vi.fn().mockResolvedValue({
+                    dictionaries: [
+                        { title: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 0, type: 'frequency' },
+                        { title: 'JPDB Freq', alias: 'JPDB Freq', enabled: true, priority: 1, type: 'frequency' },
+                    ],
+                    terms: 0,
+                    kanji: 0,
+                    termMeta: 2,
+                    kanjiMeta: 0,
+                }),
+                deleteDictionary: vi.fn(() => deleteDictionary.promise),
+            },
+        });
+        const remove = form.querySelector<HTMLButtonElement>('[data-source-id="BCCWJ"] [data-action="delete-yomitan-dictionary"]')!;
+
+        remove.click();
+
+        await waitForCondition(() =>
+            (dependencies.dictionaries.deleteDictionary as ReturnType<typeof vi.fn>).mock.calls.length === 1
+            && !form.querySelector('[data-source-id="BCCWJ"]'),
+        );
+        expect(form.querySelector('[data-source-id="JPDB Freq"]')).not.toBeNull();
+        expect(form.querySelector<HTMLElement>('[data-source-id="JPDB Freq"] .jpdb-reader-order-toggle span')?.textContent).toBe('1');
+
+        deleteDictionary.resolve();
+        await waitForCondition(() => (dependencies.refreshNewTabIfCurrent as ReturnType<typeof vi.fn>).mock.calls.length === 1);
+    });
 
     it('shows a toast when a recommended dictionary install fails', async () => {
         const importFromUrl = vi.fn().mockRejectedValue(new Error('Could not remove old dictionary entries.'));

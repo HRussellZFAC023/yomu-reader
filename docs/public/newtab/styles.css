@@ -5159,9 +5159,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-word-inline-gap: 0.08em;
   --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap));
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
-  --jpdb-reader-word-underline-offset: 0.16em;
+  --jpdb-reader-word-underline-offset: 0.12em;
   --jpdb-reader-word-underline-style: solid;
-  --jpdb-reader-word-underline-thickness: 2px;
+  --jpdb-reader-word-underline-thickness: 1px;
   --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, currentColor));
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
   --jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);
@@ -5889,7 +5889,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 
 /* UT-47: hover-only furigana — ruby is rendered but only visible while the
    word is hovered (visibility keeps the line height stable). */
-.yomu-furi-hover .jpdb-reader-word:not(:hover) .jpdb-reader-furi {
+.yomu-furi-hover .jpdb-reader-word:not(:hover):not(.jpdb-reader-hover-active) .jpdb-reader-furi {
   visibility: hidden;
 }
 
@@ -8212,34 +8212,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
   overflow: visible;
 }
 .jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child {
-  border-top: 1px solid var(--jpdb-reader-border);
-}
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 30px;
-  padding: 6px 0;
-  color: var(--jpdb-reader-muted);
-  cursor: pointer;
-  list-style: none;
-}
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-source-title::-webkit-details-marker {
-  display: none;
-}
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::after {
-  content: "+";
-  flex: 0 0 auto;
-  color: var(--jpdb-reader-muted);
-  font-size: 14px;
-  line-height: 1;
-}
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-group[open]
-  > .jpdb-reader-dictionary-source-title::after {
-  content: "-";
+  border-top: 0;
 }
 .jpdb-reader-dictionaries-section .jpdb-reader-local-term {
   border: 0;
@@ -8249,10 +8222,7 @@ html.jpdb-reader-sheet-close-left .jpdb-reader-sheet-close {
 }
 .jpdb-reader-dictionaries-section
   .jpdb-reader-local-term
-  + .jpdb-reader-local-term,
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-source-title
-  + .jpdb-reader-local-terms {
+  + .jpdb-reader-local-term {
   border-top: 1px solid var(--jpdb-reader-border);
 }
 .jpdb-reader-study-source > .jpdb-reader-study-panel {
@@ -11045,6 +11015,19 @@ html.jpdb-reader-doodle-active * {
   outline: none;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 12%, transparent);
 }
+.jpdb-reader-review-blocked-action {
+  position: absolute;
+  top: 1px;
+  right: 14px;
+  z-index: 2;
+}
+@media (hover: hover) {
+  .jpdb-reader-actions:not(:hover):not(:focus-within)
+    .jpdb-reader-review-blocked-action {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
 .jpdb-reader-actions-gutter[hidden] {
   display: none !important;
 }
@@ -12927,6 +12910,60 @@ html.jpdb-reader-doodle-active * {
   box-shadow: 0 6px 16px
     color-mix(in srgb, var(--jpdb-reader-accent) 18%, transparent);
 }
+.jpdb-reader-cloud-backups {
+  min-width: 0;
+}
+.jpdb-reader-cloud-backups-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 82%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--jpdb-reader-surface) 92%, var(--jpdb-reader-text) 8%);
+}
+.jpdb-reader-cloud-backup-list {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.jpdb-reader-cloud-backup-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(76px, max-content) minmax(138px, max-content) max-content;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--jpdb-reader-border) 55%, transparent);
+}
+.jpdb-reader-cloud-backup-row:last-child {
+  border-bottom: 0;
+}
+.jpdb-reader-cloud-backup-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--jpdb-reader-text);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.jpdb-reader-cloud-backup-size,
+.jpdb-reader-cloud-backup-date {
+  color: var(--jpdb-reader-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.jpdb-reader-cloud-backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  min-width: 0;
+}
+.jpdb-reader-cloud-backup-actions .jpdb-reader-btn {
+  min-height: 34px;
+  padding-inline: 10px;
+}
 .jpdb-reader-settings .jpdb-reader-help-actions {
   display: flex;
   flex-wrap: wrap;
@@ -13536,6 +13573,19 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-template-preview-grid,
   .jpdb-reader-recommended-item {
     grid-template-columns: 1fr;
+  }
+
+  .jpdb-reader-cloud-backup-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .jpdb-reader-cloud-backup-actions {
+    justify-content: stretch;
+  }
+
+  .jpdb-reader-cloud-backup-actions .jpdb-reader-btn {
+    flex: 1 1 110px;
   }
 
   .jpdb-reader-anki-adapter {
@@ -14936,9 +14986,16 @@ html.jpdb-subtitle-video-inset-right ytd-watch-flexy #primary {
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #primary {
   margin-right: 0 !important;
 }
-html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,
 html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   display: none !important;
+}
+/* In fullscreen the player container is promoted to the browser top layer and
+   the subtitle overlay — plus the transcript drawer — is re-parented into it
+   (see syncSubtitleRootParent) so it paints above the video. The JS layout pass
+   is skipped while fullscreen, so the drawer keeps its base right-edge dock; we
+   only lift it above the overlay (z-index 2147483644) and any in-player chrome. */
+html.jpdb-subtitle-fullscreen .jpdb-subtitle-list:not([hidden]) {
+  z-index: 2147483646;
 }
 .jpdb-subtitle-resize {
   position: absolute;
