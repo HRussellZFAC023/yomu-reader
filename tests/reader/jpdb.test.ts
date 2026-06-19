@@ -19189,6 +19189,66 @@ describe('reader helpers', () => {
         }
     });
 
+    it('keeps an active hover popover pinned while a clicked word lookup renders', async () => {
+        vi.useFakeTimers();
+        const app = new ReaderApp();
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.vid = '501';
+        word.dataset.sid = '501';
+        word.dataset.sentence = '日本語を読む';
+        word.textContent = '日本語';
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.dataset.jpdbReaderRoot = 'true';
+        popover.innerHTML = '<div class="jpdb-reader-popover-body">日本語</div>';
+        document.body.append(word, popover);
+        const showWord = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            activePopover: HTMLElement;
+            activePopoverMode: 'hover' | 'modal';
+            activePopoverAnchor?: HTMLElement;
+            activeHoverWord?: HTMLElement;
+            activeHoverLookupKey: string;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activePopoverAnchor = word;
+        internals.activeHoverWord = word;
+        internals.activeHoverLookupKey = 'word:501:501';
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(internals.activePopoverMode).toBe('modal');
+            expect(internals.activeHoverWord).toBeUndefined();
+            expect(internals.activeHoverLookupKey).toBe('');
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+
+            const out = createPointerEvent('pointerout', { clientX: 240, clientY: 240 });
+            Object.defineProperty(out, 'relatedTarget', { configurable: true, value: document.body });
+            word.dispatchEvent(out);
+            await vi.advanceTimersByTimeAsync(DEFAULT_SETTINGS.hoverCloseDelayMs + 20);
+
+            expect(popover.isConnected).toBe(true);
+        } finally {
+            app.destroy();
+            vi.useRealTimers();
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not let popover action controls hit-test page words underneath', () => {
         const app = new ReaderApp();
         const pageWord = document.createElement('span');

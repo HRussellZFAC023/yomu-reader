@@ -2206,8 +2206,20 @@ export class ReaderApp {
     private prepareModalLookupFromPointer(event: MouseEvent): void {
         this.lastPointerPosition = { x: event.clientX, y: event.clientY };
         this.cancelPendingHoverLookup();
+        this.pinActiveHoverPopoverForPendingModalLookup();
         this.cancelHoverClose();
         this.primeLookupAudioFromGesture();
+    }
+
+    private pinActiveHoverPopoverForPendingModalLookup(): void {
+        if (this.activePopoverMode !== 'hover' || !this.activePopover) return;
+        window.clearTimeout(this.hoverWatchTimer);
+        this.hoverWatchTimer = undefined;
+        this.hoverPopoverPointerPosition = undefined;
+        this.activePopoverMode = 'modal';
+        this.activeHoverWord = undefined;
+        this.activeHoverLookupKey = '';
+        this.activePointerTextLookup = undefined;
     }
 
     private primeLookupAudioFromGesture(): void {

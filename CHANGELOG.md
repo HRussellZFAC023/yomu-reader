@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.9] - 2026-06-19
+
+### Fixed
+
+- Clicking a hovered page word now pins the lookup popover immediately, so it stays open while the clicked lookup renders instead of being removed by the hover close timer.
+
 ## [1.4.8] - 2026-06-19
 
 ### Fixed
