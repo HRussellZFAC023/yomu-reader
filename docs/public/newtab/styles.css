@@ -14106,7 +14106,7 @@ html.jpdb-reader-doodle-active * {
   word-break: keep-all;
   max-height: min(45%, calc(100% - 24px));
   overflow: visible;
-  pointer-events: auto;
+  pointer-events: none;
   transform: translateY(var(--subtitle-drag-offset-y));
   -webkit-tap-highlight-color: transparent;
 }
@@ -14114,6 +14114,13 @@ html.jpdb-reader-doodle-active * {
   min-height: 1.36em;
   max-height: inherit;
   overflow: hidden;
+  pointer-events: none;
+}
+.jpdb-subtitle-primary,
+.jpdb-subtitle-secondary,
+.jpdb-subtitle-primary .jpdb-reader-word,
+.jpdb-subtitle-secondary .jpdb-reader-word {
+  pointer-events: auto;
 }
 .jpdb-subtitle-drag-handle {
   position: absolute;
