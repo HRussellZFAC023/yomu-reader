@@ -5,8 +5,8 @@ import {
     jpdbDocumentMatchesVocabulary,
     jpdbVocabularyResultRoots,
     jpdbVocabularyRootMatches,
-    unique,
 } from './jpdb-public-lookup';
+import { unique } from '../core/array-utils';
 import { splitMorae } from '../lookup/pitch-accent';
 
 const PITCH_KANA = /[\u3040-\u30ff\u3099\u309A]/u;

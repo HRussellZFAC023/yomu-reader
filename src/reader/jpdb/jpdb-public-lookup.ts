@@ -79,9 +79,6 @@ export function requestPublicJpdbText(url: string, options: ReaderHttpOptions): 
     return requestReaderText(url, options);
 }
 
-export function unique<T>(values: T[]): T[] {
-    return [...new Set(values)];
-}
 
 function jpdbVocabularyIdentities(root: ParentNode): JpdbVocabularyUrlIdentity[] {
     return Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'))

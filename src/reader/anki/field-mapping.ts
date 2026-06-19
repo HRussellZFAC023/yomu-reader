@@ -1,4 +1,5 @@
 import type { AnkiFieldMapping, AnkiFieldMappings, JPDBCard, ReaderSettings } from '../app/types';
+import { unique } from '../core/array-utils';
 import {
     ANKI_FIELD_ROLES,
     type AnkiFieldContentSample,
@@ -531,6 +532,3 @@ export function normalizeFieldValue(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
 }
 
-function unique<T>(items: T[]): T[] {
-    return [...new Set(items)];
-}

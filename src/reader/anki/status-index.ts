@@ -1,4 +1,5 @@
 import { gmStorageDeleteSync, gmStorageGetSync, gmStorageSet, gmStorageSetSync } from '../app/storage';
+import { chunkArray, unique } from '../core/array-utils';
 import { Logger } from '../app/logger';
 import type { AnkiFieldMapping, CardState, JPDBCard, ReaderSettings } from '../app/types';
 import {
@@ -465,11 +466,4 @@ function pickPrimaryCardIdFromStatusSets(cardIds: number[], cardSets: AnkiStatus
     return cardIds[0] ?? null;
 }
 
-function unique<T>(items: T[]): T[] {
-    return Array.from(new Set(items));
-}
 
-function chunkArray<T>(items: T[], size: number): T[][] {
-    return Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
-        items.slice(index * size, (index + 1) * size));
-}

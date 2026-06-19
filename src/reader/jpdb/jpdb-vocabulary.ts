@@ -3,8 +3,8 @@ import {
     jpdbDocumentVocabularyIdentity,
     JpdbPublicLookupBackoff,
     jpdbSearchUrl,
-    unique,
 } from './jpdb-public-lookup';
+import { unique } from '../core/array-utils';
 import { readJpdbPitchPatterns } from './jpdb-public-pitch';
 import { readPublicJpdbCache, writePublicJpdbCache } from './jpdb-public-cache';
 import { absoluteJpdbUrl, cleanText, JAPANESE_RE, parseJpdbVocabularyUrl, type JpdbVocabularyUrlIdentity } from './jpdb-text';

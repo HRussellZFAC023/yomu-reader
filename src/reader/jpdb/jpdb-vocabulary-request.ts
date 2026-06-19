@@ -1,5 +1,6 @@
 import { parseHtmlDocument } from '../dom';
-import { jpdbSearchUrl, requestPublicJpdbText, unique } from './jpdb-public-lookup';
+import { jpdbSearchUrl, requestPublicJpdbText } from './jpdb-public-lookup';
+import { unique } from '../core/array-utils';
 import { absoluteJpdbUrl, cleanText } from './jpdb-text';
 import {
     JPDB_COMPOUND_LIMIT,
