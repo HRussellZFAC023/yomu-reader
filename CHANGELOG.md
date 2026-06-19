@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.7] - 2026-06-19
+
+### Fixed
+
+- YouTube channel suggestions no longer show subscribe rows from preview metadata that lacks a current subscription state, preventing already-subscribed channels from reappearing as "Subscribe" recommendations.
+- The channel suggestion shelf now has a single opt-out action, "Hide"; the route-only "Dismiss" button was removed.
+
 ## [1.4.6] - 2026-06-18
 
 ### Changed

@@ -148,7 +148,6 @@ type YouTubeChannelShelfElements = {
     expand: HTMLButtonElement;
     subscribeVisible: HTMLButtonElement;
     subscribeAll: HTMLButtonElement;
-    dismiss: HTMLButtonElement;
     never: HTMLButtonElement;
 };
 
@@ -158,7 +157,7 @@ type YouTubeChannelPreview = {
     avatarUrl: string;
     subscriberText: string;
     description: string;
-    subscribed: boolean;
+    subscribed: boolean | null;
 };
 
 type YouTubeClientConfig = {
@@ -216,7 +215,6 @@ export class YoutubeImmersionFilter {
     private channelShelf?: HTMLElement;
     private revealed = false;
     private dismissedNoticeScope = '';
-    private dismissedChannelShelfScope = '';
     private noticeRouteKey = '';
     private channelShelfRouteKey = '';
     private channelShelfExpanded = false;
@@ -860,8 +858,7 @@ export class YoutubeImmersionFilter {
             return;
         }
 
-        const scope = this.currentChannelShelfScope();
-        if (!this.channelShelf && this.dismissedChannelShelfScope === scope) return;
+        this.currentChannelShelfScope();
 
         const shelf = this.ensureChannelShelf();
         const elements = this.channelShelfElements(shelf);
@@ -907,7 +904,6 @@ export class YoutubeImmersionFilter {
         actions.append(
             channelShelfButton('subscribe-visible'),
             channelShelfButton('subscribe-all'),
-            channelShelfButton('dismiss'),
             channelShelfButton('never'),
         );
         header.append(copy, actions);
@@ -944,7 +940,6 @@ export class YoutubeImmersionFilter {
             expand: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!,
             subscribeVisible: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-visible"]')!,
             subscribeAll: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="subscribe-all"]')!,
-            dismiss: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="dismiss"]')!,
             never: shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="never"]')!,
         };
     }
@@ -985,7 +980,6 @@ export class YoutubeImmersionFilter {
         elements.subscribeAll.textContent = remainingChannels
             ? `Subscribe all ${remainingChannels}`
             : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
-        elements.dismiss.textContent = 'Dismiss';
         elements.never.textContent = 'Hide';
         elements.expand.textContent = this.channelShelfExpanded ? 'Collapse' : 'Browse all channels';
         elements.expand.setAttribute('aria-expanded', String(this.channelShelfExpanded));
@@ -1143,11 +1137,6 @@ export class YoutubeImmersionFilter {
                 this.channelShelfFilter = (button.dataset.filter as YouTubeChannelRecommendationFilter | undefined) ?? 'all';
                 this.channelShelfExpanded = true;
                 this.renderChannelShelf(this.channelShelfElements(this.ensureChannelShelf()));
-                return true;
-            case 'dismiss':
-                this.dismissedChannelShelfScope = this.currentChannelShelfScope();
-                this.clearChannelShelfRefresh();
-                this.removeChannelShelf();
                 return true;
             case 'never':
                 this.options.setShowChannelRecommendations?.(false);
@@ -1437,7 +1426,6 @@ export class YoutubeImmersionFilter {
         const routeKey = this.currentRouteKey();
         if (this.channelShelfRouteKey !== routeKey) {
             this.channelShelfRouteKey = routeKey;
-            this.dismissedChannelShelfScope = '';
             this.removeChannelShelf();
         }
         return routeKey;
@@ -1457,7 +1445,6 @@ export class YoutubeImmersionFilter {
         this.removeNotice();
         this.removeChannelShelf();
         this.dismissedNoticeScope = '';
-        this.dismissedChannelShelfScope = '';
         this.noticeRouteKey = '';
         this.channelShelfRouteKey = '';
         this.channelShelfExpanded = false;
@@ -1780,31 +1767,47 @@ function relativeBackgroundLuminance([red, green, blue]: [number, number, number
     return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
 }
 
-function youTubeBrowseDataShowsSubscribed(data: unknown): boolean {
+function youTubeBrowseDataShowsSubscribed(data: unknown): boolean | null {
     // Only the channel header speaks for THIS channel; the full browse payload
     // can contain subscribeButtonRenderer entries for unrelated shelves, which
     // would mark every suggestion as subscribed and empty the shelf (breaking
-    // "Subscribe all").
+    // "Subscribe all"). Missing header/state is unknown, not unsubscribed: an
+    // anonymous browse response can still include metadata for channels the
+    // signed-in user already follows.
     const root = recordValue(data);
     const header = root?.header;
-    if (!header) return false;
-    return findNestedYouTubeValue(header, value => {
-        if (legacyYouTubeSubscribeButtonShowsSubscribed(value)) return 'subscribed';
-        return youTubeSubscribeButtonViewModelShowsSubscribed(value, root) ? 'subscribed' : '';
-    }) === 'subscribed';
+    if (!header) return null;
+    return findNestedYouTubeSubscriptionStatus(header, root);
 }
 
-function legacyYouTubeSubscribeButtonShowsSubscribed(value: unknown): boolean {
+function findNestedYouTubeSubscriptionStatus(value: unknown, data: Record<string, unknown>): boolean | null {
+    if (!isNestedYouTubeValue(value)) return null;
+    const direct = readYouTubeSubscriptionStatus(value, data);
+    if (direct !== null) return direct;
+    for (const child of nestedYouTubeChildren(value)) {
+        const found = findNestedYouTubeSubscriptionStatus(child, data);
+        if (found !== null) return found;
+    }
+    return null;
+}
+
+function readYouTubeSubscriptionStatus(value: unknown, data: Record<string, unknown>): boolean | null {
+    const legacy = legacyYouTubeSubscribeButtonSubscriptionStatus(value);
+    if (legacy !== null) return legacy;
+    return youTubeSubscribeButtonViewModelSubscriptionStatus(value, data);
+}
+
+function legacyYouTubeSubscribeButtonSubscriptionStatus(value: unknown): boolean | null {
     const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
-    return renderer?.subscribed === true;
+    return typeof renderer?.subscribed === 'boolean' ? renderer.subscribed : null;
 }
 
-function youTubeSubscribeButtonViewModelShowsSubscribed(value: unknown, data: Record<string, unknown>): boolean {
+function youTubeSubscribeButtonViewModelSubscriptionStatus(value: unknown, data: Record<string, unknown>): boolean | null {
     const model = recordValue(recordValue(value)?.subscribeButtonViewModel);
-    if (!model) return false;
+    if (!model) return null;
     const stateKey = youTubeSubscribeButtonStateKey(model);
-    if (!stateKey) return false;
-    return findYouTubeSubscriptionState(data, stateKey) === true;
+    if (!stateKey) return null;
+    return findYouTubeSubscriptionState(data, stateKey) ?? null;
 }
 
 function youTubeSubscribeButtonStateKey(model: Record<string, unknown>): string {

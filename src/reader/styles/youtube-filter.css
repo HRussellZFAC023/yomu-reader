@@ -225,7 +225,6 @@ html[dark] .jpdb-youtube-channel-shelf,
     color: var(--yt-spec-text-primary-inverse, var(--yomu-shelf-inverse));
 }
 
-.jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="dismiss"],
 .jpdb-youtube-channel-shelf [data-yomu-youtube-channel-action="never"] {
     color: var(--yt-spec-text-secondary, var(--yomu-shelf-muted));
 }

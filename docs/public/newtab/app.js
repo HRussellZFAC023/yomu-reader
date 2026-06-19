@@ -43078,7 +43078,6 @@ ${spelling}`);
     channelShelf;
     revealed = false;
     dismissedNoticeScope = "";
-    dismissedChannelShelfScope = "";
     noticeRouteKey = "";
     channelShelfRouteKey = "";
     channelShelfExpanded = false;
@@ -43598,8 +43597,7 @@ ${spelling}`);
         this.removeChannelShelf();
         return;
       }
-      const scope = this.currentChannelShelfScope();
-      if (!this.channelShelf && this.dismissedChannelShelfScope === scope) return;
+      this.currentChannelShelfScope();
       const shelf = this.ensureChannelShelf();
       const elements = this.channelShelfElements(shelf);
       this.renderChannelShelf(elements, renderableRecommendations);
@@ -43639,7 +43637,6 @@ ${spelling}`);
       actions.append(
         channelShelfButton("subscribe-visible"),
         channelShelfButton("subscribe-all"),
-        channelShelfButton("dismiss"),
         channelShelfButton("never")
       );
       header.append(copy, actions);
@@ -43671,7 +43668,6 @@ ${spelling}`);
         expand: shelf.querySelector('[data-yomu-youtube-channel-action="expand"]'),
         subscribeVisible: shelf.querySelector('[data-yomu-youtube-channel-action="subscribe-visible"]'),
         subscribeAll: shelf.querySelector('[data-yomu-youtube-channel-action="subscribe-all"]'),
-        dismiss: shelf.querySelector('[data-yomu-youtube-channel-action="dismiss"]'),
         never: shelf.querySelector('[data-yomu-youtube-channel-action="never"]')
       };
     }
@@ -43701,7 +43697,6 @@ ${spelling}`);
       elements.subscribeVisible.textContent = `Subscribe visible (${renderedRecommendations.length})`;
       elements.subscribeVisible.hidden = !renderedRecommendations.length;
       elements.subscribeAll.textContent = remainingChannels ? `Subscribe all ${remainingChannels}` : `All ${YOUTUBE_CHANNEL_RECOMMENDATION_COUNT} subscribed ✓`;
-      elements.dismiss.textContent = "Dismiss";
       elements.never.textContent = "Hide";
       elements.expand.textContent = this.channelShelfExpanded ? "Collapse" : "Browse all channels";
       elements.expand.setAttribute("aria-expanded", String(this.channelShelfExpanded));
@@ -43837,11 +43832,6 @@ ${spelling}`);
           this.channelShelfFilter = button.dataset.filter ?? "all";
           this.channelShelfExpanded = true;
           this.renderChannelShelf(this.channelShelfElements(this.ensureChannelShelf()));
-          return true;
-        case "dismiss":
-          this.dismissedChannelShelfScope = this.currentChannelShelfScope();
-          this.clearChannelShelfRefresh();
-          this.removeChannelShelf();
           return true;
         case "never":
           this.options.setShowChannelRecommendations?.(false);
@@ -44084,7 +44074,6 @@ ${spelling}`);
       const routeKey = this.currentRouteKey();
       if (this.channelShelfRouteKey !== routeKey) {
         this.channelShelfRouteKey = routeKey;
-        this.dismissedChannelShelfScope = "";
         this.removeChannelShelf();
       }
       return routeKey;
@@ -44103,7 +44092,6 @@ ${spelling}`);
       this.removeNotice();
       this.removeChannelShelf();
       this.dismissedNoticeScope = "";
-      this.dismissedChannelShelfScope = "";
       this.noticeRouteKey = "";
       this.channelShelfRouteKey = "";
       this.channelShelfExpanded = false;
@@ -44367,22 +44355,34 @@ ${spelling}`);
   function youTubeBrowseDataShowsSubscribed(data) {
     const root = recordValue(data);
     const header = root?.header;
-    if (!header) return false;
-    return findNestedYouTubeValue(header, (value) => {
-      if (legacyYouTubeSubscribeButtonShowsSubscribed(value)) return "subscribed";
-      return youTubeSubscribeButtonViewModelShowsSubscribed(value, root) ? "subscribed" : "";
-    }) === "subscribed";
+    if (!header) return null;
+    return findNestedYouTubeSubscriptionStatus(header, root);
   }
-  function legacyYouTubeSubscribeButtonShowsSubscribed(value) {
+  function findNestedYouTubeSubscriptionStatus(value, data) {
+    if (!isNestedYouTubeValue(value)) return null;
+    const direct = readYouTubeSubscriptionStatus(value, data);
+    if (direct !== null) return direct;
+    for (const child of nestedYouTubeChildren(value)) {
+      const found = findNestedYouTubeSubscriptionStatus(child, data);
+      if (found !== null) return found;
+    }
+    return null;
+  }
+  function readYouTubeSubscriptionStatus(value, data) {
+    const legacy = legacyYouTubeSubscribeButtonSubscriptionStatus(value);
+    if (legacy !== null) return legacy;
+    return youTubeSubscribeButtonViewModelSubscriptionStatus(value, data);
+  }
+  function legacyYouTubeSubscribeButtonSubscriptionStatus(value) {
     const renderer = recordValue(recordValue(value)?.subscribeButtonRenderer);
-    return renderer?.subscribed === true;
+    return typeof renderer?.subscribed === "boolean" ? renderer.subscribed : null;
   }
-  function youTubeSubscribeButtonViewModelShowsSubscribed(value, data) {
+  function youTubeSubscribeButtonViewModelSubscriptionStatus(value, data) {
     const model = recordValue(recordValue(value)?.subscribeButtonViewModel);
-    if (!model) return false;
+    if (!model) return null;
     const stateKey = youTubeSubscribeButtonStateKey(model);
-    if (!stateKey) return false;
-    return findYouTubeSubscriptionState(data, stateKey) === true;
+    if (!stateKey) return null;
+    return findYouTubeSubscriptionState(data, stateKey) ?? null;
   }
   function youTubeSubscribeButtonStateKey(model) {
     return firstStringValue(

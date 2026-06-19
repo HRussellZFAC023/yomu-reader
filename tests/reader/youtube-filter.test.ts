@@ -117,7 +117,6 @@ function jsonFetchResponse(value: unknown, status = 200): Response {
 
 function channelPreviewBrowseData(handle: string, channelId: string, subscribed: boolean): Record<string, unknown> {
     const channel = allYouTubeChannelRecommendations().find(candidate => candidate.handle === handle);
-    const stateKey = `subscription-state:${channelId}`;
     return {
         metadata: {
             channelMetadataRenderer: {
@@ -125,6 +124,13 @@ function channelPreviewBrowseData(handle: string, channelId: string, subscribed:
                 avatar: { thumbnails: [{ url: `https://yt.example/${encodeURIComponent(handle)}.jpg`, width: 88 }] },
             },
         },
+        ...channelSubscriptionStateData(channelId, subscribed),
+    };
+}
+
+function channelSubscriptionStateData(channelId: string, subscribed: boolean): Record<string, unknown> {
+    const stateKey = `subscription-state:${channelId}`;
+    return {
         header: {
             pageHeaderRenderer: {
                 content: {
@@ -926,6 +932,8 @@ describe('YouTube immersion filter', () => {
         expect(document.querySelector('.jpdb-youtube-channel-guide')).toBeNull();
         expect(shelf.querySelector<HTMLElement>('[aria-live="polite"]')?.textContent).toBe('');
         expect(shelf.textContent).not.toContain('Previews load from YouTube on this page.');
+        expect(shelf.textContent).not.toContain('Dismiss');
+        expect(shelf.textContent).toContain('Hide');
 
         shelf.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="expand"]')!.click();
         await vi.advanceTimersByTimeAsync(0);
@@ -1109,6 +1117,7 @@ describe('YouTube immersion filter', () => {
                                 avatar: { thumbnails: [{ url: 'https://yt.example/avatar.jpg', width: 88 }] },
                             },
                         },
+                        ...channelSubscriptionStateData('UC12345678901234567890', false),
                     }),
                 };
             }
@@ -1206,6 +1215,55 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
+    it('does not render subscribe rows from preview metadata without current subscription state', async () => {
+        const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+            const url = input instanceof Request ? input.url : String(input);
+            if (url.includes('/oembed')) {
+                const watchUrl = new URL(new URL(url).searchParams.get('url') ?? 'https://www.youtube.com/watch');
+                const videoId = watchUrl.searchParams.get('v') ?? '';
+                return jsonFetchResponse({ title: videoId === 'jp' || videoId === 'modern' ? '東京カフェで朝ごはん' : 'Desk setup tour' });
+            }
+            if (url.includes('/youtubei/v1/navigation/resolve_url')) {
+                return jsonFetchResponse({ endpoint: { browseEndpoint: { browseId: 'UC12345678901234567890' } } });
+            }
+            if (url.includes('/youtubei/v1/browse')) {
+                const body = JSON.parse(String(init?.body ?? '{}')) as { browseId?: string };
+                return jsonFetchResponse({
+                    metadata: {
+                        channelMetadataRenderer: {
+                            title: 'Preview without state',
+                            description: 'Metadata alone does not identify subscription state.',
+                            avatar: { thumbnails: [{ url: `https://yt.example/${body.browseId ?? 'missing'}.jpg`, width: 88 }] },
+                        },
+                    },
+                });
+            }
+            return jsonFetchResponse({}, 404);
+        });
+        vi.stubGlobal('ytcfg', {
+            get: (key: string) => ({
+                INNERTUBE_API_KEY: 'test-key',
+                INNERTUBE_CONTEXT: { client: { clientName: 'WEB', clientVersion: 'test-version' } },
+                INNERTUBE_CLIENT_NAME: '1',
+                INNERTUBE_CLIENT_VERSION: 'test-version',
+                VISITOR_DATA: 'visitor',
+            } as Record<string, unknown>)[key],
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('location', YOUTUBE_RESULTS_LOCATION);
+        renderYouTubeCards();
+        const { filter } = await startYoutubeFilter({ wait: 'flush-work' });
+        await waitForChannelShelfCondition(() =>
+            fetchMock.mock.calls.some(call => String(call[0]).includes('/youtubei/v1/browse'))
+            && !document.querySelector('.jpdb-youtube-channel-shelf'), 80);
+
+        expect(fetchMock.mock.calls.some(call => String(call[0]).includes('/youtubei/v1/browse'))).toBe(true);
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
+        expect(document.body.textContent).not.toContain('Subscribe visible');
+
+        filter.destroy();
+    }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
+
     it('hides the channel shelf when every curated channel is already subscribed', async () => {
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
@@ -1230,7 +1288,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     }, CHANNEL_SHELF_TEST_TIMEOUT_MS);
 
-    it('lets users dismiss channel suggestions for the route or hide them permanently', async () => {
+    it('lets users hide channel suggestions permanently', async () => {
         const settings = youtubeFilterSettings();
         renderYouTubeCards();
         const { filter } = await startYoutubeFilter({
@@ -1251,29 +1309,7 @@ describe('YouTube immersion filter', () => {
         });
 
         expect(document.querySelector('.jpdb-youtube-channel-shelf')).not.toBeNull();
-
-        document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="dismiss"]')!.click();
-        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
-
-        expect(settings.youtubeShowChannelRecommendations).toBe(true);
-        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
-
-        filter.refresh();
-        await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
-
-        expect(document.querySelector('.jpdb-youtube-channel-shelf')).toBeNull();
-
-        vi.stubGlobal('location', {
-            href: 'https://www.youtube.com/feed/subscriptions',
-            origin: 'https://www.youtube.com',
-            hostname: 'www.youtube.com',
-            pathname: '/feed/subscriptions',
-            search: '',
-        });
-        filter.refresh();
-        await waitForChannelShelfCondition(shelf => Boolean(shelf));
-
-        expect(document.querySelector('.jpdb-youtube-channel-shelf')).not.toBeNull();
+        expect(document.querySelector('.jpdb-youtube-channel-shelf')?.textContent).not.toContain('Dismiss');
 
         document.querySelector<HTMLButtonElement>('[data-yomu-youtube-channel-action="never"]')!.click();
         await waitForChannelShelfCondition(() => !document.querySelector('.jpdb-youtube-channel-shelf'));
@@ -1330,6 +1366,7 @@ describe('YouTube immersion filter', () => {
                                 avatar: { thumbnails: [{ url: 'https://yt.example/avatar.jpg', width: 88 }] },
                             },
                         },
+                        ...channelSubscriptionStateData('UC12345678901234567890', false),
                     }),
                 };
             }
