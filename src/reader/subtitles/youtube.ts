@@ -177,9 +177,16 @@ function isYouTubeHost(hostname = location.hostname): boolean {
     return YOUTUBE_HOST_RE.test(hostname);
 }
 
+function isInsideReaderRoot(node: ParentNode | Node): boolean {
+    if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_ROOT_SELECTOR));
+    if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_ROOT_SELECTOR));
+    return false;
+}
+
 export { isProbablyJapaneseYouTubeText };
 
 export function collectYouTubeVideoCards(root: ParentNode = document): HTMLElement[] {
+    if (isInsideReaderRoot(root)) return [];
     const cards = new Set<HTMLElement>();
     root.querySelectorAll<HTMLElement>(VIDEO_CARD_SELECTOR).forEach(card => {
         const normalized = normalizeYouTubeVideoCard(card);
@@ -2146,6 +2153,7 @@ function feedScrollAnchorElement(mutated: HTMLElement): HTMLElement | null {
 }
 
 function collectYouTubeFilterItems(root: ParentNode = document): HTMLElement[] {
+    if (isInsideReaderRoot(root)) return [];
     const items = new Set<HTMLElement>(collectYouTubeVideoCards(root));
     root.querySelectorAll<HTMLElement>(`${VIDEO_CARD_SELECTOR},${NON_VIDEO_CONTAINER_SELECTOR}`).forEach(element => {
         const normalized = normalizeYouTubeFilterItem(element);
@@ -2559,7 +2567,10 @@ function mutationInsideReaderRoot(mutation: MutationRecord): boolean {
 }
 
 function mutationMayAffectYouTubeCards(mutation: MutationRecord): boolean {
-    const nodes = [mutation.target, ...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const nodes = mutation.type === 'childList' && changedNodes.length
+        ? changedNodes
+        : [mutation.target, ...changedNodes];
     return nodes.some(nodeMayAffectYouTubeCards);
 }
 
@@ -2573,7 +2584,7 @@ function nodeMayAffectYouTubeCards(node: Node): boolean {
 
 function elementForYouTubeCardMutation(node: Node): Element | null {
     const element = node.nodeType === Node.ELEMENT_NODE ? node as Element : node.parentElement;
-    if (!element || element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return null;
+    if (!element || isInsideReaderRoot(element)) return null;
     return element;
 }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.11] - 2026-06-19
+
+### Fixed
+
+- Opening Settings on YouTube no longer makes the immersion filter rescan the page just because よむ mounted its own dialog, so the panel appears much faster on busy YouTube pages.
+
 ## [1.4.10] - 2026-06-19
 
 ### Fixed

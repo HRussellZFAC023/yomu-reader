@@ -17331,7 +17331,13 @@ ${spelling}`);
   function isYouTubeHost(hostname = location.hostname) {
     return YOUTUBE_HOST_RE.test(hostname);
   }
+  function isInsideReaderRoot(node) {
+    if (node instanceof Element) return Boolean(node.closest(YOUTUBE_READER_ROOT_SELECTOR));
+    if (node instanceof Node) return Boolean(node.parentElement?.closest(YOUTUBE_READER_ROOT_SELECTOR));
+    return false;
+  }
   function collectYouTubeVideoCards(root = document) {
+    if (isInsideReaderRoot(root)) return [];
     const cards = /* @__PURE__ */ new Set();
     root.querySelectorAll(VIDEO_CARD_SELECTOR).forEach((card) => {
       const normalized = normalizeYouTubeVideoCard(card);
@@ -18936,6 +18942,7 @@ ${spelling}`);
     return null;
   }
   function collectYouTubeFilterItems(root = document) {
+    if (isInsideReaderRoot(root)) return [];
     const items = new Set(collectYouTubeVideoCards(root));
     root.querySelectorAll(`${VIDEO_CARD_SELECTOR},${NON_VIDEO_CONTAINER_SELECTOR}`).forEach((element) => {
       const normalized = normalizeYouTubeFilterItem(element);
@@ -19245,7 +19252,8 @@ ${spelling}`);
     });
   }
   function mutationMayAffectYouTubeCards(mutation) {
-    const nodes = [mutation.target, ...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const changedNodes = [...Array.from(mutation.addedNodes), ...Array.from(mutation.removedNodes)];
+    const nodes = mutation.type === "childList" && changedNodes.length ? changedNodes : [mutation.target, ...changedNodes];
     return nodes.some(nodeMayAffectYouTubeCards);
   }
   function nodeMayAffectYouTubeCards(node) {
@@ -19257,7 +19265,7 @@ ${spelling}`);
   }
   function elementForYouTubeCardMutation(node) {
     const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
-    if (!element || element.closest(YOUTUBE_READER_ROOT_SELECTOR)) return null;
+    if (!element || isInsideReaderRoot(element)) return null;
     return element;
   }
   function isYouTubeCardOrFeedElement(element) {

@@ -1985,6 +1985,59 @@ describe('YouTube immersion filter', () => {
         }
     });
 
+    it('ignores reader roots appended to the YouTube body without scheduling a rescan', () => {
+        vi.useFakeTimers();
+        renderYouTubeCards();
+        const OriginalMutationObserver = MutationObserver;
+        let callback: MutationCallback | undefined;
+        const MutationObserverMock = vi.fn((observerCallback: MutationCallback) => {
+            callback = observerCallback;
+            return {
+                observe: vi.fn(),
+                disconnect: vi.fn(),
+                takeRecords: () => [],
+            } as unknown as MutationObserver;
+        });
+        vi.stubGlobal('MutationObserver', MutationObserverMock);
+        const filter = createYoutubeFilter(() => youtubeFilterSettings());
+        const scheduleSpy = vi.spyOn(filter as unknown as { schedule(delay: number): void }, 'schedule');
+
+        try {
+            filter.init();
+            expect(callback).toBeDefined();
+            scheduleSpy.mockClear();
+
+            const settingsRoot = document.createElement('form');
+            settingsRoot.className = 'jpdb-reader-settings';
+            settingsRoot.dataset.jpdbReaderRoot = 'true';
+            settingsRoot.innerHTML = `
+                <a href="/watch?v=settings-link">Settings help link</a>
+                <button type="button">保存</button>
+                <div>字幕と辞書の設定</div>
+            `;
+            callback!([{
+                type: 'childList',
+                target: document.body,
+                addedNodes: [settingsRoot] as unknown as NodeList,
+                removedNodes: [] as unknown as NodeList,
+            } as unknown as MutationRecord], {} as MutationObserver);
+            expect(scheduleSpy).not.toHaveBeenCalled();
+
+            const cardRoot = document.createElement('ytd-rich-item-renderer');
+            cardRoot.innerHTML = '<a id="video-title" href="/watch?v=new-card">Desk setup tour</a>';
+            callback!([{
+                type: 'childList',
+                target: document.body,
+                addedNodes: [cardRoot] as unknown as NodeList,
+                removedNodes: [] as unknown as NodeList,
+            } as unknown as MutationRecord], {} as MutationObserver);
+            expect(scheduleSpy).toHaveBeenCalledWith(90);
+        } finally {
+            filter.destroy();
+            vi.stubGlobal('MutationObserver', OriginalMutationObserver);
+        }
+    });
+
     it('re-marks the first visible item of each row after filtering (rowless lockup grid)', () => {
         document.body.innerHTML = `
             <ytd-rich-grid-renderer>
