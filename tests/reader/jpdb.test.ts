@@ -12748,13 +12748,14 @@ describe('reader helpers', () => {
     });
 
     it('backs off Immersion Kit network searches after a 429 response', async () => {
+        const configuredProxyUrl = 'https://proxy.example/fetch';
         const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('Too Many Requests', {
             status: 429,
             statusText: 'Too Many Requests',
         }));
         try {
             const client = new ImmersionKitClient();
-            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, audioTimeoutMs: 1000 };
+            const settings = { ...DEFAULT_SETTINGS, immersionKitEnabled: true, audioTimeoutMs: 1000, corsProxyUrl: configuredProxyUrl };
 
             await expect(client.search('読む', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/429|rate/i);
             await expect(client.search('書く', settings, { requestLimit: 1, resultLimit: 1 })).rejects.toThrow(/rate/i);
@@ -14983,8 +14984,9 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses the local hosted proxy path for Immersion Kit search without a userscript bridge', async () => {
+    it('uses a configured proxy path for local hosted Immersion Kit search without a userscript bridge', async () => {
         const client = new ImmersionKitClient();
+        const configuredProxyUrl = 'https://proxy.example/fetch';
         const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve({
             ok: true,
             status: 200,
@@ -15004,10 +15006,15 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const examples = await client.search('読む', { ...DEFAULT_SETTINGS, immersionKitEnabled: true, immersionKitLimitEnabled: false });
+            const examples = await client.search('読む', {
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: true,
+                immersionKitLimitEnabled: false,
+                corsProxyUrl: configuredProxyUrl,
+            });
 
             expect(fetchMock).toHaveBeenCalledTimes(1);
-            expect(String(fetchMock.mock.calls[0][0])).toContain(DEFAULT_YOMU_PUBLIC_PROXY_URL);
+            expect(String(fetchMock.mock.calls[0][0])).toContain(configuredProxyUrl);
             expect(String(fetchMock.mock.calls[0][0])).toContain(encodeURIComponent('https://apiv2express.immersionkit.com/search?'));
             expect(examples[0]).toMatchObject({ sourceTitle: 'Steins Gate' });
         } finally {

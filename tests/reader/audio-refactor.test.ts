@@ -141,7 +141,7 @@ describe('audio module boundaries', () => {
             expect(fetchMock).toHaveBeenCalledTimes(1);
             const requestedUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
             expect(requestedUrl).toContain('https://r.jina.ai/http://jisho.org/search/');
-            expect(requestedUrl).not.toContain(DEFAULT_SETTINGS.corsProxyUrl);
+            expect(requestedUrl).not.toContain(DEFAULT_YOMU_PUBLIC_PROXY_URL);
         } finally {
             vi.unstubAllGlobals();
         }
