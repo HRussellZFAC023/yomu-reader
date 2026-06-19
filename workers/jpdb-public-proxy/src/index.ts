@@ -32,7 +32,7 @@ export default {
   async fetch(
     request: Request,
     env: Env,
-    _ctx: ExecutionContext,
+    ctx: ExecutionContext,
   ): Promise<Response> {
     if (isCorsPreflight(request)) return preflight(request);
     const target = targetUrl(request);
@@ -40,10 +40,88 @@ export default {
     if (!isAllowedPublicProxyTarget(request.method, target, env))
       return corsText(request, "Target is not proxyable.", 400);
 
+    // Edge-cache deterministic, user-agnostic public GETs (e.g. Jiten
+    // /vocabulary/<id>/<ri>/info, which the origin marks cacheable for an hour).
+    // The same word looked up by many Yomu clients then resolves from
+    // Cloudflare's edge instead of hitting the upstream every time — the single
+    // biggest lever for not overloading a server with repeated lookups.
+    const edgeCache = edgeCacheStore(request, target);
+    if (edgeCache) {
+      const hit = await edgeCache.match();
+      if (hit) return withCors(request, hit, target);
+    }
+
     const response = await fetchProxyTarget(request, target);
+
+    if (edgeCache && isCacheableUpstreamResponse(response)) {
+      const stored = new Response(response.clone().body, response);
+      stored.headers.set("cache-control", edgeCache.cacheControl);
+      stored.headers.delete("set-cookie");
+      stored.headers.delete("vary");
+      ctx.waitUntil(edgeCache.put(stored));
+    }
     return withCors(request, response, target);
   },
 };
+
+const EDGE_CACHE_TTL_SECONDS = 3600;
+const SHORT_EDGE_CACHE_TTL_SECONDS = 600;
+
+interface EdgeCache {
+  match(): Promise<Response | undefined>;
+  put(response: Response): Promise<void>;
+  cacheControl: string;
+}
+
+type EdgeCacheBackend = {
+  match(request: Request): Promise<Response | undefined>;
+  put(request: Request, response: Response): Promise<void>;
+};
+
+// Only deterministic, user-AGNOSTIC public GETs are cached. Anything carrying an
+// Authorization header (a user's API key) is never cached, so per-user state
+// (known-word state, SRS data) can never leak across clients.
+function edgeCacheStore(request: Request, target: URL): EdgeCache | null {
+  if (typeof caches === "undefined" || request.method !== "GET") return null;
+  if (request.headers.has("authorization")) return null;
+  const ttl = edgeCacheTtlSeconds(target);
+  if (ttl <= 0) return null;
+  const backend = (caches as unknown as { default?: EdgeCacheBackend }).default;
+  if (!backend) return null;
+  const key = new Request(target.href, { method: "GET" });
+  return {
+    match: () => backend.match(key),
+    put: (response: Response) => backend.put(key, response),
+    cacheControl: `public, max-age=${ttl}`,
+  };
+}
+
+function edgeCacheTtlSeconds(target: URL): number {
+  const path = target.pathname;
+  if (target.hostname === "api.jiten.moe") {
+    if (/^\/api\/vocabulary\/\d+\/\d+\/info$/.test(path)) return EDGE_CACHE_TTL_SECONDS;
+    if (path.startsWith("/api/kanji/")) return EDGE_CACHE_TTL_SECONDS;
+    if (
+      path === "/api/vocabulary/parse" ||
+      path === "/api/vocabulary/parse-normalised" ||
+      path === "/api/vocabulary/search"
+    )
+      return SHORT_EDGE_CACHE_TTL_SECONDS;
+    return 0;
+  }
+  if (target.hostname === "jpdb.io") {
+    if (path === "/search" || path.startsWith("/vocabulary/"))
+      return SHORT_EDGE_CACHE_TTL_SECONDS;
+    return 0;
+  }
+  return 0;
+}
+
+function isCacheableUpstreamResponse(response: Response): boolean {
+  if (response.status !== 200) return false;
+  const cacheControl = response.headers.get("cache-control") ?? "";
+  return !/\b(?:no-store|private)\b/i.test(cacheControl);
+}
 
 interface Env {}
 
