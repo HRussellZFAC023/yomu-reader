@@ -553,6 +553,7 @@ export class ReaderApp {
         getSettings: () => this.settings,
         jpdb: this.jpdb,
         jiten: this.jiten,
+        jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
     });
     private onboarding = new OnboardingController({
@@ -756,7 +757,7 @@ export class ReaderApp {
         const shouldShowWelcome = await this.loadInitialSettings(options);
         await this.installCoreSurfaces();
         await this.initReaderPage(shouldShowWelcome);
-        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings, preview: true }));
+        dispatchWindowEvent(createWindowCustomEvent(SETTINGS_CHANGE_EVENT, { settings: this.settings }));
         done();
     }
 

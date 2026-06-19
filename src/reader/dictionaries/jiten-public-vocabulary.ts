@@ -1,5 +1,5 @@
 import { Logger } from '../app/logger';
-import type { JPDBCard } from '../app/types';
+import type { JPDBCard, JPDBToken } from '../app/types';
 import { ConcurrencyGate, mapLimited } from '../core/async-utils';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { requestJson } from '../network/http';
@@ -33,6 +33,18 @@ interface PublicParseWord {
     wordId: number;
     readingIndex: number;
     originalText: string;
+}
+
+interface PublicParseChunkRange {
+    paragraphIndex: number;
+    paragraphStart: number;
+    chunkStart: number;
+    chunkEnd: number;
+}
+
+interface PublicParseChunk {
+    text: string;
+    ranges: PublicParseChunkRange[];
 }
 
 interface PublicCardCacheEntry {
@@ -103,6 +115,21 @@ export class JitenPublicVocabularyClient {
         return result;
     }
 
+    async parse(paragraphs: readonly string[]): Promise<JPDBToken[][]> {
+        const result = paragraphs.map((): JPDBToken[] => []);
+        if (!paragraphs.length || this.isBackoffActive()) return result;
+        const chunks = publicParseChunks(paragraphs);
+        await mapLimited(chunks, DETAIL_CONCURRENCY, async chunk => {
+            const parsed = await this.requestParseText(chunk.text).catch(error => {
+                this.noteFailure(error);
+                log.warn('Jiten public parse', { length: chunk.text.length }, error);
+                return [];
+            });
+            applyPublicParseChunk(result, chunk, parsed, paragraphs);
+        });
+        return result;
+    }
+
     clear(): void {
         this.cardCache.clear();
         this.detailCache.clear();
@@ -146,9 +173,12 @@ export class JitenPublicVocabularyClient {
     }
 
     private async requestParse(terms: readonly string[]): Promise<PublicParseWord[]> {
+        return this.requestParseText(terms.join(PARSE_TERM_SEPARATOR));
+    }
+
+    private async requestParseText(text: string): Promise<PublicParseWord[]> {
         return sharedParseGate.run(async () => {
             if (this.isBackoffActive()) return [];
-            const text = terms.join(PARSE_TERM_SEPARATOR);
             const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text)}`).catch(error => {
                 this.noteFailure(error);
                 throw error;
@@ -185,10 +215,11 @@ export class JitenPublicVocabularyClient {
             failureLabel: 'Jiten',
             statusFailureMessage: status => `Jiten fail (${status}).`,
             proxyUrl: this.proxyUrl(),
+            anonymous: true,
             allowDirectCrossOrigin: true,
             allowConfiguredProxy: true,
             allowSensitiveConfiguredProxy: false,
-            allowPublicProxies: true,
+            allowPublicProxies: false,
             preferFetch: true,
         });
     }
@@ -251,6 +282,26 @@ function publicJitenCardFromDetail(payload: unknown, requestedTerm: string, fall
     };
 }
 
+function publicJitenParsedCard(word: PublicParseWord, surface: string): JPDBCard | null {
+    if (word.wordId <= 0 || word.readingIndex < 0) return null;
+    return {
+        vid: word.wordId,
+        sid: word.readingIndex,
+        rid: 0,
+        spelling: surface || word.originalText,
+        reading: '',
+        frequencyRank: null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: [],
+        wordWithReading: null,
+        source: 'jiten',
+        jitenWordId: word.wordId,
+        jitenReadingIndex: word.readingIndex,
+    };
+}
+
 function normalizePublicParseWord(value: unknown): PublicParseWord | null {
     if (!isRecord(value)) return null;
     const wordId = finiteInteger(value.wordId);
@@ -274,6 +325,61 @@ function bestParsedWordForTerm(term: string, parsed: PublicParseWord[]): PublicP
 function bestParsedWordForBatchTerm(term: string, parsed: PublicParseWord[]): PublicParseWord | null {
     const normalized = normalizeLookupText(term);
     return parsed.find(word => normalizeLookupText(word.originalText) === normalized) ?? null;
+}
+
+function publicParseChunks(paragraphs: readonly string[]): PublicParseChunk[] {
+    const chunks: PublicParseChunk[] = [];
+    let current: PublicParseChunk = { text: '', ranges: [] };
+    const flush = (): void => {
+        if (!current.text) return;
+        chunks.push(current);
+        current = { text: '', ranges: [] };
+    };
+    paragraphs.forEach((paragraph, paragraphIndex) => {
+        for (let offset = 0; offset < paragraph.length; offset += PARSE_TEXT_LIMIT) {
+            const part = paragraph.slice(offset, offset + PARSE_TEXT_LIMIT);
+            if (!part) continue;
+            if (current.text && current.text.length + 1 + part.length > PARSE_TEXT_LIMIT) flush();
+            const chunkStart = current.text ? current.text.length + 1 : 0;
+            current.text += `${current.text ? '\n' : ''}${part}`;
+            current.ranges.push({
+                paragraphIndex,
+                paragraphStart: offset,
+                chunkStart,
+                chunkEnd: chunkStart + part.length,
+            });
+        }
+    });
+    flush();
+    return chunks;
+}
+
+function applyPublicParseChunk(result: JPDBToken[][], chunk: PublicParseChunk, parsed: PublicParseWord[], paragraphs: readonly string[]): void {
+    let cursor = 0;
+    for (const word of parsed) {
+        const surface = word.originalText;
+        if (!surface) continue;
+        const start = chunk.text.indexOf(surface, cursor);
+        if (start < 0) continue;
+        const end = start + surface.length;
+        cursor = end;
+        const range = chunk.ranges.find(item => start >= item.chunkStart && end <= item.chunkEnd);
+        if (!range) continue;
+        const paragraphStart = range.paragraphStart + start - range.chunkStart;
+        const paragraph = paragraphs[range.paragraphIndex] ?? '';
+        const paragraphEnd = paragraphStart + surface.length;
+        const card = publicJitenParsedCard(word, paragraph.slice(paragraphStart, paragraphEnd));
+        if (!card) continue;
+        result[range.paragraphIndex]?.push({
+            card,
+            start: paragraphStart,
+            end: paragraphEnd,
+            length: paragraphEnd - paragraphStart,
+            rubies: [],
+            pitchClass: '',
+            sentence: paragraph,
+        });
+    }
 }
 
 function pitchPatterns(value: unknown, reading: string): string[] {

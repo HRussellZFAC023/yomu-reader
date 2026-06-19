@@ -74,6 +74,7 @@ export interface ReaderParserDependencies {
     getSettings: () => ReaderSettings;
     jpdb: JpdbClient;
     jiten?: JitenApiClient;
+    jitenPublicVocabulary?: { parse: (paragraphs: readonly string[]) => Promise<JPDBToken[][]> };
     dictionaries: YomitanDictionaryStore;
 }
 
@@ -121,13 +122,13 @@ export class ReaderParser {
             if (jitenResult) return jitenResult;
             const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
             if (jpdbResult) return jpdbResult;
-            return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+            return this.parseWithFallbackSource(paragraphs, options);
         }
         const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
         if (jpdbResult) return jpdbResult;
         const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
         if (jitenResult) return jitenResult;
-        return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+        return this.parseWithFallbackSource(paragraphs, options);
     }
 
     private async tryParseWithJpdb(paragraphs: string[], options: ReaderParserParseOptions, settings: ReaderSettings): Promise<JPDBToken[][] | null> {
@@ -172,6 +173,28 @@ export class ReaderParser {
         const canFallback = this.canUseParseFallback(options);
         log.warn(remoteParseErrorMessage(source, options, canFallback), error);
         if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
+    }
+
+    private async parseWithFallbackSource(paragraphs: string[], options: ReaderParserParseOptions): Promise<JPDBToken[][]> {
+        if (!await this.hasLocalTermDictionaries()) {
+            const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
+            if (publicJitenResult) return publicJitenResult;
+        }
+        return Promise.all(paragraphs.map(text => this.parseLocalOrSegmentedText(text, options)));
+    }
+
+    private async tryParseWithPublicJiten(paragraphs: string[], options: ReaderParserParseOptions): Promise<JPDBToken[][] | null> {
+        if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
+        const parser = this.dependencies.jitenPublicVocabulary;
+        if (typeof parser?.parse !== 'function') return null;
+        try {
+            const parsed = await parser.parse(paragraphs);
+            if (!parsed.some(tokens => tokens.length)) return null;
+            return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
+        } catch (error) {
+            log.warn('Jiten public parse failed; using local or segmented fallback', error);
+            return null;
+        }
     }
 
     canParse(): boolean {

@@ -9408,7 +9408,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('defaults legacy settings without a proxy URL to the hosted public proxy', async () => {
+    it('defaults legacy settings without a proxy URL to no proxy', async () => {
         const storageKey = 'jpdb-popup-reader-settings';
         const previous = localStorage.getItem(storageKey);
         const legacySettings: Record<string, unknown> = { ...DEFAULT_SETTINGS };

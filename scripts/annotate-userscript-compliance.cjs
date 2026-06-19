@@ -9,16 +9,11 @@ const {
   writeText,
 } = require('./lib/userscript-build-utils.cjs');
 
-const code = readBuiltUserscript();
+let code = readBuiltUserscript();
 const markerIndex = code.indexOf(USERSCRIPT_METADATA_END);
 
 if (markerIndex === -1) {
   fail('dist/yomu.user.js is missing the userscript metadata end marker.');
-}
-
-if (code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER)) {
-  console.log('Userscript compliance notes already present.');
-  process.exit(0);
 }
 
 const notice = `
@@ -27,7 +22,14 @@ const notice = `
 `;
 const insertAt = markerIndex + USERSCRIPT_METADATA_END.length;
 const before = code.slice(0, insertAt);
-const after = code.slice(insertAt).replace(/^\n+/, '\n');
+const hasNotice = code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER);
+const after = stripUserscriptBodyComments(code.slice(insertAt).replace(/^\n+/, '\n'));
 
-writeText(DIST_USERSCRIPT_PATH, `${before}${notice}${after}`);
+writeText(DIST_USERSCRIPT_PATH, `${before}${hasNotice ? '' : notice}${after}`);
 console.log(`Annotated ${DIST_USERSCRIPT_PATH} with Greasy Fork compliance notes.`);
+
+function stripUserscriptBodyComments(value) {
+  return value.split('\n')
+    .filter(line => !/^\s*\/\//.test(line))
+    .join('\n');
+}

@@ -286,7 +286,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     newTabSource: 'auto',
     newTabJpdbDeck: 'all',
     newTabJpdbReviewMode: 'auto',
-    corsProxyUrl: 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev',
+    corsProxyUrl: '',
     newTabKanjiKeywordSource: 'auto',
     newTabParsingEnabled: true,
     newTabFrontSentenceEnabled: true,

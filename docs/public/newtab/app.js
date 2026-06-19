@@ -2411,7 +2411,7 @@
     newTabSource: "auto",
     newTabJpdbDeck: "all",
     newTabJpdbReviewMode: "auto",
-    corsProxyUrl: "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev",
+    corsProxyUrl: "",
     newTabKanjiKeywordSource: "auto",
     newTabParsingEnabled: true,
     newTabFrontSentenceEnabled: true,
@@ -31459,13 +31459,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         if (jitenResult2) return jitenResult2;
         const jpdbResult2 = await this.tryParseWithJpdb(paragraphs, options, settings);
         if (jpdbResult2) return jpdbResult2;
-        return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+        return this.parseWithFallbackSource(paragraphs, options);
       }
       const jpdbResult = await this.tryParseWithJpdb(paragraphs, options, settings);
       if (jpdbResult) return jpdbResult;
       const jitenResult = await this.tryParseWithJiten(paragraphs, options, settings);
       if (jitenResult) return jitenResult;
-      return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+      return this.parseWithFallbackSource(paragraphs, options);
     }
     async tryParseWithJpdb(paragraphs, options, settings) {
       if (!hasJpdbApiCredential(settings) || shouldSkipApiParser(options)) return null;
@@ -31501,6 +31501,26 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const canFallback = this.canUseParseFallback(options);
       log$n.warn(remoteParseErrorMessage(source, options, canFallback), error);
       if (shouldRethrowRemoteParseError(options, canFallback)) throw error;
+    }
+    async parseWithFallbackSource(paragraphs, options) {
+      if (!await this.hasLocalTermDictionaries()) {
+        const publicJitenResult = await this.tryParseWithPublicJiten(paragraphs, options);
+        if (publicJitenResult) return publicJitenResult;
+      }
+      return Promise.all(paragraphs.map((text2) => this.parseLocalOrSegmentedText(text2, options)));
+    }
+    async tryParseWithPublicJiten(paragraphs, options) {
+      if (options.allowSegmentedFallback !== true || shouldSkipApiParser(options)) return null;
+      const parser = this.dependencies.jitenPublicVocabulary;
+      if (typeof parser?.parse !== "function") return null;
+      try {
+        const parsed = await parser.parse(paragraphs);
+        if (!parsed.some((tokens) => tokens.length)) return null;
+        return this.withSegmentedFallbackGaps(paragraphs, parsed, options);
+      } catch (error) {
+        log$n.warn("Jiten public parse failed; using local or segmented fallback", error);
+        return null;
+      }
     }
     canParse() {
       return true;
@@ -53967,6 +53987,20 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }));
       return result;
     }
+    async parse(paragraphs) {
+      const result = paragraphs.map(() => []);
+      if (!paragraphs.length || this.isBackoffActive()) return result;
+      const chunks2 = publicParseChunks(paragraphs);
+      await mapLimited(chunks2, DETAIL_CONCURRENCY, async (chunk) => {
+        const parsed = await this.requestParseText(chunk.text).catch((error) => {
+          this.noteFailure(error);
+          log$8.warn("Jiten public parse", { length: chunk.text.length }, error);
+          return [];
+        });
+        applyPublicParseChunk(result, chunk, parsed, paragraphs);
+      });
+      return result;
+    }
     clear() {
       this.cardCache.clear();
       this.detailCache.clear();
@@ -54004,9 +54038,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return groups.flat();
     }
     async requestParse(terms) {
+      return this.requestParseText(terms.join(PARSE_TERM_SEPARATOR));
+    }
+    async requestParseText(text2) {
       return sharedParseGate.run(async () => {
         if (this.isBackoffActive()) return [];
-        const text2 = terms.join(PARSE_TERM_SEPARATOR);
         const payload = await this.requestJson(`vocabulary/parse?text=${encodeURIComponent(text2)}`).catch((error) => {
           this.noteFailure(error);
           throw error;
@@ -54037,10 +54073,11 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         failureLabel: "Jiten",
         statusFailureMessage: (status) => `Jiten fail (${status}).`,
         proxyUrl: this.proxyUrl(),
+        anonymous: true,
         allowDirectCrossOrigin: true,
         allowConfiguredProxy: true,
         allowSensitiveConfiguredProxy: false,
-        allowPublicProxies: true,
+        allowPublicProxies: false,
         preferFetch: true
       });
     }
@@ -54095,6 +54132,25 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       jitenReadingIndex: fallback.readingIndex
     };
   }
+  function publicJitenParsedCard(word, surface) {
+    if (word.wordId <= 0 || word.readingIndex < 0) return null;
+    return {
+      vid: word.wordId,
+      sid: word.readingIndex,
+      rid: 0,
+      spelling: surface || word.originalText,
+      reading: "",
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jiten",
+      jitenWordId: word.wordId,
+      jitenReadingIndex: word.readingIndex
+    };
+  }
   function normalizePublicParseWord(value) {
     if (!isRecord$1(value)) return null;
     const wordId = finiteInteger(value.wordId);
@@ -54113,6 +54169,59 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function bestParsedWordForBatchTerm(term, parsed) {
     const normalized = normalizeLookupText(term);
     return parsed.find((word) => normalizeLookupText(word.originalText) === normalized) ?? null;
+  }
+  function publicParseChunks(paragraphs) {
+    const chunks2 = [];
+    let current = { text: "", ranges: [] };
+    const flush = () => {
+      if (!current.text) return;
+      chunks2.push(current);
+      current = { text: "", ranges: [] };
+    };
+    paragraphs.forEach((paragraph, paragraphIndex) => {
+      for (let offset = 0; offset < paragraph.length; offset += PARSE_TEXT_LIMIT) {
+        const part = paragraph.slice(offset, offset + PARSE_TEXT_LIMIT);
+        if (!part) continue;
+        if (current.text && current.text.length + 1 + part.length > PARSE_TEXT_LIMIT) flush();
+        const chunkStart = current.text ? current.text.length + 1 : 0;
+        current.text += `${current.text ? "\n" : ""}${part}`;
+        current.ranges.push({
+          paragraphIndex,
+          paragraphStart: offset,
+          chunkStart,
+          chunkEnd: chunkStart + part.length
+        });
+      }
+    });
+    flush();
+    return chunks2;
+  }
+  function applyPublicParseChunk(result, chunk, parsed, paragraphs) {
+    let cursor = 0;
+    for (const word of parsed) {
+      const surface = word.originalText;
+      if (!surface) continue;
+      const start = chunk.text.indexOf(surface, cursor);
+      if (start < 0) continue;
+      const end = start + surface.length;
+      cursor = end;
+      const range = chunk.ranges.find((item) => start >= item.chunkStart && end <= item.chunkEnd);
+      if (!range) continue;
+      const paragraphStart = range.paragraphStart + start - range.chunkStart;
+      const paragraph = paragraphs[range.paragraphIndex] ?? "";
+      const paragraphEnd = paragraphStart + surface.length;
+      const card = publicJitenParsedCard(word, paragraph.slice(paragraphStart, paragraphEnd));
+      if (!card) continue;
+      result[range.paragraphIndex]?.push({
+        card,
+        start: paragraphStart,
+        end: paragraphEnd,
+        length: paragraphEnd - paragraphStart,
+        rubies: [],
+        pitchClass: "",
+        sentence: paragraph
+      });
+    }
   }
   function pitchPatterns(value, reading) {
     return Array.isArray(value) ? value.map(finiteInteger).filter((position) => position !== void 0).map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean) : [];
@@ -69516,6 +69625,7 @@ ${entry.url}`),
     parser = new ReaderParser({
       getSettings: () => this.settings,
       jpdb: this.jpdb,
+      jitenPublicVocabulary: this.jitenPublicVocabulary,
       dictionaries: this.dictionaries
     });
     factoryReset = createFactoryResetCoordinator({

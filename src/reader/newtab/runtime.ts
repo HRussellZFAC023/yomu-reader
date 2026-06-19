@@ -346,6 +346,7 @@ export class NewTabRuntime {
     private parser = new ReaderParser({
         getSettings: () => this.settings,
         jpdb: this.jpdb,
+        jitenPublicVocabulary: this.jitenPublicVocabulary,
         dictionaries: this.dictionaries,
     });
     private factoryReset: FactoryResetCoordinator = createFactoryResetCoordinator({

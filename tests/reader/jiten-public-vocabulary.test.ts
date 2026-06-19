@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { JitenPublicVocabularyClient, resetJitenPublicVocabularyBackoffForTests } from '../../src/reader/dictionaries/jiten-public-vocabulary';
+import type { ReaderHttpOptions } from '../../src/reader/network/http';
 
 describe('JitenPublicVocabularyClient', () => {
     afterEach(() => {
@@ -105,6 +106,41 @@ describe('JitenPublicVocabularyClient', () => {
         expect(cards.has('語12')).toBe(false);
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
         expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)))).toHaveLength(12);
+    });
+
+    it('parses full paragraph batches without public detail fan-out', async () => {
+        const requestJson = vi.fn(async (url: string, options?: ReaderHttpOptions) => {
+            if (url.includes('/vocabulary/parse?')) {
+                expect(new URL(url).searchParams.get('text')).toBe('本を読む。\n猫を見る。');
+                expect(options).toMatchObject({ anonymous: true, allowPublicProxies: false, proxyUrl: '' });
+                return [
+                    { wordId: 112, readingIndex: 0, originalText: '本' },
+                    { wordId: 2029010, readingIndex: 0, originalText: 'を' },
+                    { wordId: 1456360, readingIndex: 0, originalText: '読む' },
+                    { wordId: 0, readingIndex: 0, originalText: '。' },
+                    { wordId: 113, readingIndex: 0, originalText: '猫' },
+                    { wordId: 2029010, readingIndex: 0, originalText: 'を' },
+                    { wordId: 1259290, readingIndex: 0, originalText: '見る' },
+                    { wordId: 0, readingIndex: 0, originalText: '。' },
+                ];
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const parsed = await client.parse(['本を読む。', '猫を見る。']);
+
+        expect(parsed.map(tokens => tokens.map(token => token.card.spelling))).toEqual([
+            ['本', 'を', '読む'],
+            ['猫', 'を', '見る'],
+        ]);
+        expect(parsed[1]?.[0]).toMatchObject({
+            start: 0,
+            end: 1,
+            card: { source: 'jiten', jitenWordId: 113, jitenReadingIndex: 0 },
+        });
+        expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
+        expect(requestJson.mock.calls.some(([url]) => /\/vocabulary\/\d+\/\d+\/info/u.test(String(url)))).toBe(false);
     });
 
     it('backs off after transient upstream failures so cold enrichment can skip Jiten quickly', async () => {

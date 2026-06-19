@@ -6,6 +6,7 @@ import {
     ReaderParser,
 } from '../../src/reader/lookup/parser';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings';
+import type { JPDBToken } from '../../src/reader/app/types';
 
 /**
  * Regression coverage for the keyless local segmenter that drives parsing when
@@ -63,6 +64,57 @@ describe('fallback Japanese segmentation coherence (P0-02)', () => {
         for (const fragment of ['日', '本', '語', '読', 'ん', 'で', '学', 'ぶ']) {
             expect(segs).not.toContain(fragment);
         }
+    });
+
+    it('uses public Jiten parsing for no-key full-page batches before segmented fallback', async () => {
+        const publicParse = vi.fn(async (paragraphs: readonly string[]): Promise<JPDBToken[][]> => paragraphs.map(text => text.includes('猫')
+            ? [{
+                card: {
+                    vid: 1259290,
+                    sid: 0,
+                    rid: 0,
+                    spelling: '見る',
+                    reading: '',
+                    frequencyRank: null,
+                    partOfSpeech: [],
+                    meanings: [],
+                    cardState: ['not-in-deck'],
+                    pitchAccent: [],
+                    wordWithReading: null,
+                    source: 'jiten',
+                    jitenWordId: 1259290,
+                    jitenReadingIndex: 0,
+                },
+                start: 2,
+                end: 4,
+                length: 2,
+                rubies: [],
+                pitchClass: '',
+                sentence: text,
+            }]
+            : []));
+        const jpdbParse = vi.fn();
+        const findTermMatches = vi.fn();
+        const parser = new ReaderParser({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                jitenApiKey: '',
+                localDictionariesEnabled: false,
+            }),
+            jpdb: { parse: jpdbParse } as never,
+            jitenPublicVocabulary: { parse: publicParse },
+            dictionaries: { findTermMatches } as never,
+        });
+
+        const parsed = await parser.parse(['本を読む。', '猫を見る。'], { allowSegmentedFallback: true });
+
+        expect(publicParse).toHaveBeenCalledTimes(1);
+        expect(publicParse).toHaveBeenCalledWith(['本を読む。', '猫を見る。']);
+        expect(jpdbParse).not.toHaveBeenCalled();
+        expect(findTermMatches).not.toHaveBeenCalled();
+        expect(parsed[1]?.find(token => token.card.source === 'jiten')?.card).toMatchObject({ source: 'jiten', jitenWordId: 1259290 });
+        expect(parsed[0]?.map(token => token.card.spelling)).toEqual(['本', 'を', '読む']);
     });
 
     it('parses 好きなものを読む coherently', () => {
