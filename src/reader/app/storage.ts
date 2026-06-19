@@ -22,6 +22,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'yomu:anki-status-index:v1',
     'yomu:anki-status-index-rebuild:v1',
     'yomu:jpdb-cache:v1',
+    'yomu:jiten-public-cache:v1',
     'yomu.grammarPreferences.v1',
     'yomu:enable-logs',
     'yomu:prefer-japanese-site-language',

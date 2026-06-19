@@ -72,7 +72,7 @@ From a single lookup popup, よむ lets you:
 Because all of this lives in one popup, you can adopt the tools gradually: read with the dictionary first, add JPDB when you want structured reviews, and bring in Anki for the cards you want to own.
 
 <div class="yomu-callout">
-  <strong>Tip:</strong> the hosted <a href="/yomu-reader/newtab/index.html">new-tab study page</a> reviews Anki, then JPDB, then your local dictionary words in turn — a single daily-review surface for whatever you have connected.
+  <strong>Tip:</strong> the hosted <a href="/yomu-reader/newtab/index.html">new-tab study page</a> reviews Anki when it is reachable, then Jiten, then JPDB, then your local dictionary words in turn — a single daily-review surface for whatever you have connected.
 </div>
 
 A reasonable starting point for most people: import a dictionary so reading is comfortable, then pick **one** SRS — JPDB for speed, Anki for control — and only add the second later if you actually miss it.

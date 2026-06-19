@@ -239,6 +239,7 @@ describe('managed storage backup', () => {
             ['jpdb-reader-newtab-jpdb-stats-history', { importedAt: 123 }],
             ['jpdb-reader-newtab-disabled-anki-decks', ['Archive']],
             ['yomu:anki-status-index:v1', { version: 1, entries: {} }],
+            ['yomu:jiten-public-cache:v1', { 'card\n青空': { t: 1, v: { spelling: '青空' } } }],
             ['yomu:prefer-japanese-site-language', true],
             ['unrelated-key', 'ignore'],
         ]);
@@ -248,6 +249,7 @@ describe('managed storage backup', () => {
             'jpdb-reader-newtab-disabled-anki-decks': ['Archive'],
             'jpdb-reader-newtab-jpdb-stats-history': { importedAt: 123 },
             'yomu:anki-status-index:v1': { version: 1, entries: {} },
+            'yomu:jiten-public-cache:v1': { 'card\n青空': { t: 1, v: { spelling: '青空' } } },
             'yomu:prefer-japanese-site-language': true,
         });
     });

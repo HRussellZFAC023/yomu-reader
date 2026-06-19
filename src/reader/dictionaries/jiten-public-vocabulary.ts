@@ -3,6 +3,7 @@ import type { JPDBCard, JPDBToken } from '../app/types';
 import { ConcurrencyGate, mapLimited } from '../core/async-utils';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { requestJson } from '../network/http';
+import { readPublicJitenCache, writePublicJitenCache } from './jiten-public-cache';
 
 const JITEN_PUBLIC_API_BASE_URL = 'https://api.jiten.moe/api';
 const REQUEST_TIMEOUT_MS = 1500;
@@ -69,7 +70,17 @@ export class JitenPublicVocabularyClient {
             return cached.promise;
         }
         if (cached) this.cardCache.delete(normalized);
+        const persisted = readPublicJitenCache<JPDBCard>('card', normalized, now);
+        if (persisted) {
+            const promise = Promise.resolve(persisted);
+            this.remember(this.cardCache, normalized, promise, now);
+            return promise;
+        }
         const promise = this.lookupUncached(normalized)
+            .then(card => {
+                if (card) writePublicJitenCache('card', normalized, card);
+                return card;
+            })
             .catch(error => {
                 this.noteFailure(error);
                 log.warn('Jiten lookup', { term: normalized }, error);
@@ -85,6 +96,7 @@ export class JitenPublicVocabularyClient {
         if (!uniqueTerms.length || this.isBackoffActive()) return result;
 
         const cachedTerms: string[] = [];
+        const persistedCards = new Map<string, JPDBCard>();
         const pendingTerms: string[] = [];
         const now = Date.now();
         uniqueTerms.forEach(term => {
@@ -94,9 +106,16 @@ export class JitenPublicVocabularyClient {
                 return;
             }
             if (cached) this.cardCache.delete(term);
+            const persisted = readPublicJitenCache<JPDBCard>('card', term, now);
+            if (persisted) {
+                persistedCards.set(term, persisted);
+                this.remember(this.cardCache, term, Promise.resolve(persisted), now);
+                return;
+            }
             pendingTerms.push(term);
         });
 
+        persistedCards.forEach((card, term) => result.set(term, card));
         if (pendingTerms.length) {
             const loaded = await this.lookupManyUncached(pendingTerms).catch(error => {
                 this.noteFailure(error);
@@ -158,7 +177,9 @@ export class JitenPublicVocabularyClient {
         const cards = new Map<string, JPDBCard>();
         await Promise.all([...candidatesByTerm.keys()].map(async term => {
             const card = await this.cardCache.get(term)?.promise.catch(() => null);
-            if (card) cards.set(term, card);
+            if (!card) return;
+            cards.set(term, card);
+            writePublicJitenCache('card', term, card);
         }));
         return cards;
     }

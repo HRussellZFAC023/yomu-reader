@@ -5,6 +5,7 @@ import type { ReaderHttpOptions } from '../../src/reader/network/http';
 describe('JitenPublicVocabularyClient', () => {
     afterEach(() => {
         resetJitenPublicVocabularyBackoffForTests();
+        localStorage.removeItem('yomu:jiten-public-cache:v1');
     });
 
     it('hydrates keyless vocabulary details with reading and pitch accents', async () => {
@@ -73,6 +74,32 @@ describe('JitenPublicVocabularyClient', () => {
         expect(cards.get('青空')).toMatchObject({ spelling: '青空', pitchAccent: ['LHHLL'] });
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/1381470/0/info'))).toHaveLength(1);
+    });
+
+    it('caches keyless public Jiten cards across client instances', async () => {
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                return [{ wordId: 1381470, readingIndex: 0, originalText: '青空' }];
+            }
+            if (url.includes('/vocabulary/1381470/0/info')) {
+                return {
+                    wordId: 1381470,
+                    mainReading: { text: '青[あお]空[ぞら]', frequencyRank: 6924 },
+                    definitions: [{ meanings: ['blue sky'] }],
+                    pitchAccents: [3],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+
+        const first = await new JitenPublicVocabularyClient({ requestJsonImpl: requestJson }).lookup('青空');
+        const second = await new JitenPublicVocabularyClient({ requestJsonImpl: requestJson }).lookup('青空');
+
+        expect(first).toMatchObject({ spelling: '青空', reading: 'あおぞら', source: 'jiten' });
+        expect(second).toMatchObject({ spelling: '青空', reading: 'あおぞら', source: 'jiten' });
+        expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
+        expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/1381470/0/info'))).toHaveLength(1);
+        expect(localStorage.getItem('yomu:jiten-public-cache:v1')).toContain('card');
     });
 
     it('caps keyless public detail fan-out for large batches', async () => {

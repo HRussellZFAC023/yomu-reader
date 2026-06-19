@@ -61,6 +61,16 @@ describe('interface language resolution', () => {
         expect(cardCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
     });
 
+    it('keeps study setup callouts covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const calloutCopy = [
+            'the hosted',
+            'reviews Anki when it is reachable, then Jiten, then JPDB, then your local dictionary words in turn — a single daily-review surface for whatever you have connected.',
+        ];
+
+        expect(calloutCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+    });
+
     it('keeps dynamic hosted docs attributes covered by Japanese docs copy', () => {
         const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
         const dynamicCopy = [

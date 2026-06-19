@@ -196,6 +196,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Jiten/JPDB': 'Jiten/JPDB',
     'A fresh install starts by sending you to Settings → Dictionaries so JMdict or another Yomitan ZIP can be downloaded into local storage — after that the page works even with no API key or Anki account.': '初回はSettings → Dictionariesに案内され、JMdictや他のYomitan ZIPをローカル保存できます。その後はAPIキーやAnkiアカウントなしでもページを使えます。',
     'Use the よむ study screen for Jiten, JPDB, Anki, or imported dictionary cards.': 'Jiten、JPDB、Anki、またはインポート辞書カード向けによむの学習画面を使用します。',
+    'the hosted': 'ホスト版の',
+    'reviews Anki when it is reachable, then Jiten, then JPDB, then your local dictionary words in turn — a single daily-review surface for whatever you have connected.': 'は、Ankiに接続できる場合はAnki、その後Jiten、JPDB、ローカル辞書語の順に復習します。接続しているものをまとめて扱える日々の学習画面です。',
     'よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as': 'よむは、ポップアップ検索、マイニング、インポート辞書、字幕、画像読み取り、Anki書き出しを1つの無料ユーザースクリプトに統合します。同等の学習スイートである',
     'Understand in context': '文脈で理解する',
     'Readings, meanings, kanji, pitch, audio, examples, and dictionary entries stay in one popup.': '読み、意味、漢字、ピッチ、音声、例文、辞書項目を1つのポップアップで確認できます。',

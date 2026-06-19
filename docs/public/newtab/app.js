@@ -1086,6 +1086,7 @@
     "yomu:anki-status-index:v1",
     "yomu:anki-status-index-rebuild:v1",
     "yomu:jpdb-cache:v1",
+    "yomu:jiten-public-cache:v1",
     "yomu.grammarPreferences.v1",
     "yomu:enable-logs",
     "yomu:prefer-japanese-site-language",
@@ -53917,6 +53918,59 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function isAbortError(error) {
     return error instanceof DOMException && error.name === "AbortError";
   }
+  const PUBLIC_JITEN_CACHE_STORAGE_KEY = "yomu:jiten-public-cache:v1";
+  const PUBLIC_JITEN_CACHE_TTL_MS = 24 * 60 * 60 * 1e3;
+  const PUBLIC_JITEN_CACHE_LIMIT = 240;
+  function readPublicJitenCache(kind, key, now = Date.now()) {
+    const state2 = readState$1();
+    const cacheKey = `${kind}
+${key}`;
+    const entry = state2[cacheKey];
+    if (!entry) return void 0;
+    if (!isEntry$1(entry) || expiresAt$1(entry) <= now) {
+      delete state2[cacheKey];
+      writeState$1(state2);
+      return void 0;
+    }
+    return entry.v;
+  }
+  function writePublicJitenCache(kind, key, value, now = Date.now()) {
+    const state2 = readState$1();
+    state2[`${kind}
+${key}`] = { t: now, v: value };
+    pruneState$1(state2, now);
+    writeState$1(state2);
+  }
+  function readState$1() {
+    try {
+      const value = JSON.parse(localStorage.getItem(PUBLIC_JITEN_CACHE_STORAGE_KEY) ?? "{}");
+      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+    } catch {
+      return {};
+    }
+  }
+  function isEntry$1(value) {
+    if (!value || typeof value !== "object") return false;
+    const entry = value;
+    return typeof entry.t === "number" && Number.isFinite(entry.t) && Object.prototype.hasOwnProperty.call(entry, "v");
+  }
+  function pruneState$1(state2, now) {
+    for (const [key, entry] of Object.entries(state2)) {
+      if (!isEntry$1(entry) || expiresAt$1(entry) <= now) delete state2[key];
+    }
+    const entries = Object.entries(state2);
+    if (entries.length <= PUBLIC_JITEN_CACHE_LIMIT) return;
+    entries.sort((a, b) => a[1].t - b[1].t).slice(0, entries.length - PUBLIC_JITEN_CACHE_LIMIT).forEach(([key]) => delete state2[key]);
+  }
+  function expiresAt$1(entry) {
+    return entry.t + PUBLIC_JITEN_CACHE_TTL_MS;
+  }
+  function writeState$1(state2) {
+    try {
+      localStorage.setItem(PUBLIC_JITEN_CACHE_STORAGE_KEY, JSON.stringify(state2));
+    } catch {
+    }
+  }
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
   const REQUEST_TIMEOUT_MS$1 = 1500;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
@@ -53947,7 +54001,16 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         return cached.promise;
       }
       if (cached) this.cardCache.delete(normalized);
-      const promise = this.lookupUncached(normalized).catch((error) => {
+      const persisted = readPublicJitenCache("card", normalized, now);
+      if (persisted) {
+        const promise2 = Promise.resolve(persisted);
+        this.remember(this.cardCache, normalized, promise2, now);
+        return promise2;
+      }
+      const promise = this.lookupUncached(normalized).then((card) => {
+        if (card) writePublicJitenCache("card", normalized, card);
+        return card;
+      }).catch((error) => {
         this.noteFailure(error);
         log$8.warn("Jiten lookup", { term: normalized }, error);
         return null;
@@ -53960,6 +54023,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const result = /* @__PURE__ */ new Map();
       if (!uniqueTerms.length || this.isBackoffActive()) return result;
       const cachedTerms = [];
+      const persistedCards = /* @__PURE__ */ new Map();
       const pendingTerms = [];
       const now = Date.now();
       uniqueTerms.forEach((term) => {
@@ -53969,8 +54033,15 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
           return;
         }
         if (cached) this.cardCache.delete(term);
+        const persisted = readPublicJitenCache("card", term, now);
+        if (persisted) {
+          persistedCards.set(term, persisted);
+          this.remember(this.cardCache, term, Promise.resolve(persisted), now);
+          return;
+        }
         pendingTerms.push(term);
       });
+      persistedCards.forEach((card, term) => result.set(term, card));
       if (pendingTerms.length) {
         const loaded = await this.lookupManyUncached(pendingTerms).catch((error) => {
           this.noteFailure(error);
@@ -54025,7 +54096,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       const cards = /* @__PURE__ */ new Map();
       await Promise.all([...candidatesByTerm.keys()].map(async (term) => {
         const card = await this.cardCache.get(term)?.promise.catch(() => null);
-        if (card) cards.set(term, card);
+        if (!card) return;
+        cards.set(term, card);
+        writePublicJitenCache("card", term, card);
       }));
       return cards;
     }
