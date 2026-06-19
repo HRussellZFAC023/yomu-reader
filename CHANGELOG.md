@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.18] - 2026-06-20
+
+### Fixed
+
+- Discord and other strict or stale-CSS pages now keep the default reader word highlight, pitch underline, and pitch text-color fallback when the full `yomu.css` resource is unavailable; the inline critical fallback now carries those shared word visual channels instead of only base pitch underline styling.
+
 ## [1.4.17] - 2026-06-20
 
 ### Fixed

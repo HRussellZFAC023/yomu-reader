@@ -8,6 +8,50 @@ const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v1';
 
 export const READER_CSS = resourceReaderCss();
 
+const CRITICAL_STATES = [
+    ['new', ['new', 'not-in-deck', 'in-deck']],
+    ['learning', ['learning', 'young']],
+    ['known', ['known', 'mature', 'mastered', 'never-forget', 'redundant']],
+    ['due', ['due']],
+    ['failed', ['failed']],
+    ['ignored', ['suspended', 'blacklisted', 'locked']],
+] as const;
+const CRITICAL_PITCHES = ['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku'] as const;
+
+function criticalSelector(states: readonly string[]): string {
+    return states.map(state => `[data-card-state=${state}]`).join(',');
+}
+
+function criticalVars(color: string): string {
+    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable)`;
+}
+
+function criticalWordCss(): string {
+    const states = CRITICAL_STATES
+        .map(([color, group]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color)}}`)
+        .join('');
+    const pitches = CRITICAL_PITCHES
+        .map(pattern => `.jpdb-reader-word.jpdb-pitch-${pattern}{--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`)
+        .join('');
+    const pitchSelector = CRITICAL_PITCHES.map(pattern => `.jpdb-pitch-${pattern}`).join(',');
+    return [
+        states,
+        '.jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb))}',
+        pitches,
+        `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,transparent);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
+        criticalChannelCss(),
+    ].join('');
+}
+
+function criticalChannelCss(): string {
+    return [
+        '.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,transparent)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,transparent)}',
+        ':is(.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{--yhp:var(--yh,transparent);background:linear-gradient(var(--yhp),var(--yhp)) center/var(--yz) 100% no-repeat!important}',
+        '.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,transparent)}',
+        '.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--c2,currentColor)!important}',
+    ].join('');
+}
+
 export const CRITICAL_READER_CSS = `
 [data-jpdb-reader-root],
 [data-jpdb-reader-root] *,
@@ -127,74 +171,9 @@ export const CRITICAL_READER_CSS = `
   border-radius: 999px;
   background: var(--jpdb-reader-faint, #687384);
 }
-.jpdb-reader-word {
-  --jpdb-reader-word-color-source: currentColor;
-  --jpdb-reader-word-decoration-source: transparent;
-  --jpdb-reader-word-inline-gap: 0.08em;
-  --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
-  --jpdb-reader-word-underline-offset: 0.12em;
-  --jpdb-reader-word-underline-style: solid;
-  --jpdb-reader-word-underline-thickness: 1px;
-  --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
-  --jpdb-reader-source-pitch-decoration: transparent;
-  position: relative;
-  text-decoration-line: underline !important;
-  text-decoration-style: var(--jpdb-reader-word-underline-style) !important;
-  text-decoration-color: transparent !important;
-  text-decoration-thickness: var(--jpdb-reader-word-underline-thickness) !important;
-  text-underline-offset: var(--jpdb-reader-word-underline-offset) !important;
-  text-decoration-skip-ink: none !important;
-}
-.jpdb-reader-word::after {
-  content: "";
-  position: absolute;
-  z-index: 1;
-  inset-inline: var(--jpdb-reader-word-inline-gap);
-  inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
-  border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
-  pointer-events: none;
-}
-.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after,
-.VPHomeHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after {
-  inset-block-end: calc(var(--jpdb-reader-word-underline-offset) * 0.5);
-}
-.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after,
-.yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after {
-  border-block-end-color: transparent;
-}
-.jpdb-reader-word.jpdb-pitch-heiban {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-heiban);
-  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-heiban-readable);
-}
-.jpdb-reader-word.jpdb-pitch-atamadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-atamadaka);
-  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-atamadaka-readable);
-}
-.jpdb-reader-word.jpdb-pitch-nakadaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-nakadaka);
-  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-nakadaka-readable);
-}
-.jpdb-reader-word.jpdb-pitch-odaka {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-odaka);
-  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-odaka-readable);
-}
-.jpdb-reader-word.jpdb-pitch-kifuku {
-  --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-kifuku);
-  --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-kifuku-readable);
-}
-.jpdb-reader-word:is(.jpdb-pitch-heiban, .jpdb-pitch-atamadaka, .jpdb-pitch-nakadaka, .jpdb-pitch-odaka, .jpdb-pitch-kifuku) {
-  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);
-}
-.jpdb-reader-word-underline-pitch .jpdb-reader-word {
-  --jpdb-reader-word-decoration-source: var(--jpdb-reader-source-pitch-decoration, transparent);
-}
-.jpdb-reader-word-text-pitch .jpdb-reader-word {
-  --jpdb-reader-word-color-source: var(--jpdb-reader-source-pitch-color, currentColor);
-  color: var(--jpdb-reader-word-color-source, currentColor) !important;
-}
-.jpdb-reader-word-underline-pitch .jpdb-reader-word {
-  --jpdb-reader-word-underline: var(--jpdb-reader-word-accessible-underline, var(--jpdb-reader-word-decoration-source, transparent));
-}
+.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) transparent var(--yw)!important;text-underline-offset:var(--yo)!important}
+.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:calc(-1 * var(--yo));border-block-end:var(--yw) var(--ys) var(--yu,transparent);pointer-events:none}
+${criticalWordCss()}
 `.trim();
 
 export function initialReaderCss(css = READER_CSS): string {

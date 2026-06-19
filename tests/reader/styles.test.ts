@@ -48,12 +48,20 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
         expect(css).toContain('.jpdb-reader-word.jpdb-pitch-heiban');
-        expect(css).toContain('--jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-color, transparent);');
+        expect(css).toContain('--d2:var(--pc,transparent);');
         expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-text-pitch .jpdb-reader-word');
-        expect(css).toContain('--jpdb-reader-word-inline-gap: 0.08em;');
-        expect(css).toContain('inset-inline: var(--jpdb-reader-word-inline-gap);');
-        expect(css).toContain('border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);');
+        expect(css).toContain('[data-card-state=new]');
+        expect(css).toContain('[data-card-source=jiten]');
+        expect(css).toContain('.jpdb-reader-word-highlight-jpdb .jpdb-reader-word');
+        expect(css).toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word');
+        expect(css).not.toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word');
+        expect(css).toContain('--yu:var(--d2,transparent)');
+        expect(css).toContain('color:var(--c2,currentColor)!important');
+        expect(css).toContain('background:linear-gradient(var(--yhp),var(--yhp)) center/var(--yz) 100% no-repeat!important');
+        expect(css).toContain('--yi:.08em;');
+        expect(css).toContain('inset-inline:var(--yi);');
+        expect(css).toContain('border-block-end:var(--yw) var(--ys) var(--yu,transparent);');
     });
 
     it('uses the full reader CSS when the userscript resource is available', () => {
