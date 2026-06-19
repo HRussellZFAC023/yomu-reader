@@ -19,9 +19,9 @@ export type AnkiDuplicateNoteErrorClass = typeof import('../anki/client').AnkiDu
 // Consumed by the registry slot type below and the companion build.
 export type AnkiLookupWithUnavailableDetailsFn = typeof import('../anki/client').ankiLookupWithUnavailableDetails;
 // Consumed by the registry slot type below and the companion build.
-export type BuildYomuAnkiFieldsFn = typeof import('../anki/client').buildYomuAnkiFields;
+export type BuildYomuAnkiFieldsFn = typeof import('../anki/field-render').buildYomuAnkiFields;
 // Consumed by the registry slot type below and the companion build.
-export type BuildYomuAnkiPreviewFieldsFn = typeof import('../anki/client').buildYomuAnkiPreviewFields;
+export type BuildYomuAnkiPreviewFieldsFn = typeof import('../anki/field-render').buildYomuAnkiPreviewFields;
 // Consumed by the registry slot type below and the companion build.
 export type CanUseMobileAnkiHandoffFn = typeof import('../anki/mobile-handoff').canUseMobileAnkiHandoff;
 // Consumed by the registry slot type below and the companion build.
