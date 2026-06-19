@@ -107,7 +107,10 @@ function matchesCaptionVideoScope(rect: DOMRect, video?: HTMLVideoElement, nearV
     if (!video) return !nearVideoOnly;
     const videoRect = video.getBoundingClientRect();
     if (videoRect.width < 120 || videoRect.height < 80) return !nearVideoOnly;
-    return isCaptionNearVideo(rect, videoRect);
+    // The generic span/div scan (nearVideoOnly) has no recognized caption class to
+    // trust, so it gets the stricter overlay geometry check; elements found via a
+    // known caption selector are already trusted and keep the looser proximity test.
+    return isCaptionNearVideo(rect, videoRect, nearVideoOnly);
 }
 
 function isCaptionElementExcluded(element: HTMLElement, readerRoot?: HTMLElement): boolean {
@@ -172,13 +175,30 @@ function hasVisibleCaptionStyle(style: CSSStyleDeclaration): boolean {
         && Number(style.opacity || '1') > 0;
 }
 
-function isCaptionNearVideo(rect: DOMRect, videoRect: DOMRect): boolean {
+function isCaptionNearVideo(rect: DOMRect, videoRect: DOMRect, strict = false): boolean {
     const horizontalOverlap = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
     const overlapRatio = horizontalOverlap / Math.max(1, Math.min(rect.width, videoRect.width));
     const overlapsVideo = captionOverlapsVideo(rect, videoRect, overlapRatio);
     const belowVideo = captionSitsBelowVideo(rect, videoRect, overlapRatio);
     const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
-    return !tooLarge && (overlapsVideo || belowVideo);
+    if (tooLarge || !(overlapsVideo || belowVideo)) return false;
+    // Generic page text only counts as a caption when it actually looks like a
+    // subtitle overlay: centered on the player and starting inside the frame
+    // (captions render bottom-up). Page chrome posted next to a clip — a chat or
+    // forum author handle such as Discord's "Canna波蘭" — is left/right-anchored
+    // and often above the video, so it fails both and no longer latches into the
+    // overlay while scrolling past the clip.
+    return !strict || (isCaptionOverlaidOnVideo(rect, videoRect) && isCaptionCenteredOnVideo(rect, videoRect));
+}
+
+function isCaptionOverlaidOnVideo(rect: DOMRect, videoRect: DOMRect): boolean {
+    return rect.top >= videoRect.top && rect.top <= videoRect.bottom + 90;
+}
+
+function isCaptionCenteredOnVideo(rect: DOMRect, videoRect: DOMRect): boolean {
+    const captionCenter = (rect.left + rect.right) / 2;
+    const videoCenter = (videoRect.left + videoRect.right) / 2;
+    return Math.abs(captionCenter - videoCenter) <= videoRect.width * 0.3;
 }
 
 function captionOverlapsVideo(rect: DOMRect, videoRect: DOMRect, overlapRatio: number): boolean {

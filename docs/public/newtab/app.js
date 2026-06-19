@@ -1891,9 +1891,9 @@
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-    YOMU_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1909,7 +1909,20 @@
     { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
-  const PREVIOUS_DEFAULT_LOOKUP_LINK_IDS = [
+  const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
     JITEN_LOOKUP_LINK.id,
     JPDB_LOOKUP_LINK.id,
     YOMU_LOOKUP_LINK.id,
@@ -1922,7 +1935,20 @@
     IMMERSION_KIT_LOOKUP_LINK.id,
     UCHISEN_LOOKUP_LINK.id,
     COPY_LOOKUP_LINK.id
-  ];
+  ], [
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id
+  ]];
   function normalizeDictionaryLookupLinkSettings(value) {
     const links = normalizeDictionaryLookupLinks(
       value?.dictionaryLookupLinks,
@@ -1970,8 +1996,11 @@
     return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => matchesLegacyLookupLink(links[index], expected)));
   }
   function isPreviousDefaultLookupLinkSet(value) {
-    const links = normalizeLookupLinkSet(value, PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.length);
-    return Boolean(links && PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.every((id, index) => links[index]?.id === id));
+    if (!Array.isArray(value)) return false;
+    return PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS.some((ids) => {
+      const links = normalizeLookupLinkSet(value, ids.length);
+      return Boolean(links && ids.every((id, index) => links[index]?.id === id));
+    });
   }
   function normalizeLegacyLookupLinkSet(value) {
     return normalizeLookupLinkSet(value, LEGACY_DEFAULT_LOOKUP_LINK_SET.length);
@@ -2003,7 +2032,7 @@
       if (link) add(link);
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
-    return normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+    return ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS));
   }
   function defaultLookupLinkMode(preferJpdb) {
     return preferJpdb ? "jpdb" : "local";
@@ -2011,6 +2040,16 @@
   function savedLookupLinksInDefaultOrder(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((defaultLink) => linkById.get(defaultLink.id) ?? defaultLink);
+  }
+  function ensureJitenBeforeJpdb(links) {
+    const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
+    const jpdbIndex = links.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
+    if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
+    const reordered = [...links];
+    const [jiten] = reordered.splice(jitenIndex, 1);
+    const insertAt = reordered.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
+    reordered.splice(Math.max(0, insertAt), 0, jiten);
+    return reordered;
   }
   function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
     for (const builtIn of builtIns) {
@@ -38121,7 +38160,7 @@ ${spelling}`);
     if (!video) return !nearVideoOnly;
     const videoRect = video.getBoundingClientRect();
     if (videoRect.width < 120 || videoRect.height < 80) return !nearVideoOnly;
-    return isCaptionNearVideo(rect, videoRect);
+    return isCaptionNearVideo(rect, videoRect, nearVideoOnly);
   }
   function isCaptionElementExcluded(element, readerRoot) {
     return !element.isConnected || Boolean(readerRoot && (element === readerRoot || readerRoot.contains(element))) || Boolean(element.closest([
@@ -38169,13 +38208,22 @@ ${spelling}`);
   function hasVisibleCaptionStyle(style) {
     return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
   }
-  function isCaptionNearVideo(rect, videoRect) {
+  function isCaptionNearVideo(rect, videoRect, strict = false) {
     const horizontalOverlap2 = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
     const overlapRatio = horizontalOverlap2 / Math.max(1, Math.min(rect.width, videoRect.width));
     const overlapsVideo = captionOverlapsVideo(rect, videoRect, overlapRatio);
     const belowVideo = captionSitsBelowVideo(rect, videoRect, overlapRatio);
     const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
-    return !tooLarge && (overlapsVideo || belowVideo);
+    if (tooLarge || !(overlapsVideo || belowVideo)) return false;
+    return !strict || isCaptionOverlaidOnVideo(rect, videoRect) && isCaptionCenteredOnVideo(rect, videoRect);
+  }
+  function isCaptionOverlaidOnVideo(rect, videoRect) {
+    return rect.top >= videoRect.top && rect.top <= videoRect.bottom + 90;
+  }
+  function isCaptionCenteredOnVideo(rect, videoRect) {
+    const captionCenter = (rect.left + rect.right) / 2;
+    const videoCenter = (videoRect.left + videoRect.right) / 2;
+    return Math.abs(captionCenter - videoCenter) <= videoRect.width * 0.3;
   }
   function captionOverlapsVideo(rect, videoRect, overlapRatio) {
     return rect.bottom >= videoRect.top && rect.top <= videoRect.bottom && overlapRatio > 0.25;
@@ -61037,6 +61085,7 @@ ${entry.url}`),
     reviewHistoryCards = [];
     sessionProgress = new NewTabSessionProgressTracker();
     sessionClockTimer;
+    sessionClockRoot = null;
     emptyLoadMessageKey = null;
     fallbackStudyNotice = false;
     deckSelectorDecks;
@@ -63615,7 +63664,7 @@ ${entry.url}`),
       const slots = this.studySlots(root);
       const state2 = primaryCardState(card.cardState);
       this.renderPromptForMode(slots, card, state2, renderAsKanji);
-      this.renderSessionProgress(slots, card);
+      this.renderSessionProgress(slots, card, root);
       if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
       this.renderControls(slots, card);
       this.renderInstallCta(root);
@@ -63644,7 +63693,7 @@ ${entry.url}`),
       if (!this.reviewCountMode && !this.isReviewCard(card)) return "";
       return `${this.index + 1} / ${this.visibleWords.length}`;
     }
-    renderSessionProgress(slots, card) {
+    renderSessionProgress(slots, card, root) {
       const baseLabel = this.newTabCountLabel(card);
       const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
       const labels = [
@@ -63658,7 +63707,7 @@ ${entry.url}`),
         }) : this.sessionElapsedLabel(),
         this.dailyGoalLabel()
       ].filter(Boolean);
-      this.ensureSessionClock();
+      this.ensureSessionClock(root);
       if (!labels.length) {
         this.renderCount(slots.count, "", null);
         return;
@@ -63679,7 +63728,8 @@ ${entry.url}`),
         reached: this.text("dailyGoalReached")
       });
     }
-    ensureSessionClock() {
+    ensureSessionClock(root) {
+      this.sessionClockRoot = root;
       if (this.sessionClockTimer !== void 0 || typeof window === "undefined") return;
       this.sessionClockTimer = window.setInterval(() => this.tickSessionClock(), 1e3);
     }
@@ -63687,6 +63737,7 @@ ${entry.url}`),
       if (this.sessionClockTimer === void 0) return;
       if (typeof window !== "undefined") window.clearInterval(this.sessionClockTimer);
       this.sessionClockTimer = void 0;
+      this.sessionClockRoot = null;
     }
     tickSessionClock() {
       if (typeof document === "undefined" || this.state.mode !== "word") {
@@ -63695,10 +63746,13 @@ ${entry.url}`),
       }
       if (document.hidden) return;
       addNewTabDailyStudyTimeMs(1e3, newTabLocalDateKey());
-      const root = document.querySelector(".jpdb-reader-newtab[data-jpdb-reader-root]");
+      const root = this.sessionClockRoot;
       const card = this.visibleWords[this.index];
-      if (!root || !card) return;
-      this.renderSessionProgress(this.studySlots(root), card);
+      if (!root?.isConnected || !card) {
+        this.stopSessionClock();
+        return;
+      }
+      this.renderSessionProgress(this.studySlots(root), card, root);
     }
     // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the
     // count of unseen items — only shown when it adds information beyond the

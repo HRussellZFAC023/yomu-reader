@@ -714,6 +714,7 @@ export class NewTabController {
     private reviewHistoryCards: JPDBCard[] = [];
     private readonly sessionProgress = new NewTabSessionProgressTracker();
     private sessionClockTimer?: number;
+    private sessionClockRoot: HTMLElement | null = null;
     private emptyLoadMessageKey: NewTabTextKey | null = null;
     private fallbackStudyNotice = false;
     private deckSelectorDecks?: { key: string; promise: Promise<JPDBDeck[]> };
@@ -3744,7 +3745,7 @@ export class NewTabController {
 
         this.renderPromptForMode(slots, card, state, renderAsKanji);
 
-        this.renderSessionProgress(slots, card);
+        this.renderSessionProgress(slots, card, root);
         if (slots.reveal) slots.reveal.textContent = this.revealButtonLabel();
         this.renderControls(slots, card);
         this.renderInstallCta(root);
@@ -3781,7 +3782,7 @@ export class NewTabController {
         return `${this.index + 1} / ${this.visibleWords.length}`;
     }
 
-    private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard): void {
+    private renderSessionProgress(slots: NewTabStudySlots, card: JPDBCard, root: HTMLElement): void {
         const baseLabel = this.newTabCountLabel(card);
         const snapshot = this.reviewCountMode ? this.sessionProgress.snapshot(this.sessionProgressCards()) : null;
         const labels = [
@@ -3795,7 +3796,7 @@ export class NewTabController {
             }) : this.sessionElapsedLabel(),
             this.dailyGoalLabel(),
         ].filter(Boolean);
-        this.ensureSessionClock();
+        this.ensureSessionClock(root);
         if (!labels.length) {
             this.renderCount(slots.count, '', null);
             return;
@@ -3819,7 +3820,8 @@ export class NewTabController {
         });
     }
 
-    private ensureSessionClock(): void {
+    private ensureSessionClock(root: HTMLElement): void {
+        this.sessionClockRoot = root;
         if (this.sessionClockTimer !== undefined || typeof window === 'undefined') return;
         this.sessionClockTimer = window.setInterval(() => this.tickSessionClock(), 1000);
     }
@@ -3828,6 +3830,7 @@ export class NewTabController {
         if (this.sessionClockTimer === undefined) return;
         if (typeof window !== 'undefined') window.clearInterval(this.sessionClockTimer);
         this.sessionClockTimer = undefined;
+        this.sessionClockRoot = null;
     }
 
     private tickSessionClock(): void {
@@ -3842,10 +3845,13 @@ export class NewTabController {
         }
         if (document.hidden) return;
         addNewTabDailyStudyTimeMs(1000, newTabLocalDateKey());
-        const root = document.querySelector<HTMLElement>('.jpdb-reader-newtab[data-jpdb-reader-root]');
+        const root = this.sessionClockRoot;
         const card = this.visibleWords[this.index];
-        if (!root || !card) return;
-        this.renderSessionProgress(this.studySlots(root), card);
+        if (!root?.isConnected || !card) {
+            this.stopSessionClock();
+            return;
+        }
+        this.renderSessionProgress(this.studySlots(root), card, root);
     }
 
     // JPDB Learn parity: the vocabulary/kanji split of the due pile plus the

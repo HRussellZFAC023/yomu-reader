@@ -507,6 +507,42 @@ describe('settings form localization', () => {
         });
     });
 
+    it('normalizes saved lookup links so Jiten stays before JPDB', () => {
+        const defaultIds = normalizeReaderSettings({}).dictionaryLookupLinks.map(link => link.id);
+        expect(defaultIds.slice(0, 3)).toEqual(['jiten', 'jpdb', 'yomu-search']);
+
+        const defaultLinks = new Map(DEFAULT_SETTINGS.dictionaryLookupLinks.map(link => [link.id, link]));
+        const staleJpdbFirstOrder = [
+            'jpdb',
+            'jisho',
+            'copy',
+            'yomu-search',
+            'jiten',
+            'weblio',
+            'goo',
+            'kotobank',
+            'takoboto',
+            'wiktionary-ja',
+            'immersion-kit',
+            'uchisen',
+        ];
+        const migrated = normalizeReaderSettings({
+            dictionaryLookupLinks: staleJpdbFirstOrder.map(id => ({ ...defaultLinks.get(id)! })),
+        });
+        expect(migrated.dictionaryLookupLinks.slice(0, 3).map(link => link.id)).toEqual(['jiten', 'jpdb', 'yomu-search']);
+
+        const custom = normalizeReaderSettings({
+            dictionaryLookupLinks: [
+                { ...defaultLinks.get('jpdb')! },
+                { id: 'custom-search', label: 'Custom', urlTemplate: 'https://example.com/?q={query}', enabled: true },
+                { ...defaultLinks.get('jiten')! },
+            ],
+        });
+        expect(custom.dictionaryLookupLinks.map(link => link.id).indexOf('jiten')).toBeLessThan(
+            custom.dictionaryLookupLinks.map(link => link.id).indexOf('jpdb'),
+        );
+    });
+
     it('keeps scan shortcuts configurable while preserving stored scan behavior', () => {
         const current = {
             ...DEFAULT_SETTINGS,

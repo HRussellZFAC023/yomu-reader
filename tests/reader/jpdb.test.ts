@@ -5378,8 +5378,8 @@ describe('reader helpers', () => {
         expect(html).toContain('>JPDB ');
         expect(html).toContain('>Jiten ');
         expect(html).toContain('>Yomu ');
-        expect(html.indexOf('>Yomu ')).toBeLessThan(html.indexOf('>Jiten '));
-        expect(html.indexOf('>Yomu ')).toBeLessThan(html.indexOf('>JPDB '));
+        expect(html.indexOf('>Jiten ')).toBeLessThan(html.indexOf('>JPDB '));
+        expect(html.indexOf('>JPDB ')).toBeLessThan(html.indexOf('>Yomu '));
         expect(html).not.toContain('>Jisho ');
         expect(html).toContain('>Copy ');
         expect(html).toContain('https://jiten.moe/parse?text=');
@@ -10868,11 +10868,11 @@ describe('reader helpers', () => {
         expect(formatMetaFrequency({ displayValue: { value: 'Top 400' } })).toBe('#Top 400');
     });
 
-    it('sets external dictionary lookup pill defaults for JPDB-first and local-first setup', () => {
+    it('sets external dictionary lookup pill defaults for Jiten-first and local-first setup', () => {
         expect(defaultDictionaryLookupLinks('jpdb').map(link => [link.id, link.enabled])).toEqual([
-            ['yomu-search', true],
             ['jiten', true],
             ['jpdb', true],
+            ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
             ['goo', false],
@@ -10884,9 +10884,9 @@ describe('reader helpers', () => {
             ['copy', false],
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.enabled])).toEqual([
-            ['yomu-search', true],
             ['jiten', true],
             ['jpdb', true],
+            ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
             ['goo', false],
@@ -10898,9 +10898,9 @@ describe('reader helpers', () => {
             ['copy', true],
         ]);
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
-            ['yomu-search', 'Yomu', 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}'],
             ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
+            ['yomu-search', 'Yomu', 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}'],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
             ['goo', 'goo', 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/'],
@@ -10915,9 +10915,9 @@ describe('reader helpers', () => {
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
         ])).toMatchObject([
             { id: 'takoboto', label: 'Takoboto', urlTemplate: 'https://takoboto.jp/?q={QUERY}', enabled: true },
-            { id: 'yomu-search' },
             { id: 'jiten' },
             { id: 'jpdb' },
+            { id: 'yomu-search' },
             { id: 'jisho' },
             { id: 'weblio' },
             { id: 'goo' },
@@ -10945,9 +10945,9 @@ describe('reader helpers', () => {
             const settings = await loadSettings();
 
             expect(settings.dictionaryLookupLinks.map(link => [link.id, link.enabled])).toEqual([
-                ['yomu-search', true],
                 ['jiten', true],
                 ['jpdb', true],
+                ['yomu-search', true],
                 ['jisho', false],
                 ['weblio', false],
                 ['goo', false],
@@ -10964,14 +10964,14 @@ describe('reader helpers', () => {
         }
     });
 
-    it('moves the previous built-in lookup pill order to Yomu first on load', async () => {
+    it('moves the previous built-in lookup pill order to Jiten first on load', async () => {
         const storageKey = 'jpdb-popup-reader-settings';
         const previous = localStorage.getItem(storageKey);
         const linksById = new Map(defaultDictionaryLookupLinks('local').map(link => [link.id, link]));
         const previousDefaultOrder = [
+            'yomu-search',
             'jiten',
             'jpdb',
-            'yomu-search',
             'jisho',
             'weblio',
             'goo',
@@ -10991,7 +10991,7 @@ describe('reader helpers', () => {
         try {
             const settings = await loadSettings();
 
-            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 3)).toEqual(['yomu-search', 'jiten', 'jpdb']);
+            expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 3)).toEqual(['jiten', 'jpdb', 'yomu-search']);
             expect(settings.dictionaryLookupLinks.find(link => link.id === 'jisho')?.enabled).toBe(true);
         } finally {
             if (previous === null) localStorage.removeItem(storageKey);
@@ -11007,7 +11007,7 @@ describe('reader helpers', () => {
         const html = renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'));
         document.body.innerHTML = `<form>${html}</form>`;
         const form = document.querySelector('form')!;
-        expect(form.querySelector<HTMLInputElement>('[data-lookup-link-row] input[name$=".id"]')?.value).toBe('yomu-search');
+        expect(form.querySelector<HTMLInputElement>('[data-lookup-link-row] input[name$=".id"]')?.value).toBe('jiten');
         const copyRow = Array.from(form.querySelectorAll<HTMLElement>('[data-lookup-link-row]'))
             .find(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value === 'copy')!;
 
@@ -11363,14 +11363,18 @@ describe('reader helpers', () => {
             `<div class="jpdb-reader-lookup-links" data-source-editor>${renderDictionaryLookupLinkEditor(defaultDictionaryLookupLinks('local'))}</div>`,
             '[data-lookup-link-row]',
         );
-        const firstId = rows[0].querySelector<HTMLInputElement>('input[name$=".id"]')?.value;
+        const sourceRow = rows.find(row => row.querySelector<HTMLInputElement>('input[name$=".id"]')?.value === 'yomu-search')!;
+        const sourceId = sourceRow.querySelector<HTMLInputElement>('input[name$=".id"]')?.value;
+        const sourceHandle = sourceRow.querySelector<HTMLElement>('[data-source-drag-handle]')!;
 
         const afterLastRow = rows.length * 48 + 20;
-        dragSourceRow(form, rows, afterLastRow);
+        dispatchPointerEvent(sourceHandle, 'pointerdown', sourceRow.getBoundingClientRect().top + 4);
+        dispatchPointerEvent(form, 'pointermove', afterLastRow);
+        dispatchPointerEvent(form, 'pointerup', afterLastRow);
 
         const ids = Array.from(form.querySelectorAll<HTMLInputElement>('input[name$=".id"]')).map(input => input.value);
-        expect(ids.at(-1)).toBe(firstId);
-        expect(readDictionaryLookupLinks(new FormData(form)).at(-1)?.id).toBe(firstId);
+        expect(ids.at(-1)).toBe(sourceId);
+        expect(readDictionaryLookupLinks(new FormData(form)).at(-1)?.id).toBe(sourceId);
     });
 
     it('builds configured proxy URLs before public fallback URLs', () => {

@@ -2484,6 +2484,42 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('does not treat an edge-anchored chat username above a posted video as a page caption', () => {
+        // Discord renders a posted clip with the author's handle (which can contain
+        // Japanese, e.g. "Canna波蘭") in the message header directly above it. While
+        // scrolling past the clip the handle grazes the top edge of the <video>;
+        // without geometry guards it latched into the subtitle overlay.
+        document.body.innerHTML = '<video></video><div class="message"><h3><span>Canna波蘭</span></h3></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const handle = document.querySelector('span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 160, right: 520, top: 120, bottom: 620, width: 360, height: 500 }),
+        });
+        Object.defineProperty(handle, 'innerText', { value: handle.textContent ?? '' });
+        Object.defineProperty(handle, 'getBoundingClientRect', {
+            value: () => ({ left: 160, right: 276, top: 92, bottom: 124, width: 116, height: 32 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('');
+    });
+
+    it('does not treat an edge-anchored chat username below a posted video as a page caption', () => {
+        // The next message's author handle sits just below the clip (within the
+        // below-video caption band) and is left-anchored, not centered on the player.
+        document.body.innerHTML = '<video></video><div class="message"><h3><span>Canna波蘭</span></h3></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const handle = document.querySelector('span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 160, right: 520, top: 120, bottom: 620, width: 360, height: 500 }),
+        });
+        Object.defineProperty(handle, 'innerText', { value: handle.textContent ?? '' });
+        Object.defineProperty(handle, 'getBoundingClientRect', {
+            value: () => ({ left: 160, right: 276, top: 648, bottom: 680, width: 116, height: 32 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('');
+    });
+
     it('exposes the compact subtitle drawer resize handle as an accentable keyboard separator', () => {
         withViewport(640, 820, () => {
             const settings = {

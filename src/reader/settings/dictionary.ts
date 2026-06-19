@@ -90,9 +90,9 @@ export const COPY_LOOKUP_LINK: DictionaryLookupLink = {
 };
 
 export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
-    YOMU_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -114,7 +114,20 @@ const LEGACY_DEFAULT_LOOKUP_LINK_SET: LegacyLookupLinkSpec[] = [
     COPY_LOOKUP_LINK,
 ];
 
-const PREVIOUS_DEFAULT_LOOKUP_LINK_IDS = [
+const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+], [
     JITEN_LOOKUP_LINK.id,
     JPDB_LOOKUP_LINK.id,
     YOMU_LOOKUP_LINK.id,
@@ -127,7 +140,20 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_IDS = [
     IMMERSION_KIT_LOOKUP_LINK.id,
     UCHISEN_LOOKUP_LINK.id,
     COPY_LOOKUP_LINK.id,
-];
+], [
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+]];
 
 export function normalizeDictionaryLookupLinkSettings(value: Partial<ReaderSettings> | null): ReaderSettings['dictionaryLookupLinks'] {
     const links = normalizeDictionaryLookupLinks(
@@ -189,8 +215,11 @@ function isLegacyDefaultLookupLinkSet(value: unknown): boolean {
 }
 
 function isPreviousDefaultLookupLinkSet(value: unknown): boolean {
-    const links = normalizeLookupLinkSet(value, PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.length);
-    return Boolean(links && PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.every((id, index) => links[index]?.id === id));
+    if (!Array.isArray(value)) return false;
+    return PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS.some(ids => {
+        const links = normalizeLookupLinkSet(value, ids.length);
+        return Boolean(links && ids.every((id, index) => links[index]?.id === id));
+    });
 }
 
 function normalizeLegacyLookupLinkSet(value: unknown): DictionaryLookupLink[] | null {
@@ -236,7 +265,7 @@ export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = fals
 
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
 
-    return normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+    return ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS));
 }
 
 function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
@@ -246,6 +275,17 @@ function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
 function savedLookupLinksInDefaultOrder(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
     const linkById = new Map(links.map(link => [link.id, link]));
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map(defaultLink => linkById.get(defaultLink.id) ?? defaultLink);
+}
+
+function ensureJitenBeforeJpdb(links: DictionaryLookupLink[]): DictionaryLookupLink[] {
+    const jitenIndex = links.findIndex(link => link.id === JITEN_LOOKUP_LINK.id);
+    const jpdbIndex = links.findIndex(link => link.id === JPDB_LOOKUP_LINK.id);
+    if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
+    const reordered = [...links];
+    const [jiten] = reordered.splice(jitenIndex, 1);
+    const insertAt = reordered.findIndex(link => link.id === JPDB_LOOKUP_LINK.id);
+    reordered.splice(Math.max(0, insertAt), 0, jiten);
+    return reordered;
 }
 
 function appendMissingBuiltInLookupLinks(builtIns: DictionaryLookupLink[], seen: Set<string>, add: (link: DictionaryLookupLink) => void): void {

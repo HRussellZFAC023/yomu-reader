@@ -1107,9 +1107,9 @@
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-    YOMU_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -1125,7 +1125,20 @@
     { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
-  [
+  [[
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
     JITEN_LOOKUP_LINK.id,
     JPDB_LOOKUP_LINK.id,
     YOMU_LOOKUP_LINK.id,
@@ -1138,7 +1151,20 @@
     IMMERSION_KIT_LOOKUP_LINK.id,
     UCHISEN_LOOKUP_LINK.id,
     COPY_LOOKUP_LINK.id
-  ];
+  ], [
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id
+  ]];
   function matchesShortcut(event, shortcut = "") {
     if (!shortcut) return false;
     const parts = parseShortcut(shortcut);
@@ -12583,7 +12609,7 @@ ${spelling}`);
     if (!video) return !nearVideoOnly;
     const videoRect = video.getBoundingClientRect();
     if (videoRect.width < 120 || videoRect.height < 80) return !nearVideoOnly;
-    return isCaptionNearVideo(rect, videoRect);
+    return isCaptionNearVideo(rect, videoRect, nearVideoOnly);
   }
   function isCaptionElementExcluded(element, readerRoot) {
     return !element.isConnected || Boolean(readerRoot && (element === readerRoot || readerRoot.contains(element))) || Boolean(element.closest([
@@ -12631,13 +12657,22 @@ ${spelling}`);
   function hasVisibleCaptionStyle(style) {
     return style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity || "1") > 0;
   }
-  function isCaptionNearVideo(rect, videoRect) {
+  function isCaptionNearVideo(rect, videoRect, strict = false) {
     const horizontalOverlap2 = Math.max(0, Math.min(rect.right, videoRect.right) - Math.max(rect.left, videoRect.left));
     const overlapRatio = horizontalOverlap2 / Math.max(1, Math.min(rect.width, videoRect.width));
     const overlapsVideo = captionOverlapsVideo(rect, videoRect, overlapRatio);
     const belowVideo = captionSitsBelowVideo(rect, videoRect, overlapRatio);
     const tooLarge = rect.width * rect.height > videoRect.width * videoRect.height * 0.45;
-    return !tooLarge && (overlapsVideo || belowVideo);
+    if (tooLarge || !(overlapsVideo || belowVideo)) return false;
+    return !strict || isCaptionOverlaidOnVideo(rect, videoRect) && isCaptionCenteredOnVideo(rect, videoRect);
+  }
+  function isCaptionOverlaidOnVideo(rect, videoRect) {
+    return rect.top >= videoRect.top && rect.top <= videoRect.bottom + 90;
+  }
+  function isCaptionCenteredOnVideo(rect, videoRect) {
+    const captionCenter = (rect.left + rect.right) / 2;
+    const videoCenter = (videoRect.left + videoRect.right) / 2;
+    return Math.abs(captionCenter - videoCenter) <= videoRect.width * 0.3;
   }
   function captionOverlapsVideo(rect, videoRect, overlapRatio) {
     return rect.bottom >= videoRect.top && rect.top <= videoRect.bottom && overlapRatio > 0.25;

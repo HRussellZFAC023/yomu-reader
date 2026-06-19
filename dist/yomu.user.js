@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.6#sha256-IYKUAFMMFmkCDutS5EugdV5EBsJH9GPSo4BJmZuamGQ=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.6#sha256-RuaTZbBraYQ6JvhNbydYVvClXVu4N39BbZmJNsu/NRw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.6#sha256-OLsxQJLXpDE5fqZ2Z6i94df0h8nMfSVxDNC2dIHvpvI=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.6#sha256-vhedJ6TFYguqrY+3Ep8+H79pp51UPA9yKN5jvxgc9Lw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.6#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.6#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.6#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.6#sha256-gth7W3omO1V9YU1eJZk+E7jmSKBxm0CZ9s40yvD9GfM=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2153,9 +2153,9 @@
     action: "copy"
   };
   const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-    YOMU_LOOKUP_LINK,
     JITEN_LOOKUP_LINK,
     JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
     GOO_LOOKUP_LINK,
@@ -2171,7 +2171,20 @@
     { ...JISHO_LOOKUP_LINK, enabled: true },
     COPY_LOOKUP_LINK
   ];
-  const PREVIOUS_DEFAULT_LOOKUP_LINK_IDS = [
+  const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
     JITEN_LOOKUP_LINK.id,
     JPDB_LOOKUP_LINK.id,
     YOMU_LOOKUP_LINK.id,
@@ -2184,7 +2197,20 @@
     IMMERSION_KIT_LOOKUP_LINK.id,
     UCHISEN_LOOKUP_LINK.id,
     COPY_LOOKUP_LINK.id
-  ];
+  ], [
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id
+  ]];
   function normalizeDictionaryLookupLinkSettings(value) {
     const links = normalizeDictionaryLookupLinks(
       value?.dictionaryLookupLinks,
@@ -2232,8 +2258,11 @@
     return Boolean(links && LEGACY_DEFAULT_LOOKUP_LINK_SET.every((expected, index) => matchesLegacyLookupLink(links[index], expected)));
   }
   function isPreviousDefaultLookupLinkSet(value) {
-    const links = normalizeLookupLinkSet(value, PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.length);
-    return Boolean(links && PREVIOUS_DEFAULT_LOOKUP_LINK_IDS.every((id, index) => links[index]?.id === id));
+    if (!Array.isArray(value)) return false;
+    return PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS.some((ids) => {
+      const links = normalizeLookupLinkSet(value, ids.length);
+      return Boolean(links && ids.every((id, index) => links[index]?.id === id));
+    });
   }
   function normalizeLegacyLookupLinkSet(value) {
     return normalizeLookupLinkSet(value, LEGACY_DEFAULT_LOOKUP_LINK_SET.length);
@@ -2265,7 +2294,7 @@
       if (link) add(link);
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
-    return normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS);
+    return ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS));
   }
   function defaultLookupLinkMode(preferJpdb) {
     return preferJpdb ? "jpdb" : "local";
@@ -2273,6 +2302,16 @@
   function savedLookupLinksInDefaultOrder(links) {
     const linkById = new Map(links.map((link) => [link.id, link]));
     return DEFAULT_DICTIONARY_LOOKUP_LINKS.map((defaultLink) => linkById.get(defaultLink.id) ?? defaultLink);
+  }
+  function ensureJitenBeforeJpdb(links) {
+    const jitenIndex = links.findIndex((link) => link.id === JITEN_LOOKUP_LINK.id);
+    const jpdbIndex = links.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
+    if (jitenIndex < 0 || jpdbIndex < 0 || jitenIndex < jpdbIndex) return links;
+    const reordered = [...links];
+    const [jiten] = reordered.splice(jitenIndex, 1);
+    const insertAt = reordered.findIndex((link) => link.id === JPDB_LOOKUP_LINK.id);
+    reordered.splice(Math.max(0, insertAt), 0, jiten);
+    return reordered;
   }
   function appendMissingBuiltInLookupLinks(builtIns, seen, add) {
     for (const builtIn of builtIns) {

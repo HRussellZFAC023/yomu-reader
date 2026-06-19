@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- The subtitle overlay no longer latches onto page chrome posted next to a video — e.g. a Discord message author's handle that contains Japanese (such as "Canna波蘭") no longer gets stuck as the subtitle while scrolling past the clip. The generic page-caption scan now only accepts text that is centered on the player and overlaid within the video frame, instead of any nearby Japanese text.
 - OCR no longer resurrects overlays for images that are removed before idle scanning runs, preventing stale page-turn scans from painting old or missing content.
 - Hosted docs Japanese mode now localizes the Tools/Guides nav, theme-toggle labels, and home-page Next Steps cards, including the PDF reader card.
 - Hosted light/dark switching now treats the stored よむ theme as authoritative and cleans up Greasemonkey storage listeners, avoiding flashes when settings or multiple tabs change theme.

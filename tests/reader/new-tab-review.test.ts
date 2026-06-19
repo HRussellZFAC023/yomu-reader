@@ -3751,6 +3751,63 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('keeps orphaned session clocks from rewriting replacement new-tab roots', () => {
+        vi.useFakeTimers();
+        document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
+        const staleController = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        });
+        const activeController = newTabPromptController({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'jpdb-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+            immersionKitEnabled: false,
+        });
+        const staleCards = [
+            newTabTestCard({ vid: 101, spelling: '古い', reading: 'ふるい', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] }),
+            newTabTestCard({ vid: 102, spelling: '小さい', reading: 'ちいさい', source: 'jpdb', reviewSource: 'jpdb-api', cardState: ['due'] }),
+        ];
+        const activeCards = Array.from({ length: 4 }, (_, index) => newTabTestCard({
+            vid: 201 + index,
+            spelling: `新${index + 1}`,
+            reading: `しん${index + 1}`,
+            source: 'jpdb',
+            reviewSource: 'jpdb-api',
+            cardState: ['due'],
+        }));
+        const staleRoot = renderSeededNewTabWord(staleController, staleCards[0]!, {
+            allWords: staleCards,
+            visibleWords: staleCards,
+            reviewCountMode: true,
+            sourceLabel: 'JPDB',
+            appendToDocument: true,
+        });
+        staleRoot.remove();
+        const activeRoot = renderSeededNewTabWord(activeController, activeCards[0]!, {
+            allWords: activeCards,
+            visibleWords: activeCards,
+            reviewCountMode: true,
+            sourceLabel: 'JPDB',
+            appendToDocument: true,
+        });
+
+        try {
+            vi.advanceTimersByTime(1000);
+
+            expect(activeRoot.querySelector('[data-newtab-count]')?.textContent).toMatch(/^Done 0 · Left 4 · Due 4 · \d\d:\d\d · 0\/60 min$/);
+            expect(activeRoot.querySelector('[data-newtab-count]')?.textContent).not.toContain('Left 2');
+        } finally {
+            staleController.destroy();
+            activeController.destroy();
+            activeRoot.remove();
+        }
+    });
+
     it('does not show raw queue ordinals for deep SRS review queues', async () => {
         document.querySelectorAll('[data-jpdb-reader-root].jpdb-reader-newtab').forEach(root => root.remove());
         const cards = Array.from({ length: 539 }, (_, index) => newTabTestCard({
