@@ -6374,7 +6374,7 @@
       immersionKitMediaRequestFailed: "Media request failed.",
       immersionKitMediaRequestFailedWithStatus: "Media request failed ({status}).",
       immersionKitMediaRequestTimedOut: "Media request timed out.",
-      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error document.",
+      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error page.",
       immersionKitNoMediaCandidate: "No Immersion Kit media loaded.",
       nadeshikoRequest: "Nadeshiko request",
       nadeshikoRequestFailed: "Nadeshiko request failed.",
@@ -6435,7 +6435,7 @@
       subtitlePausePanel: "Open side panel when paused",
       subtitleTranscriptPlacement: "Transcript panel position",
       subtitleTranscriptAutoScroll: "Scroll transcript with playback",
-      subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll after manual scroll (s)",
+      subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
       subtitleAutoCopyLine: "Auto-copy subtitle lines",
       subtitleMiningPause: "Pause video when mining subtitle",
       subtitleControlsMode: "Subtitle controls",
@@ -6519,19 +6519,19 @@
       ankiScanFieldSummary: "Fields: {fields}",
       ankiUnreachable: "Open desktop Anki and check again.",
       ankiCorsBlocked: 'Add "{origin}" to webCorsOriginList; restart Anki.',
-      ankiSettingsUnreachable: "AnkiConnect not reached. Open Anki and retry.",
+      ankiSettingsUnreachable: "AnkiConnect not reached.",
       ankiHostedBridgeMissing: `Enable ${APP_NAME}, refresh, then check again.`,
       ankiStatusOpenDesktop: "Open desktop Anki",
       ankiStatusInstallAddon: "Install/enable AnkiConnect",
       ankiStatusMobileDocs: "Mobile setup docs",
       ankiStatusUseDesktopUrl: "Use the LAN/Tailscale URL on mobile",
       ankiStatusEnableUserscript: `Enable installed ${APP_NAME}`,
-      ankiStatusRefreshAndCheck: "Refresh, then check again",
-      ankiHostedCorsHint: "Direct access needs {origin} in webCorsOriginList.",
+      ankiStatusRefreshAndCheck: "Refresh and check",
+      ankiHostedCorsHint: "Add {origin} to webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
       ankiLibraryAdapterStatus: "Scans decks/types and suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
-      ankiLibraryChoicesHelp: "From AnkiConnect. Pick where mining saves notes.",
+      ankiLibraryChoicesHelp: "Pick where mining saves notes.",
       ankiTemplateSettings: "Yomu card template",
       ankiTemplateSettingsHelp: "For Yomu note types. Templates stay in Anki.",
       ankiMappingConfidenceHelp: "Based on fields/samples. Edit weak mappings.",
@@ -6547,17 +6547,17 @@
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
       exportDictionaries: "Export dictionaries",
-      dictionaryImportHelp: "Import settings, ZIPs, or backups.",
+      dictionaryImportHelp: "Import settings or ZIPs.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "Links. Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "Tokens: {query}, {word}, {reading}.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
       lookupUrlTemplate: "Lookup URL template",
-      lookupUrlTemplateNumber: "Lookup pill {number} URL template",
+      lookupUrlTemplateNumber: "Pill {number} URL",
       lookupPillOrder: "Lookup pill order",
       builtInAction: "Built-in action",
-      recommendedDownloads: "Recommended dictionaries",
+      recommendedDownloads: "Dictionaries",
       termDictionaries: "Term dictionaries",
       kanjiDictionaries: "Kanji dictionaries",
       frequencyDictionaries: "Frequency dictionaries",
@@ -6573,7 +6573,7 @@
       dictionaryOnlyJpdb: "Only JPDB is enabled. Import Yomitan for local.",
       dictionaryDownloading: "Downloading",
       dictionaryReadingZip: "Reading dictionary ZIP...",
-      dictionaryCheckingIndex: "Checking dictionary index...",
+      dictionaryCheckingIndex: "Checking index...",
       dictionaryBanksFound: "{count} bank{plural} found.",
       dictionaryRemovingExisting: "removing old entries",
       dictionaryReadingBank: "Reading",
@@ -6597,10 +6597,10 @@
       dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
       dictionaryManualDownloadHint: "Enable userscript or import ZIP.",
       dictionaryInstallQueueHelp: "Installs take a few minutes.",
-      dictionaryInstallQueued: "{dictionary} queued after current install.",
+      dictionaryInstallQueued: "{dictionary} queued.",
       dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
       dictionaryImportQueueStatus: "{count} install{plural} running.",
-      dictionaryRemoveConfirm: 'Remove "{dictionary}" and its entries?',
+      dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
       dictionaryRemoving: "Removing {dictionary}...",
       dictionaryRemoved: "Removed {dictionary}.",
       dictionaryImportComplete: "Imported {records} from {sources} source{plural}.",
@@ -6610,9 +6610,9 @@
       settingsExported: "Settings exported.",
       restoredStoredChoices: "restored {count} stored choice{plural}",
       importedDictionaryRecordCount: "imported {count} dictionary record{plural}",
-      dictionaryNoSupportedBanks: "No supported dictionary banks found.",
-      dictionaryUnsupportedJson: "Use Dexie, ZIP, or reader export.",
-      dictionaryZipMissingIndex: "Dictionary ZIP is missing index.json.",
+      dictionaryNoSupportedBanks: "No supported banks found.",
+      dictionaryUnsupportedJson: "Use Dexie, ZIP, or export.",
+      dictionaryZipMissingIndex: "ZIP missing index.json.",
       yomitanSettingsInvalid: "Not a Yomitan settings export.",
       localDictionaryText: "Dictionary text",
       localSenseSingular: "meaning",
@@ -6688,7 +6688,7 @@
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
       copySubtitleLine: "Copy subtitle line",
-      subtitleCopyIncludeTranslation: "Include the translation when copying a line",
+      subtitleCopyIncludeTranslation: "Copy line translation too",
       peekSubtitleTranslation: "Show translation",
       hideSubtitleTranslation: "Hide translation",
       loadingSubtitleLines: "Loading subtitle lines",
@@ -6849,11 +6849,11 @@
       factOldForms: "Old forms",
       docs: "Docs",
       factoryReset: "Factory Reset",
-      factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dictionaries.",
+      factoryResetConfirm: "Reset all {appName} data?\n\nDeletes settings, keys, cache, dicts.",
       factoryResetFailed: "Reset failed.",
-      factoryResetDictionaryWarning: "Settings reset. Close other tabs before dictionaries.",
+      factoryResetDictionaryWarning: "Settings reset. Close other tabs.",
       factoryResetOtherTabReloading: "よむ reset elsewhere. Reloading...",
-      factoryResetDeleteSettingsFailed: "Could not delete settings. Close other tabs.",
+      factoryResetDeleteSettingsFailed: "Could not delete settings.",
       issues: "Issues",
       donate: "Donate",
       discord: "Discord",
@@ -6950,8 +6950,8 @@
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
       apiDeckMediaNotSupported: "Media stays in Yomu; no media API.",
-      sentToAnkiWithContextImageAndAudio: "Sent to Anki with context image and audio.",
-      sentToAnkiWithContextImage: "Sent to Anki with context image.",
+      sentToAnkiWithContextImageAndAudio: "Sent to Anki with image and audio.",
+      sentToAnkiWithContextImage: "Sent to Anki with image.",
       sentToAnkiWithAudio: "Sent to Anki with audio.",
       ankiMergeNoNewData: "Anki note already has the Yomu data.",
       ankiMergeFieldSingular: "field",
@@ -7076,6 +7076,7 @@
       recommendedJpdbv2Kana: "JPDB frequency.",
       recommendedBccwj: "BCCWJ frequency.",
       recommendedJiten: "Jiten frequency.",
+      recommendedMarvncMonolingual: "Monolingual collection.",
       fallbackSetupTitle: "Public lookup",
       fallbackSetupCopy: "Search without a JPDB key. Add dictionaries offline.",
       fallbackSetupDictionaries: "Add dictionaries",
@@ -7083,7 +7084,7 @@
       getApp: `Get ${APP_NAME}`,
       offlineCacheGradesDisabled: "Offline cache. Grades sync on reconnect.",
       recognizing: "Recognizing...",
-      noHandwritingMatch: "No handwriting match yet. Type or paste kanji instead.",
+      noHandwritingMatch: "No match yet. Type or paste kanji.",
       yourKanjiDrawing: "Your kanji drawing",
       jpdbKanjiActions: "JPDB kanji actions",
       couldNotSearchLocalDictionaries: "Could not search local dictionaries.",
@@ -7119,7 +7120,7 @@
       grammarShown: "shown",
       grammarKnownHidden: "known hidden",
       grammarGenericShort: "Grammar point: {name}",
-      grammarGenericDetail: "This sentence uses {name} in 「{match}」.",
+      grammarGenericDetail: "Uses {name} in 「{match}」.",
       grammarKindHanabira: "Hanabira grammar",
       grammarLevelCore: "Core"
     }
@@ -7156,7 +7157,7 @@
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
+onboardingCopy	本文、字幕、画像の日本語をタップできます。
 onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
@@ -7166,13 +7167,13 @@ onboardingAddLocalDictionaries	ローカル辞書を追加
 onboardingUseWithoutApiKey	APIキーなしで使う
 closeOnboarding	ようこそ画面を閉じる
 featureText	テキスト
-featureTextBody	スキャン後、日本語をホバー/タップできます。
+featureTextBody	日本語をホバー/タップできます。
 featureImages	画像
 featureImagesBody	画像をタップして読み取れます。
 featureVideo	動画
-featureVideoBody	字幕がある場合、字幕内の単語もタップできます。
+featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
-featureControlBody	機能、ショートカット、色を調整できます。
+featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
 featureStudyBody	Jiten・JPDB・Anki・漢字を復習できます。
 automatic	自動
@@ -7206,7 +7207,7 @@ immersionExampleControls	イマージョンキット例文の操作
 loadingKanjiDetails	漢字情報を読み込み中...
 loadingMnemonicImages	覚え方画像を読み込み中...
 lookupDialog	{APP_NAME}検索
-resizeLookupSheet	検索シートのサイズ変更。タップで閉じます
+resizeLookupSheet	検索シートをリサイズ。タップで閉じる
 showMiningActions	マイニング操作を表示
 hideMiningActions	マイニング操作を隠す
 switchReviewTarget	採点先を切り替える
@@ -7214,7 +7215,7 @@ switchGradingProvider	採点サービスを切り替える
 closeDrawer	ドロワーを閉じる
 copiedWord	単語をコピーしました。
 jpdbKanjiUpdated	JPDB漢字を更新しました。
-jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。設定を確認してください。
+jpdbKanjiUpdateFailedRuntime	JPDB漢字を更新できません。
 apiSrsActionsDisabled	設定でAPI採掘操作が無効です。
 addJpdbApiKeyReview	JPDBレビューにはAPIキーが必要です。
 addJitenApiKeyReview	JitenレビューにはAPIキーが必要です。
@@ -7225,7 +7226,7 @@ dictionariesExported	辞書をエクスポートしました。
 saveAfterInstall	インストール後に保存
 dictionaryDownloading	ダウンロード中
 dictionaryReadingZip	辞書ZIPを読み取り中...
-dictionaryCheckingIndex	辞書インデックスを確認中...
+dictionaryCheckingIndex	インデックス確認中...
 dictionaryBanksFound	{count}件のバンクを検出
 dictionaryRemovingExisting	既存項目を削除中
 dictionaryReadingBank	読み取り中
@@ -7240,18 +7241,18 @@ dictionaryEntries	件
 dictionaryTotal	合計
 dictionaryDownloadProgress	辞書をダウンロード中
 dictionaryStatusSummary	辞書{dictionaries}、語{terms}、漢字{kanji}、メタ{metadata}
-dictionaryStatusUnavailable	辞書状態を取得できません。
-noLocalDictionariesImported	ローカル辞書はまだインポートされていません。
+dictionaryStatusUnavailable	辞書状態を取得不可。
+noLocalDictionariesImported	ローカル辞書は未追加です。
 dictionaryDownloadFailed	辞書のダウンロードに失敗しました。
 dictionaryDownloadTimedOut	辞書のダウンロードがタイムアウトしました。
 dictionaryDownloadNotZip	ダウンロード結果がZIPではありません。
-dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加してください。
-dictionaryDownloadBlocked	ダウンロードがブロックされています。ZIPを追加してください。
-dictionaryManualDownloadHint	ユーザースクリプトを有効にするか、ZIPを追加してください。
-dictionaryInstallQueueHelp	インストールには数分かかります。完了後に保存できます。
-dictionaryInstallQueued	{dictionary}を待機中です。
-dictionaryInstallSaveBlocked	辞書インポート中です。完了すると保存できます。
-dictionaryImportQueueStatus	{count}件インストール中です。完了後に保存できます。
+dictionaryDownloadNeedsBridge	ブリッジが必要です。失敗時はZIPを追加。
+dictionaryDownloadBlocked	ダウンロード不可。ZIPを追加。
+dictionaryManualDownloadHint	ユーザースクリプト有効化かZIP追加。
+dictionaryInstallQueueHelp	数分かかります。完了後に保存できます。
+dictionaryInstallQueued	{dictionary}待機中。
+dictionaryInstallSaveBlocked	インポート中。完了後に保存できます。
+dictionaryImportQueueStatus	{count}件インストール中。完了後に保存。
 dictionaryRemoveConfirm	「{dictionary}」を削除？
 dictionaryRemoving	{dictionary}を削除中...
 dictionaryRemoved	{dictionary}を削除しました。
@@ -7263,7 +7264,7 @@ settingsExported	設定をエクスポートしました。
 restoredStoredChoices	保存済み選択肢を{count}件復元
 importedDictionaryRecordCount	辞書レコードを{count}件インポート
 dictionaryNoSupportedBanks	対応辞書バンクがありません。
-dictionaryUnsupportedJson	Dexie、辞書ZIP、リーダー出力を使ってください。
+dictionaryUnsupportedJson	Dexie、ZIP、出力を使ってください。
 dictionaryZipMissingIndex	ZIPにindex.jsonがありません。
 yomitanSettingsInvalid	Yomitan設定ではありません。
 local	ローカル
@@ -7284,14 +7285,14 @@ fallbackSetupDictionaries	辞書を追加
 fallbackSetupJpdb	JPDBキーを追加
 offlineCacheGradesDisabled	オフラインです。採点は再接続時に同期されます。
 recognizing	認識中...
-noHandwritingMatch	候補がありません。漢字を入力/貼り付けてください。
+noHandwritingMatch	候補なし。漢字を入力/貼り付け。
 yourKanjiDrawing	あなたの手書き
 jpdbKanjiActions	JPDB漢字操作
 couldNotSearchLocalDictionaries	ローカル辞書を検索できませんでした。
 subtitlePanel	字幕
 lines	行
 tracks	トラック
-currentLineWillAppear	字幕が利用可能になると現在行が表示されます。
+currentLineWillAppear	字幕が来ると現在行を表示。
 native	母語
 unsetJapanese	日本語を解除
 unsetNative	母語字幕を解除
@@ -7360,7 +7361,7 @@ loadingSimilarWords	単語を読み込み中...
 openToLoadSimilarWords	開くと単語を読み込みます。
 noSimilarWords	追加の単語は見つかりませんでした。
 loadingExamples	例文を読み込み中...
-immersionKitRateLimited	Immersion Kitは一時制限中です。あとで再試行します。
+immersionKitRateLimited	Immersion Kit制限中。あとで再試行。
 immersionKitRequest	Immersion Kitリクエスト
 immersionKitRequestFailed	Immersion Kitリクエストに失敗しました。
 immersionKitRequestFailedWithStatus	Immersion Kitリクエストに失敗しました（{status}）。
@@ -7371,7 +7372,7 @@ immersionKitMediaRequestFailed	メディアリクエストに失敗しました�
 immersionKitMediaRequestFailedWithStatus	メディアリクエストに失敗しました（{status}）。
 immersionKitMediaRequestTimedOut	メディアリクエストがタイムアウトしました。
 immersionKitMediaRequestReturnedNonMedia	メディアリクエストがエラードキュメントを返しました。
-immersionKitNoMediaCandidate	読み込めるImmersion Kitメディア候補がありませんでした。
+immersionKitNoMediaCandidate	読み込めるメディア候補なし。
 nadeshikoRequest	Nadeshikoリクエスト
 nadeshikoRequestFailed	Nadeshikoリクエストに失敗しました。
 nadeshikoRequestFailedWithStatus	Nadeshikoリクエストに失敗しました（{status}）。
@@ -7394,19 +7395,19 @@ audioPlaybackDisabledToast	音声再生は無効です。
 audioPlaybackFailed	音声の再生に失敗しました。
 noSentenceToRead	読み上げる例文がありません。
 noTextToRead	読み上げるテキストがありません。
-jpdbExampleAudioUnavailable	この例文で使えるJPDB音声がありません。
-jpdbAudioPlayableFileMissing	JPDB音声から再生可能ファイルを取得できません。
-jpdbAudioResponseNotPlayable	JPDB音声の応答は再生可能ファイルではありません。
-audioSourceReturnedNoAudio	音声ソースから音声を取得できませんでした。
-audioJsonMissingPlayableUrl	音声JSONに再生可能なURLがありません。
-textToSpeechUnavailable	このブラウザーでは読み上げ機能を利用できません。
+jpdbExampleAudioUnavailable	この例文にJPDB音声なし。
+jpdbAudioPlayableFileMissing	JPDB音声に再生ファイルなし。
+jpdbAudioResponseNotPlayable	JPDB音声は再生不可。
+audioSourceReturnedNoAudio	音声ソースに音声なし。
+audioJsonMissingPlayableUrl	音声JSONに再生URLなし。
+textToSpeechUnavailable	読み上げを利用できません。
 textToSpeechFailed	読み上げに失敗しました。
 audioRequest	音声リクエスト
 audioRequestTimedOut	音声リクエストがタイムアウトしました。
 audioRequestReturnedNonAudio	音声ではない応答です
 audioRequestReturnedNonAudioWithType	音声ではない応答です: {type}。
 audioUnknownContentType	不明なコンテンツ種別
-japanesePod101NoAudio	JapanesePod101にこの語の音声はありません。
+japanesePod101NoAudio	JapanesePod101に音声なし。
 invalidJpdbAudioId	JPDB音声IDが無効です。
 couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
@@ -7428,7 +7429,7 @@ searchAnimeSubtitles	アニメ字幕を検索
 toggleNativeSubtitleBlur	母語字幕のぼかしを切り替え
 subtitleTrackDetectedSingular	字幕トラックを1件検出
 subtitleTracksDetected	件の字幕トラックを検出
-noSubtitleTracksDetected	字幕トラックはまだ検出されていません。
+noSubtitleTracksDetected	字幕トラックは未検出です。
 resizeTranscriptPanel	文字起こしパネルのサイズ変更
 resizeSubtitleTracksPanel	字幕トラックパネルのサイズ変更
 subtitleNavigation	字幕ナビゲーション
@@ -7443,7 +7444,7 @@ loadingSubtitleLines	字幕行を読み込み中
 waitingForCaptionLines	字幕行を待機中
 subtitleCurrentLineWillAppear	字幕が来ると現在行を表示します。
 seekSubtitleLine	字幕行へ移動
-subtitleTracksHint	主字幕を選び、「行」で移動します。
+subtitleTracksHint	主字幕を選び、「行」で移動。
 noAutoDetectedSubtitleTracks	自動検出字幕はありません。
 autoDetectedTracksWillAppear	字幕トラックはここに出ます。
 autoDetectedOptionSingular	字幕オプション1件
@@ -7514,7 +7515,7 @@ reviewBlockedBlacklisted	ブラックリスト入りです。解除するとレ�
 reviewBlockedNeverForget	「忘れない」設定です。解除するとレビューできます。
 reviewBlockedLocked	JPDBでロック中です。解除するとレビューできます。
 reviewBlockedRedundant	JPDBで冗長のためレビューできません。
-ankiCardsSuspended	Ankiで保留にしました（ブラックリストと同様の扱い）。
+ankiCardsSuspended	Ankiで保留にしました。
 ankiCardsUnsuspended	Ankiの保留を解除しました。
 ankiNeverForgetTagAdded	Ankiにyomu-never-forgetタグを付けました。
 ankiNeverForgetTagRemoved	Ankiのyomu-never-forgetタグを外しました。
@@ -7547,7 +7548,7 @@ ankiConnectActionFailed	AnkiConnectの操作に失敗しました。
 ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
-ankiHostedCorsHint	直接接続には{origin}をwebCorsOriginListに追加してください。
+ankiHostedCorsHint	webCorsOriginListに{origin}を追加してください。
 mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
 ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
@@ -7572,14 +7573,14 @@ openedInAnki	Ankiで開きました。
 addedToDeckAndReviewed	デッキに追加してレビューしました。
 sentToAnki	Ankiに送信しました。
 openedMobileAnkiHandoff	モバイルAnki受け渡しを開きました。
-alreadyInAnki	すでにAnkiにあります。編集はAnkiで行います。
+alreadyInAnki	すでにAnkiにあります。
 removedFromDeck	デッキから削除しました。
 addedToDeckToast	デッキに追加しました。
-apiDeckMediaNotSupported	キャプチャメディアはYomuに残ります（メディアAPIなし）。
+apiDeckMediaNotSupported	メディアはYomuに残ります。
 sentToAnkiWithContextImageAndAudio	画像と音声付きでAnkiに送信しました。
-sentToAnkiWithContextImage	文脈画像付きでAnkiに送信しました。
+sentToAnkiWithContextImage	画像付きでAnkiに送信しました。
 sentToAnkiWithAudio	音声付きでAnkiに送信しました。
-ankiMergeNoNewData	Ankiノートに利用可能なYomuデータは反映済みです。
+ankiMergeNoNewData	Yomuデータは反映済みです。
 ankiMergeFieldSingular	フィールド
 ankiMergeFieldPlural	フィールド
 ankiMergeAudio	音声
@@ -7598,7 +7599,7 @@ jpdbLookupFailed	JPDB検索に失敗しました。
 jpdbDeckStateApiKeyRequired	JPDBデッキ変更にはAPIキーが必要です。
 jpdbAddApiKeyRequired	JPDB APIキーかAnki追加が必要です。
 addedToJpdb	JPDBに追加しました。
-jitenDeckStateApiKeyRequired	Jiten語彙状態の変更にはJiten APIキーが必要です。
+jitenDeckStateApiKeyRequired	Jiten状態変更にはAPIキーが必要です。
 jitenAddApiKeyRequired	Jiten APIキーかAnki追加が必要です。
 chooseJitenStudyDeck	先にJiten学習デッキを選択してください。
 addedToJiten	Jitenに追加しました。
@@ -7628,7 +7629,7 @@ grammar	文法
 meaning	意味
 japaneseLabel	日本語
 readSentenceAloud	文を読み上げ
-openSectionToTranslate	このセクションを開くと翻訳します。
+openSectionToTranslate	開くと翻訳します。
 translationUnavailable	翻訳を利用できません。
 translating	翻訳中...
 findingGrammar	文法を検索中...
@@ -7644,7 +7645,7 @@ allDetectedGrammarKnown	検出文法はすべて既知です。
 grammarShown	件表示
 grammarKnownHidden	件の既知を非表示
 grammarGenericShort	文法項目: {name}
-grammarGenericDetail	この文では「{match}」に「{name}」が使われています。
+grammarGenericDetail	「{match}」に「{name}」。
 grammarKindHanabira	Hanabira文法
 grammarLevelCore	基本
 `);
@@ -7653,7 +7654,7 @@ settingsTitle	{APP_NAME} 設定
 settingsSections	設定セクション
 settingsSearch	設定を検索
 settingsSearchPlaceholder	設定を検索
-settingsSearchNoResults	一致する設定はありません。
+settingsSearchNoResults	一致なし。
 selectOptions	選択肢
 save	保存
 cancel	キャンセル
@@ -7681,14 +7682,14 @@ apiCredentialJiten	Jiten APIキー
 apiKey	APIキー
 jitenApiKey	Jiten APIキー
 apiAccess	APIアクセス
-apiAccessHelp	JitenまたはJPDB APIキーを貼ります。Jitenはak_で始まります。
+apiAccessHelp	Jiten/JPDB APIキーを貼ります。Jitenはak_で始まります。
 jpdbSettings	JPDB設定
 jitenSettings	Jiten設定
 jpdbApiKeyConfigured	JPDBキーあり。
 jpdbApiKeyMissing	JPDBキーなし。
 jpdbConnected	JPDBに接続しました。
 jpdbAndJitenConnected	JitenとJPDBに接続しました。
-jpdbConnectionFailed	JPDBがキーを受け付けませんでした（ネットワークまたは無効なキー）。
+jpdbConnectionFailed	JPDBキーが無効か接続不可です。
 jitenApiKeyConfigured	Jitenキーあり。
 jitenApiKeyMissing	Jitenキーなし。
 statusEnabled	有効
@@ -7696,7 +7697,7 @@ statusDisabled	無効
 statusReady	準備完了
 statusAttention	設定が必要
 statusError	エラー
-disabledControlDescription	別の設定に制御されています。
+disabledControlDescription	別設定で制御中。
 jpdbMiningEnabled	APIの復習・デッキ変更を許可
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
@@ -7706,7 +7707,7 @@ jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
 jpdbPageEnhancementsHelp	
-fivePoint	5段階: 全く覚えていないから簡単まで
+fivePoint	5段階: 全然から簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
 theme	テーマ
@@ -7716,12 +7717,12 @@ light	ライト
 popupMode	ポップアップ表示
 bottomSheet	下部シート
 popover	ポップオーバー
-stickyBottomSheet	検索後もシートを開く
+stickyBottomSheet	検索後も開く
 popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
 popoverHeightMode	ポップオーバー高さの動作
-popoverHeightAvailable	空き領域まで広げる
+popoverHeightAvailable	空き領域まで
 popoverHeightFixed	高さ設定を使う
 readerFontFamily	リーダーUIフォント
 popupFontFamily	ポップアップの日本語フォント
@@ -7731,44 +7732,44 @@ fontPresetHiraginoYuGothic	ヒラギノ / 游ゴシック
 fontPresetJapaneseSerif	日本語明朝
 fontPresetSystemUi	システムUI
 fontPresetCustom	カスタム...
-customFontFamily	カスタムフォントスタック
+customFontFamily	カスタムフォント
 popupFontWeight	ポップアップの日本語の太さ
 enableLogging	診断ログを有効にする
 diagnostics	診断
 diagnosticsHelp	診断をコンソールへ出力します。
 accentColor	アクセントカラー
 newTab	学習
-newTabEnabled	学習ページを新しいタブに設定
+newTabEnabled	学習を新しいタブに設定
 newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
-newTabAnkiReviewDecksHelp	不要なデッキだけ外します。
+newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: API/Anki、その後に学習語
+newTabAuto	自動: API/Anki後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
-newTabJpdbReviewAuto	自動: ライブ漢字 + API語彙
+newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
 newTabLiveReview	ライブJPDB復習セッション
 newTabApiVocabulary	API語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
-newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
+newTabKanjiKeywordAuto	自動: RTK、{service}、ローカル
 newTabKanjiKeywordRtk	RTK / Heisig
 newTabKanjiKeywordApiFacts	{service}漢字情報（Jiten / JPDB）
 newTabKanjiKeywordLocal	ローカルカードの意味
-newTabParsingEnabled	学習の文解析を有効にする
+newTabParsingEnabled	学習の文解析を有効
 newTabFrontSentenceEnabled	単語カード表面に文を表示
-newTabKanjiAutogradeEnabled	漢字の書き取りを自動採点
+newTabKanjiAutogradeEnabled	漢字書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
 newTabOfflineEnabled	学習をオフライン用にキャッシュ
 newTabOfflineLimit	オフライン復習キャッシュ上限
 newTabDailyGoalMinutes	1日の学習目標（分・0で無効）
-newTabKanjiUnlockEnabled	漢字を学んでから単語を解放
+newTabKanjiUnlockEnabled	漢字後に単語を解放
 newTabStopAtBatchEnd	バッチの終わりで停止
-newTabSwipeReviews	スワイプで採点（左＝失敗、右＝合格）
+newTabSwipeReviews	スワイプ採点（左=失敗、右=合格）
 newTabUrl	学習ページのアドレス
-newTabOfflineHelp	復習カードと未送信採点を保存します。
-newTabAddressHelp	開始/新規タブやiPadホーム画面に使えます。
+newTabOfflineHelp	カードと未送信採点を保存。
+newTabAddressHelp	新規タブやiPadホーム画面用。
 newTabJpdbDeck	学習のJPDBデッキ
 openNewTabPage	学習を開く
 copyAddress	アドレスをコピー
@@ -7778,7 +7779,7 @@ wordColorLearning	学習中
 wordColorKnown	既知・忘れない
 wordColorDue	期限到来
 wordColorFailed	失敗
-wordColorIgnored	無視・保留・ブラックリスト
+wordColorIgnored	無視・保留・ブラックリスト中
 pitchAccentColors	ピッチアクセントの色
 pitchColorHeiban	平板
 pitchColorAtamadaka	頭高
@@ -7831,9 +7832,9 @@ furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
-sheetCloseButtonOnLeft	モバイルシートの閉じるボタンを左側に
-hideKnownFurigana	既知カードのみふりがなを非表示
-readerHelp	ホバーキーを設定。空欄なら通常ホバーです。
+sheetCloseButtonOnLeft	閉じるボタンを左側に
+hideKnownFurigana	既知カードのふりがなを非表示
+readerHelp	ホバーキーを設定。空欄なら通常ホバー。
 hoverLookupSettings	ホバー検索
 kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
@@ -7841,12 +7842,12 @@ kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
 kanjiHelp	
 audioEnabled	語句の音声を有効にする
-autoPlayAudio	語句の音声を自動再生する
-suppressAutoAudioOnVideo	動画ページでは検索音声の自動再生を無効にする
+autoPlayAudio	語句の音声を自動再生
+suppressAutoAudioOnVideo	動画ページでは自動再生を無効
 audioAutoPlayMode	自動再生のきっかけ
-audioEnableDefaultSources	内蔵音声ソースを有効にする
-audioFallbackChimeEnabled	フォールバックチャイムを有効にする
-audioSelectionMode	複数のソースやクリップがあるとき
+audioEnableDefaultSources	内蔵音声ソースを有効
+audioFallbackChimeEnabled	フォールバック音を有効
+audioSelectionMode	複数音声があるとき
 audioPlayback	音声再生
 firstAudio	最初の音声
 randomAudio	シャッフル音声
@@ -7855,7 +7856,7 @@ audioTtsFallback	録音音声の後のフォールバック
 audioTtsSourceOrder	ソース順/シャッフルに含める
 audioTimeoutMs	音声タイムアウト (ms)
 previewAudio	音声を試聴
-audioHelp	URLトークン: {term}、{reading}、{language}。
+audioHelp	URL: {term}、{reading}、{language}。
 audioSource	音声ソース
 urlVoice	URL / 音声
 addAudioSource	音声ソースを追加
@@ -7882,13 +7883,13 @@ audioSourceTextToSpeech	ブラウザ読み上げ
 audioSourceTextToSpeechReading	ブラウザ読み上げ (かな読み)
 audioSourceCustom	直接音声ファイルURL
 audioSourceCustomJson	カスタムURL
-audioCustomJsonPlaceholder	YomitanまたはUltimateの音声ソースURL
+audioCustomJsonPlaceholder	Yomitan/Ultimate音声URL
 audioCustomUrlPlaceholder	直接音声ファイルURL
-audioBuiltInPlaceholder	内蔵ソースのためURL不要
+audioBuiltInPlaceholder	内蔵ソースはURL不要
 defaultVoiceSuffix	標準
 audioGuideLinkLabel	Yomitan音声ガイド
 audioProxyGuideSummary	Cloudflareプロキシ
-audioProxyGuideIntro	専用プロキシが必要ならWorkerを使います。
+audioProxyGuideIntro	専用プロキシにはWorkerを使います。
 audioProxyGuideCloudflare	Cloudflareを開きます。
 audioProxyGuideWorkers	Workers & PagesでCreateします。
 audioProxyGuideCreateWorker	Workerを選び、名前を付けてDeploy。
@@ -7906,11 +7907,11 @@ immersionKitAndNadeshiko	イマージョンキット + なでしこ
 nadeshikoApiKey	なでしこAPIキー
 getNadeshikoKey	キーを取得
 immersionKitShowTranslation	例文の翻訳を表示
-immersionKitRevealTranslationOnClick	クリックするまで例文の翻訳をぼかす
+immersionKitRevealTranslationOnClick	クリックまで翻訳をぼかす
 immersionKitShowImages	例文サムネイルを表示
-immersionKitAutoPlayAudio	表示後または前後移動時に例文音声を再生
-immersionKitPlayOnHover	サムネイルをホバーしたら例文音声を再生
-immersionKitPlayOnImageClick	サムネイルをクリックしたら例文音声を再生
+immersionKitAutoPlayAudio	表示後や移動時に音声再生
+immersionKitPlayOnHover	ホバーで例文音声を再生
+immersionKitPlayOnImageClick	クリックで例文音声を再生
 immersionKitCategory	例文ソース
 immersionKitSort	例文の並び順
 immersionKitLimitEnabled	単語ごとの例文数制限
@@ -7921,7 +7922,7 @@ immersionKitMinLength	最小文長
 immersionKitMaxLength	最大文長
 immersionKitPlaybackRate	例文音声速度
 immersionKitExactMatch	完全一致を優先
-immersionKitHelp	例文をポップアップとJPDBに表示。Nadeshikoはキーが必要です。
+immersionKitHelp	例文を表示。Nadeshikoはキー必須。
 allCategories	すべて
 anime	アニメ
 drama	ドラマ
@@ -8052,23 +8053,23 @@ ankiMiningDisabledStatus	Ankiマイニングは無効です。
 ankiTesting	AnkiConnectを確認中...
 ankiPreparing	よむデッキとノートタイプを作成または更新中...
 ankiScanning	Ankiデッキ、ノートタイプ、フィールドを読み込み中...
-ankiScanSummary	デッキ{decks}件、ノート{models}件。候補: {model}。{fields}
+ankiScanSummary	デッキ{decks}、ノート{models}。候補: {model}。{fields}
 ankiScanNoModels	デッキ{decks}件を検出。ノートタイプは未取得です。
 ankiScanFieldSummary	フィールド: {fields}
 ankiUnreachable	デスクトップAnkiとAnkiConnectを確認してください。
 ankiCorsBlocked	webCorsOriginListに「{origin}」を追加し再起動してください。
-ankiSettingsUnreachable	AnkiConnectに接続できません。デスクトップAnkiを開いて再確認してください。
-ankiHostedBridgeMissing	よむユーザースクリプトを有効化し、ページを更新して再確認してください。
+ankiSettingsUnreachable	AnkiConnectに接続できません。
+ankiHostedBridgeMissing	よむを有効化し、更新してください。
 ankiStatusOpenDesktop	デスクトップAnkiを開く
 ankiStatusInstallAddon	AnkiConnectをインストール/有効化
 ankiStatusMobileDocs	モバイル設定ドキュメント
 ankiStatusUseDesktopUrl	モバイルではLAN/Tailscale URLを使う
-ankiStatusEnableUserscript	インストール済みのよむユーザースクリプトを有効化
-ankiStatusRefreshAndCheck	再読み込みして再確認
+ankiStatusEnableUserscript	よむを有効化
+ankiStatusRefreshAndCheck	更新して再確認
 ankiLibraryAdapter	既存ライブラリアダプター
-ankiLibraryAdapterStatus	既存デッキとノートタイプから対応付けを提案します。
+ankiLibraryAdapterStatus	既存デッキから対応付けを提案します。
 ankiLibraryChoices	デッキとノートタイプ
-ankiLibraryChoicesHelp	AnkiConnectから読み込み、作成・更新先を選びます。
+ankiLibraryChoicesHelp	作成・更新先を選びます。
 ankiTemplateSettings	よむカードテンプレート
 ankiTemplateSettingsHelp	よむノートタイプ用。テンプレートはAnkiに残ります。
 ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
@@ -8084,17 +8085,17 @@ importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
-dictionaryImportHelp	Yomitan設定、辞書ZIP、バックアップを読み込みます。
+dictionaryImportHelp	設定やZIPを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンク。トークン: {query}、{word}、{reading}。
+lookupPillsHelp	トークン: {query}、{word}、{reading}。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
 lookupUrlTemplate	検索URLテンプレート
-lookupUrlTemplateNumber	検索ピル{number}のURLテンプレート
+lookupUrlTemplateNumber	ピル{number} URL
 lookupPillOrder	検索ピルの順序
 builtInAction	内蔵アクション
-recommendedDownloads	おすすめ辞書
+recommendedDownloads	辞書
 termDictionaries	語句辞書
 kanjiDictionaries	漢字辞書
 frequencyDictionaries	頻度辞書
@@ -8162,11 +8163,11 @@ videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
 docs	ドキュメント
 factoryReset	初期状態に戻す
-factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除します。
+factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
 factoryResetFailed	リセットに失敗しました。
-factoryResetDictionaryWarning	設定をリセットしました。他のよむタブを閉じて辞書を確認してください。
-factoryResetOtherTabReloading	別のタブでよむがリセットされました。再読み込みします...
-factoryResetDeleteSettingsFailed	保存済み設定を削除できません。他のよむタブを閉じて再試行。
+factoryResetDictionaryWarning	設定をリセットしました。他のタブを閉じてください。
+factoryResetOtherTabReloading	別タブでリセット。再読み込み...
+factoryResetDeleteSettingsFailed	設定を削除できません。他のタブを閉じてください。
 issues	Issue
 donate	寄付
 discord	Discord
@@ -8233,6 +8234,7 @@ recommendedJmnedict	固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
 recommendedPixivLight	Pixiv用語辞書です。
 recommendedKanjidic	漢字情報です。
+recommendedMarvncMonolingual	日本語辞書集です。
 recommendedJpdbKanji	JPDB漢字情報です。
 recommendedJpdbv2Kana	JPDB頻度です。
 recommendedBccwj	BCCWJ頻度です。
