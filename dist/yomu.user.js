@@ -27020,7 +27020,7 @@ ${spelling}`);
       if (cached) this.cardCache.delete(normalized);
       const promise = this.lookupUncached(normalized).catch((error) => {
         this.noteFailure(error);
-        log$a.warn("Public Jiten vocabulary lookup failed", { term: normalized }, error);
+        log$a.warn("Jiten lookup", { term: normalized }, error);
         return null;
       });
       this.remember(this.cardCache, normalized, promise, now);
@@ -27045,7 +27045,7 @@ ${spelling}`);
       if (pendingTerms.length) {
         const loaded = await this.lookupManyUncached(pendingTerms).catch((error) => {
           this.noteFailure(error);
-          log$a.warn("Public Jiten batch vocabulary lookup failed", { terms: pendingTerms.length }, error);
+          log$a.warn("Jiten batch", { terms: pendingTerms.length }, error);
           return /* @__PURE__ */ new Map();
         });
         loaded.forEach((card, term) => result.set(term, card));
@@ -27074,7 +27074,7 @@ ${spelling}`);
         const candidate = bestParsedWordForBatchTerm(term, parsed);
         if (candidate) candidatesByTerm.set(term, candidate);
       });
-      await mapLimited([...candidatesByTerm], DETAIL_CONCURRENCY, async ([term, candidate]) => {
+      await mapLimited([...candidatesByTerm].slice(0, 12), DETAIL_CONCURRENCY, async ([term, candidate]) => {
         const promise = this.lookupDetail(candidate, term);
         this.remember(this.cardCache, term, promise, Date.now());
         await promise;
@@ -27089,7 +27089,7 @@ ${spelling}`);
     async parseTerms(terms) {
       const chunks = chunkTermsForParse(terms);
       const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, (chunk) => this.requestParse(chunk).catch((error) => {
-        log$a.warn("Public Jiten vocabulary parse chunk failed", { terms: chunk.length }, error);
+        log$a.warn("Jiten parse", { terms: chunk.length }, error);
         return [];
       }));
       return groups.flat();
@@ -27113,7 +27113,7 @@ ${spelling}`);
       if (cached) this.detailCache.delete(key);
       const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`).then((payload) => publicJitenCardFromDetail(payload, requestedTerm, word)).catch((error) => {
         this.noteFailure(error);
-        log$a.warn("Public Jiten vocabulary detail failed", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
+        log$a.warn("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
         return null;
       });
       this.remember(this.detailCache, key, promise, now);
@@ -27124,9 +27124,9 @@ ${spelling}`);
       return request(endpointUrl(this.options.baseUrl, endpoint), {
         responseType: "json",
         timeoutMs: REQUEST_TIMEOUT_MS$2,
-        timeoutLabel: "Public Jiten request timed out.",
-        failureLabel: "Public Jiten request",
-        statusFailureMessage: (status) => `Public Jiten request failed (${status}).`,
+        timeoutLabel: "Jiten timeout.",
+        failureLabel: "Jiten",
+        statusFailureMessage: (status) => `Jiten fail (${status}).`,
         proxyUrl: this.proxyUrl(),
         allowDirectCrossOrigin: true,
         allowConfiguredProxy: true,
@@ -29641,6 +29641,7 @@ ${normalizedReading}`;
   const JPDB_USED_IN_VOCABULARY_LIMIT = 3;
   const JPDB_EXAMPLE_LIMIT = 3;
   const JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS = 2500;
+  const JPDB_LINKED_AUDIO_ENRICHMENT_BUDGET = 8;
   function isJapaneseTerm(value) {
     if (!value) return false;
     return JAPANESE_RE.test(value);
@@ -29886,14 +29887,19 @@ ${normalizedReading}`;
       return await this.enrichLinkedVocabularyAudio(info);
     }
     async enrichLinkedVocabularyAudio(info) {
-      const compounds = await this.enrichVocabularyEntryAudio(info.compounds, "Compound vocabulary audio request failed");
+      const budget = { remaining: JPDB_LINKED_AUDIO_ENRICHMENT_BUDGET };
+      const compounds = await this.enrichVocabularyEntryAudio(info.compounds, budget, "Compound vocabulary audio request failed");
       const entries = info.usedInVocabulary ?? [];
-      const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, "Used-in vocabulary audio request failed");
+      const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, budget, "Used-in vocabulary audio request failed");
       return { ...info, compounds, usedInVocabulary };
     }
-    async enrichVocabularyEntryAudio(entries, failureLabel) {
-      if (!entries.some((entry) => shouldRefreshVocabularyEntryAudio(entry))) return entries;
-      return await Promise.all(entries.map((entry) => this.vocabularyEntryWithAudio(entry, failureLabel)));
+    async enrichVocabularyEntryAudio(entries, budget, failureLabel) {
+      if (budget.remaining <= 0 || !entries.some((entry) => shouldRefreshVocabularyEntryAudio(entry))) return entries;
+      return await Promise.all(entries.map((entry) => {
+        if (budget.remaining <= 0 || !shouldRefreshVocabularyEntryAudio(entry)) return Promise.resolve(entry);
+        budget.remaining -= 1;
+        return this.vocabularyEntryWithAudio(entry, failureLabel);
+      }));
     }
     async vocabularyEntryWithAudio(entry, failureLabel) {
       if (!shouldRefreshVocabularyEntryAudio(entry) || this.requestBackoff.isActive()) return entry;
@@ -40233,10 +40239,10 @@ ${normalizedReading}`;
       const entries = uniqueFallbackLookupEntries(cards, options.publicLookupTermLimit);
       if (!entries.length) return result;
       const jitenTerms = [...new Set(entries.flatMap((entry) => entry.terms))];
-      const jitenCards = await this.jitenPublicVocabulary?.lookupMany?.(jitenTerms).catch((error) => {
-        log.warn("Public Jiten batch fallback lookup failed", { terms: jitenTerms.length }, error);
+      const jitenCards = await this.jitenPublicVocabulary.lookupMany(jitenTerms).catch((error) => {
+        log.warn("Jiten fallback failed", { terms: jitenTerms.length }, error);
         return /* @__PURE__ */ new Map();
-      }) ?? /* @__PURE__ */ new Map();
+      });
       for (const entry of entries) {
         for (const term of entry.terms) {
           const card = jitenCards.get(normalizedJitenLookupKey(term));
@@ -40261,7 +40267,7 @@ ${normalizedReading}`;
       const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
       if (!uniqueTerms.length) return /* @__PURE__ */ new Map();
       return await this.jitenPublicVocabulary.lookupMany(uniqueTerms).catch((error) => {
-        log.warn("Public Jiten candidate batch lookup failed", { terms: uniqueTerms.length }, error);
+        log.warn("Jiten candidate failed", { terms: uniqueTerms.length }, error);
         return /* @__PURE__ */ new Map();
       });
     }

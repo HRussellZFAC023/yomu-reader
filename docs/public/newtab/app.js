@@ -53929,7 +53929,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (cached) this.cardCache.delete(normalized);
       const promise = this.lookupUncached(normalized).catch((error) => {
         this.noteFailure(error);
-        log$8.warn("Public Jiten vocabulary lookup failed", { term: normalized }, error);
+        log$8.warn("Jiten lookup", { term: normalized }, error);
         return null;
       });
       this.remember(this.cardCache, normalized, promise, now);
@@ -53954,7 +53954,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (pendingTerms.length) {
         const loaded = await this.lookupManyUncached(pendingTerms).catch((error) => {
           this.noteFailure(error);
-          log$8.warn("Public Jiten batch vocabulary lookup failed", { terms: pendingTerms.length }, error);
+          log$8.warn("Jiten batch", { terms: pendingTerms.length }, error);
           return /* @__PURE__ */ new Map();
         });
         loaded.forEach((card, term) => result.set(term, card));
@@ -53983,7 +53983,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
         const candidate = bestParsedWordForBatchTerm(term, parsed);
         if (candidate) candidatesByTerm.set(term, candidate);
       });
-      await mapLimited([...candidatesByTerm], DETAIL_CONCURRENCY, async ([term, candidate]) => {
+      await mapLimited([...candidatesByTerm].slice(0, 12), DETAIL_CONCURRENCY, async ([term, candidate]) => {
         const promise = this.lookupDetail(candidate, term);
         this.remember(this.cardCache, term, promise, Date.now());
         await promise;
@@ -53998,7 +53998,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     async parseTerms(terms) {
       const chunks2 = chunkTermsForParse(terms);
       const groups = await mapLimited(chunks2, DETAIL_CONCURRENCY, (chunk) => this.requestParse(chunk).catch((error) => {
-        log$8.warn("Public Jiten vocabulary parse chunk failed", { terms: chunk.length }, error);
+        log$8.warn("Jiten parse", { terms: chunk.length }, error);
         return [];
       }));
       return groups.flat();
@@ -54022,7 +54022,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       if (cached) this.detailCache.delete(key);
       const promise = this.requestJson(`vocabulary/${word.wordId}/${word.readingIndex}/info`).then((payload) => publicJitenCardFromDetail(payload, requestedTerm, word)).catch((error) => {
         this.noteFailure(error);
-        log$8.warn("Public Jiten vocabulary detail failed", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
+        log$8.warn("Jiten detail", { wordId: word.wordId, readingIndex: word.readingIndex }, error);
         return null;
       });
       this.remember(this.detailCache, key, promise, now);
@@ -54033,9 +54033,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       return request(endpointUrl(this.options.baseUrl, endpoint), {
         responseType: "json",
         timeoutMs: REQUEST_TIMEOUT_MS$1,
-        timeoutLabel: "Public Jiten request timed out.",
-        failureLabel: "Public Jiten request",
-        statusFailureMessage: (status) => `Public Jiten request failed (${status}).`,
+        timeoutLabel: "Jiten timeout.",
+        failureLabel: "Jiten",
+        statusFailureMessage: (status) => `Jiten fail (${status}).`,
         proxyUrl: this.proxyUrl(),
         allowDirectCrossOrigin: true,
         allowConfiguredProxy: true,
@@ -54917,6 +54917,7 @@ ${normalizedReading}`;
   const JPDB_USED_IN_VOCABULARY_LIMIT = 3;
   const JPDB_EXAMPLE_LIMIT = 3;
   const JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS = 2500;
+  const JPDB_LINKED_AUDIO_ENRICHMENT_BUDGET = 8;
   function isJapaneseTerm(value) {
     if (!value) return false;
     return JAPANESE_RE.test(value);
@@ -55162,14 +55163,19 @@ ${normalizedReading}`;
       return await this.enrichLinkedVocabularyAudio(info);
     }
     async enrichLinkedVocabularyAudio(info) {
-      const compounds = await this.enrichVocabularyEntryAudio(info.compounds, "Compound vocabulary audio request failed");
+      const budget = { remaining: JPDB_LINKED_AUDIO_ENRICHMENT_BUDGET };
+      const compounds = await this.enrichVocabularyEntryAudio(info.compounds, budget, "Compound vocabulary audio request failed");
       const entries = info.usedInVocabulary ?? [];
-      const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, "Used-in vocabulary audio request failed");
+      const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, budget, "Used-in vocabulary audio request failed");
       return { ...info, compounds, usedInVocabulary };
     }
-    async enrichVocabularyEntryAudio(entries, failureLabel) {
-      if (!entries.some((entry) => shouldRefreshVocabularyEntryAudio(entry))) return entries;
-      return await Promise.all(entries.map((entry) => this.vocabularyEntryWithAudio(entry, failureLabel)));
+    async enrichVocabularyEntryAudio(entries, budget, failureLabel) {
+      if (budget.remaining <= 0 || !entries.some((entry) => shouldRefreshVocabularyEntryAudio(entry))) return entries;
+      return await Promise.all(entries.map((entry) => {
+        if (budget.remaining <= 0 || !shouldRefreshVocabularyEntryAudio(entry)) return Promise.resolve(entry);
+        budget.remaining -= 1;
+        return this.vocabularyEntryWithAudio(entry, failureLabel);
+      }));
     }
     async vocabularyEntryWithAudio(entry, failureLabel) {
       if (!shouldRefreshVocabularyEntryAudio(entry) || this.requestBackoff.isActive()) return entry;
@@ -70692,10 +70698,7 @@ ${entry.url}`),
       const entries = uniqueFallbackLookupEntries(cards);
       if (!entries.length) return result;
       const terms = [...new Set(entries.flatMap((entry) => entry.terms))];
-      const jitenCards = await this.jitenPublicVocabulary?.lookupMany?.(terms).catch((error) => {
-        log.warn("Public Jiten batch fallback search failed", { terms: terms.length }, error);
-        return /* @__PURE__ */ new Map();
-      }) ?? /* @__PURE__ */ new Map();
+      const jitenCards = await this.fallbackJitenCards(terms);
       for (const entry of entries) {
         for (const term of entry.terms) {
           const card = jitenCards.get(normalizedJitenLookupKey(term));
@@ -70719,6 +70722,30 @@ ${entry.url}`),
         }
       });
       return result;
+    }
+    async fallbackJitenCards(terms) {
+      if (this.isJitenApiActive()) return this.batchJitenFallbackCards(terms);
+      return await this.jitenPublicVocabulary.lookupMany(terms).catch((error) => {
+        log.warn("Public Jiten batch fallback search failed", { terms: terms.length }, error);
+        return /* @__PURE__ */ new Map();
+      });
+    }
+    // Keyed bulk fallback terms use reader parse instead of per-word public
+    // detail lookups.
+    async batchJitenFallbackCards(terms) {
+      const cards = /* @__PURE__ */ new Map();
+      const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
+      if (!uniqueTerms.length) return cards;
+      const parsed = await this.jiten.parse(uniqueTerms).catch((error) => {
+        log.warn("Jiten batch fallback parse failed", { terms: uniqueTerms.length }, error);
+        return [];
+      });
+      uniqueTerms.forEach((term, index) => {
+        const tokens = parsed[index] ?? [];
+        const card = tokens.find((token) => jitenFallbackTokenMatches(term, token))?.card ?? tokens.find((token) => token.card.source === "jiten")?.card;
+        if (card?.source === "jiten") cards.set(normalizedJitenLookupKey(term), card);
+      });
+      return cards;
     }
     async localLookupEntry(term, reading) {
       if (!this.settings.localDictionariesEnabled) return void 0;
@@ -71201,6 +71228,11 @@ ${entry.url}`),
   }
   function normalizedJitenLookupKey(term) {
     return term.replace(/\s+/g, "").trim();
+  }
+  function jitenFallbackTokenMatches(term, token) {
+    const normalizedTerm = normalizedJitenLookupKey(term);
+    const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
+    return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
   }
   function settingsForSettingsFormParse(form, settings) {
     const furiganaMode = form.querySelector('select[name="furiganaMode"]')?.value;

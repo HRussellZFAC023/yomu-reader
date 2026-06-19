@@ -16,7 +16,7 @@ import {
     jpdbVocabularyAudioIds,
     shouldRefreshVocabularyEntryAudio,
 } from './jpdb-vocabulary-audio';
-import { JPDB_COMPOUND_LIMIT, JPDB_EXAMPLE_LIMIT, JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS, JPDB_USED_IN_VOCABULARY_LIMIT } from './jpdb-vocabulary-constants';
+import { JPDB_COMPOUND_LIMIT, JPDB_EXAMPLE_LIMIT, JPDB_LINKED_AUDIO_ENRICHMENT_BUDGET, JPDB_USED_IN_AUDIO_REQUEST_TIMEOUT_MS, JPDB_USED_IN_VOCABULARY_LIMIT } from './jpdb-vocabulary-constants';
 import { baseText, cleanMeaning, escapeRegExp, isJapaneseTerm, optionalRichHtml, readingText, sectionLabel, uniqueBy } from './jpdb-vocabulary-dom';
 import { vocabularyRoot } from './jpdb-vocabulary-root';
 import { mergeVocabularyInfo, needsSupplement, requestText, vocabularyLookupUrls, vocabularySupplementUrls } from './jpdb-vocabulary-request';
@@ -134,15 +134,20 @@ export class JpdbVocabularyClient {
     }
 
     private async enrichLinkedVocabularyAudio(info: JpdbVocabularyInfo): Promise<JpdbVocabularyInfo> {
-        const compounds = await this.enrichVocabularyEntryAudio(info.compounds, 'Compound vocabulary audio request failed');
+        const budget = { remaining: JPDB_LINKED_AUDIO_ENRICHMENT_BUDGET };
+        const compounds = await this.enrichVocabularyEntryAudio(info.compounds, budget, 'Compound vocabulary audio request failed');
         const entries = info.usedInVocabulary ?? [];
-        const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, 'Used-in vocabulary audio request failed');
+        const usedInVocabulary = await this.enrichVocabularyEntryAudio(entries, budget, 'Used-in vocabulary audio request failed');
         return { ...info, compounds, usedInVocabulary };
     }
 
-    private async enrichVocabularyEntryAudio(entries: JpdbVocabularyCompound[], failureLabel: string): Promise<JpdbVocabularyCompound[]> {
-        if (!entries.some(entry => shouldRefreshVocabularyEntryAudio(entry))) return entries;
-        return await Promise.all(entries.map(entry => this.vocabularyEntryWithAudio(entry, failureLabel)));
+    private async enrichVocabularyEntryAudio(entries: JpdbVocabularyCompound[], budget: { remaining: number }, failureLabel: string): Promise<JpdbVocabularyCompound[]> {
+        if (budget.remaining <= 0 || !entries.some(entry => shouldRefreshVocabularyEntryAudio(entry))) return entries;
+        return await Promise.all(entries.map(entry => {
+            if (budget.remaining <= 0 || !shouldRefreshVocabularyEntryAudio(entry)) return Promise.resolve(entry);
+            budget.remaining -= 1;
+            return this.vocabularyEntryWithAudio(entry, failureLabel);
+        }));
     }
 
     private async vocabularyEntryWithAudio(entry: JpdbVocabularyCompound, failureLabel: string): Promise<JpdbVocabularyCompound> {

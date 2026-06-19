@@ -7,6 +7,7 @@ import { pointerTextLookupFromTextNode, type PointerTextLookup } from '../../src
 
 interface PointerLookupInternals {
     settings: ReaderSettings;
+    jitenPublicVocabulary: { lookupMany: (terms: readonly string[]) => Promise<Map<string, JPDBCard>> };
     parseJapanese(paragraphs: string[]): Promise<JPDBToken[][]>;
     publicLookupCard(term: string, exact?: boolean, options?: { allowCandidateLookup?: boolean }): Promise<JPDBCard | undefined>;
     showFirstPointerTextCandidate(
@@ -32,6 +33,7 @@ interface PublicLookupInternals {
 interface RenderedWordLookupInternals {
     settings: ReaderSettings;
     getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+    jitenPublicVocabulary: { lookupMany: (terms: readonly string[]) => Promise<Map<string, JPDBCard>> };
     publicLookupCard(term: string, exact?: boolean, options?: { allowCandidateLookup?: boolean }): Promise<JPDBCard | undefined>;
     showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: unknown): Promise<void>;
     showWord(word: HTMLElement, options?: { trigger?: 'click' | 'hover'; userGesture?: boolean }): Promise<void>;
@@ -62,7 +64,7 @@ function japaneseLanguageCard(): JPDBCard {
         sid: 0,
         spelling: '日本語',
         reading: 'にほんご',
-        source: 'jpdb',
+        source: 'jiten',
         meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
     });
 }
@@ -108,6 +110,9 @@ function setupPointerKanaRunLookup({
         localDictionariesEnabled: false,
     };
     internals.parseJapanese = vi.fn(async () => [parsedTokens]);
+    internals.jitenPublicVocabulary = {
+        lookupMany: vi.fn(async terms => new Map(terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [])),
+    };
     internals.publicLookupCard = vi.fn(async term => term === 'にほんご' ? jpdbCard : undefined);
     internals.showPointerTextCard = vi.fn(async card => {
         shownCards.push(card);
@@ -117,7 +122,8 @@ function setupPointerKanaRunLookup({
 }
 
 function expectPublicKanaLookupShown(internals: PointerLookupInternals, shownCards: JPDBCard[], jpdbCard: JPDBCard): void {
-    expect(internals.publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
+    expect(internals.jitenPublicVocabulary.lookupMany).toHaveBeenCalledWith(expect.arrayContaining(['にほんご']));
+    expect(internals.publicLookupCard).not.toHaveBeenCalled();
     expect(shownCards).toEqual([jpdbCard]);
 }
 
@@ -185,7 +191,7 @@ describe('iPad pointer lookup', () => {
         }
     });
 
-    it('uses public JPDB kana-run identity when JPDB display and pitch are disabled', async () => {
+    it('uses public kana-run identity when JPDB display and pitch are disabled', async () => {
         await expectSplitKanaRunLookup(false);
     });
 
@@ -228,7 +234,7 @@ describe('iPad pointer lookup', () => {
         { offset: 0, fragment: 'に', fragmentStart: 0, fragmentEnd: 1 },
         { offset: 1, fragment: 'ほ', fragmentStart: 1, fragmentEnd: 2 },
         { offset: 3, fragment: 'ご', fragmentStart: 3, fragmentEnd: 4 },
-    ])('resolves にほんごのじかん tap offset $offset through the full public JPDB kana word', async ({ offset, fragment, fragmentStart, fragmentEnd }) => {
+    ])('resolves にほんごのじかん tap offset $offset through the full public kana word', async ({ offset, fragment, fragmentStart, fragmentEnd }) => {
         const anchor = document.createElement('span');
         document.body.append(anchor);
         const { app, internals, jpdbCard, shownCards } = setupPointerKanaRunLookup({
@@ -262,7 +268,7 @@ describe('iPad pointer lookup', () => {
         { surface: 'に', tokenStart: 0, tokenEnd: 1, wrongFragment: 'にほ' },
         { surface: 'ほん', tokenStart: 1, tokenEnd: 3, wrongFragment: 'ほんご' },
         { surface: 'ご', tokenStart: 3, tokenEnd: 4, wrongFragment: 'んご' },
-    ])('upgrades cached rendered kana fragment "$surface" through the full public JPDB word', async ({ surface, tokenStart, tokenEnd, wrongFragment }) => {
+    ])('upgrades cached rendered kana fragment "$surface" through the full public kana word', async ({ surface, tokenStart, tokenEnd, wrongFragment }) => {
         const app = new ReaderApp();
         const internals = app as unknown as RenderedWordLookupInternals;
         const fragmentCard = testCard({
@@ -278,7 +284,7 @@ describe('iPad pointer lookup', () => {
             sid: 0,
             spelling: '日本語',
             reading: 'にほんご',
-            source: 'jpdb',
+            source: 'jiten',
             meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
         });
         const wrongCard = testCard({
@@ -310,6 +316,9 @@ describe('iPad pointer lookup', () => {
             localDictionariesEnabled: false,
         };
         internals.getCachedCard = vi.fn((vid, sid) => vid === 2 && sid === 0 ? fragmentCard : undefined);
+        internals.jitenPublicVocabulary = {
+            lookupMany: vi.fn(async terms => new Map(terms.includes('にほんご') ? [['にほんご', jpdbCard]] : [])),
+        };
         internals.publicLookupCard = vi.fn(async term => {
             if (term === 'にほんご') return jpdbCard;
             if (term === wrongFragment) return wrongCard;
@@ -322,8 +331,8 @@ describe('iPad pointer lookup', () => {
         try {
             await internals.showWord(word, { trigger: 'click', userGesture: true });
 
-            expect(internals.publicLookupCard).toHaveBeenCalledWith('にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
-            expect(internals.publicLookupCard).toHaveBeenNthCalledWith(1, 'にほんご', true, expect.objectContaining({ allowCandidateLookup: true }));
+            expect(internals.jitenPublicVocabulary.lookupMany).toHaveBeenCalledWith(expect.arrayContaining(['にほんご']));
+            expect(internals.publicLookupCard).not.toHaveBeenCalled();
             expect(shownCards).toEqual([jpdbCard]);
             expect(internals.showCard).toHaveBeenCalledWith(
                 jpdbCard,

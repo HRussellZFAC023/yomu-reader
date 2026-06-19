@@ -137,7 +137,7 @@ describe('performance cache bounds', () => {
             const lookupTermMeta = vi.fn(() => new Promise<never>(() => undefined));
             const publicPitch = vi.fn(async () => ['HLL']);
             const loader = createCardRenderDataLoader({
-                settings: { showPitchAccent: true },
+                settings: { showPitchAccent: true, apiKey: 'jpdb-key' },
                 lookupTermMeta,
                 publicPitch,
             });
@@ -151,6 +151,28 @@ describe('performance cache bounds', () => {
             await vi.advanceTimersByTimeAsync(2_500);
             await expect(load.all).resolves.toMatchObject({ metaEntries: [] });
             expect(lookupCard.pitchAccent).toEqual(['HLL']);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('does not use public JPDB pitch fallback without a JPDB key', async () => {
+        vi.useFakeTimers();
+        try {
+            const lookupTermMeta = vi.fn(() => new Promise<never>(() => undefined));
+            const publicPitch = vi.fn(async () => ['HLL']);
+            const loader = createCardRenderDataLoader({
+                settings: { showPitchAccent: true, apiKey: '' },
+                lookupTermMeta,
+                publicPitch,
+            });
+            const lookupCard = { ...cardFor(1), spelling: '読む', reading: 'よむ', pitchAccent: [] };
+            const load = loader.load(lookupCard);
+
+            await vi.advanceTimersByTimeAsync(3_000);
+            await expect(load.all).resolves.toMatchObject({ metaEntries: [] });
+            expect(publicPitch).not.toHaveBeenCalled();
+            expect(lookupCard.pitchAccent).toEqual([]);
         } finally {
             vi.useRealTimers();
         }

@@ -60,7 +60,7 @@ export class JitenPublicVocabularyClient {
         const promise = this.lookupUncached(normalized)
             .catch(error => {
                 this.noteFailure(error);
-                log.warn('Public Jiten vocabulary lookup failed', { term: normalized }, error);
+                log.warn('Jiten lookup', { term: normalized }, error);
                 return null;
             });
         this.remember(this.cardCache, normalized, promise, now);
@@ -88,7 +88,7 @@ export class JitenPublicVocabularyClient {
         if (pendingTerms.length) {
             const loaded = await this.lookupManyUncached(pendingTerms).catch(error => {
                 this.noteFailure(error);
-                log.warn('Public Jiten batch vocabulary lookup failed', { terms: pendingTerms.length }, error);
+                log.warn('Jiten batch', { terms: pendingTerms.length }, error);
                 return new Map<string, JPDBCard>();
             });
             loaded.forEach((card, term) => result.set(term, card));
@@ -122,7 +122,7 @@ export class JitenPublicVocabularyClient {
             if (candidate) candidatesByTerm.set(term, candidate);
         });
 
-        await mapLimited([...candidatesByTerm], DETAIL_CONCURRENCY, async ([term, candidate]) => {
+        await mapLimited([...candidatesByTerm].slice(0, 12), DETAIL_CONCURRENCY, async ([term, candidate]) => {
             const promise = this.lookupDetail(candidate, term);
             this.remember(this.cardCache, term, promise, Date.now());
             await promise;
@@ -139,7 +139,7 @@ export class JitenPublicVocabularyClient {
     private async parseTerms(terms: readonly string[]): Promise<PublicParseWord[]> {
         const chunks = chunkTermsForParse(terms);
         const groups = await mapLimited(chunks, DETAIL_CONCURRENCY, chunk => this.requestParse(chunk).catch(error => {
-            log.warn('Public Jiten vocabulary parse chunk failed', { terms: chunk.length }, error);
+            log.warn('Jiten parse', { terms: chunk.length }, error);
             return [];
         }));
         return groups.flat();
@@ -169,7 +169,7 @@ export class JitenPublicVocabularyClient {
             .then(payload => publicJitenCardFromDetail(payload, requestedTerm, word))
             .catch(error => {
                 this.noteFailure(error);
-                log.warn('Public Jiten vocabulary detail failed', { wordId: word.wordId, readingIndex: word.readingIndex }, error);
+                log.warn('Jiten detail', { wordId: word.wordId, readingIndex: word.readingIndex }, error);
                 return null;
             });
         this.remember(this.detailCache, key, promise, now);
@@ -181,9 +181,9 @@ export class JitenPublicVocabularyClient {
         return request(endpointUrl(this.options.baseUrl, endpoint), {
             responseType: 'json',
             timeoutMs: REQUEST_TIMEOUT_MS,
-            timeoutLabel: 'Public Jiten request timed out.',
-            failureLabel: 'Public Jiten request',
-            statusFailureMessage: status => `Public Jiten request failed (${status}).`,
+            timeoutLabel: 'Jiten timeout.',
+            failureLabel: 'Jiten',
+            statusFailureMessage: status => `Jiten fail (${status}).`,
             proxyUrl: this.proxyUrl(),
             allowDirectCrossOrigin: true,
             allowConfiguredProxy: true,

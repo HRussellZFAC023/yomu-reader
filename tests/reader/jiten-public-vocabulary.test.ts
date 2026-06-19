@@ -74,6 +74,39 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/1381470/0/info'))).toHaveLength(1);
     });
 
+    it('caps keyless public detail fan-out for large batches', async () => {
+        const terms = Array.from({ length: 16 }, (_, index) => `語${index}`);
+        const requestJson = vi.fn(async (url: string) => {
+            if (url.includes('/vocabulary/parse?')) {
+                return terms.map((term, index) => ({
+                    wordId: index + 1,
+                    readingIndex: 0,
+                    originalText: term,
+                }));
+            }
+            const match = url.match(/\/vocabulary\/(\d+)\/0\/info/u);
+            if (match) {
+                const index = Number(match[1]) - 1;
+                return {
+                    wordId: index + 1,
+                    mainReading: { text: terms[index] },
+                    definitions: [{ meanings: [`definition ${index}`] }],
+                    pitchAccents: [],
+                };
+            }
+            throw new Error(`Unexpected URL: ${url}`);
+        });
+        const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
+
+        const cards = await client.lookupMany(terms);
+
+        expect(cards.size).toBe(12);
+        expect(cards.has('語0')).toBe(true);
+        expect(cards.has('語12')).toBe(false);
+        expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
+        expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)))).toHaveLength(12);
+    });
+
     it('backs off after transient upstream failures so cold enrichment can skip Jiten quickly', async () => {
         const requestJson = vi.fn(async () => {
             throw new Error('Public Jiten request failed (503).');

@@ -3453,10 +3453,10 @@ export class ReaderApp {
         if (!entries.length) return result;
 
         const jitenTerms = [...new Set(entries.flatMap(entry => entry.terms))];
-        const jitenCards = await this.jitenPublicVocabulary?.lookupMany?.(jitenTerms).catch(error => {
-            log.warn('Public Jiten batch fallback lookup failed', { terms: jitenTerms.length }, error);
+        const jitenCards = await this.jitenPublicVocabulary.lookupMany(jitenTerms).catch(error => {
+            log.warn('Jiten fallback failed', { terms: jitenTerms.length }, error);
             return new Map<string, JPDBCard>();
-        }) ?? new Map<string, JPDBCard>();
+        });
         for (const entry of entries) {
             for (const term of entry.terms) {
                 const card = jitenCards.get(normalizedJitenLookupKey(term));
@@ -3483,7 +3483,7 @@ export class ReaderApp {
         const uniqueTerms = [...new Set(terms.map(term => term.trim()).filter(Boolean))];
         if (!uniqueTerms.length) return new Map<string, JPDBCard>();
         return await this.jitenPublicVocabulary.lookupMany(uniqueTerms).catch(error => {
-            log.warn('Public Jiten candidate batch lookup failed', { terms: uniqueTerms.length }, error);
+            log.warn('Jiten candidate failed', { terms: uniqueTerms.length }, error);
             return new Map<string, JPDBCard>();
         });
     }
