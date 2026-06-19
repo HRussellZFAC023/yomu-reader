@@ -3500,6 +3500,9 @@
   ].join(",");
   const FORM_CHROME_BOUNDARY_TAGS = /* @__PURE__ */ new Set(["FORM", "LABEL", "FIELDSET", "LEGEND"]);
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+  const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
+  const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
+  const READABLE_PROSE_CONTAINER_SELECTOR = 'article, main, [role="main"], [role="article"]';
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
   const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
   const PASSIVE_INTERACTION_SELECTOR = [
@@ -4125,7 +4128,7 @@
     return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
   }
   function isLayoutFragileMediaTileText(parent) {
-    if (isLikelyProseElement(parent) && parent.closest('article, [role="article"]')) return false;
+    if (isReadableProseContext(parent)) return false;
     if (!hasCompactMediaRubyRisk(parent)) return false;
     return Boolean(closestCompactMediaContext(parent));
   }
@@ -4142,7 +4145,7 @@
   function closestCompactMediaContext(parent) {
     let current = parent;
     for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-      if (isLikelyProseElement(current) && current.closest('article, [role="article"]')) return null;
+      if (isReadableProseContext(current)) return null;
       if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
       current = current.parentElement;
     }
@@ -5235,7 +5238,25 @@
   }
   function isLikelyProseElement(element) {
     if (PROSE_TAGS.has(element.tagName)) return true;
-    return /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i.test(element.className || "");
+    return isLikelyProseClass(element) || isConversationTextClass(element);
+  }
+  function isReadableProseContext(element) {
+    let current = element;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+      if (isConversationTextClass(current)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function isLikelyProseClass(element) {
+    return PROSE_CLASS_RE.test(elementClassName(element));
+  }
+  function isConversationTextClass(element) {
+    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element));
+  }
+  function elementClassName(element) {
+    return String(element.className || "");
   }
   function ancestorClassLooksLikeUi(element) {
     let current = element;

@@ -159,6 +159,9 @@ const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = [
 ].join(',');
 const FORM_CHROME_BOUNDARY_TAGS = new Set(['FORM', 'LABEL', 'FIELDSET', 'LEGEND']);
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
+const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
+const READABLE_PROSE_CONTAINER_SELECTOR = 'article, main, [role="main"], [role="article"]';
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
 const PASSIVE_INTERACTION_SELECTOR = [
@@ -1275,7 +1278,7 @@ function isCompactMediaCardLinkText(parent: HTMLElement): boolean {
 }
 
 function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
-    if (isLikelyProseElement(parent) && parent.closest('article, [role="article"]')) return false;
+    if (isReadableProseContext(parent)) return false;
     if (!hasCompactMediaRubyRisk(parent)) return false;
     return Boolean(closestCompactMediaContext(parent));
 }
@@ -1294,7 +1297,7 @@ function hasCompactMediaRubyRisk(parent: HTMLElement): boolean {
 function closestCompactMediaContext(parent: HTMLElement): HTMLElement | null {
     let current: HTMLElement | null = parent;
     for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-        if (isLikelyProseElement(current) && current.closest('article, [role="article"]')) return null;
+        if (isReadableProseContext(current)) return null;
         if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
         current = current.parentElement;
     }
@@ -2948,7 +2951,29 @@ function hasInlineControlShape(display: string): boolean {
 
 function isLikelyProseElement(element: HTMLElement): boolean {
     if (PROSE_TAGS.has(element.tagName)) return true;
-    return /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i.test(element.className || '');
+    return isLikelyProseClass(element) || isConversationTextClass(element);
+}
+
+function isReadableProseContext(element: HTMLElement): boolean {
+    let current: HTMLElement | null = element;
+    while (current && current !== document.body && current !== document.documentElement) {
+        if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+        if (isConversationTextClass(current)) return true;
+        current = current.parentElement;
+    }
+    return false;
+}
+
+function isLikelyProseClass(element: HTMLElement): boolean {
+    return PROSE_CLASS_RE.test(elementClassName(element));
+}
+
+function isConversationTextClass(element: HTMLElement): boolean {
+    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element));
+}
+
+function elementClassName(element: HTMLElement): string {
+    return String(element.className || '');
 }
 
 function cssPixels(value: string): number {

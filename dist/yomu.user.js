@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.7
+// @version      1.4.8
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.7#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.7#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.7#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.7#sha256-27ONeiaFXdfx3ZnTGLsOmrMQ8qpg46lctl/0DcAJbR8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.8#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.8#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.8#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.8#sha256-27ONeiaFXdfx3ZnTGLsOmrMQ8qpg46lctl/0DcAJbR8=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3758,6 +3758,9 @@
   ].join(",");
   const FORM_CHROME_BOUNDARY_TAGS = /* @__PURE__ */ new Set(["FORM", "LABEL", "FIELDSET", "LEGEND"]);
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
+  const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
+  const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
+  const READABLE_PROSE_CONTAINER_SELECTOR = 'article, main, [role="main"], [role="article"]';
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
   const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
   const PASSIVE_INTERACTION_SELECTOR = [
@@ -4524,7 +4527,7 @@
     return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
   }
   function isLayoutFragileMediaTileText(parent) {
-    if (isLikelyProseElement(parent) && parent.closest('article, [role="article"]')) return false;
+    if (isReadableProseContext(parent)) return false;
     if (!hasCompactMediaRubyRisk(parent)) return false;
     return Boolean(closestCompactMediaContext(parent));
   }
@@ -4541,7 +4544,7 @@
   function closestCompactMediaContext(parent) {
     let current = parent;
     for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 6; depth++) {
-      if (isLikelyProseElement(current) && current.closest('article, [role="article"]')) return null;
+      if (isReadableProseContext(current)) return null;
       if (hasMediaPeer(current, parent) && isCompactMediaContext(current)) return current;
       current = current.parentElement;
     }
@@ -5808,7 +5811,25 @@
   }
   function isLikelyProseElement(element2) {
     if (PROSE_TAGS.has(element2.tagName)) return true;
-    return /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i.test(element2.className || "");
+    return isLikelyProseClass(element2) || isConversationTextClass(element2);
+  }
+  function isReadableProseContext(element2) {
+    let current = element2;
+    while (current && current !== document.body && current !== document.documentElement) {
+      if (isLikelyProseElement(current) && current.closest(READABLE_PROSE_CONTAINER_SELECTOR)) return true;
+      if (isConversationTextClass(current)) return true;
+      current = current.parentElement;
+    }
+    return false;
+  }
+  function isLikelyProseClass(element2) {
+    return PROSE_CLASS_RE.test(elementClassName(element2));
+  }
+  function isConversationTextClass(element2) {
+    return CONVERSATION_TEXT_CLASS_RE.test(elementClassName(element2));
+  }
+  function elementClassName(element2) {
+    return String(element2.className || "");
   }
   function cssPixels(value) {
     const parsed = Number.parseFloat(value);
@@ -36805,9 +36826,9 @@ ${normalizedReading}`;
   --jpdb-reader-word-decoration-source: transparent;
   --jpdb-reader-word-inline-gap: 0.08em;
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
-  --jpdb-reader-word-underline-offset: 0.16em;
+  --jpdb-reader-word-underline-offset: 0.12em;
   --jpdb-reader-word-underline-style: solid;
-  --jpdb-reader-word-underline-thickness: 2px;
+  --jpdb-reader-word-underline-thickness: 1px;
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
   --jpdb-reader-source-pitch-decoration: transparent;
   position: relative;

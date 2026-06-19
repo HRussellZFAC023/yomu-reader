@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.8] - 2026-06-19
+
+### Fixed
+
+- Generic chat and comment prose now keeps furigana even when nearby avatars or thumbnails make the row look like compact media metadata, fixing missing ruby on Discord without adding a Discord-specific parser.
+- Reader word underlines are thinner and sit closer to the text across normal page text, OCR, and hosted reader surfaces.
+
 ## [1.4.7] - 2026-06-19
 
 ### Fixed

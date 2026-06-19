@@ -31642,6 +31642,40 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(['にほんごのじかん']);
     });
 
+    it('keeps generic chat prose furigana even when an avatar makes the row look media-like', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 420, height: 42 });
+        document.body.innerHTML = `
+            <main>
+                <div role="article" class="messageListItem" style="display:flex;overflow:hidden;max-height:44px">
+                    <img class="avatar" alt="" src="/avatar.png">
+                    <div class="messageContent" style="overflow:hidden;text-overflow:ellipsis;white-space:normal">
+                        <span class="markup messageContent_hash">今日は故郷を守るために戦います。</span>
+                    </div>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://chat.example/channels/1/2');
+        rectSpy.mockRestore();
+        const target = targets.find(candidate => candidate.text === '今日は故郷を守るために戦います。')!;
+        expect(target).toBeTruthy();
+        expect(target).not.toMatchObject({ suppressRuby: true });
+
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '故郷', reading: 'こきょう' },
+            start: 3,
+            end: 5,
+            length: 2,
+            rubies: [{ text: 'こきょう', start: 3, end: 5, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '今日は故郷を守るために戦います。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('.messageContent .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('故郷');
+        expect(word.querySelector('rt')?.textContent).toBe('こきょう');
+    });
+
     it('does not cap default page scans at two thousand targets', () => {
         const rectSpy = mockElementBoundingClientRect();
         const paragraphs = Array.from({ length: 2005 }, (_, index) => `<p>日本語の文章${index}</p>`).join('');

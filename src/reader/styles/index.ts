@@ -132,9 +132,9 @@ export const CRITICAL_READER_CSS = `
   --jpdb-reader-word-decoration-source: transparent;
   --jpdb-reader-word-inline-gap: 0.08em;
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
-  --jpdb-reader-word-underline-offset: 0.16em;
+  --jpdb-reader-word-underline-offset: 0.12em;
   --jpdb-reader-word-underline-style: solid;
-  --jpdb-reader-word-underline-thickness: 2px;
+  --jpdb-reader-word-underline-thickness: 1px;
   --jpdb-reader-source-pitch-color: var(--jpdb-reader-pitch-readable, var(--jpdb-reader-pitch-color, currentColor));
   --jpdb-reader-source-pitch-decoration: transparent;
   position: relative;
