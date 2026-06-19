@@ -2148,7 +2148,9 @@ describe('SubtitlePlayerController', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
-        expect(normalizedCss).toContain('max-height: min(45%, calc(100% - 24px)); overflow: visible; pointer-events: auto;');
+        expect(normalizedCss).toContain('max-height: min(45%, calc(100% - 24px)); overflow: visible; pointer-events: none;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-idle) .jpdb-subtitle-drag-handle,');
+        expect(normalizedCss).toContain('opacity: .7; pointer-events: auto;');
         expect(normalizedCss).toContain('box-shadow: none;');
         expect(normalizedCss).toContain('touch-action: none;');
         expect(normalizedCss).toContain('transform: translateY(var(--jpdb-subtitle-asb-drag-offset-y)) var(--jpdb-subtitle-asb-base-transform, translateZ(0));');
