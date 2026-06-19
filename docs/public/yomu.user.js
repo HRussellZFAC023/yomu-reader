@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.16
+// @version      1.4.17
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.16#sha256-1Dm7HB7MFt3jHT2Oeauy2DekYd3/Z/GrqWSwWlABqtU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.16#sha256-aOb7M+IcCLC9I4Hzvtfl6e+fDM/kvPjAcecLdtoI7fE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.16#sha256-Q/JMB5fMcuHThq8quJMaB7ocqiwsh9i3r45WKSg4D/0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.16#sha256-1HZD3fYF8SRMSTRdFHQHxHN6FpI5JzDpjW5bNMv1OpI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.17#sha256-z0k83uRPr34NTwNbRUC3mHV9WgE/G+iGrlc8lclL/OA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.17#sha256-zxH/5Viev3VHCFLE9815llrZHyNG44FQSJGi2Gy2tbU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.17#sha256-HjBSet+hy5yDVJ+dhsnaChQncCGlxqnqa5vsZ8GKSoQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.17#sha256-MOJYA4K/Xyc3EHeD8rTNc+MkXgkQxJcw2Ll6vBzdkHg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6793,7 +6793,7 @@
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
-      pageCoverageSummary: "{percent}% · {known}/{total} · {unknown} new · {iPlusOne} i+1",
+      pageCoverageSummary: "Coverage {percent}% known · {known}/{total} words · {unknown} new · {iPlusOne} i+1",
       settings: "Settings",
       settingsSaved: "Settings saved.",
       settingsSaveFailed: "Settings save failed.",
@@ -7877,7 +7877,7 @@
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップできます。
+onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
 onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
@@ -7895,7 +7895,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	Jiten・JPDB・Anki・漢字を復習できます。
+featureStudyBody	内蔵の学習ページでJiten・JPDB・Anki・漢字を復習できます。
 automatic	自動
 english	英語
 japanese	日本語

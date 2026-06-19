@@ -3072,7 +3072,7 @@
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
-      pageCoverageSummary: "{percent}% · {known}/{total} · {unknown} new · {iPlusOne} i+1",
+      pageCoverageSummary: "Coverage {percent}% known · {known}/{total} words · {unknown} new · {iPlusOne} i+1",
       settings: "Settings",
       settingsSaved: "Settings saved.",
       settingsSaveFailed: "Settings save failed.",
@@ -4137,7 +4137,7 @@
 settingsTitle	{APP_NAME} 設定
 welcomeLabel	{APP_NAME} ようこそ
 onboardingEyebrow	日本語がある場所ならどこでも
-onboardingCopy	本文、字幕、画像の日本語をタップできます。
+onboardingCopy	本文、字幕、画像の日本語をタップ可能にします。
 onboardingLanguage	表示言語
 onboardingAccentColor	アクセントカラー
 customAccentColor	カスタムカラー
@@ -4155,7 +4155,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	Jiten・JPDB・Anki・漢字を復習できます。
+featureStudyBody	内蔵の学習ページでJiten・JPDB・Anki・漢字を復習できます。
 automatic	自動
 english	英語
 japanese	日本語

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.17] - 2026-06-20
+
+### Fixed
+
+- Recommended local dictionaries now install directly from usable Yomitan ZIP links, with WTY JA-JA fixed, generic homepage-only MarvNC removed, and Pixiv Light plus JPDB Kanji added from the local export.
+
 ## [1.4.16] - 2026-06-19
 
 ### Fixed
