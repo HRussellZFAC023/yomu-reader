@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.11
+// @version      1.4.12
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.11#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.11#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.11#sha256-k2sPrUttXBzjGoFHU4rgYRupABOKrF8EyF4ksfMeQX4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.11#sha256-yWpQa22MFkJMEkhopYSD2naF2L9QUZLv86x3huzMNJo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.12#sha256-faVJyofjYJoUGGiF4jbIcw0J3F0qjIZNKXj9k8hXmIs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.12#sha256-m6W95YMwNPeZaYm5m3rjIaZjmdtvo/CnbPxKjoSY6qM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.12#sha256-SfxSDS78hwqplAlE/UvPxkUIPb5EXXZ0FXG3I7C+AeQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.12#sha256-kxSopdZx7fn2xG2RarUYjI+DrXrr2GUz55ZbOGhGOD0=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -7791,8 +7791,9 @@
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
       recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
+      recommendedPixivLight: "Lightweight Pixiv Encyclopedia dictionary.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
+      recommendedJpdbKanji: "JPDB kanji dictionary for local kanji details.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
@@ -8952,8 +8953,9 @@ recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
+recommendedPixivLight	軽量版Pixiv百科事典辞書です。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
+recommendedJpdbKanji	JPDB漢字情報のローカル辞書です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
 recommendedJiten	jiten.moe頻度データです。

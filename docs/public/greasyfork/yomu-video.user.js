@@ -4070,8 +4070,9 @@
       recommendedJmdict: "Core Japanese-English dictionary packaged for Yomitan.",
       recommendedJmnedict: "Japanese proper names dictionary.",
       recommendedWtyJapaneseJapanese: "Monolingual Wiktionary.",
-      recommendedMarvncMonolingual: "Monolingual collection.",
+      recommendedPixivLight: "Lightweight Pixiv Encyclopedia dictionary.",
       recommendedKanjidic: "Kanji readings, meanings, strokes, levels, frequency.",
+      recommendedJpdbKanji: "JPDB kanji dictionary for local kanji details.",
       recommendedJpdbv2Kana: "JPDB frequency data for local frequency chips.",
       recommendedBccwj: "BCCWJ frequency data.",
       recommendedJiten: "Frequency data from jiten.moe media stats.",
@@ -5212,8 +5213,9 @@ recommendedJitendex	例文とメモ付きの日英辞書です。
 recommendedJmdict	Yomitan向けの基本日英辞書です。
 recommendedJmnedict	日本語固有名詞辞書です。
 recommendedWtyJapaneseJapanese	Wiktionary日日辞書。
-recommendedMarvncMonolingual	日日辞書集。
+recommendedPixivLight	軽量版Pixiv百科事典辞書です。
 recommendedKanjidic	漢字の読み、意味、画数、レベル、頻度です。
+recommendedJpdbKanji	JPDB漢字情報のローカル辞書です。
 recommendedJpdbv2Kana	JPDB頻度データです。
 recommendedBccwj	BCCWJ頻度データです。
 recommendedJiten	jiten.moe頻度データです。

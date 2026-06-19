@@ -19915,17 +19915,22 @@ describe('reader helpers', () => {
         }
     });
 
-    it('ships recommended dictionary downloads and monolingual homepages', () => {
+    it('ships recommended dictionary downloads for every install card', () => {
         const dictionary = findRecommendedDictionary('jmdict');
         expect(dictionary?.downloadUrl).toContain('JMdict_english.zip');
         expect(dictionary?.homepage).toContain('jmdict-yomitan');
+        expect(findRecommendedDictionary('wty-ja-ja')?.downloadUrl).toContain('wty-ja-ja.zip');
+        expect(findRecommendedDictionary('pixiv-light')?.downloadUrl).toContain('PixivLight.zip');
+        expect(findRecommendedDictionary('jpdb-kanji')?.downloadUrl).toContain('JPDB%20Kanji.zip');
+        expect(RECOMMENDED_JAPANESE_DICTIONARIES.every(item => Boolean(item.downloadUrl))).toBe(true);
         expect(RECOMMENDED_JAPANESE_DICTIONARIES.map(item => item.name)).toEqual([
             'Jitendex',
             'JMdict',
             'JMnedict',
             'WTY JA-JA',
-            'MarvNC JA-JA',
+            'Pixiv Light',
             'KANJIDIC',
+            'JPDB Kanji',
             'Jiten',
             'JPDBv2㋕',
             'BCCWJ',

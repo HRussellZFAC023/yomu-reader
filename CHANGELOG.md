@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.12] - 2026-06-19
+
+### Fixed
+
+- Recommended local dictionaries no longer show homepage-only cards for monolingual entries: WTY JA-JA now installs from its documented Yomitan zip, the generic MarvNC collection card was replaced with direct Pixiv Light, and JPDB Kanji was added from the local dictionary export because it has a usable direct zip.
+
 ## [1.4.11] - 2026-06-19
 
 ### Fixed
