@@ -326,4 +326,65 @@ describe("Yomu public proxy Worker", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("does not cache a no-store response even on an allowlisted endpoint", async () => {
+    const upstream = vi.fn(async () =>
+      new Response("info", {
+        status: 200,
+        headers: { "cache-control": "no-store" },
+      }),
+    );
+    vi.stubGlobal("fetch", upstream);
+    const backend = { match: vi.fn(async () => undefined), put: vi.fn() };
+    vi.stubGlobal("caches", { default: backend });
+    const proxyUrl =
+      "https://yomu-jpdb-public-proxy.example/?url=" +
+      encodeURIComponent("https://api.jiten.moe/api/vocabulary/555/0/info");
+
+    try {
+      const response = await PublicProxyWorker.fetch(
+        new Request(proxyUrl, { headers: { origin: "https://hrussellzfac023.github.io" } }),
+        {},
+        { waitUntil: vi.fn() },
+      );
+      expect(response.status).toBe(200);
+      // Origin said no-store → must not be written to the shared edge cache.
+      expect(backend.put).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not cache or coalesce non-allowlisted hosts", async () => {
+    const upstream = vi.fn(async () =>
+      new Response("ok", {
+        status: 200,
+        headers: { "cache-control": "public, max-age=3600" },
+      }),
+    );
+    vi.stubGlobal("fetch", upstream);
+    const backend = { match: vi.fn(async () => undefined), put: vi.fn() };
+    vi.stubGlobal("caches", { default: backend });
+    // A host the worker proxies but is NOT on the cacheable allowlist.
+    const proxyUrl =
+      "https://yomu-jpdb-public-proxy.example/?url=" +
+      encodeURIComponent("https://example.com/some/asset.json");
+    const call = () =>
+      PublicProxyWorker.fetch(
+        new Request(proxyUrl, { headers: { origin: "https://hrussellzfac023.github.io" } }),
+        {},
+        { waitUntil: vi.fn() },
+      );
+
+    try {
+      await call();
+      await call();
+      // Non-allowlisted host: never cached, never coalesced → each call hits origin.
+      expect(backend.match).not.toHaveBeenCalled();
+      expect(backend.put).not.toHaveBeenCalled();
+      expect(upstream).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
