@@ -79,7 +79,6 @@ export function requestPublicJpdbText(url: string, options: ReaderHttpOptions): 
     return requestReaderText(url, options);
 }
 
-
 function jpdbVocabularyIdentities(root: ParentNode): JpdbVocabularyUrlIdentity[] {
     return Array.from(root.querySelectorAll<HTMLAnchorElement>('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]'))
         .filter(link => !link.closest('.subsection-used-in, .subsection-examples'))

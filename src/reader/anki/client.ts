@@ -2086,8 +2086,6 @@ function visibleArea(element: HTMLElement): number {
     return width * height;
 }
 
-
-
 function ankiEaseFromGrade(grade: JPDBGrade): number {
     return ANKI_EASE_BY_GRADE[grade] ?? 3;
 }

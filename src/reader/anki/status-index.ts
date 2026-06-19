@@ -465,5 +465,3 @@ function pickPrimaryCardIdFromStatusSets(cardIds: number[], cardSets: AnkiStatus
     }
     return cardIds[0] ?? null;
 }
-
-

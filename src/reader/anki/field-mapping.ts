@@ -531,4 +531,3 @@ function genericExpressionLooksLikeHeadword(value: string, target: string): bool
 export function normalizeFieldValue(value: string): string {
     return value.replace(/\s+/g, ' ').trim();
 }
-
