@@ -1,8 +1,12 @@
 import type { DeinflectedTerm } from '../../lookup/deinflect';
 import type { ReaderSettings } from '../../app/types';
+import type { uiText } from '../../app/i18n';
 
 export type StoreName = 'terms' | 'kanji' | 'termMeta' | 'kanjiMeta' | 'dictionaryInfo' | 'termSearch';
 export type EntryStoreName = Exclude<StoreName, 'dictionaryInfo' | 'termSearch'>;
+
+export type UiTextKey = Parameters<typeof uiText>[1];
+export type UiTextLookup = (key: UiTextKey) => string;
 
 export interface YomitanTermEntry {
     id?: number;

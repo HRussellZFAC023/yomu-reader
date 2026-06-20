@@ -64,12 +64,14 @@ import type {
     EntryStoreName,
     ImportSummary,
     StoreName,
+    UiTextKey,
     YomitanDictionaryInfo,
     YomitanKanjiEntry,
     YomitanMetaEntry,
     YomitanTermEntry,
     YomitanTermMatch,
 } from './types';
+import { formatDexieImportProgress, formatDexieStoreImportProgress, formatUiTemplate } from './import-progress';
 
 const DB_NAME = 'jpdb-popup-reader-yomitan';
 const DB_VERSION = 4;
@@ -103,8 +105,6 @@ const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('Yomitan');
 
 type InternalStoreName = StoreName | 'termKanji';
-type UiTextKey = Parameters<typeof uiText>[1];
-type UiTextLookup = (key: UiTextKey) => string;
 
 interface TermSearchCandidate {
     entry: YomitanTermEntry;
@@ -1781,10 +1781,6 @@ async function readYomitanZipIndex(zip: ZipArchive, language: InterfaceLanguage 
     })) as YomitanZipIndex;
 }
 
-function formatUiTemplate(template: string, values: Record<string, string>): string {
-    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
-}
-
 function cursorScanLimitReached(visited: number, startedAt: number, maxRows: number, maxMs: number): boolean {
     return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
 }
@@ -1912,29 +1908,6 @@ function addUniqueTermEntry(entries: YomitanTermEntry[], seen: Set<string>, entr
 
 function termExpressionReadingKey(entry: Pick<YomitanTermEntry, 'expression' | 'reading'>): string {
     return `${entry.expression}\n${entry.reading}`;
-}
-
-function formatDexieImportProgress(text: UiTextLookup, imported: number, totalRows: number): string {
-    const importedCount = imported.toLocaleString();
-    if (totalRows > 0) {
-        return `${text('dictionaryImported')} ${importedCount} / ${totalRows.toLocaleString()} ${text('dictionaryRecords')}...`;
-    }
-    return `${text('dictionaryImported')} ${importedCount} ${text('dictionaryRecords')}...`;
-}
-
-function formatDexieStoreImportProgress(
-    text: UiTextLookup,
-    store: EntryStoreName,
-    imported: number,
-    tableTotal: number,
-    totalImported: number,
-    totalRows: number,
-): string {
-    const importedCount = imported.toLocaleString();
-    if (tableTotal > 0 && totalRows > 0) {
-        return `${text('dictionaryImporting')} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text('dictionaryEntries')} (${totalImported.toLocaleString()} / ${totalRows.toLocaleString()} ${text('dictionaryTotal')})...`;
-    }
-    return `${text('dictionaryImporting')} ${store}: ${importedCount} ${text('dictionaryEntries')}...`;
 }
 
 function glossaryIndexSearchOptions(options: TermSearchOptions): GlossaryCursorSearchOptions {
