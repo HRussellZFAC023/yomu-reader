@@ -1597,13 +1597,13 @@ describe('settings form localization', () => {
         expect(form.lang).toBe('ja');
         expect(settingsText(form, 'h2')).toBe('よむ 設定');
         expect(labelForControl(form, 'newTabJpdbReviewMode')).toContain('API復習モード');
-        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki、その後に学習語');
+        expect(optionText(form, 'newTabSource', 'auto')).toBe('自動: API/Anki後に学習語');
         expect(optionText(form, 'newTabSource', 'jpdb')).toBe('API SRS（Jiten / JPDB）');
-        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順・JPDBの復習順とは異なります）');
+        expect(optionText(form, 'newTabJpdbReviewMode', 'api-vocabulary')).toBe('API語彙のみ（デッキ順）');
         expect(labelForControl(form, 'newTabKanjiKeywordSource')).toContain('漢字キーワードのソース');
-        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB漢字情報、ローカルの順');
+        expect(optionText(form, 'newTabKanjiKeywordSource', 'auto')).toBe('自動: RTK、JPDB、ローカル');
         expect(optionText(form, 'newTabKanjiKeywordSource', 'jpdb')).toBe('JPDB漢字情報（Jiten / JPDB）');
-        expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効にする');
+        expect(labelForControl(form, 'newTabParsingEnabled')).toContain('学習の文解析を有効');
         expect(labelForControl(form, 'preferJapaneseSiteLanguage')).toContain('サイトの言語と地域を日本優先にする');
         expect(optionText(form, 'audioAutoPlayMode', 'all')).toBe('ホバーとタップ/クリック');
         expect(labelForControl(form, 'readerFontFamily')).toContain('リーダーUIフォント');
@@ -1650,7 +1650,7 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLButtonElement>('[data-action="scan-anki"]')).toBeNull();
         expect(settingsText(form, '[data-anki-status]')).toContain('AnkiConnectを確認中');
         expect(settingsText(form, '[data-anki-status]')).not.toContain('モバイルAnki受け渡し');
-        expect(settingsText(form, '[data-anki-library-availability]')).toContain('既存デッキとノートタイプ');
+        expect(settingsText(form, '[data-anki-library-availability]')).toContain('既存デッキから対応付けを提案します。');
         expect(settingsText(form, '[data-anki-library-choices-title]')).toBe('デッキとノートタイプ');
         expect(settingsText(form, '[data-anki-template-settings-title]')).toBe('よむカードテンプレート');
         expect(form.querySelector<HTMLElement>('[data-theme-switch]')?.title).toBe('ダークテーマに切り替え');
@@ -1836,7 +1836,7 @@ describe('settings form localization', () => {
         localizeSettingsForm(form, 'ja');
 
         expect(label.querySelector('.jpdb-reader-word')).toBeNull();
-        expect(label.textContent).toBe('検索後もシートを開いたままにする');
+        expect(label.textContent).toBe('検索後も開く');
     });
 
     it('keeps parsed Japanese inline labels inside one grid item', () => {

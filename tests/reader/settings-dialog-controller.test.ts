@@ -920,7 +920,7 @@ describe('settings dialog keyboard dismissal', () => {
 
         prepare?.click();
         await waitForCondition(() => ensureDeckAndModel.mock.calls.length === 1);
-        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Deck "よむ" and note type "よむ Japanese" are ready.') ?? false);
+        await waitForCondition(() => form.querySelector<HTMLElement>('[data-anki-status]')?.textContent?.includes('Connected. "よむ" / "よむ Japanese" ready.') ?? false);
 
         expect(isConnected).toHaveBeenCalledOnce();
         expect(ensureDeckAndModel).toHaveBeenCalledOnce();
@@ -1242,7 +1242,7 @@ describe('settings dialog keyboard dismissal', () => {
             let fallbackText = '';
             await waitForCondition(() => {
                 const text = form.querySelector<HTMLElement>('[data-anki-status]')?.textContent ?? '';
-                if (!text.includes('Anki is not connected.')) return false;
+                if (!text.includes('Anki offline')) return false;
                 fallbackText = text;
                 return true;
             });
