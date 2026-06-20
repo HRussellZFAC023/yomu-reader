@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.31] - 2026-06-20
+
+### Fixed
+
+- The Media → Audio sources list is now authoritative again. Playback follows the order you configure (the first enabled source that has audio wins) instead of picking a source at random or racing to whichever responds fastest. Custom sources — including a local audio server such as `http://localhost:9090/?term={term}&reading={reading}` — now play from the position you place them in the list. "Shuffle audio" continues to vary the individual clips a single source offers, but no longer reshuffles the source priority list itself.
+- Hover audio no longer lags behind clicking. Any word that auto-plays on hover now prefetches its audio while the popup loads — matching the always-warm click/modal path — so playback starts promptly. This especially fixes common single-character words (火, 水, 人 …), whose audio was previously fetched cold on hover.
+
 ## [1.4.30] - 2026-06-20
 
 ### Fixed
