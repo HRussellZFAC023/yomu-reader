@@ -10986,6 +10986,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
         event.preventDefault();
         tabs[nextIndex]?.focus();
         activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? "api");
+        this.refreshSettingsJapaneseParse(form);
       });
     }
     afterSettingsSaved(form, saveRequestId) {
@@ -11531,6 +11532,11 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
     }
     refreshSettingsJapaneseParse(form) {
       void this.dependencies.parseSettingsJapanese?.(form);
+      for (const delay2 of [50, 250, 1e3, 3e3]) {
+        window.setTimeout(() => {
+          if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
+        }, delay2);
+      }
     }
     async mergeDictionaryPreferencesFromSummary(summary) {
       const names = summary.dictionaries.map((item) => item.title);
@@ -11655,6 +11661,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
       if (action === "settings-panel") {
         const panel = selectedSettingsPanel(control);
         activateSettingsPanel(form, panel);
+        this.refreshSettingsJapaneseParse(form);
         return true;
       }
       if (isDictionarySourceOrderAction(action)) {

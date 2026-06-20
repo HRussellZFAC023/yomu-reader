@@ -235,7 +235,7 @@ async function openSettingsFromNewTabMenu(page) {
 
 async function selectSettingsPanel(page, panel) {
     const selector = `.jpdb-reader-settings [data-action="settings-panel"][data-panel="${panel}"]`;
-    await page.waitForSelector(selector, { timeout: 8_000 });
+    await page.waitForSelector(selector, { state: 'attached', timeout: 8_000 });
     await page.evaluate(({ tabSelector }) => {
         document.querySelector(tabSelector)?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
     }, { tabSelector: selector });

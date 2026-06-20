@@ -1,9 +1,10 @@
 # Changelog
 
-## [1.4.22] - 2026-06-19
+## [1.4.23] - 2026-06-19
 
 ### Fixed
 
+- Settings tabs now re-run Japanese hydration after panel changes and late status refreshes, so API, furigana, and underline controls keep furigana and pitch styling instead of falling back to plain text.
 - The default Appearance settings panel now shows the Reader controls immediately, including selected-text parsing, furigana mode, and word/subtitle underline color settings.
 - Hosted Japanese settings text now keeps local fallback reader-word hydration, so furigana and pitch underline styling appear even when public vocabulary enrichment is unavailable.
 - Passive reader words inside native page controls now support direct touch and pen taps, so iPad users can pin a lookup from linked manga titles without accidentally following the host link. Dragging still leaves the native control alone.

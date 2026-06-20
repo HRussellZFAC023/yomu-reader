@@ -309,11 +309,11 @@ describe('settings dialog keyboard dismissal', () => {
         expect(document.activeElement).toBe(opener);
     });
 
-    it('does not keep refreshing parsed settings text after cancel closes the dialog', () => {
+    it('does not keep refreshing parsed settings text after cancel closes the dialog', async () => {
         const parseSettingsJapanese = vi.fn();
         const { controller, dismiss, form } = createSettingsDialog({ parseSettingsJapanese });
 
-        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
         parseSettingsJapanese.mockClear();
 
         form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
@@ -427,7 +427,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dismiss).not.toHaveBeenCalled();
     });
 
-    it('requests Japanese settings parsing after opening and language changes without reparsing tab changes', async () => {
+    it('requests Japanese settings parsing after opening, language changes, and tab changes', async () => {
         const parseSettingsJapanese = vi.fn();
         const { form } = createSettingsDialog({
             parseSettingsJapanese,
@@ -435,19 +435,18 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const language = form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
 
-        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
 
         parseSettingsJapanese.mockClear();
         language.value = 'ja';
         language.dispatchEvent(new Event('change', { bubbles: true }));
 
-        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
 
         parseSettingsJapanese.mockClear();
         form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="dictionaries"]')?.click();
-        await flushPromises();
 
-        expect(parseSettingsJapanese).not.toHaveBeenCalled();
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
     });
 
     it('lets passive parsed settings tab words activate the tab instead of opening lookup', () => {
@@ -1314,7 +1313,11 @@ describe('settings dialog cloud sync', () => {
             throw new Error(`Unexpected request: ${url}`);
         });
         const importFile = vi.fn().mockResolvedValue(importSummary('Jitendex'));
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '' };
+        const setSettings = vi.fn((next: ReaderSettings) => { settings = next; });
         const { dependencies, form } = createSettingsDialog({
+            getSettings: () => settings,
+            setSettings,
             dictionaries: {
                 summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
                 importFile,
@@ -1334,10 +1337,11 @@ describe('settings dialog cloud sync', () => {
         form.querySelector<HTMLButtonElement>('[data-action="cloud-import-backup"][data-file-id="file-1"]')!.click();
 
         await waitForCondition(() => importFile.mock.calls.length === 1);
-        await waitForCondition(() => dependencies.getSettings().theme === 'dark');
+        await waitForCondition(() => setSettings.mock.calls.some(([next]) => next.theme === 'dark'));
 
         expect(importFile).toHaveBeenCalledOnce();
         expect(importFile.mock.calls[0][0]).toBeInstanceOf(File);
+        expect(setSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark', googleDriveClientId: 'client-id' }));
         expect(dependencies.getSettings().googleDriveClientId).toBe('client-id');
         expect(dependencies.toast).toHaveBeenCalledWith('Google Drive backup imported.');
     });
