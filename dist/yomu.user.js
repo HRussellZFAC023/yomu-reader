@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.31
+// @version      1.4.32
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.31#sha256-EI7Z/gbCklOfg8cespApnmzLi+RhGgMOd8RwV1QmR5E=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.31#sha256-2EsIsd9kUYpDl/N9xBpFefW+ympGJc2uJjWUi3EQy/E=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.31#sha256-mCXZI9oST+/YyyAqGouvg16Pd5nIStOwCIwj4G1lURE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.31#sha256-ovwaqVekLqYhwnsfApypj5qzFLEm+PJFJMhaVMffS+Y=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.32#sha256-EI7Z/gbCklOfg8cespApnmzLi+RhGgMOd8RwV1QmR5E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.32#sha256-2EsIsd9kUYpDl/N9xBpFefW+ympGJc2uJjWUi3EQy/E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.32#sha256-mCXZI9oST+/YyyAqGouvg16Pd5nIStOwCIwj4G1lURE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.32#sha256-ovwaqVekLqYhwnsfApypj5qzFLEm+PJFJMhaVMffS+Y=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -42370,7 +42370,7 @@ ${criticalWordCss()}
         return true;
       }).sort((first, second) => pitchEnrichmentPriority(first) - pitchEnrichmentPriority(second));
       if (options.publicLookup === false) {
-        await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), LOCAL_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
+        await this.enrichLocalOnlyPitchTokens(uniqueTokens, options);
         return;
       }
       if (options.urgent && typeof options.publicLookupLimit !== "number") {
@@ -42584,6 +42584,14 @@ ${criticalWordCss()}
         });
         await runLimited(batch, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, batchOptions.get(cardKey(token.card)) ?? {}));
         if (this.pitchEnrichmentQueue.length) await this.waitForIdle();
+      }
+    }
+    async enrichLocalOnlyPitchTokens(tokens, options) {
+      for (let index = 0; index < tokens.length; index += PITCH_ENRICHMENT_LIMIT) {
+        if (this.isDestroyed || !this.settings.showPitchAccent) return;
+        const chunk = tokens.slice(index, index + PITCH_ENRICHMENT_LIMIT);
+        await runLimited(chunk, LOCAL_PITCH_ENRICHMENT_CONCURRENCY, (token) => this.enrichPitchToken(token, options));
+        if (index + PITCH_ENRICHMENT_LIMIT < tokens.length) await this.waitForIdle();
       }
     }
     async fillCardPitchFromLocalDictionary(card) {
