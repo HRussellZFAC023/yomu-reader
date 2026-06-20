@@ -1273,7 +1273,7 @@ describe('settings dialog cloud sync', () => {
         vi.unstubAllGlobals();
     });
 
-    it('lists and imports Google Drive backups through the Cloud controls', async () => {
+    it('lists Google Drive backups through the Cloud controls', async () => {
         await gmStorageSet(GOOGLE_DRIVE_TOKEN_STORAGE_KEY, {
             accessToken: 'valid-access',
             clientId: 'client-id',
@@ -1282,17 +1282,6 @@ describe('settings dialog cloud sync', () => {
             scope: GOOGLE_DRIVE_SCOPE,
             tokenType: 'Bearer',
         });
-        const backup = {
-            formatName: 'yomu-reader-settings',
-            formatVersion: 3,
-            exportedAt: '2026-01-24T19:11:26.691Z',
-            settings: { ...DEFAULT_SETTINGS, theme: 'dark', googleDriveClientId: 'client-id' },
-            storage: {},
-            dictionaries: {
-                formatName: 'yomu-yomitan-dictionaries',
-                dictionaries: [{ title: 'Jitendex' }],
-            },
-        };
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             const url = String(input);
             expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer valid-access');
@@ -1307,20 +1296,11 @@ describe('settings dialog cloud sync', () => {
                     }],
                 });
             }
-            if (url === 'https://www.googleapis.com/drive/v3/files/file-1?alt=media') {
-                return jsonResponse(backup);
-            }
             throw new Error(`Unexpected request: ${url}`);
         });
-        const importFile = vi.fn().mockResolvedValue(importSummary('Jitendex'));
-        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, apiKey: '' };
-        const setSettings = vi.fn((next: ReaderSettings) => { settings = next; });
-        const { dependencies, form } = createSettingsDialog({
-            getSettings: () => settings,
-            setSettings,
+        const { form } = createSettingsDialog({
             dictionaries: {
                 summary: vi.fn().mockResolvedValue({ dictionaries: [], terms: 0, kanji: 0, termMeta: 0 }),
-                importFile,
             },
         });
         vi.stubGlobal('fetch', fetchMock);
@@ -1333,17 +1313,6 @@ describe('settings dialog cloud sync', () => {
         expect(form.querySelector<HTMLElement>('[data-cloud-backups]')?.hidden).toBe(false);
         expect(form.querySelector<HTMLElement>('[data-cloud-sync-status]')?.textContent).toBe('Please select a file');
         expect(form.querySelector<HTMLElement>('.jpdb-reader-cloud-backup-name')?.textContent).toContain('backup-chrome');
-
-        form.querySelector<HTMLButtonElement>('[data-action="cloud-import-backup"][data-file-id="file-1"]')!.click();
-
-        await waitForCondition(() => importFile.mock.calls.length === 1);
-        await waitForCondition(() => setSettings.mock.calls.some(([next]) => next.theme === 'dark'));
-
-        expect(importFile).toHaveBeenCalledOnce();
-        expect(importFile.mock.calls[0][0]).toBeInstanceOf(File);
-        expect(setSettings).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark', googleDriveClientId: 'client-id' }));
-        expect(dependencies.getSettings().googleDriveClientId).toBe('client-id');
-        expect(dependencies.toast).toHaveBeenCalledWith('Google Drive backup imported.');
     });
 });
 

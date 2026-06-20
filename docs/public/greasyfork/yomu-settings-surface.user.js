@@ -10814,6 +10814,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
     ankiConnectionProbeId = 0;
     jpdbConnectionProbeId = 0;
     ankiLibraryScanId = 0;
+    settingsJapaneseParseRefreshTimer;
     open(panel) {
       log.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
@@ -11378,6 +11379,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
       );
       status.dataset.statusTone = line.tone;
       status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+      this.refreshSettingsJapaneseParse(form);
     }
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
     // connected/rejected answer (Anki and Jiten already have live probes).
@@ -11507,6 +11509,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
       if (line.state) status.dataset.ankiAdapterState = line.state;
       else delete status.dataset.ankiAdapterState;
       setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+      this.refreshSettingsJapaneseParse(form);
     }
     setAnkiStatus(form, message, tone, action, state, details) {
       this.setAnkiStatusLine(form, { message, tone, action, state, details });
@@ -11531,12 +11534,11 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
       this.refreshSettingsJapaneseParse(form);
     }
     refreshSettingsJapaneseParse(form) {
-      void this.dependencies.parseSettingsJapanese?.(form);
-      for (const delay2 of [50, 250, 1e3, 3e3]) {
-        window.setTimeout(() => {
-          if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
-        }, delay2);
-      }
+      if (this.settingsJapaneseParseRefreshTimer !== void 0) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
+      this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
+        this.settingsJapaneseParseRefreshTimer = void 0;
+        if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
+      }, 0);
     }
     async mergeDictionaryPreferencesFromSummary(summary) {
       const names = summary.dictionaries.map((item) => item.title);

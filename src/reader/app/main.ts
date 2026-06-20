@@ -238,7 +238,7 @@ import {
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
@@ -6014,6 +6014,7 @@ export class ReaderApp {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
+        if (nestedSettingsParseAlreadyRendered(form, 640)) return;
         if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
             form.dataset.yomuSettingsSelfEnhancePending = 'true';
             return;

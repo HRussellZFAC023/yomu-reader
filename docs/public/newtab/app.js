@@ -28808,6 +28808,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
     ankiConnectionProbeId = 0;
     jpdbConnectionProbeId = 0;
     ankiLibraryScanId = 0;
+    settingsJapaneseParseRefreshTimer;
     open(panel) {
       log$o.info("Opening settings", { panel: panel ?? "default" });
       this.previouslyFocusedElement = document.activeElement instanceof HTMLElement && !document.activeElement.closest(".jpdb-reader-settings") ? document.activeElement : void 0;
@@ -29372,6 +29373,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
       );
       status.dataset.statusTone = line.tone;
       status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+      this.refreshSettingsJapaneseParse(form);
     }
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
     // connected/rejected answer (Anki and Jiten already have live probes).
@@ -29501,6 +29503,7 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
       if (line.state) status.dataset.ankiAdapterState = line.state;
       else delete status.dataset.ankiAdapterState;
       setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+      this.refreshSettingsJapaneseParse(form);
     }
     setAnkiStatus(form, message, tone, action, state2, details) {
       this.setAnkiStatusLine(form, { message, tone, action, state: state2, details });
@@ -29525,12 +29528,11 @@ Content-Type: ${BACKUP_MIME_TYPE}\r
       this.refreshSettingsJapaneseParse(form);
     }
     refreshSettingsJapaneseParse(form) {
-      void this.dependencies.parseSettingsJapanese?.(form);
-      for (const delay2 of [50, 250, 1e3, 3e3]) {
-        window.setTimeout(() => {
-          if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
-        }, delay2);
-      }
+      if (this.settingsJapaneseParseRefreshTimer !== void 0) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
+      this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
+        this.settingsJapaneseParseRefreshTimer = void 0;
+        if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
+      }, 0);
     }
     async mergeDictionaryPreferencesFromSummary(summary) {
       const names = summary.dictionaries.map((item) => item.title);
@@ -57488,6 +57490,11 @@ ${normalizedReading}`;
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
   }
+  function nestedSettingsParseAlreadyRendered(root, limit) {
+    if (!root.dataset.jpdbReaderParseKey) return false;
+    if (!root.querySelector("[data-settings-panel]:not([hidden]) .jpdb-reader-word")) return false;
+    return nestedSettingsTextParsePlan(root, limit)?.parseKey === root.dataset.jpdbReaderParseKey;
+  }
   function settingsParseRootPriority(parseRoot) {
     const panel = parseRoot.closest("[data-settings-panel]");
     return panel?.hasAttribute("hidden") ? 1 : 0;
@@ -72511,6 +72518,7 @@ ${reading}`);
     }
     async parseSettingsJapanese(form) {
       if (!this.isCurrentSettingsRoot(form)) return;
+      if (nestedSettingsParseAlreadyRendered(form, 640)) return;
       if (form.dataset.yomuSettingsSelfEnhancing === "true") {
         form.dataset.yomuSettingsSelfEnhancePending = "true";
         return;
@@ -72547,14 +72555,20 @@ ${reading}`);
           parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan)
         );
         await this.hydrateSettingsFallbackTokens(currentParsed);
+        const latestPlan = nestedSettingsTextParsePlan(form, 640);
+        if (!latestPlan) return;
+        const latestParsed = supplementSettingsFallbackTokens(
+          latestPlan.targets,
+          parsedSettingsTargetsForCurrentPlan(currentPlan, currentParsed, latestPlan)
+        );
         const renderSettings = settingsForSettingsFormParse(form, this.settings);
-        applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
+        applyNestedParsePlan(latestPlan, latestParsed, renderSettings);
         addSettingsRubyFromRenderedReadings(form, renderSettings);
         highlightCardTargetScopes(form);
         refreshReaderWordContrast(form);
-        form.dataset.jpdbReaderParseKey = currentPlan.parseKey;
+        form.dataset.jpdbReaderParseKey = latestPlan.parseKey;
         form.dataset.yomuSettingsSelfEnhanced = "true";
-        const tokens = currentParsed.flat();
+        const tokens = latestParsed.flat();
         void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT);
         void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
       } catch {

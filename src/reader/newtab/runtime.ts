@@ -68,7 +68,7 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
@@ -2213,6 +2213,7 @@ export class NewTabRuntime {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
+        if (nestedSettingsParseAlreadyRendered(form, 640)) return;
         if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
             form.dataset.yomuSettingsSelfEnhancePending = 'true';
             return;
@@ -2251,14 +2252,20 @@ export class NewTabRuntime {
                 parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
             );
             await this.hydrateSettingsFallbackTokens(currentParsed);
+            const latestPlan = nestedSettingsTextParsePlan(form, 640);
+            if (!latestPlan) return;
+            const latestParsed = supplementSettingsFallbackTokens(
+                latestPlan.targets,
+                parsedSettingsTargetsForCurrentPlan(currentPlan, currentParsed, latestPlan),
+            );
             const renderSettings = settingsForSettingsFormParse(form, this.settings);
-            applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
+            applyNestedParsePlan(latestPlan, latestParsed, renderSettings);
             addSettingsRubyFromRenderedReadings(form, renderSettings);
             highlightCardTargetScopes(form);
             refreshReaderWordContrast(form);
-            form.dataset.jpdbReaderParseKey = currentPlan.parseKey;
+            form.dataset.jpdbReaderParseKey = latestPlan.parseKey;
             form.dataset.yomuSettingsSelfEnhanced = 'true';
-            const tokens = currentParsed.flat();
+            const tokens = latestParsed.flat();
             void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT);
             void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
         } catch {

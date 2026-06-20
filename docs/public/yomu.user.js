@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.23
+// @version      1.4.25
 // @description  Japanese popup reader.
 // @license      MIT
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.23#sha256-kz0y68XxcEn0ylji18xo7iE3RzuyHKBwEjYjbiUExes=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.23#sha256-XNV25RbMcKq+McsxkdJWYp4NaxdeDSkuqb5Gq9YY4F4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.23#sha256-ufykRVGtuEGc254zRfnUPOcKtmyIMZEZDjYxmQ3c3ZM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.23#sha256-t5ilyOVPxORNS9jCaDMUxczb58CZOUCaqRYYZ0TM4Yw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.25#sha256-kz0y68XxcEn0ylji18xo7iE3RzuyHKBwEjYjbiUExes=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.25#sha256-XNV25RbMcKq+McsxkdJWYp4NaxdeDSkuqb5Gq9YY4F4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.25#sha256-v2VQ0YgBAjiVLn5NJ8dCe4DKKirDHa7oN01z+BZT8mk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.25#sha256-t5ilyOVPxORNS9jCaDMUxczb58CZOUCaqRYYZ0TM4Yw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -34714,6 +34714,11 @@ ${normalizedReading}`;
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
   }
+  function nestedSettingsParseAlreadyRendered(root, limit) {
+    if (!root.dataset.jpdbReaderParseKey) return false;
+    if (!root.querySelector("[data-settings-panel]:not([hidden]) .jpdb-reader-word")) return false;
+    return nestedSettingsTextParsePlan(root, limit)?.parseKey === root.dataset.jpdbReaderParseKey;
+  }
   function settingsParseRootPriority(parseRoot) {
     let panel = parseRoot.closest("[data-settings-panel]");
     return panel?.hasAttribute("hidden") ? 1 : 0;
@@ -42509,6 +42514,7 @@ ${reading}`);
     }
     async parseSettingsJapanese(form) {
       if (!this.isCurrentSettingsRoot(form)) return;
+      if (nestedSettingsParseAlreadyRendered(form, 640)) return;
       if (form.dataset.yomuSettingsSelfEnhancing === "true") {
         form.dataset.yomuSettingsSelfEnhancePending = "true";
         return;
