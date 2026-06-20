@@ -19,7 +19,6 @@ import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import { jpdbVocabularyUrl } from '../jpdb/jpdb-vocabulary-url';
 import type { YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
-import { newTabText } from '../newtab/i18n';
 
 interface MiningActionState {
     isNeverForget: boolean;
@@ -335,20 +334,20 @@ export class CardPopoverRenderer {
         return {
             id: provider.id,
             kind: isJiten ? 'jiten' : 'jpdb',
-            label: newTabText(language, isJiten ? 'gradeTargetJiten' : 'gradeTargetJpdb'),
+            label: uiText(language, isJiten ? 'gradeTargetJiten' : 'gradeTargetJpdb'),
             shortLabel: provider.label,
         };
     }
 
     private bothReviewTarget(provider: ApiSrsProviderView, ankiTarget: PopoverReviewTarget, language: InterfaceLanguage): PopoverReviewTarget {
         const label = provider.id === 'jiten'
-            ? newTabText(language, 'gradeTargetJitenAndAnki')
-            : newTabText(language, 'gradeTargetJpdbAndAnki');
+            ? uiText(language, 'gradeTargetJitenAndAnki')
+            : uiText(language, 'gradeTargetJpdbAndAnki');
         return {
             id: 'both',
             kind: 'both',
             label: formatTargetLabel(label, ankiTarget.plainLabel ?? ankiTarget.shortLabel),
-            shortLabel: newTabText(language, 'gradeTargetBoth'),
+            shortLabel: uiText(language, 'gradeTargetBoth'),
             ankiCardId: ankiTarget.ankiCardId,
         };
     }
@@ -369,7 +368,7 @@ export class CardPopoverRenderer {
             kind: 'anki' as const,
             ankiCardId: cardId,
             plainLabel: label,
-            label: formatTargetLabel(newTabText(language, 'gradeTargetAnki'), label),
+            label: formatTargetLabel(uiText(language, 'gradeTargetAnki'), label),
             shortLabel: compactAnkiReviewTargetLabel(label, cardId),
         }));
     }
@@ -508,7 +507,7 @@ function renderReviewTargetGutter(
 
 function renderReviewTargetSelector(targets: PopoverReviewTarget[], language: InterfaceLanguage): string {
     return `<div class="jpdb-reader-mining-panel jpdb-reader-review-target-panel" data-review-target-selector>
-        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(newTabText(language, 'gradeTargetSelector'))}">
+        <select class="jpdb-reader-newtab-grade-target-select" data-review-target-select aria-label="${escapeHtml(uiText(language, 'gradeTargetSelector'))}">
             ${targets.map((target, index) => `<option value="${escapeHtml(target.id)}"${index === 0 ? ' selected' : ''} data-review-target="${target.kind}" data-review-target-label="${escapeHtml(target.label)}" data-review-target-short-label="${escapeHtml(target.shortLabel)}"${target.ankiCardId ? ` data-anki-card-id="${target.ankiCardId}"` : ''}>${escapeHtml(target.shortLabel)}</option>`).join('')}
         </select>
     </div>`;

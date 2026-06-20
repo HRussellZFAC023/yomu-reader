@@ -62,6 +62,24 @@ const READER_STATUS_TEXT_PATTERNS = [
     /\b(?:subtitle track|subtitle tracks).*\b(?:detected|not detected)\b/iu,
     /字幕トラック.*検出/iu,
 ];
+const PAGE_METADATA_TEXT_SELECTOR = [
+    'a',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'header',
+    'nav',
+    'aside',
+    'footer',
+    '[role="navigation"]',
+    '[role="menu"]',
+    '[role="menubar"]',
+    '[aria-current]',
+].join(',');
+const PAGE_METADATA_TEXT_NAME_PATTERN = /(^|[-_\s])(?:title|metadata|meta|tag|tags|category|categories|breadcrumb|nav|navbar|menu|channel|author|username|user-name|description)([-_\s]|$)/iu;
 
 export interface PageCaptionReadOptions {
     allowNonJapanese?: boolean;
@@ -190,6 +208,7 @@ function isCaptionTextShape(element: HTMLElement, text: string, options: PageCap
     if (!isAllowedCaptionText(text, options)) return false;
     if (isLikelyPlayerChromeText(text) || isLikelyReaderStatusText(text)) return false;
     if (containsReaderRootOrPlayerChrome(element)) return false;
+    if (!allowsChildText && isLikelyPageMetadataText(element)) return false;
     if (text.split('\n').length > 4) return false;
     return allowsChildText || !hasCaptionChildText(element, options);
 }
@@ -207,6 +226,23 @@ function isLikelyPlayerChromeText(text: string): boolean {
 
 function isLikelyReaderStatusText(text: string): boolean {
     return READER_STATUS_TEXT_PATTERNS.some(pattern => pattern.test(text));
+}
+
+function isLikelyPageMetadataText(element: HTMLElement): boolean {
+    if (element.closest(PAGE_METADATA_TEXT_SELECTOR)) return true;
+    for (let current: HTMLElement | null = element; current && current !== document.body; current = current.parentElement) {
+        if (PAGE_METADATA_TEXT_NAME_PATTERN.test(elementNameForMetadataCheck(current))) return true;
+    }
+    return false;
+}
+
+function elementNameForMetadataCheck(element: HTMLElement): string {
+    return [
+        element.id,
+        String(element.className),
+        element.getAttribute('role') ?? '',
+        element.getAttribute('aria-label') ?? '',
+    ].join(' ');
 }
 
 function isAllowedCaptionText(text: string, options: PageCaptionReadOptions): boolean {
@@ -261,7 +297,9 @@ function isCaptionNearVideo(rect: DOMRect, videoRect: DOMRect, strict = false): 
 }
 
 function isCaptionOverlaidOnVideo(rect: DOMRect, videoRect: DOMRect): boolean {
-    return rect.top >= videoRect.top && rect.top <= videoRect.bottom + 90;
+    const bottomSlack = Math.min(24, Math.max(4, videoRect.height * 0.04));
+    return rect.top >= videoRect.top
+        && rect.bottom <= videoRect.bottom + bottomSlack;
 }
 
 function isCaptionCenteredOnVideo(rect: DOMRect, videoRect: DOMRect): boolean {

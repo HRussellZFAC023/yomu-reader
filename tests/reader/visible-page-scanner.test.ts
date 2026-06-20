@@ -6,6 +6,7 @@ import { withViewport } from './helpers/browser-fixtures';
 // shipped default is now 'ja'.
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import type { CardState, JPDBToken } from '../../src/reader/app/types';
+import { canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { VisiblePageScanner } from '../../src/reader/app/visible-page-scanner';
 
 type VisiblePageScannerDependencies = ConstructorParameters<typeof VisiblePageScanner>[0];
@@ -402,7 +403,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('enhances YouTube mini-guide labels while preserving link dispatch', async () => {
+    it('leaves YouTube mini-guide labels native while preserving link dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -451,9 +452,9 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
-            expect(parseJapanese).toHaveBeenCalled();
-            expect(guide.querySelector('.jpdb-reader-word')).not.toBeNull();
-            expect(guide.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="登録"]')?.textContent).toContain('登録');
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(guide.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(guide.textContent).toContain('登録');
             expect(guide.textContent).toContain('チャンネル');
             expect(guide.querySelector('tp-yt-paper-tooltip .jpdb-reader-word')).toBeNull();
             expect(guide.querySelector('span[hidden] .jpdb-reader-word')).toBeNull();
@@ -730,7 +731,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('enhances YouTube mini-guide labels while preserving native link dispatch', async () => {
+    it('leaves YouTube mini-guide labels native while preserving native link dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -780,9 +781,11 @@ describe('VisiblePageScanner', () => {
 
             const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
             const words = [...guide.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-            expect(words.map(word => word.dataset.expression)).toEqual(expect.arrayContaining(['ホーム', '登録', 'マイページ']));
-            expect(words.every(word => word.classList.contains('jpdb-reader-passive-word'))).toBe(true);
-            expect(words.find(word => word.dataset.expression === '登録')?.querySelector('rt')?.textContent).toBe('とうろく');
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(words).toHaveLength(0);
+            expect(guide.textContent).toContain('ホーム');
+            expect(guide.textContent).toContain('登録チャンネル');
+            expect(guide.textContent).toContain('マイページ');
             expect(guide.querySelector('tp-yt-paper-tooltip .jpdb-reader-word')).toBeNull();
             expect(guide.querySelector('span[hidden] .jpdb-reader-word')).toBeNull();
 
@@ -836,6 +839,66 @@ describe('VisiblePageScanner', () => {
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('mirrors Japanese labels, dropdown options, and placeholders without mutating native controls on iPad-sized pages', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <main>
+                <form>
+                    <label id="sort-label">表示順
+                        <select aria-labelledby="sort-label">
+                            <option value="new">新しい順</option>
+                            <option value="ja" selected>日本語だけ</option>
+                            <option value="recommended">おすすめ</option>
+                        </select>
+                    </label>
+                    <input id="search" placeholder="単語を検索" value="">
+                </form>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForFormControlText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await withViewport(820, 1180, () => scanner.scanVisiblePage({ silent: true }), { visualViewport: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('表示順'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('日本語だけ'))).toBe(true);
+            expect(parsedTexts.some(text => text.includes('単語を検索'))).toBe(true);
+
+            const labelWord = document.querySelector<HTMLElement>('label .jpdb-reader-word[data-expression="表示順"]');
+            expect(labelWord).not.toBeNull();
+            expect(labelWord?.dataset.jpdbReaderPassive).toBe('true');
+
+            const select = document.querySelector<HTMLSelectElement>('select')!;
+            expect(select.querySelector('.jpdb-reader-word')).toBeNull();
+            const selectMirror = select.nextElementSibling as HTMLElement | null;
+            expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
+            const selectWord = selectMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
+            expect(selectWord).not.toBeNull();
+            expect(selectWord?.dataset.jpdbReaderPassive).toBeUndefined();
+            expect(selectWord ? canLookupReaderWordElement(selectWord) : false).toBe(true);
+
+            const input = document.querySelector<HTMLInputElement>('input')!;
+            expect(input.querySelector('.jpdb-reader-word')).toBeNull();
+            const inputMirror = input.nextElementSibling as HTMLElement | null;
+            expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
+            expect(inputMirror?.querySelector('.jpdb-reader-word[data-expression="単語"]')).not.toBeNull();
+
+            select.dispatchEvent(new Event('change'));
+            expect(selectMirror?.isConnected).toBe(false);
+            input.dispatchEvent(new Event('input'));
+            expect(inputMirror?.isConnected).toBe(false);
+        } finally {
+            scanner.destroy();
             restoreRects();
             document.body.innerHTML = '';
         }
@@ -1753,6 +1816,13 @@ function testToken(sentence: string, spelling: string, start: number, end: numbe
         pitchClass: '',
         sentence,
     };
+}
+
+function tokensForFormControlText(text: string): JPDBToken[] {
+    return ['表示順', '日本語', '単語'].flatMap(spelling => {
+        const start = text.indexOf(spelling);
+        return start >= 0 ? [testToken(text, spelling, start, start + spelling.length)] : [];
+    }).sort((left, right) => left.start - right.start);
 }
 
 function stateToken(

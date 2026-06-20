@@ -84,7 +84,6 @@ import {
 } from './page-enhancement-targets';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { KanjiSourceInfo } from '../kanji/origin';
-import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
 import { updateKanjiMiningControlsMount } from '../kanji/mining-controls';
 import type { KanjiVGInfo } from '../kanji/vg';
 import {
@@ -380,6 +379,12 @@ function createNoopImageOcrController(): ImageOcrController {
         captureSourceImageForElement: () => undefined,
     } as unknown as ImageOcrController;
 }
+
+function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => void } {
+    const noop = (): void => undefined;
+    return { reassess: noop, clear: noop };
+}
+
 const OWNED_MODAL_OUTSIDE_POINTER_TARGET_SELECTOR = [
     '[data-jpdb-reader-root]:not(.jpdb-reader-backdrop)',
     '.jpdb-ocr-layer',
@@ -643,6 +648,7 @@ export class ReaderApp {
     private settingsPreviewOriginalTheme?: ReaderSettings['theme'];
     private lastAutoAudioKey = '';
     private lastAutoAudioAt = 0;
+    private lastAutoAudioHoverGeneration?: number;
     private cardRenderRequest = 0;
     private dictionaryRescanPending = false;
     private visiblePageReparseTimer?: number;
@@ -1846,7 +1852,7 @@ export class ReaderApp {
     }
 
     private scheduleSelectionLookup(delayMs: number): void {
-        if (this.isDestroyed || !this.settings.parseSelection) return;
+        if (this.isDestroyed || this.settings.popupActivationMode === 'off' || !this.settings.parseSelection) return;
         window.clearTimeout(this.selectionTimer);
         this.selectionTimer = window.setTimeout(() => void this.lookupSelection(), delayMs);
     }
@@ -1876,6 +1882,7 @@ export class ReaderApp {
     }
 
     private handleDocumentLookupCandidateClick(event: MouseEvent, insideActivePopover: boolean): void {
+        if (this.settings.popupActivationMode === 'off' && !insideActivePopover) return;
         if (!this.settings.lookupOnClick && !insideActivePopover) return;
         const candidate = this.lookupCandidateFromPoint(event.clientX, event.clientY, event.target);
         if (!candidate) return;
@@ -1933,6 +1940,7 @@ export class ReaderApp {
         if (this.consumeSuppressedReaderWordClick(event, word)) return null;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
+        if (this.settings.popupActivationMode === 'off' && !insideReaderPopup) return null;
         if (!insideReaderPopup && !insideSubtitlePlayer
             && nativeClickableAncestor(word)
             && !this.clickForcesReaderWordLookup(event)) {
@@ -2165,6 +2173,7 @@ export class ReaderApp {
 
     private shouldLookupOnHover(event: MouseEvent | KeyboardEvent): boolean {
         return !this.settings.annotationsPaused
+            && this.settings.popupActivationMode !== 'off'
             && !this.hasStickyModalPopover()
             && this.settings.lookupOnHover
             && shortcutIsPressed(this.settings.shortcuts.hoverLookup ?? '', event, this.pressedKeys);
@@ -2332,7 +2341,7 @@ export class ReaderApp {
     }
 
     private shouldCaptureMiddleMouseLookup(event: MouseEvent | PointerEvent): boolean {
-        if (!this.settings.lookupOnMiddleMouse || event.button !== 1) return false;
+        if (this.settings.popupActivationMode === 'off' || !this.settings.lookupOnMiddleMouse || event.button !== 1) return false;
         if (this.isInsideActivePopover(event.target as Node | null)) return false;
         return isMousePointerEvent(event) && !this.isNativeMiddleClickTarget(eventElement(event));
     }
@@ -3315,6 +3324,7 @@ export class ReaderApp {
 
     private async lookupSelection(): Promise<void> {
         if (this.isDestroyed) return;
+        if (this.settings.popupActivationMode === 'off') return;
         if (Date.now() < this.suppressSelectionLookupUntil) return;
         const selected = this.selectionLookupText();
         if (!selected) {
@@ -4815,11 +4825,17 @@ export class ReaderApp {
 
     private shouldAutoPlayInitialCard(
         card: JPDBCard,
-        context: { trigger: 'modal' | 'hover'; options: CardDisplayOptions; anchor?: HTMLElement; isCurrentHoverCard: () => boolean },
+        context: {
+            trigger: 'modal' | 'hover';
+            options: CardDisplayOptions;
+            anchor?: HTMLElement;
+            isCurrentHoverCard: () => boolean;
+            hoverLookupGeneration?: number;
+        },
     ): boolean {
         return context.options.autoPlay !== false
             && this.isCurrentCardForAutoPlay(context)
-            && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture), context.anchor);
+            && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture), context.anchor, context.hoverLookupGeneration);
     }
 
     private isCurrentCardForAutoPlay(context: { trigger: 'modal' | 'hover'; isCurrentHoverCard: () => boolean }): boolean {
@@ -5222,7 +5238,7 @@ export class ReaderApp {
         });
     }
 
-    private shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture = false, anchor?: HTMLElement): boolean {
+    private shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture = false, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean {
         if (!canAttemptReaderAutoAudio({
             anchor,
             settings: this.settings,
@@ -5233,9 +5249,17 @@ export class ReaderApp {
         const key = `${card.vid}:${card.sid}`;
         const now = Date.now();
         if (!userGesture) {
-            if (key === this.lastAutoAudioKey && now - this.lastAutoAudioAt < 2500) return false;
+            const sameHoverGeneration = trigger === 'hover'
+                && hoverLookupGeneration !== undefined
+                && this.lastAutoAudioHoverGeneration !== undefined
+                && hoverLookupGeneration === this.lastAutoAudioHoverGeneration;
+            const shouldSuppressDuplicate = key === this.lastAutoAudioKey
+                && now - this.lastAutoAudioAt < 2500
+                && (trigger !== 'hover' || hoverLookupGeneration === undefined || this.lastAutoAudioHoverGeneration === undefined || sameHoverGeneration);
+            if (shouldSuppressDuplicate) return false;
             this.lastAutoAudioKey = key;
             this.lastAutoAudioAt = now;
+            this.lastAutoAudioHoverGeneration = trigger === 'hover' ? hoverLookupGeneration : undefined;
         }
         return true;
     }
@@ -5482,7 +5506,8 @@ export class ReaderApp {
         let kanjiEntries: YomitanKanjiEntry[] = [];
         let rtkInfo: RtkInfo | null = null;
         let kanjiVGInfo: KanjiVGInfo | null = null;
-        const practiceDoodle = installKanjiPracticeDoodle(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo);
+        const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo)
+            ?? noopKanjiPracticeDoodle();
         const keywordMount = popover.querySelector<HTMLElement>('[data-kanji-keyword-mount]');
         const miningMount = popover.querySelector<HTMLElement>('[data-kanji-mining-mount]');
         const jpdbMount = popover.querySelector<HTMLElement>('[data-kanji-jpdb-mount]');

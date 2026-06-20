@@ -37,6 +37,7 @@ export function singleKanjiOcrLookupCharacter(word: HTMLElement): string {
 export function canLookupReaderWordElement(word: HTMLElement): boolean {
     if (isOcrLineFrameWord(word)) return false;
     if (word.dataset.jpdbReaderPassive === 'true') return false;
+    if (word.closest('.jpdb-reader-control-text-mirror')) return true;
     if (isNativePageLookupBlocked(word)) return false;
     if (!word.closest('[data-jpdb-reader-root]')) return true;
     return Boolean(word.closest('.jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer, .jpdb-reader-popover, .yomu-jpdb-page-addon'));
@@ -45,6 +46,7 @@ export function canLookupReaderWordElement(word: HTMLElement): boolean {
 export function canHoverLookupReaderWordElement(word: HTMLElement, hasHoverLookupShortcut: boolean): boolean {
     if (isOcrLineFrameWord(word)) return false;
     if (word.closest('.jpdb-reader-popover')) return false;
+    if (word.closest('.jpdb-reader-control-text-mirror')) return !word.closest('[data-jpdb-reader-root]') || hasHoverLookupShortcut;
     if (isSettingsReaderWord(word)) return hasHoverLookupShortcut;
     if (isSettingsNativeControlWord(word)) return false;
     if (isNativePageLookupBlocked(word) && word.dataset.jpdbReaderPassive !== 'true') return false;

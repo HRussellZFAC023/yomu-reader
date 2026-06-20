@@ -3123,6 +3123,14 @@
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
       reviewRatingScale: "Review rating scale",
+      gradeTargetSelector: "Grade target",
+      gradeTargetBoth: "Both",
+      gradeTargetJpdb: "Grades JPDB",
+      gradeTargetJiten: "Grades Jiten",
+      gradeTargetAnki: "Grades Anki card: {target}",
+      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
+      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      missingAnkiCardId: "Missing Anki card id.",
       jpdbPageEnhancements: "Dictionary site enhancements",
       jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
       jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
@@ -3226,6 +3234,9 @@
       colorSourcePitch: "Pitch accent",
       colorChannelsHelp: "",
       interfaceHelp: "",
+      popupLookup: "Popup lookup",
+      popupLookupEnabled: "Show Yomu lookup popup",
+      popupLookupHelp: "Turn this off when you want jpdb reader, Jiten Reader, or Yomitan to own popups while Yomu keeps annotations, media, mining, and study tools available.",
       parseSelection: "Look up selected text",
       lookupOnClick: "Look up on tap or click",
       lookupOnHover: "Look up on hover",
@@ -3541,7 +3552,8 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import settings or ZIPs.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "External links and imported frequency badges. Tokens: {query}, {word}, {reading}.",
+      frequencyLookupPillsHelp: "Imported frequency dictionaries show as badge pills when a lookup has matching data.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -4675,6 +4687,14 @@ jpdbMiningEnabled	APIの復習・デッキ変更を許可
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
+gradeTargetSelector	採点先
+gradeTargetBoth	両方
+gradeTargetJpdb	JPDBを採点
+gradeTargetJiten	Jitenを採点
+gradeTargetAnki	Ankiカードを採点: {target}
+gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
+gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
+missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
@@ -4773,6 +4793,9 @@ colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
 colorChannelsHelp	
 interfaceHelp	インターフェイス設定です。
+popupLookup	ポップアップ検索
+popupLookupEnabled	よむの検索ポップアップを表示
+popupLookupHelp	JPDB Reader、Jiten Reader、Yomitan側のポップアップを使う場合はオフにします。よむの注釈、メディア、採掘、学習ツールはそのまま使えます。
 parseSelection	選択テキストを検索
 lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
@@ -5060,7 +5083,8 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	設定やZIPを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	トークン: {query}、{word}、{reading}。
+lookupPillsHelp	外部リンクとインポート済み頻度バッジ。トークン: {query}、{word}、{reading}。
+frequencyLookupPillsHelp	インポート済み頻度辞書は、検索語に一致するデータがあるとバッジ型ピルとして表示されます。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -12625,6 +12649,24 @@ ${spelling}`);
     /\b(?:subtitle track|subtitle tracks).*\b(?:detected|not detected)\b/iu,
     /字幕トラック.*検出/iu
   ];
+  const PAGE_METADATA_TEXT_SELECTOR = [
+    "a",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "nav",
+    "aside",
+    "footer",
+    '[role="navigation"]',
+    '[role="menu"]',
+    '[role="menubar"]',
+    "[aria-current]"
+  ].join(",");
+  const PAGE_METADATA_TEXT_NAME_PATTERN = /(^|[-_\s])(?:title|metadata|meta|tag|tags|category|categories|breadcrumb|nav|navbar|menu|channel|author|username|user-name|description)([-_\s]|$)/iu;
   function readPageCaptionText(video, readerRoot, options = {}) {
     const direct = readDirectPageCaptionText(video, readerRoot, options);
     if (direct || !video) return direct;
@@ -12717,6 +12759,7 @@ ${spelling}`);
     if (!isAllowedCaptionText(text, options)) return false;
     if (isLikelyPlayerChromeText(text) || isLikelyReaderStatusText(text)) return false;
     if (containsReaderRootOrPlayerChrome(element)) return false;
+    if (!allowsChildText && isLikelyPageMetadataText(element)) return false;
     if (text.split("\n").length > 4) return false;
     return allowsChildText || !hasCaptionChildText(element, options);
   }
@@ -12729,6 +12772,21 @@ ${spelling}`);
   }
   function isLikelyReaderStatusText(text) {
     return READER_STATUS_TEXT_PATTERNS.some((pattern) => pattern.test(text));
+  }
+  function isLikelyPageMetadataText(element) {
+    if (element.closest(PAGE_METADATA_TEXT_SELECTOR)) return true;
+    for (let current = element; current && current !== document.body; current = current.parentElement) {
+      if (PAGE_METADATA_TEXT_NAME_PATTERN.test(elementNameForMetadataCheck(current))) return true;
+    }
+    return false;
+  }
+  function elementNameForMetadataCheck(element) {
+    return [
+      element.id,
+      String(element.className),
+      element.getAttribute("role") ?? "",
+      element.getAttribute("aria-label") ?? ""
+    ].join(" ");
   }
   function isAllowedCaptionText(text, options) {
     return hasCaptionTextLength(text) && (options.allowNonJapanese || isJapaneseCaptionText(text));
@@ -12763,7 +12821,8 @@ ${spelling}`);
     return !strict || isCaptionOverlaidOnVideo(rect, videoRect) && isCaptionCenteredOnVideo(rect, videoRect);
   }
   function isCaptionOverlaidOnVideo(rect, videoRect) {
-    return rect.top >= videoRect.top && rect.top <= videoRect.bottom + 90;
+    const bottomSlack = Math.min(24, Math.max(4, videoRect.height * 0.04));
+    return rect.top >= videoRect.top && rect.bottom <= videoRect.bottom + bottomSlack;
   }
   function isCaptionCenteredOnVideo(rect, videoRect) {
     const captionCenter = (rect.left + rect.right) / 2;

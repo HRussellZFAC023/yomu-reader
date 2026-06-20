@@ -64,6 +64,7 @@ export function renderKanjiDefinitions(
 export function renderFrequencyPills(metaEntries: YomitanMetaEntry[], settings: ReaderSettings, dictionaryLabel: DictionaryLabel): string[] {
     return bestFrequencyEntries(metaEntries)
         .filter(entry => entry.mode === 'freq')
+        .filter(entry => frequencyEntryEnabled(settings, entry.dictionary))
         .sort((a, b) => {
             const priority = dictionaryPreferencePriority(settings, a.dictionary) - dictionaryPreferencePriority(settings, b.dictionary);
             if (priority) return priority;
@@ -72,6 +73,10 @@ export function renderFrequencyPills(metaEntries: YomitanMetaEntry[], settings: 
         .map(entry => renderFrequencyPill(entry, dictionaryLabel))
         .filter(Boolean)
         .slice(0, 8);
+}
+
+function frequencyEntryEnabled(settings: ReaderSettings, dictionary: string): boolean {
+    return settings.dictionaryPreferences.find(preference => preference.name === dictionary)?.enabled ?? true;
 }
 
 export function definitionSourceStateKey(sourceId: string): string {

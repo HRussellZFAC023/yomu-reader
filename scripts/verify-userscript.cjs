@@ -112,6 +112,9 @@ function assertKanjiStudySplitBoundary() {
     ['renderKanjiOriginGraph', 'function renderKanjiOriginGraph(graph,'],
     ['renderKanjiOrigins', 'function renderKanjiOrigins(facts,'],
     ['renderKanjiPractice', 'function renderKanjiPractice(info,'],
+    ['installKanjiPracticeDoodle', 'function installKanjiPracticeDoodle('],
+    ['installKanjiDoodle', 'function installKanjiDoodle('],
+    ['assessKanjiStrokes', 'function assessKanjiStrokes('],
   ];
 
   for (const [label, signature] of extractedSignatures) {

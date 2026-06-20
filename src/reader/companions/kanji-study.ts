@@ -8,6 +8,7 @@ import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls } from '../popup/jpd
 import { renderKanjiOriginGraph } from '../popup/origin-graph';
 import { renderKanjiOrigins } from '../popup/kanji-origin';
 import { renderKanjiPractice } from '../popup/kanji-practice';
+import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
 import { RtkClient } from '../kanji/rtk';
 
 registerYomuCompanion('kanjiStudy', {
@@ -19,6 +20,7 @@ registerYomuCompanion('kanjiStudy', {
     renderJpdbKanjiInfo,
     renderJpdbKanjiMiningControls,
     renderKanjiPractice,
+    installKanjiPracticeDoodle,
     renderKanjiOrigins,
     buildRtkComponentSummaries,
     renderKanjiKeywordLine,

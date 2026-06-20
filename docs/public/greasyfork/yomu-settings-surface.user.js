@@ -3007,6 +3007,14 @@
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
       reviewRatingScale: "Review rating scale",
+      gradeTargetSelector: "Grade target",
+      gradeTargetBoth: "Both",
+      gradeTargetJpdb: "Grades JPDB",
+      gradeTargetJiten: "Grades Jiten",
+      gradeTargetAnki: "Grades Anki card: {target}",
+      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
+      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      missingAnkiCardId: "Missing Anki card id.",
       jpdbPageEnhancements: "Dictionary site enhancements",
       jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
       jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
@@ -3110,6 +3118,9 @@
       colorSourcePitch: "Pitch accent",
       colorChannelsHelp: "",
       interfaceHelp: "",
+      popupLookup: "Popup lookup",
+      popupLookupEnabled: "Show Yomu lookup popup",
+      popupLookupHelp: "Turn this off when you want jpdb reader, Jiten Reader, or Yomitan to own popups while Yomu keeps annotations, media, mining, and study tools available.",
       parseSelection: "Look up selected text",
       lookupOnClick: "Look up on tap or click",
       lookupOnHover: "Look up on hover",
@@ -3425,7 +3436,8 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import settings or ZIPs.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "External links and imported frequency badges. Tokens: {query}, {word}, {reading}.",
+      frequencyLookupPillsHelp: "Imported frequency dictionaries show as badge pills when a lookup has matching data.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -4559,6 +4571,14 @@ jpdbMiningEnabled	APIの復習・デッキ変更を許可
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
+gradeTargetSelector	採点先
+gradeTargetBoth	両方
+gradeTargetJpdb	JPDBを採点
+gradeTargetJiten	Jitenを採点
+gradeTargetAnki	Ankiカードを採点: {target}
+gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
+gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
+missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
@@ -4657,6 +4677,9 @@ colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
 colorChannelsHelp	
 interfaceHelp	インターフェイス設定です。
+popupLookup	ポップアップ検索
+popupLookupEnabled	よむの検索ポップアップを表示
+popupLookupHelp	JPDB Reader、Jiten Reader、Yomitan側のポップアップを使う場合はオフにします。よむの注釈、メディア、採掘、学習ツールはそのまま使えます。
 parseSelection	選択テキストを検索
 lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
@@ -4944,7 +4967,8 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	設定やZIPを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	トークン: {query}、{word}、{reading}。
+lookupPillsHelp	外部リンクとインポート済み頻度バッジ。トークン: {query}、{word}、{reading}。
+frequencyLookupPillsHelp	インポート済み頻度辞書は、検索語に一致するデータがあるとバッジ型ピルとして表示されます。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -5957,7 +5981,7 @@ recommendedJiten	Jiten頻度です。
       lookupOnMiddleMouse: has("lookupOnMiddleMouse"),
       hoverOpenDelayMs: clamped("hoverOpenDelayMs", 0, 1500, current.hoverOpenDelayMs),
       hoverCloseDelayMs: clamped("hoverCloseDelayMs", 0, 3e3, current.hoverCloseDelayMs),
-      popupActivationMode: current.popupActivationMode,
+      popupActivationMode: has("popupLookupEnabled") ? current.popupActivationMode === "off" ? DEFAULT_SETTINGS.popupActivationMode : current.popupActivationMode : "off",
       scanModifierKey: current.scanModifierKey,
       showFloatingButton: has("showFloatingButton"),
       manualScanEnabled: has("manualScanEnabled")
@@ -7792,10 +7816,20 @@ recommendedJiten	Jiten頻度です。
   function usesNadeshikoExamples(source) {
     return source === "nadeshiko" || source === "combined";
   }
+  function popupLookupEnabledSetting(settings) {
+    return settings.popupActivationMode !== "off" && (settings.parseSelection || settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+  }
   function renderReaderSettingsPanel(settings) {
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title" data-popup-lookup-title>Popup lookup</div>
+                    <div class="grid">
+                        ${checkbox("popupLookupEnabled", "Show Yomu lookup popup", popupLookupEnabledSetting(settings))}
+                    </div>
+                    <div class="jpdb-reader-help" data-help-key="popupLookupHelp">Turn this off when you want jpdb reader, Jiten Reader, or Yomitan to own popups while Yomu keeps annotations, media, mining, and study tools available.</div>
+                </div>
                 <div class="grid">
                     ${checkbox("parseSelection", "Look up selected text", settings.parseSelection)}
                     ${checkbox("lookupOnClick", "Look up on tap or click", settings.lookupOnClick)}
@@ -7960,10 +7994,10 @@ recommendedJiten	Jiten頻度です。
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
-                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
+                    <div class="jpdb-reader-help">External links and imported frequency badges. Tokens: {query}, {word}, {reading}.</div>
+                    <div data-frequency-lookup-pills>${renderFrequencyLookupPillRows(settings)}</div>
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -8141,6 +8175,7 @@ recommendedJiten	Jiten頻度です。
     [/Lookup pills|検索ピル/, "lookupPills"]
   ];
   const SELECTOR_TEXT_KEYS = [
+    ["[data-popup-lookup-title]", "popupLookup"],
     ["[data-hover-lookup-title]", "hoverLookupSettings"],
     ["[data-diagnostics-title]", "diagnostics"],
     ["[data-anki-library-adapter-title]", "ankiLibraryAdapter"],
@@ -8623,7 +8658,7 @@ recommendedJiten	Jiten頻度です。
   function localizeSourceHead(head, text) {
     const spans = head.querySelectorAll("span");
     spans[0]?.replaceChildren(text("enabledHeader"));
-    const sourceLabel = spans[1]?.textContent === "Kanji section" ? text("kanjiSection") : text("definitionSource");
+    const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? "", text);
     spans[1]?.replaceChildren(sourceLabel);
     if (spans.length === 5) {
       spans[2]?.replaceChildren(text("displayName"));
@@ -8632,6 +8667,11 @@ recommendedJiten	Jiten頻度です。
     } else {
       spans[2]?.replaceChildren(text("orderHeader"));
     }
+  }
+  function sourceHeadLabel(value, text) {
+    if (value === "Kanji section") return text("kanjiSection");
+    if (value === "Frequency pill") return text("lookupPills");
+    return text("definitionSource");
   }
   function replaceSourceHelp(form, pattern, value) {
     form.querySelectorAll(".jpdb-reader-help, .jpdb-reader-dictionary-row-help").forEach((help) => {
@@ -8775,6 +8815,7 @@ recommendedJiten	Jiten頻度です。
     "subtitleTextColorSource",
     "parseSelection",
     "lookupOnClick",
+    "popupLookupEnabled",
     "lookupOnHover",
     "lookupOnMiddleMouse",
     "showFloatingButton",
@@ -9300,16 +9341,13 @@ recommendedJiten	Jiten頻度です。
   function renderKanjiSourceRows(settings) {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: false });
   }
-  function renderFrequencyDictionaryRows(settings) {
+  function renderFrequencyLookupPillRows(settings) {
     const rows = frequencySourceRows(settings);
     if (!rows.length) return "";
     return `
-        <div class="jpdb-reader-settings-subsection">
-            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
-            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
-            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
-                ${renderSourceRowsList(rows, { sourceLabel: "Frequency dictionary", showAlias: true })}
-            </div>
+        <div class="jpdb-reader-help" data-help-key="frequencyLookupPillsHelp">Imported frequency dictionaries show as badge pills when a lookup has matching data.</div>
+        <div class="jpdb-reader-dictionary-priorities" data-source-editor>
+            ${renderSourceRowsList(rows, { sourceLabel: "Frequency pill", showAlias: true })}
         </div>
     `;
   }
@@ -10192,14 +10230,14 @@ recommendedJiten	Jiten頻度です。
     return {
       status: form.querySelector("[data-dictionary-status]"),
       priorities: form.querySelector(".jpdb-reader-dictionary-priorities"),
-      frequency: form.querySelector("[data-frequency-dictionaries]"),
+      frequencyLookupPills: form.querySelector("[data-frequency-lookup-pills]"),
       recommended: form.querySelector("[data-recommended-dictionaries]")
     };
   }
   function renderDictionaryStatusElements(elements, summary, settings) {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
+    if (elements.frequencyLookupPills) setInnerHtml(elements.frequencyLookupPills, renderFrequencyLookupPillRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
   }
   function dictionaryStatusText(summary, language) {

@@ -66,6 +66,7 @@ const BASE_SKIP_SELECTOR_ENTRIES = [
     '[class*="speaker" i]',
     '[class*="voice" i]',
     '.jpdb-reader-text-mirror',
+    '.jpdb-reader-control-text-mirror',
     '.jpdb-reader-word',
     // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
     // letter soup, but "Kanji used" spellings are real JPDB links and should
@@ -153,6 +154,7 @@ const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = [
     // original host text, doubling target.text and self-perpetuating into a
     // rebuild loop (the duplicated, flashing caption strip).
     '.jpdb-reader-text-mirror',
+    '.jpdb-reader-control-text-mirror',
     '.jpdb-reader-word',
     '.subsection-pitch-accent .subsection',
     '[data-jpdb-reader-root]',
@@ -252,6 +254,9 @@ const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
 const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
 const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
+const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
+const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
+const FORM_CONTROL_TEXT_TARGET_SELECTOR = 'select,input,textarea';
 const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
 const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
     ...PROSE_TAGS,
@@ -309,6 +314,7 @@ export interface TextTarget {
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
     nonDestructive?: boolean;
+    controlTextMirror?: boolean;
 }
 
 export interface TextFragment {
@@ -330,6 +336,7 @@ export interface FragmentTextTarget {
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
     nonDestructive?: boolean;
+    controlTextMirror?: boolean;
 }
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
@@ -371,6 +378,12 @@ interface FragmentTextTargetCollectionOptions {
     readerRootPassiveInteractions?: boolean;
 }
 
+interface FormControlTextTargetCollectionOptions {
+    includeReaderRoot?: boolean;
+    excludeSelector?: string;
+    parserId?: string;
+}
+
 interface FragmentTextCollectionState {
     targets: FragmentTextTarget[];
     fragments: TextFragment[];
@@ -402,6 +415,7 @@ interface TextMirrorHostState {
 
 const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
+const READER_CONTROL_TEXT_MIRROR_SELECTOR = '.jpdb-reader-control-text-mirror';
 const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
     'yt-formatted-string',
     'yt-attributed-string',
@@ -621,6 +635,124 @@ export function collectFragmentTextTargetsIn(
     visitFragmentNode(root, state, false, true);
     flushFragmentTextTarget(state);
     return state.targets;
+}
+
+export function collectFormControlTextTargetsIn(
+    root: ParentNode,
+    limit = 40,
+    visibleOnly = true,
+    options: FormControlTextTargetCollectionOptions = {},
+): FragmentTextTarget[] {
+    const targets: FragmentTextTarget[] = [];
+    const controls = root instanceof HTMLElement && root.matches(FORM_CONTROL_TEXT_TARGET_SELECTOR) ? [root] : [];
+    controls.push(...Array.from(root.querySelectorAll<HTMLElement>(FORM_CONTROL_TEXT_TARGET_SELECTOR)));
+    for (const control of controls) {
+        if (targets.length >= limit) break;
+        const target = formControlTextTarget(control, visibleOnly, options);
+        if (target) targets.push(target);
+    }
+    return targets;
+}
+
+function formControlTextTarget(
+    control: HTMLElement,
+    visibleOnly: boolean,
+    options: FormControlTextTargetCollectionOptions,
+): FragmentTextTarget | null {
+    if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
+    const text = collectableFormControlLookupText(control);
+    if (!text) return null;
+    return {
+        text,
+        parent: control,
+        fragments: [],
+        parserId: options.parserId,
+        layoutSensitive: true,
+        nonDestructive: true,
+        controlTextMirror: true,
+    };
+}
+
+function isCollectableFormControlTextElement(
+    control: HTMLElement,
+    visibleOnly: boolean,
+    options: FormControlTextTargetCollectionOptions,
+): boolean {
+    if (control.closest(READER_CONTROL_TEXT_MIRROR_SELECTOR)) return false;
+    if (!options.includeReaderRoot && control.closest(READER_ROOT_SELECTOR)) return false;
+    if (options.excludeSelector && (safeElementMatches(control, options.excludeSelector) || control.closest(options.excludeSelector))) return false;
+    if (isDisabledFormControl(control) || isUnlookupableFormControl(control)) return false;
+    return !visibleOnly || isVisible(control);
+}
+
+function isDisabledFormControl(control: HTMLElement): boolean {
+    return (control instanceof HTMLInputElement || control instanceof HTMLSelectElement || control instanceof HTMLTextAreaElement)
+        && (control.disabled || control.getAttribute('aria-disabled')?.toLowerCase() === 'true');
+}
+
+function isUnlookupableFormControl(control: HTMLElement): boolean {
+    if (!(control instanceof HTMLInputElement)) return false;
+    return ['hidden', 'password', 'file', 'image'].includes(control.type.toLowerCase());
+}
+
+function collectableFormControlLookupText(control: HTMLElement): string {
+    const text = formControlLookupText(control);
+    return isCollectableControlText(text) ? text : '';
+}
+
+function formControlLookupText(control: HTMLElement): string {
+    const parts: string[] = [];
+    if (control instanceof HTMLSelectElement) pushUniqueControlText(parts, selectLookupText(control));
+    if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
+        pushUniqueControlText(parts, formFieldPlaceholderText(control));
+    }
+    pushUniqueControlText(parts, control.getAttribute('aria-label') ?? '');
+    pushUniqueControlText(parts, control.getAttribute('title') ?? '');
+    return parts.join(' / ');
+}
+
+function selectLookupText(select: HTMLSelectElement): string {
+    const selectedText = uniqueControlTexts(Array.from(select.selectedOptions).map(optionText));
+    const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText))
+        .filter(text => HAS_JAPANESE.test(text));
+    const compactOptionList = compactSelectOptionListText(optionTextList);
+    return compactOptionList || selectedText.join(' / ');
+}
+
+function compactSelectOptionListText(options: string[]): string {
+    if (options.length < 2 || options.length > FORM_CONTROL_SELECT_OPTION_LIMIT) return '';
+    const text = options.join(' / ');
+    return compactLength(text) <= FORM_CONTROL_TEXT_MAX_LENGTH ? text : '';
+}
+
+function optionText(option: HTMLOptionElement): string {
+    return normalizedControlText(option.label || option.textContent || '');
+}
+
+function formFieldPlaceholderText(control: HTMLInputElement | HTMLTextAreaElement): string {
+    if (control.value.trim()) return '';
+    return normalizedControlText(control.getAttribute('placeholder') ?? '');
+}
+
+function pushUniqueControlText(parts: string[], text: string): void {
+    const normalized = normalizedControlText(text);
+    if (!normalized || !HAS_JAPANESE.test(normalized) || parts.includes(normalized)) return;
+    parts.push(normalized);
+}
+
+function uniqueControlTexts(texts: string[]): string[] {
+    const result: string[] = [];
+    texts.forEach(text => pushUniqueControlText(result, text));
+    return result;
+}
+
+function normalizedControlText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+function isCollectableControlText(text: string): boolean {
+    const compact = compactLength(text);
+    return compact > 0 && compact <= FORM_CONTROL_TEXT_MAX_LENGTH && HAS_JAPANESE.test(text);
 }
 
 function fragmentText(items: TextFragment[]): string {
@@ -909,7 +1041,7 @@ function hasRawJapaneseOutsideReaderWords(element: HTMLElement): boolean {
     const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, {
         acceptNode(node) {
             const parent = node.parentElement;
-            if (!parent || parent.closest('.jpdb-reader-word,.jpdb-reader-text-mirror,[data-jpdb-reader-root],script,style,noscript,rt,rp')) {
+            if (!parent || parent.closest('.jpdb-reader-word,.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,[data-jpdb-reader-root],script,style,noscript,rt,rp')) {
                 return NodeFilter.FILTER_REJECT;
             }
             return HAS_JAPANESE.test(node.textContent ?? '') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
@@ -935,9 +1067,6 @@ function isCompactPassiveInteractionElement(element: HTMLElement): boolean {
 
 function isFragmentPassiveInteractionElement(element: Element, options: FragmentTextTargetCollectionOptions): boolean {
     if (isPassiveInteractionElement(element)) return true;
-    if (options.readerRootPassiveInteractions
-        && element.closest(READER_ROOT_SELECTOR)
-        && element.closest('.jpdb-reader-popover')) return true;
     return Boolean(options.readerRootPassiveInteractions
         && element.closest(READER_ROOT_SELECTOR)
         && element.closest(PASSIVE_INTERACTION_SELECTOR));
@@ -1077,6 +1206,7 @@ export function isCurrentScanTarget(target: ScanTextTarget): boolean {
 
 function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
     if (!target.parent.isConnected) return false;
+    if (target.controlTextMirror) return formControlLookupText(target.parent) === target.text;
     if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
     const text = target.fragments.map(fragment => {
         if (!fragment.node.isConnected || !fragment.node.parentElement) return null;
@@ -1113,6 +1243,10 @@ function scanHostIsRepaintLooping(host: HTMLElement, text: string): boolean {
 }
 
 export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    if (target.controlTextMirror) {
+        applyTokensToControlTextMirrorTarget(target, tokens, settings);
+        return;
+    }
     if (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text)) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
@@ -1242,6 +1376,67 @@ function nonDestructiveScanSignature(target: ScanTextTarget, tokens: JPDBToken[]
             ruby: token.rubies,
         })),
     });
+}
+
+const controlTextMirrorHosts = new WeakMap<HTMLElement, () => void>();
+
+function applyTokensToControlTextMirrorTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
+    const host = target.parent;
+    if (!host.isConnected) return;
+
+    const text = target.text;
+    const safeTokens = nonOverlappingTokens(tokens, text.length);
+    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+    const renderSettings = furiganaSettingsForTarget(settings, host);
+    const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
+    const existing = currentControlTextMirror(host);
+    if (existing?.dataset.sourceText === text && existing.dataset.renderSignature === signature) return;
+    removeControlTextMirror(host);
+    if (!safeTokens.length) return;
+
+    const mirror = document.createElement('span');
+    mirror.className = 'jpdb-reader-control-text-mirror';
+    mirror.dataset.jpdbReaderControlTextMirror = 'true';
+    mirror.dataset.sourceText = text;
+    mirror.dataset.renderSignature = signature;
+    styleControlTextMirror(mirror, host);
+    mirror.append(renderTokenizedScanText(text, safeTokens, renderSettings, {
+        parent: host,
+        hasNativeRuby: false,
+        suppressRuby,
+        passiveInteraction: false,
+    }));
+    if (!mirror.textContent?.trim()) return;
+    host.insertAdjacentElement('afterend', mirror);
+    observeControlTextMirrorHost(host);
+}
+
+function currentControlTextMirror(host: HTMLElement): HTMLElement | null {
+    const sibling = host.nextElementSibling;
+    return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
+}
+
+function styleControlTextMirror(mirror: HTMLElement, host: HTMLElement): void {
+    const style = safeComputedStyle(host);
+    mirror.style.setProperty('font', style.font);
+    mirror.style.setProperty('color', style.color);
+}
+
+function observeControlTextMirrorHost(host: HTMLElement): void {
+    const onChange = (): void => removeControlTextMirror(host);
+    host.addEventListener('change', onChange);
+    host.addEventListener('input', onChange);
+    controlTextMirrorHosts.set(host, onChange);
+}
+
+function removeControlTextMirror(host: HTMLElement): void {
+    const onChange = controlTextMirrorHosts.get(host);
+    if (onChange) {
+        host.removeEventListener('change', onChange);
+        host.removeEventListener('input', onChange);
+    }
+    currentControlTextMirror(host)?.remove();
+    controlTextMirrorHosts.delete(host);
 }
 
 function furiganaSettingsForTarget(settings: ReaderSettings, parent: HTMLElement): ReaderSettings {
@@ -1506,8 +1701,15 @@ export function removeNonDestructiveScanMirrors(root: ParentNode = document): nu
     root.querySelectorAll<HTMLElement>(READER_TEXT_MIRROR_SELECTOR).forEach(mirror => {
         if (mirror.parentElement) hosts.add(mirror.parentElement);
     });
+    const controlHosts = new Set<HTMLElement>();
+    root.querySelectorAll<HTMLElement>(READER_CONTROL_TEXT_MIRROR_SELECTOR).forEach(mirror => {
+        const host = mirror.previousElementSibling;
+        if (host instanceof HTMLElement) controlHosts.add(host);
+        else mirror.remove();
+    });
     hosts.forEach(removeTextMirror);
-    return hosts.size;
+    controlHosts.forEach(removeControlTextMirror);
+    return hosts.size + controlHosts.size;
 }
 
 function appendPlainTextBeforeToken(fragment: DocumentFragment, text: string, start: number, end: number): void {

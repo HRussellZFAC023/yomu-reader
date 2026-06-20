@@ -51,7 +51,7 @@ export type AudioAutoPlayMode = 'off' | 'all' | 'hover' | 'tap';
 
 export type OcrProvider = 'google-lens' | 'cloud-vision' | 'local-service' | 'page-text' | 'off';
 
-export type PopupActivationMode = 'click' | 'hover' | 'modifier';
+export type PopupActivationMode = 'click' | 'hover' | 'modifier' | 'off';
 
 export type ScanModifierKey = 'shift' | 'alt' | 'ctrl' | 'meta';
 

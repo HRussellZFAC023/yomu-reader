@@ -32,7 +32,7 @@ import {
     renderNewTabAnkiDeckSelector,
     renderDeckControls,
     renderDictionarySourceRows,
-    renderFrequencyDictionaryRows,
+    renderFrequencyLookupPillRows,
     renderRecommendedDictionaries,
     appearancePreviewContentHtml,
     renderSettingsForm,
@@ -97,7 +97,7 @@ type DictionarySummary = Awaited<ReturnType<YomitanDictionaryStore['summary']>>;
 interface DictionaryStatusElements {
     status: HTMLElement | null;
     priorities: HTMLElement | null;
-    frequency: HTMLElement | null;
+    frequencyLookupPills: HTMLElement | null;
     recommended: HTMLElement | null;
 }
 
@@ -451,7 +451,7 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
     return {
         status: form.querySelector<HTMLElement>('[data-dictionary-status]'),
         priorities: form.querySelector<HTMLElement>('.jpdb-reader-dictionary-priorities'),
-        frequency: form.querySelector<HTMLElement>('[data-frequency-dictionaries]'),
+        frequencyLookupPills: form.querySelector<HTMLElement>('[data-frequency-lookup-pills]'),
         recommended: form.querySelector<HTMLElement>('[data-recommended-dictionaries]'),
     };
 }
@@ -459,7 +459,7 @@ function dictionaryStatusElements(form: HTMLFormElement): DictionaryStatusElemen
 function renderDictionaryStatusElements(elements: DictionaryStatusElements, summary: DictionarySummary, settings: ReaderSettings): void {
     if (elements.status) elements.status.textContent = dictionaryStatusText(summary, settings.interfaceLanguage);
     if (elements.priorities) setInnerHtml(elements.priorities, renderDictionarySourceRows(settings));
-    if (elements.frequency) setInnerHtml(elements.frequency, renderFrequencyDictionaryRows(settings));
+    if (elements.frequencyLookupPills) setInnerHtml(elements.frequencyLookupPills, renderFrequencyLookupPillRows(settings));
     if (elements.recommended) setInnerHtml(elements.recommended, renderRecommendedDictionaries(summary.dictionaries));
 }
 

@@ -41,6 +41,7 @@ export interface NewTabSearchViewContext {
     language: ReaderSettings['interfaceLanguage'];
     settings: ReaderSettings;
     text: (key: 'words' | 'kanji' | 'dictionary') => string;
+    showKanjiMeta?: boolean;
 }
 
 export function searchCardStateLabel(state: string, language: ReaderSettings['interfaceLanguage']): string {
@@ -106,8 +107,14 @@ function renderSearchWordResult(card: JPDBCard, context: NewTabSearchViewContext
 function renderSearchWordTerm(card: JPDBCard, context: NewTabSearchViewContext): HTMLElement {
     const term = el('span', { class: 'jpdb-reader-newtab-search-term', lang: 'ja' });
     const html = renderSearchCardRubyHtml(card, context.settings);
-    if (html) setInnerHtml(term, html);
-    else term.textContent = card.spelling;
+    if (html) {
+        setInnerHtml(term, html);
+        if (!(term.textContent ?? '').includes(card.spelling)) {
+            term.append(el('span', { class: 'jpdb-reader-newtab-sr-only' }, card.spelling));
+        }
+    } else {
+        term.textContent = card.spelling;
+    }
     return term;
 }
 
@@ -115,7 +122,7 @@ export function renderSearchKanjiResults(results: NewTabSearchKanjiResult[], con
     return el('section', { class: 'jpdb-reader-newtab-search-section' },
         el('h2', { class: 'jpdb-reader-parseable', lang: 'ja' }, context.text('kanji')),
         el('div', { class: 'jpdb-reader-newtab-search-kanji-grid' },
-            results.map(result => renderSearchKanjiResult(result)),
+            results.map(result => renderSearchKanjiResult(result, context)),
         ),
     );
 }
@@ -136,9 +143,10 @@ function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): str
     return renderTokensToHtml(spelling, [token], settings);
 }
 
-function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
+function renderSearchKanjiResult(result: NewTabSearchKanjiResult, context: NewTabSearchViewContext): HTMLElement {
     const preview = result.keyword.trim();
-    const meta = searchKanjiSummaryMeta(result);
+    const wordMeta = searchKanjiInlineWordMeta(result.words);
+    const meta = wordMeta || (context.showKanjiMeta ? searchKanjiSummaryMeta(result) : '');
     return el('div', { class: 'jpdb-reader-newtab-search-card-shell', dataset: { newtabSearchCardShell: true } },
         el('button', {
             type: 'button',

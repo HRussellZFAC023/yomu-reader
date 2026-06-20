@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { canHoverLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
+import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
 import { readerWordSurfaceText } from '../../src/reader/dom/index';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
@@ -175,6 +175,30 @@ describe('nested text parse plans', () => {
         expect(plan?.targets.map(target => target.text)).toEqual(['青空の下で本を読みます。', '読みます']);
     });
 
+    it('renders ordinary popup dictionary prose as lookupable nested words', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
+                <div class="jpdb-reader-local-glossary jpdb-reader-parseable">
+                    <span>はさみを使う。</span>
+                </div>
+            </div>
+        `;
+        const popover = document.body.querySelector<HTMLElement>('.jpdb-reader-popover')!;
+        const plan = nestedTextParsePlan(popover, 24)!;
+
+        expect(plan.targets.map(target => target.text)).toEqual(['はさみを使う。']);
+        applyNestedParsePlan(plan, [[
+            token('はさみ', 0),
+            token('使う', 4, 'つかう', 'heiban'),
+        ]], { ...DEFAULT_SETTINGS, ankiEnabled: false, furiganaMode: 'all' });
+
+        const words = Array.from(popover.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words.map(word => readerWordSurfaceText(word))).toEqual(['はさみ', '使う']);
+        expect(words.map(word => word.dataset.jpdbReaderPassive ?? '')).toEqual(['', '']);
+        expect(words.every(word => canLookupReaderWordElement(word))).toBe(true);
+        expect(words[1]?.querySelector('rt')?.textContent).toBe('つか');
+    });
+
     it('keeps dictionary source summaries as plain labels', () => {
         document.body.innerHTML = `
             <div class="jpdb-reader-popover" data-jpdb-reader-root="true">
@@ -299,13 +323,58 @@ describe('nested text parse plans', () => {
         expect(texts).toContain('テーマ');
         expect(texts).toContain('外観');
         expect(texts).toContain('学習');
-        expect(texts).not.toContain('日本語');
+        expect(texts).toContain('日本語');
         expect(texts).not.toContain('API');
         expect(texts).toContain('隠れた設定');
         expect(texts).toContain('隠れた説明');
         expect(texts.filter(text => text === '隠れた説明')).toHaveLength(1);
         expect(texts).not.toContain('保存');
         expect(texts).not.toContain('詳細');
+    });
+
+    it('renders reader-owned dropdown options and placeholders as lookupable control mirrors', () => {
+        document.body.innerHTML = `
+            <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
+                <div data-settings-panel="appearance">
+                    <label id="language-label">表示言語
+                        <select aria-labelledby="language-label">
+                            <option value="ja" selected>日本語</option>
+                            <option value="en">英語</option>
+                        </select>
+                    </label>
+                    <input placeholder="辞書を検索" value="">
+                </div>
+            </form>
+        `;
+        const root = document.body.querySelector<HTMLElement>('form')!;
+        const plan = nestedSettingsTextParsePlan(root, 24)!;
+        const texts = plan.targets.map(target => target.text);
+
+        expect(texts).toContain('表示言語');
+        expect(texts.some(text => text.includes('日本語') && text.includes('英語'))).toBe(true);
+        expect(texts).toContain('辞書を検索');
+
+        applyNestedParsePlan(plan, texts.map(tokensForSettingsControlText), {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            furiganaMode: 'all',
+        });
+
+        const select = root.querySelector<HTMLSelectElement>('select')!;
+        expect(select.querySelector('.jpdb-reader-word')).toBeNull();
+        const selectMirror = select.nextElementSibling as HTMLElement | null;
+        expect(selectMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
+        const selectWord = selectMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]') ?? null;
+        expect(selectWord).not.toBeNull();
+        expect(selectWord?.dataset.jpdbReaderPassive).toBeUndefined();
+        expect(selectWord ? canLookupReaderWordElement(selectWord) : false).toBe(true);
+
+        const input = root.querySelector<HTMLInputElement>('input')!;
+        const inputMirror = input.nextElementSibling as HTMLElement | null;
+        expect(inputMirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
+        const inputWord = inputMirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="辞書"]') ?? null;
+        expect(inputWord).not.toBeNull();
+        expect(inputWord ? canLookupReaderWordElement(inputWord) : false).toBe(true);
     });
 
     it('prioritizes visible settings panels before inactive panel text', () => {
@@ -431,6 +500,16 @@ function token(surface: string, start: number, reading = surface, pitchClass = '
         rubies: reading === surface ? [] : [{ text: reading, start, end: start + surface.length, length: surface.length }],
         pitchClass,
     };
+}
+
+function tokensForSettingsControlText(text: string): JPDBToken[] {
+    return [
+        ['日本語', 'にほんご', 'heiban'],
+        ['辞書', 'じしょ', 'heiban'],
+    ].flatMap(([surface, reading, pitchClass]) => {
+        const start = text.indexOf(surface);
+        return start >= 0 ? [token(surface, start, reading, pitchClass)] : [];
+    });
 }
 
 function card(spelling: string, reading: string): JPDBCard {

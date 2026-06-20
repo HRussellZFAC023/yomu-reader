@@ -42,7 +42,7 @@
 .jpdb-subtitle-lines {
   min-height: 1.36em;
   max-height: inherit;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
 }
 .jpdb-subtitle-primary,
@@ -1210,10 +1210,13 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   white-space: nowrap;
 }
 .jpdb-subtitle-row-text {
+  display: block;
   min-width: 0;
+  width: 100%;
   max-width: 100%;
   grid-column: 1;
   color: var(--jpdb-reader-text);
+  overflow: visible;
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: normal;
@@ -1228,6 +1231,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
   --jpdb-reader-word-underline-offset: .16em;
   --jpdb-reader-word-underline-thickness: .08em;
+  display: inline !important;
   color: inherit;
   background-color: transparent;
   background-image: none;
@@ -1243,6 +1247,15 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
   font-weight: inherit;
+}
+.jpdb-subtitle-row-text .jpdb-reader-word::after {
+  content: none;
+}
+.jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) {
+  max-width: 100%;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .jpdb-subtitle-row-text ruby,
 .jpdb-subtitle-row-text rt,

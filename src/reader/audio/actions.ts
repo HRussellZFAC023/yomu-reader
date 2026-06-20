@@ -29,7 +29,7 @@ interface LoadingAudioRequest {
 export class ReaderAudioActions {
     private loadingRequest = 0;
     private inFlightTermAudio?: { key: string; promise: Promise<boolean> };
-    private lastAutoTermAudio?: { key: string; at: number };
+    private lastAutoTermAudio?: { key: string; at: number; hoverLookupGeneration?: number };
 
     constructor(private readonly dependencies: ReaderAudioActionsDependencies) {}
 
@@ -45,13 +45,19 @@ export class ReaderAudioActions {
             return;
         }
         const autoKey = options.autoPlay ? termAudioAutoRequestKey(card) : key;
-        if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey)) return;
+        if (options.autoPlay && this.consumeRecentAutoTermAudio(autoKey, options)) return;
 
         const promise = this.playTermAudioOnce(card, { ...options, isCurrent });
         this.inFlightTermAudio = { key, promise };
         try {
             const played = await promise;
-            if (options.autoPlay && played) this.lastAutoTermAudio = { key: autoKey, at: Date.now() };
+            if (options.autoPlay && played) {
+                this.lastAutoTermAudio = {
+                    key: autoKey,
+                    at: Date.now(),
+                    hoverLookupGeneration: options.hoverLookupGeneration,
+                };
+            }
         } finally {
             if (this.inFlightTermAudio?.promise === promise) this.inFlightTermAudio = undefined;
         }
@@ -100,12 +106,21 @@ export class ReaderAudioActions {
         return { popover, requestId };
     }
 
-    private consumeRecentAutoTermAudio(key: string): boolean {
+    private consumeRecentAutoTermAudio(key: string, options: { hoverLookupGeneration?: number }): boolean {
         const recent = this.lastAutoTermAudio;
         if (!recent || recent.key !== key) return false;
         if (Date.now() - recent.at > 250) return false;
-        this.lastAutoTermAudio = { key, at: Date.now() };
+        if (!this.isSameRecentAutoTermAudioHover(recent, options)) return false;
+        this.lastAutoTermAudio = { key, at: Date.now(), hoverLookupGeneration: recent.hoverLookupGeneration };
         return true;
+    }
+
+    private isSameRecentAutoTermAudioHover(
+        recent: { hoverLookupGeneration?: number },
+        options: { hoverLookupGeneration?: number },
+    ): boolean {
+        if (recent.hoverLookupGeneration === undefined || options.hoverLookupGeneration === undefined) return true;
+        return recent.hoverLookupGeneration === options.hoverLookupGeneration;
     }
 
     async playSentenceAudio(sentence?: string): Promise<void> {

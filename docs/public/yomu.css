@@ -445,8 +445,36 @@
   content: "";
 }
 
+.jpdb-reader-control-text-mirror {
+  display: inline-flex;
+  align-items: center;
+  max-width: min(32ch, 100%);
+  margin-inline-start: 0.35em;
+  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  opacity: 0.88;
+}
+
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal !important;
+  line-break: strict;
+  text-decoration-color: transparent !important;
+}
+
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word::after {
+  content: "";
+}
+
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
-.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt {
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word rt {
   white-space: nowrap;
   overflow-wrap: normal;
 }

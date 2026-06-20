@@ -39,6 +39,8 @@ interface HoverLookupInternals {
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
     handlePointerTextHover(event: PointerEvent): void;
     lookupCandidateFromPoint(x: number, y: number, eventTarget: EventTarget | null, options?: unknown): { text: string; offset: number; start: number; end: number; anchor: HTMLElement } | null;
+    lookupRenderedSelection(selected: string): Promise<boolean>;
+    lookupSelection(): Promise<void>;
     readerWordFromRenderedGeometry(target: Element | null, x: number, y: number): HTMLElement | null;
     isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean;
     isHoverContextActive(options?: { ignoreCssHover?: boolean; ignorePointerPosition?: boolean }): boolean;
@@ -60,6 +62,7 @@ interface HoverLookupInternals {
     preloadHoverWordAudio(word: HTMLElement): void;
     preloadParsedTokens(tokens: JPDBToken[]): void;
     preloadTermAudioForTokens(tokens: JPDBToken[]): void;
+    shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean;
     showAlternativeRenderedWordCandidate(word: HTMLElement, card: JPDBCard, context: unknown, options: unknown, stackOverSettings: boolean): Promise<boolean>;
     showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: Record<string, unknown>): Promise<void>;
     bindEvents(): void;
@@ -303,6 +306,71 @@ function expectNoHoverLookup({
 }
 
 describe('hover lookup', () => {
+    it('does not suppress autoplay for a fresh hover of the same card', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover',
+            suppressAutoAudioOnVideo: false,
+        };
+
+        try {
+            expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 1)).toBe(true);
+            expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 1)).toBe(false);
+            expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 2)).toBe(true);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('lets another popup reader own page click, hover, and selection when Yomu popup lookup is off', async () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const internals = app as unknown as HoverLookupInternals;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const lookupRenderedSelection = vi.fn(async () => true);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            popupActivationMode: 'off',
+            lookupOnClick: true,
+            lookupOnHover: true,
+            parseSelection: true,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.showWord = showWord;
+        internals.lookupRenderedSelection = lookupRenderedSelection;
+        internals.bindEvents();
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(false);
+            expect(showWord).not.toHaveBeenCalled();
+
+            const hoverLookup = setupHoverLookupSpies(app, { settings: internals.settings });
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word));
+            expectNoHoverLookup(hoverLookup);
+            expect(hoverLookup.internals.canBeginPrimaryPressLookup(hoverPointerEvent(word, 'mouse'))).toBe(false);
+
+            const range = document.createRange();
+            range.selectNode(word);
+            const selection = window.getSelection()!;
+            selection.removeAllRanges();
+            selection.addRange(range);
+            await internals.lookupSelection();
+
+            expect(lookupRenderedSelection).not.toHaveBeenCalled();
+        } finally {
+            window.getSelection()?.removeAllRanges();
+            cleanupReaderApp(app);
+        }
+    });
+
     it('lets middle-button scanning show a hover-style popup when click and hover lookup are off', () => {
         const app = new ReaderApp();
         const word = readerWordFixture('今日は読む', '今日');

@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.4.37] - 2026-06-20
+
+### Fixed
+
+- Installed frequency dictionaries, including the Jiten frequency dictionary, now live under Settings -> Sources -> Lookup pills and render their popup frequency badges from the same enabled/order controls instead of a separate frequency-dictionary subsection.
+- Hover term audio now treats a fresh hover as a new auto-play attempt for the same word, so re-hovering or reopening a hover popup is no longer skipped by duplicate-render guards while repeated renders from one hover still stay quiet.
+- Fullscreen subtitle fallback now ignores ordinary page metadata such as title links, category chips, navigation labels, and centered text just below the player. This prevents fake one-line subtitles like `生成 フルボイス` from appearing after fullscreen on sites without real subtitle tracks, while preserving real custom caption overlays.
+- Tapping parsed words inside popup dictionary prose now opens a nested lookup instead of leaving those words render-only; dictionary links and source summaries still keep their native click behavior.
+
+## [1.4.35] - 2026-06-20
+
+### Added
+
+- Added a Reader setting to turn off Yomu's own lookup popup when using jpdb reader, Jiten Reader, or Yomitan for popups, while keeping Yomu annotations, media tools, mining, and study features available.
+
 ## [1.4.34] - 2026-06-20
 
 ### Changed

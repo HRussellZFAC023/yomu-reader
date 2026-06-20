@@ -74,6 +74,7 @@ interface YomuCompanionRegistry {
         renderJpdbKanjiInfo: typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiInfo;
         renderJpdbKanjiMiningControls: typeof import('../popup/jpdb-kanji-info').renderJpdbKanjiMiningControls;
         renderKanjiPractice: typeof import('../popup/kanji-practice').renderKanjiPractice;
+        installKanjiPracticeDoodle?: typeof import('../kanji/practice-grader').installKanjiPracticeDoodle;
         renderKanjiOrigins: typeof import('../popup/kanji-origin').renderKanjiOrigins;
         buildRtkComponentSummaries: typeof import('../popup/rtk-info').buildRtkComponentSummaries;
         renderKanjiKeywordLine: typeof import('../popup/rtk-info').renderKanjiKeywordLine;

@@ -278,7 +278,9 @@ function readLookupBehaviorFormSettings(reader: SettingsFormReader, current: Rea
         lookupOnMiddleMouse: has('lookupOnMiddleMouse'),
         hoverOpenDelayMs: clamped('hoverOpenDelayMs', 0, 1500, current.hoverOpenDelayMs),
         hoverCloseDelayMs: clamped('hoverCloseDelayMs', 0, 3000, current.hoverCloseDelayMs),
-        popupActivationMode: current.popupActivationMode,
+        popupActivationMode: has('popupLookupEnabled')
+            ? current.popupActivationMode === 'off' ? DEFAULT_SETTINGS.popupActivationMode : current.popupActivationMode
+            : 'off',
         scanModifierKey: current.scanModifierKey,
         showFloatingButton: has('showFloatingButton'),
         manualScanEnabled: has('manualScanEnabled'),

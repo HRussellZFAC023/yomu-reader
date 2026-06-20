@@ -13,6 +13,8 @@ New to the words? **Lookup** is opening the popup. **Mining** is saving a word f
 
 Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: Jiten definitions, optional JPDB data, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
+If you prefer the official jpdb reader, Jiten Reader, or Yomitan to own popups, turn off **Reader -> Show Yomu lookup popup** in Settings. Yomu will keep annotations, media tools, mining, and study features available without opening a second popup.
+
 Keyboard shortcuts can move lookup to the previous or next parsed word, and if you have selected a piece of text, navigation stays inside that selection. Popup Japanese font family and weight are configurable, and the default stack matches jpdb.io for kanji, readings, example sentences, grammar snippets, and dictionary terms.
 
 API mining actions can add a word, mark it Never Forget, blacklist it, or send review grades, and can be turned off while keeping popup lookup. When Anki is enabled, よむ can create a compact note with the word, reading, meaning, source sentence, source link, local dictionary content, optional context images, and Immersion Kit audio. The word-first Anki front can hide the reading, sentence, or image if you want a stricter prompt.

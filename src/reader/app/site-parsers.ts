@@ -1,4 +1,5 @@
 import {
+    collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
     collectVisibleTextTargets,
     type FragmentTextTarget,
@@ -156,6 +157,7 @@ const SAFE_UI_CHROME_SCOPE_SELECTORS = [
 const SAFE_UI_CHROME_CONTROL_SELECTORS = [
     'a[href]',
     'button',
+    'label',
     'summary',
     '[role="button"]',
     '[role="link"]',
@@ -318,12 +320,6 @@ const YOUTUBE_CHROME_ROOTS = [
     'yt-chip-cloud-renderer [role="tab"]',
     'ytm-feed-filter-chip-bar-renderer button',
     'ytm-feed-filter-chip-bar-renderer [role="tab"]',
-    'ytd-mini-guide-renderer ytd-mini-guide-entry-renderer a#endpoint',
-    'ytd-mini-guide-renderer yt-mini-guide-entry-renderer a[href]',
-    'ytd-guide-renderer ytd-guide-entry-renderer a#endpoint',
-    'ytd-guide-renderer yt-guide-entry-renderer a[href]',
-    'ytm-pivot-bar-renderer a',
-    'ytm-pivot-bar-item-renderer a',
     'ytd-masthead yt-button-shape button',
     'ytd-masthead yt-button-view-model button',
     'ytd-masthead button-view-model button',
@@ -335,6 +331,16 @@ const YOUTUBE_CHROME_ROOTS = [
     'ytd-masthead .ytAttributedStringHost',
     'ytd-masthead yt-attributed-string',
 ];
+const YOUTUBE_NAV_CHROME_EXCLUDE = [
+    'ytd-mini-guide-renderer',
+    'ytd-guide-renderer',
+    'ytm-pivot-bar-renderer',
+    'ytm-pivot-bar-item-renderer',
+].join(',');
+const YOUTUBE_TEXT_EXCLUDE = [
+    COMMON_EXCLUDE,
+    YOUTUBE_NAV_CHROME_EXCLUDE,
+].join(',');
 const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
     'button',
     '[role="button"]',
@@ -772,7 +778,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-shorts-lockup-view-model',
             'ytm-item-section-renderer',
         ],
-        exclude: COMMON_EXCLUDE,
+        exclude: YOUTUBE_TEXT_EXCLUDE,
         allowUiText: true,
         includeUiChrome: true,
         singlePassScan: true,
@@ -785,9 +791,9 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     {
         id: 'youtube-chrome-parser',
         name: 'YouTube chrome',
-        description: 'Stable Japanese YouTube chips, navigation, and topbar controls.',
+        description: 'Stable Japanese YouTube chips and topbar controls.',
         roots: YOUTUBE_CHROME_ROOTS,
-        exclude: COMMON_EXCLUDE,
+        exclude: YOUTUBE_TEXT_EXCLUDE,
         allowUiText: true,
         minLength: 1,
         includeUiChrome: true,
@@ -1286,6 +1292,7 @@ function collectProfileSafeUiChromeTargets(
     const nonDestructive = profiles.some(profile => profile.nonDestructive);
     collectSafeUiChromeRootTargets(profileSafeUiChromeRoots(extraExclude), collection, extraExclude, parserId, nonDestructive);
     collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection, parserId, nonDestructive);
+    collectSafeFormControlTextTargets(collection, extraExclude);
 
     return collection.targets;
 }
@@ -1300,8 +1307,22 @@ function collectSafeUiChromeTargets(limit: number, existingTargets: ScanTextTarg
 
     collectSafeUiChromeRootTargets(safeUiChromeRoots(), collection);
     collectSafeFormChromeRootTargets(safeFormChromeRoots(), collection);
+    collectSafeFormControlTextTargets(collection);
 
     return collection.targets;
+}
+
+function collectSafeFormControlTextTargets(
+    collection: GenericProseCollection,
+    extraExclude = '',
+): void {
+    const targets = collectFormControlTextTargetsIn(document.body, genericProseRemaining(collection), true, {
+        excludeSelector: extraExclude,
+    });
+    for (const target of targets) {
+        collection.targets.push(target);
+        if (genericProseCollectionFull(collection)) break;
+    }
 }
 
 function collectSafeUiChromeRootTargets(

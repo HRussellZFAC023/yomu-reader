@@ -5422,6 +5422,46 @@ describe('reader helpers', () => {
         expect(html).not.toContain('>Uchisen ');
     });
 
+    it('renders installed Jiten frequency metadata as a lookup pill', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            interfaceLanguage: 'en' as const,
+            dictionaryPreferences: [
+                { name: 'Jiten', alias: 'Jiten', enabled: true, priority: 0, type: 'frequency' as const },
+            ],
+            dictionaryLookupLinks: defaultDictionaryLookupLinks('local'),
+        };
+        const html = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings,
+            metaEntries: [
+                { expression: card.spelling, mode: 'freq', data: { frequency: 123 }, dictionary: 'Jiten' },
+            ],
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => settings.dictionaryPreferences.find(preference => preference.name === name)?.alias ?? name,
+        });
+
+        expect(html).toContain('class="jpdb-reader-pill jpdb-reader-frequency-pill"');
+        expect(html).toContain('data-dictionary="Jiten"');
+        expect(html).toContain('>Jiten #123</span>');
+
+        const disabledHtml = renderWordPills({
+            card,
+            jpdbUrl: 'https://jpdb.io/vocabulary/1',
+            settings: {
+                ...settings,
+                dictionaryPreferences: settings.dictionaryPreferences.map(preference => ({ ...preference, enabled: false })),
+            },
+            metaEntries: [
+                { expression: card.spelling, mode: 'freq', data: { frequency: 123 }, dictionary: 'Jiten' },
+            ],
+            isJpdbBackedCard: () => true,
+            dictionaryLabel: name => name,
+        });
+        expect(disabledHtml).not.toContain('data-dictionary="Jiten"');
+    });
+
     it('keeps hover lookup pills visible and actionable', () => {
         const html = renderWordPills({
             card,
@@ -6284,6 +6324,11 @@ describe('reader helpers', () => {
         });
 
         expect(html).toContain('data-source="local-dictionary"');
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        const localDictionary = root.querySelector<HTMLElement>('[data-source="local-dictionary"][data-dictionary="Jitendex"]');
+
+        expect(localDictionary).not.toBeNull();
         expect(html).toContain('data-dictionary="Jitendex"');
         expect(html).toContain('data-immersion-kit');
         expect(html).toContain('data-study-translation');
@@ -31636,8 +31681,8 @@ describe('reader helpers', () => {
         expect(linkWord.dataset.jpdbReaderPassive).toBe('true');
         expect(linkWord.tabIndex).toBe(-1);
         expect(linkWord.querySelector('rt')?.textContent).toBe('あおぞら');
-        expect(proseWord.dataset.jpdbReaderPassive).toBe('true');
-        expect(proseWord.tabIndex).toBe(-1);
+        expect(proseWord.dataset.jpdbReaderPassive).toBeUndefined();
+        expect(proseWord.classList.contains('jpdb-reader-passive-word')).toBe(false);
         expect(proseWord.querySelector('rt')?.textContent).toBe('よ');
 
         const app = new ReaderApp();
@@ -33939,7 +33984,7 @@ describe('reader helpers', () => {
         ]));
     });
 
-    it('scans YouTube masthead and mini-guide chrome passively', () => {
+    it('scans YouTube masthead chrome passively without touching mini-guide labels', () => {
         const targets = collectYouTubeTargets(`
             <ytd-masthead>
                 <yt-button-shape>
@@ -33974,10 +34019,10 @@ describe('reader helpers', () => {
 
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '作成',
-            'ホーム',
-            '登録チャンネル',
         ]));
         expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+            'ホーム',
+            '登録チャンネル',
             '押下中',
         ]));
 
@@ -33996,6 +34041,8 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(createWord)).toBe('作成');
         expect(createWord.dataset.jpdbReaderPassive).toBe('true');
         expect(createWord.tabIndex).toBe(-1);
+        expect(document.querySelector('ytd-mini-guide-renderer .jpdb-reader-text-mirror')).toBeNull();
+        expect(document.querySelector('ytd-mini-guide-renderer .jpdb-reader-word')).toBeNull();
     });
 
     it('scans modern YouTube view-model chrome passively', () => {
@@ -34021,8 +34068,10 @@ describe('reader helpers', () => {
 
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '作成',
-            'ホーム',
             '関連動画',
+        ]));
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+            'ホーム',
         ]));
         expect(targets.every(target => target.passiveInteraction === true)).toBe(true);
 

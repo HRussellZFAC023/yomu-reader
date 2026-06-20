@@ -2149,6 +2149,7 @@ describe('SubtitlePlayerController', () => {
 
         expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { position: absolute;');
         expect(normalizedCss).toContain('max-height: min(45%, calc(100% - 24px)); overflow: visible; pointer-events: none;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-lines { min-height: 1.36em; max-height: inherit; overflow: visible; pointer-events: none; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden):not(.jpdb-subtitle-controls-idle) .jpdb-subtitle-drag-handle,');
         expect(normalizedCss).toContain('opacity: .7; pointer-events: auto;');
         expect(normalizedCss).toContain('box-shadow: none;');
@@ -2156,6 +2157,16 @@ describe('SubtitlePlayerController', () => {
         expect(normalizedCss).toContain('transform: translateY(var(--jpdb-subtitle-asb-drag-offset-y)) var(--jpdb-subtitle-asb-base-transform, translateZ(0));');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging)');
         expect(normalizedCss).toContain('box-shadow: 0 8px 20px var(--jpdb-reader-video-shadow);');
+    });
+
+    it('keeps parsed transcript rows wrapable when long Shorts cues contain ruby markup', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text { display: block; min-width: 0; width: 100%; max-width: 100%;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
+        expect(normalizedCss).toContain('display: inline !important;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word::after { content: none; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) { max-width: 100%; white-space: normal !important; overflow-wrap: anywhere; word-break: break-word; }');
     });
 
     it('does not default live subtitle status colors to blue without a real status source', () => {
@@ -2562,6 +2573,45 @@ describe('SubtitlePlayerController', () => {
                 value: originalLocation,
             });
         }
+    });
+
+    it('does not treat fullscreen-adjacent page category and title chips as captions', () => {
+        document.body.innerHTML = `
+            <video></video>
+            <nav class="video-categories"><a href="/tags/ai"><span>AI生成</span></a></nav>
+            <h1 class="video-title"><a href="/watch"><span>フルボイス</span></a></h1>
+        `;
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const category = document.querySelector('.video-categories span') as HTMLElement;
+        const title = document.querySelector('.video-title span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 0, right: 1024, top: 0, bottom: 768, width: 1024, height: 768 }),
+        });
+        Object.defineProperty(category, 'innerText', { value: category.textContent ?? '' });
+        Object.defineProperty(category, 'getBoundingClientRect', {
+            value: () => ({ left: 430, right: 500, top: 214, bottom: 242, width: 70, height: 28 }),
+        });
+        Object.defineProperty(title, 'innerText', { value: title.textContent ?? '' });
+        Object.defineProperty(title, 'getBoundingClientRect', {
+            value: () => ({ left: 450, right: 574, top: 642, bottom: 674, width: 124, height: 32 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('');
+    });
+
+    it('does not treat a centered page title just below the player as a generic caption', () => {
+        document.body.innerHTML = '<video></video><div class="video-title"><span>生成 フルボイス</span></div>';
+        const video = document.querySelector('video') as HTMLVideoElement;
+        const title = document.querySelector('.video-title span') as HTMLElement;
+        Object.defineProperty(video, 'getBoundingClientRect', {
+            value: () => ({ left: 100, right: 740, top: 80, bottom: 440, width: 640, height: 360 }),
+        });
+        Object.defineProperty(title, 'innerText', { value: title.textContent ?? '' });
+        Object.defineProperty(title, 'getBoundingClientRect', {
+            value: () => ({ left: 280, right: 560, top: 452, bottom: 488, width: 280, height: 36 }),
+        });
+
+        expect(readPageCaptionText(video)).toBe('');
     });
 
     it('does not treat an edge-anchored chat username above a posted video as a page caption', () => {

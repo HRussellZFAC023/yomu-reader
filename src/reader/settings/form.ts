@@ -601,10 +601,22 @@ function usesNadeshikoExamples(source: ImmersionExampleSource): boolean {
     return source === 'nadeshiko' || source === 'combined';
 }
 
+function popupLookupEnabledSetting(settings: ReaderSettings): boolean {
+    return settings.popupActivationMode !== 'off'
+        && (settings.parseSelection || settings.lookupOnClick || settings.lookupOnHover || settings.lookupOnMiddleMouse);
+}
+
 function renderReaderSettingsPanel(settings: ReaderSettings): string {
     return `
             <fieldset id="jpdb-reader-settings-panel-reader" role="tabpanel" data-settings-panel="appearance" data-legend-key="reader" aria-describedby="settings-help-reader" hidden>
                 <legend>Reader</legend>
+                <div class="jpdb-reader-settings-subsection">
+                    <div class="jpdb-reader-local-title" data-popup-lookup-title>Popup lookup</div>
+                    <div class="grid">
+                        ${checkbox('popupLookupEnabled', 'Show Yomu lookup popup', popupLookupEnabledSetting(settings))}
+                    </div>
+                    <div class="jpdb-reader-help" data-help-key="popupLookupHelp">Turn this off when you want jpdb reader, Jiten Reader, or Yomitan to own popups while Yomu keeps annotations, media, mining, and study tools available.</div>
+                </div>
                 <div class="grid">
                     ${checkbox('parseSelection', 'Look up selected text', settings.parseSelection)}
                     ${checkbox('lookupOnClick', 'Look up on tap or click', settings.lookupOnClick)}
@@ -779,10 +791,10 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-dictionary-priorities" data-source-editor>
                     ${renderDictionarySourceRows(settings)}
                 </div>
-                <div data-frequency-dictionaries>${renderFrequencyDictionaryRows(settings)}</div>
                 <div class="jpdb-reader-settings-subsection">
                     <div class="jpdb-reader-local-title">Lookup pills</div>
-                    <div class="jpdb-reader-help">External links. Tokens: {query}, {word}, {reading}.</div>
+                    <div class="jpdb-reader-help">External links and imported frequency badges. Tokens: {query}, {word}, {reading}.</div>
+                    <div data-frequency-lookup-pills>${renderFrequencyLookupPillRows(settings)}</div>
                     <div class="jpdb-reader-lookup-links" data-source-editor>
                         ${renderDictionaryLookupLinkEditor(settings.dictionaryLookupLinks)}
                     </div>
@@ -976,6 +988,7 @@ const LOCAL_TITLE_TEXT_KEYS = [
     [/Lookup pills|検索ピル/, 'lookupPills'],
 ] as const satisfies readonly (readonly [RegExp, SettingsTextKey])[];
 const SELECTOR_TEXT_KEYS = [
+    ['[data-popup-lookup-title]', 'popupLookup'],
     ['[data-hover-lookup-title]', 'hoverLookupSettings'],
     ['[data-diagnostics-title]', 'diagnostics'],
     ['[data-anki-library-adapter-title]', 'ankiLibraryAdapter'],
@@ -1505,7 +1518,7 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
 function localizeSourceHead(head: Element, text: SettingsText): void {
     const spans = head.querySelectorAll('span');
     spans[0]?.replaceChildren(text('enabledHeader'));
-    const sourceLabel = spans[1]?.textContent === 'Kanji section' ? text('kanjiSection') : text('definitionSource');
+    const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? '', text);
     spans[1]?.replaceChildren(sourceLabel);
     if (spans.length === 5) {
         spans[2]?.replaceChildren(text('displayName'));
@@ -1514,6 +1527,12 @@ function localizeSourceHead(head: Element, text: SettingsText): void {
     } else {
         spans[2]?.replaceChildren(text('orderHeader'));
     }
+}
+
+function sourceHeadLabel(value: string, text: SettingsText): string {
+    if (value === 'Kanji section') return text('kanjiSection');
+    if (value === 'Frequency pill') return text('lookupPills');
+    return text('definitionSource');
 }
 
 function replaceSourceHelp(form: HTMLFormElement, pattern: RegExp, value: string): void {
@@ -1627,7 +1646,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'wordColorIgnored', 'pitchColorHeiban', 'pitchColorAtamadaka', 'pitchColorNakadaka', 'pitchColorOdaka',
     'pitchColorKifuku', 'pitchColorUnknown', 'wordHighlightColorSource', 'wordUnderlineColorSource', 'wordTextColorSource',
     'subtitleHighlightColorSource', 'subtitleUnderlineColorSource', 'subtitleTextColorSource', 'parseSelection', 'lookupOnClick',
-    'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'manualScanEnabled', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
+    'popupLookupEnabled', 'lookupOnHover', 'lookupOnMiddleMouse', 'showFloatingButton', 'manualScanEnabled', 'furiganaMode', 'wordColorStates', 'showPitchAccent', 'suppressRedundantWordUi', 'sheetCloseButtonOnLeft',
     'audioEnabled', 'autoPlayAudio', 'suppressAutoAudioOnVideo', 'audioAutoPlayMode', 'audioEnableDefaultSources', 'audioFallbackChimeEnabled',
     'audioSelectionMode', 'audioTtsMode', 'audioTimeoutMs', 'immersionKitEnabled', 'immersionKitExampleSource',
     'nadeshikoApiKey', 'immersionKitShowTranslation', 'immersionKitRevealTranslationOnClick', 'immersionKitShowImages', 'immersionKitAutoPlayAudio',
@@ -2135,16 +2154,13 @@ export function renderKanjiSourceRows(settings: ReaderSettings): string {
     return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: false });
 }
 
-export function renderFrequencyDictionaryRows(settings: ReaderSettings): string {
+export function renderFrequencyLookupPillRows(settings: ReaderSettings): string {
     const rows = frequencySourceRows(settings);
     if (!rows.length) return '';
     return `
-        <div class="jpdb-reader-settings-subsection">
-            <div class="jpdb-reader-local-title">Frequency dictionaries</div>
-            <div class="jpdb-reader-help">Order controls which frequency badge shows first.</div>
-            <div class="jpdb-reader-dictionary-priorities" data-source-editor>
-                ${renderSourceRowsList(rows, { sourceLabel: 'Frequency dictionary', showAlias: true })}
-            </div>
+        <div class="jpdb-reader-help" data-help-key="frequencyLookupPillsHelp">Imported frequency dictionaries show as badge pills when a lookup has matching data.</div>
+        <div class="jpdb-reader-dictionary-priorities" data-source-editor>
+            ${renderSourceRowsList(rows, { sourceLabel: 'Frequency pill', showAlias: true })}
         </div>
     `;
 }

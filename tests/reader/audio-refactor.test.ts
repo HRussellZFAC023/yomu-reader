@@ -2,11 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { getAudioCandidates } from '../../src/reader/audio/player';
+import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { audioCandidateSelectionMode, getOrderedAudioSources, orderAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
 import { builtInProxyUrls, DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../../src/reader/network/proxy-fetch-rules';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki/index';
+import type { AudioPlayer } from '../../src/reader/audio/player';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
 describe('audio module boundaries', () => {
@@ -113,6 +115,25 @@ describe('audio module boundaries', () => {
         expect(DEFAULT_SETTINGS.autoPlayAudio).toBe(true);
         expect(DEFAULT_SETTINGS.audioAutoPlayMode).toBe('all');
         expect(DEFAULT_SETTINGS.audioEnableDefaultSources).toBe(true);
+    });
+
+    it('does not suppress successful autoplay for a fresh hover generation', async () => {
+        let hoverGeneration = 1;
+        const play = vi.fn(async () => true);
+        const actions = new ReaderAudioActions({
+            audio: { play } as unknown as AudioPlayer,
+            getSettings: () => ({ ...DEFAULT_SETTINGS, audioEnabled: true }),
+            getActivePopover: () => undefined,
+            getHoverLookupGeneration: () => hoverGeneration,
+            stopImmersionAudio: vi.fn(),
+            toast: vi.fn(),
+        });
+
+        await actions.playTermAudio(card('猫', 'ねこ'), { hoverLookupGeneration: 1, autoPlay: true });
+        hoverGeneration = 2;
+        await actions.playTermAudio(card('猫', 'ねこ'), { hoverLookupGeneration: 2, autoPlay: true });
+
+        expect(play).toHaveBeenCalledTimes(2);
     });
 
     it('keeps Anki opt-in on fresh installs and factory resets', () => {

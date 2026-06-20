@@ -55,7 +55,6 @@ import { jpdbAudioCard } from '../jpdb/jpdb-page-targets';
 import { createJpdbReviewBridgeClient } from '../jpdb/jpdb-review-bridge';
 import { JpdbVocabularyClient, type JpdbVocabularyInfo } from '../jpdb/jpdb-vocabulary';
 import type { KanjiVGClient, KanjiVGInfo } from '../kanji/vg';
-import { installKanjiPracticeDoodle } from '../kanji/practice-grader';
 import { canAttemptAudiblePlayback } from '../audio/media-activation';
 import { configureLogger, Logger, loggingSettingsSummary } from '../app/logger';
 import {
@@ -160,6 +159,11 @@ function createNoopRtkClient(): RtkClient {
     return {
         lookup: () => Promise.resolve(null),
     } as unknown as RtkClient;
+}
+
+function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => void } {
+    const noop = (): void => undefined;
+    return { reassess: noop, clear: noop };
 }
 
 type YomuNewTabWindow = typeof window & {
@@ -1140,7 +1144,8 @@ export class NewTabRuntime {
         let rtkInfo: RtkInfo | null = null;
         let kanjiVGInfo: KanjiVGInfo | null = null;
         let kanjiEntries: YomitanKanjiEntry[] = [];
-        const practiceDoodle = installKanjiPracticeDoodle(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo);
+        const practiceDoodle = this.kanjiCompanion?.installKanjiPracticeDoodle?.(popover, () => this.settings.interfaceLanguage, () => kanjiVGInfo)
+            ?? noopKanjiPracticeDoodle();
         const detailPromises = this.kanjiLookupDetailPromises(kanji);
         if (this.settings.uchisenEnabled) {
             void this.renderUchisenInto(popover, kanji, requestId);

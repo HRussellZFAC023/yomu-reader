@@ -293,7 +293,7 @@ function isYouTubeMobileFullscreenHost(element: HTMLElement | null | undefined):
 
 function subtitleMinimumFontSize(root: HTMLElement): number {
     const rootRect = root.getBoundingClientRect();
-    return rootRect.width < 420 || rootRect.height < 260 ? 11 : 14;
+    return rootRect.width < 700 || rootRect.height < 360 ? 10 : 12;
 }
 
 function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings): number {
@@ -3050,13 +3050,17 @@ export class SubtitlePlayerController {
             ...TRACK_LOAD_OPTIONS,
             tracks: this.tracks,
             transcriptEligible: request.transcriptEligible,
-            translationFallback: this.translationFallbackModeForSelection(request),
+            translationFallback: this.translationFallbackModeForSelection(request, selected),
         });
         return this.loadedTrackSelection(request, loaded.track, loaded.cues);
     }
 
-    private translationFallbackModeForSelection(request: SubtitleTrackSelectionLoadRequest): 'full' | 'skip' {
-        return request.role === 'secondary' ? 'skip' : 'full';
+    private translationFallbackModeForSelection(
+        request: SubtitleTrackSelectionLoadRequest,
+        track: SubtitleTrackOption | undefined,
+    ): 'full' | 'skip' {
+        if (request.role !== 'secondary') return 'full';
+        return track?.kind === 'youtube' && track.sourceType === 'translation' ? 'full' : 'skip';
     }
 
     private loadedTrackSelection(

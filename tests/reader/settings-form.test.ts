@@ -20,7 +20,8 @@ const frequencySettings = {
     dictionaryPreferences: [
         { name: 'JMdict', alias: 'JMdict', enabled: true, priority: 0, type: 'terms' as const },
         { name: 'BCCWJ', alias: 'BCCWJ', enabled: true, priority: 1, type: 'frequency' as const },
-        { name: 'JPDB Freq', alias: 'JPDB Freq', enabled: false, priority: 2, type: 'frequency' as const },
+        { name: 'Jiten', alias: 'Jiten', enabled: true, priority: 2, type: 'frequency' as const },
+        { name: 'JPDB Freq', alias: 'JPDB Freq', enabled: false, priority: 3, type: 'frequency' as const },
     ],
 };
 
@@ -219,12 +220,14 @@ describe('recommended dictionary settings buttons', () => {
 });
 
 describe('frequency dictionary preferences', () => {
-    it('renders frequency dictionaries with toggle, reorder, and remove controls', () => {
+    it('renders frequency dictionaries under lookup pills with toggle, reorder, and remove controls', () => {
         const form = renderSettingsTestForm(frequencySettings);
-        const editor = form.querySelector<HTMLElement>('[data-frequency-dictionaries]')!;
+        const editor = form.querySelector<HTMLElement>('[data-frequency-lookup-pills]')!;
 
         const rows = Array.from(editor.querySelectorAll<HTMLElement>('[data-source-row]'));
-        expect(rows.map(row => row.dataset.sourceId)).toEqual(['BCCWJ', 'JPDB Freq']);
+        expect(rows.map(row => row.dataset.sourceId)).toEqual(['BCCWJ', 'Jiten', 'JPDB Freq']);
+        expect(form.querySelector<HTMLElement>('[data-frequency-dictionaries]')).toBeNull();
+        expect(editor.closest('.jpdb-reader-settings-subsection')?.querySelector('.jpdb-reader-local-title')?.textContent).toBe('Lookup pills');
         for (const row of rows) {
             expect(row.querySelector('[data-source-enable-toggle]')).not.toBeNull();
             expect(row.querySelector('[data-source-drag-handle]')).not.toBeNull();
@@ -237,15 +240,23 @@ describe('frequency dictionary preferences', () => {
 
     it('round-trips frequency dictionary toggles and order through form read', () => {
         const form = renderSettingsTestForm(frequencySettings);
-        const editor = form.querySelector<HTMLElement>('[data-frequency-dictionaries]')!;
+        const editor = form.querySelector<HTMLElement>('[data-frequency-lookup-pills]')!;
         const disabledToggle = editor.querySelector<HTMLInputElement>('[data-source-row][data-source-id="JPDB Freq"] [data-source-enable-toggle]')!;
         disabledToggle.checked = true;
 
         const saved = readFormSettings(new FormData(form), frequencySettings);
         const frequency = saved.dictionaryPreferences.filter(preference => preference.type === 'frequency');
 
-        expect(frequency.map(preference => preference.name)).toEqual(['BCCWJ', 'JPDB Freq']);
+        expect(frequency.map(preference => preference.name)).toEqual(['BCCWJ', 'Jiten', 'JPDB Freq']);
         expect(frequency.every(preference => preference.enabled)).toBe(true);
+    });
+
+    it('localizes frequency rows as lookup pills', () => {
+        const form = renderSettingsTestForm(frequencySettings);
+        localizeSettingsForm(form, 'ja');
+
+        expect(settingsText(form, '[data-frequency-lookup-pills] .jpdb-reader-dictionary-head span:nth-child(2)')).toBe('検索ピル');
+        expect(settingsText(form, '[data-help-key="frequencyLookupPillsHelp"]')).toContain('バッジ型ピル');
     });
 });
 
@@ -331,6 +342,7 @@ describe('settings form localization', () => {
 
         expect(topLevelLegendForControl(form, 'apiCredentialJpdb')).toBe('API');
         expect(topLevelLegendForControl(form, 'accentColor')).toBe('Appearance');
+        expect(topLevelLegendForControl(form, 'popupLookupEnabled')).toBe('Reader');
         expect(topLevelLegendForControl(form, 'lookupOnHover')).toBe('Reader');
         expect(form.querySelector<HTMLElement>('[name="lookupOnHover"]')?.closest<HTMLFieldSetElement>('fieldset[data-settings-panel]')?.dataset.settingsPanel).toBe('appearance');
         expect(form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-kanji')?.dataset.settingsPanel).toBe('dictionaries');
@@ -356,6 +368,25 @@ describe('settings form localization', () => {
 
         expect(form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="dictionaries"]')?.getAttribute('aria-selected')).toBe('true');
         expect(form.querySelector<HTMLFieldSetElement>('#jpdb-reader-settings-panel-kanji')?.hidden).toBe(false);
+    });
+
+    it('offers a single Yomu popup switch for companion-reader setups', () => {
+        const form = document.createElement('form');
+        form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
+
+        expect(checkboxValue(form, 'popupLookupEnabled')).toBe(true);
+        expect(settingsText(form, '[data-help-key="popupLookupHelp"]')).toContain('Yomitan');
+
+        form.querySelector<HTMLInputElement>('input[name="popupLookupEnabled"]')!.checked = false;
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.popupActivationMode).toBe('off');
+        expect(saved.lookupOnClick).toBe(true);
+        expect(saved.lookupOnHover).toBe(true);
+
+        localizeSettingsForm(form, 'ja');
+        expect(labelForControl(form, 'popupLookupEnabled')).toContain('よむの検索ポップアップを表示');
+        expect(settingsText(form, '[data-popup-lookup-title]')).toBe('ポップアップ検索');
     });
 
     it('renders and saves coexisting Jiten and JPDB API keys (UT-56)', () => {

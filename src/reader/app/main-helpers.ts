@@ -203,7 +203,7 @@ function isYouTubeHostForAutoScan(hostname = location.hostname): boolean {
 }
 
 export function hasPressLookupEnabled(settings: ReaderSettings): boolean {
-    return settings.lookupOnClick || settings.lookupOnHover;
+    return settings.popupActivationMode !== 'off' && (settings.lookupOnClick || settings.lookupOnHover);
 }
 
 export function isMousePointerEvent(event: MouseEvent | PointerEvent): boolean {

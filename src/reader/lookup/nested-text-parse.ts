@@ -1,4 +1,4 @@
-import { applyTokensToScanTarget, collectFragmentTextTargetsIn, HAS_JAPANESE, isCurrentScanTarget, readerWordSurfaceText, unwrapReaderWords, type ScanTextTarget } from '../dom/index';
+import { applyTokensToScanTarget, collectFormControlTextTargetsIn, collectFragmentTextTargetsIn, HAS_JAPANESE, isCurrentScanTarget, readerWordSurfaceText, unwrapReaderWords, type ScanTextTarget } from '../dom/index';
 import type { JPDBToken, ReaderSettings } from '../app/types';
 
 const PARSEABLE_SELECTOR = '.jpdb-reader-parseable';
@@ -26,6 +26,20 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     'select',
     'svg',
     'textarea',
+    'use',
+    '.jpdb-reader-order-toggle',
+    '.footer',
+].join(',');
+const SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR = [
+    '.jpdb-reader-settings-actions',
+    '.jpdb-reader-settings-drag-handle',
+    '.jpdb-reader-status-line',
+    '[data-settings-preview-lookup]',
+    '[hidden]:not([data-settings-panel])',
+    '[aria-hidden="true"]',
+    '[data-anki-setup-help]',
+    '.jpdb-reader-audio-source-choice',
+    'svg',
     'use',
     '.jpdb-reader-order-toggle',
     '.footer',
@@ -60,6 +74,12 @@ const SETTINGS_PARSE_ROOT_SELECTOR = [
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR,
 ].join(',');
 
+type FragmentParseOptions = Parameters<typeof collectFragmentTextTargetsIn>;
+type NestedParseTargetOptions = (FragmentParseOptions[4]) & {
+    includeFormControls?: boolean;
+    formControlExcludeSelector?: string;
+};
+
 export interface NestedParsePlan {
     targets: ScanTextTarget[];
     parseKey: string;
@@ -73,7 +93,7 @@ export function nestedTextParsePlan(root: HTMLElement, limit: number): NestedPar
     if (renderedParseKey && nestedParseAlreadyScheduled(root, renderedParseKey)) return null;
     normalizePartiallyParsedRoots(root, parseRoots);
     const targets = parseRoots
-        .flatMap(parseRoot => collectFragmentTextTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
+        .flatMap(parseRoot => nestedParseTargetsIn(parseRoot, limit, false, NESTED_PARSE_EXCLUDE_SELECTOR, {
             includeReaderRoot: true,
             allowUiText: true,
             includePassiveInteractions: true,
@@ -93,7 +113,7 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
         .sort((left, right) => settingsParseRootPriority(left) - settingsParseRootPriority(right))
         .filter(parseRoot => !isExcludedSettingsParseRoot(parseRoot))
         .filter(parseRoot => !parseRoot.closest('[aria-hidden="true"]'))
-        .flatMap(parseRoot => collectFragmentTextTargetsIn(
+        .flatMap(parseRoot => nestedParseTargetsIn(
             parseRoot,
             limit,
             false,
@@ -105,6 +125,7 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
                 heading: true,
                 minLength: 2,
                 readerRootPassiveInteractions: true,
+                formControlExcludeSelector: settingsFormControlExcludeSelector(parseRoot),
             },
         ))
         .slice(0, limit);
@@ -114,6 +135,23 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
 export function nestedSettingsParseAlreadyRendered(root: HTMLElement): boolean {
     if (!root.dataset.jpdbReaderParseKey) return false;
     return root.querySelectorAll('[data-settings-panel]:not([hidden]) .jpdb-reader-word').length >= 4;
+}
+
+function nestedParseTargetsIn(
+    parseRoot: HTMLElement,
+    limit: number,
+    visibleOnly: boolean,
+    excludeSelector: string,
+    options: NestedParseTargetOptions,
+): ScanTextTarget[] {
+    const fragmentTargets = collectFragmentTextTargetsIn(parseRoot, limit, visibleOnly, excludeSelector, options);
+    const remaining = Math.max(0, limit - fragmentTargets.length);
+    if (options?.includeFormControls === false) return fragmentTargets;
+    const controlTargets = collectFormControlTextTargetsIn(parseRoot, remaining, visibleOnly, {
+        includeReaderRoot: options?.includeReaderRoot,
+        excludeSelector: options?.formControlExcludeSelector ?? excludeSelector,
+    });
+    return [...fragmentTargets, ...controlTargets];
 }
 
 function settingsParseRootPriority(parseRoot: HTMLElement): number {
@@ -131,6 +169,11 @@ function settingsParseExcludeSelector(parseRoot: HTMLElement): string {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
     if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
     return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
+}
+
+function settingsFormControlExcludeSelector(parseRoot: HTMLElement): string {
+    if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
+    return SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR;
 }
 
 function isSettingsChromeParseRoot(parseRoot: HTMLElement): boolean {

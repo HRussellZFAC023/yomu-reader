@@ -24,7 +24,6 @@ import {
 import type { JPDBCard, JPDBGrade, JPDBToken, ReaderSettings } from '../app/types';
 import { YomitanDictionaryStore } from '../dictionaries/yomitan';
 import type { GrammarHint } from '../study/tools';
-import { newTabText } from '../newtab/i18n';
 
 interface ShowCardOptions {
     autoPlay?: boolean;
@@ -499,7 +498,7 @@ export class CardActionController {
             this.notifyAnkiStatusChanged(card);
             return;
         }
-        throw new Error(newTabText(this.options.getSettings().interfaceLanguage, 'missingAnkiCardId'));
+        throw new Error(uiText(this.options.getSettings().interfaceLanguage, 'missingAnkiCardId'));
     }
 
     private async reviewApiCard(grade: JPDBGrade, card: JPDBCard, sentence: string | undefined, options: { deckId?: string; providerId?: ApiSrsProviderId }): Promise<void> {

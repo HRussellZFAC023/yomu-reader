@@ -1318,7 +1318,7 @@ function createDictionarySearchModeFixture() {
     const searchApi = controller as unknown as NewTabSearchModeApi;
     const root = renderBoundNewTabSearchRoot(controller, 'dictionary');
 
-    return { settings, searchTerms, root, searchApi };
+    return { settings, searchTerms, root, searchApi, controller };
 }
 
 function newTabSearchInput(root: HTMLElement): HTMLInputElement {
@@ -10137,6 +10137,61 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('keeps search handwriting Pencil strokes after Safari drops pointer capture', () => {
+        const restoreCanvas = stubKanjiDoodleBrowserApis();
+        const { root, controller } = createDictionarySearchModeFixture();
+
+        try {
+            const handwriting = root.querySelector<HTMLElement>('[data-newtab-handwriting]')!;
+            const stage = handwriting.querySelector<HTMLElement>('.jpdb-reader-doodle-stage')!;
+            const canvas = handwriting.querySelector<HTMLCanvasElement>('.jpdb-reader-doodle-canvas')!;
+            stage.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+            canvas.getBoundingClientRect = stage.getBoundingClientRect;
+
+            canvas.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true, cancelable: true }), {
+                clientX: 12,
+                clientY: 12,
+                pointerId: 17,
+                pointerType: 'pen',
+                pressure: 0.4,
+            }));
+            canvas.dispatchEvent(Object.assign(new Event('lostpointercapture'), {
+                pointerId: 17,
+                pointerType: 'pen',
+            }));
+            document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), {
+                clientX: 54,
+                clientY: 58,
+                pointerId: 17,
+                pointerType: 'pen',
+                pressure: 0.65,
+            }));
+            document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true, cancelable: true }), {
+                clientX: 88,
+                clientY: 92,
+                pointerId: 17,
+                pointerType: 'pen',
+                pressure: 0,
+            }));
+
+            const internals = controller as unknown as {
+                searchHandwritingStrokes: Array<Array<{ x: number; y: number }>>;
+                clearSearchHandwritingDebounce(): void;
+            };
+            expect(internals.searchHandwritingStrokes).toHaveLength(1);
+            expect(internals.searchHandwritingStrokes[0]).toEqual(expect.arrayContaining([
+                expect.objectContaining({ x: 0.12, y: 0.12 }),
+                expect.objectContaining({ x: 0.54, y: 0.58 }),
+                expect.objectContaining({ x: 0.88, y: 0.92 }),
+            ]));
+            internals.clearSearchHandwritingDebounce();
+            (handwriting as HTMLElement & { __yomuKanjiDoodleCleanup?: () => void }).__yomuKanjiDoodleCleanup?.();
+        } finally {
+            root.remove();
+            restoreCanvas();
+        }
+    });
+
     it('starts search mode from new-tab query params', () => {
         vi.stubGlobal('location', {
             href: 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=mum',
@@ -13904,6 +13959,10 @@ describe('new tab review helpers', () => {
             pointerId: 9,
             pointerType: 'pen',
             pressure: 0.4,
+        }));
+        canvas.dispatchEvent(Object.assign(new Event('lostpointercapture'), {
+            pointerId: 9,
+            pointerType: 'pen',
         }));
         document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true, cancelable: true }), {
             clientX: 120,

@@ -6,6 +6,9 @@
   const BRAND_COLOR_TOKENS = {
     consoleAccent: "#247a58"
   };
+  const DOODLE_COLOR_TOKENS = {
+    ink: "#141820"
+  };
   const LOGGER_COLOR_TOKENS = {
     debug: "#6b7280",
     warn: "#a15c00",
@@ -1607,7 +1610,7 @@
   }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const log$3 = Logger.scope("KanjiOrigin");
+  const log$4 = Logger.scope("KanjiOrigin");
   class KanjiOriginClient {
     cache = /* @__PURE__ */ new Map();
     // Called through the nullable kanji-study companion slot (app/main.ts).
@@ -1626,9 +1629,9 @@
       return promise;
     }
     async fetchInfo(kanji, settings) {
-      const done = log$3.time("Kanji origin lookup", { kanji });
+      const done = log$4.time("Kanji origin lookup", { kanji });
       const kanjiMap = settings.kanjiOriginKanjiMapEnabled ? await fetchKanjiMapInfo(kanji).catch((error) => {
-        log$3.warn("Kanji Map origin lookup failed", { kanji, error });
+        log$4.warn("Kanji Map origin lookup failed", { kanji, error });
         return void 0;
       }) : void 0;
       const result = kanjiMap ? { kanjiMap } : null;
@@ -1643,7 +1646,7 @@
     ].join(":");
   }
   async function fetchKanjiMapInfo(kanji) {
-    const done = log$3.time("Fetch Kanji Map info", { kanji });
+    const done = log$4.time("Fetch Kanji Map info", { kanji });
     const sourceUrl = `${KANJI_MAP_KANJI_BASE}/${encodeURIComponent(kanji)}.json`;
     const raw = parseJson(await requestText$3(sourceUrl));
     const info = raw ? parseKanjiMapInfo(raw, kanji, sourceUrl) : void 0;
@@ -2066,7 +2069,7 @@
       failureLabel: "Kanji origin request",
       timeoutLabel: "Kanji origin request timed out."
     }).catch((error) => {
-      log$3.warn("Kanji origin request failed", { host: safeHost(url), error });
+      log$4.warn("Kanji origin request failed", { host: safeHost(url), error });
       throw error;
     });
   }
@@ -2393,6 +2396,14 @@
       addToForq: "Also copy JPDB adds to forq",
       enableReviews: "Show review buttons",
       reviewRatingScale: "Review rating scale",
+      gradeTargetSelector: "Grade target",
+      gradeTargetBoth: "Both",
+      gradeTargetJpdb: "Grades JPDB",
+      gradeTargetJiten: "Grades Jiten",
+      gradeTargetAnki: "Grades Anki card: {target}",
+      gradeTargetJpdbAndAnki: "Grades JPDB + Anki card: {target}",
+      gradeTargetJitenAndAnki: "Grades Jiten + Anki card: {target}",
+      missingAnkiCardId: "Missing Anki card id.",
       jpdbPageEnhancements: "Dictionary site enhancements",
       jpdbPageEnhancementsEnabled: "Enhance dictionary pages",
       jpdbPageWordEnhancementsEnabled: "Add sources to word/search pages",
@@ -2496,6 +2507,9 @@
       colorSourcePitch: "Pitch accent",
       colorChannelsHelp: "",
       interfaceHelp: "",
+      popupLookup: "Popup lookup",
+      popupLookupEnabled: "Show Yomu lookup popup",
+      popupLookupHelp: "Turn this off when you want jpdb reader, Jiten Reader, or Yomitan to own popups while Yomu keeps annotations, media, mining, and study tools available.",
       parseSelection: "Look up selected text",
       lookupOnClick: "Look up on tap or click",
       lookupOnHover: "Look up on hover",
@@ -2811,7 +2825,8 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import settings or ZIPs.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "Tokens: {query}, {word}, {reading}.",
+      lookupPillsHelp: "External links and imported frequency badges. Tokens: {query}, {word}, {reading}.",
+      frequencyLookupPillsHelp: "Imported frequency dictionaries show as badge pills when a lookup has matching data.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -3945,6 +3960,14 @@ jpdbMiningEnabled	APIの復習・デッキ変更を許可
 addToForq	JPDB追加時にforqにもコピー
 enableReviews	復習ボタンを表示
 reviewRatingScale	復習評価の段階
+gradeTargetSelector	採点先
+gradeTargetBoth	両方
+gradeTargetJpdb	JPDBを採点
+gradeTargetJiten	Jitenを採点
+gradeTargetAnki	Ankiカードを採点: {target}
+gradeTargetJpdbAndAnki	JPDB + Ankiカードを採点: {target}
+gradeTargetJitenAndAnki	Jiten + Ankiカードを採点: {target}
+missingAnkiCardId	AnkiカードIDがありません。
 jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
@@ -4043,6 +4066,9 @@ colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
 colorChannelsHelp	
 interfaceHelp	インターフェイス設定です。
+popupLookup	ポップアップ検索
+popupLookupEnabled	よむの検索ポップアップを表示
+popupLookupHelp	JPDB Reader、Jiten Reader、Yomitan側のポップアップを使う場合はオフにします。よむの注釈、メディア、採掘、学習ツールはそのまま使えます。
 parseSelection	選択テキストを検索
 lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
@@ -4330,7 +4356,8 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	設定やZIPを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	トークン: {query}、{word}、{reading}。
+lookupPillsHelp	外部リンクとインポート済み頻度バッジ。トークン: {query}、{word}、{reading}。
+frequencyLookupPillsHelp	インポート済み頻度辞書は、検索語に一致するデータがあるとバッジ型ピルとして表示されます。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル
@@ -4937,7 +4964,7 @@ recommendedJiten	Jiten頻度です。
     };
   }
   const JPDB_KANJI_BASE_URL = "https://jpdb.io/kanji";
-  const log$2 = Logger.scope("JpdbKanji");
+  const log$3 = Logger.scope("JpdbKanji");
   class JpdbKanjiClient {
     constructor(getCorsProxyUrl = () => "") {
       this.getCorsProxyUrl = getCorsProxyUrl;
@@ -4958,7 +4985,7 @@ recommendedJiten	Jiten頻度です。
       const action = this.actions.get(actionId);
       if (!action) throw new Error("JPDB kanji action is no longer available.");
       if (!action.enabled) throw new Error("JPDB kanji action is disabled.");
-      log$2.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
+      log$3.info("Performing JPDB kanji action", { kanji: action.kanji, role: action.role, kind: action.kind });
       await requestText$2(action.url, "", {
         method: action.method,
         payload: action.payload,
@@ -4971,7 +4998,7 @@ recommendedJiten	Jiten頻度です。
     }
     async fetchInfo(kanji) {
       const html = await requestText$2(`${JPDB_KANJI_BASE_URL}/${encodeURIComponent(kanji)}`, this.getCorsProxyUrl()).catch((error) => {
-        log$2.warn("Kanji page request failed", { kanji }, error);
+        log$3.warn("Kanji page request failed", { kanji }, error);
         return "";
       });
       const info = html ? parseJpdbKanjiHtml(html, kanji) : null;
@@ -5467,7 +5494,7 @@ recommendedJiten	Jiten頻度です。
   const KANJIVG_SAFE_PATH_DATA = /^[MmZzLlHhVvCcSsQqTtAa0-9,.\-\s]+$/;
   const KANJIVG_STROKE_LABEL = /^[\d]+$/;
   const KANJIVG_TEXT_TRANSFORM = /^matrix\([0-9,.\-\s]+\)$/;
-  const log$1 = Logger.scope("KanjiVG");
+  const log$2 = Logger.scope("KanjiVG");
   const KANJIVG_AXIS_POSITIONS = {
     x: { negative: "left", positive: "right" },
     y: { negative: "top", positive: "bottom" }
@@ -5488,7 +5515,7 @@ recommendedJiten	Jiten頻度です。
     async fetchSvg(kanji) {
       const url = kanjiVGUrl(kanji);
       const svgText = await requestText$1(url).catch((error) => {
-        log$1.warn("Stroke-order request failed", { kanji }, error);
+        log$2.warn("Stroke-order request failed", { kanji }, error);
         return "";
       });
       if (!svgText) return null;
@@ -6776,6 +6803,514 @@ recommendedJiten	Jiten頻度です。
         </details>
     `;
   }
+  const log$1 = Logger.scope("KanjiDoodle");
+  const PEN_MIN_DISTANCE = 8e-4;
+  const POINTER_MIN_DISTANCE = 35e-4;
+  const ACTIVE_DOODLE_CLASS = "jpdb-reader-doodle-active";
+  const NATIVE_GESTURE_SUPPRESS_MS = 900;
+  const KANJI_DOODLE_CLEAR_EVENT = "yomu:kanji-doodle-clear";
+  function installKanjiDoodle(popover, getLanguage, options = {}) {
+    const root = popover;
+    root.__yomuKanjiDoodleCleanup?.();
+    delete root.__yomuKanjiDoodleCleanup;
+    const elements = kanjiDoodleElements(popover);
+    const clear = popover.querySelector("[data-doodle-clear]");
+    const trace = popover.querySelector("[data-doodle-trace]");
+    if (!elements) return;
+    const { stage, canvas, ghost } = elements;
+    let context = null;
+    try {
+      context = canvas.getContext("2d");
+    } catch (error) {
+      log$1.warn("Kanji doodle install failed", { reason: "2d-context-error" }, error);
+      return;
+    }
+    if (!context) {
+      log$1.warn("Kanji doodle install failed", { reason: "missing-2d-context" });
+      return;
+    }
+    let dpr = 1;
+    let drawing = false;
+    let pointerId = -1;
+    let pointerType = "";
+    let traceVisible = !ghost.hidden && !stage.classList.contains("trace-hidden");
+    let points = [];
+    let strokes = [];
+    let canvasRect = canvas.getBoundingClientRect();
+    let suppressNativeGestureUntil = 0;
+    let activeClassRemovalTimer = 0;
+    const controller = new AbortController();
+    const signal = controller.signal;
+    const keepDoodleInteractionActive = (durationMs = NATIVE_GESTURE_SUPPRESS_MS) => {
+      suppressNativeGestureUntil = Math.max(suppressNativeGestureUntil, Date.now() + durationMs);
+      document.documentElement.classList.add(ACTIVE_DOODLE_CLASS);
+      if (activeClassRemovalTimer) {
+        window.clearTimeout(activeClassRemovalTimer);
+        activeClassRemovalTimer = 0;
+      }
+    };
+    const shouldSuppressNativeGesture = () => drawing || Date.now() < suppressNativeGestureUntil;
+    const releaseDoodleInteractionSoon = () => {
+      if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
+      activeClassRemovalTimer = window.setTimeout(() => {
+        activeClassRemovalTimer = 0;
+        if (shouldSuppressNativeGesture()) {
+          releaseDoodleInteractionSoon();
+          return;
+        }
+        document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+      }, NATIVE_GESTURE_SUPPRESS_MS);
+    };
+    const suppressNativeGestureIfActive = (event) => {
+      if (!shouldSuppressNativeGesture()) return;
+      suppressNativeCanvasGesture(event);
+    };
+    const resize = () => {
+      const rect = stage.getBoundingClientRect();
+      dpr = Math.max(window.devicePixelRatio || 1, 1);
+      const width = Math.max(1, Math.round(rect.width * dpr));
+      const height = Math.max(1, Math.round(rect.height * dpr));
+      canvasRect = canvas.getBoundingClientRect();
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+        redraw();
+      }
+    };
+    const toPoint = (event) => {
+      return {
+        x: Math.max(0, Math.min(1, (event.clientX - canvasRect.left) / Math.max(canvasRect.width, 1))),
+        y: Math.max(0, Math.min(1, (event.clientY - canvasRect.top) / Math.max(canvasRect.height, 1))),
+        pressure: Math.max(0.12, Math.min(1, event.pressure || 0.55))
+      };
+    };
+    const strokeWidth = (point) => Math.max(3.2, Math.min(9.5, canvas.width * 0.014)) * dpr * (0.78 + (point?.pressure ?? 0.55) * 0.42);
+    const setupStroke = (point) => {
+      context.strokeStyle = resolvedDoodleInk(stage);
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = strokeWidth(point);
+    };
+    const drawStroke = (stroke) => {
+      if (!stroke.length) return;
+      if (stroke.length === 1) {
+        drawPoint(stroke[0]);
+        return;
+      }
+      for (let index = 1; index < stroke.length; index += 1) {
+        drawSegment(stroke[index - 1], stroke[index]);
+      }
+    };
+    const drawPoint = (point) => {
+      context.save();
+      setupStroke(point);
+      context.beginPath();
+      if (typeof context.arc === "function" && typeof context.fill === "function") {
+        context.fillStyle = context.strokeStyle;
+        context.arc(point.x * canvas.width, point.y * canvas.height, Math.max(1.2, context.lineWidth / 2), 0, Math.PI * 2);
+        context.fill();
+      } else {
+        const x = point.x * canvas.width;
+        const y = point.y * canvas.height;
+        context.moveTo(x, y);
+        context.lineTo(x + Math.max(1, context.lineWidth / 2), y);
+        context.stroke();
+      }
+      context.restore();
+    };
+    const drawSegment = (from, to) => {
+      context.save();
+      setupStroke(to);
+      context.beginPath();
+      context.moveTo(from.x * canvas.width, from.y * canvas.height);
+      context.lineTo(to.x * canvas.width, to.y * canvas.height);
+      context.stroke();
+      context.restore();
+    };
+    const redraw = () => {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      for (const stroke of strokes) drawStroke(stroke);
+      drawStroke(points);
+    };
+    const appendPoint = (point) => {
+      const last = points.at(-1);
+      const minDistance = pointerType === "pen" ? PEN_MIN_DISTANCE : POINTER_MIN_DISTANCE;
+      if (last && Math.hypot(point.x - last.x, point.y - last.y) < minDistance) return;
+      points.push(point);
+      if (last) drawSegment(last, point);
+      else drawPoint(point);
+    };
+    const applyPointerSamples = (event) => {
+      for (const sample of pointerSamples(event)) appendPoint(toPoint(sample));
+    };
+    const start = (event) => {
+      const computedCanvas = getComputedStyle(canvas);
+      if (computedCanvas.pointerEvents === "none" || computedCanvas.visibility === "hidden") return;
+      if (drawing) {
+        if (event.pointerId === pointerId) return;
+        finishStroke(false);
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      drawing = true;
+      pointerId = event.pointerId;
+      pointerType = event.pointerType;
+      keepDoodleInteractionActive();
+      clearSelection();
+      canvasRect = canvas.getBoundingClientRect();
+      points = [];
+      appendPoint(toPoint(event));
+      setDoodlePointerCapture(canvas, event.pointerId);
+    };
+    const move = (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      keepDoodleInteractionActive();
+      applyPointerSamples(event);
+    };
+    const end = (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      event.preventDefault();
+      event.stopPropagation();
+      applyPointerSamples(event);
+      finishStroke();
+    };
+    const finishAfterLostCapture = (event) => {
+      if (!drawing || event.pointerId !== pointerId) return;
+      keepDoodleInteractionActive();
+    };
+    const clearActiveSelection = () => {
+      if (shouldSuppressNativeGesture()) clearSelection();
+    };
+    const finishStroke = (releaseCapture = true) => {
+      if (points.length) strokes = [...strokes, points];
+      points = [];
+      drawing = false;
+      const activePointerId = pointerId;
+      pointerId = -1;
+      pointerType = "";
+      if (releaseCapture) releaseDoodlePointerCapture(canvas, activePointerId);
+      keepDoodleInteractionActive();
+      releaseDoodleInteractionSoon();
+      clearSelection();
+      options.onChange?.(strokes.map((stroke) => [...stroke]));
+    };
+    const clearDoodle = () => {
+      strokes = [];
+      points = [];
+      redraw();
+      options.onClear?.();
+      options.onChange?.([]);
+    };
+    canvas.addEventListener("pointerdown", start, { passive: false, signal });
+    canvas.addEventListener("lostpointercapture", finishAfterLostCapture, { signal });
+    document.addEventListener("pointermove", move, { passive: false, signal });
+    document.addEventListener("pointerup", end, { passive: false, signal });
+    document.addEventListener("pointercancel", end, { passive: false, signal });
+    window.addEventListener("pointermove", move, { passive: false, signal });
+    window.addEventListener("pointerup", end, { passive: false, signal });
+    window.addEventListener("pointercancel", end, { passive: false, signal });
+    document.addEventListener("selectionchange", clearActiveSelection, { signal });
+    document.addEventListener("contextmenu", suppressNativeGestureIfActive, { capture: true, signal });
+    document.addEventListener("selectstart", suppressNativeGestureIfActive, { capture: true, signal });
+    document.addEventListener("dragstart", suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener("contextmenu", suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener("selectstart", suppressNativeGestureIfActive, { capture: true, signal });
+    window.addEventListener("dragstart", suppressNativeGestureIfActive, { capture: true, signal });
+    popover.addEventListener(KANJI_DOODLE_CLEAR_EVENT, clearDoodle, { signal });
+    for (const target of [stage, canvas, clear, trace]) {
+      if (!target) continue;
+      target.addEventListener("contextmenu", suppressNativeCanvasGesture, { signal });
+      target.addEventListener("selectstart", suppressNativeCanvasGesture, { signal });
+      target.addEventListener("dragstart", suppressNativeCanvasGesture, { signal });
+    }
+    clear?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      clearDoodle();
+    }, { signal });
+    trace?.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      traceVisible = !traceVisible;
+      ghost.hidden = !traceVisible;
+      stage.classList.toggle("trace-hidden", !traceVisible);
+      trace.textContent = uiText(getLanguage(), traceVisible ? "hideTrace" : "showTrace");
+    }, { signal });
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(stage);
+    root.__yomuKanjiDoodleCleanup = () => {
+      controller.abort();
+      resizeObserver.disconnect();
+      if (activeClassRemovalTimer) window.clearTimeout(activeClassRemovalTimer);
+      document.documentElement.classList.remove(ACTIVE_DOODLE_CLASS);
+      clearSelection();
+      if (root.__yomuKanjiDoodleCleanup) delete root.__yomuKanjiDoodleCleanup;
+    };
+    const disconnectWhenDetached = () => {
+      if (!popover.isConnected) {
+        root.__yomuKanjiDoodleCleanup?.();
+        return;
+      }
+      requestAnimationFrame(disconnectWhenDetached);
+    };
+    requestAnimationFrame(resize);
+    requestAnimationFrame(disconnectWhenDetached);
+  }
+  function suppressNativeCanvasGesture(event) {
+    event.preventDefault();
+    event.stopPropagation();
+    clearSelection();
+  }
+  function pointerSamples(event) {
+    const coalesced = safeCoalescedPointerEvents(event);
+    if (!coalesced.length) return [event];
+    const last = coalesced.at(-1);
+    return last && samePointerPosition(last, event) ? coalesced : [...coalesced, event];
+  }
+  function safeCoalescedPointerEvents(event) {
+    try {
+      return typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
+    } catch {
+      return [];
+    }
+  }
+  function samePointerPosition(a, b) {
+    return a.clientX === b.clientX && a.clientY === b.clientY && a.pressure === b.pressure;
+  }
+  function setDoodlePointerCapture(canvas, activePointerId) {
+    try {
+      canvas.setPointerCapture?.(activePointerId);
+    } catch {
+    }
+  }
+  function releaseDoodlePointerCapture(canvas, activePointerId) {
+    try {
+      canvas.releasePointerCapture?.(activePointerId);
+    } catch {
+    }
+  }
+  function clearSelection() {
+    const selection = document.getSelection?.();
+    if (selection && !selection.isCollapsed) selection.removeAllRanges();
+  }
+  function resolvedDoodleInk(stage) {
+    const ink = getComputedStyle(stage).getPropertyValue("--jpdb-reader-doodle-ink").trim();
+    return ink && !ink.startsWith("var(") ? ink : DOODLE_COLOR_TOKENS.ink;
+  }
+  function kanjiDoodleElements(popover) {
+    const stage = popover.querySelector(".jpdb-reader-doodle-stage");
+    const canvas = popover.querySelector(".jpdb-reader-doodle-canvas");
+    const ghost = popover.querySelector(".jpdb-reader-doodle-ghost");
+    if (stage && canvas && ghost) return { stage, canvas, ghost };
+    return null;
+  }
+  const FEATURE_INTERVAL = 20;
+  const NORMALIZED_SIZE = 256;
+  const SHAPE_PASS_SCORE = 0.56;
+  function assessKanjiStrokes(strokes, expectedStrokes, referenceStrokes) {
+    const validStrokes = strokes.filter((stroke) => stroke.length > 1);
+    const actualStrokes = validStrokes.length;
+    const expected = Math.max(1, Math.round(expectedStrokes || actualStrokes || 1));
+    const strokeScore = Math.max(0, 1 - Math.abs(actualStrokes - expected) / Math.max(expected, 1));
+    const coverageScore = Math.min(1, totalDistance(strokes) / Math.max(expected * 0.28, 0.28));
+    const directionScore = averageForwardMotion(strokes);
+    const shapeScore = assessStrokeShape(validStrokes, referenceStrokes, expected);
+    const score = Math.round((shapeScore == null ? strokeScore * 0.62 + coverageScore * 0.24 + directionScore * 0.14 : strokeScore * 0.18 + coverageScore * 0.06 + directionScore * 0.04 + shapeScore * 0.72) * 100);
+    const shapePassed = shapeScore == null || shapeScore >= SHAPE_PASS_SCORE;
+    const passed = actualStrokes === expected && score >= 68 && shapePassed;
+    const message = assessmentMessage(passed, actualStrokes, expected, shapeScore);
+    return { passed, score, expectedStrokes: expected, actualStrokes, shapeScore: shapeScore ?? void 0, message };
+  }
+  function totalDistance(strokes) {
+    return strokes.reduce((sum, stroke) => {
+      let distance = 0;
+      for (let index = 1; index < stroke.length; index += 1) {
+        const previous = stroke[index - 1];
+        const current = stroke[index];
+        distance += Math.hypot(current.x - previous.x, current.y - previous.y);
+      }
+      return sum + distance;
+    }, 0);
+  }
+  function averageForwardMotion(strokes) {
+    const scored = strokes.filter((stroke) => stroke.length > 1).map((stroke) => {
+      const first2 = stroke[0];
+      const last = stroke[stroke.length - 1];
+      const horizontal = Math.abs(last.x - first2.x);
+      const vertical = Math.abs(last.y - first2.y);
+      if (horizontal >= vertical) return last.x >= first2.x ? 1 : 0.45;
+      return last.y >= first2.y ? 1 : 0.45;
+    });
+    return scored.length ? scored.reduce((sum, value) => sum + value, 0) / scored.length : 0;
+  }
+  function assessmentMessage(passed, actualStrokes, expectedStrokes, shapeScore) {
+    if (passed) return `Looks right: ${actualStrokes}/${expectedStrokes} strokes`;
+    if (actualStrokes !== expectedStrokes) return `Check stroke count: ${actualStrokes}/${expectedStrokes} strokes`;
+    if (shapeScore != null && shapeScore < SHAPE_PASS_SCORE) return `Check stroke shape/order: ${actualStrokes}/${expectedStrokes} strokes`;
+    return `Check stroke count/order: ${actualStrokes}/${expectedStrokes} strokes`;
+  }
+  function assessStrokeShape(strokes, referenceStrokes, expectedStrokes) {
+    if (!referenceStrokes || strokes.length !== expectedStrokes || referenceStrokes.length !== expectedStrokes) return null;
+    const written = extractFeatures(momentNormalize(toPattern(strokes)), FEATURE_INTERVAL);
+    const reference = extractFeatures(momentNormalize(toPattern(referenceStrokes)), FEATURE_INTERVAL);
+    if (written.length !== reference.length || written.some((stroke, index) => stroke.length < 2 || reference[index].length < 2)) return null;
+    const scores = written.map((stroke, index) => strokeCorrespondenceScore(stroke, reference[index]));
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const worst = Math.min(...scores);
+    return average * 0.72 + worst * 0.28;
+  }
+  function toPattern(strokes) {
+    return strokes.map((stroke) => stroke.filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y)).map((point) => ({
+      x: Math.max(0, Math.min(1, point.x)) * NORMALIZED_SIZE,
+      y: Math.max(0, Math.min(1, point.y)) * NORMALIZED_SIZE
+    }))).filter((stroke) => stroke.length > 1);
+  }
+  function momentNormalize(pattern) {
+    const points = pattern.flat();
+    if (!points.length) return pattern;
+    const width = NORMALIZED_SIZE;
+    const height = NORMALIZED_SIZE;
+    const minX = Math.min(...points.map((point) => point.x));
+    const maxX = Math.max(...points.map((point) => point.x));
+    const minY = Math.min(...points.map((point) => point.y));
+    const maxY = Math.max(...points.map((point) => point.y));
+    const oldWidth = Math.max(maxX - minX, 1e-3);
+    const oldHeight = Math.max(maxY - minY, 1e-3);
+    const aspectScale = aspectPreservingScale(oldWidth, oldHeight);
+    const targetWidth = oldHeight > oldWidth ? aspectScale * width : width;
+    const targetHeight = oldHeight > oldWidth ? height : aspectScale * height;
+    const offsetX = (width - targetWidth) / 2;
+    const offsetY = (height - targetHeight) / 2;
+    const centerX = points.reduce((sum, point) => sum + point.x, 0) / points.length;
+    const centerY = points.reduce((sum, point) => sum + point.y, 0) / points.length;
+    const varianceX = points.reduce((sum, point) => sum + (point.x - centerX) ** 2, 0) / points.length;
+    const varianceY = points.reduce((sum, point) => sum + (point.y - centerY) ** 2, 0) / points.length;
+    const scaleX = finiteScale(targetWidth / (4 * Math.sqrt(varianceX)));
+    const scaleY = finiteScale(targetHeight / (4 * Math.sqrt(varianceY)));
+    return pattern.map((stroke) => stroke.map((point) => ({
+      x: clamp(scaleX * (point.x - centerX) + targetWidth / 2 + offsetX, 0, NORMALIZED_SIZE),
+      y: clamp(scaleY * (point.y - centerY) + targetHeight / 2 + offsetY, 0, NORMALIZED_SIZE)
+    })));
+  }
+  function aspectPreservingScale(width, height) {
+    const ratio = height > width ? width / height : height / width;
+    return Math.sqrt(Math.sin(Math.PI / 2 * ratio));
+  }
+  function finiteScale(value) {
+    return Number.isFinite(value) ? value : 0;
+  }
+  function extractFeatures(pattern, interval) {
+    return pattern.map((stroke) => {
+      const extracted = [];
+      let distance = 0;
+      for (let index = 0; index < stroke.length; index += 1) {
+        if (index === 0) extracted.push(stroke[0]);
+        if (index > 0) distance += euclid(stroke[index - 1], stroke[index]);
+        if (distance >= interval && index > 1) {
+          distance -= interval;
+          extracted.push(stroke[index]);
+        }
+      }
+      if (extracted.length === 1) extracted.push(stroke[stroke.length - 1]);
+      else if (distance > interval * 0.75) extracted.push(stroke[stroke.length - 1]);
+      return extracted;
+    });
+  }
+  function strokeCorrespondenceScore(stroke, reference) {
+    const whole = wholeWholeDistance(stroke, reference);
+    const endpoints = endPointDistance(stroke, reference) / 2;
+    const direction = directionDistance(stroke, reference) * 128;
+    const distance = whole * 0.58 + endpoints * 0.32 + direction * 0.1;
+    return clamp(1 - distance / 96, 0, 1);
+  }
+  function wholeWholeDistance(pattern1, pattern2) {
+    const [larger, smaller] = pattern1.length >= pattern2.length ? [pattern1, pattern2] : [pattern2, pattern1];
+    if (!larger.length || !smaller.length) return NORMALIZED_SIZE;
+    let distance = 0;
+    for (let index = 0; index < smaller.length; index += 1) {
+      const largerIndex = Math.min(larger.length - 1, Math.floor(larger.length / smaller.length * index));
+      distance += manhattan(larger[largerIndex], smaller[index]);
+    }
+    return distance / smaller.length;
+  }
+  function endPointDistance(pattern1, pattern2) {
+    if (!pattern1.length || !pattern2.length) return NORMALIZED_SIZE;
+    return manhattan(pattern1[0], pattern2[0]) + manhattan(pattern1[pattern1.length - 1], pattern2[pattern2.length - 1]);
+  }
+  function directionDistance(pattern1, pattern2) {
+    const vector1 = strokeVector(pattern1);
+    const vector2 = strokeVector(pattern2);
+    const length1 = Math.hypot(vector1.x, vector1.y);
+    const length2 = Math.hypot(vector2.x, vector2.y);
+    if (!length1 || !length2) return 1;
+    const dot = (vector1.x * vector2.x + vector1.y * vector2.y) / (length1 * length2);
+    return (1 - clamp(dot, -1, 1)) / 2;
+  }
+  function strokeVector(stroke) {
+    return {
+      x: stroke[stroke.length - 1].x - stroke[0].x,
+      y: stroke[stroke.length - 1].y - stroke[0].y
+    };
+  }
+  function euclid(point1, point2) {
+    return Math.hypot(point1.x - point2.x, point1.y - point2.y);
+  }
+  function manhattan(point1, point2) {
+    return Math.abs(point1.x - point2.x) + Math.abs(point1.y - point2.y);
+  }
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+  function installKanjiPracticeDoodle(root, getLanguage, getKanjiVGInfo) {
+    let latestStrokes = [];
+    const clear = () => {
+      latestStrokes = [];
+      clearKanjiPracticeAssessment(root);
+    };
+    const reassess = () => {
+      renderKanjiPracticeAssessment(root, getKanjiVGInfo(), latestStrokes);
+    };
+    installKanjiDoodle(root, getLanguage, {
+      onChange: (strokes) => {
+        latestStrokes = strokes;
+        reassess();
+      },
+      onClear: clear
+    });
+    return { reassess, clear };
+  }
+  function renderKanjiPracticeAssessment(root, info, strokes) {
+    if (!info || !strokes.length) {
+      clearKanjiPracticeAssessment(root);
+      return;
+    }
+    if (shouldWaitForMorePracticeStrokes(strokes, info.strokeCount)) {
+      clearKanjiPracticeAssessment(root);
+      return;
+    }
+    renderKanjiPracticeResult(root, assessKanjiStrokes(strokes, info.strokeCount, info.strokeShapes));
+  }
+  function renderKanjiPracticeResult(root, assessment) {
+    const section = kanjiPracticeSection(root);
+    const result = section?.querySelector("[data-newtab-doodle-result]");
+    section?.classList.toggle("jpdb-reader-doodle-pass", assessment.passed);
+    section?.classList.toggle("jpdb-reader-doodle-fail", !assessment.passed);
+    if (result) result.textContent = `${assessment.passed ? "✓" : "✕"} ${assessment.message}`;
+  }
+  function clearKanjiPracticeAssessment(root) {
+    const section = kanjiPracticeSection(root);
+    const result = section?.querySelector("[data-newtab-doodle-result]");
+    section?.classList.remove("jpdb-reader-doodle-pass", "jpdb-reader-doodle-fail");
+    if (result) result.textContent = "";
+  }
+  function kanjiPracticeSection(root) {
+    return root.matches(".jpdb-reader-kanjivg") ? root : root.querySelector(".jpdb-reader-kanjivg");
+  }
+  function shouldWaitForMorePracticeStrokes(strokes, expectedStrokes) {
+    return expectedStrokes > 0 && strokes.filter((stroke) => stroke.length > 1).length < expectedStrokes;
+  }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
   const KANJI_RE = /[\u3400-\u9fff]/u;
@@ -7006,6 +7541,7 @@ recommendedJiten	Jiten頻度です。
     renderJpdbKanjiInfo,
     renderJpdbKanjiMiningControls,
     renderKanjiPractice,
+    installKanjiPracticeDoodle,
     renderKanjiOrigins,
     buildRtkComponentSummaries,
     renderKanjiKeywordLine,

@@ -184,7 +184,10 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
     const start = (event: PointerEvent) => {
         const computedCanvas = getComputedStyle(canvas);
         if (computedCanvas.pointerEvents === 'none' || computedCanvas.visibility === 'hidden') return;
-        if (drawing) return;
+        if (drawing) {
+            if (event.pointerId === pointerId) return;
+            finishStroke(false);
+        }
         event.preventDefault();
         event.stopPropagation();
         drawing = true;
@@ -216,7 +219,9 @@ export function installKanjiDoodle(popover: HTMLElement, getLanguage: () => Inte
 
     const finishAfterLostCapture = (event: PointerEvent) => {
         if (!drawing || event.pointerId !== pointerId) return;
-        finishStroke(false);
+        // WebKit can drop Pencil pointer capture while document/window
+        // pointermove events continue; ending here turns live strokes into dots.
+        keepDoodleInteractionActive();
     };
 
     const clearActiveSelection = () => {
