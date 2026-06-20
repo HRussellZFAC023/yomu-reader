@@ -19080,6 +19080,182 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     renderReviewButtons: renderReviewButtons$1,
     reviewButtonGrades: reviewButtonGrades$1
   });
+  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null, kanjiVGInfo = null) {
+    const nodes = /* @__PURE__ */ new Map();
+    const edges = [];
+    const meanings = entries.flatMap((entry) => entry.meanings).filter(Boolean);
+    const kanjiVGPositions = kanjiVGComponentPositionMap(kanjiVGInfo);
+    const builder = { kanji, nodes, edges, kanjiVGPositions };
+    nodes.set(kanji, {
+      id: kanji,
+      label: kanji,
+      kind: "current",
+      detail: first$1([jpdbInfo?.keyword, rtkInfo?.keyword, sourceInfo?.kanjiMap?.meaning, meanings[0]]) ?? "current kanji",
+      source: "current lookup"
+    });
+    sourceInfo?.kanjiMap?.radical?.symbol && addKanjiOriginComponent(
+      builder,
+      sourceInfo.kanjiMap.radical.symbol,
+      first$1([sourceInfo.kanjiMap.radical.meaning, sourceInfo.kanjiMap.radical.name]) ?? "radical",
+      "radical",
+      "Kanji Alive / Jisho",
+      sourceInfo.kanjiMap.radical.position
+    );
+    sourceInfo?.kanjiMap?.parts.forEach((part) => addKanjiOriginComponent(builder, part, "structural part", "structural part", "Kanji structure"));
+    jpdbInfo?.components.forEach((component) => addKanjiOriginComponent(builder, component.kanji, component.keyword, "JPDB component", "JPDB"));
+    jpdbInfo?.usedInKanji?.forEach((component) => addUsedInKanji(builder, component.kanji, component.keyword, "JPDB"));
+    rtkInfo?.componentKanji.forEach((component) => addKanjiOriginComponent(builder, component, "RTK element", "RTK element", "RTK"));
+    kanjiVGInfo?.componentPositions?.filter((component) => component.direct).forEach((component) => addDirectKanjiVGComponent(builder, component));
+    kanjiVGInfo?.componentPositions?.filter((component) => !component.direct).sort((a, b) => a.depth - b.depth).forEach((component) => addKanjiVGSubcomponent(builder, component));
+    splitRtkElements$1(rtkInfo?.elements ?? "").filter((element) => !Array.from(element).some((character) => character === kanji)).slice(0, 6).forEach((element, index) => addRtkMemoryCue(builder, element, index));
+    const graph = { nodes: Array.from(nodes.values()).slice(0, 24), edges: edges.slice(0, 36) };
+    return graph;
+  }
+  function addKanjiOriginEdge(builder, from, to, label) {
+    if (!from || !to || !canAddKanjiOriginEdge(builder.edges, from, to, label)) return;
+    builder.edges.push({ from, to, label });
+  }
+  function canAddKanjiOriginEdge(edges, from, to, label) {
+    if (from === to) return false;
+    return !edges.some((edge) => edge.from === from && edge.to === to && edge.label === label);
+  }
+  function addKanjiOriginComponentNode(builder, id, detail, source, position, geometry) {
+    if (!id || id === builder.kanji) return null;
+    const existing = builder.nodes.get(id);
+    if (existing) updateKanjiOriginComponentNode(existing, detail, position, geometry);
+    else builder.nodes.set(id, { id, label: id, kind: "component", detail, source, position, geometry });
+    return id;
+  }
+  function updateKanjiOriginComponentNode(node, detail, position, geometry) {
+    if (!node.detail && detail) node.detail = detail;
+    if (!node.position && position) node.position = position;
+    if (!node.geometry && geometry) node.geometry = geometry;
+  }
+  function addKanjiOriginComponent(builder, id, detail, label, source, position, geometry) {
+    const kanjiVGPosition = builder.kanjiVGPositions.get(id);
+    const resolvedPosition = position || kanjiVGPosition?.position;
+    const resolvedGeometry = geometry ?? kanjiVGPosition?.geometry;
+    const nodeId = addKanjiOriginComponentNode(builder, id, detail, source, resolvedPosition, resolvedGeometry);
+    addKanjiOriginEdge(builder, nodeId ?? void 0, builder.kanji, label);
+  }
+  function addUsedInKanji(builder, id, detail, source) {
+    const nodeId = addUsedInKanjiNode(builder, id, detail, source);
+    addKanjiOriginEdge(builder, builder.kanji, nodeId ?? void 0, "used in kanji");
+  }
+  function addUsedInKanjiNode(builder, id, detail, source) {
+    if (!id || id === builder.kanji) return null;
+    const existing = builder.nodes.get(id);
+    if (existing) updateUsedInKanjiNode(existing, detail);
+    else builder.nodes.set(id, { id, label: id, kind: "component", detail, source });
+    return id;
+  }
+  function updateUsedInKanjiNode(node, detail) {
+    if (!node.detail && detail) node.detail = detail;
+  }
+  function addDirectKanjiVGComponent(builder, component) {
+    const id = resolveKanjiVGComponentId(builder.nodes, component.component, component.original);
+    addKanjiOriginComponent(builder, id, "visual component", "KanjiVG component", "KanjiVG", component.position, kanjiVGComponentGeometry(component));
+  }
+  function addKanjiVGSubcomponent(builder, component) {
+    if (!isNestedKanjiVGSubcomponent(component, builder.kanji)) return;
+    const parent = nestedKanjiVGParent(component, builder);
+    if (!parent) return;
+    const child = resolveKanjiVGComponentId(builder.nodes, component.component, component.original);
+    if (hasCompetingDirectComponentEdge(builder, component, child)) return;
+    addKanjiVGSubcomponentEdge(builder, component, parent, child);
+  }
+  function addKanjiVGSubcomponentEdge(builder, component, parent, child) {
+    const parentPosition = builder.kanjiVGPositions.get(parent);
+    const parentId = addKanjiOriginComponentNode(builder, parent, "visual component", "KanjiVG", parentPosition?.position, parentPosition?.geometry) ?? parent;
+    const childId = addKanjiOriginComponentNode(builder, child, "visual subcomponent", "KanjiVG", component.position, kanjiVGComponentGeometry(component)) ?? child;
+    addKanjiOriginEdge(builder, childId, parentId, "subcomponent");
+  }
+  function addRtkMemoryCue(builder, element, index) {
+    const id = `rtk:${index}:${element}`;
+    builder.nodes.set(id, { id, label: element, kind: "related", detail: "RTK keyword", source: "RTK" });
+    builder.edges.push({ from: id, to: builder.kanji, label: "memory cue" });
+  }
+  function isNestedKanjiVGSubcomponent(component, currentKanji) {
+    return Boolean(component.component && component.component !== currentKanji && !component.variant);
+  }
+  function nestedKanjiVGParent(component, builder) {
+    if (!component.parent || component.parent === builder.kanji) return "";
+    const parent = resolveKanjiVGComponentId(builder.nodes, component.parent, component.parentOriginal);
+    return parent === builder.kanji ? "" : parent;
+  }
+  function hasCompetingDirectComponentEdge(builder, component, child) {
+    return [child, component.component, component.original].some((id) => hasDirectComponentEdge(builder, id));
+  }
+  function hasDirectComponentEdge(builder, id) {
+    return Boolean(id && builder.edges.some((edge) => isDirectKanjiComponentEdge(edge, id, builder.kanji)));
+  }
+  function isDirectKanjiComponentEdge(edge, id, kanji) {
+    return edge.from === id && edge.to === kanji && edge.label !== "subcomponent";
+  }
+  function resolveKanjiVGComponentId(nodes, component, original) {
+    if (nodes.has(component)) return component;
+    return original && nodes.has(original) ? original : component;
+  }
+  function kanjiVGComponentPositionMap(info) {
+    const positions = /* @__PURE__ */ new Map();
+    info?.componentPositions?.forEach((component) => {
+      const position = normalizeKanjiVGPosition(component.position);
+      if (!position) return;
+      const geometry = kanjiVGComponentGeometry(component);
+      kanjiVGPositionKeys(component).forEach((key) => {
+        const existing = positions.get(key);
+        if (!existing || !existing.direct && component.direct) {
+          positions.set(key, { position, direct: component.direct, geometry });
+        } else if (!existing.geometry && geometry) {
+          positions.set(key, { ...existing, geometry });
+        }
+      });
+    });
+    return positions;
+  }
+  function kanjiVGComponentGeometry(component) {
+    return component.center ? {
+      x: component.center.x,
+      y: component.center.y,
+      width: component.bounds?.width,
+      height: component.bounds?.height
+    } : void 0;
+  }
+  function kanjiVGPositionKeys(component) {
+    const componentAliases = KANJIVG_COMPONENT_ALIASES.get(component.component) ?? [];
+    const originalAliases = component.original ? KANJIVG_COMPONENT_ALIASES.get(component.original) ?? [] : [];
+    return uniqueNonEmptyStrings([
+      component.component,
+      component.original,
+      ...componentAliases,
+      ...originalAliases
+    ]);
+  }
+  function normalizeKanjiVGPosition(value) {
+    const normalized = value.toLowerCase().trim();
+    return KANJIVG_POSITION_ALIASES.get(normalized) ?? normalized;
+  }
+  const KANJIVG_COMPONENT_ALIASES = /* @__PURE__ */ new Map([
+    ["⻖", ["阝", "阜"]],
+    ["阜", ["⻖", "阝"]]
+  ]);
+  const KANJIVG_POSITION_ALIASES = /* @__PURE__ */ new Map([
+    ["top", "top"],
+    ["tare", "top"],
+    ["bottom", "bottom"],
+    ["nyo", "bottom"],
+    ["left", "left"],
+    ["right", "right"],
+    ["inside", "center"],
+    ["kamae", "center"],
+    ["middle", "center"]
+  ]);
+  function splitRtkElements$1(value) {
+    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
+  }
+  function first$1(values) {
+    return values.find((value) => value?.trim())?.trim();
+  }
   const KANJI_MAP_KANJI_BASE = "https://raw.githubusercontent.com/gabor-kovacs/the-kanji-map/main/data/kanji";
   const JAPANESE_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const log$u = Logger.scope("KanjiOrigin");
@@ -19280,176 +19456,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!normalized || facts.has(label)) return;
     facts.set(label, { label, value: normalized, source: source || "source unknown" });
   }
-  function buildKanjiOriginGraph(kanji, jpdbInfo, rtkInfo, entries, sourceInfo = null, kanjiVGInfo = null) {
-    const nodes = /* @__PURE__ */ new Map();
-    const edges = [];
-    const meanings = entries.flatMap((entry) => entry.meanings).filter(Boolean);
-    const kanjiVGPositions = kanjiVGComponentPositionMap(kanjiVGInfo);
-    const builder = { kanji, nodes, edges, kanjiVGPositions };
-    nodes.set(kanji, {
-      id: kanji,
-      label: kanji,
-      kind: "current",
-      detail: first([jpdbInfo?.keyword, rtkInfo?.keyword, sourceInfo?.kanjiMap?.meaning, meanings[0]]) ?? "current kanji",
-      source: "current lookup"
-    });
-    sourceInfo?.kanjiMap?.radical?.symbol && addKanjiOriginComponent(
-      builder,
-      sourceInfo.kanjiMap.radical.symbol,
-      first([sourceInfo.kanjiMap.radical.meaning, sourceInfo.kanjiMap.radical.name]) ?? "radical",
-      "radical",
-      "Kanji Alive / Jisho",
-      sourceInfo.kanjiMap.radical.position
-    );
-    sourceInfo?.kanjiMap?.parts.forEach((part) => addKanjiOriginComponent(builder, part, "structural part", "structural part", "Kanji structure"));
-    jpdbInfo?.components.forEach((component) => addKanjiOriginComponent(builder, component.kanji, component.keyword, "JPDB component", "JPDB"));
-    jpdbInfo?.usedInKanji?.forEach((component) => addUsedInKanji(builder, component.kanji, component.keyword, "JPDB"));
-    rtkInfo?.componentKanji.forEach((component) => addKanjiOriginComponent(builder, component, "RTK element", "RTK element", "RTK"));
-    kanjiVGInfo?.componentPositions?.filter((component) => component.direct).forEach((component) => addDirectKanjiVGComponent(builder, component));
-    kanjiVGInfo?.componentPositions?.filter((component) => !component.direct).sort((a, b) => a.depth - b.depth).forEach((component) => addKanjiVGSubcomponent(builder, component));
-    splitRtkElements$1(rtkInfo?.elements ?? "").filter((element) => !Array.from(element).some((character) => character === kanji)).slice(0, 6).forEach((element, index) => addRtkMemoryCue(builder, element, index));
-    const graph = { nodes: Array.from(nodes.values()).slice(0, 24), edges: edges.slice(0, 36) };
-    return graph;
-  }
-  function addKanjiOriginEdge(builder, from, to, label) {
-    if (!from || !to || !canAddKanjiOriginEdge(builder.edges, from, to, label)) return;
-    builder.edges.push({ from, to, label });
-  }
-  function canAddKanjiOriginEdge(edges, from, to, label) {
-    if (from === to) return false;
-    return !edges.some((edge) => edge.from === from && edge.to === to && edge.label === label);
-  }
-  function addKanjiOriginComponentNode(builder, id, detail, source, position, geometry) {
-    if (!id || id === builder.kanji) return null;
-    const existing = builder.nodes.get(id);
-    if (existing) updateKanjiOriginComponentNode(existing, detail, position, geometry);
-    else builder.nodes.set(id, { id, label: id, kind: "component", detail, source, position, geometry });
-    return id;
-  }
-  function updateKanjiOriginComponentNode(node, detail, position, geometry) {
-    if (!node.detail && detail) node.detail = detail;
-    if (!node.position && position) node.position = position;
-    if (!node.geometry && geometry) node.geometry = geometry;
-  }
-  function addKanjiOriginComponent(builder, id, detail, label, source, position, geometry) {
-    const kanjiVGPosition = builder.kanjiVGPositions.get(id);
-    const resolvedPosition = position || kanjiVGPosition?.position;
-    const resolvedGeometry = geometry ?? kanjiVGPosition?.geometry;
-    const nodeId = addKanjiOriginComponentNode(builder, id, detail, source, resolvedPosition, resolvedGeometry);
-    addKanjiOriginEdge(builder, nodeId ?? void 0, builder.kanji, label);
-  }
-  function addUsedInKanji(builder, id, detail, source) {
-    const nodeId = addUsedInKanjiNode(builder, id, detail, source);
-    addKanjiOriginEdge(builder, builder.kanji, nodeId ?? void 0, "used in kanji");
-  }
-  function addUsedInKanjiNode(builder, id, detail, source) {
-    if (!id || id === builder.kanji) return null;
-    const existing = builder.nodes.get(id);
-    if (existing) updateUsedInKanjiNode(existing, detail);
-    else builder.nodes.set(id, { id, label: id, kind: "component", detail, source });
-    return id;
-  }
-  function updateUsedInKanjiNode(node, detail) {
-    if (!node.detail && detail) node.detail = detail;
-  }
-  function addDirectKanjiVGComponent(builder, component) {
-    const id = resolveKanjiVGComponentId(builder.nodes, component.component, component.original);
-    addKanjiOriginComponent(builder, id, "visual component", "KanjiVG component", "KanjiVG", component.position, kanjiVGComponentGeometry(component));
-  }
-  function addKanjiVGSubcomponent(builder, component) {
-    if (!isNestedKanjiVGSubcomponent(component, builder.kanji)) return;
-    const parent = nestedKanjiVGParent(component, builder);
-    if (!parent) return;
-    const child = resolveKanjiVGComponentId(builder.nodes, component.component, component.original);
-    if (hasCompetingDirectComponentEdge(builder, component, child)) return;
-    addKanjiVGSubcomponentEdge(builder, component, parent, child);
-  }
-  function addKanjiVGSubcomponentEdge(builder, component, parent, child) {
-    const parentPosition = builder.kanjiVGPositions.get(parent);
-    const parentId = addKanjiOriginComponentNode(builder, parent, "visual component", "KanjiVG", parentPosition?.position, parentPosition?.geometry) ?? parent;
-    const childId = addKanjiOriginComponentNode(builder, child, "visual subcomponent", "KanjiVG", component.position, kanjiVGComponentGeometry(component)) ?? child;
-    addKanjiOriginEdge(builder, childId, parentId, "subcomponent");
-  }
-  function addRtkMemoryCue(builder, element, index) {
-    const id = `rtk:${index}:${element}`;
-    builder.nodes.set(id, { id, label: element, kind: "related", detail: "RTK keyword", source: "RTK" });
-    builder.edges.push({ from: id, to: builder.kanji, label: "memory cue" });
-  }
-  function isNestedKanjiVGSubcomponent(component, currentKanji) {
-    return Boolean(component.component && component.component !== currentKanji && !component.variant);
-  }
-  function nestedKanjiVGParent(component, builder) {
-    if (!component.parent || component.parent === builder.kanji) return "";
-    const parent = resolveKanjiVGComponentId(builder.nodes, component.parent, component.parentOriginal);
-    return parent === builder.kanji ? "" : parent;
-  }
-  function hasCompetingDirectComponentEdge(builder, component, child) {
-    return [child, component.component, component.original].some((id) => hasDirectComponentEdge(builder, id));
-  }
-  function hasDirectComponentEdge(builder, id) {
-    return Boolean(id && builder.edges.some((edge) => isDirectKanjiComponentEdge(edge, id, builder.kanji)));
-  }
-  function isDirectKanjiComponentEdge(edge, id, kanji) {
-    return edge.from === id && edge.to === kanji && edge.label !== "subcomponent";
-  }
-  function resolveKanjiVGComponentId(nodes, component, original) {
-    if (nodes.has(component)) return component;
-    return original && nodes.has(original) ? original : component;
-  }
-  function kanjiVGComponentPositionMap(info) {
-    const positions = /* @__PURE__ */ new Map();
-    info?.componentPositions?.forEach((component) => {
-      const position = normalizeKanjiVGPosition(component.position);
-      if (!position) return;
-      const geometry = kanjiVGComponentGeometry(component);
-      kanjiVGPositionKeys(component).forEach((key) => {
-        const existing = positions.get(key);
-        if (!existing || !existing.direct && component.direct) {
-          positions.set(key, { position, direct: component.direct, geometry });
-        } else if (!existing.geometry && geometry) {
-          positions.set(key, { ...existing, geometry });
-        }
-      });
-    });
-    return positions;
-  }
-  function kanjiVGComponentGeometry(component) {
-    return component.center ? {
-      x: component.center.x,
-      y: component.center.y,
-      width: component.bounds?.width,
-      height: component.bounds?.height
-    } : void 0;
-  }
-  function kanjiVGPositionKeys(component) {
-    const componentAliases = KANJIVG_COMPONENT_ALIASES.get(component.component) ?? [];
-    const originalAliases = component.original ? KANJIVG_COMPONENT_ALIASES.get(component.original) ?? [] : [];
-    return uniqueNonEmptyStrings([
-      component.component,
-      component.original,
-      ...componentAliases,
-      ...originalAliases
-    ]);
-  }
-  function normalizeKanjiVGPosition(value) {
-    const normalized = value.toLowerCase().trim();
-    return KANJIVG_POSITION_ALIASES.get(normalized) ?? normalized;
-  }
-  const KANJIVG_COMPONENT_ALIASES = /* @__PURE__ */ new Map([
-    ["⻖", ["阝", "阜"]],
-    ["阜", ["⻖", "阝"]]
-  ]);
-  const KANJIVG_POSITION_ALIASES = /* @__PURE__ */ new Map([
-    ["top", "top"],
-    ["tare", "top"],
-    ["bottom", "bottom"],
-    ["nyo", "bottom"],
-    ["left", "left"],
-    ["right", "right"],
-    ["inside", "center"],
-    ["kamae", "center"],
-    ["middle", "center"]
-  ]);
   function firstFactCandidate(candidates) {
     return candidates.find((candidate) => candidate.value?.trim());
   }
@@ -19670,9 +19676,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function normalizeFrequency(value) {
     const number = normalizeNumber(value);
     return number ? `#${number}` : "";
-  }
-  function splitRtkElements$1(value) {
-    return [...new Set(value.split(/[、,;＋+]/).map((item) => item.trim()).filter(Boolean))].slice(0, 16);
   }
   function stringArray$1(value, fallback = "") {
     const values = Array.isArray(value) ? value : fallback ? fallback.split(/[,、]\s*/) : [];
