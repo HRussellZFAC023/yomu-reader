@@ -53480,7 +53480,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     3: "blacklisted",
     4: "due",
     5: "mastered",
-    6: "redundant"
+    6: "redundant",
+    7: "in-deck"
   };
   function normalizeJitenVocabularyInfo(value) {
     const record = jitenPayloadRecord(value);
@@ -57325,6 +57326,181 @@ ${reading}`);
       )
     );
   }
+  function normalizeNewTabCard(card) {
+    const reading = newTabCardReading(card);
+    return reading === card.reading ? card : { ...card, reading };
+  }
+  function newTabCardReading(card) {
+    return normalizedJapaneseCardReading(card.spelling, card.reading);
+  }
+  function newTabCardOptionalReading(card) {
+    const reading = newTabCardReading(card);
+    return reading && reading !== card.spelling ? reading : "";
+  }
+  function newTabCardHighlightTargets(card) {
+    return cardHighlightTargets(card);
+  }
+  function shouldShowInStudyQueue(card) {
+    if (card.source === "local" || card.source === "fallback") return true;
+    if (card.reviewSource === "jpdb-live") return true;
+    const states = card.cardState ?? [];
+    return states.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked" || state2 === "not-in-deck");
+  }
+  function selectNewTabStudyPool(cards) {
+    return cards.filter(shouldShowInStudyQueue);
+  }
+  function sentenceForCard(card) {
+    const sentence = card.sentence?.replace(/\s+/g, " ").trim();
+    if (sentence) return sentence;
+    const withReading = card.wordWithReading?.replace(/\s+/g, " ").trim();
+    if (withReading && withReading.includes(card.spelling)) return withReading;
+    return card.spelling;
+  }
+  function promoteCardByKey(cards, key) {
+    if (!key) return cards;
+    const index = cards.findIndex((card2) => cardKey(card2) === key);
+    if (index <= 0) return cards;
+    const promoted = [...cards];
+    const [card] = promoted.splice(index, 1);
+    if (card) promoted.unshift(card);
+    return promoted;
+  }
+  function appendLoadedWords(result, cards, labels) {
+    if (!result.cards.length) return;
+    cards.push(...result.cards);
+    if (result.sourceLabel && !labels.includes(result.sourceLabel)) labels.push(result.sourceLabel);
+  }
+  function emptyNewTabLoadAccumulator() {
+    return { cards: [], labels: [], reviewCountMode: false };
+  }
+  function newTabLoadAccumulatorFromResult(result) {
+    const accumulator = emptyNewTabLoadAccumulator();
+    appendNewTabLoadResult(accumulator, result);
+    return accumulator;
+  }
+  function emptyNewTabLoadResult(sourceLabel = "") {
+    return { cards: [], sourceLabel, reviewCountMode: false };
+  }
+  function mergeEmptyNewTabLoadResults(previous, next) {
+    return {
+      cards: [],
+      sourceLabel: next.sourceLabel || previous.sourceLabel,
+      reviewCountMode: previous.reviewCountMode === true || next.reviewCountMode === true,
+      emptyMessageKey: next.emptyMessageKey ?? previous.emptyMessageKey
+    };
+  }
+  function appendNewTabLoadResult(accumulator, result) {
+    accumulator.reviewCountMode ||= result.reviewCountMode === true;
+    accumulator.emptyMessageKey = result.emptyMessageKey ?? accumulator.emptyMessageKey;
+    appendLoadedWords(result, accumulator.cards, accumulator.labels);
+    if (!result.cards.length && result.reviewCountMode === true && result.sourceLabel && !accumulator.labels.includes(result.sourceLabel)) {
+      accumulator.labels.push(result.sourceLabel);
+    }
+  }
+  function autoReviewSourceResults(jpdbResult, ankiResult) {
+    if (!jpdbResult.cards.length || !ankiResult.cards.length) return [jpdbResult, ankiResult];
+    const ankiByKey = /* @__PURE__ */ new Map();
+    for (const card of ankiResult.cards) {
+      const key = autoReviewMergeKey(card);
+      if (key && !ankiByKey.has(key)) ankiByKey.set(key, card);
+    }
+    if (!ankiByKey.size) return [jpdbResult, ankiResult];
+    const matchedAnkiKeys = /* @__PURE__ */ new Set();
+    const cards = jpdbResult.cards.map((card) => {
+      const key = autoReviewMergeKey(card);
+      const ankiCard = key ? ankiByKey.get(key) : void 0;
+      if (!ankiCard) return card;
+      matchedAnkiKeys.add(key);
+      return mergeDedupeCardMetadata(card, ankiCard);
+    });
+    if (!matchedAnkiKeys.size) return [jpdbResult, ankiResult];
+    return [
+      { ...jpdbResult, cards },
+      { ...ankiResult, cards: ankiResult.cards.filter((card) => !matchedAnkiKeys.has(autoReviewMergeKey(card))) }
+    ];
+  }
+  function interleavedNewTabLoadAccumulator(results) {
+    const accumulator = emptyNewTabLoadAccumulator();
+    accumulator.reviewCountMode = results.some((result) => result.reviewCountMode === true);
+    accumulator.emptyMessageKey = results.find((result) => result.emptyMessageKey)?.emptyMessageKey;
+    const activeResults = results.filter((result) => result.cards.length > 0);
+    accumulator.cards.push(...interleaveNewTabCards(activeResults.map((result) => result.cards)));
+    accumulator.labels.push(...activeResults.map((result) => result.sourceLabel));
+    return accumulator;
+  }
+  function newTabLoadResult(accumulator, language) {
+    return {
+      cards: accumulator.cards,
+      sourceLabel: accumulator.labels.length ? orderedNewTabSourceLabels(accumulator.labels).join(" + ") : newTabText(language, "noSource"),
+      reviewCountMode: accumulator.reviewCountMode,
+      emptyMessageKey: accumulator.emptyMessageKey,
+      fallbackNotice: accumulator.fallbackNotice
+    };
+  }
+  function orderedNewTabSourceLabels(labels) {
+    return [...labels].sort((a, b) => newTabSourceLabelRank(a) - newTabSourceLabelRank(b));
+  }
+  function newTabSourceLabelRank(label) {
+    if (label.startsWith("Jiten")) return 0;
+    if (label.startsWith("JPDB")) return 1;
+    if (label.startsWith("Anki")) return 2;
+    return 3;
+  }
+  function mergeDedupeCardMetadata(primary, secondary) {
+    return {
+      ...primary,
+      ankiCardId: primary.ankiCardId ?? secondary.ankiCardId,
+      ankiNoteId: primary.ankiNoteId ?? secondary.ankiNoteId,
+      deckNames: mergeOptionalStrings(primary.deckNames, secondary.deckNames),
+      ankiDeckNames: mergeOptionalStrings(primary.ankiDeckNames, secondary.ankiDeckNames),
+      jpdbDeckMembership: primary.jpdbDeckMembership ?? secondary.jpdbDeckMembership,
+      sourceDeckName: primary.sourceDeckName ?? secondary.sourceDeckName,
+      ankiModelName: primary.ankiModelName ?? secondary.ankiModelName,
+      ankiCardKind: primary.ankiCardKind ?? secondary.ankiCardKind,
+      ankiReps: primary.ankiReps ?? secondary.ankiReps,
+      ankiLapses: primary.ankiLapses ?? secondary.ankiLapses,
+      ankiRenderedCards: mergeAnkiRenderedCards(primary.ankiRenderedCards, secondary.ankiRenderedCards),
+      ankiAudioFilenames: mergeOptionalStrings(primary.ankiAudioFilenames, secondary.ankiAudioFilenames),
+      // UT-60: a word living in both API queues keeps its Jiten identity
+      // after the jpdb twin wins primary, so both grade targets stay live.
+      jitenWordId: primary.jitenWordId ?? secondary.jitenWordId,
+      jitenReadingIndex: primary.jitenReadingIndex ?? secondary.jitenReadingIndex,
+      fallbackLookupTerms: mergeOptionalStrings(primary.fallbackLookupTerms, [
+        secondary.spelling,
+        secondary.reading,
+        ...secondary.fallbackLookupTerms ?? []
+      ])
+    };
+  }
+  function autoReviewMergeKey(card) {
+    const spelling = card.spelling.trim();
+    if (!spelling) return "";
+    return `${kanaInsensitiveKey(spelling)}
+${kanaInsensitiveKey(newTabCardReading(card))}`;
+  }
+  function kanaInsensitiveKey(value) {
+    return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
+  }
+  function interleaveNewTabCards(groups) {
+    const maxLength = Math.max(0, ...groups.map((group) => group.length));
+    const cards = [];
+    for (let index = 0; index < maxLength; index++) {
+      for (const group of groups) {
+        const card = group[index];
+        if (card) cards.push(card);
+      }
+    }
+    return cards;
+  }
+  function mergeOptionalStrings(first2, second) {
+    const merged = uniqueTrimmedStrings([...first2 ?? [], ...second ?? []].filter(Boolean));
+    return merged.length ? merged : void 0;
+  }
+  function mergeAnkiRenderedCards(first2, second) {
+    const merged = /* @__PURE__ */ new Map();
+    for (const card of [...first2 ?? [], ...second ?? []]) merged.set(card.cardId, card);
+    return merged.size ? [...merged.values()] : void 0;
+  }
   class NewTabGradeSubmissionError extends Error {
     constructor(failures) {
       super(failures.map((failure) => failure.error instanceof Error ? failure.error.message : String(failure.error)).join("; "));
@@ -57397,44 +57573,177 @@ ${reading}`);
   function isFailedNewTabGrade(grade) {
     return grade === "nothing" || grade === "fail" || grade === "something";
   }
-  function normalizeNewTabCard(card) {
-    const reading = newTabCardReading(card);
-    return reading === card.reading ? card : { ...card, reading };
+  const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
+  function normalizeSearchQuery(value) {
+    return value.replace(/\s+/g, " ").trim().slice(0, 80);
   }
-  function newTabCardReading(card) {
-    return normalizedJapaneseCardReading(card.spelling, card.reading);
+  function appendSearchHandwritingCandidate(currentQuery, candidate) {
+    return normalizeSearchQuery(`${currentQuery}${candidate}`);
   }
-  function newTabCardOptionalReading(card) {
-    const reading = newTabCardReading(card);
-    return reading && reading !== card.spelling ? reading : "";
+  function queryHasJapanese(value) {
+    return /[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(value);
   }
-  function newTabCardHighlightTargets(card) {
-    return cardHighlightTargets(card);
+  function cardMatchesSearchSuggestion(card, normalizedQuery) {
+    return [
+      card.spelling,
+      newTabCardReading(card),
+      firstCardMeaning(card)
+    ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
   }
-  function shouldShowInStudyQueue(card) {
-    if (card.source === "local" || card.source === "fallback") return true;
-    if (card.reviewSource === "jpdb-live") return true;
-    const states = card.cardState ?? [];
-    return states.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked" || state2 === "not-in-deck");
+  function cardMatchesSearchResult(card, normalizedQuery) {
+    return [
+      card.spelling,
+      newTabCardReading(card),
+      firstCardMeaning(card),
+      ...card.meanings.flatMap((meaning) => meaning.glosses)
+    ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
   }
-  function selectNewTabStudyPool(cards) {
-    return cards.filter(shouldShowInStudyQueue);
+  function searchSuggestionFromCard(card) {
+    return {
+      query: card.spelling.trim(),
+      reading: newTabCardReading(card).trim(),
+      meaning: firstCardMeaning(card)
+    };
   }
-  function sentenceForCard(card) {
-    const sentence = card.sentence?.replace(/\s+/g, " ").trim();
-    if (sentence) return sentence;
-    const withReading = card.wordWithReading?.replace(/\s+/g, " ").trim();
-    if (withReading && withReading.includes(card.spelling)) return withReading;
-    return card.spelling;
+  function dedupeWords(cards) {
+    const seen = /* @__PURE__ */ new Map();
+    for (const card of cards) {
+      const key = dedupeWordKey(card);
+      const existing = seen.get(key);
+      if (!existing) {
+        seen.set(key, card);
+        continue;
+      }
+      const primary = shouldReplaceDedupeWord(card, existing) ? card : existing;
+      const secondary = primary === card ? existing : card;
+      seen.set(key, mergeDedupeCardMetadata(primary, secondary));
+    }
+    return [...seen.values()];
   }
-  function promoteCardByKey(cards, key) {
-    if (!key) return cards;
-    const index = cards.findIndex((card2) => cardKey(card2) === key);
-    if (index <= 0) return cards;
-    const promoted = [...cards];
-    const [card] = promoted.splice(index, 1);
-    if (card) promoted.unshift(card);
-    return promoted;
+  function dedupeSearchWords(cards) {
+    const results = [];
+    for (const card of dedupeWords(cards)) {
+      const duplicateIndex = results.findIndex((existing2) => searchWordsAreSameSurfacePlaceholder(card, existing2));
+      if (duplicateIndex < 0) {
+        results.push(card);
+        continue;
+      }
+      const existing = results[duplicateIndex];
+      if (existing && shouldReplaceSearchWord(card, existing)) results[duplicateIndex] = card;
+    }
+    return results;
+  }
+  function searchWordResultOrder(query, groups) {
+    const exactGroups = [groups.loadedCards, groups.publicJpdbCards, groups.parsedCards, groups.localCards];
+    const remainingGroups = [groups.parsedCards, groups.publicJpdbCards, groups.loadedCards, groups.localCards];
+    return [
+      ...exactGroups.flatMap((group) => group.filter((card) => searchWordMatchesQueryExactly(card, query))),
+      ...remainingGroups.flatMap((group) => group.filter((card) => !searchWordMatchesQueryExactly(card, query)))
+    ];
+  }
+  function searchKanjiInlineWordMeta(cards) {
+    return uniqueTrimmedStrings(cards.map(searchKanjiInlineWordLabel)).slice(0, 4).join("、");
+  }
+  function liveJpdbCardIdentity(card) {
+    return card.jpdbReviewId || cardKey(card);
+  }
+  function newTabDueSummary(cards) {
+    const summary = { dueWords: 0, dueKanji: 0, newWords: 0, newKanji: 0 };
+    for (const card of cards) {
+      if (!isScheduledStudyCard(card)) continue;
+      const characters = Array.from(card.spelling.trim());
+      const isKanjiCard = characters.length === 1 && /[\u4e00-\u9faf\u3400-\u4dbf]/u.test(characters[0] ?? "");
+      const isNew = card.cardState.includes("new") || card.cardState.includes("not-in-deck");
+      if (isNew) {
+        if (isKanjiCard) summary.newKanji += 1;
+        else summary.newWords += 1;
+      } else if (isKanjiCard) summary.dueKanji += 1;
+      else summary.dueWords += 1;
+    }
+    return summary;
+  }
+  function shouldReplaceKanjiStudyCard(card, existing) {
+    const cardPriority = kanjiStudyCardPriority(card);
+    const existingPriority = kanjiStudyCardPriority(existing);
+    if (cardPriority !== existingPriority) return cardPriority < existingPriority;
+    return hasLockedCardState(card) && !hasLockedCardState(existing);
+  }
+  function hasLockedCardState(card) {
+    return card.cardState.includes("locked");
+  }
+  function jpdbReviewCardsForNewTab(cards, limit) {
+    return markJpdbApiReviewCards(cards).filter(isScheduledStudyCard).slice(0, Math.max(1, limit));
+  }
+  function preferMultiCharacterVocabulary(cards) {
+    const multi = cards.filter((card) => Array.from(card.spelling).length >= NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH);
+    return multi.length ? multi : cards;
+  }
+  function searchKanjiInlineWordLabel(card) {
+    const detail = [
+      newTabCardOptionalReading(card),
+      firstCardMeaning(card)
+    ].filter(Boolean).join(" · ");
+    return detail ? `${card.spelling} ${detail}` : card.spelling;
+  }
+  function searchWordMatchesQueryExactly(card, query) {
+    const normalizedQuery = normalizedSearchWordIdentity$1(query);
+    return Boolean(normalizedQuery) && (normalizedSearchWordIdentity$1(card.spelling) === normalizedQuery || normalizedSearchWordIdentity$1(newTabCardReading(card)) === normalizedQuery);
+  }
+  function normalizedSearchWordIdentity$1(value) {
+    return normalizeSearchQuery(value).replace(/\s+/g, "").toLocaleLowerCase();
+  }
+  function searchWordsAreSameSurfacePlaceholder(card, existing) {
+    return card.spelling.trim() === existing.spelling.trim() && (isSearchPlaceholderWord(card) || isSearchPlaceholderWord(existing));
+  }
+  function isSearchPlaceholderWord(card) {
+    return card.source === "fallback" || !newTabCardOptionalReading(card) && !firstCardMeaning(card) && !card.frequencyRank;
+  }
+  function shouldReplaceSearchWord(card, existing) {
+    const cardScore = searchWordDetailScore(card);
+    const existingScore = searchWordDetailScore(existing);
+    if (cardScore !== existingScore) return cardScore > existingScore;
+    return shouldReplaceDedupeWord(card, existing);
+  }
+  function searchWordDetailScore(card) {
+    return sourceDetailScore(card) + (card.vid > 0 ? 2 : 0) + (newTabCardOptionalReading(card) ? 2 : 0) + (firstCardMeaning(card) ? 2 : 0) + (card.frequencyRank ? 1 : 0) + (card.pitchAccent?.length ? 1 : 0);
+  }
+  function sourceDetailScore(card) {
+    if (!card.source || card.source === "jpdb") return 8;
+    if (card.source === "anki") return 6;
+    if (card.source === "local") return 4;
+    return 0;
+  }
+  function dedupeWordKey(card) {
+    return card.reviewSource === "jpdb-live" ? `jpdb-live
+${card.jpdbReviewId ?? card.spelling}` : `${card.spelling}
+${newTabCardReading(card)}`;
+  }
+  function shouldReplaceDedupeWord(card, existing) {
+    return !existing || sourcePriority(card) < sourcePriority(existing);
+  }
+  function kanjiStudyCardPriority(card) {
+    if (card.reviewSource === "jpdb-live") return 0;
+    if (isReviewSource(card.reviewSource)) return 1;
+    if (isPositiveJpdbCard(card)) return 2;
+    if (card.source === "jpdb") return 3;
+    if (card.source === "anki") return 4;
+    if (card.source === "local") return 5;
+    return 6;
+  }
+  function sourcePriority(card) {
+    if (card.reviewSource === "jpdb-live") return -1;
+    if (!card.source || card.source === "jpdb") return 0;
+    if (card.source === "anki") return 1;
+    return 2;
+  }
+  function markJpdbApiReviewCards(cards) {
+    return cards.map((card) => normalizeNewTabCard({
+      ...card,
+      reviewSource: card.reviewSource ?? "jpdb-api"
+    }));
+  }
+  function isScheduledStudyCard(card) {
+    return card.cardState.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked");
   }
   const NEW_TAB_WORD_STATE_CLASSES = [
     "new",
@@ -57614,6 +57923,7 @@ ${reading}`);
   }
   function renderSearchKanjiResult(result) {
     const preview = result.keyword.trim();
+    const meta = searchKanjiSummaryMeta(result);
     return el(
       "div",
       { class: "jpdb-reader-newtab-search-card-shell", dataset: { newtabSearchCardShell: true } },
@@ -57626,10 +57936,14 @@ ${reading}`);
           "aria-expanded": "false"
         },
         el("span", { class: "jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable", lang: "ja" }, result.character),
-        preview ? el("span", { class: "jpdb-reader-newtab-search-meaning" }, preview) : null
+        preview ? el("span", { class: "jpdb-reader-newtab-search-meaning" }, preview) : null,
+        meta ? el("span", { class: "jpdb-reader-newtab-search-meta" }, meta) : null
       ),
       el("div", { class: "jpdb-reader-newtab-search-detail", dataset: { newtabSearchDetail: true }, hidden: true })
     );
+  }
+  function searchKanjiSummaryMeta(result) {
+    return searchKanjiInlineWordMeta(result.words) || result.readings.slice(0, 4).join("、");
   }
   function searchWordDetailHtml(card, detail, context) {
     const html = [
@@ -57912,142 +58226,6 @@ ${reading}`);
   }
   function renderNewTabKanjiMnemonic(fullInfo) {
     return fullInfo?.mnemonic ? el("p", { class: "jpdb-reader-newtab-kanji-mnemonic" }, fullInfo.mnemonic) : null;
-  }
-  function appendLoadedWords(result, cards, labels) {
-    if (!result.cards.length) return;
-    cards.push(...result.cards);
-    if (result.sourceLabel && !labels.includes(result.sourceLabel)) labels.push(result.sourceLabel);
-  }
-  function emptyNewTabLoadAccumulator() {
-    return { cards: [], labels: [], reviewCountMode: false };
-  }
-  function newTabLoadAccumulatorFromResult(result) {
-    const accumulator = emptyNewTabLoadAccumulator();
-    appendNewTabLoadResult(accumulator, result);
-    return accumulator;
-  }
-  function emptyNewTabLoadResult(sourceLabel = "") {
-    return { cards: [], sourceLabel, reviewCountMode: false };
-  }
-  function mergeEmptyNewTabLoadResults(previous, next) {
-    return {
-      cards: [],
-      sourceLabel: next.sourceLabel || previous.sourceLabel,
-      reviewCountMode: previous.reviewCountMode === true || next.reviewCountMode === true,
-      emptyMessageKey: next.emptyMessageKey ?? previous.emptyMessageKey
-    };
-  }
-  function appendNewTabLoadResult(accumulator, result) {
-    accumulator.reviewCountMode ||= result.reviewCountMode === true;
-    accumulator.emptyMessageKey = result.emptyMessageKey ?? accumulator.emptyMessageKey;
-    appendLoadedWords(result, accumulator.cards, accumulator.labels);
-    if (!result.cards.length && result.reviewCountMode === true && result.sourceLabel && !accumulator.labels.includes(result.sourceLabel)) {
-      accumulator.labels.push(result.sourceLabel);
-    }
-  }
-  function autoReviewSourceResults(jpdbResult, ankiResult) {
-    if (!jpdbResult.cards.length || !ankiResult.cards.length) return [jpdbResult, ankiResult];
-    const ankiByKey = /* @__PURE__ */ new Map();
-    for (const card of ankiResult.cards) {
-      const key = autoReviewMergeKey(card);
-      if (key && !ankiByKey.has(key)) ankiByKey.set(key, card);
-    }
-    if (!ankiByKey.size) return [jpdbResult, ankiResult];
-    const matchedAnkiKeys = /* @__PURE__ */ new Set();
-    const cards = jpdbResult.cards.map((card) => {
-      const key = autoReviewMergeKey(card);
-      const ankiCard = key ? ankiByKey.get(key) : void 0;
-      if (!ankiCard) return card;
-      matchedAnkiKeys.add(key);
-      return mergeDedupeCardMetadata(card, ankiCard);
-    });
-    if (!matchedAnkiKeys.size) return [jpdbResult, ankiResult];
-    return [
-      { ...jpdbResult, cards },
-      { ...ankiResult, cards: ankiResult.cards.filter((card) => !matchedAnkiKeys.has(autoReviewMergeKey(card))) }
-    ];
-  }
-  function interleavedNewTabLoadAccumulator(results) {
-    const accumulator = emptyNewTabLoadAccumulator();
-    accumulator.reviewCountMode = results.some((result) => result.reviewCountMode === true);
-    accumulator.emptyMessageKey = results.find((result) => result.emptyMessageKey)?.emptyMessageKey;
-    const activeResults = results.filter((result) => result.cards.length > 0);
-    accumulator.cards.push(...interleaveNewTabCards(activeResults.map((result) => result.cards)));
-    accumulator.labels.push(...activeResults.map((result) => result.sourceLabel));
-    return accumulator;
-  }
-  function newTabLoadResult(accumulator, language) {
-    return {
-      cards: accumulator.cards,
-      sourceLabel: accumulator.labels.length ? orderedNewTabSourceLabels(accumulator.labels).join(" + ") : newTabText(language, "noSource"),
-      reviewCountMode: accumulator.reviewCountMode,
-      emptyMessageKey: accumulator.emptyMessageKey,
-      fallbackNotice: accumulator.fallbackNotice
-    };
-  }
-  function orderedNewTabSourceLabels(labels) {
-    return [...labels].sort((a, b) => newTabSourceLabelRank(a) - newTabSourceLabelRank(b));
-  }
-  function newTabSourceLabelRank(label) {
-    if (label.startsWith("Jiten")) return 0;
-    if (label.startsWith("JPDB")) return 1;
-    if (label.startsWith("Anki")) return 2;
-    return 3;
-  }
-  function mergeDedupeCardMetadata(primary, secondary) {
-    return {
-      ...primary,
-      ankiCardId: primary.ankiCardId ?? secondary.ankiCardId,
-      ankiNoteId: primary.ankiNoteId ?? secondary.ankiNoteId,
-      deckNames: mergeOptionalStrings(primary.deckNames, secondary.deckNames),
-      ankiDeckNames: mergeOptionalStrings(primary.ankiDeckNames, secondary.ankiDeckNames),
-      jpdbDeckMembership: primary.jpdbDeckMembership ?? secondary.jpdbDeckMembership,
-      sourceDeckName: primary.sourceDeckName ?? secondary.sourceDeckName,
-      ankiModelName: primary.ankiModelName ?? secondary.ankiModelName,
-      ankiCardKind: primary.ankiCardKind ?? secondary.ankiCardKind,
-      ankiReps: primary.ankiReps ?? secondary.ankiReps,
-      ankiLapses: primary.ankiLapses ?? secondary.ankiLapses,
-      ankiRenderedCards: mergeAnkiRenderedCards(primary.ankiRenderedCards, secondary.ankiRenderedCards),
-      ankiAudioFilenames: mergeOptionalStrings(primary.ankiAudioFilenames, secondary.ankiAudioFilenames),
-      // UT-60: a word living in both API queues keeps its Jiten identity
-      // after the jpdb twin wins primary, so both grade targets stay live.
-      jitenWordId: primary.jitenWordId ?? secondary.jitenWordId,
-      jitenReadingIndex: primary.jitenReadingIndex ?? secondary.jitenReadingIndex,
-      fallbackLookupTerms: mergeOptionalStrings(primary.fallbackLookupTerms, [
-        secondary.spelling,
-        secondary.reading,
-        ...secondary.fallbackLookupTerms ?? []
-      ])
-    };
-  }
-  function autoReviewMergeKey(card) {
-    const spelling = card.spelling.trim();
-    if (!spelling) return "";
-    return `${kanaInsensitiveKey(spelling)}
-${kanaInsensitiveKey(newTabCardReading(card))}`;
-  }
-  function kanaInsensitiveKey(value) {
-    return value.replace(/[ァ-ヶ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 96));
-  }
-  function interleaveNewTabCards(groups) {
-    const maxLength = Math.max(0, ...groups.map((group) => group.length));
-    const cards = [];
-    for (let index = 0; index < maxLength; index++) {
-      for (const group of groups) {
-        const card = group[index];
-        if (card) cards.push(card);
-      }
-    }
-    return cards;
-  }
-  function mergeOptionalStrings(first2, second) {
-    const merged = uniqueTrimmedStrings([...first2 ?? [], ...second ?? []].filter(Boolean));
-    return merged.length ? merged : void 0;
-  }
-  function mergeAnkiRenderedCards(first2, second) {
-    const merged = /* @__PURE__ */ new Map();
-    for (const card of [...first2 ?? [], ...second ?? []]) merged.set(card.cardId, card);
-    return merged.size ? [...merged.values()] : void 0;
   }
   function newTabSourceLoadPlan(source, fallbackSupplementMin) {
     if (source === "auto") {
@@ -59823,168 +60001,6 @@ ${entry.url}`),
   function doodlePreviewBackground(canvas) {
     const stage = canvas.closest(".jpdb-reader-doodle-stage");
     return getComputedStyle(stage ?? canvas).backgroundColor || DEFAULT_OVERLAY_BACKGROUND_COLOR;
-  }
-  const NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH = 2;
-  function normalizeSearchQuery(value) {
-    return value.replace(/\s+/g, " ").trim().slice(0, 80);
-  }
-  function appendSearchHandwritingCandidate(currentQuery, candidate) {
-    return normalizeSearchQuery(`${currentQuery}${candidate}`);
-  }
-  function queryHasJapanese(value) {
-    return /[\u3040-\u30ff\u3400-\u9fff々〆]/u.test(value);
-  }
-  function cardMatchesSearchSuggestion(card, normalizedQuery) {
-    return [
-      card.spelling,
-      newTabCardReading(card),
-      firstCardMeaning(card)
-    ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
-  }
-  function cardMatchesSearchResult(card, normalizedQuery) {
-    return [
-      card.spelling,
-      newTabCardReading(card),
-      firstCardMeaning(card),
-      ...card.meanings.flatMap((meaning) => meaning.glosses)
-    ].some((value) => value.toLocaleLowerCase().includes(normalizedQuery));
-  }
-  function searchSuggestionFromCard(card) {
-    return {
-      query: card.spelling.trim(),
-      reading: newTabCardReading(card).trim(),
-      meaning: firstCardMeaning(card)
-    };
-  }
-  function dedupeWords(cards) {
-    const seen = /* @__PURE__ */ new Map();
-    for (const card of cards) {
-      const key = dedupeWordKey(card);
-      const existing = seen.get(key);
-      if (!existing) {
-        seen.set(key, card);
-        continue;
-      }
-      const primary = shouldReplaceDedupeWord(card, existing) ? card : existing;
-      const secondary = primary === card ? existing : card;
-      seen.set(key, mergeDedupeCardMetadata(primary, secondary));
-    }
-    return [...seen.values()];
-  }
-  function dedupeSearchWords(cards) {
-    const results = [];
-    for (const card of dedupeWords(cards)) {
-      const duplicateIndex = results.findIndex((existing2) => searchWordsAreSameSurfacePlaceholder(card, existing2));
-      if (duplicateIndex < 0) {
-        results.push(card);
-        continue;
-      }
-      const existing = results[duplicateIndex];
-      if (existing && shouldReplaceSearchWord(card, existing)) results[duplicateIndex] = card;
-    }
-    return results;
-  }
-  function searchWordResultOrder(query, groups) {
-    const exactGroups = [groups.loadedCards, groups.publicJpdbCards, groups.parsedCards, groups.localCards];
-    const remainingGroups = [groups.parsedCards, groups.publicJpdbCards, groups.loadedCards, groups.localCards];
-    return [
-      ...exactGroups.flatMap((group) => group.filter((card) => searchWordMatchesQueryExactly(card, query))),
-      ...remainingGroups.flatMap((group) => group.filter((card) => !searchWordMatchesQueryExactly(card, query)))
-    ];
-  }
-  function liveJpdbCardIdentity(card) {
-    return card.jpdbReviewId || cardKey(card);
-  }
-  function newTabDueSummary(cards) {
-    const summary = { dueWords: 0, dueKanji: 0, newWords: 0, newKanji: 0 };
-    for (const card of cards) {
-      if (!isScheduledStudyCard(card)) continue;
-      const characters = Array.from(card.spelling.trim());
-      const isKanjiCard = characters.length === 1 && /[\u4e00-\u9faf\u3400-\u4dbf]/u.test(characters[0] ?? "");
-      const isNew = card.cardState.includes("new") || card.cardState.includes("not-in-deck");
-      if (isNew) {
-        if (isKanjiCard) summary.newKanji += 1;
-        else summary.newWords += 1;
-      } else if (isKanjiCard) summary.dueKanji += 1;
-      else summary.dueWords += 1;
-    }
-    return summary;
-  }
-  function shouldReplaceKanjiStudyCard(card, existing) {
-    const cardPriority = kanjiStudyCardPriority(card);
-    const existingPriority = kanjiStudyCardPriority(existing);
-    if (cardPriority !== existingPriority) return cardPriority < existingPriority;
-    return hasLockedCardState(card) && !hasLockedCardState(existing);
-  }
-  function hasLockedCardState(card) {
-    return card.cardState.includes("locked");
-  }
-  function jpdbReviewCardsForNewTab(cards, limit) {
-    return markJpdbApiReviewCards(cards).filter(isScheduledStudyCard).slice(0, Math.max(1, limit));
-  }
-  function preferMultiCharacterVocabulary(cards) {
-    const multi = cards.filter((card) => Array.from(card.spelling).length >= NEW_TAB_PUBLIC_JPDB_MIN_WORD_LENGTH);
-    return multi.length ? multi : cards;
-  }
-  function searchWordMatchesQueryExactly(card, query) {
-    const normalizedQuery = normalizedSearchWordIdentity$1(query);
-    return Boolean(normalizedQuery) && (normalizedSearchWordIdentity$1(card.spelling) === normalizedQuery || normalizedSearchWordIdentity$1(newTabCardReading(card)) === normalizedQuery);
-  }
-  function normalizedSearchWordIdentity$1(value) {
-    return normalizeSearchQuery(value).replace(/\s+/g, "").toLocaleLowerCase();
-  }
-  function searchWordsAreSameSurfacePlaceholder(card, existing) {
-    return card.spelling.trim() === existing.spelling.trim() && (isSearchPlaceholderWord(card) || isSearchPlaceholderWord(existing));
-  }
-  function isSearchPlaceholderWord(card) {
-    return card.source === "fallback" || !newTabCardOptionalReading(card) && !firstCardMeaning(card) && !card.frequencyRank;
-  }
-  function shouldReplaceSearchWord(card, existing) {
-    const cardScore = searchWordDetailScore(card);
-    const existingScore = searchWordDetailScore(existing);
-    if (cardScore !== existingScore) return cardScore > existingScore;
-    return shouldReplaceDedupeWord(card, existing);
-  }
-  function searchWordDetailScore(card) {
-    return sourceDetailScore(card) + (card.vid > 0 ? 2 : 0) + (newTabCardOptionalReading(card) ? 2 : 0) + (firstCardMeaning(card) ? 2 : 0) + (card.frequencyRank ? 1 : 0) + (card.pitchAccent?.length ? 1 : 0);
-  }
-  function sourceDetailScore(card) {
-    if (!card.source || card.source === "jpdb") return 8;
-    if (card.source === "anki") return 6;
-    if (card.source === "local") return 4;
-    return 0;
-  }
-  function dedupeWordKey(card) {
-    return card.reviewSource === "jpdb-live" ? `jpdb-live
-${card.jpdbReviewId ?? card.spelling}` : `${card.spelling}
-${newTabCardReading(card)}`;
-  }
-  function shouldReplaceDedupeWord(card, existing) {
-    return !existing || sourcePriority(card) < sourcePriority(existing);
-  }
-  function kanjiStudyCardPriority(card) {
-    if (card.reviewSource === "jpdb-live") return 0;
-    if (isReviewSource(card.reviewSource)) return 1;
-    if (isPositiveJpdbCard(card)) return 2;
-    if (card.source === "jpdb") return 3;
-    if (card.source === "anki") return 4;
-    if (card.source === "local") return 5;
-    return 6;
-  }
-  function sourcePriority(card) {
-    if (card.reviewSource === "jpdb-live") return -1;
-    if (!card.source || card.source === "jpdb") return 0;
-    if (card.source === "anki") return 1;
-    return 2;
-  }
-  function markJpdbApiReviewCards(cards) {
-    return cards.map((card) => normalizeNewTabCard({
-      ...card,
-      reviewSource: card.reviewSource ?? "jpdb-api"
-    }));
-  }
-  function isScheduledStudyCard(card) {
-    return card.cardState.some((state2) => state2 === "new" || state2 === "learning" || state2 === "due" || state2 === "failed" || state2 === "locked");
   }
   const SESSION_PROGRESS_SOURCES = ["jiten", "jpdb", "anki"];
   const DUE_SESSION_STATES = /* @__PURE__ */ new Set(["due", "failed", "learning"]);
@@ -62920,7 +62936,7 @@ ${newTabCardReading(card)}`;
       if (!this.shouldLoadFallbackStudyWords(plan, accumulator)) return;
       if (!accumulator.cards.length && this.hasConfiguredReviewSources()) accumulator.fallbackNotice = true;
       const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
-      const fallback = jitenOnlyApiFallback ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress) : await this.loadFreshStudyWords(onProgress, { allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallback() });
+      const fallback = jitenOnlyApiFallback ? await this.loadJitenApiFreshStudyWords(onProgress) : await this.loadFreshStudyWords(onProgress, { allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallback() });
       if (fallback.cards.length && !this.currentModeStudyCardCount(accumulator.cards)) {
         accumulator.labels = jitenOnlyApiFallback ? ["Jiten"] : [];
         accumulator.reviewCountMode = false;
@@ -62976,6 +62992,43 @@ ${newTabCardReading(card)}`;
     async loadLocalOrBuiltInFreshStudyWords(onProgress) {
       const dictionaryResult = await this.loadDictionaryWords(onProgress);
       return dictionaryResult.cards.length ? dictionaryResult : this.loadBuiltInFreshStudyWords();
+    }
+    async loadJitenApiFreshStudyWords(onProgress) {
+      const fallback = await this.loadLocalOrBuiltInFreshStudyWords(onProgress);
+      const cards = await this.loadJitenPracticeCards(fallback.cards);
+      return cards.length ? { cards, sourceLabel: "Jiten", reviewCountMode: false } : fallback;
+    }
+    async loadJitenPracticeCards(seedCards) {
+      const jiten = this.dependencies.jiten;
+      const parse = jiten?.parse;
+      if (typeof parse !== "function" || !seedCards.length) return [];
+      const entries = seedCards.map((card) => ({ card, terms: this.jitenPracticeLookupTerms(card) }));
+      const terms = uniqueTrimmedStrings(entries.flatMap((entry) => entry.terms));
+      if (!terms.length) return [];
+      const parsed = await parse.call(jiten, terms).catch((error) => {
+        log$3.warn("Jiten practice fallback parse failed", { terms: terms.length }, error);
+        return [];
+      });
+      const byTerm = /* @__PURE__ */ new Map();
+      terms.forEach((term, index) => {
+        const card = this.pickJitenPracticeCard(term, parsed[index] ?? []);
+        if (card) byTerm.set(term, card);
+      });
+      return dedupeWords(entries.flatMap((entry) => entry.terms.map((term) => byTerm.get(term)).filter((card) => Boolean(card))));
+    }
+    jitenPracticeLookupTerms(card) {
+      return uniqueTrimmedStrings([card.spelling, newTabCardReading(card), ...card.fallbackLookupTerms ?? []].filter(Boolean));
+    }
+    pickJitenPracticeCard(term, tokens) {
+      return tokens.map((token) => token.card).find((card) => card.source === "jiten" && this.isTrackedJitenPracticeCard(card) && this.jitenPracticeCardMatchesTerm(card, term)) ?? tokens.map((token) => token.card).find((card) => card.source === "jiten" && this.isTrackedJitenPracticeCard(card)) ?? null;
+    }
+    isTrackedJitenPracticeCard(card) {
+      const states = normalizeCardStates(card.cardState);
+      return states.some((state2) => state2 !== "not-in-deck");
+    }
+    jitenPracticeCardMatchesTerm(card, term) {
+      const normalized = term.trim();
+      return card.spelling.trim() === normalized || newTabCardReading(card).trim() === normalized;
     }
     async hasLocalDictionaries() {
       const presence = typeof this.dependencies.dictionaries.hasDictionaries === "function" ? this.dependencies.dictionaries.hasDictionaries() : this.dependencies.dictionaries.summary?.().then((summary) => Boolean(summary.dictionaries.length)) ?? Promise.resolve(false);

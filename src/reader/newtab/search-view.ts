@@ -18,6 +18,7 @@ import { speakerIcon } from '../ui/icons';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { KANJI_DICTIONARIES_SOURCE_ID, orderedDefinitionSourceIds } from '../sources/sections';
 import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions, renderLocalDefinitionSourcesSection } from '../sources/definition-render';
+import { searchKanjiInlineWordMeta } from './card-selection';
 import { firstCardMeaning } from './index';
 import { ankiReviewSourceLabel, isJitenSrsCard } from './review-targets';
 import { newTabCardOptionalReading, newTabCardReading } from './study-queue';
@@ -137,6 +138,7 @@ function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): str
 
 function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
     const preview = result.keyword.trim();
+    const meta = searchKanjiSummaryMeta(result);
     return el('div', { class: 'jpdb-reader-newtab-search-card-shell', dataset: { newtabSearchCardShell: true } },
         el('button', {
             type: 'button',
@@ -145,9 +147,14 @@ function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
             'aria-expanded': 'false',
         },
         el('span', { class: 'jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable', lang: 'ja' }, result.character),
-        preview ? el('span', { class: 'jpdb-reader-newtab-search-meaning' }, preview) : null),
+        preview ? el('span', { class: 'jpdb-reader-newtab-search-meaning' }, preview) : null,
+        meta ? el('span', { class: 'jpdb-reader-newtab-search-meta' }, meta) : null),
         el('div', { class: 'jpdb-reader-newtab-search-detail', dataset: { newtabSearchDetail: true }, hidden: true }),
     );
+}
+
+function searchKanjiSummaryMeta(result: NewTabSearchKanjiResult): string {
+    return searchKanjiInlineWordMeta(result.words) || result.readings.slice(0, 4).join('、');
 }
 
 // --- Detail expansion (search word detail panel) ---

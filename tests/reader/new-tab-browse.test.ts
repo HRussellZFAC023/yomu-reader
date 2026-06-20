@@ -146,7 +146,7 @@ describe('study-page card browser (SH-3)', () => {
         expect(word?.querySelector('rt')?.textContent).toBe('がくしゅうのうりょく');
     });
 
-    it('renders collapsed kanji search cards as keyword-only previews', () => {
+    it('renders collapsed kanji search cards with compact related-word metadata', () => {
         const result = renderSearchKanjiResults([{
             character: '索',
             keyword: 'cord',
@@ -158,9 +158,9 @@ describe('study-page card browser (SH-3)', () => {
         const button = result.querySelector<HTMLElement>('[data-newtab-action="search-result-kanji"]')!;
         expect(button.textContent).toContain('索');
         expect(button.textContent).toContain('cord');
+        expect(button.textContent).toContain('検索');
+        expect(button.textContent).toContain('けんさく');
         expect(button.textContent).not.toContain('rope');
-        expect(button.textContent).not.toContain('さく');
-        expect(button.textContent).not.toContain('検索');
         expect(result.querySelector<HTMLElement>('[data-newtab-search-detail]')?.hidden).toBe(true);
     });
 });

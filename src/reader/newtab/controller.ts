@@ -385,7 +385,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'lookupVocabularyInfoForCard' | 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys'>>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'parse' | 'lookupVocabularyInfoForCard' | 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys'>>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -2608,7 +2608,7 @@ export class NewTabController {
         if (!accumulator.cards.length && this.hasConfiguredReviewSources()) accumulator.fallbackNotice = true;
         const jitenOnlyApiFallback = this.shouldUseJitenOnlyApiStudyFallback(plan, accumulator);
         const fallback = jitenOnlyApiFallback
-            ? await this.loadLocalOrBuiltInFreshStudyWords(onProgress)
+            ? await this.loadJitenApiFreshStudyWords(onProgress)
             : await this.loadFreshStudyWords(onProgress, { allowPublicJpdbFallback: this.shouldAllowPublicJpdbStudyFallback() });
         if (fallback.cards.length && !this.currentModeStudyCardCount(accumulator.cards)) {
             accumulator.labels = jitenOnlyApiFallback ? ['Jiten'] : [];
@@ -2693,6 +2693,55 @@ export class NewTabController {
     private async loadLocalOrBuiltInFreshStudyWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
         const dictionaryResult = await this.loadDictionaryWords(onProgress);
         return dictionaryResult.cards.length ? dictionaryResult : this.loadBuiltInFreshStudyWords();
+    }
+
+    private async loadJitenApiFreshStudyWords(onProgress?: (message: string) => void): Promise<NewTabLoadResult> {
+        const fallback = await this.loadLocalOrBuiltInFreshStudyWords(onProgress);
+        const cards = await this.loadJitenPracticeCards(fallback.cards);
+        return cards.length ? { cards, sourceLabel: 'Jiten', reviewCountMode: false } : fallback;
+    }
+
+    private async loadJitenPracticeCards(seedCards: readonly JPDBCard[]): Promise<JPDBCard[]> {
+        const jiten = this.dependencies.jiten;
+        const parse = jiten?.parse;
+        if (typeof parse !== 'function' || !seedCards.length) return [];
+        const entries = seedCards.map(card => ({ card, terms: this.jitenPracticeLookupTerms(card) }));
+        const terms = uniqueStrings(entries.flatMap(entry => entry.terms));
+        if (!terms.length) return [];
+        const parsed = await parse.call(jiten, terms).catch(error => {
+            log.warn('Jiten practice fallback parse failed', { terms: terms.length }, error);
+            return [] as JPDBToken[][];
+        });
+        const byTerm = new Map<string, JPDBCard>();
+        terms.forEach((term, index) => {
+            const card = this.pickJitenPracticeCard(term, parsed[index] ?? []);
+            if (card) byTerm.set(term, card);
+        });
+        return dedupeWords(entries.flatMap(entry => entry.terms.map(term => byTerm.get(term)).filter((card): card is JPDBCard => Boolean(card))));
+    }
+
+    private jitenPracticeLookupTerms(card: JPDBCard): string[] {
+        return uniqueStrings([card.spelling, newTabCardReading(card), ...(card.fallbackLookupTerms ?? [])].filter(Boolean));
+    }
+
+    private pickJitenPracticeCard(term: string, tokens: readonly JPDBToken[]): JPDBCard | null {
+        return tokens
+            .map(token => token.card)
+            .find(card => card.source === 'jiten' && this.isTrackedJitenPracticeCard(card) && this.jitenPracticeCardMatchesTerm(card, term))
+            ?? tokens
+                .map(token => token.card)
+                .find(card => card.source === 'jiten' && this.isTrackedJitenPracticeCard(card))
+            ?? null;
+    }
+
+    private isTrackedJitenPracticeCard(card: JPDBCard): boolean {
+        const states = normalizeCardStates(card.cardState);
+        return states.some(state => state !== 'not-in-deck');
+    }
+
+    private jitenPracticeCardMatchesTerm(card: JPDBCard, term: string): boolean {
+        const normalized = term.trim();
+        return card.spelling.trim() === normalized || newTabCardReading(card).trim() === normalized;
     }
 
     private async hasLocalDictionaries(): Promise<boolean> {

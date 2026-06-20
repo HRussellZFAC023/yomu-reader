@@ -340,6 +340,7 @@ describe('JitenApiClient', () => {
                 jitenVocabulary({ wordId: 7, readingIndex: 0, knownState: [5] }),
                 jitenVocabulary({ wordId: 8, readingIndex: 0, knownState: [6] }),
                 jitenVocabulary({ wordId: 9, readingIndex: 0, knownState: [4, 2] }),
+                jitenVocabulary({ wordId: 10, readingIndex: 0, knownState: [7] }),
             ],
             tokens: [[
                 { wordId: 1, readingIndex: 0, start: 0, end: 2, length: 2 },
@@ -351,11 +352,12 @@ describe('JitenApiClient', () => {
                 { wordId: 7, readingIndex: 0, start: 18, end: 20, length: 2 },
                 { wordId: 8, readingIndex: 0, start: 21, end: 23, length: 2 },
                 { wordId: 9, readingIndex: 0, start: 24, end: 26, length: 2 },
+                { wordId: 10, readingIndex: 0, start: 27, end: 29, length: 2 },
             ]],
         });
         const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
 
-        const states = (await client.parse(['読む 書く 見る 待つ 消す 学ぶ 知る 外す 返す']))[0]?.map(token => token.card.cardState);
+        const states = (await client.parse(['読む 書く 見る 待つ 消す 学ぶ 知る 外す 返す 掘る']))[0]?.map(token => token.card.cardState);
 
         expect(states).toEqual([
             // empty knownState = Jiten does not track the word — NOT mature:
@@ -369,6 +371,7 @@ describe('JitenApiClient', () => {
             ['mastered'],
             ['redundant'],
             ['due', 'mature'],
+            ['in-deck'],
         ]);
     });
 

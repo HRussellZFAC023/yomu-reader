@@ -847,6 +847,7 @@ const JITEN_CARD_STATE_MAP: Record<number, CardState> = {
     4: 'due',
     5: 'mastered',
     6: 'redundant',
+    7: 'in-deck',
 };
 
 function normalizeJitenVocabularyInfo(value: unknown): JitenVocabularyInfo | null {

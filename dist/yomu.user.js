@@ -26292,7 +26292,8 @@ ${spelling}`);
     3: "blacklisted",
     4: "due",
     5: "mastered",
-    6: "redundant"
+    6: "redundant",
+    7: "in-deck"
   };
   function normalizeJitenVocabularyInfo(value) {
     const record = jitenPayloadRecord(value);
