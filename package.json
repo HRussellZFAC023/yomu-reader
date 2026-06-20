@@ -44,7 +44,7 @@
     "docs:build": "vitepress build docs",
     "e2e:subtitles": "node scripts/subtitle-player-e2e.mjs",
     "fallow": "fallow",
-    "fallow:audit": "fallow audit --format compact",
+    "fallow:audit": "fallow audit --format compact --base origin/main",
     "fallow:dead-code": "fallow dead-code --format compact --fail-on-issues",
     "fixture:mokuro": "node scripts/lib/build-mokuro-fixture.mjs",
     "profile:performance": "node scripts/profile-performance.mjs",

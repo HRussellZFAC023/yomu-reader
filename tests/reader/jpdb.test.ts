@@ -6283,7 +6283,7 @@ describe('reader helpers', () => {
             renderGrammarSource: sentence => studySources.renderGrammarSource(sentence),
         });
 
-        expect(html).toContain('data-source="local-dictionaries"');
+        expect(html).toContain('data-source="local-dictionary"');
         expect(html).toContain('data-dictionary="Jitendex"');
         expect(html).toContain('data-immersion-kit');
         expect(html).toContain('data-study-translation');

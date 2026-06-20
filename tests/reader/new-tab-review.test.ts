@@ -1329,6 +1329,10 @@ function newTabSearchResultsText(root: HTMLElement): string {
     return root.querySelector('[data-newtab-search-results]')?.textContent ?? '';
 }
 
+function newTabSearchResultExpression(root: HTMLElement, expression: string): HTMLElement | null {
+    return root.querySelector<HTMLElement>(`[data-newtab-action="search-result-word"][data-expression="${expression}"]`);
+}
+
 function newTabSearchAutocompleteText(root: HTMLElement): string {
     return root.querySelector('[data-newtab-search-autocomplete]')?.textContent ?? '';
 }
@@ -5921,6 +5925,69 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('resolves Jiten-only practice fallback words through the Jiten API so grades stay available', async () => {
+        resetNewTabReviewStorage();
+        const localCard = newTabTestCard({ spelling: '余白', reading: 'よはく', source: 'local', reviewSource: 'dictionary' });
+        const jitenCard = newTabTestCard({
+            vid: 420,
+            sid: 0,
+            rid: 0,
+            spelling: '余白',
+            reading: 'よはく',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 420,
+            jitenReadingIndex: 0,
+            cardState: ['in-deck'],
+        });
+        const listRandomTopTerms = vi.fn(async () => newTabLocalDictionaryEntries(['余白', 'よはく', 'blank space']));
+        const listStudyBatchCards = vi.fn(async () => [] as JPDBCard[]);
+        const parse = vi.fn(async (terms: string[]) => terms.map(term => term === '余白' ? [newTabSentenceToken(jitenCard, term)] : []));
+        const controller = newTabLocalFallbackController(() => ({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            jpdbMiningEnabled: true,
+            enableReviews: true,
+            newTabSource: 'jpdb',
+            newTabJpdbReviewMode: 'api-vocabulary',
+            immersionKitEnabled: false,
+        }), localCard, listRandomTopTerms, {
+            jpdb: { listDeckCards: vi.fn(async () => [] as JPDBCard[]) } as never,
+            jiten: { listStudyBatchCards, reviewCard: vi.fn(), parse } as never,
+        });
+
+        try {
+            const result = await (controller as unknown as { loadWords(): Promise<{ cards: JPDBCard[]; sourceLabel: string; reviewCountMode?: boolean }> }).loadWords();
+
+            expect(parse).toHaveBeenCalledWith(['余白', 'よはく']);
+            expect(result.sourceLabel).toBe('Jiten');
+            expect(result.reviewCountMode).toBe(false);
+            expect(result.cards).toEqual([expect.objectContaining({
+                spelling: '余白',
+                source: 'jiten',
+                reviewSource: 'jiten-api',
+                jitenWordId: 420,
+                cardState: ['in-deck'],
+            })]);
+
+            const root = renderSeededNewTabWord(controller, result.cards[0]!, {
+                sourceLabel: result.sourceLabel,
+                state: { revealAnswer: true },
+            });
+            expect(Array.from(root.querySelectorAll<HTMLButtonElement>('[data-grade]')).map(button => button.dataset.grade)).toEqual([
+                'nothing',
+                'something',
+                'hard',
+                'okay',
+                'easy',
+            ]);
+            expect(root.querySelector('[data-newtab-grade-target-text]')?.textContent).toBe('Grades Jiten');
+        } finally {
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('keeps auto Jiten-only fallback from fetching or labeling JPDB', async () => {
         resetNewTabReviewStorage();
         const localCard = newTabTestCard({ spelling: '文脈', reading: 'ぶんみゃく', source: 'local', reviewSource: 'dictionary' });
@@ -10091,7 +10158,7 @@ describe('new tab review helpers', () => {
             expect(new URL(window.location.href).searchParams.get('q')).toBe('cat');
 
             searchApi.performSearch(root, 'おもし');
-            await waitForExpect(() => expect(newTabSearchResultsText(root)).toContain('面白い'));
+            await waitForExpect(() => expect(newTabSearchResultExpression(root, '面白い')).not.toBeNull());
             expect(new URL(window.location.href).searchParams.get('q')).toBe('おもし');
 
             window.history.back();
@@ -10103,7 +10170,7 @@ describe('new tab review helpers', () => {
             window.history.forward();
             await waitForExpect(() => {
                 expect(newTabSearchInput(root).value).toBe('おもし');
-                expect(newTabSearchResultsText(root)).toContain('面白い');
+                expect(newTabSearchResultExpression(root, '面白い')).not.toBeNull();
             });
 
             root.querySelector<HTMLButtonElement>('[data-newtab-action="search-clear"]')?.click();
