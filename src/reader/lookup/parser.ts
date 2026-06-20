@@ -17,7 +17,7 @@ import type { JitenApiClient } from '../dictionaries/jiten';
 import type { JPDBCard, JPDBToken, ReaderSettings } from '../app/types';
 import { YomitanDictionaryStore, glossaryToText, type YomitanMetaEntry, type YomitanTermEntry } from '../dictionaries/yomitan';
 
-export { fallbackJapaneseSegments, fallbackLookupTermsForText, fallbackDictionaryLookupTermsForText, fallbackLookupTermsForCard, type JapaneseTextSegment } from './japanese-segments';
+export { fallbackJapaneseSegments, fallbackLookupTermsForText, fallbackDictionaryLookupTermsForText, fallbackLookupTermsForCard } from './japanese-segments';
 
 const LOCAL_MATCH_LIMIT = 40;
 // Cap concurrent IndexedDB-backed enrichment (pitch meta + per-kanji readings)
