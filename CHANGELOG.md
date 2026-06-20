@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.29] - 2026-06-20
+
+### Changed
+
+- Internal: separate the embedded grammar dataset (`GRAMMAR_PATTERN_DATA`, `GRAMMAR_RULE_EXAMPLES`) from the grammar-detection logic in `study/tools.ts`, moving ~2.85k lines of data into `study/grammar-data.ts`. The logic file drops from 3197 to 736 lines. No behavior change; the 635-case grammar suite stays green.
+
 ## [1.4.28] - 2026-06-20
 
 ### Fixed
