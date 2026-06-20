@@ -262,10 +262,14 @@ async function settingsHydrationSnapshot(page, panel) {
     return await page.evaluate(panelName => {
         const root = document.querySelector(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden])`);
         const words = [...(root?.querySelectorAll('.jpdb-reader-word') ?? [])];
+        const form = document.querySelector('.jpdb-reader-settings');
+        const allWords = [...(form?.querySelectorAll('.jpdb-reader-word') ?? [])];
         return {
             hasRoot: Boolean(root),
             text: root?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 600) ?? '',
             wordCount: words.length,
+            totalWordCount: allWords.length,
+            totalFallbackCount: allWords.filter(word => word.getAttribute('data-card-source') === 'fallback').length,
             fallbackCount: words.filter(word => word.getAttribute('data-card-source') === 'fallback').length,
             rubyCount: root?.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length ?? 0,
             pitchCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length,

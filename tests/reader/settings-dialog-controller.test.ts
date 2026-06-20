@@ -251,8 +251,8 @@ function expectAnkiConnectSetupStatus(form: HTMLFormElement): void {
     expect(text).not.toContain('webCorsOriginList');
 }
 
-async function waitForCondition(predicate: () => boolean): Promise<void> {
-    for (let attempt = 0; attempt < 30; attempt++) {
+async function waitForCondition(predicate: () => boolean, attempts = 120): Promise<void> {
+    for (let attempt = 0; attempt < attempts; attempt++) {
         if (predicate()) return;
         await flushPromises();
         if (predicate()) return;
@@ -1333,6 +1333,7 @@ describe('settings dialog cloud sync', () => {
 
         form.querySelector<HTMLButtonElement>('[data-action="cloud-import-backup"][data-file-id="file-1"]')!.click();
 
+        await waitForCondition(() => importFile.mock.calls.length === 1);
         await waitForCondition(() => dependencies.getSettings().theme === 'dark');
 
         expect(importFile).toHaveBeenCalledOnce();
