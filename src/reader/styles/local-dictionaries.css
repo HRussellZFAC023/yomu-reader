@@ -114,7 +114,7 @@
   margin-bottom: 7px;
 }
 .jpdb-reader-dictionary-source-list,
-.jpdb-reader-dictionaries-section .jpdb-reader-local-terms {
+.jpdb-reader-dictionary-group .jpdb-reader-local-terms {
   gap: 0;
   margin-top: 0;
   padding: 0;
@@ -122,52 +122,29 @@
 .jpdb-reader-dictionary-source-list {
   display: grid;
 }
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group {
-  border-top: 1px solid var(--jpdb-reader-border);
-  padding: 0;
-  overflow: visible;
-}
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-group:first-child {
-  border-top: 1px solid var(--jpdb-reader-border);
-}
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title {
+.jpdb-reader-dictionary-group > .jpdb-reader-dictionary-source-title {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 30px;
-  padding: 6px 0;
-  color: var(--jpdb-reader-muted);
-  cursor: pointer;
-  list-style: none;
 }
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-source-title::-webkit-details-marker {
-  display: none;
+.jpdb-reader-dictionary-group
+  > .jpdb-reader-dictionary-source-title
+  .jpdb-reader-source-status {
+  margin-left: auto;
+  padding-left: 8px;
 }
-.jpdb-reader-dictionaries-section .jpdb-reader-dictionary-source-title::after {
-  content: "+";
-  flex: 0 0 auto;
-  color: var(--jpdb-reader-muted);
-  font-size: 14px;
-  line-height: 1;
-}
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-group[open]
-  > .jpdb-reader-dictionary-source-title::after {
-  content: "-";
-}
-.jpdb-reader-dictionaries-section .jpdb-reader-local-term {
+.jpdb-reader-dictionary-group .jpdb-reader-local-term {
   border: 0;
   border-radius: 0;
   background: transparent;
   padding: 7px 0 8px;
 }
-.jpdb-reader-dictionaries-section
+.jpdb-reader-dictionary-group
   .jpdb-reader-local-term
   + .jpdb-reader-local-term,
-.jpdb-reader-dictionaries-section
-  .jpdb-reader-dictionary-source-title
+.jpdb-reader-dictionary-group
+  > .jpdb-reader-dictionary-source-title
   + .jpdb-reader-local-terms {
   border-top: 1px solid var(--jpdb-reader-border);
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.34] - 2026-06-20
+
+### Changed
+
+- Imported dictionary sources now render directly in the definition stack instead of sitting behind a combined "Dictionaries" wrapper panel.
+
 ## [1.4.33] - 2026-06-20
 
 ### Fixed

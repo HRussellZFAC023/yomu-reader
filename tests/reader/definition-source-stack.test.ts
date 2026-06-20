@@ -114,6 +114,41 @@ describe('definition source stack', () => {
         expect(html.match(/JPDB review meaning/g)).toHaveLength(1);
     });
 
+    it('renders imported dictionaries as top-level sources without an aggregate dictionaries panel', () => {
+        const html = renderSources(card({
+            source: 'jpdb',
+            spelling: '復習',
+            reading: 'ふくしゅう',
+        }), { ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }, undefined, null, [
+            {
+                expression: '復習',
+                reading: 'ふくしゅう',
+                dictionary: 'Jitendex',
+                glossary: ['review; revision'],
+            },
+            {
+                expression: '復習',
+                reading: 'ふくしゅう',
+                dictionary: 'JMdict',
+                glossary: ['review'],
+            },
+        ]);
+
+        const root = document.createElement('div');
+        root.innerHTML = html;
+        const stack = root.querySelector('.jpdb-reader-definition-stack');
+        const localDictionaries = root.querySelector('[data-source="local-dictionaries"]');
+        const dictionarySources = Array.from(root.querySelectorAll<HTMLElement>('[data-source="local-dictionary"]'));
+
+        expect(localDictionaries).toBeNull();
+        expect(dictionarySources).toHaveLength(2);
+        expect(dictionarySources.every(source => source.parentElement === stack)).toBe(true);
+        expect(dictionarySources.map(source => (source.querySelector('summary')?.textContent ?? '').replace(/\s+/g, ' ').trim())).toEqual([
+            'Jitendex 1 entry',
+            'JMdict 1 entry',
+        ]);
+    });
+
     it('renders keyless-loaded Jiten info with related words, examples, and audio controls', () => {
         const html = renderSources(card({
             source: 'jpdb',

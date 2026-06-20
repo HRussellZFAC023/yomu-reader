@@ -26,24 +26,7 @@ export function renderLocalDefinitionSourcesSection(
     const dictionarySections = groupsByDictionary
         .map(source => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel, settings.interfaceLanguage, reference))
         .filter(Boolean);
-    if (!dictionarySections.length) return '';
-    const sourceCount = groupsByDictionary.length;
-    const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-    const status = [
-        `${sourceCount} ${uiText(settings.interfaceLanguage, sourceCount === 1 ? 'sourceSingular' : 'sourcePlural')}`,
-        `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? 'localWordSingular' : 'localWordPlural')}`,
-    ].join(' · ');
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey('__local_dictionaries__'))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
-                <span>${uiText(settings.interfaceLanguage, 'dictionaries')}</span>
-                <span class="jpdb-reader-source-status">${escapeHtml(status)}</span>
-            </summary>
-            <div class="jpdb-reader-dictionary-source-list">
-                ${dictionarySections.join('')}
-            </div>
-        </details>
-    `;
+    return dictionarySections.join('');
 }
 
 export function renderKanjiDefinitions(
@@ -113,7 +96,7 @@ export function kanjiFactProviderTitle(source: 'jpdb' | 'jiten'): string {
 function renderLocalDictionaryGroup(dictionary: string, groups: LearnerTermGroup[], sourceAttributes: SourceAttributes, dictionaryLabel: DictionaryLabel, language: InterfaceLanguage, reference?: CardHighlightTarget): string {
     const entryCount = groups.length;
     return `
-        <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
             <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore="true">
                 <span>${escapeHtml(dictionaryLabel(dictionary))}</span>
                 <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml(uiText(language, entryCount === 1 ? 'localWordSingular' : 'localWordPlural'))}</span>

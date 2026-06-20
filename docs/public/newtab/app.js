@@ -48035,24 +48035,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel2, reference) {
     const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
     const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel2, settings.interfaceLanguage, reference)).filter(Boolean);
-    if (!dictionarySections.length) return "";
-    const sourceCount = groupsByDictionary.length;
-    const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-    const status = [
-      `${sourceCount} ${uiText(settings.interfaceLanguage, sourceCount === 1 ? "sourceSingular" : "sourcePlural")}`,
-      `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? "localWordSingular" : "localWordPlural")}`
-    ].join(" · ");
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey$1("__local_dictionaries__"))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
-                <span>${uiText(settings.interfaceLanguage, "dictionaries")}</span>
-                <span class="jpdb-reader-source-status">${escapeHtml$1(status)}</span>
-            </summary>
-            <div class="jpdb-reader-dictionary-source-list">
-                ${dictionarySections.join("")}
-            </div>
-        </details>
-    `;
+    return dictionarySections.join("");
   }
   function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel2, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
     if (!entries.length) return "";
@@ -48100,7 +48083,7 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel2, language, reference) {
     const entryCount = groups.length;
     return `
-        <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$1(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
             <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel2(dictionary))}" data-jpdb-reader-surface-ignore="true">
                 <span>${escapeHtml$1(dictionaryLabel2(dictionary))}</span>
                 <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>

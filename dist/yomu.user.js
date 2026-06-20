@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.33
+// @version      1.4.34
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.33#sha256-YpidDMbV5Hl361J8M1pNOhK8BhY2uWyhTuvHiCJKWmc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.33#sha256-yjT0gaHgmlT/Yos/3iwlbB78toHYKaEcU+BFyJn6MZM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.33#sha256-cSTKH/e9z6EvZ3HNLkSvW4uc61Kab9e5xJe3E8TiJxo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.33#sha256-9iZgwq5SuqvAbZJDv9xRuGAt6bcZcziB97LFxsOMGUg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.34#sha256-YpidDMbV5Hl361J8M1pNOhK8BhY2uWyhTuvHiCJKWmc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.34#sha256-yjT0gaHgmlT/Yos/3iwlbB78toHYKaEcU+BFyJn6MZM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.34#sha256-cSTKH/e9z6EvZ3HNLkSvW4uc61Kab9e5xJe3E8TiJxo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.34#sha256-9iZgwq5SuqvAbZJDv9xRuGAt6bcZcziB97LFxsOMGUg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -19387,24 +19387,7 @@ ${entry.reading || ""}`;
   function renderLocalDefinitionSourcesSection(dictionaries, grouped, settings, sourceAttributes, dictionaryLabel, reference) {
     const groupsByDictionary = dictionaries.map((dictionary) => ({ dictionary, groups: groupTermEntriesByHeadword(grouped.get(dictionary) ?? []) })).filter((source) => source.groups.length);
     const dictionarySections = groupsByDictionary.map((source) => renderLocalDictionaryGroup(source.dictionary, source.groups, sourceAttributes, dictionaryLabel, settings.interfaceLanguage, reference)).filter(Boolean);
-    if (!dictionarySections.length) return "";
-    const sourceCount = groupsByDictionary.length;
-    const termCount = groupsByDictionary.reduce((count, source) => count + source.groups.length, 0);
-    const status = [
-      `${sourceCount} ${uiText(settings.interfaceLanguage, sourceCount === 1 ? "sourceSingular" : "sourcePlural")}`,
-      `${termCount} ${uiText(settings.interfaceLanguage, termCount === 1 ? "localWordSingular" : "localWordPlural")}`
-    ].join(" · ");
-    return `
-        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionaries-section" data-source="local-dictionaries" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(definitionSourceStateKey$1("__local_dictionaries__"))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
-                <span>${uiText(settings.interfaceLanguage, "dictionaries")}</span>
-                <span class="jpdb-reader-source-status">${escapeHtml$1(status)}</span>
-            </summary>
-            <div class="jpdb-reader-dictionary-source-list">
-                ${dictionarySections.join("")}
-            </div>
-        </details>
-    `;
+    return dictionarySections.join("");
   }
   function renderKanjiDefinitions(entries, sourceAttributes, dictionaryLabel, sourceId = KANJI_DICTIONARIES_SOURCE_ID, title = void 0, language = "en") {
     if (!entries.length) return "";
@@ -19452,7 +19435,7 @@ ${entry.reading || ""}`;
   function renderLocalDictionaryGroup(dictionary, groups, sourceAttributes, dictionaryLabel, language, reference) {
     const entryCount = groups.length;
     return `
-        <details class="jpdb-reader-dictionary-group" data-dictionary="${escapeHtml$1(dictionary)}" ${sourceAttributes(localDictionaryStateKey(dictionary))}>
+        <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$1(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
             <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore="true">
                 <span>${escapeHtml$1(dictionaryLabel(dictionary))}</span>
                 <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
