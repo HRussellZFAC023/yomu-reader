@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.28] - 2026-06-20
+
+### Fixed
+
+- Rolled the direct recommended dictionary installs onto the latest release line so WTY JA-JA, Pixiv Light, and JPDB Kanji remain available from direct ZIP install buttons alongside the Anki module refactor.
+
 ## [1.4.27] - 2026-06-20
 
 ### Changed
