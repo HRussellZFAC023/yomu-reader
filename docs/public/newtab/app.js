@@ -7094,7 +7094,7 @@ recommendedJiten	Jiten頻度です。
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
-  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$3 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
   const BLOCK_FLOW_TAG_NAMES = /* @__PURE__ */ new Set([
@@ -8818,7 +8818,7 @@ recommendedJiten	Jiten頻度です。
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
-      if (KANJI_RE$2.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+      if (KANJI_RE$3.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
     }
     return false;
   }
@@ -8863,7 +8863,7 @@ recommendedJiten	Jiten頻度です。
     const baseSpelling = spelling.trim();
     const baseReading = reading.trim();
     if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE$2.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
+    if (!KANJI_RE$3.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
     for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
       if (!baseReading.endsWith(spellingSuffix)) continue;
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
@@ -8886,7 +8886,7 @@ recommendedJiten	Jiten頻度です。
   function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
     const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
     if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE$2.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
+    if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -8922,7 +8922,7 @@ recommendedJiten	Jiten頻度です。
         const range = localRubyRange(surface, token, ruby);
         if (!range) return [];
         const base = surface.slice(range.start, range.end);
-        if (!KANJI_RE$2.test(base)) return [];
+        if (!KANJI_RE$3.test(base)) return [];
         if (!KANA_CHAR_RE.test(base)) return [ruby];
         const parts = kanjiOnlyRubySegments(surface, token, ruby);
         return parts.length ? parts : [ruby];
@@ -8933,7 +8933,7 @@ recommendedJiten	Jiten頻度です。
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$2.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+    if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -8961,7 +8961,7 @@ recommendedJiten	Jiten頻度です。
     return { start, end };
   }
   function kanjiRubyParts(base, reading) {
-    if (!base || !reading || !KANJI_RE$2.test(base)) return [];
+    if (!base || !reading || !KANJI_RE$3.test(base)) return [];
     if (!KANA_RE$1.test(reading)) return [{ text: reading, start: 0, end: base.length }];
     const anchors = alignRubyKanaAnchors(base, reading);
     if (!anchors) return trimRubyPartToKanji(base, reading);
@@ -8982,7 +8982,7 @@ recommendedJiten	Jiten頻度です。
   }
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes(base, reading);
-    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$2.test(trimmed.surface)) return [];
+    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -9028,7 +9028,7 @@ recommendedJiten	Jiten頻度です。
     return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
   }
   function rubyGapCanOwnReading(base, reading) {
-    return KANJI_RE$2.test(base) ? reading.length > 0 : reading.length === 0;
+    return KANJI_RE$3.test(base) ? reading.length > 0 : reading.length === 0;
   }
   function rubyBaseKanaRuns(base) {
     const runs = [];
@@ -20172,14 +20172,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const rubyPattern = /([^\[\]]+)\[([^\]]+)\]/g;
     for (const match of value.matchAll(rubyPattern)) {
       const index = match.index ?? 0;
-      reading += unannotatedPronunciationText(value.slice(offset, index));
+      reading += unannotatedPronunciationText$1(value.slice(offset, index));
       reading += match[2] ?? "";
       offset = index + match[0].length;
     }
-    reading += unannotatedPronunciationText(value.slice(offset));
+    reading += unannotatedPronunciationText$1(value.slice(offset));
     return reading;
   }
-  function unannotatedPronunciationText(value) {
+  function unannotatedPronunciationText$1(value) {
     return Array.from(value).filter((character) => !isKanjiCharacter$1(character)).join("");
   }
   function sourceStateAttribute$1(sourceStateKey, initiallyExpanded) {
@@ -23005,14 +23005,14 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   const RTK_BASE_URL = "https://hrussellzfac023.github.io/rtk";
   const RTK_SEARCH_INDEX_URL = `${RTK_BASE_URL}/assets/js/search.js`;
-  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
   const log$q = Logger.scope("RTK");
   class RtkClient {
     cache = /* @__PURE__ */ new Map();
     keywordIndex;
     // fallow-ignore-next-line unused-class-member
     lookup(kanji) {
-      if (!KANJI_RE$1.test(kanji)) return Promise.resolve(null);
+      if (!KANJI_RE$2.test(kanji)) return Promise.resolve(null);
       const key = Array.from(kanji)[0] ?? kanji;
       let promise = this.cache.get(key);
       if (!promise) {
@@ -23071,7 +23071,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       onYomi,
       kunYomi,
       elements,
-      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$1.test(character) && character !== kanji))],
+      componentKanji: [...new Set(Array.from(elements).filter((character) => KANJI_RE$2.test(character) && character !== kanji))],
       heisigStory,
       heisigComment,
       koohiiStories
@@ -23137,7 +23137,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return Array.from(value ?? "").find(isKanjiCharacter) ?? "";
   }
   function isKanjiCharacter(character) {
-    return KANJI_RE$1.test(character);
+    return KANJI_RE$2.test(character);
   }
   function addRtkKeywordIndexEntry(entries, collisions, key, kanji) {
     if (!key || collisions.has(key)) return;
@@ -32353,7 +32353,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       nextIndex: includesClosingQuote ? index + 1 : index
     };
   }
-  const KANJI_RE = /[\u3400-\u9fff]/u;
+  const KANJI_RE$1 = /[\u3400-\u9fff]/u;
   const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
   function jpdbParseResultToTokens(paragraphs, rawTokens, cards) {
     const tokens = rawTokens.map((innerTokens, index) => parseParagraphTokens(paragraphs[index] ?? "", innerTokens, cards));
@@ -32424,7 +32424,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function shouldRepairCardReading(card, surface, rubies) {
     if (!rubies.length || !surface || card.spelling !== surface) return false;
-    if (!KANJI_RE.test(card.spelling)) return false;
+    if (!KANJI_RE$1.test(card.spelling)) return false;
     const reading = card.reading.trim();
     return !reading || reading === card.spelling || KANA_RE.test(reading);
   }
@@ -48395,23 +48395,81 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sid: scope.dataset.cardHighlightSid
     };
   }
+  const KANJI_RE = /[\u3400-\u9fff]/u;
+  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
   function compactReading(value) {
     return value.replace(/\s+/g, "").trim();
+  }
+  function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
+    const spelling = card.spelling.trim();
+    if (!spelling) return "";
+    const token = cardSpellingFuriganaToken(card, spelling);
+    return shouldRenderRuby(spelling, token, settings, true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
   }
   function isPlainReadingDuplicatedByVisibleRuby(card, settings, plainReading) {
     const spelling = card.spelling.trim();
     const normalizedPlainReading = compactReading(plainReading);
     if (!spelling || !normalizedPlainReading || normalizedPlainReading === compactReading(spelling)) return false;
-    const rubyReading = normalizedJapaneseCardReading(spelling, card.reading).trim();
-    if (!rubyReading || compactReading(rubyReading) !== normalizedPlainReading) return false;
-    const token = {
-      card: { ...card, spelling, reading: rubyReading },
+    const token = cardSpellingFuriganaToken(card, spelling);
+    const visibleReading = headwordFuriganaReading(spelling, token);
+    if (!visibleReading || compactReading(visibleReading) !== normalizedPlainReading) return false;
+    return shouldRenderRuby(spelling, token, settings, true, true);
+  }
+  function cardSpellingFuriganaToken(card, spelling) {
+    const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? "");
+    const annotatedReading = rubies.length ? readingFromSurfaceRubies(spelling, rubies) : "";
+    const reading = annotatedReading || normalizedJapaneseCardReading(spelling, card.reading).trim();
+    return {
+      card: { ...card, spelling, reading },
       start: 0,
       end: spelling.length,
       length: spelling.length,
-      rubies: []
+      rubies,
+      pitchClass: "",
+      sentence: spelling
     };
-    return shouldRenderRuby(spelling, token, settings);
+  }
+  function headwordFuriganaReading(spelling, token) {
+    return token.rubies.length ? readingFromSurfaceRubies(spelling, token.rubies) : normalizedJapaneseCardReading(spelling, token.card.reading).trim();
+  }
+  function annotatedWordRubies(spelling, annotated) {
+    if (!annotated || !annotated.includes("[")) return [];
+    const rubies = [];
+    let cursor = 0;
+    let baseText2 = "";
+    let baseOffset = 0;
+    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
+      const matchIndex = match.index ?? 0;
+      const plain = annotated.slice(cursor, matchIndex);
+      const base = match[1] ?? "";
+      const reading = (match[2] ?? "").trim();
+      baseText2 += plain;
+      baseOffset += plain.length;
+      const start = baseOffset;
+      baseText2 += base;
+      baseOffset += base.length;
+      if (base && reading) {
+        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
+      }
+      cursor = matchIndex + match[0].length;
+    }
+    baseText2 += annotated.slice(cursor);
+    return baseText2 === spelling ? rubies : [];
+  }
+  function readingFromSurfaceRubies(surface, rubies) {
+    let reading = "";
+    let offset = 0;
+    for (const ruby of rubies.slice().sort((first2, second) => first2.start - second.start)) {
+      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
+      reading += unannotatedPronunciationText(surface.slice(offset, ruby.start));
+      reading += ruby.text;
+      offset = ruby.end;
+    }
+    reading += unannotatedPronunciationText(surface.slice(offset));
+    return reading;
+  }
+  function unannotatedPronunciationText(value) {
+    return Array.from(value).filter((character) => !KANJI_RE.test(character)).join("");
   }
   const LOCAL_TAG_SPLIT_RE = /[\s,;|/]+/;
   const HIDDEN_LOCAL_TERM_TAGS = /* @__PURE__ */ new Set(["0", "1", "2", "3", "4", "5"]);
@@ -49264,8 +49322,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     renderTitleRow(card, view) {
       const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
+      const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
       return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language, "showKanji"))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, "showKanji") })}</div>
+            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }

@@ -4737,6 +4737,32 @@ describe('reader helpers', () => {
         expect(spelling.classList.contains('jpdb-pitch-heiban')).toBe(true);
     });
 
+    it('renders furigana on the popup headword without losing inline kanji navigation', () => {
+        const renderer = testCardPopoverRenderer({
+            showFurigana: true,
+            furiganaMode: 'all',
+        });
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: '大変',
+            reading: 'たいへん',
+            wordWithReading: '大[たい]変[へん]',
+            frequencyRank: 800,
+            cardState: ['not-in-deck'],
+            pitchAccent: [],
+        }, '大変です。');
+
+        const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling')!;
+        const furi = [...spelling.querySelectorAll('rt.jpdb-reader-furi')].map(rt => rt.textContent);
+        const kanjiButtons = [...spelling.querySelectorAll<HTMLButtonElement>('.jpdb-reader-kanji-inline')];
+
+        expect(furi).toEqual(['たい', 'へん']);
+        expect(kanjiButtons.map(button => button.dataset.kanji)).toEqual(['大', '変']);
+        expect(spelling.querySelector('ruby .jpdb-reader-kanji-inline[data-kanji="大"]')).not.toBeNull();
+        expect(spelling.querySelector('ruby .jpdb-reader-kanji-inline[data-kanji="変"]')).not.toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+    });
+
     it('keeps Add to Anki visible inside the mining drawer panel', () => {
         const settings = {
             apiKey: 'test-key',
@@ -5222,7 +5248,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('JPDB New');
     });
 
-    it('keeps alternate reading metadata when it is not represented by ruby', () => {
+    it('suppresses alternate reading metadata when wordWithReading renders as headword ruby', () => {
         const renderer = testCardPopoverRenderer({
             apiKey: 'test-key',
             showFurigana: true,
@@ -5239,6 +5265,29 @@ describe('reader helpers', () => {
             pitchAccent: [],
         }, '人気がある。');
 
+        expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')?.textContent).toBe('にんき');
+        expect(document.querySelector('.jpdb-reader-meta-reading')).toBeNull();
+        expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('JPDB New');
+    });
+
+    it('keeps alternate reading metadata when headword ruby is hidden', () => {
+        const renderer = testCardPopoverRenderer({
+            apiKey: 'test-key',
+            showFurigana: false,
+            furiganaMode: 'off',
+        });
+
+        document.body.innerHTML = renderModalCard(renderer, {
+            ...card,
+            spelling: '人気',
+            reading: '人気',
+            wordWithReading: '人気[にんき]',
+            frequencyRank: 800,
+            cardState: ['new'],
+            pitchAccent: [],
+        }, '人気がある。');
+
+        expect(document.querySelector('.jpdb-reader-spelling rt.jpdb-reader-furi')).toBeNull();
         expect(document.querySelector('.jpdb-reader-meta-reading')?.textContent).toBe('にんき');
         expect(document.querySelector('.jpdb-reader-meta')?.textContent).toBe('にんきJPDB New');
     });

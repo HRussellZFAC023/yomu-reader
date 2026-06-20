@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.40] - 2026-06-20
+
+### Fixed
+
+- Popup headwords can now render furigana while keeping each kanji as a clickable drilldown button, so annotated spellings such as `大[たい]変[へん]` show ruby instead of bare kanji-only buttons.
+
 ## [1.4.39] - 2026-06-20
 
 ### Fixed

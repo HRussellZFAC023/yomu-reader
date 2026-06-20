@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.39
+// @version      1.4.40
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.39#sha256-UOTBNTvcxpLyuAxFXnmC5TnSr6/GAluvEiVaeLdOcVU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.39#sha256-INFQ/hN/GEiGXsPoEv85IVAzr3kaRW9tv/U9k4h+F1Q=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.39#sha256-dIcpld17JUtBzV+NKu/NQgSE9HWEgkXsvJKlhyXw9Z0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.39#sha256-p4MRhwFiZK4b/4OtFbf23aKJ9rSz1u0IwnL/9C+6xIQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.40#sha256-UOTBNTvcxpLyuAxFXnmC5TnSr6/GAluvEiVaeLdOcVU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.40#sha256-INFQ/hN/GEiGXsPoEv85IVAzr3kaRW9tv/U9k4h+F1Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.40#sha256-dIcpld17JUtBzV+NKu/NQgSE9HWEgkXsvJKlhyXw9Z0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.40#sha256-p4MRhwFiZK4b/4OtFbf23aKJ9rSz1u0IwnL/9C+6xIQ=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -3611,7 +3611,7 @@
     if (insertIndex < 0) sources.push(source);
     else sources.splice(insertIndex, 0, source);
   }
-  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+  const KANJI_RE$3 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
   const BLOCK_FLOW_TAG_NAMES = /* @__PURE__ */ new Set([
@@ -5590,7 +5590,7 @@
   }
   function hasDifficultKanji(surface) {
     for (const char of surface) {
-      if (KANJI_RE$2.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
+      if (KANJI_RE$3.test(char) && !EASY_FURIGANA_KANJI.has(char)) return true;
     }
     return false;
   }
@@ -5635,7 +5635,7 @@
     const baseSpelling = spelling.trim();
     const baseReading = reading.trim();
     if (!visibleSurface || !baseSpelling || visibleSurface === baseSpelling) return [];
-    if (!KANJI_RE$2.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
+    if (!KANJI_RE$3.test(visibleSurface) || !KANA_RE$1.test(baseReading) || baseReading === baseSpelling) return [];
     for (const spellingSuffix of trailingKanaSuffixes(baseSpelling)) {
       if (!baseReading.endsWith(spellingSuffix)) continue;
       const spellingStem = baseSpelling.slice(0, -spellingSuffix.length);
@@ -5658,7 +5658,7 @@
   function stemRubiesForInflectedSurface(surfaceStem, readingStem) {
     const trimmed = trimSharedKanaAffixes(surfaceStem, readingStem);
     if (!trimmed.surface || !trimmed.reading) return [];
-    if (!KANJI_RE$2.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
+    if (!KANJI_RE$3.test(trimmed.surface) || !KANA_RE$1.test(trimmed.reading)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -5694,7 +5694,7 @@
         const range = localRubyRange(surface, token, ruby);
         if (!range) return [];
         const base = surface.slice(range.start, range.end);
-        if (!KANJI_RE$2.test(base)) return [];
+        if (!KANJI_RE$3.test(base)) return [];
         if (!KANA_CHAR_RE.test(base)) return [ruby];
         const parts = kanjiOnlyRubySegments(surface, token, ruby);
         return parts.length ? parts : [ruby];
@@ -5705,7 +5705,7 @@
   function sourceTokenRubies(surface, token) {
     if (token.rubies.length) return token.rubies;
     const reading = token.card.reading.trim();
-    if (!surface || !KANJI_RE$2.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
+    if (!surface || !KANJI_RE$3.test(surface) || !reading || reading === surface || !KANA_RE$1.test(reading)) return [];
     const inferred = inferredInflectedSurfaceRubies(surface, token.card.spelling, reading);
     if (inferred.length) {
       return inferred.map((ruby) => ({
@@ -5733,7 +5733,7 @@
     return { start, end };
   }
   function kanjiRubyParts(base, reading) {
-    if (!base || !reading || !KANJI_RE$2.test(base)) return [];
+    if (!base || !reading || !KANJI_RE$3.test(base)) return [];
     if (!KANA_RE$1.test(reading)) return [{ text: reading, start: 0, end: base.length }];
     const anchors = alignRubyKanaAnchors(base, reading);
     if (!anchors) return trimRubyPartToKanji(base, reading);
@@ -5754,7 +5754,7 @@
   }
   function trimRubyPartToKanji(base, reading) {
     const trimmed = trimSharedKanaAffixes(base, reading);
-    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$2.test(trimmed.surface)) return [];
+    if (!trimmed.surface || !trimmed.reading || !KANJI_RE$3.test(trimmed.surface)) return [];
     return [{
       text: trimmed.reading,
       start: trimmed.offset,
@@ -5800,7 +5800,7 @@
     return rubyGapCanOwnReading(base.slice(baseOffset), reading.slice(readingOffset));
   }
   function rubyGapCanOwnReading(base, reading) {
-    return KANJI_RE$2.test(base) ? reading.length > 0 : reading.length === 0;
+    return KANJI_RE$3.test(base) ? reading.length > 0 : reading.length === 0;
   }
   function rubyBaseKanaRuns(base) {
     const runs = [];
@@ -14515,23 +14515,81 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       sid: scope.dataset.cardHighlightSid
     };
   }
+  const KANJI_RE$2 = /[\u3400-\u9fff]/u;
+  const ANNOTATED_READING_RE = /([^\[\]]+)\[([^\]]+)\]/g;
   function compactReading(value) {
     return value.replace(/\s+/g, "").trim();
+  }
+  function renderCardSpellingWithFurigana(card, settings, kanjiNavigation) {
+    const spelling = card.spelling.trim();
+    if (!spelling) return "";
+    const token = cardSpellingFuriganaToken(card, spelling);
+    return shouldRenderRuby(spelling, token, settings, true, true) ? renderRuby(spelling, token, kanjiNavigation, true) : renderKanjiNavigationText(spelling, kanjiNavigation);
   }
   function isPlainReadingDuplicatedByVisibleRuby(card, settings, plainReading) {
     const spelling = card.spelling.trim();
     const normalizedPlainReading = compactReading(plainReading);
     if (!spelling || !normalizedPlainReading || normalizedPlainReading === compactReading(spelling)) return false;
-    const rubyReading = normalizedJapaneseCardReading(spelling, card.reading).trim();
-    if (!rubyReading || compactReading(rubyReading) !== normalizedPlainReading) return false;
-    const token = {
-      card: { ...card, spelling, reading: rubyReading },
+    const token = cardSpellingFuriganaToken(card, spelling);
+    const visibleReading = headwordFuriganaReading(spelling, token);
+    if (!visibleReading || compactReading(visibleReading) !== normalizedPlainReading) return false;
+    return shouldRenderRuby(spelling, token, settings, true, true);
+  }
+  function cardSpellingFuriganaToken(card, spelling) {
+    const rubies = annotatedWordRubies(spelling, card.wordWithReading ?? "");
+    const annotatedReading = rubies.length ? readingFromSurfaceRubies(spelling, rubies) : "";
+    const reading = annotatedReading || normalizedJapaneseCardReading(spelling, card.reading).trim();
+    return {
+      card: { ...card, spelling, reading },
       start: 0,
       end: spelling.length,
       length: spelling.length,
-      rubies: []
+      rubies,
+      pitchClass: "",
+      sentence: spelling
     };
-    return shouldRenderRuby(spelling, token, settings);
+  }
+  function headwordFuriganaReading(spelling, token) {
+    return token.rubies.length ? readingFromSurfaceRubies(spelling, token.rubies) : normalizedJapaneseCardReading(spelling, token.card.reading).trim();
+  }
+  function annotatedWordRubies(spelling, annotated) {
+    if (!annotated || !annotated.includes("[")) return [];
+    const rubies = [];
+    let cursor = 0;
+    let baseText2 = "";
+    let baseOffset = 0;
+    for (const match of annotated.matchAll(ANNOTATED_READING_RE)) {
+      const matchIndex = match.index ?? 0;
+      const plain = annotated.slice(cursor, matchIndex);
+      const base = match[1] ?? "";
+      const reading = (match[2] ?? "").trim();
+      baseText2 += plain;
+      baseOffset += plain.length;
+      const start = baseOffset;
+      baseText2 += base;
+      baseOffset += base.length;
+      if (base && reading) {
+        rubies.push({ text: reading, start, end: start + base.length, length: base.length });
+      }
+      cursor = matchIndex + match[0].length;
+    }
+    baseText2 += annotated.slice(cursor);
+    return baseText2 === spelling ? rubies : [];
+  }
+  function readingFromSurfaceRubies(surface, rubies) {
+    let reading = "";
+    let offset = 0;
+    for (const ruby of rubies.slice().sort((first, second) => first.start - second.start)) {
+      if (ruby.start < offset || ruby.end > surface.length || ruby.end <= ruby.start) continue;
+      reading += unannotatedPronunciationText$1(surface.slice(offset, ruby.start));
+      reading += ruby.text;
+      offset = ruby.end;
+    }
+    reading += unannotatedPronunciationText$1(surface.slice(offset));
+    return reading;
+  }
+  function unannotatedPronunciationText$1(value) {
+    return Array.from(value).filter((character) => !KANJI_RE$2.test(character)).join("");
   }
   const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
   const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
@@ -20136,8 +20194,9 @@ ${entry.reading || ""}`;
     renderTitleRow(card, view) {
       const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
       const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ""}`;
+      const kanjiNavigation = { enabled: true, label: uiText(view.language, "showKanji") };
       return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(uiText(view.language, "showKanji"))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, "showKanji") })}</div>
+            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml$1(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }

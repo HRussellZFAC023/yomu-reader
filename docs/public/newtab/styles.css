@@ -7396,6 +7396,41 @@ html.jpdb-reader-suppress-redundant .jpdb-reader-word.jpdb-redundant {
   text-decoration: none;
   word-break: keep-all;
 }
+.jpdb-reader-spelling:has(rt.jpdb-reader-furi) {
+  line-height: 1.55;
+}
+.jpdb-reader-spelling ruby {
+  position: static;
+  display: ruby;
+  ruby-align: center;
+  ruby-position: over;
+  line-height: 1;
+  vertical-align: baseline;
+  text-decoration-line: inherit !important;
+  text-decoration-style: inherit !important;
+  text-decoration-color: inherit !important;
+  text-decoration-thickness: inherit !important;
+  text-underline-offset: inherit !important;
+}
+.jpdb-reader-spelling rt {
+  position: static;
+  left: auto;
+  bottom: auto;
+  display: ruby-text;
+  transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+  text-decoration: none !important;
+  ruby-align: center;
+  line-height: 1;
+  text-align: center;
+}
+.jpdb-reader-spelling rp {
+  display: none;
+}
+.jpdb-reader-spelling .jpdb-reader-ruby-base {
+  display: inline;
+}
 /* Pitch is signaled exactly once on the card. The headword carries a jpdb-pitch-*
    class that (under the pitch-underline display mode) draws a pitch-colored
    underline, while the card tools also render the canonical mora-labelled pitch

@@ -4,8 +4,8 @@ import { renderAnkiActionRow, renderAnkiExistingSection, renderAnkiNewCardPrevie
 import { normalizeCardStates, primaryCardState } from './state';
 import type { CardRenderData } from './render-data';
 import { renderDeckChoiceOptions, jpdbDeckLabel } from './deck-choice';
-import { isPlainReadingDuplicatedByVisibleRuby } from './reading-display';
-import { escapeHtml, renderKanjiNavigationText } from '../dom/index';
+import { isPlainReadingDuplicatedByVisibleRuby, renderCardSpellingWithFurigana } from './reading-display';
+import { escapeHtml } from '../dom/index';
 import { renderKanjiDefinitions } from '../sources/definition-render';
 import { cardStateLabel, uiText } from '../app/i18n';
 import { speakerIcon } from '../ui/icons';
@@ -164,8 +164,9 @@ export class CardPopoverRenderer {
         // the card header only showed the pitch graph before, never the underline.
         const pitchClass = getPitchClass(card.pitchAccent ?? [], cardPronunciationReading(card) || card.reading);
         const spellingClass = `jpdb-reader-spelling jpdb-${view.state}${pitchClass ? ` jpdb-pitch-${pitchClass}` : ''}`;
+        const kanjiNavigation = { enabled: true, label: uiText(view.language, 'showKanji') };
         return `<div class="jpdb-reader-title-row">
-            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(uiText(view.language, 'showKanji'))}">${renderKanjiNavigationText(card.spelling, { enabled: true, label: uiText(view.language, 'showKanji') })}</div>
+            <div class="${spellingClass}" data-pitch-class="${pitchClass}" data-jpdb-reader-kanji-nav data-jpdb-reader-kanji-nav-label="${escapeHtml(kanjiNavigation.label)}">${renderCardSpellingWithFurigana(card, this.settings(), kanjiNavigation)}</div>
             ${renderMeta(view.metaItems)}
         </div>`;
     }
