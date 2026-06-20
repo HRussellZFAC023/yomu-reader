@@ -1299,7 +1299,7 @@ describe('settings dialog dictionary imports', () => {
 
         form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
-        expect(dependencies.toast).toHaveBeenCalledWith('Dictionary import is running. Save unlocks when done.');
+        expect(dependencies.toast).toHaveBeenCalledWith('Import running. Save unlocks when done.');
         expect(dismiss).not.toHaveBeenCalled();
 
         firstImport.resolve(importSummary('Jitendex'));

@@ -22,20 +22,36 @@ function criticalSelector(states: readonly string[]): string {
     return states.map(state => `[data-card-state=${state}]`).join(',');
 }
 
+function criticalAnkiSelector(states: readonly string[]): string {
+    return states.flatMap(state => [`.anki-${state}`, `[data-anki-state=${state}]`]).join(',');
+}
+
+function criticalPitchSelector(pattern: string): string {
+    return `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
+}
+
 function criticalVars(color: string): string {
-    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable)`;
+    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb))`;
+}
+
+function criticalAnkiVars(color: string): string {
+    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,transparent) 36%,var(--yb))`;
 }
 
 function criticalWordCss(): string {
     const states = CRITICAL_STATES
         .map(([color, group]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color)}}`)
         .join('');
-    const pitches = CRITICAL_PITCHES
-        .map(pattern => `.jpdb-reader-word.jpdb-pitch-${pattern}{--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`)
+    const ankiStates = CRITICAL_STATES
+        .map(([color, group]) => `.jpdb-reader-word:is(${criticalAnkiSelector(group)}){${criticalAnkiVars(color)}}`)
         .join('');
-    const pitchSelector = CRITICAL_PITCHES.map(pattern => `.jpdb-pitch-${pattern}`).join(',');
+    const pitches = CRITICAL_PITCHES
+        .map(pattern => `.jpdb-reader-word:is(${criticalPitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`)
+        .join('');
+    const pitchSelector = CRITICAL_PITCHES.map(criticalPitchSelector).join(',');
     return [
         states,
+        ankiStates,
         '.jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb))}',
         pitches,
         `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,transparent);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
@@ -45,10 +61,11 @@ function criticalWordCss(): string {
 
 function criticalChannelCss(): string {
     return [
-        '.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,transparent)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,transparent)}',
-        ':is(.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{--yhp:var(--yh,transparent);background:linear-gradient(var(--yhp),var(--yhp)) center/var(--yz) 100% no-repeat!important}',
-        '.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,transparent)}',
-        '.jpdb-reader-word-text-pitch .jpdb-reader-word{color:var(--c2,currentColor)!important}',
+        '.jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,transparent)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,transparent)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,transparent)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,transparent)}',
+        ':is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{--yhp:var(--yh,transparent);background:linear-gradient(var(--yhp),var(--yhp)) center/var(--yz) 100% no-repeat!important}',
+        '.jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,transparent)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,transparent)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,transparent)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,transparent)}',
+        '.jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}',
+        ':is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}',
     ].join('');
 }
 

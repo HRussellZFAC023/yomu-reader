@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.30] - 2026-06-20
+
+### Fixed
+
+- Discord and other page-word surfaces now keep highlights, underlines, and text colors on particle and short-token spans by preserving the shared state and pitch classes instead of leaving those tokens visually inert.
+- Strict or stale-CSS pages now get the same critical fallback for status, JPDB/Jiten, Anki, and pitch word-color channels while the full `yomu.css` resource is unavailable.
+
 ## [1.4.29] - 2026-06-20
 
 ### Changed

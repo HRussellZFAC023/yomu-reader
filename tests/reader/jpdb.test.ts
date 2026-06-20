@@ -3492,9 +3492,11 @@ describe('reader helpers', () => {
             expect(particle?.classList.contains('jpdb-reader-word')).toBe(true);
             expect(particle?.classList.contains('jpdb-reader-particle')).toBe(true);
             expect(particle?.dataset.vid).toBe('11');
-            expect(particle?.classList.contains('jpdb-known')).toBe(false);
-            expect(Array.from(particle?.classList ?? []).some(className => className.startsWith('jpdb-pitch-'))).toBe(false);
-            expect(fallbackParticle?.className).toBe('jpdb-reader-word jpdb-reader-particle');
+            expect(particle?.classList.contains('jpdb-known')).toBe(true);
+            expect(particle?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+            expect(fallbackParticle?.classList.contains('jpdb-reader-particle')).toBe(true);
+            expect(fallbackParticle?.classList.contains('fallback-not-in-deck')).toBe(true);
+            expect(fallbackParticle?.classList.contains('jpdb-pitch-unknown')).toBe(true);
         } finally {
             document.body.replaceChildren();
         }
@@ -3555,7 +3557,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('does not inherit pitch coloring onto JPDB particle tokens', () => {
+    it('keeps particle tokens visually styled from their shared state and pitch classes', () => {
         const text = '青空の下';
         const cards = jpdbVocabularyToCards([
             [1, 1, 1, '青空', 'あおぞら', 1200, ['n'], [['blue sky']], [['n']], ['known'], ['LHHH']],

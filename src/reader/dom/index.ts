@@ -2481,7 +2481,6 @@ function readerWordClassName(state: string, token: JPDBToken): string {
     const classes = ['jpdb-reader-word'];
     if (isParticleCard(token.card)) {
         classes.push('jpdb-reader-particle');
-        return classes.join(' ');
     }
     if (hasKnownCardState(token.card)) {
         classes.push(`jpdb-${state}`);

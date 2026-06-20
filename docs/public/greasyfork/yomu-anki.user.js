@@ -1300,7 +1300,7 @@
       newTabApiVocabulary: "API vocabulary only",
       corsProxyUrl: "Cross-origin proxy URL",
       newTabKanjiKeywordSource: "Kanji keyword source",
-      newTabKanjiKeywordAuto: "Auto: RTK, {service}, local",
+      newTabKanjiKeywordAuto: "Auto: RTK, then {service} kanji facts, then local",
       newTabKanjiKeywordRtk: "RTK / Heisig",
       newTabKanjiKeywordApiFacts: "{service} kanji facts (Jiten / JPDB)",
       newTabKanjiKeywordLocal: "Local card meaning",
@@ -1487,7 +1487,7 @@
       immersionKitMediaRequestFailed: "Media request failed.",
       immersionKitMediaRequestFailedWithStatus: "Media request failed ({status}).",
       immersionKitMediaRequestTimedOut: "Media request timed out.",
-      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error document.",
+      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error page.",
       immersionKitNoMediaCandidate: "No Immersion Kit media loaded.",
       nadeshikoRequest: "Nadeshiko request",
       nadeshikoRequestFailed: "Nadeshiko request failed.",
@@ -1642,7 +1642,7 @@
       ankiStatusRefreshAndCheck: "Refresh and check",
       ankiHostedCorsHint: "Add {origin} to webCorsOriginList.",
       ankiLibraryAdapter: "Existing library adapter",
-      ankiLibraryAdapterStatus: "Scans decks and note types, then suggests mappings.",
+      ankiLibraryAdapterStatus: "Scans decks/types and suggests mappings.",
       ankiLibraryChoices: "Deck and note type",
       ankiLibraryChoicesHelp: "Pick where mining saves notes.",
       ankiTemplateSettings: "Yomu card template",
@@ -1651,7 +1651,7 @@
       ankiMappingHighConfidence: "High",
       ankiMappingMediumConfidence: "Medium",
       ankiMappingLowConfidence: "Low",
-      ankiHelp: "Full Anki uses desktop AnkiConnect over LAN/Tailscale. Handoff only creates new notes.",
+      ankiHelp: "Full Anki uses AnkiConnect. Handoff creates notes.",
       jpdbDefinitionsEnabled: "Show JPDB definitions",
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
@@ -1695,11 +1695,11 @@
       dictionaryImporting: "Importing",
       importingBundledDictionaries: "Importing bundled dictionaries...",
       dictionaryImported: "Imported",
-      dictionaryPreparingImport: "Preparing to import",
+      dictionaryPreparingImport: "Preparing import",
       dictionaryRecords: "dictionary records",
       dictionaryEntries: "entries",
       dictionaryTotal: "total",
-      dictionaryDownloadProgress: "Downloading dictionary",
+      dictionaryDownloadProgress: "Downloading",
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
       dictionaryStatusUnavailable: "Unavailable.",
       noLocalDictionariesImported: "No dictionaries imported yet.",
@@ -1707,11 +1707,11 @@
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Download was not a ZIP.",
       dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
-      dictionaryDownloadBlocked: "Download is blocked. Import the ZIP.",
+      dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
       dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
       dictionaryInstallQueueHelp: "Installs take a few minutes.",
       dictionaryInstallQueued: "{dictionary} queued.",
-      dictionaryInstallSaveBlocked: "Dictionary import is running. Save unlocks when done.",
+      dictionaryInstallSaveBlocked: "Import running. Save unlocks when done.",
       dictionaryImportQueueStatus: "{count} install{plural} running.",
       dictionaryRemoveConfirm: 'Remove "{dictionary}"?',
       dictionaryRemoving: "Removing {dictionary}...",
@@ -1757,7 +1757,7 @@
       noTextToRead: "No text to read aloud.",
       jpdbExampleAudioUnavailable: "No JPDB audio is available for this example.",
       jpdbAudioPlayableFileMissing: "JPDB audio returned no playable file.",
-      jpdbAudioResponseNotPlayable: "JPDB audio response was not a playable audio file.",
+      jpdbAudioResponseNotPlayable: "JPDB audio was not playable.",
       audioSourceReturnedNoAudio: "Audio source did not return audio.",
       audioJsonMissingPlayableUrl: "Audio JSON had no playable URL.",
       textToSpeechUnavailable: "Text-to-speech is unavailable.",
@@ -2058,7 +2058,7 @@
       openedInAnki: "Opened in Anki.",
       addedToDeckAndReviewed: "Added to deck and reviewed.",
       sentToAnki: "Sent to Anki.",
-      openedMobileAnkiHandoff: "Opened mobile Anki handoff. Continue in Anki to create the new note.",
+      openedMobileAnkiHandoff: "Opened Anki handoff. Continue in Anki.",
       alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
@@ -2077,9 +2077,9 @@
       ankiConnectRequestFailed: "AnkiConnect request failed.",
       ankiConnectTimedOut: "AnkiConnect timed out.",
       ankiConnectNeedsBridge: "AnkiConnect needs the userscript bridge.",
-      mobileAnkiReady: "Anki is not connected. Mobile handoff can create notes.",
+      mobileAnkiReady: "Anki offline. Handoff can create notes.",
       ankiConnectionReady: "Connected. AnkiConnect is reachable.",
-      ankiConnectedReady: 'Deck "{deck}" and note type "{model}" are ready.',
+      ankiConnectedReady: 'Connected. "{deck}" / "{model}" ready.',
       ankiPromptRecallWord: "Recall the highlighted word.",
       ankiMeaningHeading: "Meaning",
       ankiPitchHeading: "Pitch",
@@ -2143,7 +2143,7 @@
       importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
-      sourceHelpJiten: "Jiten meanings, examples, and related vocabulary from the current card.",
+      sourceHelpJiten: "Jiten meanings, examples, and related words.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
@@ -2159,7 +2159,7 @@
       sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
       sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
       sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
-      sourceHelpJitenKanjiFacts: "Jiten kanji facts, exact frequency, readings, and vocabulary.",
+      sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
       sourceHelpRtk: "RTK keywords, elements, and stories.",
       sourceHelpUchisen: "Uchisen mnemonic image carousel.",
       uchisenMnemonicImages: "Uchisen mnemonic images",
@@ -2662,9 +2662,9 @@ ankiConnectRequestFailed	AnkiConnectリクエストに失敗しました。
 ankiConnectTimedOut	AnkiConnectがタイムアウトしました。
 ankiConnectNeedsBridge	AnkiConnectにはブリッジが必要です。
 ankiHostedCorsHint	webCorsOriginListに{origin}を追加してください。
-mobileAnkiReady	Anki未接続。モバイル受け渡しは使えます。
+mobileAnkiReady	Anki未接続。受け渡しでカード作成できます。
 ankiConnectionReady	接続しました。AnkiConnectに到達できます。
-ankiConnectedReady	接続済み。デッキ「{deck}」、ノート「{model}」。
+ankiConnectedReady	接続済み。「{deck}」/「{model}」準備完了。
 ankiPromptRecallWord	ハイライトされた単語を思い出してください。
 ankiMeaningHeading	意味
 ankiPitchHeading	ピッチ
@@ -2830,7 +2830,7 @@ light	ライト
 popupMode	ポップアップ表示
 bottomSheet	下部シート
 popover	ポップオーバー
-stickyBottomSheet	検索後もシートを開いたままにする
+stickyBottomSheet	検索後も開く
 popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
@@ -2857,16 +2857,16 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: API/Anki、その後に学習語
+newTabAuto	自動: API/Anki後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順・JPDBの復習順とは異なります）
+newTabApiVocabulary	API語彙のみ（デッキ順）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
-newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
+newTabKanjiKeywordAuto	自動: RTK、{service}、ローカル
 newTabKanjiKeywordRtk	RTK / Heisig
 newTabKanjiKeywordApiFacts	{service}漢字情報（Jiten / JPDB）
 newTabKanjiKeywordLocal	ローカルカードの意味
@@ -3180,7 +3180,7 @@ ankiStatusUseDesktopUrl	モバイルではLAN/Tailscale URLを使う
 ankiStatusEnableUserscript	よむを有効化
 ankiStatusRefreshAndCheck	更新して再確認
 ankiLibraryAdapter	既存ライブラリアダプター
-ankiLibraryAdapterStatus	既存デッキとノートタイプを読み取り、対応付けを提案します。
+ankiLibraryAdapterStatus	既存デッキから対応付けを提案します。
 ankiLibraryChoices	デッキとノートタイプ
 ankiLibraryChoicesHelp	作成・更新先を選びます。
 ankiTemplateSettings	よむカードテンプレート
@@ -3189,7 +3189,7 @@ ankiMappingConfidenceHelp	フィールド名とサンプルで判断します。
 ankiMappingHighConfidence	高
 ankiMappingMediumConfidence	中
 ankiMappingLowConfidence	低
-ankiHelp	完全なAnki機能にはAnkiConnectが必要です。受け渡しは新規ノートのみ。
+ankiHelp	AnkiConnectで全機能。受け渡しは新規ノートのみ。
 jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く

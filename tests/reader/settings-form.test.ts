@@ -1064,14 +1064,13 @@ describe('settings form localization', () => {
         expect(status.textContent).toContain('Checking AnkiConnect at http://192.168.1.8:8765');
         expect(status.textContent).not.toContain('Mobile Anki handoff');
         expect(status.textContent).not.toContain('Full Anki features use desktop AnkiConnect');
-        expect(adapter.textContent).toContain('Scans decks and note types');
+        expect(adapter.textContent).toContain('Scans decks/types and suggests mappings.');
         const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
         const helpLink = help.querySelector<HTMLAnchorElement>('a[href="https://ankiweb.net/shared/info/2055492159"]');
         const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(helpLink?.textContent).toContain('Open AnkiConnect add-on');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
-        expect(help.textContent).toContain('Full Anki uses desktop AnkiConnect over LAN/Tailscale');
-        expect(help.textContent).toContain('Handoff only creates new notes');
+        expect(help.textContent).toContain('Full Anki uses AnkiConnect. Handoff creates notes.');
         expect(help.textContent).not.toContain('webCorsOriginList');
         expect(form.textContent).not.toContain('Scan Anki to choose from your decks and note types');
     });
@@ -1500,8 +1499,7 @@ describe('settings form localization', () => {
         const help = form.querySelector<HTMLElement>('[data-anki-setup-help]')!;
         const docsLink = help.querySelector<HTMLAnchorElement>('a[href$="getting-started#use-desktop-anki-from-a-phone-ipad-or-android"]');
         expect(docsLink?.textContent).toContain('Mobile Anki setup docs');
-        expect(help.textContent).toContain('Full Anki uses desktop AnkiConnect over LAN/Tailscale');
-        expect(help.textContent).toContain('Handoff only creates new notes');
+        expect(help.textContent).toContain('Full Anki uses AnkiConnect. Handoff creates notes.');
         expect(help.textContent).not.toContain('webCorsOriginList');
         expect(form.textContent).not.toContain('Handoff does not read your existing collection');
         expect(form.textContent).not.toContain('review queues require desktop Anki');
