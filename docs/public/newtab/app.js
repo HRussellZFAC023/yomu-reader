@@ -9415,6 +9415,176 @@ recommendedJiten	Jiten頻度です。
 ${candidate.rules.join(" ")}
 ${candidate.depth}`;
   }
+  const TERM_MATCH_SELECTION_COMPARATORS = [
+    compareTermMatchLengthDescending,
+    compareTermMatchDeinflectionDepth,
+    compareTermMatchStart,
+    compareTermMatchDictionaryName,
+    compareTermMatchEntryScoreDescending
+  ];
+  function dictionaryRank(preferences) {
+    const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
+    return rank;
+  }
+  function dictionaryEnabled(dictionary, rank) {
+    return rank.get(dictionary)?.enabled ?? true;
+  }
+  function dictionaryPriority(dictionary, rank) {
+    return rank.get(dictionary)?.priority ?? 9999;
+  }
+  function compareMetaEntries(a, b, rank) {
+    return compareMetaModes(a, b) || compareMetaEntriesWithinMode(a, b, rank);
+  }
+  function compareMetaModes(a, b) {
+    return metaModePriority(a) - metaModePriority(b);
+  }
+  function metaModePriority(entry) {
+    return entry.mode === "freq" ? 0 : 1;
+  }
+  function compareMetaEntriesWithinMode(a, b, rank) {
+    return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
+  }
+  function compareFrequencyMetaEntries(a, b, rank) {
+    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank(a.data) - frequencyRank(b.data) || compareDictionaryName(a, b);
+  }
+  function jpdbFrequencyPriority(entry) {
+    return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
+  }
+  function compareDictionaryMetaEntries(a, b, rank) {
+    return compareDictionaryPriority(a, b, rank) || compareDictionaryName(a, b);
+  }
+  function compareDictionaryPriority(a, b, rank) {
+    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank);
+  }
+  function compareDictionaryName(a, b) {
+    return a.dictionary.localeCompare(b.dictionary);
+  }
+  function extractFrequency(value) {
+    const rank = frequencyRank(value);
+    return Number.isFinite(rank) ? rank : void 0;
+  }
+  function nonOverlappingMatches(matches, limit) {
+    const selected = [];
+    const occupied = [];
+    const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
+    for (const match of matches.sort(compareTermMatchesForSelection)) {
+      if (overlaps(match)) continue;
+      selected.push(match);
+      occupied.push([match.start, match.end]);
+      if (selected.length >= limit) break;
+    }
+    const result = selected.sort((a, b) => a.start - b.start);
+    return result;
+  }
+  function compareTermMatchesForSelection(a, b) {
+    for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
+      const result = compare(a, b);
+      if (result) return result;
+    }
+    return 0;
+  }
+  function compareTermMatchLengthDescending(a, b) {
+    return b.end - b.start - (a.end - a.start);
+  }
+  function compareTermMatchDeinflectionDepth(a, b) {
+    return (a.deinflected?.depth ?? 0) - (b.deinflected?.depth ?? 0);
+  }
+  function compareTermMatchStart(a, b) {
+    return a.start - b.start;
+  }
+  function compareTermMatchDictionaryName(a, b) {
+    return a.entry.dictionary.localeCompare(b.entry.dictionary);
+  }
+  function compareTermMatchEntryScoreDescending(a, b) {
+    return (b.entry.score ?? 0) - (a.entry.score ?? 0);
+  }
+  function isJpdbFrequencyDictionary(dictionary) {
+    return /jpdb/i.test(dictionary);
+  }
+  function frequencyRank(value) {
+    if (typeof value === "number") return value;
+    if (typeof value === "string") return rankFromFrequencyString(value);
+    const nested = nestedFrequencyValue(value);
+    return nested === void 0 ? Number.POSITIVE_INFINITY : frequencyRank(nested);
+  }
+  function rankFromFrequencyString(value) {
+    return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
+  }
+  function nestedFrequencyValue(value) {
+    if (!value || typeof value !== "object") return void 0;
+    const record = value;
+    return record.frequency ?? record.value ?? record.displayValue;
+  }
+  const JAPANESE_RE$3 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  function readIndexRequestValues(index, query, limit, resolve, reject) {
+    if (typeof index.getAll === "function") {
+      const request2 = index.getAll(query, limit);
+      request2.onsuccess = () => resolve(request2.result);
+      request2.onerror = () => reject(request2.error);
+      return;
+    }
+    const results = [];
+    let count = 0;
+    const request = index.openCursor(query);
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor || count >= limit) {
+        resolve(results);
+        return;
+      }
+      results.push(cursor.value);
+      count++;
+      cursor.continue();
+    };
+    request.onerror = () => reject(request.error);
+  }
+  function isSearchableJapaneseSurface(surface) {
+    return JAPANESE_RE$3.test(surface) && !/\s/.test(surface);
+  }
+  function sortedTermMatchExpressions(candidates) {
+    return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
+  }
+  function requestTermMatchIndex(index, expression, addMatches, finish, reject) {
+    const request = index.getAll(IDBKeyRange.only(expression), 8);
+    request.onsuccess = () => {
+      addMatches(expression, request.result);
+      finish();
+    };
+    request.onerror = () => reject(request.error);
+  }
+  function termMatchesForEntries(expression, foundEntries, candidates, rank) {
+    const entries = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
+    if (!entries.length) return [];
+    return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries)).filter((match) => Boolean(match));
+  }
+  function deduplicateTermMatchEntries(entries) {
+    const seen = /* @__PURE__ */ new Set();
+    return entries.filter((item) => {
+      const key = `${item.id ?? ""}
+${item.dictionary}
+${item.expression}
+${item.reading}
+${item.sequence ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function sortTermMatchEntries(entries, rank) {
+    return entries.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
+  }
+  function rankedDictionaryEntries(entries, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
+    const ranked = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
+    return limit === void 0 ? ranked : ranked.slice(0, limit);
+  }
+  function termMatchForPosition(position, entries) {
+    const entry = entries.find((item) => termRulesMatch(item.rules, position.deinflected.rules));
+    return entry ? {
+      entry,
+      ...position,
+      deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
+    } : null;
+  }
   function readBlobWithFileReader(blob, read, result) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -9896,106 +10066,6 @@ ${candidate.depth}`;
     } catch {
       return url;
     }
-  }
-  const TERM_MATCH_SELECTION_COMPARATORS = [
-    compareTermMatchLengthDescending,
-    compareTermMatchDeinflectionDepth,
-    compareTermMatchStart,
-    compareTermMatchDictionaryName,
-    compareTermMatchEntryScoreDescending
-  ];
-  function dictionaryRank(preferences) {
-    const rank = new Map(normalizeDictionaryPreferences(preferences).map((item) => [item.name, item]));
-    return rank;
-  }
-  function dictionaryEnabled(dictionary, rank) {
-    return rank.get(dictionary)?.enabled ?? true;
-  }
-  function dictionaryPriority(dictionary, rank) {
-    return rank.get(dictionary)?.priority ?? 9999;
-  }
-  function compareMetaEntries(a, b, rank) {
-    return compareMetaModes(a, b) || compareMetaEntriesWithinMode(a, b, rank);
-  }
-  function compareMetaModes(a, b) {
-    return metaModePriority(a) - metaModePriority(b);
-  }
-  function metaModePriority(entry) {
-    return entry.mode === "freq" ? 0 : 1;
-  }
-  function compareMetaEntriesWithinMode(a, b, rank) {
-    return a.mode === "freq" && b.mode === "freq" ? compareFrequencyMetaEntries(a, b, rank) : compareDictionaryMetaEntries(a, b, rank);
-  }
-  function compareFrequencyMetaEntries(a, b, rank) {
-    return jpdbFrequencyPriority(a) - jpdbFrequencyPriority(b) || compareDictionaryPriority(a, b, rank) || frequencyRank(a.data) - frequencyRank(b.data) || compareDictionaryName(a, b);
-  }
-  function jpdbFrequencyPriority(entry) {
-    return isJpdbFrequencyDictionary(entry.dictionary) ? 0 : 1;
-  }
-  function compareDictionaryMetaEntries(a, b, rank) {
-    return compareDictionaryPriority(a, b, rank) || compareDictionaryName(a, b);
-  }
-  function compareDictionaryPriority(a, b, rank) {
-    return dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank);
-  }
-  function compareDictionaryName(a, b) {
-    return a.dictionary.localeCompare(b.dictionary);
-  }
-  function extractFrequency(value) {
-    const rank = frequencyRank(value);
-    return Number.isFinite(rank) ? rank : void 0;
-  }
-  function nonOverlappingMatches(matches, limit) {
-    const selected = [];
-    const occupied = [];
-    const overlaps = (match) => occupied.some(([start, end]) => match.start < end && match.end > start);
-    for (const match of matches.sort(compareTermMatchesForSelection)) {
-      if (overlaps(match)) continue;
-      selected.push(match);
-      occupied.push([match.start, match.end]);
-      if (selected.length >= limit) break;
-    }
-    const result = selected.sort((a, b) => a.start - b.start);
-    return result;
-  }
-  function compareTermMatchesForSelection(a, b) {
-    for (const compare of TERM_MATCH_SELECTION_COMPARATORS) {
-      const result = compare(a, b);
-      if (result) return result;
-    }
-    return 0;
-  }
-  function compareTermMatchLengthDescending(a, b) {
-    return b.end - b.start - (a.end - a.start);
-  }
-  function compareTermMatchDeinflectionDepth(a, b) {
-    return (a.deinflected?.depth ?? 0) - (b.deinflected?.depth ?? 0);
-  }
-  function compareTermMatchStart(a, b) {
-    return a.start - b.start;
-  }
-  function compareTermMatchDictionaryName(a, b) {
-    return a.entry.dictionary.localeCompare(b.entry.dictionary);
-  }
-  function compareTermMatchEntryScoreDescending(a, b) {
-    return (b.entry.score ?? 0) - (a.entry.score ?? 0);
-  }
-  function isJpdbFrequencyDictionary(dictionary) {
-    return /jpdb/i.test(dictionary);
-  }
-  function frequencyRank(value) {
-    if (typeof value === "number") return value;
-    if (typeof value === "string") return rankFromFrequencyString(value);
-    const nested = nestedFrequencyValue(value);
-    return nested === void 0 ? Number.POSITIVE_INFINITY : frequencyRank(nested);
-  }
-  function rankFromFrequencyString(value) {
-    return Number(value.replace(/[^\d.]/g, "")) || Number.POSITIVE_INFINITY;
-  }
-  function nestedFrequencyValue(value) {
-    if (!value || typeof value !== "object") return void 0;
-    const record = value;
-    return record.frequency ?? record.value ?? record.displayValue;
   }
   const GLOSSARY_DISPLAY_TEXT_KEYS = /* @__PURE__ */ new Set(["text", "content", "description", "alt", "title"]);
   const GLOSSARY_SEARCH_FALLBACK_TEXT_KEYS = /* @__PURE__ */ new Set(["description", "alt", "title"]);
@@ -12685,75 +12755,6 @@ ${entry.reading}`;
       this.hotLookupCache.clear();
       this.termKanjiIndexReady = false;
     }
-  }
-  function readIndexRequestValues(index, query, limit, resolve, reject) {
-    if (typeof index.getAll === "function") {
-      const request2 = index.getAll(query, limit);
-      request2.onsuccess = () => resolve(request2.result);
-      request2.onerror = () => reject(request2.error);
-      return;
-    }
-    const results = [];
-    let count = 0;
-    const request = index.openCursor(query);
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor || count >= limit) {
-        resolve(results);
-        return;
-      }
-      results.push(cursor.value);
-      count++;
-      cursor.continue();
-    };
-    request.onerror = () => reject(request.error);
-  }
-  function isSearchableJapaneseSurface(surface) {
-    return JAPANESE_RE$2.test(surface) && !/\s/.test(surface);
-  }
-  function sortedTermMatchExpressions(candidates) {
-    return Array.from(candidates.keys()).sort((a, b) => b.length - a.length || a.localeCompare(b));
-  }
-  function requestTermMatchIndex(index, expression, addMatches, finish, reject) {
-    const request = index.getAll(IDBKeyRange.only(expression), 8);
-    request.onsuccess = () => {
-      addMatches(expression, request.result);
-      finish();
-    };
-    request.onerror = () => reject(request.error);
-  }
-  function termMatchesForEntries(expression, foundEntries, candidates, rank) {
-    const entries = sortTermMatchEntries(deduplicateTermMatchEntries(foundEntries), rank);
-    if (!entries.length) return [];
-    return (candidates.get(expression) ?? []).map((position) => termMatchForPosition(position, entries)).filter((match) => Boolean(match));
-  }
-  function deduplicateTermMatchEntries(entries) {
-    const seen = /* @__PURE__ */ new Set();
-    return entries.filter((item) => {
-      const key = `${item.id ?? ""}
-${item.dictionary}
-${item.expression}
-${item.reading}
-${item.sequence ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-  function sortTermMatchEntries(entries, rank) {
-    return entries.filter((item) => dictionaryEnabled(item.dictionary, rank)).sort((a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank) || (b.score ?? 0) - (a.score ?? 0));
-  }
-  function rankedDictionaryEntries(entries, rank, limit, compare = (a, b) => dictionaryPriority(a.dictionary, rank) - dictionaryPriority(b.dictionary, rank)) {
-    const ranked = entries.filter((entry) => dictionaryEnabled(entry.dictionary, rank)).sort(compare);
-    return limit === void 0 ? ranked : ranked.slice(0, limit);
-  }
-  function termMatchForPosition(position, entries) {
-    const entry = entries.find((item) => termRulesMatch(item.rules, position.deinflected.rules));
-    return entry ? {
-      entry,
-      ...position,
-      deinflected: position.deinflected.depth > 0 ? position.deinflected : void 0
-    } : null;
   }
   function importEntryStores() {
     return ["terms", "kanji", "termMeta", "kanjiMeta"];
