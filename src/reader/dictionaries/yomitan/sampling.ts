@@ -16,7 +16,7 @@ export function optionalCursorScanLimitReached(options: GlossaryCursorSearchOpti
     return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
 }
 
-export function positiveLimitReached(limit: number, value: number): boolean {
+function positiveLimitReached(limit: number, value: number): boolean {
     return limit > 0 && value >= limit;
 }
 
