@@ -16,6 +16,7 @@ import { readBlobText, readDexieTableRowCounts, streamDexieTables } from './dexi
 import { fileSummary, filenameFromUrl, formatBytes, formatPercent, namedBlobFile, requestBlob, safeHost } from './file-utils';
 import { renderDictionaryScopedStyles } from './glossary';
 import { glossaryValueToSearchText, normalizeGlossarySearchText } from './glossary-text';
+import { JAPANESE_RE, splitTags } from './row-coerce';
 import { readZipArchive, type ZipArchive } from './zip';
 import {
     compareMetaEntries,
@@ -65,7 +66,6 @@ const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
 const DB_DELETE_BLOCKED_TIMEOUT_MS = 12000;
 const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-const JAPANESE_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('Yomitan');
 
@@ -2555,11 +2555,6 @@ function hasReaderDictionaryExportRows(record: Partial<ReaderDictionaryExport>):
 
 function uniqueDictionaryNames(names: unknown[]): string[] {
     return [...new Set(names.filter((name): name is string => typeof name === 'string' && Boolean(name)))];
-}
-
-function splitTags(value: unknown): string[] {
-    if (Array.isArray(value)) return value.map(String).filter(Boolean);
-    return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : [];
 }
 
 function reservoirSample<T>(items: T[], limit: number): T[] {
