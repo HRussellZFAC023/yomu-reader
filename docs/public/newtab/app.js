@@ -10606,6 +10606,108 @@ ${scopedInner}
     }
     return start;
   }
+  const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  function splitTags(value) {
+    if (Array.isArray(value)) return value.map(String).filter(Boolean);
+    return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
+  }
+  function importEntryStores() {
+    return ["terms", "kanji", "termMeta", "kanjiMeta"];
+  }
+  function isEntryStoreName(value) {
+    return value === "terms" || value === "kanji" || value === "termMeta" || value === "kanjiMeta";
+  }
+  function dictionaryCountsFromSummary(summary) {
+    return {
+      terms: summary.terms,
+      kanji: summary.kanji,
+      termMeta: summary.termMeta,
+      kanjiMeta: summary.kanjiMeta
+    };
+  }
+  function dictionaryTypeFromCounts(counts = {}) {
+    return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
+  }
+  function hasTermDictionaryRows(info) {
+    const count = Number(info.counts?.terms);
+    if (Number.isFinite(count)) return count > 0;
+    return info.type === void 0 || info.type === "terms";
+  }
+  const DICTIONARY_TYPE_COUNT_PRIORITY = [
+    { key: "terms", type: "terms" },
+    { key: "termMeta", type: "frequency" },
+    { key: "kanji", type: "kanji" },
+    { key: "kanjiMeta", type: "metadata" }
+  ];
+  function readerExportTerms(json) {
+    return json.terms ?? json.entries ?? [];
+  }
+  function readerExportDictionaryNames(json, terms = readerExportTerms(json)) {
+    return uniqueDictionaryNames([
+      ...json.dictionaries?.map((item) => item.title) ?? [],
+      ...terms.map((entry) => entry.dictionary),
+      ...(json.kanji ?? []).map((entry) => entry.dictionary),
+      ...(json.termMeta ?? []).map((entry) => entry.dictionary),
+      ...(json.kanjiMeta ?? []).map((entry) => entry.dictionary)
+    ]);
+  }
+  function readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes) {
+    return json.dictionaries?.length ? json.dictionaries.map((info) => ({ ...info, type: info.type ?? dictionaryTypes[info.title] })) : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
+  }
+  function readerExportSummary(json, terms, dictionaryNames, dictionaryTypes) {
+    const kanji = json.kanji ?? [];
+    const termMeta = json.termMeta ?? [];
+    const kanjiMeta = json.kanjiMeta ?? [];
+    return {
+      dictionaries: dictionaryNames,
+      dictionaryTypes,
+      entries: terms.length + kanji.length + termMeta.length + kanjiMeta.length,
+      terms: terms.length,
+      kanji: kanji.length,
+      termMeta: termMeta.length,
+      kanjiMeta: kanjiMeta.length
+    };
+  }
+  function dictionaryTypesFromReaderExport(json) {
+    const counts = /* @__PURE__ */ new Map();
+    addDictionaryTypeCounts(counts, readerExportTerms(json), "terms");
+    addDictionaryTypeCounts(counts, json.kanji ?? [], "kanji");
+    addDictionaryTypeCounts(counts, json.termMeta ?? [], "termMeta");
+    addDictionaryTypeCounts(counts, json.kanjiMeta ?? [], "kanjiMeta");
+    return Object.fromEntries([
+      ...configuredReaderDictionaryTypes(json),
+      ...observedReaderDictionaryTypes(counts)
+    ]);
+  }
+  function addDictionaryTypeCounts(counts, entries, store) {
+    for (const entry of entries) {
+      const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
+      item[store]++;
+      counts.set(entry.dictionary, item);
+    }
+  }
+  function configuredReaderDictionaryTypes(json) {
+    return (json.dictionaries ?? []).map((info) => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)]);
+  }
+  function observedReaderDictionaryTypes(counts) {
+    return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)]);
+  }
+  function isReaderDictionaryExport$1(value) {
+    const record = readerDictionaryExportRecord(value);
+    return Boolean(record && isReaderDictionaryExportFormat(record) && hasReaderDictionaryExportRows(record));
+  }
+  function readerDictionaryExportRecord(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  function isReaderDictionaryExportFormat(record) {
+    return record.formatName === "yomu-yomitan-dictionaries" || record.formatName === "jpdb-reader-yomitan-dictionaries";
+  }
+  function hasReaderDictionaryExportRows(record) {
+    return Array.isArray(record.entries) || Array.isArray(record.terms) || Array.isArray(record.kanji) || Array.isArray(record.termMeta) || Array.isArray(record.kanjiMeta);
+  }
+  function uniqueDictionaryNames(names) {
+    return [...new Set(names.filter((name) => typeof name === "string" && Boolean(name)))];
+  }
   var u8 = Uint8Array, u16 = Uint16Array, i32 = Int32Array;
   var fleb = new u8([
     0,
@@ -11120,6 +11222,323 @@ ${scopedInner}
     if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
     return readBlobWithFileReader(blob, (reader, value) => reader.readAsArrayBuffer(value), (reader) => reader.result);
   }
+  function countYomitanZipBanks(entries) {
+    return entries.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
+  }
+  function yomitanZipDictionaryName(index, filename) {
+    return index.title?.trim() || filename.replace(/\.zip$/i, "");
+  }
+  function yomitanZipVersion(index) {
+    return index.format ?? index.version ?? 3;
+  }
+  function imageMimeType(path) {
+    const lower = path.toLowerCase();
+    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+    if (lower.endsWith(".webp")) return "image/webp";
+    if (lower.endsWith(".gif")) return "image/gif";
+    if (lower.endsWith(".svg")) return "image/svg+xml";
+    return "image/png";
+  }
+  function bytesToBase64(bytes) {
+    let binary = "";
+    const chunkSize = 32768;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+      const chunk = bytes.subarray(index, index + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
+  }
+  function normalizeZipTermRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
+    if (typeof expression !== "string") return null;
+    return {
+      expression,
+      reading: zipTermReading(reading, expression),
+      definitionTags: zipStringField(definitionTags),
+      rules: zipStringField(rules),
+      score: zipNumberField(score, 0),
+      glossary: zipGlossaryField(glossary),
+      sequence: zipOptionalNumberField(sequence),
+      termTags: zipStringField(termTags),
+      dictionary
+    };
+  }
+  function zipTermReading(value, expression) {
+    return typeof value === "string" && value ? value : expression;
+  }
+  function zipStringField(value) {
+    return typeof value === "string" ? value : "";
+  }
+  function zipNumberField(value, fallback) {
+    return typeof value === "number" ? value : fallback;
+  }
+  function zipOptionalNumberField(value) {
+    return typeof value === "number" ? value : void 0;
+  }
+  function zipGlossaryField(value) {
+    return Array.isArray(value) ? value : [];
+  }
+  function normalizeZipKanjiRow(row, dictionary, version) {
+    if (!Array.isArray(row)) return null;
+    const [character, onyomi, kunyomi, tags, meaningsOrFirst, stats] = row;
+    if (typeof character !== "string") return null;
+    const meanings = version === 1 ? row.slice(4) : meaningsOrFirst;
+    return {
+      character,
+      onyomi: splitTags(onyomi),
+      kunyomi: splitTags(kunyomi),
+      tags: splitTags(tags),
+      meanings: Array.isArray(meanings) ? meanings.map(String) : [],
+      stats,
+      dictionary
+    };
+  }
+  function normalizeZipTermMetaRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [expression, mode, data] = row;
+    return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
+  }
+  function normalizeZipKanjiMetaRow(row, dictionary) {
+    if (!Array.isArray(row)) return null;
+    const [character, mode, data] = row;
+    return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
+  }
+  function normalizeDexieTermRow(row) {
+    const record = dexieRowRecord(row);
+    if (!record) return null;
+    if (typeof record.expression !== "string" || typeof record.dictionary !== "string") return null;
+    return {
+      expression: record.expression,
+      reading: dexieStringField(record, "reading", record.expression),
+      definitionTags: dexieStringField(record, "definitionTags"),
+      rules: dexieStringField(record, "rules"),
+      score: dexieNumberField(record, "score", 0),
+      glossary: dexieGlossaryField(record),
+      sequence: dexieOptionalNumberField(record, "sequence"),
+      termTags: dexieStringField(record, "termTags"),
+      dictionary: record.dictionary
+    };
+  }
+  function dexieStringField(record, key, fallback = "") {
+    const value = record[key];
+    return typeof value === "string" && value ? value : fallback;
+  }
+  function dexieNumberField(record, key, fallback) {
+    const value = record[key];
+    return typeof value === "number" ? value : fallback;
+  }
+  function dexieOptionalNumberField(record, key) {
+    const value = record[key];
+    return typeof value === "number" ? value : void 0;
+  }
+  function dexieGlossaryField(record) {
+    return Array.isArray(record.glossary) ? record.glossary : [];
+  }
+  function normalizeDexieKanjiRow(row) {
+    const record = dexieKanjiRecord(row);
+    return record ? {
+      character: record.character,
+      onyomi: dexieStringList(record.onyomi),
+      kunyomi: dexieStringList(record.kunyomi),
+      tags: dexieStringList(record.tags),
+      meanings: Array.isArray(record.meanings) ? record.meanings.map(String) : [],
+      stats: record.stats,
+      dictionary: record.dictionary
+    } : null;
+  }
+  function dexieKanjiRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.character === "string" && typeof record.dictionary === "string" ? record : null;
+  }
+  function dexieStringList(value) {
+    return Array.isArray(value) ? value.map(String) : splitTags(value);
+  }
+  function normalizeDexieTermMetaRow(row) {
+    const record = dexieTermMetaRecord(row);
+    return record ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
+  }
+  function normalizeDexieKanjiMetaRow(row) {
+    const record = dexieKanjiMetaRecord(row);
+    return record ? { character: record.character, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
+  }
+  function dexieTermMetaRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.expression === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
+  }
+  function dexieKanjiMetaRecord(row) {
+    const record = dexieRowRecord(row);
+    return record && typeof record.character === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
+  }
+  function normalizeDexieDictionaryRow(row) {
+    const record = dexieDictionaryRecord(row);
+    if (!record) return null;
+    if (typeof record.title !== "string") return null;
+    return {
+      title: record.title,
+      alias: dictionaryAlias(record, record.title),
+      enabled: dictionaryInfoEnabled(record.enabled),
+      priority: dictionaryInfoPriority(record.priority),
+      counts: record.counts,
+      type: dictionaryInfoType(record.type),
+      styles: stringField(record.styles) ?? "",
+      revision: stringField(record.revision),
+      downloadUrl: stringField(record.downloadUrl),
+      importDate: numberField(record.importDate)
+    };
+  }
+  function dexieDictionaryRecord(row) {
+    return dexieRowRecord(row);
+  }
+  function dictionaryInfoEnabled(value) {
+    return typeof value === "boolean" ? value : true;
+  }
+  function dictionaryInfoPriority(value) {
+    return Number.isFinite(Number(value)) ? Number(value) : 0;
+  }
+  function dictionaryAlias(record, fallback) {
+    return typeof record.alias === "string" && record.alias ? record.alias : fallback;
+  }
+  function dictionaryInfoType(value) {
+    return value === "terms" || value === "kanji" || value === "frequency" || value === "metadata" ? value : void 0;
+  }
+  function stringField(value) {
+    return typeof value === "string" ? value : void 0;
+  }
+  function numberField(value) {
+    return typeof value === "number" ? value : void 0;
+  }
+  function unwrapDexieRow(row) {
+    if (row && typeof row === "object" && "$" in row) {
+      const value = row.$;
+      return Array.isArray(value) ? value.find((item) => item && typeof item === "object" && !Array.isArray(item)) : value;
+    }
+    return row;
+  }
+  function dexieRowRecord(row) {
+    const candidate = unwrapDexieRow(row);
+    return candidate && typeof candidate === "object" ? candidate : null;
+  }
+  const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12e3;
+  const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
+  const TERM_SEARCH_INDEX_CURSOR_MAX_ROWS = 8e3;
+  const TERM_SEARCH_INDEX_CURSOR_MAX_MS = 180;
+  function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
+    return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
+  }
+  function optionalCursorScanLimitReached(options, visited, startedAt) {
+    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
+  }
+  function positiveLimitReached(limit, value) {
+    return limit > 0 && value >= limit;
+  }
+  function optionalLimitReached(limit, value) {
+    return Boolean(limit && value >= limit);
+  }
+  function addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count) {
+    if (!isRandomListTerm(entry, rank)) return count;
+    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
+  }
+  function addCommonTermToReservoir(entry, rank, seen, reservoir, limit, count) {
+    if (!isCommonDictionaryTerm(entry, rank)) return count;
+    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
+  }
+  function addUniqueTermToReservoir(entry, seen, reservoir, limit, count) {
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return count;
+    seen.add(key);
+    const nextCount = count + 1;
+    if (reservoir.length < limit) {
+      reservoir.push(entry);
+      return nextCount;
+    }
+    const index = Math.floor(Math.random() * nextCount);
+    if (index < limit) reservoir[index] = entry;
+    return nextCount;
+  }
+  function isRandomListTerm(entry, rank) {
+    if (!entry.expression) return false;
+    if (!JAPANESE_RE$2.test(entry.expression)) return false;
+    if (entry.expression.length > 6) return false;
+    return dictionaryEnabled(entry.dictionary, rank);
+  }
+  function addTopFrequencyExpression(expressions, entry, maxRank, rank) {
+    if (entry.mode !== "freq") return;
+    if (!entry.expression) return;
+    if (!dictionaryEnabled(entry.dictionary, rank)) return;
+    const freq = extractFrequency(entry.data);
+    if (freq === void 0) return;
+    if (freq > maxRank) return;
+    expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
+  }
+  function addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank) {
+    if (!entry.expression?.includes(character)) return;
+    if (!dictionaryEnabled(entry.dictionary, rank)) return;
+    addUniqueTermEntry(entries, seen, entry);
+  }
+  function addUniqueTermEntry(entries, seen, entry) {
+    const key = termExpressionReadingKey(entry);
+    if (seen.has(key)) return;
+    seen.add(key);
+    entries.push(entry);
+  }
+  function termExpressionReadingKey(entry) {
+    return `${entry.expression}
+${entry.reading}`;
+  }
+  function glossaryIndexSearchOptions(options) {
+    return {
+      maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
+      maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS
+    };
+  }
+  function glossaryFallbackSearchOptions(options) {
+    return {
+      maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
+      maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS
+    };
+  }
+  function glossaryCursorSearchExpired(options, visited, startedAt) {
+    return Boolean(options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs);
+  }
+  function hasReadyEmptyGlossarySearchIndex(indexedCount, building) {
+    return indexedCount > 0 && !building;
+  }
+  function shouldSkipGlossaryFallback(building, options) {
+    return building && options.fallbackWhileIndexing === false;
+  }
+  function isCommonDictionaryTerm(entry, rank) {
+    return isCommonDictionaryTermCandidate(entry, rank) && (hasCommonDictionaryTags(entry) || hasCommonDictionaryScore(entry));
+  }
+  function isCommonDictionaryTermCandidate(entry, rank) {
+    return Boolean(entry.expression && JAPANESE_RE$2.test(entry.expression) && entry.expression.length <= 8 && dictionaryEnabled(entry.dictionary, rank));
+  }
+  function hasCommonDictionaryTags(entry) {
+    return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry));
+  }
+  function dictionaryTermTags(entry) {
+    return `${entry.definitionTags ?? ""} ${entry.termTags ?? ""} ${entry.rules ?? ""}`.toLowerCase();
+  }
+  function hasCommonDictionaryScore(entry) {
+    return typeof entry.score === "number" && entry.score >= 5;
+  }
+  function formatUiTemplate$1(template, values) {
+    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
+  }
+  function formatDexieImportProgress(text2, imported, totalRows) {
+    const importedCount = imported.toLocaleString();
+    if (totalRows > 0) {
+      return `${text2("dictionaryImported")} ${importedCount} / ${totalRows.toLocaleString()} ${text2("dictionaryRecords")}...`;
+    }
+    return `${text2("dictionaryImported")} ${importedCount} ${text2("dictionaryRecords")}...`;
+  }
+  function formatDexieStoreImportProgress(text2, store, imported, tableTotal, totalImported, totalRows) {
+    const importedCount = imported.toLocaleString();
+    if (tableTotal > 0 && totalRows > 0) {
+      return `${text2("dictionaryImporting")} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text2("dictionaryEntries")} (${totalImported.toLocaleString()} / ${totalRows.toLocaleString()} ${text2("dictionaryTotal")})...`;
+    }
+    return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
+  }
   const log$z = Logger.scope("YomitanSettingsImport");
   const AUDIO_BOOLEAN_IMPORTS = [
     { sourceKey: "enabled", targetKey: "audioEnabled" },
@@ -11380,10 +11799,6 @@ ${scopedInner}
   const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
   const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
   const TERM_SEARCH_PREFIX_BOUNDARY = String.fromCharCode(63743);
-  const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12e3;
-  const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
-  const TERM_SEARCH_INDEX_CURSOR_MAX_ROWS = 8e3;
-  const TERM_SEARCH_INDEX_CURSOR_MAX_MS = 180;
   const TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT = 240;
   const RANDOM_TERM_LIST_MAX_ROWS = 2e4;
   const RANDOM_TERM_LIST_MAX_MS = 220;
@@ -11394,8 +11809,6 @@ ${scopedInner}
   const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
   const DB_DELETE_BLOCKED_TIMEOUT_MS = 12e3;
   const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-  const JAPANESE_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  const JAPANESE_CHARACTER_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
   const log$y = Logger.scope("Yomitan");
   let persistentStorageRequested = false;
   function requestPersistentDictionaryStorage() {
@@ -11628,7 +12041,7 @@ ${scopedInner}
       const candidates = /* @__PURE__ */ new Map();
       const maxLength = Math.min(18, source.length);
       for (let start = 0; start < source.length; start++) {
-        if (!JAPANESE_CHARACTER_RE$1.test(source[start])) continue;
+        if (!JAPANESE_RE$2.test(source[start])) continue;
         this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
       }
       return candidates;
@@ -12756,100 +13169,10 @@ ${entry.reading}`;
       this.termKanjiIndexReady = false;
     }
   }
-  function importEntryStores() {
-    return ["terms", "kanji", "termMeta", "kanjiMeta"];
-  }
-  function isEntryStoreName(value) {
-    return value === "terms" || value === "kanji" || value === "termMeta" || value === "kanjiMeta";
-  }
-  function dictionaryCountsFromSummary(summary) {
-    return {
-      terms: summary.terms,
-      kanji: summary.kanji,
-      termMeta: summary.termMeta,
-      kanjiMeta: summary.kanjiMeta
-    };
-  }
-  function dictionaryTypeFromCounts(counts = {}) {
-    return DICTIONARY_TYPE_COUNT_PRIORITY.find(({ key }) => Number(counts[key] ?? 0) > 0)?.type ?? "terms";
-  }
-  function hasTermDictionaryRows(info) {
-    const count = Number(info.counts?.terms);
-    if (Number.isFinite(count)) return count > 0;
-    return info.type === void 0 || info.type === "terms";
-  }
-  const DICTIONARY_TYPE_COUNT_PRIORITY = [
-    { key: "terms", type: "terms" },
-    { key: "termMeta", type: "frequency" },
-    { key: "kanji", type: "kanji" },
-    { key: "kanjiMeta", type: "metadata" }
-  ];
-  function readerExportTerms(json) {
-    return json.terms ?? json.entries ?? [];
-  }
-  function readerExportDictionaryNames(json, terms = readerExportTerms(json)) {
-    return uniqueDictionaryNames([
-      ...json.dictionaries?.map((item) => item.title) ?? [],
-      ...terms.map((entry) => entry.dictionary),
-      ...(json.kanji ?? []).map((entry) => entry.dictionary),
-      ...(json.termMeta ?? []).map((entry) => entry.dictionary),
-      ...(json.kanjiMeta ?? []).map((entry) => entry.dictionary)
-    ]);
-  }
-  function readerExportDictionaryInfo(json, dictionaryNames, dictionaryTypes) {
-    return json.dictionaries?.length ? json.dictionaries.map((info) => ({ ...info, type: info.type ?? dictionaryTypes[info.title] })) : dictionaryNames.map((title, index) => ({ title, alias: title, enabled: true, priority: index, type: dictionaryTypes[title] }));
-  }
-  function readerExportSummary(json, terms, dictionaryNames, dictionaryTypes) {
-    const kanji = json.kanji ?? [];
-    const termMeta = json.termMeta ?? [];
-    const kanjiMeta = json.kanjiMeta ?? [];
-    return {
-      dictionaries: dictionaryNames,
-      dictionaryTypes,
-      entries: terms.length + kanji.length + termMeta.length + kanjiMeta.length,
-      terms: terms.length,
-      kanji: kanji.length,
-      termMeta: termMeta.length,
-      kanjiMeta: kanjiMeta.length
-    };
-  }
-  function dictionaryTypesFromReaderExport(json) {
-    const counts = /* @__PURE__ */ new Map();
-    addDictionaryTypeCounts(counts, readerExportTerms(json), "terms");
-    addDictionaryTypeCounts(counts, json.kanji ?? [], "kanji");
-    addDictionaryTypeCounts(counts, json.termMeta ?? [], "termMeta");
-    addDictionaryTypeCounts(counts, json.kanjiMeta ?? [], "kanjiMeta");
-    return Object.fromEntries([
-      ...configuredReaderDictionaryTypes(json),
-      ...observedReaderDictionaryTypes(counts)
-    ]);
-  }
-  function addDictionaryTypeCounts(counts, entries, store) {
-    for (const entry of entries) {
-      const item = counts.get(entry.dictionary) ?? { terms: 0, kanji: 0, termMeta: 0, kanjiMeta: 0 };
-      item[store]++;
-      counts.set(entry.dictionary, item);
-    }
-  }
-  function configuredReaderDictionaryTypes(json) {
-    return (json.dictionaries ?? []).map((info) => [info.title, info.type ?? dictionaryTypeFromCounts(info.counts)]);
-  }
-  function observedReaderDictionaryTypes(counts) {
-    return [...counts].map(([name, value]) => [name, dictionaryTypeFromCounts(value)]);
-  }
   async function readYomitanZipIndex(zip, language = "en") {
     return JSON.parse(await readZipText(zip, "index.json").catch(() => {
       throw new Error(uiText(language, "dictionaryZipMissingIndex"));
     }));
-  }
-  function countYomitanZipBanks(entries) {
-    return entries.filter((entry) => /^(term|kanji|term_meta|kanji_meta)_bank_\d+\.json$/i.test(entry.name)).length;
-  }
-  function formatUiTemplate$1(template, values) {
-    return Object.entries(values).reduce((value, [key, replacement]) => value.replaceAll(`{${key}}`, replacement), template);
-  }
-  function cursorScanLimitReached(visited, startedAt, maxRows, maxMs) {
-    return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
   }
   async function scanObjectStoreCursor(db, { storeName, maxRows, maxMs, errorMessage: errorMessage2 }, visit) {
     const startedAt = performance.now();
@@ -12869,107 +13192,6 @@ ${entry.reading}`;
         cursor.continue();
       };
     });
-  }
-  function optionalCursorScanLimitReached(options, visited, startedAt) {
-    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
-  }
-  function positiveLimitReached(limit, value) {
-    return limit > 0 && value >= limit;
-  }
-  function optionalLimitReached(limit, value) {
-    return Boolean(limit && value >= limit);
-  }
-  function addRandomListTermToReservoir(entry, rank, seen, reservoir, limit, count) {
-    if (!isRandomListTerm(entry, rank)) return count;
-    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
-  }
-  function addCommonTermToReservoir(entry, rank, seen, reservoir, limit, count) {
-    if (!isCommonDictionaryTerm(entry, rank)) return count;
-    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
-  }
-  function addUniqueTermToReservoir(entry, seen, reservoir, limit, count) {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return count;
-    seen.add(key);
-    const nextCount = count + 1;
-    if (reservoir.length < limit) {
-      reservoir.push(entry);
-      return nextCount;
-    }
-    const index = Math.floor(Math.random() * nextCount);
-    if (index < limit) reservoir[index] = entry;
-    return nextCount;
-  }
-  function isRandomListTerm(entry, rank) {
-    if (!entry.expression) return false;
-    if (!JAPANESE_RE$2.test(entry.expression)) return false;
-    if (entry.expression.length > 6) return false;
-    return dictionaryEnabled(entry.dictionary, rank);
-  }
-  function addTopFrequencyExpression(expressions, entry, maxRank, rank) {
-    if (entry.mode !== "freq") return;
-    if (!entry.expression) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    const freq = extractFrequency(entry.data);
-    if (freq === void 0) return;
-    if (freq > maxRank) return;
-    expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
-  }
-  function addSimilarTermByKanjiCandidate(entries, seen, entry, character, rank) {
-    if (!entry.expression?.includes(character)) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    addUniqueTermEntry(entries, seen, entry);
-  }
-  function addUniqueTermEntry(entries, seen, entry) {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return;
-    seen.add(key);
-    entries.push(entry);
-  }
-  function termExpressionReadingKey(entry) {
-    return `${entry.expression}
-${entry.reading}`;
-  }
-  function formatDexieImportProgress(text2, imported, totalRows) {
-    const importedCount = imported.toLocaleString();
-    if (totalRows > 0) {
-      return `${text2("dictionaryImported")} ${importedCount} / ${totalRows.toLocaleString()} ${text2("dictionaryRecords")}...`;
-    }
-    return `${text2("dictionaryImported")} ${importedCount} ${text2("dictionaryRecords")}...`;
-  }
-  function formatDexieStoreImportProgress(text2, store, imported, tableTotal, totalImported, totalRows) {
-    const importedCount = imported.toLocaleString();
-    if (tableTotal > 0 && totalRows > 0) {
-      return `${text2("dictionaryImporting")} ${store}: ${importedCount} / ${tableTotal.toLocaleString()} ${text2("dictionaryEntries")} (${totalImported.toLocaleString()} / ${totalRows.toLocaleString()} ${text2("dictionaryTotal")})...`;
-    }
-    return `${text2("dictionaryImporting")} ${store}: ${importedCount} ${text2("dictionaryEntries")}...`;
-  }
-  function glossaryIndexSearchOptions(options) {
-    return {
-      maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
-      maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS
-    };
-  }
-  function glossaryFallbackSearchOptions(options) {
-    return {
-      maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
-      maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS
-    };
-  }
-  function glossaryCursorSearchExpired(options, visited, startedAt) {
-    return Boolean(options.maxRows && visited >= options.maxRows || options.maxMs && performance.now() - startedAt >= options.maxMs);
-  }
-  function hasReadyEmptyGlossarySearchIndex(indexedCount, building) {
-    return indexedCount > 0 && !building;
-  }
-  function shouldSkipGlossaryFallback(building, options) {
-    return building && options.fallbackWhileIndexing === false;
-  }
-  function yomitanZipDictionaryName(index, filename) {
-    return index.title?.trim() || filename.replace(/\.zip$/i, "");
-  }
-  function yomitanZipVersion(index) {
-    return index.format ?? index.version ?? 3;
   }
   async function yomitanZipDictionaryInfo(zip, index, dictionary, sourceUrl) {
     return {
@@ -13007,110 +13229,6 @@ ${entry.reading}`;
   async function zipImageDataUrl(zip, path) {
     const bytes = await zip.bytes(path).catch(() => null);
     return bytes ? `data:${imageMimeType(path)};base64,${bytesToBase64(bytes)}` : "";
-  }
-  function imageMimeType(path) {
-    const lower = path.toLowerCase();
-    if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-    if (lower.endsWith(".webp")) return "image/webp";
-    if (lower.endsWith(".gif")) return "image/gif";
-    if (lower.endsWith(".svg")) return "image/svg+xml";
-    return "image/png";
-  }
-  function bytesToBase64(bytes) {
-    let binary = "";
-    const chunkSize = 32768;
-    for (let index = 0; index < bytes.length; index += chunkSize) {
-      const chunk = bytes.subarray(index, index + chunkSize);
-      binary += String.fromCharCode(...chunk);
-    }
-    return btoa(binary);
-  }
-  function normalizeZipTermRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [expression, reading, definitionTags, rules, score, glossary, sequence, termTags] = row;
-    if (typeof expression !== "string") return null;
-    return {
-      expression,
-      reading: zipTermReading(reading, expression),
-      definitionTags: zipStringField(definitionTags),
-      rules: zipStringField(rules),
-      score: zipNumberField(score, 0),
-      glossary: zipGlossaryField(glossary),
-      sequence: zipOptionalNumberField(sequence),
-      termTags: zipStringField(termTags),
-      dictionary
-    };
-  }
-  function zipTermReading(value, expression) {
-    return typeof value === "string" && value ? value : expression;
-  }
-  function zipStringField(value) {
-    return typeof value === "string" ? value : "";
-  }
-  function zipNumberField(value, fallback) {
-    return typeof value === "number" ? value : fallback;
-  }
-  function zipOptionalNumberField(value) {
-    return typeof value === "number" ? value : void 0;
-  }
-  function zipGlossaryField(value) {
-    return Array.isArray(value) ? value : [];
-  }
-  function normalizeZipKanjiRow(row, dictionary, version) {
-    if (!Array.isArray(row)) return null;
-    const [character, onyomi, kunyomi, tags, meaningsOrFirst, stats] = row;
-    if (typeof character !== "string") return null;
-    const meanings = version === 1 ? row.slice(4) : meaningsOrFirst;
-    return {
-      character,
-      onyomi: splitTags(onyomi),
-      kunyomi: splitTags(kunyomi),
-      tags: splitTags(tags),
-      meanings: Array.isArray(meanings) ? meanings.map(String) : [],
-      stats,
-      dictionary
-    };
-  }
-  function normalizeZipTermMetaRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [expression, mode, data] = row;
-    return typeof expression === "string" && typeof mode === "string" ? { expression, mode, data, dictionary } : null;
-  }
-  function normalizeZipKanjiMetaRow(row, dictionary) {
-    if (!Array.isArray(row)) return null;
-    const [character, mode, data] = row;
-    return typeof character === "string" && typeof mode === "string" ? { character, mode, data, dictionary } : null;
-  }
-  function normalizeDexieTermRow(row) {
-    const record = dexieRowRecord(row);
-    if (!record) return null;
-    if (typeof record.expression !== "string" || typeof record.dictionary !== "string") return null;
-    return {
-      expression: record.expression,
-      reading: dexieStringField(record, "reading", record.expression),
-      definitionTags: dexieStringField(record, "definitionTags"),
-      rules: dexieStringField(record, "rules"),
-      score: dexieNumberField(record, "score", 0),
-      glossary: dexieGlossaryField(record),
-      sequence: dexieOptionalNumberField(record, "sequence"),
-      termTags: dexieStringField(record, "termTags"),
-      dictionary: record.dictionary
-    };
-  }
-  function dexieStringField(record, key, fallback = "") {
-    const value = record[key];
-    return typeof value === "string" && value ? value : fallback;
-  }
-  function dexieNumberField(record, key, fallback) {
-    const value = record[key];
-    return typeof value === "number" ? value : fallback;
-  }
-  function dexieOptionalNumberField(record, key) {
-    const value = record[key];
-    return typeof value === "number" ? value : void 0;
-  }
-  function dexieGlossaryField(record) {
-    return Array.isArray(record.glossary) ? record.glossary : [];
   }
   function termLookupDedupKey(entry) {
     const glossaryKey = JSON.stringify(entry.glossary);
@@ -13249,110 +13367,6 @@ ${glossaryKey}`;
   function compareTermSearchCandidates(a, b, query, rank) {
     return a.rank - b.rank || dictionaryPriority(a.entry.dictionary, rank) - dictionaryPriority(b.entry.dictionary, rank) || (b.entry.score ?? 0) - (a.entry.score ?? 0) || Number(b.entry.expression === query) - Number(a.entry.expression === query) || a.entry.expression.length - b.entry.expression.length;
   }
-  function normalizeDexieKanjiRow(row) {
-    const record = dexieKanjiRecord(row);
-    return record ? {
-      character: record.character,
-      onyomi: dexieStringList(record.onyomi),
-      kunyomi: dexieStringList(record.kunyomi),
-      tags: dexieStringList(record.tags),
-      meanings: Array.isArray(record.meanings) ? record.meanings.map(String) : [],
-      stats: record.stats,
-      dictionary: record.dictionary
-    } : null;
-  }
-  function dexieKanjiRecord(row) {
-    const record = dexieRowRecord(row);
-    return record && typeof record.character === "string" && typeof record.dictionary === "string" ? record : null;
-  }
-  function dexieStringList(value) {
-    return Array.isArray(value) ? value.map(String) : splitTags(value);
-  }
-  function normalizeDexieTermMetaRow(row) {
-    const record = dexieTermMetaRecord(row);
-    return record ? { expression: record.expression, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
-  }
-  function normalizeDexieKanjiMetaRow(row) {
-    const record = dexieKanjiMetaRecord(row);
-    return record ? { character: record.character, mode: record.mode, data: record.data, dictionary: record.dictionary } : null;
-  }
-  function dexieTermMetaRecord(row) {
-    const record = dexieRowRecord(row);
-    return record && typeof record.expression === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
-  }
-  function dexieKanjiMetaRecord(row) {
-    const record = dexieRowRecord(row);
-    return record && typeof record.character === "string" && typeof record.mode === "string" && typeof record.dictionary === "string" ? record : null;
-  }
-  function normalizeDexieDictionaryRow(row) {
-    const record = dexieDictionaryRecord(row);
-    if (!record) return null;
-    if (typeof record.title !== "string") return null;
-    return {
-      title: record.title,
-      alias: dictionaryAlias(record, record.title),
-      enabled: dictionaryInfoEnabled(record.enabled),
-      priority: dictionaryInfoPriority(record.priority),
-      counts: record.counts,
-      type: dictionaryInfoType(record.type),
-      styles: stringField(record.styles) ?? "",
-      revision: stringField(record.revision),
-      downloadUrl: stringField(record.downloadUrl),
-      importDate: numberField(record.importDate)
-    };
-  }
-  function dexieDictionaryRecord(row) {
-    return dexieRowRecord(row);
-  }
-  function dictionaryInfoEnabled(value) {
-    return typeof value === "boolean" ? value : true;
-  }
-  function dictionaryInfoPriority(value) {
-    return Number.isFinite(Number(value)) ? Number(value) : 0;
-  }
-  function dictionaryAlias(record, fallback) {
-    return typeof record.alias === "string" && record.alias ? record.alias : fallback;
-  }
-  function dictionaryInfoType(value) {
-    return value === "terms" || value === "kanji" || value === "frequency" || value === "metadata" ? value : void 0;
-  }
-  function stringField(value) {
-    return typeof value === "string" ? value : void 0;
-  }
-  function numberField(value) {
-    return typeof value === "number" ? value : void 0;
-  }
-  function unwrapDexieRow(row) {
-    if (row && typeof row === "object" && "$" in row) {
-      const value = row.$;
-      return Array.isArray(value) ? value.find((item) => item && typeof item === "object" && !Array.isArray(item)) : value;
-    }
-    return row;
-  }
-  function dexieRowRecord(row) {
-    const candidate = unwrapDexieRow(row);
-    return candidate && typeof candidate === "object" ? candidate : null;
-  }
-  function isReaderDictionaryExport$1(value) {
-    const record = readerDictionaryExportRecord(value);
-    return Boolean(record && isReaderDictionaryExportFormat(record) && hasReaderDictionaryExportRows(record));
-  }
-  function readerDictionaryExportRecord(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  function isReaderDictionaryExportFormat(record) {
-    return record.formatName === "yomu-yomitan-dictionaries" || record.formatName === "jpdb-reader-yomitan-dictionaries";
-  }
-  function hasReaderDictionaryExportRows(record) {
-    return Array.isArray(record.entries) || Array.isArray(record.terms) || Array.isArray(record.kanji) || Array.isArray(record.termMeta) || Array.isArray(record.kanjiMeta);
-  }
-  function uniqueDictionaryNames(names) {
-    return [...new Set(names.filter((name) => typeof name === "string" && Boolean(name)))];
-  }
-  function splitTags(value) {
-    if (Array.isArray(value)) return value.map(String).filter(Boolean);
-    return typeof value === "string" ? value.split(/\s+/).filter(Boolean) : [];
-  }
   function reservoirSample(items, limit) {
     const reservoir = [];
     let count = 0;
@@ -13366,21 +13380,6 @@ ${glossaryKey}`;
       }
     }
     return reservoir;
-  }
-  function isCommonDictionaryTerm(entry, rank) {
-    return isCommonDictionaryTermCandidate(entry, rank) && (hasCommonDictionaryTags(entry) || hasCommonDictionaryScore(entry));
-  }
-  function isCommonDictionaryTermCandidate(entry, rank) {
-    return Boolean(entry.expression && JAPANESE_RE$2.test(entry.expression) && entry.expression.length <= 8 && dictionaryEnabled(entry.dictionary, rank));
-  }
-  function hasCommonDictionaryTags(entry) {
-    return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry));
-  }
-  function dictionaryTermTags(entry) {
-    return `${entry.definitionTags ?? ""} ${entry.termTags ?? ""} ${entry.rules ?? ""}`.toLowerCase();
-  }
-  function hasCommonDictionaryScore(entry) {
-    return typeof entry.score === "number" && entry.score >= 5;
   }
   function isKanji(value) {
     const code = value.codePointAt(0) ?? 0;
