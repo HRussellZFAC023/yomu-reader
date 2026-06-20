@@ -8885,7 +8885,7 @@ describe('reader helpers', () => {
         expect(decodedBytes).toEqual(oggHeader);
         expect(decoded.type).toBe('audio/ogg; codecs=opus');
         await expect(decodeJpdbAudioBlob(new Blob(['<!doctype html>'], { type: 'text/html' }), true))
-            .rejects.toThrow('JPDB audio response was not a playable audio file');
+            .rejects.toThrow('JPDB audio was not playable.');
     });
 
     it('suppresses automatic lookup audio while a video page is active', () => {
@@ -20444,7 +20444,7 @@ describe('reader helpers', () => {
             });
             expect(summary).toMatchObject({ dictionaries: ['Alias Dict'], terms: 1, entries: 1 });
             expect(progress).toContain('Downloading: alias.zip...');
-            expect(progress).toContain('Downloading dictionary 100%...');
+            expect(progress).toContain('Downloading 100%...');
         } finally {
             vi.unstubAllGlobals();
         }
@@ -20639,7 +20639,7 @@ describe('reader helpers', () => {
             await store.clear();
 
             await expect(store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip'))
-                .rejects.toThrow(/Download is blocked/i);
+                .rejects.toThrow(/Download blocked/i);
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls
                 .map(([url]) => String(url))
                 .filter(url => url.includes('dict.zip'));
