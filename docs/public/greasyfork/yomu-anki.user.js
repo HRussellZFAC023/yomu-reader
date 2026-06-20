@@ -8034,9 +8034,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       id: audioCandidateDeckId(candidate, index)
     })), mode, bagKey, shuffledAudio);
   }
-  function orderAudioSources(sources, mode, card, shuffledAudio) {
-    const bagKey = getAudioSourceBagKey(sources, card);
-    return orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
+  function orderAudioSources(sources, card) {
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
   }
   function audioSourceDeckEntries(sources, bagKey) {
     return sources.map((source, index) => {
@@ -9028,9 +9027,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (!settings.audioEnabled) return null;
     const sources = orderAudioSources(
       getOrderedAudioSources(settings).filter((source) => !isBrowserTextToSpeechSource(source)),
-      settings.audioSelectionMode,
-      card,
-      new ShuffledAudioDeck()
+      card
     );
     const triedUrls = /* @__PURE__ */ new Set();
     for (const { source } of sources) {

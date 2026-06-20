@@ -13,7 +13,7 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.30#sha256-Ba/0+48cEgqyL7/Rb1gLRfL4XGTmSOxNcgN8m6Uo3uQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.30#sha256-EI7Z/gbCklOfg8cespApnmzLi+RhGgMOd8RwV1QmR5E=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.30#sha256-2EsIsd9kUYpDl/N9xBpFefW+ympGJc2uJjWUi3EQy/E=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.30#sha256-mCXZI9oST+/YyyAqGouvg16Pd5nIStOwCIwj4G1lURE=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.30#sha256-6PVJxiHcjCCvJXv/kPEMqvLH0gG7gFooBzc1AP8a5+c=
@@ -9142,9 +9142,8 @@ recommendedJiten	Jiten頻度です。
   function audioCandidateSelectionMode(sourceType, mode) {
     return sourceType === "jpdb-tts" || sourceType === "jiten-tts" ? "random" : mode;
   }
-  function orderAudioSources(sources, mode, card, shuffledAudio) {
-    const bagKey = getAudioSourceBagKey(sources, card);
-    return orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
+  function orderAudioSources(sources, card) {
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
   }
   function audioSourceDeckEntries(sources, bagKey) {
     return sources.map((source, index) => {
@@ -10368,7 +10367,6 @@ recommendedJiten	Jiten頻度です。
   const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1e3;
   const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
   const READY_AUDIO_CACHE_LIMIT = 160;
-  const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
   const GESTURE_AUDIO_RESERVATION_TTL_MS = 8e3;
   const LAST_AUDIO_IDENTITY_LIMIT = 400;
   const SOFT_CHIME_NOTES = [
@@ -10493,17 +10491,17 @@ recommendedJiten	Jiten頻度です。
       const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState };
       const fallbackContext = { ...context, reservedAudio: void 0 };
       if (settings.audioTtsMode === "source-order") {
-        const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio), context);
+        const result = await this.playOrderedSources(orderAudioSources(sources, card), context);
         return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       }
       const realSourceSettings = sources.filter((source) => !isTextToSpeechFallbackSource(source));
-      const realAudioSources = orderAudioSources(realSourceSettings, settings.audioSelectionMode, card, this.shuffledAudio);
-      const realAudioResult = settings.audioSelectionMode === "random" ? await this.playOrderedSources(realAudioSources, context) : await this.playGreedyAudioSources(realAudioSources, context);
+      const realAudioSources = orderAudioSources(realSourceSettings, card);
+      const realAudioResult = await this.playOrderedSources(realAudioSources, context);
       if (realAudioResult !== "miss") return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
       if (attemptState.skippedAvoidedIdentity) return { state: "miss", skippedAvoidedIdentity: true };
-      const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
+      const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), card), fallbackContext);
       if (apiTextToSpeechResult !== "miss") return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
-      const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
+      const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), card), fallbackContext);
       return { state: textToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
     }
     async playOrderedSources(sources, context) {
@@ -10512,75 +10510,6 @@ recommendedJiten	Jiten頻度です。
         if (result !== "miss") return result;
       }
       return "miss";
-    }
-    async playGreedyAudioSources(sources, context) {
-      if (sources.length <= 1) {
-        return await this.playOrderedSources(sources, context);
-      }
-      const race = new AudioSourcePreparationRace(
-        sources,
-        (sourceEntry) => this.prepareSourceWithErrors(sourceEntry, context)
-      );
-      while (race.hasWork()) {
-        const current = await race.next();
-        if (!current) {
-          continue;
-        }
-        const result = await this.playPreparedSourceResult(current.result, context);
-        if (result !== "miss") return result;
-      }
-      return "miss";
-    }
-    async playPreparedSourceResult(result, context) {
-      if (result.state === "superseded") return "superseded";
-      if (result.state !== "ready" || !result.prepared) return "miss";
-      return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.card, context.reservedAudio).catch((error) => audioPlaybackAttemptResult(error, context.errors));
-    }
-    prepareSourceWithErrors(sourceEntry, context) {
-      let promise;
-      promise = this.prepareSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent, context.errors).catch((error) => {
-        context.errors.push(error instanceof Error ? error.message : String(error));
-        this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
-        return { state: "miss" };
-      }).then((result) => ({ promise, result }));
-      return promise;
-    }
-    async prepareSource(sourceEntry, card, settings, requestId, triedUrls, isCurrent, errors) {
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
-      const { source } = sourceEntry;
-      const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
-      const bagKey = getAudioBagKey(source, card);
-      for (const { candidate, id } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), bagKey, this.shuffledAudio)) {
-        if (!registerAudioAttempt(triedUrls, candidate)) {
-          this.shuffledAudio.markSkipped(bagKey, id);
-          continue;
-        }
-        const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings)).catch((error) => {
-          errors.push(audioErrorMessage(error));
-          return null;
-        });
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: "superseded" };
-        if (audio) return { state: "ready", prepared: { audio, candidate, id, bagKey, sourceType: source.type, sourceId: sourceEntry.id, sourceBagKey: sourceEntry.bagKey } };
-        this.shuffledAudio.markSkipped(bagKey, id);
-      }
-      this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
-      return { state: "miss" };
-    }
-    async playPreparedCandidate(prepared, settings, requestId, isCurrent, card, reservedAudio) {
-      let played = false;
-      try {
-        const audio = reservedAudio ? await this.createPlayableAudio(prepared.candidate, prepared.sourceType, settings, reservedAudio) : prepared.audio;
-        played = await this.playPreparedAudio(audio, requestId, isCurrent);
-      } catch (error) {
-        throw new AudioPlaybackAttemptError(error);
-      }
-      if (!this.isPlaybackCurrent(requestId, isCurrent)) return "superseded";
-      if (!played) return "miss";
-      this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
-      this.shuffledAudio.markPlayed(prepared.sourceBagKey, prepared.sourceId);
-      this.markAudioCandidatePlayed(card, prepared.candidate);
-      return "played";
     }
     async playSourceWithErrors(sourceEntry, context) {
       if (!this.isPlaybackCurrent(context.requestId, context.isCurrent)) {
@@ -10609,12 +10538,7 @@ recommendedJiten	Jiten頻度です。
       const { sourceLimit, candidateLimit, prepareAudio } = audioPreloadLimits$1(options);
       const candidateSources = preloadableAudioSources(getOrderedAudioSources(settings), settings);
       const preloadedSources = prepareAudio ? candidateSources : cheapCandidatePreloadAudioSources(candidateSources, card);
-      const sources = orderAudioSources(
-        preloadedSources,
-        settings.audioSelectionMode,
-        card,
-        this.shuffledAudio
-      ).slice(0, sourceLimit);
+      const sources = orderAudioSources(preloadedSources, card).slice(0, sourceLimit);
       if (!sources.length) return false;
       for (const { source } of sources) {
         void this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl).then((candidates) => {
@@ -11091,41 +11015,6 @@ recommendedJiten	Jiten頻度です。
       card.reading
     ].join("");
   }
-  class AudioSourcePreparationRace {
-    constructor(sources, prepare) {
-      this.sources = sources;
-      this.prepare = prepare;
-    }
-    pending = /* @__PURE__ */ new Set();
-    nextSourceIndex = 0;
-    hasWork() {
-      return this.pending.size > 0 || this.hasQueuedSources();
-    }
-    async next() {
-      if (!this.pending.size) return this.startNextSource();
-      const current = await this.racePendingSources();
-      if (!current) return this.startNextSource();
-      this.pending.delete(current.promise);
-      return current;
-    }
-    async racePendingSources() {
-      if (!this.hasQueuedSources()) return Promise.race(this.pending);
-      const stagger = delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS);
-      try {
-        return await Promise.race([...this.pending, stagger.promise]);
-      } finally {
-        stagger.cancel();
-      }
-    }
-    startNextSource() {
-      const sourceEntry = this.sources[this.nextSourceIndex++];
-      if (sourceEntry) this.pending.add(this.prepare(sourceEntry));
-      return void 0;
-    }
-    hasQueuedSources() {
-      return this.nextSourceIndex < this.sources.length;
-    }
-  }
   function getAudioContextConstructor() {
     return window.AudioContext ?? window.webkitAudioContext;
   }
@@ -11166,17 +11055,6 @@ recommendedJiten	Jiten頻度です。
   }
   function shouldReserveGestureAudioElement(request) {
     return request.userGesture && request.sources.some((source) => !isBrowserTextToSpeechSource(source));
-  }
-  function delayAudioSourceRace(ms) {
-    let timer = 0;
-    const promise = new Promise((resolve) => {
-      timer = window.setTimeout(() => resolve(null), ms);
-    });
-    return { promise, cancel: () => window.clearTimeout(timer) };
-  }
-  function audioPlaybackAttemptResult(error, errors) {
-    errors.push(audioErrorMessage(error));
-    return "miss";
   }
   function audioErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
@@ -39517,7 +39395,7 @@ ${criticalWordCss()}
       this.preloadReaderCardAudio(card, {
         sourceLimit: 1,
         candidateLimit: 1,
-        prepareAudio: this.shouldPrepareHoverWordAudio(card, word)
+        prepareAudio: this.shouldPrepareHoverWordAudio(word)
       });
       if (this.canPreloadBackgroundReaderAudio()) this.scheduleNearbyReaderWordAudioPreloads(word);
     }
@@ -39538,14 +39416,14 @@ ${criticalWordCss()}
       if (prepareAudio) this.rememberPreloadedPreparedTermAudioKey(key);
       return true;
     }
-    shouldPrepareHoverWordAudio(card, word) {
+    shouldPrepareHoverWordAudio(word) {
       return canAttemptReaderAutoAudio({
         anchor: word,
         settings: this.settings,
         subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
         trigger: "hover",
         userGesture: false
-      }) && isUsefulImmersionPreloadQuery(card.spelling);
+      });
     }
     canPreloadReaderAudio() {
       return this.settings.audioEnabled;
@@ -41281,10 +41159,10 @@ ${criticalWordCss()}
       this.audio.preload(card, {
         sourceLimit: 1,
         candidateLimit: 1,
-        prepareAudio: this.shouldPrepareLookupCardAudio(card, options, anchor)
+        prepareAudio: this.shouldPrepareLookupCardAudio(options, anchor)
       });
     }
-    shouldPrepareLookupCardAudio(card, options, anchor) {
+    shouldPrepareLookupCardAudio(options, anchor) {
       const trigger = cardDisplayTrigger(options);
       if (trigger !== "hover") return true;
       if (options.autoPlay === false) return false;
@@ -41294,7 +41172,7 @@ ${criticalWordCss()}
         subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
         trigger,
         userGesture: Boolean(options.userGesture)
-      }) && isUsefulImmersionPreloadQuery(card.spelling);
+      });
     }
     shouldAutoPlayInitialCard(card, context) {
       return context.options.autoPlay !== false && this.isCurrentCardForAutoPlay(context) && this.shouldAutoPlay(card, context.trigger, Boolean(context.options.userGesture), context.anchor);
