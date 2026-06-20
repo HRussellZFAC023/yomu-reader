@@ -31019,6 +31019,338 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function asRecord(value) {
     return value && typeof value === "object" ? value : null;
   }
+  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
+  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
+  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
+  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
+  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
+  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
+  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など"]);
+  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
+  const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
+  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
+  const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
+  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
+  const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
+  const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
+  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
+  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
+  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
+  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
+  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
+  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
+  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
+  const KANA_I_ADJECTIVE_END_RE = /い$/u;
+  const SMALL_TSU_RE = /っ/u;
+  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
+  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
+  function normalizeFallbackTerm(text2) {
+    return text2.replace(/\s+/g, " ").trim().slice(0, 80);
+  }
+  let cachedSegmenterConstructor;
+  let cachedJapaneseWordSegmenter;
+  function fallbackJapaneseSegments(text2) {
+    return segmentJapaneseText(text2);
+  }
+  function segmentJapaneseText(text2) {
+    const segmenter = japaneseWordSegmenter();
+    if (!segmenter) {
+      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
+        const start = match.index ?? 0;
+        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
+      });
+    }
+    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
+      const start = match.index ?? 0;
+      return segmentJapaneseRun(match[0], start, segmenter, text2);
+    });
+  }
+  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
+    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
+      surface: segment.segment,
+      start: offset + segment.index,
+      end: offset + segment.index + segment.segment.length
+    }));
+    if (segments.at(-1)?.end !== offset + text2.length) {
+      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
+    }
+    return finalizeJapaneseRunSegments(segments, sourceText);
+  }
+  function finalizeJapaneseRunSegments(segments, sourceText) {
+    return mergeInflectedFallbackSegments(
+      splitLeadingParticleSegments(mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
+      sourceText
+    );
+  }
+  function mergeContiguousKanaSegments(segments) {
+    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = contiguousKanaMergeSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function contiguousKanaMergeSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
+    const previous = segments[startIndex - 1];
+    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
+    if (isInflectionBoundarySegment(first2.surface) && !atKanaRunStart) return null;
+    const runEnd = contiguousKanaRunEnd(segments, startIndex);
+    if (runEnd - startIndex < 2) return null;
+    let surface = first2.surface;
+    let lastIndex = startIndex;
+    for (let index = startIndex + 1; index < runEnd; index += 1) {
+      const current = segments[index];
+      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
+      if (isInflectionBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      surface += current.surface;
+      lastIndex = index;
+    }
+    if (lastIndex === startIndex) return null;
+    return {
+      segment: { surface, start: first2.start, end: segments[lastIndex].end },
+      nextIndex: lastIndex + 1
+    };
+  }
+  function contiguousKanaRunEnd(segments, startIndex) {
+    let index = startIndex + 1;
+    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
+      index += 1;
+    }
+    return index;
+  }
+  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
+    let surface = "";
+    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
+    return surface;
+  }
+  function isPureKanaSegment(surface) {
+    return HIRAGANA_SEGMENT_RE.test(surface);
+  }
+  function isKanaContentWordSpan(span) {
+    if (isKanaInflectableBaseShape(span)) return true;
+    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
+  }
+  function isKanaInflectableBaseShape(span) {
+    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
+    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
+  }
+  function splitNumericCounterPrefixSegments(segments, sourceText) {
+    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
+  }
+  function splitNumericCounterPrefixSegment(segment, sourceText) {
+    const first2 = Array.from(segment.surface)[0] ?? "";
+    if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
+    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
+    return [
+      { surface: first2, start: segment.start, end: segment.start + first2.length },
+      { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
+    ];
+  }
+  function splitLeadingParticleSegments(segments) {
+    return segments.flatMap(splitLeadingParticleSegment);
+  }
+  function splitLeadingParticleSegment(segment) {
+    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
+      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
+      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
+    });
+    if (!prefix) return [segment];
+    return [
+      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
+      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
+    ];
+  }
+  function mergeSegmenterCompoundOverrides(segments) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = segmenterCompoundOverrideSpanAt(segments, index);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
+    const first2 = segments[startIndex];
+    if (!first2) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < segments.length; index += 1) {
+      const current = segments[index];
+      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
+      surface += current.surface;
+      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
+      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
+        best = {
+          segment: { surface, start: first2.start, end: current.end },
+          nextIndex: index + 1
+        };
+      }
+    }
+    return best;
+  }
+  function mergeInflectedFallbackSegments(segments, sourceText) {
+    const merged = [];
+    for (let index = 0; index < segments.length; ) {
+      const span = inflectedFallbackSpanAt(segments, index, sourceText);
+      if (span) {
+        merged.push(span.segment);
+        index = span.nextIndex;
+        continue;
+      }
+      merged.push(segments[index]);
+      index += 1;
+    }
+    return merged;
+  }
+  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
+    const first2 = segments[startIndex];
+    if (!first2 || isInflectionBoundarySegment(first2.surface)) return null;
+    let surface = "";
+    let best = null;
+    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
+      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
+      if (!current) break;
+      surface += current.surface;
+      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
+      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
+    }
+    return best;
+  }
+  function fallbackInflectionScanEnd(segments, startIndex) {
+    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
+  }
+  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
+    const current = segments[index];
+    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
+    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
+    if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
+    if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
+    return current;
+  }
+  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
+    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
+    return segments[index]?.start === expectedStart;
+  }
+  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
+    if (index === startIndex) return null;
+    const lookupTerms = fallbackLookupTermsForText(surface);
+    if (lookupTerms.length <= 1) return null;
+    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
+    return {
+      segment: { surface, start: first2.start, end: current.end },
+      nextIndex: index + 1
+    };
+  }
+  function isInflectionBoundarySegment(surface) {
+    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
+  }
+  function isInflectionContinuationSegment(surface) {
+    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
+  }
+  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
+    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
+  }
+  function isNumericCounterFallbackStem(segment, sourceText) {
+    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
+  }
+  function numericRangeImmediatelyBefore(sourceText, start) {
+    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
+    return NUMERIC_RANGE_BEFORE_RE.test(before);
+  }
+  function hasUsefulFallbackDeinflection(surface) {
+    return fallbackLookupTermsForText(surface).length > 1;
+  }
+  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
+    const first2 = segments[startIndex]?.surface ?? "";
+    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
+    const suffix = surface.slice(first2.length);
+    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
+    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
+    return lookupTerms.some((term) => term.endsWith("する"));
+  }
+  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
+    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
+  }
+  function japaneseWordSegmenter() {
+    const Segmenter = intlSegmenter();
+    if (!Segmenter) {
+      cachedSegmenterConstructor = null;
+      cachedJapaneseWordSegmenter = null;
+      return null;
+    }
+    if (cachedSegmenterConstructor !== Segmenter) {
+      cachedSegmenterConstructor = Segmenter;
+      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
+    }
+    return cachedJapaneseWordSegmenter ?? null;
+  }
+  function isUsefulJapaneseSegment(segment) {
+    const surface = segment.segment.trim();
+    return JAPANESE_CHARACTER_RE.test(surface);
+  }
+  function intlSegmenter() {
+    const candidate = Intl.Segmenter;
+    return typeof candidate === "function" ? candidate : null;
+  }
+  function fallbackJapaneseRunSegment(text2, offset) {
+    const surface = text2.trim();
+    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
+    const start = offset + text2.indexOf(surface);
+    return [{ surface, start, end: start + surface.length }];
+  }
+  function fallbackLookupTermsForText(text2) {
+    const source = normalizeFallbackTerm(text2);
+    if (!source) return [];
+    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
+    return uniqueStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
+  }
+  function fallbackLookupTermsForCard(card) {
+    return dictionaryFirstFallbackLookupTerms(uniqueStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean)));
+  }
+  function isUsefulFallbackLookupCandidate(candidate) {
+    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
+  }
+  function compareFallbackLookupCandidates(a, b) {
+    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
+  }
+  function fallbackRulePriority(candidate) {
+    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
+    if (candidate.rules.some((rule) => rule === "v1")) return 1;
+    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
+    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
+    return 3;
+  }
+  function dictionaryFirstFallbackLookupTerms(terms) {
+    const [source, ...candidates] = terms;
+    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
+    return uniqueStrings([...terminal, ...candidates, source ?? ""]);
+  }
+  function isTerminalDictionaryFallbackTerm(term) {
+    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
+  }
+  function uniqueStrings(values) {
+    const seen = /* @__PURE__ */ new Set();
+    return values.filter((value) => {
+      if (!value) return false;
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+  }
   const KANA_ONLY_RE$1 = /^[぀-ヿー]+$/u;
   const KANJI_CHAR_RE = /^[㐀-鿿々]$/u;
   function splitReadingAcrossKanji(base, reading, readingsForKanji) {
@@ -31322,32 +31654,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const LOCAL_PARSE_CACHE_LIMIT = 600;
   const LOCAL_PITCH_CACHE_LIMIT = 800;
   const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
-  const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
-  const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
-  const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
-  const FALLBACK_INFLECTION_MAX_SEGMENTS = 8;
-  const FALLBACK_INFLECTION_MAX_LENGTH = 18;
-  const FALLBACK_LOOKUP_TERM_LIMIT = 8;
-  const INFLECTION_BOUNDARY_SEGMENTS = /* @__PURE__ */ new Set(["は", "が", "を", "に", "へ", "と", "で", "の", "や", "から", "まで", "より", "だけ", "しか", "など"]);
-  const PARTICLE_PREFIX_SEGMENTS = [...INFLECTION_BOUNDARY_SEGMENTS].sort((first2, second) => second.length - first2.length);
-  const PARTICLE_PREFIX_REMAINDER_RE = /^[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ffー]/u;
-  const INFLECTION_CONTINUATION_SEGMENT_RE = /^(?:っ?た|っ?て|だ|で|ん|んで|ま|ない|なかっ|なかった|ます|まし|ました|ませ|ません|ましょう|たい|たく|しま|した|し|する|でき|出来|できる|できます|できた|できて|できない|できなかった|いる|い|いた|いて|れる|られ|せる|させる)$/u;
-  const HIRAGANA_SEGMENT_RE = /^[\u3040-\u309fー]+$/u;
-  const SINGLE_KANJI_SEGMENT_RE = /^[\u3400-\u9fff]$/u;
-  const SINGLE_KANJI_HIRAGANA_STEM_RE = /^[\u3400-\u9fff][\u3040-\u309fー]*$/u;
-  const SURU_STEM_SEGMENT_RE = /[\u3400-\u9fff々〆ヵヶ\u30a0-\u30ff]/u;
-  const SURU_AUXILIARY_SUFFIX_RE = /^(?:し|する|した|して|します|しました|しましょう|しない|でき|出来|できる|できます|できた|できて|できない|できなかった)/u;
-  const NUMERIC_COUNTER_SUFFIX_SEGMENTS = /* @__PURE__ */ new Set(["話", "巻", "回", "章", "部", "番", "号", "版", "人", "名", "匹", "頭", "羽", "枚", "本", "冊", "個", "台", "件", "分", "秒", "時", "日", "月", "年", "泊", "円"]);
-  const NUMERIC_RANGE_BEFORE_RE = /(?:第\s*)?(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+)(?:\s*[〜～~\-ー−―–]\s*(?:[0-9０-９]+|[一二三四五六七八九十百千万億兆]+))*$/u;
-  const BOGUS_SMALL_TSU_FINAL_RE = /っ[うくぐすずつづぬふぶぷむゆる]$/u;
   const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
-  const SEGMENTER_COMPOUND_OVERRIDES = /* @__PURE__ */ new Set(["巨乳"]);
-  const SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH = Array.from(SEGMENTER_COMPOUND_OVERRIDES).reduce((max2, value) => Math.max(max2, value.length), 0);
-  const KANA_VERB_STEM_END_RE = /[うくぐすずつづぬふぶぷむゆる]$/u;
-  const KANA_I_ADJECTIVE_END_RE = /い$/u;
-  const SMALL_TSU_RE = /っ/u;
-  const KANA_CONTENT_WORD_MIN_LENGTH = 3;
-  const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
   const log$n = Logger.scope("ReaderParser");
   function apiFirstParseOptions(options = {}) {
     const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -31847,315 +32154,8 @@ ${spelling}`);
   function compareTokensByOffset(a, b) {
     return a.start - b.start || b.length - a.length;
   }
-  function normalizeFallbackTerm(text2) {
-    return text2.replace(/\s+/g, " ").trim().slice(0, 80);
-  }
   function cardCacheKey(vid, sid) {
     return `${vid}:${sid}`;
-  }
-  let cachedSegmenterConstructor;
-  let cachedJapaneseWordSegmenter;
-  function fallbackJapaneseSegments(text2) {
-    return segmentJapaneseText(text2);
-  }
-  function segmentJapaneseText(text2) {
-    const segmenter = japaneseWordSegmenter();
-    if (!segmenter) {
-      return Array.from(text2.matchAll(JAPANESE_SCRIPT_GROUP_RE)).flatMap((match) => {
-        const start = match.index ?? 0;
-        return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(match[0], start), text2);
-      });
-    }
-    return Array.from(text2.matchAll(JAPANESE_TEXT_RUN_RE)).flatMap((match) => {
-      const start = match.index ?? 0;
-      return segmentJapaneseRun(match[0], start, segmenter, text2);
-    });
-  }
-  function segmentJapaneseRun(text2, offset, segmenter, sourceText) {
-    const segments = Array.from(segmenter.segment(text2)).filter(isUsefulJapaneseSegment).map((segment) => ({
-      surface: segment.segment,
-      start: offset + segment.index,
-      end: offset + segment.index + segment.segment.length
-    }));
-    if (segments.at(-1)?.end !== offset + text2.length) {
-      return finalizeJapaneseRunSegments(fallbackJapaneseRunSegment(text2, offset), sourceText);
-    }
-    return finalizeJapaneseRunSegments(segments, sourceText);
-  }
-  function finalizeJapaneseRunSegments(segments, sourceText) {
-    return mergeInflectedFallbackSegments(
-      splitLeadingParticleSegments(mergeContiguousKanaSegments(mergeSegmenterCompoundOverrides(splitNumericCounterPrefixSegments(segments, sourceText)))),
-      sourceText
-    );
-  }
-  function mergeContiguousKanaSegments(segments) {
-    if (segments.some((segment) => NON_HIRAGANA_SCRIPT_RE.test(segment.surface))) return segments;
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = contiguousKanaMergeSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function contiguousKanaMergeSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2 || !isPureKanaSegment(first2.surface)) return null;
-    const previous = segments[startIndex - 1];
-    const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first2.start;
-    if (isInflectionBoundarySegment(first2.surface) && !atKanaRunStart) return null;
-    const runEnd = contiguousKanaRunEnd(segments, startIndex);
-    if (runEnd - startIndex < 2) return null;
-    let surface = first2.surface;
-    let lastIndex = startIndex;
-    for (let index = startIndex + 1; index < runEnd; index += 1) {
-      const current = segments[index];
-      const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isInflectionBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
-      surface += current.surface;
-      lastIndex = index;
-    }
-    if (lastIndex === startIndex) return null;
-    return {
-      segment: { surface, start: first2.start, end: segments[lastIndex].end },
-      nextIndex: lastIndex + 1
-    };
-  }
-  function contiguousKanaRunEnd(segments, startIndex) {
-    let index = startIndex + 1;
-    while (index < segments.length && isPureKanaSegment(segments[index].surface) && segments[index].start === segments[index - 1].end) {
-      index += 1;
-    }
-    return index;
-  }
-  function sliceKanaSpanSurface(segments, startIndex, endIndex) {
-    let surface = "";
-    for (let index = startIndex; index < endIndex; index += 1) surface += segments[index].surface;
-    return surface;
-  }
-  function isPureKanaSegment(surface) {
-    return HIRAGANA_SEGMENT_RE.test(surface);
-  }
-  function isKanaContentWordSpan(span) {
-    if (isKanaInflectableBaseShape(span)) return true;
-    return deinflectJapaneseTerm(span).some((candidate) => candidate.depth > 0 && Array.from(candidate.term).length >= 2 && !SMALL_TSU_RE.test(candidate.term) && (KANA_VERB_STEM_END_RE.test(candidate.term) || KANA_I_ADJECTIVE_END_RE.test(candidate.term)));
-  }
-  function isKanaInflectableBaseShape(span) {
-    if (Array.from(span).length < KANA_CONTENT_WORD_MIN_LENGTH || SMALL_TSU_RE.test(span)) return false;
-    return KANA_VERB_STEM_END_RE.test(span) || KANA_I_ADJECTIVE_END_RE.test(span);
-  }
-  function splitNumericCounterPrefixSegments(segments, sourceText) {
-    return segments.flatMap((segment) => splitNumericCounterPrefixSegment(segment, sourceText));
-  }
-  function splitNumericCounterPrefixSegment(segment, sourceText) {
-    const first2 = Array.from(segment.surface)[0] ?? "";
-    if (!first2 || first2 === segment.surface || !NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(first2)) return [segment];
-    if (!numericRangeImmediatelyBefore(sourceText, segment.start)) return [segment];
-    return [
-      { surface: first2, start: segment.start, end: segment.start + first2.length },
-      { surface: segment.surface.slice(first2.length), start: segment.start + first2.length, end: segment.end }
-    ];
-  }
-  function splitLeadingParticleSegments(segments) {
-    return segments.flatMap(splitLeadingParticleSegment);
-  }
-  function splitLeadingParticleSegment(segment) {
-    const prefix = PARTICLE_PREFIX_SEGMENTS.find((candidate) => {
-      if (!segment.surface.startsWith(candidate) || segment.surface.length <= candidate.length) return false;
-      return PARTICLE_PREFIX_REMAINDER_RE.test(segment.surface.slice(candidate.length));
-    });
-    if (!prefix) return [segment];
-    return [
-      { surface: prefix, start: segment.start, end: segment.start + prefix.length },
-      { surface: segment.surface.slice(prefix.length), start: segment.start + prefix.length, end: segment.end }
-    ];
-  }
-  function mergeSegmenterCompoundOverrides(segments) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = segmenterCompoundOverrideSpanAt(segments, index);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function segmenterCompoundOverrideSpanAt(segments, startIndex) {
-    const first2 = segments[startIndex];
-    if (!first2) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < segments.length; index += 1) {
-      const current = segments[index];
-      if (!current || index > startIndex && segments[index - 1]?.end !== current.start) break;
-      surface += current.surface;
-      if (surface.length > SEGMENTER_COMPOUND_OVERRIDE_MAX_LENGTH) break;
-      if (index > startIndex && SEGMENTER_COMPOUND_OVERRIDES.has(surface)) {
-        best = {
-          segment: { surface, start: first2.start, end: current.end },
-          nextIndex: index + 1
-        };
-      }
-    }
-    return best;
-  }
-  function mergeInflectedFallbackSegments(segments, sourceText) {
-    const merged = [];
-    for (let index = 0; index < segments.length; ) {
-      const span = inflectedFallbackSpanAt(segments, index, sourceText);
-      if (span) {
-        merged.push(span.segment);
-        index = span.nextIndex;
-        continue;
-      }
-      merged.push(segments[index]);
-      index += 1;
-    }
-    return merged;
-  }
-  function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
-    const first2 = segments[startIndex];
-    if (!first2 || isInflectionBoundarySegment(first2.surface)) return null;
-    let surface = "";
-    let best = null;
-    for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
-      const current = nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText);
-      if (!current) break;
-      surface += current.surface;
-      if (surface.length > FALLBACK_INFLECTION_MAX_LENGTH) break;
-      best = inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) ?? best;
-    }
-    return best;
-  }
-  function fallbackInflectionScanEnd(segments, startIndex) {
-    return Math.min(segments.length, startIndex + FALLBACK_INFLECTION_MAX_SEGMENTS);
-  }
-  function nextInflectedFallbackSegment(segments, index, startIndex, first2, surface, sourceText) {
-    const current = segments[index];
-    if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first2)) return null;
-    if (index > startIndex && isNumericCounterFallbackStem(first2, sourceText)) return null;
-    if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
-    if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
-    return current;
-  }
-  function isContiguousFallbackSegment(segments, index, startIndex, first2) {
-    const expectedStart = index === startIndex ? first2.start : segments[index - 1]?.end;
-    return segments[index]?.start === expectedStart;
-  }
-  function inflectedFallbackCandidateAt(segments, startIndex, index, first2, current, surface) {
-    if (index === startIndex) return null;
-    const lookupTerms = fallbackLookupTermsForText(surface);
-    if (lookupTerms.length <= 1) return null;
-    if (shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms)) return null;
-    return {
-      segment: { surface, start: first2.start, end: current.end },
-      nextIndex: index + 1
-    };
-  }
-  function isInflectionBoundarySegment(surface) {
-    return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
-  }
-  function isInflectionContinuationSegment(surface) {
-    return INFLECTION_CONTINUATION_SEGMENT_RE.test(surface);
-  }
-  function canContinueInflectedFallbackSpan(currentSurface, nextSurface) {
-    return isInflectionContinuationSegment(nextSurface) || HIRAGANA_SEGMENT_RE.test(nextSurface) && SINGLE_KANJI_HIRAGANA_STEM_RE.test(currentSurface) && !hasUsefulFallbackDeinflection(currentSurface);
-  }
-  function isNumericCounterFallbackStem(segment, sourceText) {
-    return NUMERIC_COUNTER_SUFFIX_SEGMENTS.has(segment.surface) && numericRangeImmediatelyBefore(sourceText, segment.start);
-  }
-  function numericRangeImmediatelyBefore(sourceText, start) {
-    const before = sourceText.slice(Math.max(0, start - 24), start).replace(/\s+$/u, "");
-    return NUMERIC_RANGE_BEFORE_RE.test(before);
-  }
-  function hasUsefulFallbackDeinflection(surface) {
-    return fallbackLookupTermsForText(surface).length > 1;
-  }
-  function shouldKeepSuruAuxiliaryBoundary(segments, startIndex, surface, lookupTerms) {
-    const first2 = segments[startIndex]?.surface ?? "";
-    if (!first2 || !SURU_STEM_SEGMENT_RE.test(first2)) return false;
-    const suffix = surface.slice(first2.length);
-    if (!SURU_AUXILIARY_SUFFIX_RE.test(suffix)) return false;
-    if (hasSingleKanjiGodanSAlternative(first2, lookupTerms)) return false;
-    return lookupTerms.some((term) => term.endsWith("する"));
-  }
-  function hasSingleKanjiGodanSAlternative(first2, lookupTerms) {
-    return SINGLE_KANJI_SEGMENT_RE.test(first2) && lookupTerms.some((term) => term === `${first2}す`);
-  }
-  function japaneseWordSegmenter() {
-    const Segmenter = intlSegmenter();
-    if (!Segmenter) {
-      cachedSegmenterConstructor = null;
-      cachedJapaneseWordSegmenter = null;
-      return null;
-    }
-    if (cachedSegmenterConstructor !== Segmenter) {
-      cachedSegmenterConstructor = Segmenter;
-      cachedJapaneseWordSegmenter = new Segmenter("ja", { granularity: "word" });
-    }
-    return cachedJapaneseWordSegmenter ?? null;
-  }
-  function isUsefulJapaneseSegment(segment) {
-    const surface = segment.segment.trim();
-    return JAPANESE_CHARACTER_RE.test(surface);
-  }
-  function intlSegmenter() {
-    const candidate = Intl.Segmenter;
-    return typeof candidate === "function" ? candidate : null;
-  }
-  function fallbackJapaneseRunSegment(text2, offset) {
-    const surface = text2.trim();
-    if (!surface || !JAPANESE_CHARACTER_RE.test(surface)) return [];
-    const start = offset + text2.indexOf(surface);
-    return [{ surface, start, end: start + surface.length }];
-  }
-  function fallbackLookupTermsForText(text2) {
-    const source = normalizeFallbackTerm(text2);
-    if (!source) return [];
-    const terms = deinflectJapaneseTerm(source).filter(isUsefulFallbackLookupCandidate).sort(compareFallbackLookupCandidates).map((candidate) => normalizeFallbackTerm(candidate.term)).filter(Boolean);
-    return uniqueStrings([source, ...terms]).slice(0, FALLBACK_LOOKUP_TERM_LIMIT);
-  }
-  function fallbackLookupTermsForCard(card) {
-    return dictionaryFirstFallbackLookupTerms(uniqueStrings([card.spelling, ...card.fallbackLookupTerms ?? []].map(normalizeFallbackTerm).filter(Boolean)));
-  }
-  function isUsefulFallbackLookupCandidate(candidate) {
-    return candidate.depth > 0 && JAPANESE_CHARACTER_RE.test(candidate.term) && candidate.term.length > 1;
-  }
-  function compareFallbackLookupCandidates(a, b) {
-    return a.depth - b.depth || fallbackRulePriority(a) - fallbackRulePriority(b) || b.term.length - a.term.length || a.term.localeCompare(b.term);
-  }
-  function fallbackRulePriority(candidate) {
-    if (candidate.rules.some((rule) => rule === "vs" || rule === "vs-s" || rule === "suru" || rule === "vk" || rule === "kuru")) return 0;
-    if (candidate.rules.some((rule) => rule === "v1")) return 1;
-    if (candidate.rules.some((rule) => rule.startsWith("v5") || rule === "v5")) return 1;
-    if (candidate.rules.some((rule) => rule === "adj-i" || rule === "i-adj")) return 2;
-    return 3;
-  }
-  function dictionaryFirstFallbackLookupTerms(terms) {
-    const [source, ...candidates] = terms;
-    const terminal = candidates.filter(isTerminalDictionaryFallbackTerm);
-    return uniqueStrings([...terminal, ...candidates, source ?? ""]);
-  }
-  function isTerminalDictionaryFallbackTerm(term) {
-    return !BOGUS_SMALL_TSU_FINAL_RE.test(term) && fallbackLookupTermsForText(term).length <= 1;
-  }
-  function uniqueStrings(values) {
-    const seen = /* @__PURE__ */ new Set();
-    return values.filter((value) => {
-      if (!value) return false;
-      if (seen.has(value)) return false;
-      seen.add(value);
-      return true;
-    });
   }
   function withTimeout(promise, timeoutMs, errorFactory) {
     let timeoutId = 0;

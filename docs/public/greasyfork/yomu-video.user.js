@@ -6370,25 +6370,6 @@ recommendedJiten	Jiten頻度です。
 ${candidate.rules.join(" ")}
 ${candidate.depth}`;
   }
-  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
-  function stableHash32(value) {
-    let hash = 2166136261;
-    for (let index = 0; index < value.length; index += 1) {
-      hash ^= value.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return hash >>> 0;
-  }
-  function stablePositiveHashId(value) {
-    return stableHash32(value) || 1;
-  }
-  function stableHashBase36(value) {
-    return stableHash32(value).toString(36);
-  }
-  Logger.scope("Yomitan");
-  new TextDecoder();
-  Logger.scope("YomitanSettingsImport");
-  Logger.scope("Yomitan");
   const JAPANESE_SCRIPT_GROUP_RE = /[\u3400-\u9fff々〆ヵヶ]+|[\u3040-\u309fー]+|[\u30a0-\u30ffー]+/gu;
   const JAPANESE_TEXT_RUN_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶー]+/gu;
   const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff々〆ヵヶ]/u;
@@ -6413,7 +6394,6 @@ ${candidate.depth}`;
   const SMALL_TSU_RE = /っ/u;
   const KANA_CONTENT_WORD_MIN_LENGTH = 3;
   const NON_HIRAGANA_SCRIPT_RE = /[㐀-鿿々〆ヵヶ゠-ヿ]/u;
-  Logger.scope("ReaderParser");
   function normalizeFallbackTerm(text) {
     return text.replace(/\s+/g, " ").trim().slice(0, 80);
   }
@@ -6710,6 +6690,26 @@ ${candidate.depth}`;
       return true;
     });
   }
+  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  function stableHash32(value) {
+    let hash = 2166136261;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+  function stablePositiveHashId(value) {
+    return stableHash32(value) || 1;
+  }
+  function stableHashBase36(value) {
+    return stableHash32(value).toString(36);
+  }
+  Logger.scope("Yomitan");
+  new TextDecoder();
+  Logger.scope("YomitanSettingsImport");
+  Logger.scope("Yomitan");
+  Logger.scope("ReaderParser");
   const MAX_CACHE_ITEMS = 36;
   const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
   const OCR_STATUS_READY_DWELL_MS = 1e3;
