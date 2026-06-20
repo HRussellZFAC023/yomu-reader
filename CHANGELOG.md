@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.21] - 2026-06-20
+
+### Changed
+
+- Internal: split the oversized Anki integration module (`anki/client.ts`, ~2.9k lines) into focused modules — mobile handoff, card templates, media files, model/field mapping, field rendering — and removed duplicated cache and array helpers (one shared `core/public-cache` and `core/array-utils`). No user-facing behavior change; improves maintainability and adds regression test coverage for the deep-link, cache, and array utilities.
+
 ## [1.4.20] - 2026-06-20
 
 ### Fixed
