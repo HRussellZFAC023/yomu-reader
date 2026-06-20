@@ -3618,12 +3618,14 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-source-jpdb-soft: var(--jpdb-reader-jpdb-soft, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);');
         expect(normalizedCss).toContain('--jpdb-reader-source-pitch-decoration: transparent;');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);');
-        expect(normalizedCss).toContain('--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-not-in-deck { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-not-in-deck);');
+        expect(normalizedCss).toContain('--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-not-in-deck-soft);');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-suspended { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-ignored);');
         expect(normalizedCss).toContain('.jpdb-reader-word.anki-new { --jpdb-reader-anki-color: var(--jpdb-reader-state-new);');
         expect(normalizedCss).toContain('.jpdb-reader-word.anki-suspended { --jpdb-reader-anki-color: var(--jpdb-reader-state-ignored);');
-        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .anki-new) { --jpdb-reader-status-color: var(--jpdb-reader-state-new);');
+        expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) { --jpdb-reader-status-color: var(--jpdb-reader-state-new);');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-not-in-deck { --jpdb-reader-status-color: var(--jpdb-reader-state-not-in-deck);');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant) { --jpdb-reader-jpdb-color: var(--jpdb-reader-state-known);');
         expect(normalizedCss).toContain('--jpdb-reader-jpdb-soft: var(--jpdb-reader-state-known-soft);');
         expect(normalizedCss).toContain('.jpdb-reader-word:is(.jpdb-known, .jpdb-mature, .jpdb-mastered, .jpdb-never-forget, .jpdb-redundant, .anki-known) { --jpdb-reader-status-color: var(--jpdb-reader-state-known);');
@@ -3633,6 +3635,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toMatch(/\.jpdb-reader-word:is\(\s*\.jpdb-pitch-heiban,\s*\.jpdb-pitch-atamadaka,\s*\.jpdb-pitch-nakadaka,\s*\.jpdb-pitch-odaka,\s*\.jpdb-pitch-kifuku\s*\) \{ --jpdb-reader-source-pitch-decoration: var\(--jpdb-reader-pitch-color, transparent\);/);
         expect(normalizedCss).toContain('--jpdb-reader-source-status-highlight: var(--jpdb-reader-status-highlight, var(--jpdb-reader-source-status-soft, transparent));');
         expect(normalizedCss).toMatch(/--jpdb-reader-jpdb-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-jpdb-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
+        expect(normalizedCss).toMatch(/\.jpdb-reader-word\.jpdb-not-in-deck \{ --jpdb-reader-jpdb-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-jpdb-color\) 20%, var\(--jpdb-reader-highlight-backdrop\)\s*\); \}/);
         expect(normalizedCss).toMatch(/--jpdb-reader-pitch-highlight: color-mix\(\s*in srgb, var\(--jpdb-reader-pitch-color\) 36%, var\(--jpdb-reader-highlight-backdrop\)\s*\);/);
         expect(normalizedCss).toContain('.jpdb-reader-word-highlight-status .jpdb-reader-word { --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-status-highlight, transparent); }');
         expect(normalizedCss).toContain('--jpdb-reader-word-accessible-highlight');

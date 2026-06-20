@@ -31,9 +31,11 @@
   --jpdb-reader-state-ignored: #b8a7ff;
   --jpdb-reader-state-frequent: #4b8d7f;
   --jpdb-reader-state-unparsed: var(--jpdb-reader-faint);
+  --jpdb-reader-state-not-in-deck: color-mix(in srgb, var(--jpdb-reader-state-new) 36%, var(--jpdb-reader-faint));
   --jpdb-reader-state-new-bright: #5aa9ff;
   --jpdb-reader-state-hard: #ffb454;
   --jpdb-reader-state-new-readable: var(--jpdb-reader-state-new);
+  --jpdb-reader-state-not-in-deck-readable: color-mix(in srgb, var(--jpdb-reader-state-new-readable) 28%, var(--jpdb-reader-muted));
   --jpdb-reader-state-learning-readable: var(--jpdb-reader-state-learning);
   --jpdb-reader-state-known-readable: var(--jpdb-reader-state-known);
   --jpdb-reader-state-due-readable: var(--jpdb-reader-state-due);
@@ -42,6 +44,7 @@
   --jpdb-reader-state-frequent-readable: var(--jpdb-reader-state-frequent);
   --jpdb-reader-state-unparsed-readable: var(--jpdb-reader-state-unparsed);
   --jpdb-reader-state-new-soft: color-mix(in srgb, var(--jpdb-reader-state-new) 16%, transparent);
+  --jpdb-reader-state-not-in-deck-soft: color-mix(in srgb, var(--jpdb-reader-state-not-in-deck) 10%, transparent);
   --jpdb-reader-state-learning-soft: color-mix(in srgb, var(--jpdb-reader-state-learning) 16%, transparent);
   --jpdb-reader-state-known-soft: color-mix(in srgb, var(--jpdb-reader-state-known) 16%, transparent);
   --jpdb-reader-state-due-soft: color-mix(in srgb, var(--jpdb-reader-state-due) 16%, transparent);
@@ -5368,10 +5371,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   outline-offset: 2px;
 }
 
-.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
+}
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
 .jpdb-reader-word:is(.jpdb-learning, .jpdb-young) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
@@ -5457,10 +5465,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-anki-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-anki-soft: var(--jpdb-reader-state-ignored-soft);
 }
-.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .anki-new) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
+}
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-status-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
 .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .anki-learning) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
@@ -5512,6 +5525,13 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     var(--jpdb-reader-highlight-backdrop)
   );
 }
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-jpdb-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-jpdb-color) 20%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
 .jpdb-reader-word:is(
   .anki-new,
   .anki-suspended,
@@ -5557,13 +5577,28 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     var(--jpdb-reader-highlight-backdrop)
   );
 }
-.jpdb-reader-word:is(.jiten-new, .jiten-not-in-deck, .jiten-in-deck) {
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-status-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-status-color) 20%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
+.jpdb-reader-word:is(.jiten-new, .jiten-in-deck) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
+}
+.jpdb-reader-word.jiten-not-in-deck {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-not-in-deck-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
 .jpdb-reader-word:is(.jiten-learning, .jiten-young) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
@@ -5648,6 +5683,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-status-highlight: color-mix(
     in srgb,
     var(--jpdb-reader-status-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
+.jpdb-reader-word.jiten-not-in-deck {
+  --jpdb-reader-jpdb-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-jpdb-color) 20%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+  --jpdb-reader-status-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-status-color) 20%,
     var(--jpdb-reader-highlight-backdrop)
   );
 }

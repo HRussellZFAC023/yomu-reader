@@ -30,9 +30,11 @@
   --jpdb-reader-state-ignored: #b8a7ff;
   --jpdb-reader-state-frequent: #4b8d7f;
   --jpdb-reader-state-unparsed: var(--jpdb-reader-faint);
+  --jpdb-reader-state-not-in-deck: color-mix(in srgb, var(--jpdb-reader-state-new) 36%, var(--jpdb-reader-faint));
   --jpdb-reader-state-new-bright: #5aa9ff;
   --jpdb-reader-state-hard: #ffb454;
   --jpdb-reader-state-new-readable: var(--jpdb-reader-state-new);
+  --jpdb-reader-state-not-in-deck-readable: color-mix(in srgb, var(--jpdb-reader-state-new-readable) 28%, var(--jpdb-reader-muted));
   --jpdb-reader-state-learning-readable: var(--jpdb-reader-state-learning);
   --jpdb-reader-state-known-readable: var(--jpdb-reader-state-known);
   --jpdb-reader-state-due-readable: var(--jpdb-reader-state-due);
@@ -41,6 +43,7 @@
   --jpdb-reader-state-frequent-readable: var(--jpdb-reader-state-frequent);
   --jpdb-reader-state-unparsed-readable: var(--jpdb-reader-state-unparsed);
   --jpdb-reader-state-new-soft: color-mix(in srgb, var(--jpdb-reader-state-new) 16%, transparent);
+  --jpdb-reader-state-not-in-deck-soft: color-mix(in srgb, var(--jpdb-reader-state-not-in-deck) 10%, transparent);
   --jpdb-reader-state-learning-soft: color-mix(in srgb, var(--jpdb-reader-state-learning) 16%, transparent);
   --jpdb-reader-state-known-soft: color-mix(in srgb, var(--jpdb-reader-state-known) 16%, transparent);
   --jpdb-reader-state-due-soft: color-mix(in srgb, var(--jpdb-reader-state-due) 16%, transparent);

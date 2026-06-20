@@ -9,7 +9,8 @@ const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v1';
 export const READER_CSS = resourceReaderCss();
 
 const CRITICAL_STATES = [
-    ['new', ['new', 'not-in-deck', 'in-deck']],
+    ['new', ['new', 'in-deck']],
+    ['not-in-deck', ['not-in-deck'], '20%'],
     ['learning', ['learning', 'young']],
     ['known', ['known', 'mature', 'mastered', 'never-forget', 'redundant']],
     ['due', ['due']],
@@ -30,20 +31,20 @@ function criticalPitchSelector(pattern: string): string {
     return `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
 }
 
-function criticalVars(color: string): string {
-    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb))`;
+function criticalVars(color: string, highlightAlpha = '36%'): string {
+    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,transparent) ${highlightAlpha},var(--yb))`;
 }
 
-function criticalAnkiVars(color: string): string {
-    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,transparent) 36%,var(--yb))`;
+function criticalAnkiVars(color: string, highlightAlpha = '36%'): string {
+    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,transparent) ${highlightAlpha},var(--yb))`;
 }
 
 function criticalWordCss(): string {
     const states = CRITICAL_STATES
-        .map(([color, group]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color)}}`)
+        .map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color, highlightAlpha)}}`)
         .join('');
     const ankiStates = CRITICAL_STATES
-        .map(([color, group]) => `.jpdb-reader-word:is(${criticalAnkiSelector(group)}){${criticalAnkiVars(color)}}`)
+        .map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalAnkiSelector(group)}){${criticalAnkiVars(color, highlightAlpha)}}`)
         .join('');
     const pitches = CRITICAL_PITCHES
         .map(pattern => `.jpdb-reader-word:is(${criticalPitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`)
@@ -52,7 +53,7 @@ function criticalWordCss(): string {
     return [
         states,
         ankiStates,
-        '.jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb))}',
+        '.jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb)))}',
         pitches,
         `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,transparent);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
         criticalChannelCss(),

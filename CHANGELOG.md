@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.41] - 2026-06-20
+
+### Fixed
+
+- Not-in-deck words now use a quieter default slate-blue state and a softer highlight mix, so pages where most parsed words are outside the deck no longer turn into a bright wall of blue. Actual new and in-deck words keep the existing stronger blue.
+- Headword furigana tests now compare the visible word surface instead of raw ruby text, matching the 1.4.40 popup headword rendering.
+
 ## [1.4.40] - 2026-06-20
 
 ### Fixed

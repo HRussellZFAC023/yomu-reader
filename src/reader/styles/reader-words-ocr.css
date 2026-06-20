@@ -215,10 +215,15 @@
   outline-offset: 2px;
 }
 
-.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
+}
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
 .jpdb-reader-word:is(.jpdb-learning, .jpdb-young) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
@@ -304,10 +309,15 @@
   --jpdb-reader-anki-readable: var(--jpdb-reader-state-ignored-readable);
   --jpdb-reader-anki-soft: var(--jpdb-reader-state-ignored-soft);
 }
-.jpdb-reader-word:is(.jpdb-new, .jpdb-not-in-deck, .jpdb-in-deck, .anki-new) {
+.jpdb-reader-word:is(.jpdb-new, .jpdb-in-deck, .anki-new) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
+}
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-status-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
 .jpdb-reader-word:is(.jpdb-learning, .jpdb-young, .anki-learning) {
   --jpdb-reader-status-color: var(--jpdb-reader-state-learning);
@@ -359,6 +369,13 @@
     var(--jpdb-reader-highlight-backdrop)
   );
 }
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-jpdb-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-jpdb-color) 20%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
 .jpdb-reader-word:is(
   .anki-new,
   .anki-suspended,
@@ -404,13 +421,28 @@
     var(--jpdb-reader-highlight-backdrop)
   );
 }
-.jpdb-reader-word:is(.jiten-new, .jiten-not-in-deck, .jiten-in-deck) {
+.jpdb-reader-word.jpdb-not-in-deck {
+  --jpdb-reader-status-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-status-color) 20%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
+.jpdb-reader-word:is(.jiten-new, .jiten-in-deck) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-new);
   --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-new-soft);
   --jpdb-reader-status-color: var(--jpdb-reader-state-new);
   --jpdb-reader-status-readable: var(--jpdb-reader-state-new-readable);
   --jpdb-reader-status-soft: var(--jpdb-reader-state-new-soft);
+}
+.jpdb-reader-word.jiten-not-in-deck {
+  --jpdb-reader-jpdb-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-jpdb-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-jpdb-soft: var(--jpdb-reader-state-not-in-deck-soft);
+  --jpdb-reader-status-color: var(--jpdb-reader-state-not-in-deck);
+  --jpdb-reader-status-readable: var(--jpdb-reader-state-not-in-deck-readable);
+  --jpdb-reader-status-soft: var(--jpdb-reader-state-not-in-deck-soft);
 }
 .jpdb-reader-word:is(.jiten-learning, .jiten-young) {
   --jpdb-reader-jpdb-color: var(--jpdb-reader-state-learning);
@@ -495,6 +527,18 @@
   --jpdb-reader-status-highlight: color-mix(
     in srgb,
     var(--jpdb-reader-status-color) 36%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+}
+.jpdb-reader-word.jiten-not-in-deck {
+  --jpdb-reader-jpdb-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-jpdb-color) 20%,
+    var(--jpdb-reader-highlight-backdrop)
+  );
+  --jpdb-reader-status-highlight: color-mix(
+    in srgb,
+    var(--jpdb-reader-status-color) 20%,
     var(--jpdb-reader-highlight-backdrop)
   );
 }

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.40
+// @version      1.4.41
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.40#sha256-UOTBNTvcxpLyuAxFXnmC5TnSr6/GAluvEiVaeLdOcVU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.40#sha256-INFQ/hN/GEiGXsPoEv85IVAzr3kaRW9tv/U9k4h+F1Q=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.40#sha256-dIcpld17JUtBzV+NKu/NQgSE9HWEgkXsvJKlhyXw9Z0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.40#sha256-p4MRhwFiZK4b/4OtFbf23aKJ9rSz1u0IwnL/9C+6xIQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.41#sha256-UOTBNTvcxpLyuAxFXnmC5TnSr6/GAluvEiVaeLdOcVU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.41#sha256-INFQ/hN/GEiGXsPoEv85IVAzr3kaRW9tv/U9k4h+F1Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.41#sha256-dIcpld17JUtBzV+NKu/NQgSE9HWEgkXsvJKlhyXw9Z0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.41#sha256-p4MRhwFiZK4b/4OtFbf23aKJ9rSz1u0IwnL/9C+6xIQ=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -36198,7 +36198,8 @@ ${reading}`);
   const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v1";
   const READER_CSS = resourceReaderCss();
   const CRITICAL_STATES = [
-    ["new", ["new", "not-in-deck", "in-deck"]],
+    ["new", ["new", "in-deck"]],
+    ["not-in-deck", ["not-in-deck"], "20%"],
     ["learning", ["learning", "young"]],
     ["known", ["known", "mature", "mastered", "never-forget", "redundant"]],
     ["due", ["due"]],
@@ -36215,21 +36216,21 @@ ${reading}`);
   function criticalPitchSelector(pattern) {
     return `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
   }
-  function criticalVars(color) {
-    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb))`;
+  function criticalVars(color, highlightAlpha = "36%") {
+    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,transparent) ${highlightAlpha},var(--yb))`;
   }
-  function criticalAnkiVars(color) {
-    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,transparent) 36%,var(--yb))`;
+  function criticalAnkiVars(color, highlightAlpha = "36%") {
+    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,transparent) ${highlightAlpha},var(--yb))`;
   }
   function criticalWordCss() {
-    const states = CRITICAL_STATES.map(([color, group]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color)}}`).join("");
-    const ankiStates = CRITICAL_STATES.map(([color, group]) => `.jpdb-reader-word:is(${criticalAnkiSelector(group)}){${criticalAnkiVars(color)}}`).join("");
+    const states = CRITICAL_STATES.map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color, highlightAlpha)}}`).join("");
+    const ankiStates = CRITICAL_STATES.map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalAnkiSelector(group)}){${criticalAnkiVars(color, highlightAlpha)}}`).join("");
     const pitches = CRITICAL_PITCHES.map((pattern) => `.jpdb-reader-word:is(${criticalPitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`).join("");
     const pitchSelector = CRITICAL_PITCHES.map(criticalPitchSelector).join(",");
     return [
       states,
       ankiStates,
-      ".jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb))}",
+      ".jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb)))}",
       pitches,
       `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,transparent);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
       criticalChannelCss()
