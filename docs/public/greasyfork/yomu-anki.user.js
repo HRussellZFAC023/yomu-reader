@@ -11,348 +11,13 @@
       }
     }));
   }
-  const CORE_COLOR_TOKENS = {
-    white: "#ffffff"
-  };
-  const BRAND_COLOR_TOKENS = {
-    consoleAccent: "#247a58"
-  };
-  const LOGGER_COLOR_TOKENS = {
-    debug: "#6b7280",
-    warn: "#a15c00",
-    error: "#b91c1c"
-  };
-  const ANKI_CARD_COLOR_TOKENS = {
-    text: "#f4f7fb",
-    background: "#15181e",
-    muted: "#bac3d0",
-    sentenceBorder: "#323843",
-    sentenceBackground: "#1e232b",
-    sentenceText: "#d8dee8",
-    highlight: "#7ad119",
-    sectionBorder: "#303641",
-    sectionBackground: "#1b2028",
-    headingText: "#c2cad7",
-    labelText: "#92a0b3",
-    expressionText: CORE_COLOR_TOKENS.white,
-    readingText: "#aab4c2",
-    chipBorder: "#4b5565",
-    chipText: "#cdd5e1",
-    metaLabelText: "#8f9aaa",
-    tableBorder: "#353c47"
-  };
-  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
-  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
-  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
-  function createWindowCustomEvent(type, detail, init = {}) {
-    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
-    const documentEvent = createDocumentCustomEvent(type, eventInit);
-    if (documentEvent) return documentEvent;
-    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
-    if (CustomEventConstructor) {
-      try {
-        return new CustomEventConstructor(type, eventInit);
-      } catch {
-      }
-    }
-    throw new Error(`Unable to create window custom event: ${type}`);
+  function unique(items) {
+    return [...new Set(items)];
   }
-  function cloneCustomEventDetail(detail) {
-    if (detail === void 0 || typeof window === "undefined") return detail;
-    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
-  }
-  function dispatchWindowEvent(event) {
-    const target = window;
-    const directDispatch = readMethod(target, "dispatchEvent");
-    const directResult = callEventTargetMethod(directDispatch, target, event);
-    if (directResult.called) return directResult.result;
-    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
-    if (initialResult.called) return initialResult.result;
-    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
-    if (prototypeResult.called) return prototypeResult.result;
-    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
-    if (unshadowedResult.called) return unshadowedResult.result;
-    return false;
-  }
-  function addWindowEventListener(type, listener, options) {
-    const target = window;
-    const directAdd = readMethod(target, "addEventListener");
-    const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function removeWindowEventListener(type, listener, options) {
-    const target = window;
-    const directRemove = readMethod(target, "removeEventListener");
-    const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
-    if (directResult.called) return true;
-    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
-    if (initialResult.called) return true;
-    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
-    if (prototypeResult.called) return true;
-    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
-    if (unshadowedResult.called) return true;
-    return false;
-  }
-  function initialWindowMethod(key) {
-    if (typeof window === "undefined") return void 0;
-    return readMethod(window, key);
-  }
-  function dispatchWithPrototypeMethod(target, directDispatch, event) {
-    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
-      if (prototypeDispatch === directDispatch) continue;
-      const result = callEventTargetMethod(prototypeDispatch, target, event);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
-    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
-      if (prototypeAdd === directAdd) continue;
-      const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
-    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
-      if (prototypeRemove === directRemove) continue;
-      const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
-      if (result.called) return result;
-    }
-    return { called: false };
-  }
-  function eventConstructor(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function createDocumentCustomEvent(type, init) {
-    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
-    try {
-      const event = document.createEvent("CustomEvent");
-      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
-      return event;
-    } catch {
-      return void 0;
-    }
-  }
-  function eventTargetPrototypeMethods(target, key) {
-    const methods = [];
-    const add = (method) => {
-      if (method && !methods.includes(method)) methods.push(method);
-    };
-    let prototype = Object.getPrototypeOf(target);
-    while (prototype) {
-      add(readOwnMethod(prototype, key));
-      prototype = Object.getPrototypeOf(prototype);
-    }
-    const WindowEventTarget = readProperty(window, "EventTarget");
-    add(readMethod(WindowEventTarget?.prototype, key));
-    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
-    return methods;
-  }
-  function readMethod(source, key) {
-    const value = readProperty(source, key);
-    return typeof value === "function" ? value : void 0;
-  }
-  function readOwnMethod(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
-    return readMethod(source, key);
-  }
-  function readProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function callEventTargetMethod(method, target, event) {
-    if (!method) return { called: false };
-    try {
-      return { called: true, result: method.call(target, event) };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callAddEventListener$2(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callRemoveEventListener$2(method, target, type, listener, options) {
-    if (!method) return { called: false };
-    try {
-      method.call(target, type, listener, options);
-      return { called: true };
-    } catch (error) {
-      return { called: false, error };
-    }
-  }
-  function callWithUnshadowedWindowDispatch(event) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
-      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("dispatchEvent", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("addEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
-      return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("addEventListener", descriptor);
-    }
-  }
-  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
-    const target = window.wrappedJSObject || window;
-    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
-    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
-    try {
-      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
-      return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
-    } catch (error) {
-      return { called: false, error };
-    } finally {
-      restoreWindowProperty("removeEventListener", descriptor);
-    }
-  }
-  function restoreWindowProperty(key, descriptor) {
-    try {
-      const target = window.wrappedJSObject || window;
-      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
-    } catch {
-    }
-  }
-  function pageCompartmentDescriptor(descriptor, _target) {
-    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
-  }
-  function pageCompartmentValue(value, options = {}) {
-    const cloneInto = readMethod(globalThis, "cloneInto");
-    if (!cloneInto || typeof window === "undefined") return value;
-    try {
-      return cloneInto(value, window, options);
-    } catch {
-      return value;
-    }
-  }
-  function safeWindowPropertyDescriptor(key) {
-    try {
-      const target = window.wrappedJSObject || window;
-      return Object.getOwnPropertyDescriptor(target, key);
-    } catch {
-      return void 0;
-    }
-  }
-  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
-    if (!descriptor) return false;
-    try {
-      return typeof descriptor.value !== "function";
-    } catch {
-      return false;
-    }
-  }
-  function normalizedPropertyDescriptor(descriptor) {
-    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
-    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
-    if (!hasDataShape || !hasAccessorShape) return descriptor;
-    try {
-      return {
-        configurable: descriptor.configurable,
-        enumerable: descriptor.enumerable,
-        value: descriptor.value,
-        writable: descriptor.writable
-      };
-    } catch {
-      return {
-        configurable: true,
-        value: void 0,
-        writable: true
-      };
-    }
-  }
-  let trustedHtmlPolicy;
-  function setInnerHtml(element, html) {
-    if (!assignInnerHtml(element, html)) element.textContent = html;
-  }
-  function assignInnerHtml(element, html) {
-    try {
-      element.innerHTML = trustedHtml(html);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function escapeHtml$1(value) {
-    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  }
-  function trustedHtml(value) {
-    try {
-      const factory = trustedTypesFactory();
-      if (!factory) return value;
-      if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
-      return trustedHtmlPolicy && typeof trustedHtmlPolicy.createHTML === "function" ? trustedHtmlPolicy.createHTML(value) : value;
-    } catch {
-      trustedHtmlPolicy = null;
-      return value;
-    }
-  }
-  function trustedTypesFactory() {
-    const root = globalThis;
-    return [
-      root.trustedTypes,
-      typeof window === "undefined" ? void 0 : window.trustedTypes,
-      root.unsafeWindow?.trustedTypes
-    ].find((factory) => Boolean(factory));
-  }
-  function createTrustedHtmlPolicy(factory) {
-    try {
-      const existing = factory.getPolicy?.("yomu-reader");
-      if (existing && typeof existing.createHTML === "function") return existing;
-      const options = { createHTML: (html) => html };
-      return createTrustedHtmlPolicyWithOptions(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedHtmlPolicyWithOptions(factory, options);
-    } catch {
-      return null;
-    }
-  }
-  function createTrustedHtmlPolicyWithOptions(factory, options) {
-    try {
-      return factory.createPolicy?.("yomu-reader", options) ?? null;
-    } catch {
-      return null;
-    }
-  }
-  const MANAGED_STORAGE_KEY_PREFIXES = [
-    "yomu-",
-    "yomu:",
-    "yomu.",
-    "jpdb-reader-",
-    "jpdb-popup-reader-"
-  ];
-  function isManagedStorageKey(key) {
-    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+  function chunkArray(items, size) {
+    const chunks = [];
+    for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
+    return chunks;
   }
   const APP_NAME = "よむ";
   const APP_SLUG = "yomu";
@@ -364,708 +29,11 @@
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const ANKI_SOURCE_ID = "__anki__";
-  function bridgeResponseEventDetail(event) {
-    const detail = normalizedBridgeEventDetail$1(event);
-    const id = safeReadString(detail, "id");
-    const kind = safeReadString(detail, "kind");
-    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
-    return {
-      id,
-      kind,
-      response: safeReadProperty(detail, "response"),
-      message: safeReadString(detail, "message")
-    };
-  }
-  function bridgeEventDetail(detail) {
-    if (detail === void 0) return void 0;
-    const json = bridgeEventJsonDetail(detail);
-    return json ?? detail;
-  }
-  function bridgeEventJsonDetail(detail) {
-    let unsupported = false;
-    try {
-      const json = JSON.stringify(detail, (_key, value) => {
-        if (isUnsupportedBridgeJsonValue(value)) {
-          unsupported = true;
-          return void 0;
-        }
-        return value;
-      });
-      return unsupported || typeof json !== "string" ? void 0 : json;
-    } catch {
-      return void 0;
-    }
-  }
-  function normalizedBridgeEventDetail$1(event) {
-    const detail = safeEventDetail(event);
-    if (typeof detail !== "string") return detail;
-    try {
-      return JSON.parse(detail);
-    } catch {
-      return detail;
-    }
-  }
-  function isUnsupportedBridgeJsonValue(value) {
-    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
-  }
-  function isUnsupportedPrimitiveBridgeJsonValue(value) {
-    return typeof value === "function" || typeof value === "symbol";
-  }
-  function isArrayBufferBridgeJsonValue(value) {
-    if (typeof ArrayBuffer === "undefined") return false;
-    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
-  }
-  function isBlobBridgeJsonValue(value) {
-    return typeof Blob !== "undefined" && value instanceof Blob;
-  }
-  function isFormDataBridgeJsonValue(value) {
-    return typeof FormData !== "undefined" && value instanceof FormData;
-  }
-  function safeEventDetail(event) {
-    try {
-      return event.detail;
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadProperty(source, key) {
-    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
-    try {
-      return source[key];
-    } catch {
-      return void 0;
-    }
-  }
-  function safeReadString(source, key) {
-    const value = safeReadProperty(source, key);
-    return typeof value === "string" ? value : void 0;
-  }
-  const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-storage-request";
-  const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-storage-response";
-  const BRIDGE_MARKER$1 = "yomuUserscriptStorageBridge";
-  const BRIDGE_TIMEOUT_MS$1 = 1e4;
-  function getUserscriptGmStorage() {
-    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
-    return {
-      getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
-      setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
-      deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
-      listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
-    };
-  }
-  function storageBridgeRequest(request) {
-    return new Promise((resolve, reject) => {
-      const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        reject(new Error("Storage bridge request timed out."));
-      }, BRIDGE_TIMEOUT_MS$1);
-      let cleanupResponseListener = noop$1;
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        cleanupResponseListener();
-      };
-      const onResponse = (event) => {
-        const detail = storageBridgeResponseDetail(event);
-        if (!detail || detail.id !== id) return;
-        cleanup();
-        if (detail.ok) resolve(detail);
-        else reject(new Error(detail.message || "Storage bridge request failed."));
-      };
-      cleanupResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
-      dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, ...request });
-    });
-  }
-  function storageBridgeResponseDetail(event) {
-    const detail = normalizedBridgeEventDetail(event);
-    if (!detail || typeof detail !== "object") return void 0;
-    const record = detail;
-    if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
-    return {
-      id: record.id,
-      ok: record.ok,
-      found: typeof record.found === "boolean" ? record.found : void 0,
-      value: record.value,
-      keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
-      message: typeof record.message === "string" ? record.message : void 0
-    };
-  }
-  function normalizedBridgeEventDetail(event) {
-    let detail;
-    try {
-      detail = event.detail;
-    } catch {
-      return void 0;
-    }
-    if (typeof detail !== "string") return detail;
-    try {
-      return JSON.parse(detail);
-    } catch {
-      return detail;
-    }
-  }
-  function addBridgeEventListener$1(type, listener) {
-    const cleanups = [];
-    if (addWindowEventListener(type, listener)) {
-      cleanups.push(() => removeWindowEventListener(type, listener));
-    }
-    const documentTarget = bridgeDocumentTarget$1();
-    if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
-      cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
-    }
-    return () => {
-      for (const cleanup of cleanups) cleanup();
-    };
-  }
-  function dispatchBridgeEvent$1(type, detail) {
-    const eventDetail = bridgeEventDetail(detail);
-    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
-    const documentTarget = bridgeDocumentTarget$1();
-    if (documentTarget) {
-      dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
-    }
-    return dispatched;
-  }
-  function bridgeDocumentTarget$1() {
-    if (typeof document === "undefined") return void 0;
-    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
-  }
-  function bridgeMarkerDataset$1() {
-    if (typeof document === "undefined") return void 0;
-    const root = document.documentElement;
-    return root?.dataset;
-  }
-  function callAddEventListener$1(target, type, listener) {
-    try {
-      target.addEventListener(type, listener);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function callRemoveEventListener$1(target, type, listener) {
-    try {
-      target.removeEventListener(type, listener);
-    } catch {
-    }
-  }
-  function callDispatchEvent$1(target, event) {
-    try {
-      return target.dispatchEvent(event);
-    } catch {
-      return false;
-    }
-  }
-  function noop$1() {
-  }
-  const MISSING = { missing: true };
-  async function gmStorageGet(key, fallback) {
-    const getValue = asyncGmGetValue();
-    if (getValue) {
-      try {
-        const value = await getValue(key, MISSING);
-        if (value !== MISSING) return value;
-        const migrated = localStorageGet(key, MISSING);
-        if (migrated !== MISSING) {
-          await gmStorageSet(key, migrated);
-          return migrated;
-        }
-        return fallback;
-      } catch (error) {
-        debugStorageError("GM storage read failed", key, error);
-      }
-    }
-    return localStorageGet(key, fallback);
-  }
-  function gmStorageGetSync(key, fallback) {
-    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
-    if (getValue) {
-      const read = gmStorageSyncRead(key, getValue);
-      if (read.kind === "found") return read.value;
-    }
-    return localStorageGet(key, fallback);
-  }
-  function gmStorageSyncRead(key, getValue) {
-    try {
-      const value = getValue(key, MISSING);
-      if (isPromiseLike(value)) return { kind: "fallback" };
-      if (value !== MISSING) return { kind: "found", value };
-      return migratedLocalStorageSyncValue(key);
-    } catch (error) {
-      debugStorageError("GM storage sync read failed", key, error);
-      return { kind: "fallback" };
-    }
-  }
-  function migratedLocalStorageSyncValue(key) {
-    const migrated = localStorageGet(key, MISSING);
-    if (migrated === MISSING) return { kind: "fallback" };
-    void gmStorageSet(key, migrated);
-    return { kind: "found", value: migrated };
-  }
-  async function gmStorageSet(key, value) {
-    const setValue = asyncGmSetValue();
-    if (setValue) {
-      await setValue(key, value);
-      mirrorManagedValueToHostedStorage(key, value);
-      return;
-    }
-    localStorageSet(key, value);
-  }
-  function gmStorageSetSync(key, value) {
-    if (typeof GM_setValue === "function") {
-      try {
-        const result = GM_setValue(key, value);
-        if (!isPromiseLike(result)) {
-          mirrorManagedValueToHostedStorage(key, value);
-          return;
-        }
-      } catch (error) {
-        debugStorageError("GM storage sync write failed", key, error);
-      }
-    }
-    localStorageSet(key, value);
-  }
-  function gmStorageDeleteSync(key) {
-    if (typeof GM_deleteValue === "function") {
-      try {
-        const result = GM_deleteValue(key);
-        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
-      } catch (error) {
-        debugStorageError("GM storage sync delete failed", key, error);
-      }
-    }
-    removeLocalStorageKey(key);
-    removeSessionStorageKey(key);
-  }
-  function localStorageGet(key, fallback) {
-    try {
-      const value = localStorage.getItem(key);
-      return value == null ? fallback : JSON.parse(value);
-    } catch {
-      return fallback;
-    }
-  }
-  function localStorageSet(key, value) {
-    try {
-      localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-    }
-  }
-  function removeLocalStorageKey(key) {
-    try {
-      localStorage.removeItem(key);
-    } catch {
-    }
-  }
-  function removeSessionStorageKey(key) {
-    try {
-      sessionStorage.removeItem(key);
-    } catch {
-    }
-  }
-  function mirrorManagedValueToHostedStorage(key, value) {
-    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
-    localStorageSet(key, value);
-  }
-  function shouldMirrorManagedValueToHostedStorage(key) {
-    return isManagedStorageKey(key) && isHostedYomuOrigin();
-  }
-  function isHostedYomuOrigin() {
-    try {
-      const host = location.hostname;
-      const path = location.pathname;
-      if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
-      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
-    } catch {
-      return false;
-    }
-  }
-  function isPromiseLike(value) {
-    return Boolean(value) && typeof value.then === "function";
-  }
-  function asyncGmGetValue() {
-    if (typeof GM_getValue === "function") return GM_getValue;
-    const modern = globalThis.GM?.getValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
-  }
-  function asyncGmSetValue() {
-    if (typeof GM_setValue === "function") return GM_setValue;
-    const modern = globalThis.GM?.setValue;
-    if (typeof modern === "function") return modern.bind(globalThis.GM);
-    const bridge = getUserscriptGmStorage();
-    return bridge ? (key, value) => bridge.setValue(key, value) : null;
-  }
-  function debugStorageError(message, key, error) {
-    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
-  }
-  const __vite_import_meta_env__ = { "DEV": false };
-  const LOG_PREFIX = "[Yomu]";
-  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
-  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
-  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
-  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
-  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
-  const RUNTIME_LOG_KEY = "yomu:enable-logs";
-  const REDACTED = "[redacted]";
-  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
-  const env = __vite_import_meta_env__;
-  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
-  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
-  class ScopedLogger {
-    constructor(parent, scopeName) {
-      this.parent = parent;
-      this.scopeName = scopeName;
-    }
-    debug(message, ...args) {
-      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
-    }
-    info(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.info, "");
-    }
-    warn(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
-    }
-    error(message, ...args) {
-      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
-    }
-    warnOnce(key, message, ...args) {
-      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
-    }
-    time(label, ...args) {
-      if (!this.parent.isEnabled()) return () => void 0;
-      const start = nowMs();
-      this.debug(`${label} started`, ...args);
-      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
-    }
-  }
-  class LoggerImpl {
-    settingsProvider;
-    forceEnabled = false;
-    onceKeys = /* @__PURE__ */ new Set();
-    configure(options) {
-      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
-      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
-    }
-    scope(scopeName) {
-      return new ScopedLogger(this, scopeName);
-    }
-    isEnabled() {
-      if (BUILD_LOGGING_ENABLED) return true;
-      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
-      try {
-        return this.settingsProvider?.().enableLogging === true;
-      } catch {
-        return false;
-      }
-    }
-    isDevMode() {
-      return isDevMode();
-    }
-    enable(persist = false) {
-      this.forceEnabled = true;
-      if (persist) setRuntimeLoggingOverride(true);
-      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
-    }
-    disable(persist = false) {
-      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
-      this.forceEnabled = false;
-      if (persist) setRuntimeLoggingOverride(false);
-    }
-    reset() {
-      this.onceKeys.clear();
-    }
-    warnOnce(key, scope, message, args) {
-      if (this.onceKeys.has(key)) return;
-      this.onceKeys.add(key);
-      this.write(scope, message, args, console.warn, WARN_STYLE);
-    }
-    write(scope, message, args, writer, levelStyle) {
-      if (!this.isEnabled()) return;
-      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
-    }
-  }
-  const Logger = new LoggerImpl();
-  function isDevMode() {
-    return BUILD_IS_DEV_MODE;
-  }
-  function writeDebugToConsole(...args) {
-    if (isDevMode()) console.log(...args);
-    else console.debug(...args);
-  }
-  function getRuntimeLoggingOverride() {
-    try {
-      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
-    } catch {
-      return false;
-    }
-  }
-  function setRuntimeLoggingOverride(enabled) {
-    try {
-      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
-      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
-    } catch {
-    }
-  }
-  function nowMs() {
-    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
-  }
-  function sanitizeForConsole(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value === null || value === void 0 || typeof value !== "object") return value;
-    const sanitized = sanitizeSpecialConsoleValue(value);
-    if (sanitized.handled) return sanitized.value;
-    if (Array.isArray(value)) return value.map(sanitizeForConsole);
-    return sanitizeRecordForConsole(value);
-  }
-  function sanitizeSpecialConsoleValue(value) {
-    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
-      const sanitized = sanitizer(value);
-      if (sanitized.handled) return sanitized;
-    }
-    return { handled: false };
-  }
-  const CONSOLE_VALUE_SANITIZERS = [
-    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
-    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
-    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
-    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
-  ];
-  function sanitizeRecordForConsole(record) {
-    return Object.fromEntries(Object.entries(record).map(([key, value]) => [
-      key,
-      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
-    ]));
-  }
-  function sanitizeFlatValue(value) {
-    if (typeof value === "string") return redactString(value);
-    if (value instanceof Error) return { name: value.name, message: value.message };
-    return value;
-  }
-  function shouldRedactEntry(key, value) {
-    if (!SECRET_KEY_PATTERN.test(key)) return false;
-    if (typeof value === "number" && /tokens?/i.test(key)) return false;
-    return true;
-  }
-  function redactString(value) {
-    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
-  }
-  if (typeof window !== "undefined") {
-    window.__YOMU_LOGGER__ = Logger;
-    window.YomuLogger = Logger;
-  }
-  const JPDB_LOOKUP_LINK = {
-    id: "jpdb",
-    label: "JPDB",
-    urlTemplate: "https://jpdb.io/search?q={query}",
-    enabled: true
-  };
-  const JISHO_LOOKUP_LINK = {
-    id: "jisho",
-    label: "Jisho",
-    urlTemplate: "https://jisho.org/search/{query}",
-    enabled: false
-  };
-  const YOMU_LOOKUP_LINK = {
-    id: "yomu-search",
-    label: "Yomu",
-    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
-    enabled: true
-  };
-  const JITEN_LOOKUP_LINK = {
-    id: "jiten",
-    label: "Jiten",
-    urlTemplate: "https://jiten.moe/parse?text={query}",
-    enabled: true
-  };
-  const WEBLIO_LOOKUP_LINK = {
-    id: "weblio",
-    label: "Weblio",
-    urlTemplate: "https://www.weblio.jp/content/{query}",
-    enabled: false
-  };
-  const GOO_LOOKUP_LINK = {
-    id: "goo",
-    label: "goo",
-    urlTemplate: "https://dictionary.goo.ne.jp/srch/all/{query}/m0u/",
-    enabled: false
-  };
-  const KOTOBANK_LOOKUP_LINK = {
-    id: "kotobank",
-    label: "Kotobank",
-    urlTemplate: "https://kotobank.jp/search?q={query}",
-    enabled: false
-  };
-  const TAKOBOTO_LOOKUP_LINK = {
-    id: "takoboto",
-    label: "Takoboto",
-    urlTemplate: "https://takoboto.jp/?q={query}",
-    enabled: false
-  };
-  const WIKTIONARY_LOOKUP_LINK = {
-    id: "wiktionary-ja",
-    label: "Wiktionary",
-    urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
-    enabled: false
-  };
-  const IMMERSION_KIT_LOOKUP_LINK = {
-    id: "immersion-kit",
-    label: "Immersion Kit",
-    urlTemplate: "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1",
-    enabled: false
-  };
-  const UCHISEN_LOOKUP_LINK = {
-    id: "uchisen",
-    label: "Uchisen",
-    urlTemplate: "https://uchisen.com/kanji/{query}",
-    enabled: false
-  };
-  const COPY_LOOKUP_LINK = {
-    id: "copy",
-    label: "Copy",
-    urlTemplate: "",
-    enabled: true,
-    action: "copy"
-  };
-  const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
-    JITEN_LOOKUP_LINK,
-    JPDB_LOOKUP_LINK,
-    YOMU_LOOKUP_LINK,
-    JISHO_LOOKUP_LINK,
-    WEBLIO_LOOKUP_LINK,
-    GOO_LOOKUP_LINK,
-    KOTOBANK_LOOKUP_LINK,
-    TAKOBOTO_LOOKUP_LINK,
-    WIKTIONARY_LOOKUP_LINK,
-    IMMERSION_KIT_LOOKUP_LINK,
-    UCHISEN_LOOKUP_LINK,
-    COPY_LOOKUP_LINK
-  ];
-  [
-    { ...JPDB_LOOKUP_LINK, enabled: false },
-    { ...JISHO_LOOKUP_LINK, enabled: true },
-    COPY_LOOKUP_LINK
-  ];
-  [[
-    YOMU_LOOKUP_LINK.id,
-    JITEN_LOOKUP_LINK.id,
-    JPDB_LOOKUP_LINK.id,
-    JISHO_LOOKUP_LINK.id,
-    WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
-    KOTOBANK_LOOKUP_LINK.id,
-    TAKOBOTO_LOOKUP_LINK.id,
-    WIKTIONARY_LOOKUP_LINK.id,
-    IMMERSION_KIT_LOOKUP_LINK.id,
-    UCHISEN_LOOKUP_LINK.id,
-    COPY_LOOKUP_LINK.id
-  ], [
-    JITEN_LOOKUP_LINK.id,
-    JPDB_LOOKUP_LINK.id,
-    YOMU_LOOKUP_LINK.id,
-    JISHO_LOOKUP_LINK.id,
-    WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
-    KOTOBANK_LOOKUP_LINK.id,
-    TAKOBOTO_LOOKUP_LINK.id,
-    WIKTIONARY_LOOKUP_LINK.id,
-    IMMERSION_KIT_LOOKUP_LINK.id,
-    UCHISEN_LOOKUP_LINK.id,
-    COPY_LOOKUP_LINK.id
-  ], [
-    JPDB_LOOKUP_LINK.id,
-    JISHO_LOOKUP_LINK.id,
-    COPY_LOOKUP_LINK.id,
-    YOMU_LOOKUP_LINK.id,
-    JITEN_LOOKUP_LINK.id,
-    WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
-    KOTOBANK_LOOKUP_LINK.id,
-    TAKOBOTO_LOOKUP_LINK.id,
-    WIKTIONARY_LOOKUP_LINK.id,
-    IMMERSION_KIT_LOOKUP_LINK.id,
-    UCHISEN_LOOKUP_LINK.id
-  ]];
-  Logger.scope("Settings");
-  const AUDIO_SOURCE_TYPE_VALUES = [
-    "jpod101",
-    "language-pod-101",
-    "jisho",
-    "lingua-libre",
-    "wiktionary",
-    "jiten-tts",
-    "jpdb-tts",
-    "text-to-speech",
-    "text-to-speech-reading",
-    "custom",
-    "custom-json"
-  ];
-  new Set(AUDIO_SOURCE_TYPE_VALUES);
-  ({
-    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
-  });
-  new Set(
-    "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
-  );
-  const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
-  /* @__PURE__ */ new Set([
-    ...PROSE_TAGS,
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5",
-    "H6"
-  ]);
   function isAppleTouchBrowser() {
     if (typeof navigator === "undefined") return false;
-    const userAgent = navigator.userAgent ?? "";
+    const userAgent2 = navigator.userAgent ?? "";
     const platform = navigator.platform ?? "";
-    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
-  }
-  const POS_LABELS = {
-    adj: "adjective",
-    adv: "adverb",
-    aux: "auxiliary",
-    "aux-v": "auxiliary verb",
-    conj: "conjunction",
-    cop: "copula",
-    ctr: "counter",
-    exp: "expression",
-    int: "interjection",
-    n: "noun",
-    num: "number",
-    pn: "pronoun",
-    pref: "prefix",
-    prt: "particle",
-    suf: "suffix",
-    unc: "unclassified",
-    vi: "intransitive verb",
-    vt: "transitive verb",
-    v1: "ichidan verb",
-    v5: "godan verb",
-    v5aru: "aru ending",
-    v5b: "bu ending",
-    v5g: "gu ending",
-    v5k: "ku ending",
-    v5m: "mu ending",
-    v5n: "nu ending",
-    v5r: "ru ending",
-    v5s: "su ending",
-    v5t: "tsu ending",
-    v5u: "u ending",
-    vk: "kuru verb",
-    vs: "suru verb",
-    vz: "zuru verb"
-  };
-  function formatPartOfSpeech(tags = []) {
-    const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
-    return [...new Set(labels)].join(", ");
-  }
-  function formatPartOfSpeechDetails(tags = []) {
-    return tags.length ? tags.join(", ").toUpperCase() : "";
+    return /iPad|iPhone|iPod/i.test(userAgent2) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent2) || platform === "MacIntel");
   }
   const DEFAULT_YOMU_PUBLIC_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev";
   const BUILT_IN_PROXY_BUILDERS = [
@@ -1410,6 +378,82 @@
       signal?.removeEventListener("abort", abort);
     });
   }
+  function bridgeResponseEventDetail(event) {
+    const detail = normalizedBridgeEventDetail$1(event);
+    const id = safeReadString(detail, "id");
+    const kind = safeReadString(detail, "kind");
+    if (!id || kind !== "load" && kind !== "error" && kind !== "timeout") return void 0;
+    return {
+      id,
+      kind,
+      response: safeReadProperty(detail, "response"),
+      message: safeReadString(detail, "message")
+    };
+  }
+  function bridgeEventDetail(detail) {
+    if (detail === void 0) return void 0;
+    const json = bridgeEventJsonDetail(detail);
+    return json ?? detail;
+  }
+  function bridgeEventJsonDetail(detail) {
+    let unsupported = false;
+    try {
+      const json = JSON.stringify(detail, (_key, value) => {
+        if (isUnsupportedBridgeJsonValue(value)) {
+          unsupported = true;
+          return void 0;
+        }
+        return value;
+      });
+      return unsupported || typeof json !== "string" ? void 0 : json;
+    } catch {
+      return void 0;
+    }
+  }
+  function normalizedBridgeEventDetail$1(event) {
+    const detail = safeEventDetail(event);
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
+  }
+  function isUnsupportedBridgeJsonValue(value) {
+    return isUnsupportedPrimitiveBridgeJsonValue(value) || isArrayBufferBridgeJsonValue(value) || isBlobBridgeJsonValue(value) || isFormDataBridgeJsonValue(value);
+  }
+  function isUnsupportedPrimitiveBridgeJsonValue(value) {
+    return typeof value === "function" || typeof value === "symbol";
+  }
+  function isArrayBufferBridgeJsonValue(value) {
+    if (typeof ArrayBuffer === "undefined") return false;
+    return value instanceof ArrayBuffer || ArrayBuffer.isView(value);
+  }
+  function isBlobBridgeJsonValue(value) {
+    return typeof Blob !== "undefined" && value instanceof Blob;
+  }
+  function isFormDataBridgeJsonValue(value) {
+    return typeof FormData !== "undefined" && value instanceof FormData;
+  }
+  function safeEventDetail(event) {
+    try {
+      return event.detail;
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function safeReadString(source, key) {
+    const value = safeReadProperty(source, key);
+    return typeof value === "string" ? value : void 0;
+  }
   function userscriptRequestCandidates() {
     const candidates = [];
     const add = (request, thisArg) => {
@@ -1464,10 +508,262 @@
       return void 0;
     }
   }
-  const BRIDGE_REQUEST_EVENT = "yomu-userscript-http-request";
-  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-http-response";
-  const BRIDGE_MARKER = "yomuUserscriptHttpBridge";
-  const BRIDGE_TIMEOUT_MS = 3e4;
+  const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
+  const initialWindowAddEventListener = initialWindowMethod("addEventListener");
+  const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
+  function createWindowCustomEvent(type, detail, init = {}) {
+    const eventInit = { ...init, detail: cloneCustomEventDetail(detail) };
+    const documentEvent = createDocumentCustomEvent(type, eventInit);
+    if (documentEvent) return documentEvent;
+    const CustomEventConstructor = eventConstructor(window, "CustomEvent") ?? eventConstructor(globalThis, "CustomEvent");
+    if (CustomEventConstructor) {
+      try {
+        return new CustomEventConstructor(type, eventInit);
+      } catch {
+      }
+    }
+    throw new Error(`Unable to create window custom event: ${type}`);
+  }
+  function cloneCustomEventDetail(detail) {
+    if (detail === void 0 || typeof window === "undefined") return detail;
+    return pageCompartmentValue(detail, { cloneFunctions: false, wrapReflectors: true });
+  }
+  function dispatchWindowEvent(event) {
+    const target = window;
+    const directDispatch = readMethod(target, "dispatchEvent");
+    const directResult = callEventTargetMethod(directDispatch, target, event);
+    if (directResult.called) return directResult.result;
+    const initialResult = initialWindowDispatchEvent === directDispatch ? { called: false } : callEventTargetMethod(initialWindowDispatchEvent, target, event);
+    if (initialResult.called) return initialResult.result;
+    const prototypeResult = dispatchWithPrototypeMethod(target, directDispatch, event);
+    if (prototypeResult.called) return prototypeResult.result;
+    const unshadowedResult = callWithUnshadowedWindowDispatch(event);
+    if (unshadowedResult.called) return unshadowedResult.result;
+    return false;
+  }
+  function addWindowEventListener(type, listener, options) {
+    const target = window;
+    const directAdd = readMethod(target, "addEventListener");
+    const directResult = callAddEventListener$2(directAdd, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowAddEventListener === directAdd ? { called: false } : callAddEventListener$2(initialWindowAddEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = addListenerWithPrototypeMethod(target, directAdd, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowAddEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function removeWindowEventListener(type, listener, options) {
+    const target = window;
+    const directRemove = readMethod(target, "removeEventListener");
+    const directResult = callRemoveEventListener$2(directRemove, target, type, listener, options);
+    if (directResult.called) return true;
+    const initialResult = initialWindowRemoveEventListener === directRemove ? { called: false } : callRemoveEventListener$2(initialWindowRemoveEventListener, target, type, listener, options);
+    if (initialResult.called) return true;
+    const prototypeResult = removeListenerWithPrototypeMethod(target, directRemove, type, listener, options);
+    if (prototypeResult.called) return true;
+    const unshadowedResult = callWithUnshadowedWindowRemoveEventListener(type, listener, options);
+    if (unshadowedResult.called) return true;
+    return false;
+  }
+  function initialWindowMethod(key) {
+    if (typeof window === "undefined") return void 0;
+    return readMethod(window, key);
+  }
+  function dispatchWithPrototypeMethod(target, directDispatch, event) {
+    for (const prototypeDispatch of eventTargetPrototypeMethods(target, "dispatchEvent")) {
+      if (prototypeDispatch === directDispatch) continue;
+      const result = callEventTargetMethod(prototypeDispatch, target, event);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function addListenerWithPrototypeMethod(target, directAdd, type, listener, options) {
+    for (const prototypeAdd of eventTargetPrototypeMethods(target, "addEventListener")) {
+      if (prototypeAdd === directAdd) continue;
+      const result = callAddEventListener$2(prototypeAdd, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function removeListenerWithPrototypeMethod(target, directRemove, type, listener, options) {
+    for (const prototypeRemove of eventTargetPrototypeMethods(target, "removeEventListener")) {
+      if (prototypeRemove === directRemove) continue;
+      const result = callRemoveEventListener$2(prototypeRemove, target, type, listener, options);
+      if (result.called) return result;
+    }
+    return { called: false };
+  }
+  function eventConstructor(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function createDocumentCustomEvent(type, init) {
+    if (typeof document === "undefined" || typeof document.createEvent !== "function") return void 0;
+    try {
+      const event = document.createEvent("CustomEvent");
+      event.initCustomEvent(type, Boolean(init.bubbles), Boolean(init.cancelable), init.detail);
+      return event;
+    } catch {
+      return void 0;
+    }
+  }
+  function eventTargetPrototypeMethods(target, key) {
+    const methods = [];
+    const add = (method) => {
+      if (method && !methods.includes(method)) methods.push(method);
+    };
+    let prototype = Object.getPrototypeOf(target);
+    while (prototype) {
+      add(readOwnMethod(prototype, key));
+      prototype = Object.getPrototypeOf(prototype);
+    }
+    const WindowEventTarget = readProperty(window, "EventTarget");
+    add(readMethod(WindowEventTarget?.prototype, key));
+    if (typeof EventTarget !== "undefined") add(readMethod(EventTarget.prototype, key));
+    return methods;
+  }
+  function readMethod(source, key) {
+    const value = readProperty(source, key);
+    return typeof value === "function" ? value : void 0;
+  }
+  function readOwnMethod(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    if (!Object.prototype.hasOwnProperty.call(source, key)) return void 0;
+    return readMethod(source, key);
+  }
+  function readProperty(source, key) {
+    if (!source || typeof source !== "object" && typeof source !== "function") return void 0;
+    try {
+      return source[key];
+    } catch {
+      return void 0;
+    }
+  }
+  function callEventTargetMethod(method, target, event) {
+    if (!method) return { called: false };
+    try {
+      return { called: true, result: method.call(target, event) };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callAddEventListener$2(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callRemoveEventListener$2(method, target, type, listener, options) {
+    if (!method) return { called: false };
+    try {
+      method.call(target, type, listener, options);
+      return { called: true };
+    } catch (error) {
+      return { called: false, error };
+    }
+  }
+  function callWithUnshadowedWindowDispatch(event) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("dispatchEvent");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "dispatchEvent")) return { called: false };
+      return callEventTargetMethod(readMethod(window, "dispatchEvent"), window, event);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("dispatchEvent", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowAddEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("addEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "addEventListener")) return { called: false };
+      return callAddEventListener$2(readMethod(window, "addEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("addEventListener", descriptor);
+    }
+  }
+  function callWithUnshadowedWindowRemoveEventListener(type, listener, options) {
+    const target = window.wrappedJSObject || window;
+    const descriptor = safeWindowPropertyDescriptor("removeEventListener");
+    if (!shouldTemporarilyUnshadowWindowProperty(descriptor)) return { called: false };
+    try {
+      if (!Reflect.deleteProperty(target, "removeEventListener")) return { called: false };
+      return callRemoveEventListener$2(readMethod(window, "removeEventListener"), window, type, listener, options);
+    } catch (error) {
+      return { called: false, error };
+    } finally {
+      restoreWindowProperty("removeEventListener", descriptor);
+    }
+  }
+  function restoreWindowProperty(key, descriptor) {
+    try {
+      const target = window.wrappedJSObject || window;
+      Object.defineProperty(target, key, pageCompartmentDescriptor(normalizedPropertyDescriptor(descriptor), target));
+    } catch {
+    }
+  }
+  function pageCompartmentDescriptor(descriptor, _target) {
+    return pageCompartmentValue(descriptor, { cloneFunctions: true, wrapReflectors: true });
+  }
+  function pageCompartmentValue(value, options = {}) {
+    const cloneInto = readMethod(globalThis, "cloneInto");
+    if (!cloneInto || typeof window === "undefined") return value;
+    try {
+      return cloneInto(value, window, options);
+    } catch {
+      return value;
+    }
+  }
+  function safeWindowPropertyDescriptor(key) {
+    try {
+      const target = window.wrappedJSObject || window;
+      return Object.getOwnPropertyDescriptor(target, key);
+    } catch {
+      return void 0;
+    }
+  }
+  function shouldTemporarilyUnshadowWindowProperty(descriptor) {
+    if (!descriptor) return false;
+    try {
+      return typeof descriptor.value !== "function";
+    } catch {
+      return false;
+    }
+  }
+  function normalizedPropertyDescriptor(descriptor) {
+    const hasDataShape = Object.prototype.hasOwnProperty.call(descriptor, "value") || Object.prototype.hasOwnProperty.call(descriptor, "writable");
+    const hasAccessorShape = Object.prototype.hasOwnProperty.call(descriptor, "get") || Object.prototype.hasOwnProperty.call(descriptor, "set");
+    if (!hasDataShape || !hasAccessorShape) return descriptor;
+    try {
+      return {
+        configurable: descriptor.configurable,
+        enumerable: descriptor.enumerable,
+        value: descriptor.value,
+        writable: descriptor.writable
+      };
+    } catch {
+      return {
+        configurable: true,
+        value: void 0,
+        writable: true
+      };
+    }
+  }
+  const BRIDGE_REQUEST_EVENT$1 = "yomu-userscript-http-request";
+  const BRIDGE_RESPONSE_EVENT$1 = "yomu-userscript-http-response";
+  const BRIDGE_MARKER$1 = "yomuUserscriptHttpBridge";
+  const BRIDGE_TIMEOUT_MS$1 = 3e4;
   function getUserscriptHttpRequest() {
     for (const candidate of userscriptRequestCandidates()) {
       const request = asUserscriptRequest(candidate.request);
@@ -1479,15 +775,15 @@
   }
   function userscriptHttpEventBridge() {
     if (typeof window === "undefined" || typeof document === "undefined") return void 0;
-    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+    if (bridgeMarkerDataset$1()?.[BRIDGE_MARKER$1] !== "true") return void 0;
     return (options) => new Promise((resolve, reject) => {
       const id = `yomu-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
       const timeout = window.setTimeout(() => {
         cleanup();
         options.ontimeout?.();
         reject(new Error("Request timed out."));
-      }, options.timeout ?? BRIDGE_TIMEOUT_MS);
-      let cleanupBridgeResponseListener = noop;
+      }, options.timeout ?? BRIDGE_TIMEOUT_MS$1);
+      let cleanupBridgeResponseListener = noop$1;
       const cleanup = () => {
         window.clearTimeout(timeout);
         cleanupBridgeResponseListener();
@@ -1495,9 +791,9 @@
       const onResponse = (event) => {
         handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject);
       };
-      cleanupBridgeResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      cleanupBridgeResponseListener = addBridgeEventListener$1(BRIDGE_RESPONSE_EVENT$1, onResponse);
       const { onload: _onload, onerror: _onerror, ontimeout: _ontimeout, ...requestOptions } = options;
-      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, options: requestOptions });
+      dispatchBridgeEvent$1(BRIDGE_REQUEST_EVENT$1, { id, options: requestOptions });
     });
   }
   function handleBridgeResponseEvent(event, id, options, cleanup, resolve, reject) {
@@ -1516,6 +812,135 @@
     if (detail.kind === "timeout") options.ontimeout?.();
     else options.onerror?.(new Error(message));
     reject(new Error(message));
+  }
+  function addBridgeEventListener$1(type, listener) {
+    const cleanups = [];
+    if (addWindowEventListener(type, listener)) {
+      cleanups.push(() => removeWindowEventListener(type, listener));
+    }
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget && callAddEventListener$1(documentTarget, type, listener)) {
+      cleanups.push(() => callRemoveEventListener$1(documentTarget, type, listener));
+    }
+    return () => {
+      for (const cleanup of cleanups) cleanup();
+    };
+  }
+  function dispatchBridgeEvent$1(type, detail) {
+    const eventDetail = bridgeEventDetail(detail);
+    let dispatched = dispatchWindowEvent(createWindowCustomEvent(type, eventDetail));
+    const documentTarget = bridgeDocumentTarget$1();
+    if (documentTarget) {
+      dispatched = callDispatchEvent$1(documentTarget, createWindowCustomEvent(type, eventDetail)) || dispatched;
+    }
+    return dispatched;
+  }
+  function bridgeDocumentTarget$1() {
+    if (typeof document === "undefined") return void 0;
+    return document.documentElement instanceof HTMLElement ? document.documentElement : void 0;
+  }
+  function bridgeMarkerDataset$1() {
+    if (typeof document === "undefined") return void 0;
+    const root = document.documentElement;
+    return root?.dataset;
+  }
+  function callAddEventListener$1(target, type, listener) {
+    try {
+      target.addEventListener(type, listener);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function callRemoveEventListener$1(target, type, listener) {
+    try {
+      target.removeEventListener(type, listener);
+    } catch {
+    }
+  }
+  function callDispatchEvent$1(target, event) {
+    try {
+      return target.dispatchEvent(event);
+    } catch {
+      return false;
+    }
+  }
+  function noop$1() {
+  }
+  const MANAGED_STORAGE_KEY_PREFIXES = [
+    "yomu-",
+    "yomu:",
+    "yomu.",
+    "jpdb-reader-",
+    "jpdb-popup-reader-"
+  ];
+  function isManagedStorageKey(key) {
+    return MANAGED_STORAGE_KEY_PREFIXES.some((prefix) => key.startsWith(prefix));
+  }
+  const BRIDGE_REQUEST_EVENT = "yomu-userscript-storage-request";
+  const BRIDGE_RESPONSE_EVENT = "yomu-userscript-storage-response";
+  const BRIDGE_MARKER = "yomuUserscriptStorageBridge";
+  const BRIDGE_TIMEOUT_MS = 1e4;
+  function getUserscriptGmStorage() {
+    if (typeof window === "undefined" || typeof document === "undefined") return void 0;
+    if (bridgeMarkerDataset()?.[BRIDGE_MARKER] !== "true") return void 0;
+    return {
+      getValue: (key, fallback) => storageBridgeRequest({ op: "get", key }).then((detail) => detail.found ? detail.value : fallback),
+      setValue: (key, value) => storageBridgeRequest({ op: "set", key, value }).then(() => void 0),
+      deleteValue: (key) => storageBridgeRequest({ op: "delete", key }).then(() => void 0),
+      listValues: () => storageBridgeRequest({ op: "list" }).then((detail) => detail.keys ?? [])
+    };
+  }
+  function storageBridgeRequest(request) {
+    return new Promise((resolve, reject) => {
+      const id = `yomu-store-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+      const timeout = window.setTimeout(() => {
+        cleanup();
+        reject(new Error("Storage bridge request timed out."));
+      }, BRIDGE_TIMEOUT_MS);
+      let cleanupResponseListener = noop;
+      const cleanup = () => {
+        window.clearTimeout(timeout);
+        cleanupResponseListener();
+      };
+      const onResponse = (event) => {
+        const detail = storageBridgeResponseDetail(event);
+        if (!detail || detail.id !== id) return;
+        cleanup();
+        if (detail.ok) resolve(detail);
+        else reject(new Error(detail.message || "Storage bridge request failed."));
+      };
+      cleanupResponseListener = addBridgeEventListener(BRIDGE_RESPONSE_EVENT, onResponse);
+      dispatchBridgeEvent(BRIDGE_REQUEST_EVENT, { id, ...request });
+    });
+  }
+  function storageBridgeResponseDetail(event) {
+    const detail = normalizedBridgeEventDetail(event);
+    if (!detail || typeof detail !== "object") return void 0;
+    const record = detail;
+    if (typeof record.id !== "string" || typeof record.ok !== "boolean") return void 0;
+    return {
+      id: record.id,
+      ok: record.ok,
+      found: typeof record.found === "boolean" ? record.found : void 0,
+      value: record.value,
+      keys: Array.isArray(record.keys) ? record.keys.filter((key) => typeof key === "string") : void 0,
+      message: typeof record.message === "string" ? record.message : void 0
+    };
+  }
+  function normalizedBridgeEventDetail(event) {
+    let detail;
+    try {
+      detail = event.detail;
+    } catch {
+      return void 0;
+    }
+    if (typeof detail !== "string") return detail;
+    try {
+      return JSON.parse(detail);
+    } catch {
+      return detail;
+    }
   }
   function addBridgeEventListener(type, listener) {
     const cleanups = [];
@@ -3955,6 +3380,1308 @@ recommendedJiten	Jiten頻度です。
       uiText(language, key)
     );
   }
+  const CORE_COLOR_TOKENS = {
+    white: "#ffffff"
+  };
+  const BRAND_COLOR_TOKENS = {
+    consoleAccent: "#247a58"
+  };
+  const LOGGER_COLOR_TOKENS = {
+    debug: "#6b7280",
+    warn: "#a15c00",
+    error: "#b91c1c"
+  };
+  const ANKI_CARD_COLOR_TOKENS = {
+    text: "#f4f7fb",
+    background: "#15181e",
+    muted: "#bac3d0",
+    sentenceBorder: "#323843",
+    sentenceBackground: "#1e232b",
+    sentenceText: "#d8dee8",
+    highlight: "#7ad119",
+    sectionBorder: "#303641",
+    sectionBackground: "#1b2028",
+    headingText: "#c2cad7",
+    labelText: "#92a0b3",
+    expressionText: CORE_COLOR_TOKENS.white,
+    readingText: "#aab4c2",
+    chipBorder: "#4b5565",
+    chipText: "#cdd5e1",
+    metaLabelText: "#8f9aaa",
+    tableBorder: "#353c47"
+  };
+  const MISSING = { missing: true };
+  async function gmStorageGet(key, fallback) {
+    const getValue = asyncGmGetValue();
+    if (getValue) {
+      try {
+        const value = await getValue(key, MISSING);
+        if (value !== MISSING) return value;
+        const migrated = localStorageGet(key, MISSING);
+        if (migrated !== MISSING) {
+          await gmStorageSet(key, migrated);
+          return migrated;
+        }
+        return fallback;
+      } catch (error) {
+        debugStorageError("GM storage read failed", key, error);
+      }
+    }
+    return localStorageGet(key, fallback);
+  }
+  function gmStorageGetSync(key, fallback) {
+    const getValue = typeof GM_getValue === "function" ? GM_getValue : null;
+    if (getValue) {
+      const read = gmStorageSyncRead(key, getValue);
+      if (read.kind === "found") return read.value;
+    }
+    return localStorageGet(key, fallback);
+  }
+  function gmStorageSyncRead(key, getValue) {
+    try {
+      const value = getValue(key, MISSING);
+      if (isPromiseLike(value)) return { kind: "fallback" };
+      if (value !== MISSING) return { kind: "found", value };
+      return migratedLocalStorageSyncValue(key);
+    } catch (error) {
+      debugStorageError("GM storage sync read failed", key, error);
+      return { kind: "fallback" };
+    }
+  }
+  function migratedLocalStorageSyncValue(key) {
+    const migrated = localStorageGet(key, MISSING);
+    if (migrated === MISSING) return { kind: "fallback" };
+    void gmStorageSet(key, migrated);
+    return { kind: "found", value: migrated };
+  }
+  async function gmStorageSet(key, value) {
+    const setValue = asyncGmSetValue();
+    if (setValue) {
+      await setValue(key, value);
+      mirrorManagedValueToHostedStorage(key, value);
+      return;
+    }
+    localStorageSet(key, value);
+  }
+  function gmStorageSetSync(key, value) {
+    if (typeof GM_setValue === "function") {
+      try {
+        const result = GM_setValue(key, value);
+        if (!isPromiseLike(result)) {
+          mirrorManagedValueToHostedStorage(key, value);
+          return;
+        }
+      } catch (error) {
+        debugStorageError("GM storage sync write failed", key, error);
+      }
+    }
+    localStorageSet(key, value);
+  }
+  function gmStorageDeleteSync(key) {
+    if (typeof GM_deleteValue === "function") {
+      try {
+        const result = GM_deleteValue(key);
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+      } catch (error) {
+        debugStorageError("GM storage sync delete failed", key, error);
+      }
+    }
+    removeLocalStorageKey(key);
+    removeSessionStorageKey(key);
+  }
+  function localStorageGet(key, fallback) {
+    try {
+      const value = localStorage.getItem(key);
+      return value == null ? fallback : JSON.parse(value);
+    } catch {
+      return fallback;
+    }
+  }
+  function localStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+    }
+  }
+  function removeLocalStorageKey(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch {
+    }
+  }
+  function removeSessionStorageKey(key) {
+    try {
+      sessionStorage.removeItem(key);
+    } catch {
+    }
+  }
+  function mirrorManagedValueToHostedStorage(key, value) {
+    if (!shouldMirrorManagedValueToHostedStorage(key)) return;
+    localStorageSet(key, value);
+  }
+  function shouldMirrorManagedValueToHostedStorage(key) {
+    return isManagedStorageKey(key) && isHostedYomuOrigin();
+  }
+  function isHostedYomuOrigin() {
+    try {
+      const host = location.hostname;
+      const path = location.pathname;
+      if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
+      return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
+    } catch {
+      return false;
+    }
+  }
+  function isPromiseLike(value) {
+    return Boolean(value) && typeof value.then === "function";
+  }
+  function asyncGmGetValue() {
+    if (typeof GM_getValue === "function") return GM_getValue;
+    const modern = globalThis.GM?.getValue;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, fallback) => bridge.getValue(key, fallback) : null;
+  }
+  function asyncGmSetValue() {
+    if (typeof GM_setValue === "function") return GM_setValue;
+    const modern = globalThis.GM?.setValue;
+    if (typeof modern === "function") return modern.bind(globalThis.GM);
+    const bridge = getUserscriptGmStorage();
+    return bridge ? (key, value) => bridge.setValue(key, value) : null;
+  }
+  function debugStorageError(message, key, error) {
+    if (typeof console !== "undefined") console.debug("[Yomu] Storage", message, { key, error });
+  }
+  const __vite_import_meta_env__ = { "DEV": false };
+  const LOG_PREFIX = "[Yomu]";
+  const LOG_STYLE = `background: ${BRAND_COLOR_TOKENS.consoleAccent}; color: ${CORE_COLOR_TOKENS.white}; border-radius: 3px; padding: 2px 5px; font-weight: 700;`;
+  const SCOPE_STYLE = `color: ${BRAND_COLOR_TOKENS.consoleAccent}; font-weight: 700;`;
+  const DEBUG_STYLE = `color: ${LOGGER_COLOR_TOKENS.debug};`;
+  const WARN_STYLE = `color: ${LOGGER_COLOR_TOKENS.warn}; font-weight: 700;`;
+  const ERROR_STYLE = `color: ${LOGGER_COLOR_TOKENS.error}; font-weight: 700;`;
+  const RUNTIME_LOG_KEY = "yomu:enable-logs";
+  const REDACTED = "[redacted]";
+  const SECRET_KEY_PATTERN = /(api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie)/i;
+  const env = __vite_import_meta_env__;
+  const BUILD_IS_DEV_MODE = Boolean(env?.DEV);
+  const BUILD_LOGGING_ENABLED = BUILD_IS_DEV_MODE;
+  class ScopedLogger {
+    constructor(parent, scopeName) {
+      this.parent = parent;
+      this.scopeName = scopeName;
+    }
+    debug(message, ...args) {
+      this.parent.write(this.scopeName, message, args, writeDebugToConsole, DEBUG_STYLE);
+    }
+    info(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.info, "");
+    }
+    warn(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.warn, WARN_STYLE);
+    }
+    error(message, ...args) {
+      this.parent.write(this.scopeName, message, args, console.error, ERROR_STYLE);
+    }
+    warnOnce(key, message, ...args) {
+      this.parent.warnOnce(`${this.scopeName}:${key}`, this.scopeName, message, args);
+    }
+    time(label, ...args) {
+      if (!this.parent.isEnabled()) return () => void 0;
+      const start = nowMs();
+      this.debug(`${label} started`, ...args);
+      return () => this.debug(`${label} finished`, { durationMs: Math.round((nowMs() - start) * 10) / 10 });
+    }
+  }
+  class LoggerImpl {
+    settingsProvider;
+    forceEnabled = false;
+    onceKeys = /* @__PURE__ */ new Set();
+    configure(options) {
+      this.settingsProvider = options.settingsProvider ?? this.settingsProvider;
+      this.forceEnabled = options.forceEnabled ?? this.forceEnabled;
+    }
+    scope(scopeName) {
+      return new ScopedLogger(this, scopeName);
+    }
+    isEnabled() {
+      if (BUILD_LOGGING_ENABLED) return true;
+      if (this.forceEnabled || getRuntimeLoggingOverride()) return true;
+      try {
+        return this.settingsProvider?.().enableLogging === true;
+      } catch {
+        return false;
+      }
+    }
+    isDevMode() {
+      return isDevMode();
+    }
+    enable(persist = false) {
+      this.forceEnabled = true;
+      if (persist) setRuntimeLoggingOverride(true);
+      this.scope("Logger").info("Runtime logging enabled.", { persisted: persist });
+    }
+    disable(persist = false) {
+      this.scope("Logger").info("Runtime logging disabled.", { persisted: persist });
+      this.forceEnabled = false;
+      if (persist) setRuntimeLoggingOverride(false);
+    }
+    reset() {
+      this.onceKeys.clear();
+    }
+    warnOnce(key, scope, message, args) {
+      if (this.onceKeys.has(key)) return;
+      this.onceKeys.add(key);
+      this.write(scope, message, args, console.warn, WARN_STYLE);
+    }
+    write(scope, message, args, writer, levelStyle) {
+      if (!this.isEnabled()) return;
+      writer(`%c${LOG_PREFIX}%c [${scope}]%c ${message}`, LOG_STYLE, SCOPE_STYLE, levelStyle, ...args.map(sanitizeForConsole));
+    }
+  }
+  const Logger = new LoggerImpl();
+  function isDevMode() {
+    return BUILD_IS_DEV_MODE;
+  }
+  function writeDebugToConsole(...args) {
+    if (isDevMode()) console.log(...args);
+    else console.debug(...args);
+  }
+  function getRuntimeLoggingOverride() {
+    try {
+      return gmStorageGetSync(RUNTIME_LOG_KEY, false) === true;
+    } catch {
+      return false;
+    }
+  }
+  function setRuntimeLoggingOverride(enabled) {
+    try {
+      if (enabled) gmStorageSetSync(RUNTIME_LOG_KEY, true);
+      else gmStorageDeleteSync(RUNTIME_LOG_KEY);
+    } catch {
+    }
+  }
+  function nowMs() {
+    return typeof performance !== "undefined" && typeof performance.now === "function" ? performance.now() : Date.now();
+  }
+  function sanitizeForConsole(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value === null || value === void 0 || typeof value !== "object") return value;
+    const sanitized = sanitizeSpecialConsoleValue(value);
+    if (sanitized.handled) return sanitized.value;
+    if (Array.isArray(value)) return value.map(sanitizeForConsole);
+    return sanitizeRecordForConsole(value);
+  }
+  function sanitizeSpecialConsoleValue(value) {
+    for (const sanitizer of CONSOLE_VALUE_SANITIZERS) {
+      const sanitized = sanitizer(value);
+      if (sanitized.handled) return sanitized;
+    }
+    return { handled: false };
+  }
+  const CONSOLE_VALUE_SANITIZERS = [
+    (value) => value instanceof Error ? { handled: true, value: { name: value.name, message: value.message, stack: value.stack } } : { handled: false },
+    (value) => typeof URL !== "undefined" && value instanceof URL ? { handled: true, value: value.href } : { handled: false },
+    (value) => typeof Blob !== "undefined" && value instanceof Blob ? { handled: true, value: { type: value.type, size: value.size } } : { handled: false },
+    (value) => typeof Event !== "undefined" && value instanceof Event ? { handled: true, value: { type: value.type } } : { handled: false }
+  ];
+  function sanitizeRecordForConsole(record) {
+    return Object.fromEntries(Object.entries(record).map(([key, value]) => [
+      key,
+      shouldRedactEntry(key, value) ? REDACTED : sanitizeFlatValue(value)
+    ]));
+  }
+  function sanitizeFlatValue(value) {
+    if (typeof value === "string") return redactString(value);
+    if (value instanceof Error) return { name: value.name, message: value.message };
+    return value;
+  }
+  function shouldRedactEntry(key, value) {
+    if (!SECRET_KEY_PATTERN.test(key)) return false;
+    if (typeof value === "number" && /tokens?/i.test(key)) return false;
+    return true;
+  }
+  function redactString(value) {
+    return value.replace(/Bearer\s+[A-Za-z0-9._~+/=-]+/gi, `Bearer ${REDACTED}`).replace(/(["']?(?:api[-_]?key|token|password|secret|authorization)["']?\s*[:=]\s*["'])[^"']+(["'])/gi, `$1${REDACTED}$2`);
+  }
+  if (typeof window !== "undefined") {
+    window.__YOMU_LOGGER__ = Logger;
+    window.YomuLogger = Logger;
+  }
+  const ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE = "AnkiConnect needs the userscript request bridge for cross-origin endpoints.";
+  async function postAnkiJson(url, body, timeoutMs) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
+    if (!canDirectFetchAnkiConnect(url)) {
+      return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
+    }
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+    return await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body,
+      signal: controller.signal
+    }).then(async (response) => {
+      if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
+      return response.json();
+    }).catch((error) => {
+      if (error instanceof DOMException && error.name === "AbortError") throw new Error("AnkiConnect timed out.");
+      throw error;
+    }).finally(() => {
+      window.clearTimeout(timeoutId);
+    });
+  }
+  function hasUserscriptAnkiBridge() {
+    return Boolean(getUserscriptHttpRequest());
+  }
+  function isAnkiConnectAvailabilityError(error) {
+    if (error instanceof Error && error.cause && error.cause !== error) {
+      return isAnkiConnectAvailabilityError(error.cause);
+    }
+    if (!(error instanceof Error)) return false;
+    return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
+  }
+  function postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const handleLoad = (response) => {
+        if (response.status >= 200 && response.status < 300) resolve(response.response);
+        else reject(new Error(`AnkiConnect request failed (${response.status}).`));
+      };
+      const result = userscriptRequest({
+        method: "POST",
+        url,
+        headers: { "Content-Type": "application/json" },
+        data: body,
+        responseType: "json",
+        timeout: timeoutMs,
+        onload: handleLoad,
+        onerror: (error) => reject(error instanceof Error ? error : new Error("AnkiConnect request failed.")),
+        ontimeout: () => reject(new Error("AnkiConnect timed out."))
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, reject);
+      }
+    });
+  }
+  function canDirectFetchAnkiConnect(url) {
+    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$1());
+  }
+  function canDirectFetchAnkiConnectFrom(url, currentHref) {
+    const current = readAnkiUrl(currentHref);
+    if (!current) return false;
+    const target = readAnkiUrl(url, current.href);
+    if (!target || !isHttpUrl(target)) return false;
+    return target.origin === current.origin;
+  }
+  function readAnkiUrl(value, base) {
+    try {
+      return new URL(value, base);
+    } catch {
+      return null;
+    }
+  }
+  function isHttpUrl(url) {
+    return url.protocol === "http:" || url.protocol === "https:";
+  }
+  function safeLocationHref$1() {
+    return typeof location === "undefined" ? "" : location.href;
+  }
+  function resolvedAnkiDeckName(deckOverride, settings) {
+    return deckOverride?.trim() || settings.ankiDeck || "よむ";
+  }
+  function resolvedAnkiModelName(settings) {
+    return settings.ankiModel || "よむ Japanese";
+  }
+  const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
+  const ankiFieldNames = (names) => names.split("|");
+  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
+    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
+  );
+  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
+    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
+  );
+  const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
+  const ANKI_HEADWORD_FIELD_NAMES = [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    "Expression Reading",
+    "Japanese Expression",
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  const ANKI_EXPRESSION_FIELD_NAMES = [
+    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
+    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
+    ...ANKI_HEADWORD_FIELD_NAME_TAIL
+  ];
+  const ANKI_READING_FIELD_NAMES = ankiFieldNames(
+    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
+  );
+  const ANKI_MEANING_FIELD_NAMES = ankiFieldNames(
+    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
+  );
+  const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
+    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
+  );
+  const ANKI_AUDIO_FIELD_NAMES = ankiFieldNames(
+    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Context Audio|Example Audio|SentAudio|Sentence Audio|Sentence Sound|SentenceAudio|Sound|Voice"
+  );
+  const ANKI_IMAGE_FIELD_NAMES = ankiFieldNames(
+    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
+  );
+  const ANKI_FIELD_ROLE_CANDIDATES = {
+    expression: ANKI_EXPRESSION_FIELD_NAMES,
+    reading: ANKI_READING_FIELD_NAMES,
+    meaning: ANKI_MEANING_FIELD_NAMES,
+    sentence: ANKI_SENTENCE_FIELD_NAMES,
+    audio: ANKI_AUDIO_FIELD_NAMES,
+    image: ANKI_IMAGE_FIELD_NAMES
+  };
+  function scanAnkiModelFields(modelName, fields, sampleNotes = []) {
+    const usedFields = /* @__PURE__ */ new Set();
+    const samples = ankiFieldContentSamples(fields, sampleNotes);
+    const suggestions = Object.keys(ANKI_FIELD_ROLE_CANDIDATES).map((role) => {
+      const suggestion = suggestAnkiField(role, fields, usedFields, samples);
+      if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
+      return suggestion;
+    });
+    return {
+      modelName,
+      fields,
+      suggestions,
+      score: ankiModelScanScore(suggestions)
+    };
+  }
+  function suggestAnkiField(role, fields, usedFields, samples = {}) {
+    const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
+    const availableFields = fields.filter((field) => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
+    const exact = firstMatchingAnkiField(availableFields, candidates);
+    const content = suggestAnkiFieldFromContent(role, availableFields, samples);
+    const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
+    const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
+    return bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore);
+  }
+  function bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore) {
+    if (shouldPreferContentSuggestion(content, exact, exactContentScore)) return content;
+    const suggestions = [
+      exact ? { role, fieldName: exact, confidence: "high" } : null,
+      contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy),
+      fuzzy ? { role, fieldName: fuzzy, confidence: "medium" } : null,
+      content.fieldName ? content : null,
+      { role, fieldName: null, confidence: "low" }
+    ];
+    return suggestions.find(Boolean);
+  }
+  function contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy) {
+    if (!content.fieldName) return null;
+    return !fuzzy || content.confidence === "high" ? content : null;
+  }
+  function isAvailableAnkiFieldForRole(field, role, usedFields, samples) {
+    if (usedFields.has(field)) return false;
+    if (ankiFieldDisallowedForRole(field, role)) return false;
+    return ankiFieldAllowedForRole(field, role) || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50;
+  }
+  function shouldPreferContentSuggestion(content, exact, exactContentScore) {
+    if (!content.fieldName) return false;
+    if (!exact || isGenericAnkiFieldName(exact)) return true;
+    return content.fieldName !== exact && exactContentScore === 0 && content.confidence === "high";
+  }
+  function ankiFieldMappingForModel(settings, modelName, fieldNames) {
+    const mapping = settings.ankiFieldMappings?.[modelName];
+    if (!mapping) return void 0;
+    const normalized = {};
+    for (const role of ANKI_FIELD_ROLES) {
+      const fieldName = mappedFieldName(fieldNames, mapping, role);
+      if (fieldName) normalized[role] = fieldName;
+    }
+    return Object.keys(normalized).length ? normalized : void 0;
+  }
+  function mappedFieldName(fieldNames, mapping, role) {
+    const fieldName = mapping?.[role]?.trim();
+    if (!fieldName) return "";
+    const exact = fieldNames.find((candidate) => candidate === fieldName);
+    if (exact) return exact;
+    const normalizedFieldName = normalizeAnkiFieldName(fieldName);
+    return fieldNames.find((candidate) => normalizeAnkiFieldName(candidate) === normalizedFieldName) ?? "";
+  }
+  function ankiFieldMappingsSettingsKey(mappings) {
+    const normalized = {};
+    for (const modelName of Object.keys(mappings ?? {}).sort()) {
+      const mapping = mappings?.[modelName];
+      if (!mapping) continue;
+      const modelMapping = {};
+      for (const role of ANKI_FIELD_ROLES) {
+        const fieldName = mapping[role]?.trim();
+        if (fieldName) modelMapping[role] = fieldName;
+      }
+      if (Object.keys(modelMapping).length) normalized[modelName] = modelMapping;
+    }
+    return normalized;
+  }
+  function fieldNameForRole(fieldNames, role, mapping) {
+    const mapped = mappedFieldName(fieldNames, mapping, role);
+    if (mapped) return mapped;
+    return suggestAnkiField(role, fieldNames, /* @__PURE__ */ new Set()).fieldName ?? "";
+  }
+  function mappedRoleForField(fieldName, mapping) {
+    if (!mapping) return null;
+    const normalized = normalizeAnkiFieldName(fieldName);
+    for (const role of ANKI_FIELD_ROLES) {
+      const mapped = mapping[role];
+      if (mapped && normalizeAnkiFieldName(mapped) === normalized) return role;
+    }
+    return null;
+  }
+  function yomuFieldForRole(role) {
+    return {
+      expression: "Expression",
+      reading: "Reading",
+      meaning: "Meaning",
+      sentence: "Sentence",
+      audio: "Audio",
+      image: "Image"
+    }[role];
+  }
+  function flattenNoteFields(fields) {
+    const out = {};
+    Object.entries(fields ?? {}).forEach(([name, value]) => {
+      out[name] = stripHtml$1(String(value?.value ?? ""));
+    });
+    return out;
+  }
+  function noteLooksLikeCard(note, card, settings) {
+    const fields = flattenNoteFields(note.fields);
+    const mapping = settings ? ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields)) : void 0;
+    const expressionTargets = noteCardExpressionTargets(card);
+    return noteHasExactTarget(fields, expressionTargets) || noteExpressionContainsTarget(fields, expressionTargets, mapping) || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
+  }
+  function noteCardExpressionTargets(card) {
+    return unique([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+  }
+  function noteFieldValues(fields) {
+    return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
+  }
+  function firstNoteReading(fields) {
+    return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
+  }
+  function firstNoteExpressionValue(fields, mapping) {
+    return noteExpressionCandidates(fields, mapping)[0]?.value ?? "";
+  }
+  function mappedNoteField(fields, mapping, role) {
+    const fieldName = mappedFieldName(Object.keys(fields), mapping, role);
+    return fieldName ? fields[fieldName] ?? "" : "";
+  }
+  function lookupKeyTermsForCard(card) {
+    return unique([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+  }
+  function isKanaStatusLookupSurface(value) {
+    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
+  }
+  function japaneseFieldContainsStandaloneTarget(value, target) {
+    const normalizedValue = normalizeFieldValue(value);
+    if (normalizedValue === target) return true;
+    return normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some((part) => part === target);
+  }
+  function japaneseCharacterCount(value) {
+    return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
+  }
+  function normalizeAnkiFieldName(value) {
+    return value.replace(/[_\s-]+/g, "").toLowerCase();
+  }
+  function stripHtml$1(value) {
+    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
+  }
+  function suggestAnkiFieldFromContent(role, fields, samples) {
+    const ranked = fields.map((fieldName) => ({
+      fieldName,
+      score: ankiFieldContentRoleScore(role, samples[fieldName] ?? [])
+    })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || fields.indexOf(a.fieldName) - fields.indexOf(b.fieldName));
+    const best = ranked[0];
+    if (!best) return { role, fieldName: null, confidence: "low" };
+    return {
+      role,
+      fieldName: best.fieldName,
+      confidence: best.score >= 50 ? "high" : "medium"
+    };
+  }
+  function ankiFieldContentRoleScore(role, samples) {
+    if (!samples.length) return 0;
+    const scores = samples.map((sample) => ankiFieldContentSampleRoleScore(role, sample)).filter((score) => score > 0).sort((a, b) => b - a);
+    if (!scores.length) return 0;
+    const strongest = scores[0] ?? 0;
+    const second = scores[1] ?? 0;
+    return Math.min(100, strongest + Math.min(15, second / 3) + Math.min(10, scores.length * 2));
+  }
+  const ANKI_TEXT_ROLE_SCORERS = {
+    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike }) {
+      if (!hasJapanese || sentenceLike || length > 40) return 0;
+      return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
+    },
+    reading({ length, japaneseLength, hasJapanese, hasKanji, kanaLength }) {
+      if (!hasJapanese || hasKanji || length > 40) return 0;
+      const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
+      return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
+    },
+    meaning({ length, hasJapanese, hasLatin }) {
+      if (hasJapanese) return 0;
+      if (hasLatin) return 54 + (length > 8 ? 6 : 0);
+      return length >= 2 ? 24 : 0;
+    },
+    sentence({ length, hasJapanese, sentenceLike }) {
+      if (!hasJapanese) return 0;
+      if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
+      return length >= 14 ? 42 : 0;
+    }
+  };
+  function ankiFieldContentSampleRoleScore(role, sample) {
+    const raw = sample.raw.trim();
+    const text = normalizeFieldValue(sample.text);
+    if (role === "audio") return ankiAudioFieldContentScore(raw, text);
+    if (role === "image") return ankiImageFieldContentScore(raw, text);
+    if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
+    if (!text) return 0;
+    const scorer = ANKI_TEXT_ROLE_SCORERS[role];
+    if (!scorer) return 0;
+    const japaneseLength = japaneseCharacterCount(text);
+    return scorer({
+      length: text.length,
+      japaneseLength,
+      hasJapanese: japaneseLength > 0,
+      hasKanji: /[\u3400-\u9fff]/u.test(text),
+      kanaLength: kanaCharacterCount(text),
+      hasLatin: /[A-Za-z]/.test(text),
+      sentenceLike: japaneseSentenceLike(text)
+    });
+  }
+  function ankiAudioFieldContentScore(raw, text) {
+    const value = `${raw} ${text}`.toLowerCase();
+    if (/\[sound:[^\]]+\]/.test(value)) return 90;
+    if (/<audio\b/.test(value)) return 85;
+    if (/\.(?:mp3|m4a|ogg|oga|wav|flac)(?:[?#"'\s>]|$)/.test(value)) return 75;
+    return 0;
+  }
+  function ankiImageFieldContentScore(raw, text) {
+    const value = `${raw} ${text}`.toLowerCase();
+    if (/<img\b/.test(value)) return 90;
+    if (/\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#"'\s>]|$)/.test(value)) return 75;
+    return 0;
+  }
+  function ankiFieldContentSamples(fields, notes) {
+    const out = Object.fromEntries(fields.map((field) => [field, []]));
+    for (const note of notes) {
+      for (const fieldName of fields) {
+        const raw = String(note.fields?.[fieldName]?.value ?? "");
+        if (!raw.trim()) continue;
+        out[fieldName]?.push({ raw, text: stripHtml$1(raw) });
+      }
+    }
+    return out;
+  }
+  function isGenericAnkiFieldName(fieldName) {
+    const normalized = normalizeAnkiFieldName(fieldName);
+    return /^(?:front|back|primary|secondary|text|field\d+|f\d+)$/.test(normalized);
+  }
+  function kanaCharacterCount(value) {
+    return (value.match(/[\u3040-\u30ff]/gu) ?? []).length;
+  }
+  function japaneseSentenceLike(value) {
+    const japaneseLength = japaneseCharacterCount(value);
+    return /[。！？!?]/u.test(value) || japaneseLength >= 12 || japaneseLength >= 8 && /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value);
+  }
+  function ankiFieldAllowedForRole(fieldName, role) {
+    const normalized = normalizeAnkiFieldName(fieldName);
+    const audioLike = /(?:audio|sound|voice)/.test(normalized);
+    const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
+    if (role === "audio") return audioLike && !imageLike;
+    if (role === "image") return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
+    return !audioLike && !imageLike;
+  }
+  function ankiFieldDisallowedForRole(fieldName, role) {
+    if (role === "audio" || role === "image") return false;
+    const normalized = normalizeAnkiFieldName(fieldName);
+    return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
+  }
+  function firstMatchingAnkiField(fields, names) {
+    const fieldByName = /* @__PURE__ */ new Map();
+    fields.forEach((field) => {
+      const normalized = normalizeAnkiFieldName(field);
+      if (!fieldByName.has(normalized)) fieldByName.set(normalized, field);
+    });
+    for (const name of names) {
+      const match = fieldByName.get(normalizeAnkiFieldName(name));
+      if (match) return match;
+    }
+    return "";
+  }
+  function firstFuzzyAnkiField(fields, names) {
+    const normalizedNames = names.map(normalizeAnkiFieldName).filter((name) => name.length >= 4);
+    return fields.find((field) => {
+      const normalized = normalizeAnkiFieldName(field);
+      return normalizedNames.some((name) => normalized.includes(name));
+    }) ?? "";
+  }
+  function ankiModelScanScore(suggestions) {
+    return suggestions.reduce((score, suggestion) => {
+      if (!suggestion.fieldName) return score;
+      const roleWeight = suggestion.role === "expression" ? 6 : suggestion.role === "meaning" ? 4 : suggestion.role === "reading" || suggestion.role === "sentence" ? 3 : 1;
+      const confidenceWeight = suggestion.confidence === "high" ? 2 : 1;
+      return score + roleWeight * confidenceWeight;
+    }, 0);
+  }
+  function noteHasExactTarget(fields, exactTargets) {
+    const values = noteFieldValues(fields);
+    return exactTargets.some((target) => values.some((value) => value === target));
+  }
+  function noteExpressionContainsTarget(fields, exactTargets, mapping) {
+    const expressions = noteExpressionCandidates(fields, mapping);
+    return expressions.some((expression) => exactTargets.some(
+      (target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression.value, target) && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target))
+    ));
+  }
+  function firstNoteField(fields, names) {
+    const exact = names.map((name) => fields[name]).find(Boolean);
+    if (exact) return exact;
+    const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
+    return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? "";
+  }
+  function noteReadingContainsTarget(fields, card, mapping, expressionTargets) {
+    const spelling = normalizeFieldValue(card.spelling);
+    const readingTarget = normalizeFieldValue(card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : ""));
+    const expressionValues = noteExpressionValues(fields, mapping);
+    if (expressionValues.length && !expressionValues.some(
+      (expression) => expressionTargets.some((target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target))
+    ) && !isKanaStatusLookupSurface(spelling)) {
+      return false;
+    }
+    const readings = unique([
+      mappedNoteField(fields, mapping, "reading"),
+      firstNoteReading(fields)
+    ].filter(Boolean));
+    return Boolean(readingTarget && readingTarget.length >= 2 && readings.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
+  }
+  function noteExpressionValues(fields, mapping) {
+    return unique(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
+  }
+  function noteExpressionCandidates(fields, mapping) {
+    const candidates = [];
+    const mapped = mappedNoteField(fields, mapping, "expression");
+    if (mapped) candidates.push({ value: mapped, generic: false });
+    const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
+    if (headword) candidates.push({ value: headword, generic: false });
+    const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
+    if (generic) candidates.push({ value: generic, generic: true });
+    const seen = /* @__PURE__ */ new Set();
+    return candidates.filter((candidate) => {
+      const key = normalizeFieldValue(candidate.value);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function genericExpressionLooksLikeHeadword(value, target) {
+    const normalizedValue = normalizeFieldValue(value);
+    if (normalizedValue === target) return true;
+    if (/[。！？!?]/u.test(normalizedValue)) return false;
+    return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
+  }
+  function normalizeFieldValue(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function yomuFieldAlias(fieldName) {
+    return YOMU_FIELD_ALIASES[normalizeAnkiFieldName(fieldName)] ?? "";
+  }
+  const YOMU_FIELD_ALIASES = Object.fromEntries([
+    ...yomuAliasEntries("Expression", "baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front"),
+    ...yomuAliasEntries("Reading", "expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi"),
+    ...yomuAliasEntries("Meaning", "def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back"),
+    ...yomuAliasEntries("Sentence", "example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext"),
+    ...yomuAliasEntries("Url", "sourceurl|url"),
+    ...yomuAliasEntries("PartOfSpeech", "pos|partofspeech"),
+    ...yomuAliasEntries("Pitch", "pitchaccent"),
+    ...yomuAliasEntries("DictionaryDefinitions", "dictionary|dictionaries|dictionarydefinition|dictionarydefinitions")
+  ]);
+  function yomuAliasEntries(field, aliases) {
+    return aliases.split("|").map((alias) => [alias, field]);
+  }
+  function noteLooksLikeYomuModel(modelName, settings, fieldNames) {
+    const configuredModel = resolvedAnkiModelName(settings);
+    if (modelName === configuredModel) return true;
+    return yomuModelFieldSet(fieldNames);
+  }
+  function shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames) {
+    const configuredModel = resolvedAnkiModelName(settings);
+    if (modelName === configuredModel && isDefaultYomuModelName(configuredModel)) return true;
+    return yomuModelFieldSet(fieldNames);
+  }
+  function isDefaultYomuModelName(modelName) {
+    return modelName === "よむ Japanese" || modelName === "Yomu Japanese";
+  }
+  function yomuModelFieldSet(fieldNames) {
+    const fieldSet = new Set(fieldNames);
+    return ["Expression", "Meaning", "Sentence", "DictionaryDefinitions"].every((field) => fieldSet.has(field));
+  }
+  const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
+  function imageFromDataUrl(dataUrl, card) {
+    const parsed = parseAnkiImageDataUrl(dataUrl);
+    if (!parsed) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${Date.now()}.${parsed.extension}`,
+      data: parsed.data,
+      fields: ["Image"]
+    };
+  }
+  function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
+    if (options.audioMergeMode === "theirs") return [];
+    const fieldName = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
+    if (!fieldName) return [];
+    return retargetMediaFiles(audioFilesFromContext(options, card), fieldName);
+  }
+  function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
+    const fieldName = fieldNameForRole(fieldNames, "image", mapping);
+    if (!fieldName || !options.imageDataUrl) return [];
+    if (!canOwnYomuFields && existingFields[fieldName]) return [];
+    const image = imageFromDataUrl(options.imageDataUrl, card);
+    return image ? [{ ...image, fields: [fieldName] }] : [];
+  }
+  function applyMediaFieldClears(fields, audio, picture, audioMergeMode, canOwnYomuFields) {
+    if (audio.length && audioMergeMode === "ours") fields[audio[0].fields[0]] = "";
+    if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = "";
+  }
+  function mediaFieldName(fieldNames, preferredNames) {
+    const exact = preferredNames.find((name) => fieldNames.includes(name));
+    if (exact) return exact;
+    const preferredLower = new Set(preferredNames.map((name) => name.toLowerCase()));
+    return fieldNames.find((name) => preferredLower.has(name.toLowerCase())) ?? "";
+  }
+  function retargetMediaFiles(files, fieldName) {
+    return files.map((file) => ({ ...file, fields: [fieldName] }));
+  }
+  function audioFilesFromContext(options, card) {
+    const files = [
+      audioFromMedia({ dataUrl: options.wordAudioDataUrl, url: options.wordAudioUrl, kind: "word" }, card),
+      audioFromMedia({ dataUrl: options.audioDataUrl, url: options.audioUrl, kind: "context" }, card)
+    ].filter((file) => Boolean(file));
+    return uniqueAnkiAudioFiles(files);
+  }
+  function audioFromMedia(media, card) {
+    const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
+    if (fromData) return fromData;
+    return media.url ? audioFromUrl(media.url, card, media.kind) : null;
+  }
+  function audioFromDataUrl(dataUrl, card, kind) {
+    const parsed = parseAnkiAudioDataUrl(dataUrl);
+    if (!parsed) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
+      data: parsed.data,
+      fields: ["Audio"]
+    };
+  }
+  function audioFromUrl(url, card, kind) {
+    const cleanUrl = url.trim();
+    if (!/^https?:\/\//i.test(cleanUrl)) return null;
+    return {
+      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
+      url: cleanUrl,
+      fields: ["Audio"]
+    };
+  }
+  function uniqueAnkiAudioFiles(files) {
+    const seen = /* @__PURE__ */ new Set();
+    return files.filter((file) => {
+      const key = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+  function parseAnkiImageDataUrl(dataUrl) {
+    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
+  }
+  function parseAnkiAudioDataUrl(dataUrl) {
+    const match = /^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
+    return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
+  }
+  const ANKI_IMAGE_EXTENSION_ALIASES = {
+    "jpeg": "jpg",
+    "svg+xml": "svg"
+  };
+  function ankiImageExtension(rawExtension) {
+    const extension = rawExtension.toLowerCase();
+    return ANKI_IMAGE_EXTENSION_ALIASES[extension] ?? extension;
+  }
+  const ANKI_AUDIO_EXTENSION_ALIASES = {
+    "mpeg": "mp3",
+    "mp3": "mp3",
+    "wav": "wav",
+    "wave": "wav",
+    "x-wav": "wav",
+    "ogg": "ogg",
+    "oga": "ogg",
+    "webm": "webm",
+    "mp4": "mp4",
+    "aac": "aac",
+    "flac": "flac"
+  };
+  function ankiAudioExtension(rawExtension) {
+    return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.toLowerCase()] ?? "mp3";
+  }
+  function audioUrlExtension(url) {
+    try {
+      const pathname = new URL(url, location.href).pathname;
+      const match = /\.([a-z0-9]+)$/i.exec(pathname);
+      if (match) return `.${ankiAudioExtension(match[1])}`;
+    } catch {
+    }
+    return ".mp3";
+  }
+  function safeAnkiMediaName(card) {
+    return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
+  }
+  function retargetAnkiNoteToExistingModel(note, fieldNames, settings) {
+    const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
+    const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
+    const audioField = fieldNameForRole(fieldNames, "audio", mapping);
+    const imageField = fieldNameForRole(fieldNames, "image", mapping);
+    return {
+      deckName: note.deckName,
+      modelName: note.modelName,
+      fields,
+      tags: note.tags,
+      options: note.options,
+      ...audioField && note.audio?.length ? { audio: retargetMediaFiles(note.audio, audioField) } : {},
+      ...imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}
+    };
+  }
+  function ankiNoteForDuplicatePreflight(note) {
+    return {
+      deckName: note.deckName,
+      modelName: note.modelName,
+      fields: note.fields,
+      tags: note.tags,
+      options: note.options
+    };
+  }
+  function retargetAnkiNoteForMobileHandoff(note, settings) {
+    const mapping = activeMobileHandoffMapping(note, settings);
+    if (!mapping) return note;
+    return {
+      ...note,
+      fields: mobileHandoffFieldsWithMappings(note.fields, mapping),
+      ...retargetMobileHandoffMedia(note, mapping)
+    };
+  }
+  function activeMobileHandoffMapping(note, settings) {
+    const mapping = settings.ankiFieldMappings?.[note.modelName];
+    return mapping && Object.values(mapping).some((value) => value?.trim()) ? mapping : null;
+  }
+  function mobileHandoffFieldsWithMappings(yomuFields, mapping) {
+    const fields = { ...yomuFields };
+    for (const role of ANKI_FIELD_ROLES) {
+      const fieldName = mobileMappedFieldName(mapping, role);
+      const value = yomuFields[yomuFieldForRole(role)];
+      if (fieldName && value) fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function retargetMobileHandoffMedia(note, mapping) {
+    const media = {};
+    const audioField = mobileMappedFieldName(mapping, "audio");
+    const imageField = mobileMappedFieldName(mapping, "image");
+    if (audioField && note.audio?.length) media.audio = retargetMediaFiles(note.audio, audioField);
+    if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
+    return media;
+  }
+  function mobileMappedFieldName(mapping, role) {
+    return mapping[role]?.trim() ?? "";
+  }
+  function retargetYomuFieldsToExistingModel(yomuFields, fieldNames, mapping) {
+    const valuesByRole = {
+      expression: yomuFields.Expression,
+      reading: yomuFields.Reading,
+      meaning: yomuFields.Meaning,
+      sentence: yomuFields.Sentence
+    };
+    const fields = Object.fromEntries(fieldNames.map((fieldName) => [fieldName, ""]));
+    for (const role of ["expression", "reading", "meaning", "sentence"]) {
+      const fieldName = fieldNameForRole(fieldNames, role, mapping);
+      const value = valuesByRole[role];
+      if (fieldName && value) fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping) {
+    const fields = {};
+    for (const fieldName of fieldNames) {
+      const value = yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields);
+      if (!value) continue;
+      if (!canOwnYomuFields && existingFields[fieldName]) continue;
+      fields[fieldName] = value;
+    }
+    return fields;
+  }
+  function yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields) {
+    const mappedRole = mappedRoleForField(fieldName, mapping);
+    if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? "";
+    const alias = yomuFieldAlias(fieldName);
+    if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
+    return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
+  }
+  let trustedHtmlPolicy;
+  function setInnerHtml(element, html) {
+    if (!assignInnerHtml(element, html)) element.textContent = html;
+  }
+  function assignInnerHtml(element, html) {
+    try {
+      element.innerHTML = trustedHtml(html);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function escapeHtml$1(value) {
+    return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function trustedHtml(value) {
+    try {
+      const factory = trustedTypesFactory();
+      if (!factory) return value;
+      if (trustedHtmlPolicy === void 0) trustedHtmlPolicy = createTrustedHtmlPolicy(factory);
+      return trustedHtmlPolicy && typeof trustedHtmlPolicy.createHTML === "function" ? trustedHtmlPolicy.createHTML(value) : value;
+    } catch {
+      trustedHtmlPolicy = null;
+      return value;
+    }
+  }
+  function trustedTypesFactory() {
+    const root = globalThis;
+    return [
+      root.trustedTypes,
+      typeof window === "undefined" ? void 0 : window.trustedTypes,
+      root.unsafeWindow?.trustedTypes
+    ].find((factory) => Boolean(factory));
+  }
+  function createTrustedHtmlPolicy(factory) {
+    try {
+      const existing = factory.getPolicy?.("yomu-reader");
+      if (existing && typeof existing.createHTML === "function") return existing;
+      const options = { createHTML: (html) => html };
+      return createTrustedHtmlPolicyWithOptions(factory, pageCompartmentValue(options, { cloneFunctions: true, wrapReflectors: true })) ?? createTrustedHtmlPolicyWithOptions(factory, options);
+    } catch {
+      return null;
+    }
+  }
+  function createTrustedHtmlPolicyWithOptions(factory, options) {
+    try {
+      return factory.createPolicy?.("yomu-reader", options) ?? null;
+    } catch {
+      return null;
+    }
+  }
+  const JPDB_LOOKUP_LINK = {
+    id: "jpdb",
+    label: "JPDB",
+    urlTemplate: "https://jpdb.io/search?q={query}",
+    enabled: true
+  };
+  const JISHO_LOOKUP_LINK = {
+    id: "jisho",
+    label: "Jisho",
+    urlTemplate: "https://jisho.org/search/{query}",
+    enabled: false
+  };
+  const YOMU_LOOKUP_LINK = {
+    id: "yomu-search",
+    label: "Yomu",
+    urlTemplate: `${NEW_TAB_PAGE_URL}index.html?q={query}`,
+    enabled: true
+  };
+  const JITEN_LOOKUP_LINK = {
+    id: "jiten",
+    label: "Jiten",
+    urlTemplate: "https://jiten.moe/parse?text={query}",
+    enabled: true
+  };
+  const WEBLIO_LOOKUP_LINK = {
+    id: "weblio",
+    label: "Weblio",
+    urlTemplate: "https://www.weblio.jp/content/{query}",
+    enabled: false
+  };
+  const GOO_LOOKUP_LINK = {
+    id: "goo",
+    label: "goo",
+    urlTemplate: "https://dictionary.goo.ne.jp/srch/all/{query}/m0u/",
+    enabled: false
+  };
+  const KOTOBANK_LOOKUP_LINK = {
+    id: "kotobank",
+    label: "Kotobank",
+    urlTemplate: "https://kotobank.jp/search?q={query}",
+    enabled: false
+  };
+  const TAKOBOTO_LOOKUP_LINK = {
+    id: "takoboto",
+    label: "Takoboto",
+    urlTemplate: "https://takoboto.jp/?q={query}",
+    enabled: false
+  };
+  const WIKTIONARY_LOOKUP_LINK = {
+    id: "wiktionary-ja",
+    label: "Wiktionary",
+    urlTemplate: "https://ja.wiktionary.org/wiki/{query}",
+    enabled: false
+  };
+  const IMMERSION_KIT_LOOKUP_LINK = {
+    id: "immersion-kit",
+    label: "Immersion Kit",
+    urlTemplate: "https://www.immersionkit.com/dictionary?keyword={query}&sort=sentence_length:asc&page=1",
+    enabled: false
+  };
+  const UCHISEN_LOOKUP_LINK = {
+    id: "uchisen",
+    label: "Uchisen",
+    urlTemplate: "https://uchisen.com/kanji/{query}",
+    enabled: false
+  };
+  const COPY_LOOKUP_LINK = {
+    id: "copy",
+    label: "Copy",
+    urlTemplate: "",
+    enabled: true,
+    action: "copy"
+  };
+  const DEFAULT_DICTIONARY_LOOKUP_LINKS = [
+    JITEN_LOOKUP_LINK,
+    JPDB_LOOKUP_LINK,
+    YOMU_LOOKUP_LINK,
+    JISHO_LOOKUP_LINK,
+    WEBLIO_LOOKUP_LINK,
+    GOO_LOOKUP_LINK,
+    KOTOBANK_LOOKUP_LINK,
+    TAKOBOTO_LOOKUP_LINK,
+    WIKTIONARY_LOOKUP_LINK,
+    IMMERSION_KIT_LOOKUP_LINK,
+    UCHISEN_LOOKUP_LINK,
+    COPY_LOOKUP_LINK
+  ];
+  [
+    { ...JPDB_LOOKUP_LINK, enabled: false },
+    { ...JISHO_LOOKUP_LINK, enabled: true },
+    COPY_LOOKUP_LINK
+  ];
+  [[
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    JITEN_LOOKUP_LINK.id,
+    JPDB_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id
+  ], [
+    JPDB_LOOKUP_LINK.id,
+    JISHO_LOOKUP_LINK.id,
+    COPY_LOOKUP_LINK.id,
+    YOMU_LOOKUP_LINK.id,
+    JITEN_LOOKUP_LINK.id,
+    WEBLIO_LOOKUP_LINK.id,
+    GOO_LOOKUP_LINK.id,
+    KOTOBANK_LOOKUP_LINK.id,
+    TAKOBOTO_LOOKUP_LINK.id,
+    WIKTIONARY_LOOKUP_LINK.id,
+    IMMERSION_KIT_LOOKUP_LINK.id,
+    UCHISEN_LOOKUP_LINK.id
+  ]];
+  Logger.scope("Settings");
+  const AUDIO_SOURCE_TYPE_VALUES = [
+    "jpod101",
+    "language-pod-101",
+    "jisho",
+    "lingua-libre",
+    "wiktionary",
+    "jiten-tts",
+    "jpdb-tts",
+    "text-to-speech",
+    "text-to-speech-reading",
+    "custom",
+    "custom-json"
+  ];
+  new Set(AUDIO_SOURCE_TYPE_VALUES);
+  ({
+    dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
+  });
+  new Set(
+    "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
+  );
+  const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
+  /* @__PURE__ */ new Set([
+    ...PROSE_TAGS,
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6"
+  ]);
+  const POS_LABELS = {
+    adj: "adjective",
+    adv: "adverb",
+    aux: "auxiliary",
+    "aux-v": "auxiliary verb",
+    conj: "conjunction",
+    cop: "copula",
+    ctr: "counter",
+    exp: "expression",
+    int: "interjection",
+    n: "noun",
+    num: "number",
+    pn: "pronoun",
+    pref: "prefix",
+    prt: "particle",
+    suf: "suffix",
+    unc: "unclassified",
+    vi: "intransitive verb",
+    vt: "transitive verb",
+    v1: "ichidan verb",
+    v5: "godan verb",
+    v5aru: "aru ending",
+    v5b: "bu ending",
+    v5g: "gu ending",
+    v5k: "ku ending",
+    v5m: "mu ending",
+    v5n: "nu ending",
+    v5r: "ru ending",
+    v5s: "su ending",
+    v5t: "tsu ending",
+    v5u: "u ending",
+    vk: "kuru verb",
+    vs: "suru verb",
+    vz: "zuru verb"
+  };
+  function formatPartOfSpeech(tags = []) {
+    const labels = tags.map((tag) => POS_LABELS[tag.toLowerCase()] ?? tag).filter(Boolean);
+    return [...new Set(labels)].join(", ");
+  }
+  function formatPartOfSpeechDetails(tags = []) {
+    return tags.length ? tags.join(", ").toUpperCase() : "";
+  }
   const GODAN_ROWS = [
     { ending: "う", a: "わ", i: "い", e: "え", o: "お", te: "って", ta: "った", rules: ["v5u", "v5"] },
     { ending: "く", a: "か", i: "き", e: "け", o: "こ", te: "いて", ta: "いた", rules: ["v5k", "v5"] },
@@ -4645,480 +5372,222 @@ recommendedJiten	Jiten頻度です。
     }
     return grouped;
   }
-  const ANKI_FIELD_ROLES = ["expression", "reading", "meaning", "sentence", "audio", "image"];
-  const ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE = "AnkiConnect needs the userscript request bridge for cross-origin endpoints.";
-  async function postAnkiJson(url, body, timeoutMs) {
-    const userscriptRequest = getUserscriptHttpRequest();
-    if (userscriptRequest) return await postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs);
-    if (!canDirectFetchAnkiConnect(url)) {
-      return Promise.reject(new Error(ANKI_CONNECT_NEEDS_BRIDGE_MESSAGE));
-    }
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-    return await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body,
-      signal: controller.signal
-    }).then(async (response) => {
-      if (!response.ok) throw new Error(`AnkiConnect request failed (${response.status}).`);
-      return response.json();
-    }).catch((error) => {
-      if (error instanceof DOMException && error.name === "AbortError") throw new Error("AnkiConnect timed out.");
-      throw error;
-    }).finally(() => {
-      window.clearTimeout(timeoutId);
-    });
-  }
-  function hasUserscriptAnkiBridge() {
-    return Boolean(getUserscriptHttpRequest());
-  }
-  function isAnkiConnectAvailabilityError(error) {
-    if (error instanceof Error && error.cause && error.cause !== error) {
-      return isAnkiConnectAvailabilityError(error.cause);
-    }
-    if (!(error instanceof Error)) return false;
-    return /timed out|failed to fetch|networkerror|request bridge/i.test(error.message);
-  }
-  function postAnkiJsonWithUserscript(userscriptRequest, url, body, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const handleLoad = (response) => {
-        if (response.status >= 200 && response.status < 300) resolve(response.response);
-        else reject(new Error(`AnkiConnect request failed (${response.status}).`));
-      };
-      const result = userscriptRequest({
-        method: "POST",
-        url,
-        headers: { "Content-Type": "application/json" },
-        data: body,
-        responseType: "json",
-        timeout: timeoutMs,
-        onload: handleLoad,
-        onerror: (error) => reject(error instanceof Error ? error : new Error("AnkiConnect request failed.")),
-        ontimeout: () => reject(new Error("AnkiConnect timed out."))
-      });
-      if (result && typeof result.then === "function") {
-        result.then(handleLoad, reject);
-      }
-    });
-  }
-  function canDirectFetchAnkiConnect(url) {
-    return canDirectFetchAnkiConnectFrom(url, safeLocationHref$1());
-  }
-  function canDirectFetchAnkiConnectFrom(url, currentHref) {
-    const current = readAnkiUrl(currentHref);
-    if (!current) return false;
-    const target = readAnkiUrl(url, current.href);
-    if (!target || !isHttpUrl(target)) return false;
-    return target.origin === current.origin;
-  }
-  function readAnkiUrl(value, base) {
-    try {
-      return new URL(value, base);
-    } catch {
-      return null;
-    }
-  }
-  function isHttpUrl(url) {
-    return url.protocol === "http:" || url.protocol === "https:";
-  }
-  function safeLocationHref$1() {
-    return typeof location === "undefined" ? "" : location.href;
-  }
-  const ankiFieldNames = (names) => names.split("|");
-  const ANKI_HEADWORD_FIELD_NAME_PREFIX = ankiFieldNames(
-    "Vocabulary-Kanji|Vocabulary Kanji|Vocab Kanji|Jlab-Kanji|Japanese_Word|Word|Word Kanji|Japanese Word|Headword|Headword Kanji|Term Kanji|Term Text|Expression Text|Base Form|Dictionary Form"
-  );
-  const ANKI_HEADWORD_FIELD_NAME_TAIL = ankiFieldNames(
-    "Learnable|Lemma|Primary|Search Term|Target Word|Term|Vocab|Vocabulary|Vocabulary Expression|Word Expression"
-  );
-  const ANKI_GENERIC_EXPRESSION_FIELD_NAMES = ankiFieldNames("Expression|Front|Japanese|Kanji|Katakana");
-  const ANKI_HEADWORD_FIELD_NAMES = [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    "Expression Reading",
-    "Japanese Expression",
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  const ANKI_EXPRESSION_FIELD_NAMES = [
-    ...ANKI_HEADWORD_FIELD_NAME_PREFIX,
-    ...ankiFieldNames("Expression|Expression Reading|Front|Japanese|Japanese Expression|Kanji|Katakana"),
-    ...ANKI_HEADWORD_FIELD_NAME_TAIL
-  ];
-  const ANKI_READING_FIELD_NAMES = ankiFieldNames(
-    "Vocabulary-Kana|Vocabulary Kana|Vocabulary-Furigana|Vocabulary Furigana|Vocab Kana|Vocab Furigana|Jlab-Hiragana|Readings|Expression Reading|Furigana|Furigana Reading|Hiragana|Japanese Reading|Kana|Kana Reading|On|On Reading|Onyomi|Kun|Kun Reading|Kunyomi|Pronunciation|Reading|Ruby|Term Kana|Term Reading|Vocab Reading|Vocabulary Reading|Word Kana|Word Reading|Yomi"
-  );
-  const ANKI_MEANING_FIELD_NAMES = ankiFieldNames(
-    "Vocabulary-English|Vocabulary English|Vocabulary-Meaning|Vocabulary Meaning|Translation_1|Jlab-Translation|RemarksBack|Jlab-Remarks|Other-Back|Jlab-DictionaryLookup|Meaning|Def|Defs|Definition|Definition 1|Definition English|Definitions|English|English Definition|English Meaning|Gloss|Glosses|Glossary|Keyword|MainDefinition|Meanings|Mnemonic|Back|DictionaryDefinitions|Sense|Term Meaning|Translation|Translation 1|Vocab Def|Vocab Definition|Word Meaning"
-  );
-  const ANKI_SENTENCE_FIELD_NAMES = ankiFieldNames(
-    "Sentence|Example|Example Sentence|Example Sentence Text|Context|Context Sentence|Context Text|ExpressionSentence|Japanese Sentence|Mining Sentence|SentKanji|Sentence Furigana|Sentence Kanji|Sentence-Kanji|Sentence Text|Source Sentence|Source Text"
-  );
-  const ANKI_AUDIO_FIELD_NAMES = ankiFieldNames(
-    "Audio|Expression Audio|Term Audio|Vocab Audio|Vocabulary Audio|Word Audio|PronunciationAudio|Context Audio|Example Audio|SentAudio|Sentence Audio|Sentence Sound|SentenceAudio|Sound|Voice"
-  );
-  const ANKI_IMAGE_FIELD_NAMES = ankiFieldNames(
-    "Context Image|Example Image|Frame|Image|Image File|Photo|Picture|Snapshot|Screenshot|Sentence Image|Sentence Screenshot|SentencePicture|Still|Source Image|Term Image|Vocab Image|Vocabulary Image|Word Image"
-  );
-  const ANKI_FIELD_ROLE_CANDIDATES = {
-    expression: ANKI_EXPRESSION_FIELD_NAMES,
-    reading: ANKI_READING_FIELD_NAMES,
-    meaning: ANKI_MEANING_FIELD_NAMES,
-    sentence: ANKI_SENTENCE_FIELD_NAMES,
-    audio: ANKI_AUDIO_FIELD_NAMES,
-    image: ANKI_IMAGE_FIELD_NAMES
-  };
-  function scanAnkiModelFields(modelName, fields, sampleNotes = []) {
-    const usedFields = /* @__PURE__ */ new Set();
-    const samples = ankiFieldContentSamples(fields, sampleNotes);
-    const suggestions = Object.keys(ANKI_FIELD_ROLE_CANDIDATES).map((role) => {
-      const suggestion = suggestAnkiField(role, fields, usedFields, samples);
-      if (suggestion.fieldName) usedFields.add(suggestion.fieldName);
-      return suggestion;
-    });
+  function buildYomuAnkiFields(card, sentence = "", context = {}) {
+    const fieldContext = ankiFieldContext(context);
+    const jpdbUrl = jpdbVocabularyUrl$1(card);
     return {
-      modelName,
-      fields,
-      suggestions,
-      score: ankiModelScanScore(suggestions)
+      Expression: escapeHtml$1(card.spelling),
+      Reading: renderCardReading(card),
+      Meaning: renderJpdbMeanings(card),
+      Sentence: renderSentence(sentence, sentenceHighlightTargets(card, fieldContext)),
+      Url: escapeHtml$1(fieldContext.sourceUrl),
+      Frequency: renderFrequency(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
+      PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
+      Image: "",
+      Audio: "",
+      JPDB: renderJpdbLink(jpdbUrl, fieldContext.interfaceLanguage),
+      Status: renderCardStatus(card, fieldContext.interfaceLanguage),
+      Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
+      DictionaryDefinitions: renderDictionaryDefinitions(fieldContext.localEntries, fieldContext.dictionaryPreferences),
+      Kanji: renderKanjiDefinitions(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences, fieldContext.interfaceLanguage),
+      Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
     };
   }
-  function suggestAnkiField(role, fields, usedFields, samples = {}) {
-    const candidates = ANKI_FIELD_ROLE_CANDIDATES[role];
-    const availableFields = fields.filter((field) => isAvailableAnkiFieldForRole(field, role, usedFields, samples));
-    const exact = firstMatchingAnkiField(availableFields, candidates);
-    const content = suggestAnkiFieldFromContent(role, availableFields, samples);
-    const exactContentScore = exact ? ankiFieldContentRoleScore(role, samples[exact] ?? []) : 0;
-    const fuzzy = firstFuzzyAnkiField(availableFields, candidates);
-    return bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore);
-  }
-  function bestAnkiFieldSuggestion(role, exact, fuzzy, content, exactContentScore) {
-    if (shouldPreferContentSuggestion(content, exact, exactContentScore)) return content;
-    const suggestions = [
-      exact ? { role, fieldName: exact, confidence: "high" } : null,
-      contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy),
-      fuzzy ? { role, fieldName: fuzzy, confidence: "medium" } : null,
-      content.fieldName ? content : null,
-      { role, fieldName: null, confidence: "low" }
-    ];
-    return suggestions.find(Boolean);
-  }
-  function contentBeforeFuzzyAnkiFieldSuggestion(content, fuzzy) {
-    if (!content.fieldName) return null;
-    return !fuzzy || content.confidence === "high" ? content : null;
-  }
-  function isAvailableAnkiFieldForRole(field, role, usedFields, samples) {
-    if (usedFields.has(field)) return false;
-    if (ankiFieldDisallowedForRole(field, role)) return false;
-    return ankiFieldAllowedForRole(field, role) || ankiFieldContentRoleScore(role, samples[field] ?? []) >= 50;
-  }
-  function shouldPreferContentSuggestion(content, exact, exactContentScore) {
-    if (!content.fieldName) return false;
-    if (!exact || isGenericAnkiFieldName(exact)) return true;
-    return content.fieldName !== exact && exactContentScore === 0 && content.confidence === "high";
-  }
-  function ankiFieldMappingForModel(settings, modelName, fieldNames) {
-    const mapping = settings.ankiFieldMappings?.[modelName];
-    if (!mapping) return void 0;
-    const normalized = {};
-    for (const role of ANKI_FIELD_ROLES) {
-      const fieldName = mappedFieldName(fieldNames, mapping, role);
-      if (fieldName) normalized[role] = fieldName;
-    }
-    return Object.keys(normalized).length ? normalized : void 0;
-  }
-  function mappedFieldName(fieldNames, mapping, role) {
-    const fieldName = mapping?.[role]?.trim();
-    if (!fieldName) return "";
-    const exact = fieldNames.find((candidate) => candidate === fieldName);
-    if (exact) return exact;
-    const normalizedFieldName = normalizeAnkiFieldName(fieldName);
-    return fieldNames.find((candidate) => normalizeAnkiFieldName(candidate) === normalizedFieldName) ?? "";
-  }
-  function ankiFieldMappingsSettingsKey(mappings) {
-    const normalized = {};
-    for (const modelName of Object.keys(mappings ?? {}).sort()) {
-      const mapping = mappings?.[modelName];
-      if (!mapping) continue;
-      const modelMapping = {};
-      for (const role of ANKI_FIELD_ROLES) {
-        const fieldName = mapping[role]?.trim();
-        if (fieldName) modelMapping[role] = fieldName;
-      }
-      if (Object.keys(modelMapping).length) normalized[modelName] = modelMapping;
-    }
-    return normalized;
-  }
-  function fieldNameForRole(fieldNames, role, mapping) {
-    const mapped = mappedFieldName(fieldNames, mapping, role);
-    if (mapped) return mapped;
-    return suggestAnkiField(role, fieldNames, /* @__PURE__ */ new Set()).fieldName ?? "";
-  }
-  function mappedRoleForField(fieldName, mapping) {
-    if (!mapping) return null;
-    const normalized = normalizeAnkiFieldName(fieldName);
-    for (const role of ANKI_FIELD_ROLES) {
-      const mapped = mapping[role];
-      if (mapped && normalizeAnkiFieldName(mapped) === normalized) return role;
-    }
-    return null;
-  }
-  function yomuFieldForRole(role) {
-    return {
-      expression: "Expression",
-      reading: "Reading",
-      meaning: "Meaning",
-      sentence: "Sentence",
-      audio: "Audio",
-      image: "Image"
-    }[role];
-  }
-  function flattenNoteFields(fields) {
-    const out = {};
-    Object.entries(fields ?? {}).forEach(([name, value]) => {
-      out[name] = stripHtml$1(String(value?.value ?? ""));
+  function buildYomuAnkiPreviewFields$1(card, sentence, settings, context = {}, fieldTargetPlan) {
+    const yomuFields = buildYomuAnkiFields(card, sentence, {
+      ...context,
+      interfaceLanguage: settings.interfaceLanguage
     });
-    return out;
+    if (fieldTargetPlan && !fieldTargetPlan.yomuManaged && fieldTargetPlan.fieldNames.length) {
+      const mapping2 = ankiFieldMappingForModel(settings, fieldTargetPlan.modelName, fieldTargetPlan.fieldNames);
+      const retargeted = retargetYomuFieldsToExistingModel(yomuFields, fieldTargetPlan.fieldNames, mapping2);
+      const written = Object.fromEntries(Object.entries(retargeted).filter(([, value]) => value.trim()));
+      if (Object.keys(written).length) return written;
+    }
+    const mapping = settings.ankiFieldMappings?.[settings.ankiModel.trim() || "よむ Japanese"];
+    if (!mapping || !Object.values(mapping).some((value) => value?.trim())) return yomuFields;
+    const fields = {};
+    for (const role of ANKI_FIELD_ROLES) {
+      const fieldName = mapping[role]?.trim();
+      const value = yomuFields[yomuFieldForRole(role)];
+      if (fieldName && value) fields[fieldName] = value;
+    }
+    return Object.keys(fields).length ? fields : yomuFields;
   }
-  function noteLooksLikeCard(note, card, settings) {
-    const fields = flattenNoteFields(note.fields);
-    const mapping = settings ? ankiFieldMappingForModel(settings, note.modelName, Object.keys(fields)) : void 0;
-    const expressionTargets = noteCardExpressionTargets(card);
-    return noteHasExactTarget(fields, expressionTargets) || noteExpressionContainsTarget(fields, expressionTargets, mapping) || noteReadingContainsTarget(fields, card, mapping, expressionTargets);
+  function renderCardReading(card) {
+    return card.reading && card.reading !== card.spelling ? escapeHtml$1(card.reading) : "";
   }
-  function noteCardExpressionTargets(card) {
-    return unique$3([card.spelling, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
+  function renderPartOfSpeech(partOfSpeech) {
+    return escapeHtml$1(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
   }
-  function noteFieldValues(fields) {
-    return Object.values(fields).map(normalizeFieldValue).filter(Boolean);
+  function renderJpdbLink(jpdbUrl, language) {
+    return jpdbUrl ? `<a href="${jpdbUrl}">${escapeHtml$1(uiText(language, "openOnJpdb"))}</a>` : "";
   }
-  function firstNoteReading(fields) {
-    return firstNoteField(fields, ANKI_READING_FIELD_NAMES);
-  }
-  function firstNoteExpressionValue(fields, mapping) {
-    return noteExpressionCandidates(fields, mapping)[0]?.value ?? "";
-  }
-  function mappedNoteField(fields, mapping, role) {
-    const fieldName = mappedFieldName(Object.keys(fields), mapping, role);
-    return fieldName ? fields[fieldName] ?? "" : "";
-  }
-  function lookupKeyTermsForCard(card) {
-    return unique$3([card.spelling, card.reading, ...card.fallbackLookupTerms ?? []].map((value) => normalizeFieldValue(value ?? "")).filter(Boolean));
-  }
-  function isKanaStatusLookupSurface(value) {
-    return /[\u3040-\u30ff]/u.test(value) && !/[\u3400-\u9fff]/u.test(value);
-  }
-  function japaneseFieldContainsStandaloneTarget(value, target) {
-    const normalizedValue = normalizeFieldValue(value);
-    if (normalizedValue === target) return true;
-    return normalizedValue.split(/[\s,;；、。・/／|｜()[\]（）「」『』【】<>＜＞]+/u).some((part) => part === target);
-  }
-  function japaneseCharacterCount(value) {
-    return (value.match(/[\u3040-\u30ff\u3400-\u9fff]/gu) ?? []).length;
-  }
-  function normalizeAnkiFieldName(value) {
-    return value.replace(/[_\s-]+/g, "").toLowerCase();
-  }
-  function stripHtml$1(value) {
-    return value.replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim();
-  }
-  function suggestAnkiFieldFromContent(role, fields, samples) {
-    const ranked = fields.map((fieldName) => ({
-      fieldName,
-      score: ankiFieldContentRoleScore(role, samples[fieldName] ?? [])
-    })).filter((item) => item.score > 0).sort((a, b) => b.score - a.score || fields.indexOf(a.fieldName) - fields.indexOf(b.fieldName));
-    const best = ranked[0];
-    if (!best) return { role, fieldName: null, confidence: "low" };
+  function ankiFieldContext(context) {
     return {
-      role,
-      fieldName: best.fieldName,
-      confidence: best.score >= 50 ? "high" : "medium"
+      localEntries: fallbackArray(context.localEntries),
+      kanjiEntries: fallbackArray(context.kanjiEntries),
+      metaEntries: fallbackArray(context.metaEntries),
+      dictionaryPreferences: fallbackArray(context.dictionaryPreferences),
+      sentenceTarget: fallbackString(context.sentenceTarget),
+      sourceUrl: fallbackString(context.sourceUrl),
+      sourceTitle: fallbackString(context.sourceTitle),
+      interfaceLanguage: context.interfaceLanguage ?? "en"
     };
   }
-  function ankiFieldContentRoleScore(role, samples) {
-    if (!samples.length) return 0;
-    const scores = samples.map((sample) => ankiFieldContentSampleRoleScore(role, sample)).filter((score) => score > 0).sort((a, b) => b - a);
-    if (!scores.length) return 0;
-    const strongest = scores[0] ?? 0;
-    const second = scores[1] ?? 0;
-    return Math.min(100, strongest + Math.min(15, second / 3) + Math.min(10, scores.length * 2));
+  function fallbackArray(value) {
+    return value ?? [];
   }
-  const ANKI_TEXT_ROLE_SCORERS = {
-    expression({ length, hasJapanese, hasKanji, kanaLength, sentenceLike }) {
-      if (!hasJapanese || sentenceLike || length > 40) return 0;
-      return 28 + (hasKanji ? 24 : 0) + (kanaLength && hasKanji ? 8 : 0) + Math.max(0, 12 - Math.floor(length / 2));
-    },
-    reading({ length, japaneseLength, hasJapanese, hasKanji, kanaLength }) {
-      if (!hasJapanese || hasKanji || length > 40) return 0;
-      const mostlyKana = kanaLength >= Math.max(1, japaneseLength - 1);
-      return mostlyKana ? 54 + Math.max(0, 10 - Math.floor(length / 4)) : 20;
-    },
-    meaning({ length, hasJapanese, hasLatin }) {
-      if (hasJapanese) return 0;
-      if (hasLatin) return 54 + (length > 8 ? 6 : 0);
-      return length >= 2 ? 24 : 0;
-    },
-    sentence({ length, hasJapanese, sentenceLike }) {
-      if (!hasJapanese) return 0;
-      if (sentenceLike) return 65 + (length > 20 ? 8 : 0);
-      return length >= 14 ? 42 : 0;
-    }
-  };
-  function ankiFieldContentSampleRoleScore(role, sample) {
-    const raw = sample.raw.trim();
-    const text = normalizeFieldValue(sample.text);
-    if (role === "audio") return ankiAudioFieldContentScore(raw, text);
-    if (role === "image") return ankiImageFieldContentScore(raw, text);
-    if (ankiAudioFieldContentScore(raw, text) || ankiImageFieldContentScore(raw, text)) return 0;
-    if (!text) return 0;
-    const scorer = ANKI_TEXT_ROLE_SCORERS[role];
-    if (!scorer) return 0;
-    const japaneseLength = japaneseCharacterCount(text);
-    return scorer({
-      length: text.length,
-      japaneseLength,
-      hasJapanese: japaneseLength > 0,
-      hasKanji: /[\u3400-\u9fff]/u.test(text),
-      kanaLength: kanaCharacterCount(text),
-      hasLatin: /[A-Za-z]/.test(text),
-      sentenceLike: japaneseSentenceLike(text)
-    });
+  function fallbackString(value) {
+    return value ?? "";
   }
-  function ankiAudioFieldContentScore(raw, text) {
-    const value = `${raw} ${text}`.toLowerCase();
-    if (/\[sound:[^\]]+\]/.test(value)) return 90;
-    if (/<audio\b/.test(value)) return 85;
-    if (/\.(?:mp3|m4a|ogg|oga|wav|flac)(?:[?#"'\s>]|$)/.test(value)) return 75;
-    return 0;
+  function jpdbVocabularyUrl$1(card) {
+    return card.source === "local" || card.source === "anki" ? "" : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
   }
-  function ankiImageFieldContentScore(raw, text) {
-    const value = `${raw} ${text}`.toLowerCase();
-    if (/<img\b/.test(value)) return 90;
-    if (/\.(?:png|jpe?g|gif|webp|avif|bmp|svg)(?:[?#"'\s>]|$)/.test(value)) return 75;
-    return 0;
+  function renderCardStatus(card, language) {
+    if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$1(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
+    if (card.source === "anki") return '<span class="yomu-chip">Anki</span>';
+    return card.cardState.map((state) => `<span class="yomu-chip">${escapeHtml$1(state)}</span>`).join(" ");
   }
-  function ankiFieldContentSamples(fields, notes) {
-    const out = Object.fromEntries(fields.map((field) => [field, []]));
-    for (const note of notes) {
-      for (const fieldName of fields) {
-        const raw = String(note.fields?.[fieldName]?.value ?? "");
-        if (!raw.trim()) continue;
-        out[fieldName]?.push({ raw, text: stripHtml$1(raw) });
-      }
-    }
-    return out;
+  function renderJpdbMeanings(card) {
+    return card.meanings.slice(0, 8).map((meaning) => {
+      const pos = formatPartOfSpeech(meaning.partOfSpeech);
+      return `<div class="yomu-definition">
+            ${pos ? `<span class="yomu-pos">${escapeHtml$1(pos)}</span>` : ""}
+            <div>${escapeHtml$1(meaning.glosses.join("; "))}</div>
+        </div>`;
+    }).join("");
   }
-  function isGenericAnkiFieldName(fieldName) {
-    const normalized = normalizeAnkiFieldName(fieldName);
-    return /^(?:front|back|primary|secondary|text|field\d+|f\d+)$/.test(normalized);
+  function sentenceHighlightTargets(card, context) {
+    return [context.sentenceTarget, card.spelling, card.reading];
   }
-  function kanaCharacterCount(value) {
-    return (value.match(/[\u3040-\u30ff]/gu) ?? []).length;
+  function renderSentence(sentence, targets) {
+    if (!sentence) return "";
+    const target = firstSentenceHighlightTarget(sentence, targets);
+    if (!target) return escapeHtml$1(sentence);
+    return sentence.split(target).map((part) => escapeHtml$1(part)).join(`<span class="yomu-highlight">${escapeHtml$1(target)}</span>`);
   }
-  function japaneseSentenceLike(value) {
-    const japaneseLength = japaneseCharacterCount(value);
-    return /[。！？!?]/u.test(value) || japaneseLength >= 12 || japaneseLength >= 8 && /(?:^|[\s　]).{2,}[\s　].{2,}/u.test(value);
-  }
-  function ankiFieldAllowedForRole(fieldName, role) {
-    const normalized = normalizeAnkiFieldName(fieldName);
-    const audioLike = /(?:audio|sound|voice)/.test(normalized);
-    const imageLike = /(?:image|picture|screenshot|snapshot|photo|frame|still)/.test(normalized);
-    if (role === "audio") return audioLike && !imageLike;
-    if (role === "image") return imageLike && !audioLike && !/^frame(?:id|no|num|number|v?\d)/.test(normalized);
-    return !audioLike && !imageLike;
-  }
-  function ankiFieldDisallowedForRole(fieldName, role) {
-    if (role === "audio" || role === "image") return false;
-    const normalized = normalizeAnkiFieldName(fieldName);
-    return /^(?:source|sourceurl|url|origin|originurl|link|deck|deckname|model|modelname|tags?|remarksfront|frontremarks)$/.test(normalized);
-  }
-  function firstMatchingAnkiField(fields, names) {
-    const fieldByName = /* @__PURE__ */ new Map();
-    fields.forEach((field) => {
-      const normalized = normalizeAnkiFieldName(field);
-      if (!fieldByName.has(normalized)) fieldByName.set(normalized, field);
-    });
-    for (const name of names) {
-      const match = fieldByName.get(normalizeAnkiFieldName(name));
-      if (match) return match;
+  function firstSentenceHighlightTarget(sentence, targets) {
+    const seen = /* @__PURE__ */ new Set();
+    for (const target of targets) {
+      const normalized = target.trim();
+      if (!normalized || seen.has(normalized)) continue;
+      seen.add(normalized);
+      if (sentence.includes(normalized)) return normalized;
     }
     return "";
   }
-  function firstFuzzyAnkiField(fields, names) {
-    const normalizedNames = names.map(normalizeAnkiFieldName).filter((name) => name.length >= 4);
-    return fields.find((field) => {
-      const normalized = normalizeAnkiFieldName(field);
-      return normalizedNames.some((name) => normalized.includes(name));
-    }) ?? "";
+  function renderDictionaryDefinitions(entries, preferences) {
+    const groups = Array.from(groupTermEntriesByDictionary(entries).entries()).slice(0, 6);
+    return groups.map(([dictionary, items]) => `
+        <div class="yomu-dict-group">
+            <h3 class="yomu-dict-label">${escapeHtml$1(dictionaryLabel(dictionary, preferences))}</h3>
+            ${items.slice(0, 6).map((entry) => `
+                <div class="yomu-dict-entry">
+                    <div class="yomu-dict-head">
+                        <span class="yomu-dict-expression">${escapeHtml$1(entry.expression)}</span>
+                        ${entry.reading && entry.reading !== entry.expression ? `<span class="yomu-dict-reading">${escapeHtml$1(entry.reading)}</span>` : ""}
+                        ${entry.definitionTags || entry.rules || entry.termTags ? `<span class="yomu-tags">${escapeHtml$1([entry.definitionTags, entry.rules, entry.termTags].filter(Boolean).join(" · "))}</span>` : ""}
+                    </div>
+                    <div class="yomu-glossary" data-dictionary="${escapeHtml$1(entry.dictionary)}">${entry.glossary.slice(0, 5).map((item) => `<div>${safeGlossaryHtml(item, entry.dictionary)}</div>`).join("")}</div>
+                </div>
+            `).join("")}
+        </div>
+    `).join("");
   }
-  function ankiModelScanScore(suggestions) {
-    return suggestions.reduce((score, suggestion) => {
-      if (!suggestion.fieldName) return score;
-      const roleWeight = suggestion.role === "expression" ? 6 : suggestion.role === "meaning" ? 4 : suggestion.role === "reading" || suggestion.role === "sentence" ? 3 : 1;
-      const confidenceWeight = suggestion.confidence === "high" ? 2 : 1;
-      return score + roleWeight * confidenceWeight;
-    }, 0);
-  }
-  function noteHasExactTarget(fields, exactTargets) {
-    const values = noteFieldValues(fields);
-    return exactTargets.some((target) => values.some((value) => value === target));
-  }
-  function noteExpressionContainsTarget(fields, exactTargets, mapping) {
-    const expressions = noteExpressionCandidates(fields, mapping);
-    return expressions.some((expression) => exactTargets.some(
-      (target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression.value, target) && (!expression.generic || genericExpressionLooksLikeHeadword(expression.value, target))
-    ));
-  }
-  function firstNoteField(fields, names) {
-    const exact = names.map((name) => fields[name]).find(Boolean);
-    if (exact) return exact;
-    const normalizedNames = new Set(names.map(normalizeAnkiFieldName));
-    return Object.entries(fields).find(([name, value]) => normalizedNames.has(normalizeAnkiFieldName(name)) && Boolean(value))?.[1] ?? "";
-  }
-  function noteReadingContainsTarget(fields, card, mapping, expressionTargets) {
-    const spelling = normalizeFieldValue(card.spelling);
-    const readingTarget = normalizeFieldValue(card.reading || (isKanaStatusLookupSurface(spelling) ? spelling : ""));
-    const expressionValues = noteExpressionValues(fields, mapping);
-    if (expressionValues.length && !expressionValues.some(
-      (expression) => expressionTargets.some((target) => target.length >= 2 && japaneseFieldContainsStandaloneTarget(expression, target))
-    ) && !isKanaStatusLookupSurface(spelling)) {
-      return false;
+  function renderKanjiDefinitions(entries, preferences, language) {
+    const byCharacter = /* @__PURE__ */ new Map();
+    for (const entry of entries) {
+      const group = byCharacter.get(entry.character) ?? [];
+      group.push(entry);
+      byCharacter.set(entry.character, group);
     }
-    const readings = unique$3([
-      mappedNoteField(fields, mapping, "reading"),
-      firstNoteReading(fields)
-    ].filter(Boolean));
-    return Boolean(readingTarget && readingTarget.length >= 2 && readings.some((reading) => japaneseFieldContainsStandaloneTarget(reading, readingTarget)));
+    return Array.from(byCharacter.entries()).slice(0, 8).map(([character, items]) => `
+        <div class="yomu-kanji-entry">
+            <div class="yomu-dict-head">
+                <span class="yomu-kanji-char">${escapeHtml$1(character)}</span>
+                <span class="yomu-dict-label">${escapeHtml$1(items.map((item) => dictionaryLabel(item.dictionary, preferences)).filter(uniqueValue).slice(0, 3).join(" · "))}</span>
+            </div>
+            ${items.slice(0, 3).map((item) => `
+                <div>
+                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(item.onyomi.join("、"))}</span>` : ""}
+                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> ${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(item.kunyomi.join("、"))}</span>` : ""}
+                    <div>${item.meanings.slice(0, 8).map((meaning) => escapeHtml$1(meaning)).join("; ")}</div>
+                    ${item.tags.length ? `<span class="yomu-tags">${escapeHtml$1(item.tags.join(" · "))}</span>` : ""}
+                </div>
+            `).join("")}
+        </div>
+    `).join("");
   }
-  function noteExpressionValues(fields, mapping) {
-    return unique$3(noteExpressionCandidates(fields, mapping).map((candidate) => candidate.value).filter(Boolean));
+  function renderFrequency(card, entries, preferences) {
+    const chips = [];
+    if (card.frequencyRank) chips.push(`<span class="yomu-chip">JPDB #${card.frequencyRank}</span>`);
+    for (const entry of entries) {
+      appendFrequencyChip(chips, entry, preferences);
+      if (chips.length >= 8) break;
+    }
+    return chips.filter(uniqueValue).join(" ");
   }
-  function noteExpressionCandidates(fields, mapping) {
-    const candidates = [];
-    const mapped = mappedNoteField(fields, mapping, "expression");
-    if (mapped) candidates.push({ value: mapped, generic: false });
-    const headword = firstNoteField(fields, ANKI_HEADWORD_FIELD_NAMES);
-    if (headword) candidates.push({ value: headword, generic: false });
-    const generic = firstNoteField(fields, ANKI_GENERIC_EXPRESSION_FIELD_NAMES);
-    if (generic) candidates.push({ value: generic, generic: true });
-    const seen = /* @__PURE__ */ new Set();
-    return candidates.filter((candidate) => {
-      const key = normalizeFieldValue(candidate.value);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  function appendFrequencyChip(chips, entry, preferences) {
+    if (entry.mode !== "freq") return;
+    const value = formatMetaFrequency(entry.data);
+    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
   }
-  function genericExpressionLooksLikeHeadword(value, target) {
-    const normalizedValue = normalizeFieldValue(value);
-    if (normalizedValue === target) return true;
-    if (/[。！？!?]/u.test(normalizedValue)) return false;
-    return japaneseCharacterCount(normalizedValue) <= japaneseCharacterCount(target) + 4;
+  function renderPitchField(card, entries, preferences) {
+    const chips = firstJpdbPitchChip(card);
+    for (const entry of entries) {
+      appendPitchChip(chips, entry, preferences);
+      if (chips.length >= 4) break;
+    }
+    return chips.filter(uniqueValue).join(" ");
   }
-  function normalizeFieldValue(value) {
-    return value.replace(/\s+/g, " ").trim();
+  function firstJpdbPitchChip(card) {
+    const pitch = card.pitchAccent.find(Boolean);
+    if (!pitch) return [];
+    const reading = card.reading && card.reading !== card.spelling ? `${card.reading} ` : "";
+    return [`<span class="yomu-chip">JPDB ${escapeHtml$1(reading)}${escapeHtml$1(pitch)}</span>`];
   }
-  function unique$3(items) {
-    return [...new Set(items)];
+  function appendPitchChip(chips, entry, preferences) {
+    if (entry.mode !== "pitch") return;
+    const value = formatMetaPitch(entry.data);
+    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
+  }
+  function renderSource(sourceUrl, sourceTitle) {
+    const source = ankiSourceLink(sourceUrl, sourceTitle);
+    if (!source.label) return "";
+    return source.href ? `<a href="${escapeHtml$1(source.href)}">${escapeHtml$1(source.label)}</a>` : escapeHtml$1(source.label);
+  }
+  function ankiSourceLink(sourceUrl, sourceTitle) {
+    return { href: sourceUrl, label: sourceTitle || sourceUrl };
+  }
+  function dictionaryLabel(name, preferences) {
+    return preferences.find((item) => item.name === name)?.alias || name;
+  }
+  function uniqueValue(value, index, array) {
+    return array.indexOf(value) === index;
+  }
+  function safeGlossaryHtml(value, dictionary) {
+    const html = glossaryToHtml(value, dictionary);
+    return html || escapeHtml$1(glossaryToText(value));
+  }
+  function formatMetaPitch(value) {
+    const record = metaRecord(value);
+    if (!record) return "";
+    const positions = metaPitchPositions(record);
+    return positions.length ? formatPitchPositions(positions) : formatPitchPosition(record.position);
+  }
+  function metaRecord(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  function metaPitchPositions(record) {
+    if (Array.isArray(record.pitches)) return record.pitches;
+    return Array.isArray(record.positions) ? record.positions : [];
+  }
+  function formatPitchPositions(positions) {
+    return positions.slice(0, 4).map(String).join(", ");
+  }
+  function formatPitchPosition(position) {
+    return typeof position === "number" ? String(position) : "";
   }
   const ANKI_CARD_STATE_PRIORITY = ["failed", "due", "learning", "known", "new", "suspended", "in-deck", "not-in-deck"];
   function emptyAnkiLookupResult() {
@@ -5158,7 +5627,7 @@ recommendedJiten	Jiten頻度です。
     return Object.values(note.fields).some((value) => value.trim());
   }
   function ankiRenderedCardMediaFilenames(card) {
-    return unique$2([card.question, card.answer].flatMap(ankiCardHtmlMediaFilenames).filter(shouldHydrateRenderedAnkiMedia));
+    return unique([card.question, card.answer].flatMap(ankiCardHtmlMediaFilenames).filter(shouldHydrateRenderedAnkiMedia));
   }
   function ankiCardTemplateLabel(card) {
     const explicit = [card.cardName, card.card, card.template, card.name].map((value) => typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "").find(Boolean);
@@ -5314,7 +5783,7 @@ recommendedJiten	Jiten頻度です。
     return ankiMediaMimeType(filename).startsWith("image/");
   }
   function ankiNoteDeckNames(noteCards) {
-    return unique$2(noteCards.map((item) => item.deckName).filter(Boolean));
+    return unique(noteCards.map((item) => item.deckName).filter(Boolean));
   }
   function ankiNotePrimaryCardId(note, noteCards) {
     return pickPrimaryCard(noteCards)?.cardId ?? note.cards?.[0] ?? null;
@@ -5340,9 +5809,6 @@ recommendedJiten	Jiten頻度です。
   }
   function sumAnkiCardMetric(cards, metric) {
     return cards.reduce((sum, item) => sum + Number(item[metric] || 0), 0);
-  }
-  function unique$2(items) {
-    return [...new Set(items)];
   }
   const ANKI_MEDIA_MIME_TYPES = {
     "png": "image/png",
@@ -5496,7 +5962,7 @@ recommendedJiten	Jiten頻度です。
     const db = await openAnkiStatusIndexDb();
     try {
       const records = [];
-      for (const chunk of chunkArray$1(unique$1(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
+      for (const chunk of chunkArray(unique(keys), ANKI_STATUS_INDEX_ENTRY_READ_CHUNK_SIZE)) {
         const tx = db.transaction(ANKI_STATUS_INDEX_ENTRY_STORE, "readonly");
         const store = tx.objectStore(ANKI_STATUS_INDEX_ENTRY_STORE);
         const chunkRecords = await Promise.all(chunk.map((key) => idbRequest(store.get(key)).then((record) => [key, record])));
@@ -5514,7 +5980,7 @@ recommendedJiten	Jiten頻度です。
     try {
       await clearAnkiStatusIndexStores(db);
       const entries = Object.entries(index.entries).map(([key, entry]) => ({ key, entry }));
-      for (const chunk of chunkArray$1(entries, ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE)) {
+      for (const chunk of chunkArray(entries, ANKI_STATUS_INDEX_ENTRY_WRITE_CHUNK_SIZE)) {
         await putAnkiStatusIndexEntries(db, chunk);
       }
       await putAnkiStatusIndexMeta(db, ankiStatusIndexMeta(index));
@@ -5608,7 +6074,7 @@ recommendedJiten	Jiten頻度です。
   function statusIndexKeysForCard(card) {
     const keys = noteCardExpressionTargets(card).map(statusIndexKey);
     if (shouldUseStatusReadingKey(card)) keys.push(statusIndexReadingKey(card.reading || card.spelling));
-    return unique$1(keys);
+    return unique(keys);
   }
   function statusIndexEntryForCard(index, card, entries) {
     for (const key of statusIndexKeysForCard(card)) {
@@ -5698,11 +6164,11 @@ recommendedJiten	Jiten頻度です。
     const expression = firstNoteExpressionValue(fields, mapping);
     const reading = mappedNoteField(fields, mapping, "reading") || firstNoteReading(fields);
     const preferred = (expression ? [expression] : [reading]).map(normalizeFieldValue).filter(Boolean);
-    if (preferred.length) return unique$1(preferred);
+    if (preferred.length) return unique(preferred);
     return noteFieldValues(fields).filter((value) => value.length <= 80 && /[\u3040-\u30ff\u3400-\u9fff]/.test(value));
   }
   function statusIndexReadingFieldValues(fields, mapping) {
-    return unique$1([
+    return unique([
       mappedNoteField(fields, mapping, "reading"),
       firstNoteReading(fields)
     ].map(normalizeFieldValue).filter((value) => value.length >= 2));
@@ -5745,18 +6211,223 @@ recommendedJiten	Jiten頻度です。
     }
     return cardIds[0] ?? null;
   }
-  function unique$1(items) {
-    return Array.from(new Set(items));
-  }
-  function chunkArray$1(items, size) {
-    return Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
-  }
   const ANKI_SEARCH_SPECIALS_RE = /([\\"*_])/g;
   function escapeAnkiSearchText(term) {
     return term.replace(ANKI_SEARCH_SPECIALS_RE, "\\$1");
   }
   function quoteAnkiSearch(term) {
     return `"${escapeAnkiSearchText(term)}"`;
+  }
+  const ANKI_MOBILE_FALLBACK_DECK = "Default";
+  const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);
+  function userAgent() {
+    return typeof navigator === "undefined" ? "" : navigator.userAgent;
+  }
+  function isAndroidUserAgent() {
+    return /Android/i.test(userAgent());
+  }
+  function isMobileAnkiHandoffEnvironment() {
+    return isAppleTouchBrowser() || isAndroidUserAgent() && /Chrome|Firefox|EdgA/i.test(userAgent());
+  }
+  function canUseMobileAnkiHandoff$1(settings) {
+    return settings.ankiEnabled && settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment();
+  }
+  function mobileAnkiHandoffAppName$1() {
+    return isAndroidUserAgent() ? "AnkiDroid" : "AnkiMobile";
+  }
+  function mobileAnkiHandoffTarget(note) {
+    if (isAndroidUserAgent()) return { appName: "AnkiDroid", url: androidAnkiDroidIntentUrl(note) };
+    return { appName: "AnkiMobile", url: iosAnkiMobileUrl(note) };
+  }
+  function openMobileAnkiHandoff(note) {
+    const handoff = mobileAnkiHandoffTarget(note);
+    if (!window.confirm(mobileAnkiHandoffPrompt(note, handoff.appName))) return false;
+    location.href = handoff.url;
+    return true;
+  }
+  function mobileAnkiHandoffPrompt(note, appName) {
+    const title = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "this note");
+    return `Open ${appName} to add "${title}"? This creates a new note only.`;
+  }
+  function iosAnkiMobileUrl(note) {
+    const params = [];
+    const add = (key, value) => params.push(`${key}=${encodeURIComponent(value)}`);
+    add("type", note.modelName);
+    add("deck", iosAnkiMobileDeckName(note.deckName));
+    if (note.tags?.length) add("tags", note.tags.join(" "));
+    Object.entries(iosAnkiMobileFields(note)).forEach(([field, value]) => {
+      const handoffValue = iosAnkiMobileFieldValue(field, value);
+      if (handoffValue !== null) add(`fld${field}`, handoffValue);
+    });
+    return `anki://x-callback-url/addnote?${params.join("&")}`;
+  }
+  function iosAnkiMobileDeckName(deckName) {
+    const trimmed = deckName.trim();
+    return YOMU_DEFAULT_DECK_NAMES.has(trimmed.toLowerCase()) ? ANKI_MOBILE_FALLBACK_DECK : trimmed || ANKI_MOBILE_FALLBACK_DECK;
+  }
+  function iosAnkiMobileFields(note) {
+    const fields = { ...note.fields };
+    const audioUrl = firstRemoteMediaUrl(note.audio);
+    const audioField = firstMediaFieldName(note.audio) || "Audio";
+    if (audioUrl && !(fields[audioField] ?? "").trim()) fields[audioField] = audioUrl;
+    return fields;
+  }
+  function firstRemoteMediaUrl(files) {
+    return files?.map((file) => file.url ?? "").find(isRemoteMediaUrl) ?? "";
+  }
+  function firstMediaFieldName(files) {
+    return files?.flatMap((file) => file.fields ?? []).map((field) => field.trim()).find(Boolean) ?? "";
+  }
+  function isRemoteMediaUrl(value) {
+    return /^https?:\/\//i.test(value) && /\.(?:aac|flac|gif|jpe?g|m4a|mp3|mp4|oga|ogg|opus|png|svg|webm|webp|wav)(?:[?#].*)?$/i.test(value);
+  }
+  function iosAnkiMobileFieldValue(field, value) {
+    if (field !== "Image") return value;
+    const trimmed = value.trim();
+    if (!trimmed || /^data:/i.test(trimmed)) return null;
+    return trimmed;
+  }
+  function androidAnkiDroidIntentUrl(note) {
+    const front = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "");
+    const back = stripForMobileHandoff([
+      note.fields.Reading,
+      note.fields.Meaning,
+      note.fields.DictionaryDefinitions,
+      note.fields.Source
+    ].filter(Boolean).join("\n\n"));
+    return [
+      "intent:#Intent",
+      "action=android.intent.action.SEND",
+      "type=text/plain",
+      "package=com.ichi2.anki",
+      `S.android.intent.extra.SUBJECT=${encodeURIComponent(front)}`,
+      `S.android.intent.extra.TEXT=${encodeURIComponent(back)}`,
+      `S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=com.ichi2.anki")}`,
+      "end"
+    ].join(";");
+  }
+  function stripForMobileHandoff(value) {
+    return stripHtml$1(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  const YOMU_RECOGNITION_TEMPLATE_NAME = "Recognition";
+  const YOMU_CONTEXT_TEMPLATE_NAME = "Context";
+  function yomuCardTemplates(settings) {
+    const language = settings.interfaceLanguage;
+    const recognitionFront = `
+<main class="yomu-card yomu-front">
+    <div class="yomu-expression">{{Expression}}</div>
+    ${settings.ankiFrontReading ? '{{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}' : ""}
+    ${settings.ankiFrontSentence ? '{{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}' : ""}
+    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
+</main>`;
+    const contextFront = `
+<main class="yomu-card yomu-front">
+    {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
+    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
+    <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
+</main>`;
+    const back = `
+{{FrontSide}}
+<main class="yomu-card yomu-back">
+    <section class="yomu-section yomu-answer">
+        <div class="yomu-expression">{{Expression}}</div>
+        {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
+        {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
+    </section>
+    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
+    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
+    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
+    <section class="yomu-section yomu-meta">
+        {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
+        {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
+        {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
+        {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
+        {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
+    </section>
+</main>`;
+    const templateName = settings.ankiTemplateMode === "context" ? YOMU_CONTEXT_TEMPLATE_NAME : YOMU_RECOGNITION_TEMPLATE_NAME;
+    return {
+      [templateName]: {
+        Front: settings.ankiTemplateMode === "context" ? contextFront : recognitionFront,
+        Back: back
+      }
+    };
+  }
+  function yomuCardCss() {
+    const color = ANKI_CARD_COLOR_TOKENS;
+    return `
+.card {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
+    font-size: 20px;
+    line-height: 1.45;
+    text-align: left;
+    color: ${color.text};
+    background: ${color.background};
+}
+.yomu-card { max-width: 760px; margin: 0 auto; padding: 22px; }
+.yomu-expression { font-size: 44px; font-weight: 850; letter-spacing: 0; line-height: 1.1; }
+.yomu-reading { margin-top: 6px; color: ${color.muted}; font-size: 24px; }
+.yomu-prompt { margin-top: 14px; color: ${color.muted}; font-size: 16px; }
+.yomu-sentence {
+    margin-top: 18px;
+    padding: 14px 16px;
+    border: 1px solid ${color.sentenceBorder};
+    border-radius: 12px;
+    background: ${color.sentenceBackground};
+    color: ${color.sentenceText};
+}
+.yomu-highlight { color: ${color.highlight}; font-weight: 800; }
+.yomu-sentence-front { font-size: 28px; }
+.yomu-image img, .yomu-image { max-width: 100%; border-radius: 10px; margin-top: 16px; }
+.yomu-section {
+    margin-top: 16px;
+    padding: 14px 16px;
+    border: 1px solid ${color.sectionBorder};
+    border-radius: 12px;
+    background: ${color.sectionBackground};
+}
+.yomu-section h2 {
+    margin: 0 0 10px;
+    color: ${color.headingText};
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+.yomu-definition, .yomu-dict-entry, .yomu-kanji-entry { margin-top: 12px; }
+.yomu-definition:first-child, .yomu-dict-entry:first-child, .yomu-kanji-entry:first-child { margin-top: 0; }
+.yomu-pos, .yomu-dict-label, .yomu-tags {
+    display: inline-block;
+    margin: 0 8px 6px 0;
+    color: ${color.labelText};
+    font-size: 14px;
+    font-style: italic;
+}
+.yomu-glossary div { margin-top: 4px; }
+.yomu-dict-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.yomu-dict-expression, .yomu-kanji-char { color: ${color.expressionText}; font-size: 24px; font-weight: 800; }
+.yomu-dict-reading, .yomu-kanji-reading { color: ${color.readingText}; }
+.yomu-kanji-char { font-size: 34px; }
+.yomu-chip {
+    display: inline-block;
+    margin: 2px 6px 2px 0;
+    padding: 2px 8px;
+    border: 1px solid ${color.chipBorder};
+    border-radius: 999px;
+    color: ${color.chipText};
+    font-size: 14px;
+}
+.yomu-meta > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.yomu-meta > div:first-child { margin-top: 0; }
+.yomu-meta strong { min-width: 112px; color: ${color.metaLabelText}; }
+a { color: ${color.highlight}; text-decoration: none; }
+a:hover { text-decoration: underline; }
+ul, ol { margin: 6px 0 0 22px; padding: 0; }
+table { max-width: 100%; border-collapse: collapse; }
+td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
+`;
   }
   const ANKI_VERSION = 6;
   const ANKI_FIELD_TARGET_PLAN_TTL_MS = 5 * 60 * 1e3;
@@ -5777,9 +6448,6 @@ recommendedJiten	Jiten頻度です。
   const ANKI_RENDERED_MEDIA_LIMIT = 12;
   const ANKI_MEDIA_DATA_URL_CACHE_LIMIT = 64;
   const ANKI_RENDERED_MEDIA_CONCURRENCY = 3;
-  const ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES = ["Pronunciation"];
-  const ANKI_MOBILE_FALLBACK_DECK = "Default";
-  const YOMU_DEFAULT_DECK_NAMES = /* @__PURE__ */ new Set(["よむ", "yomu"]);
   const log = Logger.scope("Anki");
   const ANKI_EASE_BY_GRADE = {
     nothing: 1,
@@ -7267,12 +7935,6 @@ recommendedJiten	Jiten頻度です。
       return void 0;
     }
   }
-  function resolvedAnkiDeckName(deckOverride, settings) {
-    return deckOverride?.trim() || settings.ankiDeck || "よむ";
-  }
-  function resolvedAnkiModelName(settings) {
-    return settings.ankiModel || "よむ Japanese";
-  }
   function isMobileHandoffRecoverableAddError(error) {
     if (isAnkiConnectAvailabilityError(error)) return true;
     if (error instanceof Error && error.cause && error.cause !== error) {
@@ -7281,415 +7943,8 @@ recommendedJiten	Jiten頻度です。
     if (!(error instanceof Error)) return false;
     return /unsupported action|action.*unsupported|unknown action|invalid action|not supported/i.test(error.message);
   }
-  function buildYomuAnkiFields(card, sentence = "", context = {}) {
-    const fieldContext = ankiFieldContext(context);
-    const jpdbUrl = jpdbVocabularyUrl$1(card);
-    return {
-      Expression: escapeHtml$1(card.spelling),
-      Reading: renderCardReading(card),
-      Meaning: renderJpdbMeanings(card),
-      Sentence: renderSentence(sentence, sentenceHighlightTargets(card, fieldContext)),
-      Url: escapeHtml$1(fieldContext.sourceUrl),
-      Frequency: renderFrequency(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
-      PartOfSpeech: renderPartOfSpeech(card.partOfSpeech),
-      Image: "",
-      Audio: "",
-      JPDB: renderJpdbLink(jpdbUrl, fieldContext.interfaceLanguage),
-      Status: renderCardStatus(card, fieldContext.interfaceLanguage),
-      Pitch: renderPitchField(card, fieldContext.metaEntries, fieldContext.dictionaryPreferences),
-      DictionaryDefinitions: renderDictionaryDefinitions(fieldContext.localEntries, fieldContext.dictionaryPreferences),
-      Kanji: renderKanjiDefinitions(fieldContext.kanjiEntries, fieldContext.dictionaryPreferences, fieldContext.interfaceLanguage),
-      Source: renderSource(fieldContext.sourceUrl, fieldContext.sourceTitle)
-    };
-  }
-  function buildYomuAnkiPreviewFields$1(card, sentence, settings, context = {}, fieldTargetPlan) {
-    const yomuFields = buildYomuAnkiFields(card, sentence, {
-      ...context,
-      interfaceLanguage: settings.interfaceLanguage
-    });
-    if (fieldTargetPlan && !fieldTargetPlan.yomuManaged && fieldTargetPlan.fieldNames.length) {
-      const mapping2 = ankiFieldMappingForModel(settings, fieldTargetPlan.modelName, fieldTargetPlan.fieldNames);
-      const retargeted = retargetYomuFieldsToExistingModel(yomuFields, fieldTargetPlan.fieldNames, mapping2);
-      const written = Object.fromEntries(Object.entries(retargeted).filter(([, value]) => value.trim()));
-      if (Object.keys(written).length) return written;
-    }
-    const mapping = settings.ankiFieldMappings?.[settings.ankiModel.trim() || "よむ Japanese"];
-    if (!mapping || !Object.values(mapping).some((value) => value?.trim())) return yomuFields;
-    const fields = {};
-    for (const role of ANKI_FIELD_ROLES) {
-      const fieldName = mapping[role]?.trim();
-      const value = yomuFields[yomuFieldForRole(role)];
-      if (fieldName && value) fields[fieldName] = value;
-    }
-    return Object.keys(fields).length ? fields : yomuFields;
-  }
-  function renderCardReading(card) {
-    return card.reading && card.reading !== card.spelling ? escapeHtml$1(card.reading) : "";
-  }
-  function renderPartOfSpeech(partOfSpeech) {
-    return escapeHtml$1(formatPartOfSpeech(partOfSpeech) || formatPartOfSpeechDetails(partOfSpeech));
-  }
-  function renderJpdbLink(jpdbUrl, language) {
-    return jpdbUrl ? `<a href="${jpdbUrl}">${escapeHtml$1(uiText(language, "openOnJpdb"))}</a>` : "";
-  }
-  function ankiFieldContext(context) {
-    return {
-      localEntries: fallbackArray(context.localEntries),
-      kanjiEntries: fallbackArray(context.kanjiEntries),
-      metaEntries: fallbackArray(context.metaEntries),
-      dictionaryPreferences: fallbackArray(context.dictionaryPreferences),
-      sentenceTarget: fallbackString(context.sentenceTarget),
-      sourceUrl: fallbackString(context.sourceUrl),
-      sourceTitle: fallbackString(context.sourceTitle),
-      interfaceLanguage: context.interfaceLanguage ?? "en"
-    };
-  }
-  function fallbackArray(value) {
-    return value ?? [];
-  }
-  function fallbackString(value) {
-    return value ?? "";
-  }
-  function jpdbVocabularyUrl$1(card) {
-    return card.source === "local" || card.source === "anki" ? "" : `https://jpdb.io/vocabulary/${card.vid}/${encodeURIComponent(card.spelling)}/${encodeURIComponent(card.reading)}`;
-  }
-  function renderCardStatus(card, language) {
-    if (card.source === "local") return `<span class="yomu-chip">${escapeHtml$1(uiText(language, "ankiLocalDictionaryStatus"))}</span>`;
-    if (card.source === "anki") return '<span class="yomu-chip">Anki</span>';
-    return card.cardState.map((state) => `<span class="yomu-chip">${escapeHtml$1(state)}</span>`).join(" ");
-  }
   function tagsFromString(value) {
     return value.split(/[,\s]+/).map((tag) => tag.trim()).filter(Boolean);
-  }
-  function retargetAnkiNoteToExistingModel(note, fieldNames, settings) {
-    const mapping = ankiFieldMappingForModel(settings, note.modelName, fieldNames);
-    const fields = retargetYomuFieldsToExistingModel(note.fields, fieldNames, mapping);
-    const audioField = fieldNameForRole(fieldNames, "audio", mapping);
-    const imageField = fieldNameForRole(fieldNames, "image", mapping);
-    return {
-      deckName: note.deckName,
-      modelName: note.modelName,
-      fields,
-      tags: note.tags,
-      options: note.options,
-      ...audioField && note.audio?.length ? { audio: retargetMediaFiles(note.audio, audioField) } : {},
-      ...imageField && note.picture?.length ? { picture: retargetMediaFiles(note.picture, imageField) } : {}
-    };
-  }
-  function ankiNoteForDuplicatePreflight(note) {
-    return {
-      deckName: note.deckName,
-      modelName: note.modelName,
-      fields: note.fields,
-      tags: note.tags,
-      options: note.options
-    };
-  }
-  function retargetAnkiNoteForMobileHandoff(note, settings) {
-    const mapping = activeMobileHandoffMapping(note, settings);
-    if (!mapping) return note;
-    return {
-      ...note,
-      fields: mobileHandoffFieldsWithMappings(note.fields, mapping),
-      ...retargetMobileHandoffMedia(note, mapping)
-    };
-  }
-  function activeMobileHandoffMapping(note, settings) {
-    const mapping = settings.ankiFieldMappings?.[note.modelName];
-    return mapping && Object.values(mapping).some((value) => value?.trim()) ? mapping : null;
-  }
-  function mobileHandoffFieldsWithMappings(yomuFields, mapping) {
-    const fields = { ...yomuFields };
-    for (const role of ANKI_FIELD_ROLES) {
-      const fieldName = mobileMappedFieldName(mapping, role);
-      const value = yomuFields[yomuFieldForRole(role)];
-      if (fieldName && value) fields[fieldName] = value;
-    }
-    return fields;
-  }
-  function retargetMobileHandoffMedia(note, mapping) {
-    const media = {};
-    const audioField = mobileMappedFieldName(mapping, "audio");
-    const imageField = mobileMappedFieldName(mapping, "image");
-    if (audioField && note.audio?.length) media.audio = retargetMediaFiles(note.audio, audioField);
-    if (imageField && note.picture?.length) media.picture = retargetMediaFiles(note.picture, imageField);
-    return media;
-  }
-  function mobileMappedFieldName(mapping, role) {
-    return mapping[role]?.trim() ?? "";
-  }
-  function retargetYomuFieldsToExistingModel(yomuFields, fieldNames, mapping) {
-    const valuesByRole = {
-      expression: yomuFields.Expression,
-      reading: yomuFields.Reading,
-      meaning: yomuFields.Meaning,
-      sentence: yomuFields.Sentence
-    };
-    const fields = Object.fromEntries(fieldNames.map((fieldName) => [fieldName, ""]));
-    for (const role of ["expression", "reading", "meaning", "sentence"]) {
-      const fieldName = fieldNameForRole(fieldNames, role, mapping);
-      const value = valuesByRole[role];
-      if (fieldName && value) fields[fieldName] = value;
-    }
-    return fields;
-  }
-  function imageFromDataUrl(dataUrl, card) {
-    const parsed = parseAnkiImageDataUrl(dataUrl);
-    if (!parsed) return null;
-    return {
-      filename: `yomu_${safeAnkiMediaName(card)}_${Date.now()}.${parsed.extension}`,
-      data: parsed.data,
-      fields: ["Image"]
-    };
-  }
-  function mergedYomuFields(fieldNames, existingFields, yomuFields, canOwnYomuFields, mapping) {
-    const fields = {};
-    for (const fieldName of fieldNames) {
-      const value = yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields);
-      if (!value) continue;
-      if (!canOwnYomuFields && existingFields[fieldName]) continue;
-      fields[fieldName] = value;
-    }
-    return fields;
-  }
-  function yomuValueForExistingField(fieldName, yomuFields, mapping, canOwnYomuFields) {
-    const mappedRole = mappedRoleForField(fieldName, mapping);
-    if (mappedRole) return yomuFields[yomuFieldForRole(mappedRole)] ?? "";
-    const alias = yomuFieldAlias(fieldName);
-    if (alias && !canOwnYomuFields) return yomuFields[alias] ?? "";
-    return yomuFields[fieldName] ?? (alias ? yomuFields[alias] ?? "" : "");
-  }
-  function yomuFieldAlias(fieldName) {
-    return YOMU_FIELD_ALIASES[normalizeAnkiFieldName(fieldName)] ?? "";
-  }
-  const YOMU_FIELD_ALIASES = Object.fromEntries([
-    ...yomuAliasEntries("Expression", "baseform|character|characters|dictionaryform|expressiontext|headword|headwordkanji|jlabkanji|japaneseword|japaneseexpression|kanji|lemma|searchterm|targetkanji|targetword|termtext|termkanji|word|wordexpression|wordkanji|vocab|vocabkanji|vocabulary|vocabularycharacter|vocabularyexpression|vocabularykanji|term|front"),
-    ...yomuAliasEntries("Reading", "expressionreading|furigana|furiganareading|hiragana|jlabhiragana|japanesereading|kanareading|readings|kana|ruby|termkana|termreading|vocabfurigana|vocabkana|vocabreading|vocabularyfurigana|wordkana|vocabularyreading|wordreading|yomi"),
-    ...yomuAliasEntries("Meaning", "def|definition1|definition|definitionenglish|definitions|defs|english|englishdefinition|englishmeaning|gloss|glosses|glossary|heisigkeyword|jlabdictionarylookup|jlabremarks|jlabtranslation|keyword|meaningenglish|meanings|otherback|remarksback|sense|termmeaning|translation|translation1|vocabdef|vocabdefinition|vocabularyenglish|vocabularymeaning|wordmeaning|back"),
-    ...yomuAliasEntries("Sentence", "example|examplesentence|examplesentencetext|contextsentence|contexttext|sentenceexpression|sentencefurigana|sentencekanji|sentencetext|sentkanji|japanesesentence|miningsentence|sourcesentence|sourcetext"),
-    ...yomuAliasEntries("Url", "sourceurl|url"),
-    ...yomuAliasEntries("PartOfSpeech", "pos|partofspeech"),
-    ...yomuAliasEntries("Pitch", "pitchaccent"),
-    ...yomuAliasEntries("DictionaryDefinitions", "dictionary|dictionaries|dictionarydefinition|dictionarydefinitions")
-  ]);
-  function yomuAliasEntries(field, aliases) {
-    return aliases.split("|").map((alias) => [alias, field]);
-  }
-  function noteLooksLikeYomuModel(modelName, settings, fieldNames) {
-    const configuredModel = resolvedAnkiModelName(settings);
-    if (modelName === configuredModel) return true;
-    return yomuModelFieldSet(fieldNames);
-  }
-  function shouldTreatExistingModelAsYomuManaged(modelName, settings, fieldNames) {
-    const configuredModel = resolvedAnkiModelName(settings);
-    if (modelName === configuredModel && isDefaultYomuModelName(configuredModel)) return true;
-    return yomuModelFieldSet(fieldNames);
-  }
-  function isDefaultYomuModelName(modelName) {
-    return modelName === "よむ Japanese" || modelName === "Yomu Japanese";
-  }
-  function yomuModelFieldSet(fieldNames) {
-    const fieldSet = new Set(fieldNames);
-    return ["Expression", "Meaning", "Sentence", "DictionaryDefinitions"].every((field) => fieldSet.has(field));
-  }
-  function mergeAudioFilesForNote(fieldNames, options, card, mapping) {
-    if (options.audioMergeMode === "theirs") return [];
-    const fieldName = fieldNameForRole(fieldNames, "audio", mapping) || mediaFieldName(fieldNames, ANKI_PRONUNCIATION_AUDIO_FIELD_NAMES);
-    if (!fieldName) return [];
-    return retargetMediaFiles(audioFilesFromContext(options, card), fieldName);
-  }
-  function mergePictureFilesForNote(fieldNames, existingFields, options, card, canOwnYomuFields, mapping) {
-    const fieldName = fieldNameForRole(fieldNames, "image", mapping);
-    if (!fieldName || !options.imageDataUrl) return [];
-    if (!canOwnYomuFields && existingFields[fieldName]) return [];
-    const image = imageFromDataUrl(options.imageDataUrl, card);
-    return image ? [{ ...image, fields: [fieldName] }] : [];
-  }
-  function applyMediaFieldClears(fields, audio, picture, audioMergeMode, canOwnYomuFields) {
-    if (audio.length && audioMergeMode === "ours") fields[audio[0].fields[0]] = "";
-    if (picture.length && canOwnYomuFields) fields[picture[0].fields[0]] = "";
-  }
-  function mediaFieldName(fieldNames, preferredNames) {
-    const exact = preferredNames.find((name) => fieldNames.includes(name));
-    if (exact) return exact;
-    const preferredLower = new Set(preferredNames.map((name) => name.toLowerCase()));
-    return fieldNames.find((name) => preferredLower.has(name.toLowerCase())) ?? "";
-  }
-  function retargetMediaFiles(files, fieldName) {
-    return files.map((file) => ({ ...file, fields: [fieldName] }));
-  }
-  function audioFilesFromContext(options, card) {
-    const files = [
-      audioFromMedia({ dataUrl: options.wordAudioDataUrl, url: options.wordAudioUrl, kind: "word" }, card),
-      audioFromMedia({ dataUrl: options.audioDataUrl, url: options.audioUrl, kind: "context" }, card)
-    ].filter((file) => Boolean(file));
-    return uniqueAnkiAudioFiles(files);
-  }
-  function audioFromMedia(media, card) {
-    const fromData = media.dataUrl ? audioFromDataUrl(media.dataUrl, card, media.kind) : null;
-    if (fromData) return fromData;
-    return media.url ? audioFromUrl(media.url, card, media.kind) : null;
-  }
-  function audioFromDataUrl(dataUrl, card, kind) {
-    const parsed = parseAnkiAudioDataUrl(dataUrl);
-    if (!parsed) return null;
-    return {
-      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}.${parsed.extension}`,
-      data: parsed.data,
-      fields: ["Audio"]
-    };
-  }
-  function audioFromUrl(url, card, kind) {
-    const cleanUrl = url.trim();
-    if (!/^https?:\/\//i.test(cleanUrl)) return null;
-    return {
-      filename: `yomu_${safeAnkiMediaName(card)}_${kind}_${Date.now()}${audioUrlExtension(cleanUrl)}`,
-      url: cleanUrl,
-      fields: ["Audio"]
-    };
-  }
-  function uniqueAnkiAudioFiles(files) {
-    const seen = /* @__PURE__ */ new Set();
-    return files.filter((file) => {
-      const key = file.data ? `data:${file.data}` : `url:${file.url ?? ""}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-  function parseAnkiImageDataUrl(dataUrl) {
-    const match = /^data:image\/(png|jpeg|jpg|webp|svg\+xml)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
-    return match ? { extension: ankiImageExtension(match[1]), data: match[2] } : null;
-  }
-  function parseAnkiAudioDataUrl(dataUrl) {
-    const match = /^data:audio\/([a-z0-9.+-]+)(?:;[^,]*)?;base64,(.+)$/i.exec(dataUrl);
-    return match ? { extension: ankiAudioExtension(match[1]), data: match[2] } : null;
-  }
-  const ANKI_IMAGE_EXTENSION_ALIASES = {
-    "jpeg": "jpg",
-    "svg+xml": "svg"
-  };
-  function ankiImageExtension(rawExtension) {
-    const extension = rawExtension.toLowerCase();
-    return ANKI_IMAGE_EXTENSION_ALIASES[extension] ?? extension;
-  }
-  const ANKI_AUDIO_EXTENSION_ALIASES = {
-    "mpeg": "mp3",
-    "mp3": "mp3",
-    "wav": "wav",
-    "wave": "wav",
-    "x-wav": "wav",
-    "ogg": "ogg",
-    "oga": "ogg",
-    "webm": "webm",
-    "mp4": "mp4",
-    "aac": "aac",
-    "flac": "flac"
-  };
-  function ankiAudioExtension(rawExtension) {
-    return ANKI_AUDIO_EXTENSION_ALIASES[rawExtension.toLowerCase()] ?? "mp3";
-  }
-  function audioUrlExtension(url) {
-    try {
-      const pathname = new URL(url, location.href).pathname;
-      const match = /\.([a-z0-9]+)$/i.exec(pathname);
-      if (match) return `.${ankiAudioExtension(match[1])}`;
-    } catch {
-    }
-    return ".mp3";
-  }
-  function safeAnkiMediaName(card) {
-    return card.spelling.replace(/[^\p{L}\p{N}-]+/gu, "_").slice(0, 24) || "yomu";
-  }
-  function isMobileAnkiHandoffEnvironment() {
-    const userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent;
-    return isAppleTouchBrowser() || /Android/i.test(userAgent) && /Chrome|Firefox|Firefox\/|FxiOS|EdgA/i.test(userAgent);
-  }
-  function canUseMobileAnkiHandoff$1(settings) {
-    return settings.ankiEnabled && settings.ankiMobileHandoff && isMobileAnkiHandoffEnvironment();
-  }
-  function openMobileAnkiHandoff(note) {
-    const handoff = mobileAnkiHandoffTarget(note);
-    if (!window.confirm(mobileAnkiHandoffPrompt(note, handoff.appName))) return false;
-    location.href = handoff.url;
-    return true;
-  }
-  function mobileAnkiHandoffTarget(note) {
-    if (isAndroidUserAgent()) return { appName: "AnkiDroid", url: androidAnkiDroidIntentUrl(note) };
-    return { appName: "AnkiMobile", url: iosAnkiMobileUrl(note) };
-  }
-  function mobileAnkiHandoffAppName$1() {
-    return isAndroidUserAgent() ? "AnkiDroid" : "AnkiMobile";
-  }
-  function isAndroidUserAgent() {
-    return /Android/i.test(typeof navigator === "undefined" ? "" : navigator.userAgent);
-  }
-  function mobileAnkiHandoffPrompt(note, appName) {
-    const title = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "this note");
-    return `Open ${appName} to add "${title}"? This creates a new note only.`;
-  }
-  function iosAnkiMobileUrl(note) {
-    const params = [];
-    const add = (key, value) => params.push(`${key}=${encodeURIComponent(value)}`);
-    add("type", note.modelName);
-    add("deck", iosAnkiMobileDeckName(note.deckName));
-    if (note.tags?.length) add("tags", note.tags.join(" "));
-    Object.entries(iosAnkiMobileFields(note)).forEach(([field, value]) => {
-      const handoffValue = iosAnkiMobileFieldValue(field, value);
-      if (handoffValue !== null) add(`fld${field}`, handoffValue);
-    });
-    return `anki://x-callback-url/addnote?${params.join("&")}`;
-  }
-  function iosAnkiMobileDeckName(deckName) {
-    const trimmed = deckName.trim();
-    return YOMU_DEFAULT_DECK_NAMES.has(trimmed.toLowerCase()) ? ANKI_MOBILE_FALLBACK_DECK : trimmed || ANKI_MOBILE_FALLBACK_DECK;
-  }
-  function iosAnkiMobileFields(note) {
-    const fields = { ...note.fields };
-    const audioUrl = firstMobileHandoffMediaUrl(note.audio);
-    const audioField = firstMobileHandoffMediaField(note.audio) || "Audio";
-    if (audioUrl && !(fields[audioField] ?? "").trim()) fields[audioField] = audioUrl;
-    const imageUrl = firstMobileHandoffMediaUrl(note.picture);
-    const imageField = firstMobileHandoffMediaField(note.picture) || "Image";
-    if (imageUrl && !(fields[imageField] ?? "").trim()) fields[imageField] = imageUrl;
-    return fields;
-  }
-  function firstMobileHandoffMediaUrl(files) {
-    return files?.map((file) => "url" in file ? file.url ?? "" : "").find(isMobileHandoffMediaUrl) ?? "";
-  }
-  function firstMobileHandoffMediaField(files) {
-    return files?.flatMap((file) => file.fields ?? []).map((field) => field.trim()).find(Boolean) ?? "";
-  }
-  function isMobileHandoffMediaUrl(value) {
-    return /^https?:\/\//i.test(value) && /\.(?:aac|flac|gif|jpe?g|m4a|mp3|mp4|oga|ogg|opus|png|svg|webm|webp|wav)(?:[?#].*)?$/i.test(value);
-  }
-  function iosAnkiMobileFieldValue(field, value) {
-    if (field !== "Image") return value;
-    const trimmed = value.trim();
-    if (!trimmed || /^data:/i.test(trimmed)) return null;
-    return trimmed;
-  }
-  function androidAnkiDroidIntentUrl(note) {
-    const front = stripForMobileHandoff(note.fields.Expression || note.fields.Sentence || "");
-    const back = stripForMobileHandoff([
-      note.fields.Reading,
-      note.fields.Meaning,
-      note.fields.DictionaryDefinitions,
-      note.fields.Source
-    ].filter(Boolean).join("\n\n"));
-    return [
-      "intent:#Intent",
-      "action=android.intent.action.SEND",
-      "type=text/plain",
-      "package=com.ichi2.anki",
-      `S.android.intent.extra.SUBJECT=${encodeURIComponent(front)}`,
-      `S.android.intent.extra.TEXT=${encodeURIComponent(back)}`,
-      `S.browser_fallback_url=${encodeURIComponent("https://play.google.com/store/apps/details?id=com.ichi2.anki")}`,
-      "end"
-    ].join(";");
-  }
-  function stripForMobileHandoff(value) {
-    return stripHtml$1(value).replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
   }
   function visibleArea(element) {
     const rect = element.getBoundingClientRect();
@@ -7697,276 +7952,8 @@ recommendedJiten	Jiten頻度です。
     const height = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
     return width * height;
   }
-  function unique(items) {
-    return [...new Set(items)];
-  }
-  function chunkArray(items, size) {
-    const chunks = [];
-    for (let index = 0; index < items.length; index += size) chunks.push(items.slice(index, index + size));
-    return chunks;
-  }
   function ankiEaseFromGrade(grade) {
     return ANKI_EASE_BY_GRADE[grade] ?? 3;
-  }
-  const YOMU_RECOGNITION_TEMPLATE_NAME = "Recognition";
-  const YOMU_CONTEXT_TEMPLATE_NAME = "Context";
-  function yomuCardTemplates(settings) {
-    const language = settings.interfaceLanguage;
-    const recognitionFront = `
-<main class="yomu-card yomu-front">
-    <div class="yomu-expression">{{Expression}}</div>
-    ${settings.ankiFrontReading ? '{{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}' : ""}
-    ${settings.ankiFrontSentence ? '{{#Sentence}}<div class="yomu-sentence">{{Sentence}}</div>{{/Sentence}}' : ""}
-    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
-</main>`;
-    const contextFront = `
-<main class="yomu-card yomu-front">
-    {{#Sentence}}<div class="yomu-sentence yomu-sentence-front">{{Sentence}}</div>{{/Sentence}}
-    ${settings.ankiFrontImage ? '{{#Image}}<div class="yomu-image">{{Image}}</div>{{/Image}}' : ""}
-    <div class="yomu-prompt">${escapeHtml$1(uiText(language, "ankiPromptRecallWord"))}</div>
-</main>`;
-    const back = `
-{{FrontSide}}
-<main class="yomu-card yomu-back">
-    <section class="yomu-section yomu-answer">
-        <div class="yomu-expression">{{Expression}}</div>
-        {{#Reading}}<div class="yomu-reading">{{Reading}}</div>{{/Reading}}
-        {{#Audio}}<div class="yomu-audio">{{Audio}}</div>{{/Audio}}
-    </section>
-    {{#Meaning}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "ankiMeaningHeading"))}</h2><div class="yomu-meaning">{{Meaning}}</div></section>{{/Meaning}}
-    {{#DictionaryDefinitions}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "dictionaries"))}</h2>{{DictionaryDefinitions}}</section>{{/DictionaryDefinitions}}
-    {{#Kanji}}<section class="yomu-section"><h2>${escapeHtml$1(uiText(language, "kanji"))}</h2>{{Kanji}}</section>{{/Kanji}}
-    <section class="yomu-section yomu-meta">
-        {{#Frequency}}<div><strong>${escapeHtml$1(uiText(language, "factFrequency"))}</strong>{{Frequency}}</div>{{/Frequency}}
-        {{#Pitch}}<div><strong>${escapeHtml$1(uiText(language, "ankiPitchHeading"))}</strong>{{Pitch}}</div>{{/Pitch}}
-        {{#PartOfSpeech}}<div><strong>${escapeHtml$1(uiText(language, "ankiPartOfSpeechHeading"))}</strong><span>{{PartOfSpeech}}</span></div>{{/PartOfSpeech}}
-        {{#JPDB}}<div><strong>${escapeHtml$1(uiText(language, "ankiLinksHeading"))}</strong><span>{{JPDB}}</span></div>{{/JPDB}}
-        {{#Source}}<div><strong>${escapeHtml$1(uiText(language, "ankiSourceHeading"))}</strong><span>{{Source}}</span></div>{{/Source}}
-    </section>
-</main>`;
-    const templateName = settings.ankiTemplateMode === "context" ? YOMU_CONTEXT_TEMPLATE_NAME : YOMU_RECOGNITION_TEMPLATE_NAME;
-    return {
-      [templateName]: {
-        Front: settings.ankiTemplateMode === "context" ? contextFront : recognitionFront,
-        Back: back
-      }
-    };
-  }
-  function yomuCardCss() {
-    const color = ANKI_CARD_COLOR_TOKENS;
-    return `
-.card {
-    margin: 0;
-    padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Yu Gothic", sans-serif;
-    font-size: 20px;
-    line-height: 1.45;
-    text-align: left;
-    color: ${color.text};
-    background: ${color.background};
-}
-.yomu-card { max-width: 760px; margin: 0 auto; padding: 22px; }
-.yomu-expression { font-size: 44px; font-weight: 850; letter-spacing: 0; line-height: 1.1; }
-.yomu-reading { margin-top: 6px; color: ${color.muted}; font-size: 24px; }
-.yomu-prompt { margin-top: 14px; color: ${color.muted}; font-size: 16px; }
-.yomu-sentence {
-    margin-top: 18px;
-    padding: 14px 16px;
-    border: 1px solid ${color.sentenceBorder};
-    border-radius: 12px;
-    background: ${color.sentenceBackground};
-    color: ${color.sentenceText};
-}
-.yomu-highlight { color: ${color.highlight}; font-weight: 800; }
-.yomu-sentence-front { font-size: 28px; }
-.yomu-image img, .yomu-image { max-width: 100%; border-radius: 10px; margin-top: 16px; }
-.yomu-section {
-    margin-top: 16px;
-    padding: 14px 16px;
-    border: 1px solid ${color.sectionBorder};
-    border-radius: 12px;
-    background: ${color.sectionBackground};
-}
-.yomu-section h2 {
-    margin: 0 0 10px;
-    color: ${color.headingText};
-    font-size: 14px;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-}
-.yomu-definition, .yomu-dict-entry, .yomu-kanji-entry { margin-top: 12px; }
-.yomu-definition:first-child, .yomu-dict-entry:first-child, .yomu-kanji-entry:first-child { margin-top: 0; }
-.yomu-pos, .yomu-dict-label, .yomu-tags {
-    display: inline-block;
-    margin: 0 8px 6px 0;
-    color: ${color.labelText};
-    font-size: 14px;
-    font-style: italic;
-}
-.yomu-glossary div { margin-top: 4px; }
-.yomu-dict-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-.yomu-dict-expression, .yomu-kanji-char { color: ${color.expressionText}; font-size: 24px; font-weight: 800; }
-.yomu-dict-reading, .yomu-kanji-reading { color: ${color.readingText}; }
-.yomu-kanji-char { font-size: 34px; }
-.yomu-chip {
-    display: inline-block;
-    margin: 2px 6px 2px 0;
-    padding: 2px 8px;
-    border: 1px solid ${color.chipBorder};
-    border-radius: 999px;
-    color: ${color.chipText};
-    font-size: 14px;
-}
-.yomu-meta > div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.yomu-meta > div:first-child { margin-top: 0; }
-.yomu-meta strong { min-width: 112px; color: ${color.metaLabelText}; }
-a { color: ${color.highlight}; text-decoration: none; }
-a:hover { text-decoration: underline; }
-ul, ol { margin: 6px 0 0 22px; padding: 0; }
-table { max-width: 100%; border-collapse: collapse; }
-td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
-`;
-  }
-  function renderJpdbMeanings(card) {
-    return card.meanings.slice(0, 8).map((meaning) => {
-      const pos = formatPartOfSpeech(meaning.partOfSpeech);
-      return `<div class="yomu-definition">
-            ${pos ? `<span class="yomu-pos">${escapeHtml$1(pos)}</span>` : ""}
-            <div>${escapeHtml$1(meaning.glosses.join("; "))}</div>
-        </div>`;
-    }).join("");
-  }
-  function sentenceHighlightTargets(card, context) {
-    return [context.sentenceTarget, card.spelling, card.reading];
-  }
-  function renderSentence(sentence, targets) {
-    if (!sentence) return "";
-    const target = firstSentenceHighlightTarget(sentence, targets);
-    if (!target) return escapeHtml$1(sentence);
-    return sentence.split(target).map((part) => escapeHtml$1(part)).join(`<span class="yomu-highlight">${escapeHtml$1(target)}</span>`);
-  }
-  function firstSentenceHighlightTarget(sentence, targets) {
-    const seen = /* @__PURE__ */ new Set();
-    for (const target of targets) {
-      const normalized = target.trim();
-      if (!normalized || seen.has(normalized)) continue;
-      seen.add(normalized);
-      if (sentence.includes(normalized)) return normalized;
-    }
-    return "";
-  }
-  function renderDictionaryDefinitions(entries, preferences) {
-    const groups = Array.from(groupTermEntriesByDictionary(entries).entries()).slice(0, 6);
-    return groups.map(([dictionary, items]) => `
-        <div class="yomu-dict-group">
-            <h3 class="yomu-dict-label">${escapeHtml$1(dictionaryLabel(dictionary, preferences))}</h3>
-            ${items.slice(0, 6).map((entry) => `
-                <div class="yomu-dict-entry">
-                    <div class="yomu-dict-head">
-                        <span class="yomu-dict-expression">${escapeHtml$1(entry.expression)}</span>
-                        ${entry.reading && entry.reading !== entry.expression ? `<span class="yomu-dict-reading">${escapeHtml$1(entry.reading)}</span>` : ""}
-                        ${entry.definitionTags || entry.rules || entry.termTags ? `<span class="yomu-tags">${escapeHtml$1([entry.definitionTags, entry.rules, entry.termTags].filter(Boolean).join(" · "))}</span>` : ""}
-                    </div>
-                    <div class="yomu-glossary" data-dictionary="${escapeHtml$1(entry.dictionary)}">${entry.glossary.slice(0, 5).map((item) => `<div>${safeGlossaryHtml(item, entry.dictionary)}</div>`).join("")}</div>
-                </div>
-            `).join("")}
-        </div>
-    `).join("");
-  }
-  function renderKanjiDefinitions(entries, preferences, language) {
-    const byCharacter = /* @__PURE__ */ new Map();
-    for (const entry of entries) {
-      const group = byCharacter.get(entry.character) ?? [];
-      group.push(entry);
-      byCharacter.set(entry.character, group);
-    }
-    return Array.from(byCharacter.entries()).slice(0, 8).map(([character, items]) => `
-        <div class="yomu-kanji-entry">
-            <div class="yomu-dict-head">
-                <span class="yomu-kanji-char">${escapeHtml$1(character)}</span>
-                <span class="yomu-dict-label">${escapeHtml$1(items.map((item) => dictionaryLabel(item.dictionary, preferences)).filter(uniqueValue).slice(0, 3).join(" · "))}</span>
-            </div>
-            ${items.slice(0, 3).map((item) => `
-                <div>
-                    ${item.onyomi.length ? `<span class="yomu-kanji-reading">${escapeHtml$1(uiText(language, "onReading"))} ${escapeHtml$1(item.onyomi.join("、"))}</span>` : ""}
-                    ${item.kunyomi.length ? `<span class="yomu-kanji-reading"> ${escapeHtml$1(uiText(language, "kunReading"))} ${escapeHtml$1(item.kunyomi.join("、"))}</span>` : ""}
-                    <div>${item.meanings.slice(0, 8).map((meaning) => escapeHtml$1(meaning)).join("; ")}</div>
-                    ${item.tags.length ? `<span class="yomu-tags">${escapeHtml$1(item.tags.join(" · "))}</span>` : ""}
-                </div>
-            `).join("")}
-        </div>
-    `).join("");
-  }
-  function renderFrequency(card, entries, preferences) {
-    const chips = [];
-    if (card.frequencyRank) chips.push(`<span class="yomu-chip">JPDB #${card.frequencyRank}</span>`);
-    for (const entry of entries) {
-      appendFrequencyChip(chips, entry, preferences);
-      if (chips.length >= 8) break;
-    }
-    return chips.filter(uniqueValue).join(" ");
-  }
-  function appendFrequencyChip(chips, entry, preferences) {
-    if (entry.mode !== "freq") return;
-    const value = formatMetaFrequency(entry.data);
-    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
-  }
-  function renderPitchField(card, entries, preferences) {
-    const chips = firstJpdbPitchChip(card);
-    for (const entry of entries) {
-      appendPitchChip(chips, entry, preferences);
-      if (chips.length >= 4) break;
-    }
-    return chips.filter(uniqueValue).join(" ");
-  }
-  function firstJpdbPitchChip(card) {
-    const pitch = card.pitchAccent.find(Boolean);
-    if (!pitch) return [];
-    const reading = card.reading && card.reading !== card.spelling ? `${card.reading} ` : "";
-    return [`<span class="yomu-chip">JPDB ${escapeHtml$1(reading)}${escapeHtml$1(pitch)}</span>`];
-  }
-  function appendPitchChip(chips, entry, preferences) {
-    if (entry.mode !== "pitch") return;
-    const value = formatMetaPitch(entry.data);
-    if (value) chips.push(`<span class="yomu-chip">${escapeHtml$1(dictionaryLabel(entry.dictionary, preferences))} ${escapeHtml$1(value)}</span>`);
-  }
-  function renderSource(sourceUrl, sourceTitle) {
-    const source = ankiSourceLink(sourceUrl, sourceTitle);
-    if (!source.label) return "";
-    return source.href ? `<a href="${escapeHtml$1(source.href)}">${escapeHtml$1(source.label)}</a>` : escapeHtml$1(source.label);
-  }
-  function ankiSourceLink(sourceUrl, sourceTitle) {
-    return { href: sourceUrl, label: sourceTitle || sourceUrl };
-  }
-  function dictionaryLabel(name, preferences) {
-    return preferences.find((item) => item.name === name)?.alias || name;
-  }
-  function uniqueValue(value, index, array) {
-    return array.indexOf(value) === index;
-  }
-  function safeGlossaryHtml(value, dictionary) {
-    const html = glossaryToHtml(value, dictionary);
-    return html || escapeHtml$1(glossaryToText(value));
-  }
-  function formatMetaPitch(value) {
-    const record = metaRecord(value);
-    if (!record) return "";
-    const positions = metaPitchPositions(record);
-    return positions.length ? formatPitchPositions(positions) : formatPitchPosition(record.position);
-  }
-  function metaRecord(value) {
-    return value && typeof value === "object" ? value : null;
-  }
-  function metaPitchPositions(record) {
-    if (Array.isArray(record.pitches)) return record.pitches;
-    return Array.isArray(record.positions) ? record.positions : [];
-  }
-  function formatPitchPositions(positions) {
-    return positions.slice(0, 4).map(String).join(", ");
-  }
-  function formatPitchPosition(position) {
-    return typeof position === "number" ? String(position) : "";
   }
   function safeLocationHref() {
     return typeof location === "undefined" ? "" : location.href;
