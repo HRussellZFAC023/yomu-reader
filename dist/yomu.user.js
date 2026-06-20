@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.26
+// @version      1.4.27
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.26#sha256-m9oRQoZEUH/Vn575Dy+YZRHqVMYZXiq2RuC/r7sjY3E=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.26#sha256-RlkZ+z1RaAzyJU/OXJ0Yj17MD5TtbOuRhUvBApNAgQM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.26#sha256-+IxjFYjpwd3I3MfYNg6T+lJWfBWeE3pArk9d6O100P8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.26#sha256-RYAqK+iGGeNXe4NjPET4OjiXhoqd8+lLdFRwzHpXh0E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.27#sha256-wbZjc06KXWHsaY3npO2TJeIKV4L7qKixB0OyFADt+Ao=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.27#sha256-RlkZ+z1RaAzyJU/OXJ0Yj17MD5TtbOuRhUvBApNAgQM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.27#sha256-+IxjFYjpwd3I3MfYNg6T+lJWfBWeE3pArk9d6O100P8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.27#sha256-RYAqK+iGGeNXe4NjPET4OjiXhoqd8+lLdFRwzHpXh0E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -10313,14 +10313,14 @@ recommendedJiten	Jiten頻度です。
       }
     }
   }
-  function pruneExpiringMapEntries(cache, limit, now = Date.now()) {
-    for (const [key, entry] of cache) {
-      if (entry.expiresAt <= now) cache.delete(key);
+  function pruneExpiringMapEntries(cache2, limit, now = Date.now()) {
+    for (const [key, entry] of cache2) {
+      if (entry.expiresAt <= now) cache2.delete(key);
     }
-    while (cache.size > limit) {
-      const oldest = cache.keys().next().value;
+    while (cache2.size > limit) {
+      const oldest = cache2.keys().next().value;
       if (typeof oldest !== "string") break;
-      cache.delete(oldest);
+      cache2.delete(oldest);
     }
   }
   const JPDB_HOST_RE = /(^|\.)jpdb\.io$/i;
@@ -10840,9 +10840,9 @@ recommendedJiten	Jiten頻度です。
       this.unavailableJpdbAudioIds.set(audioId, Date.now() + JPDB_AUDIO_UNAVAILABLE_TTL_MS);
     }
     isJpdbAudioUnavailable(audioId) {
-      const expiresAt2 = this.unavailableJpdbAudioIds.get(audioId);
-      if (!expiresAt2) return false;
-      if (expiresAt2 > Date.now()) return true;
+      const expiresAt = this.unavailableJpdbAudioIds.get(audioId);
+      if (!expiresAt) return false;
+      if (expiresAt > Date.now()) return true;
       this.unavailableJpdbAudioIds.delete(audioId);
       return false;
     }
@@ -12545,11 +12545,11 @@ recommendedJiten	Jiten頻度です。
     const ratio = Math.max(0, Math.min(1, height / viewportHeight));
     gmStorageSetSync(storageKey, Number(ratio.toFixed(4)));
   }
-  function pruneOldestCacheEntries(cache, limit) {
-    while (cache.size > limit) {
-      const oldest = cache.keys().next();
+  function pruneOldestCacheEntries(cache2, limit) {
+    while (cache2.size > limit) {
+      const oldest = cache2.keys().next();
       if (oldest.done) break;
-      cache.delete(oldest.value);
+      cache2.delete(oldest.value);
     }
   }
   function externalLinkIcon() {
@@ -23202,20 +23202,20 @@ ${glossaryKey}`;
     if (order) return order;
     return queryLength(b) - queryLength(a);
   }
-  function loadCachedParsedTokens(cache, key, limit, parse, shouldCache) {
-    const cached = cache.get(key);
+  function loadCachedParsedTokens(cache2, key, limit, parse, shouldCache) {
+    const cached = cache2.get(key);
     if (cached) return cached.tokens ? Promise.resolve(cached.tokens) : cached.promise;
     const entry = { promise: Promise.resolve([]) };
     entry.promise = parse().then((tokens) => {
       if (shouldCache(tokens)) entry.tokens = tokens;
-      else if (cache.get(key) === entry) cache.delete(key);
+      else if (cache2.get(key) === entry) cache2.delete(key);
       return tokens;
     }).catch((error) => {
-      if (cache.get(key) === entry) cache.delete(key);
+      if (cache2.get(key) === entry) cache2.delete(key);
       throw error;
     });
-    cache.set(key, entry);
-    pruneOldestCacheEntries(cache, limit);
+    cache2.set(key, entry);
+    pruneOldestCacheEntries(cache2, limit);
     return entry.promise;
   }
   const LOW_VALUE_EXAMPLE_PART_RE = /\b(?:particle|conjunction|auxiliary)\b/i;
@@ -25359,11 +25359,11 @@ ${spelling}`);
   function hasUsableRect(rect) {
     return rect.width > 0 || rect.height > 0;
   }
-  function pruneImmersionSearchCache(cache, now, limit) {
-    for (const [key, value] of cache) {
-      if (value.expiresAt <= now) cache.delete(key);
+  function pruneImmersionSearchCache(cache2, now, limit) {
+    for (const [key, value] of cache2) {
+      if (value.expiresAt <= now) cache2.delete(key);
     }
-    pruneOldestCacheEntries(cache, limit);
+    pruneOldestCacheEntries(cache2, limit);
   }
   function renderExampleTranslation(translation, settings) {
     if (!settings.immersionKitShowTranslation || !translation) return "";
@@ -27064,59 +27064,63 @@ ${spelling}`);
   function isAbortError$1(error) {
     return error instanceof DOMException && error.name === "AbortError";
   }
-  const PUBLIC_JITEN_CACHE_STORAGE_KEY = "yomu:jiten-public-cache:v1";
-  const PUBLIC_JITEN_CACHE_TTL_MS = 24 * 60 * 60 * 1e3;
-  const PUBLIC_JITEN_CACHE_LIMIT = 240;
-  function readPublicJitenCache(kind, key, now = Date.now()) {
-    const state2 = readState$1();
-    const cacheKey = `${kind}
+  const DEFAULT_TTL_MS = 24 * 60 * 60 * 1e3;
+  const DEFAULT_LIMIT = 240;
+  function createPublicCache(storageKey, { ttlMs = DEFAULT_TTL_MS, limit = DEFAULT_LIMIT } = {}) {
+    const expiresAt = (entry) => entry.t + ttlMs;
+    function isEntry(value) {
+      if (!value || typeof value !== "object") return false;
+      const entry = value;
+      return typeof entry.t === "number" && Number.isFinite(entry.t) && Object.prototype.hasOwnProperty.call(entry, "v");
+    }
+    function readState() {
+      try {
+        const value = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
+        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      } catch {
+        return {};
+      }
+    }
+    function writeState(state2) {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(state2));
+      } catch {
+      }
+    }
+    function pruneState(state2, now) {
+      for (const [key, entry] of Object.entries(state2)) {
+        if (!isEntry(entry) || expiresAt(entry) <= now) delete state2[key];
+      }
+      const entries = Object.entries(state2);
+      if (entries.length <= limit) return;
+      entries.sort((a, b) => a[1].t - b[1].t).slice(0, entries.length - limit).forEach(([key]) => delete state2[key]);
+    }
+    return {
+      read(kind, key, now = Date.now()) {
+        const state2 = readState();
+        const cacheKey = `${kind}
 ${key}`;
-    const entry = state2[cacheKey];
-    if (!entry) return void 0;
-    if (!isEntry$1(entry) || expiresAt$1(entry) <= now) {
-      delete state2[cacheKey];
-      writeState$1(state2);
-      return void 0;
-    }
-    return entry.v;
-  }
-  function writePublicJitenCache(kind, key, value, now = Date.now()) {
-    const state2 = readState$1();
-    state2[`${kind}
+        const entry = state2[cacheKey];
+        if (!entry) return void 0;
+        if (!isEntry(entry) || expiresAt(entry) <= now) {
+          delete state2[cacheKey];
+          writeState(state2);
+          return void 0;
+        }
+        return entry.v;
+      },
+      write(kind, key, value, now = Date.now()) {
+        const state2 = readState();
+        state2[`${kind}
 ${key}`] = { t: now, v: value };
-    pruneState$1(state2, now);
-    writeState$1(state2);
+        pruneState(state2, now);
+        writeState(state2);
+      }
+    };
   }
-  function readState$1() {
-    try {
-      const value = JSON.parse(localStorage.getItem(PUBLIC_JITEN_CACHE_STORAGE_KEY) ?? "{}");
-      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-    } catch {
-      return {};
-    }
-  }
-  function isEntry$1(value) {
-    if (!value || typeof value !== "object") return false;
-    const entry = value;
-    return typeof entry.t === "number" && Number.isFinite(entry.t) && Object.prototype.hasOwnProperty.call(entry, "v");
-  }
-  function pruneState$1(state2, now) {
-    for (const [key, entry] of Object.entries(state2)) {
-      if (!isEntry$1(entry) || expiresAt$1(entry) <= now) delete state2[key];
-    }
-    const entries = Object.entries(state2);
-    if (entries.length <= PUBLIC_JITEN_CACHE_LIMIT) return;
-    entries.sort((a, b) => a[1].t - b[1].t).slice(0, entries.length - PUBLIC_JITEN_CACHE_LIMIT).forEach(([key]) => delete state2[key]);
-  }
-  function expiresAt$1(entry) {
-    return entry.t + PUBLIC_JITEN_CACHE_TTL_MS;
-  }
-  function writeState$1(state2) {
-    try {
-      localStorage.setItem(PUBLIC_JITEN_CACHE_STORAGE_KEY, JSON.stringify(state2));
-    } catch {
-    }
-  }
+  const cache$1 = createPublicCache("yomu:jiten-public-cache:v1");
+  const readPublicJitenCache = cache$1.read;
+  const writePublicJitenCache = cache$1.write;
   const JITEN_PUBLIC_API_BASE_URL = "https://api.jiten.moe/api";
   const REQUEST_TIMEOUT_MS$2 = 1500;
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
@@ -27303,15 +27307,15 @@ ${key}`] = { t: now, v: value };
     proxyUrl() {
       return typeof this.options.proxyUrl === "function" ? this.options.proxyUrl() : this.options.proxyUrl ?? "";
     }
-    remember(cache, key, promise, now) {
-      cache.set(key, { expiresAt: now + CACHE_TTL_MS$1, promise });
-      for (const [entryKey, entry] of cache) {
-        if (entry.expiresAt <= now) cache.delete(entryKey);
+    remember(cache2, key, promise, now) {
+      cache2.set(key, { expiresAt: now + CACHE_TTL_MS$1, promise });
+      for (const [entryKey, entry] of cache2) {
+        if (entry.expiresAt <= now) cache2.delete(entryKey);
       }
-      while (cache.size > CACHE_LIMIT$1) {
-        const oldest = cache.keys().next().value;
+      while (cache2.size > CACHE_LIMIT$1) {
+        const oldest = cache2.keys().next().value;
         if (typeof oldest !== "string") break;
-        cache.delete(oldest);
+        cache2.delete(oldest);
       }
     }
     isBackoffActive() {
@@ -29599,9 +29603,6 @@ ${key}`] = { t: now, v: value };
   function requestPublicJpdbText(url, options) {
     return requestText$3(url, options);
   }
-  function unique(values) {
-    return [...new Set(values)];
-  }
   function jpdbVocabularyIdentities(root) {
     return Array.from(root.querySelectorAll('a[href^="/vocabulary/"], a[href*="jpdb.io/vocabulary/"]')).filter((link) => !link.closest(".subsection-used-in, .subsection-examples")).map((link) => parseJpdbVocabularyUrl(link.href || link.getAttribute("href") || "")).filter((identity) => identity !== null);
   }
@@ -29625,59 +29626,12 @@ ${key}`] = { t: now, v: value };
   function isPublicLookupBackoffError(error) {
     return error instanceof Error && /\b(?:429|525|too many requests|rate[- ]?limited)\b|cloudflare/i.test(error.message);
   }
-  const PUBLIC_JPDB_CACHE_STORAGE_KEY = "yomu:jpdb-cache:v1";
-  const PUBLIC_JPDB_CACHE_TTL_MS = 24 * 60 * 60 * 1e3;
-  const PUBLIC_JPDB_CACHE_LIMIT = 240;
-  function readCache(kind, key, now = Date.now()) {
-    const state2 = readState();
-    const cacheKey = `${kind}
-${key}`;
-    const entry = state2[cacheKey];
-    if (!entry) return void 0;
-    if (!isEntry(entry) || expiresAt(entry) <= now) {
-      delete state2[cacheKey];
-      writeState(state2);
-      return void 0;
-    }
-    return entry.v;
+  function unique(items) {
+    return [...new Set(items)];
   }
-  function writeCache(kind, key, value, now = Date.now()) {
-    const state2 = readState();
-    state2[`${kind}
-${key}`] = { t: now, v: value };
-    pruneState(state2, now);
-    writeState(state2);
-  }
-  function readState() {
-    try {
-      const value = JSON.parse(localStorage.getItem(PUBLIC_JPDB_CACHE_STORAGE_KEY) ?? "{}");
-      return value && typeof value === "object" && !Array.isArray(value) ? value : {};
-    } catch {
-      return {};
-    }
-  }
-  function isEntry(value) {
-    if (!value || typeof value !== "object") return false;
-    const entry = value;
-    return typeof entry.t === "number" && Number.isFinite(entry.t) && Object.prototype.hasOwnProperty.call(entry, "v");
-  }
-  function pruneState(state2, now) {
-    for (const [key, entry] of Object.entries(state2)) {
-      if (!isEntry(entry) || expiresAt(entry) <= now) delete state2[key];
-    }
-    const entries = Object.entries(state2);
-    if (entries.length <= PUBLIC_JPDB_CACHE_LIMIT) return;
-    entries.sort((a, b) => a[1].t - b[1].t).slice(0, entries.length - PUBLIC_JPDB_CACHE_LIMIT).forEach(([key]) => delete state2[key]);
-  }
-  function expiresAt(entry) {
-    return entry.t + PUBLIC_JPDB_CACHE_TTL_MS;
-  }
-  function writeState(state2) {
-    try {
-      localStorage.setItem(PUBLIC_JPDB_CACHE_STORAGE_KEY, JSON.stringify(state2));
-    } catch {
-    }
-  }
+  const cache = createPublicCache("yomu:jpdb-cache:v1");
+  const readPublicJpdbCache = cache.read;
+  const writePublicJpdbCache = cache.write;
   const PITCH_KANA = /[\u3040-\u30ff\u3099\u309A]/u;
   function parseJpdbPublicPitchHtml(html, spelling = "", reading = "") {
     const doc = parseHtmlDocument(html);
@@ -29742,9 +29696,9 @@ ${normalizedReading}`;
         return cached.promise;
       }
       if (cached) this.cache.delete(key);
-      const persistent = readCache("pitch", key, now);
+      const persistent = readPublicJpdbCache("pitch", key, now);
       const promise = persistent ? Promise.resolve(persistent) : this.fetchPitch(normalizedSpelling, normalizedReading).then((pitch) => {
-        if (pitch.length) writeCache("pitch", key, pitch);
+        if (pitch.length) writePublicJpdbCache("pitch", key, pitch);
         return pitch;
       });
       this.cache.set(key, { expiresAt: now + CACHE_TTL_MS, promise });
@@ -30039,9 +29993,9 @@ ${normalizedReading}`;
       const key = `${vid}:${spelling}:${reading}`;
       let promise = this.cache.get(key);
       if (!promise) {
-        const cached = readCache("vocabulary", key);
+        const cached = readPublicJpdbCache("vocabulary", key);
         promise = cached ? Promise.resolve(cached) : this.fetchInfo(vid, spelling, reading).then((info) => {
-          if (info) writeCache("vocabulary", key, info);
+          if (info) writePublicJpdbCache("vocabulary", key, info);
           return info;
         });
         this.cache.set(key, promise);
@@ -30054,9 +30008,9 @@ ${normalizedReading}`;
       const key = `${normalized}:${limit}`;
       let promise = this.searchCache.get(key);
       if (!promise) {
-        const cached = readCache("search", key);
+        const cached = readPublicJpdbCache("search", key);
         promise = cached ? Promise.resolve(cached) : this.fetchSearch(normalized, limit).then((cards) => {
-          if (cards.length) writeCache("search", key, cards);
+          if (cards.length) writePublicJpdbCache("search", key, cards);
           return cards;
         });
         this.searchCache.set(key, promise);
@@ -32853,11 +32807,11 @@ ${normalizedReading}`;
       prepareAudio: options.prepareAudio
     };
   }
-  function evictOldestStringKeysWhileOverLimit(cache, limit) {
-    while (cache.size > limit) {
-      const oldest = cache.keys().next().value;
+  function evictOldestStringKeysWhileOverLimit(cache2, limit) {
+    while (cache2.size > limit) {
+      const oldest = cache2.keys().next().value;
       if (typeof oldest !== "string") break;
-      cache.delete(oldest);
+      cache2.delete(oldest);
     }
   }
   function ankiLookupHasDisplayableNotes(lookup) {
