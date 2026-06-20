@@ -113,7 +113,11 @@ function isJitenDefinitionCard(card: JPDBCard): boolean {
 }
 
 function jitenDefinitionMeaningTexts(definition: JitenVocabularyDefinition): string[] {
-    const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText));
+    const notes = dedupeText(
+        [...definition.field, ...definition.dial, ...definition.misc]
+            .map(normalizeJitenMeaningText)
+            .filter(note => note !== 'uk'),
+    );
     return definition.meanings
         .map(meaning => [normalizeJitenMeaningText(meaning), ...notes].filter(Boolean).join('; '))
         .filter(Boolean);

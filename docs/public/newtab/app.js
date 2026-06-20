@@ -49364,7 +49364,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return card.source === "jiten" || Number.isFinite(card.jitenWordId) && Number.isFinite(card.jitenReadingIndex);
   }
   function jitenDefinitionMeaningTexts(definition) {
-    const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText));
+    const notes = dedupeText(
+      [...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText).filter((note) => note !== "uk")
+    );
     return definition.meanings.map((meaning) => [normalizeJitenMeaningText(meaning), ...notes].filter(Boolean).join("; ")).filter(Boolean);
   }
   function normalizeJitenMeaningText(value) {

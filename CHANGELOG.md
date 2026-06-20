@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.15] - 2026-06-20
+
+### Fixed
+
+- Jiten definitions no longer show the raw `uk` metadata tag after meanings such as `if you like`; the friendly "usually written using kana" metadata remains in the popup summary instead.
+
 ## [1.4.14] - 2026-06-19
 
 ### Fixed

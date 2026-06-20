@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.14
+// @version      1.4.15
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.14#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.14#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.14#sha256-A6Bh4hCAqsy3TneOgnTkUQ9yqXpjRIZ5EDdSoO817Yk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.14#sha256-5AdpEMs8AhAFLawg+3ZF26sYVFTCqwpqVBF4pIJHA7E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.15#sha256-HQWOQbsrDRA7J37oC+kTxSVxOHlzds9SMHPS22tXHco=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.15#sha256-SIf5ERZt0hd3hSnK4e/5LAZ2Lfsgit5XXXgOv6H8NkA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.15#sha256-A6Bh4hCAqsy3TneOgnTkUQ9yqXpjRIZ5EDdSoO817Yk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.15#sha256-5AdpEMs8AhAFLawg+3ZF26sYVFTCqwpqVBF4pIJHA7E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -21859,7 +21859,9 @@ ${glossaryKey}`;
     return card.source === "jiten" || Number.isFinite(card.jitenWordId) && Number.isFinite(card.jitenReadingIndex);
   }
   function jitenDefinitionMeaningTexts(definition) {
-    const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText));
+    const notes = dedupeText(
+      [...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText).filter((note) => note !== "uk")
+    );
     return definition.meanings.map((meaning) => [normalizeJitenMeaningText(meaning), ...notes].filter(Boolean).join("; ")).filter(Boolean);
   }
   function normalizeJitenMeaningText(value) {

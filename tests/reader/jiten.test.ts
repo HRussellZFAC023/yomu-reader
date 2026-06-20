@@ -728,6 +728,30 @@ describe('JitenApiClient', () => {
         expect(reference?.innerHTML).toContain('<ruby>');
     });
 
+    it('hides raw Jiten metadata tags such as uk from definition meanings', () => {
+        const card = jitenCard({ spelling: '良かったら', reading: 'よかったら', jitenWordId: 948, jitenReadingIndex: 0 });
+        const info = jitenVocabularyInfo({
+            wordId: 948,
+            mainReading: { text: '良[よ]かったら', readingIndex: 0, frequencyRank: 100, usedInMediaAmount: null },
+            definitions: [
+                jitenDefinition({
+                    meanings: ['if you like'],
+                    partsOfSpeech: ['exp'],
+                    misc: ['uk', 'also written as 良かったら'],
+                }),
+            ],
+        });
+
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJitenDefinitionSource(card, () => '', info, 'en');
+
+        const meaning = mount.querySelector<HTMLElement>('.jpdb-reader-jiten-meaning');
+        const meaningText = meaning?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+        expect(meaningText).toContain('if you like; also written as 良かったら');
+        expect(meaningText).not.toMatch(/\buk\b/i);
+        expect(mount.querySelector<HTMLElement>('.jpdb-reader-jiten-headword .jpdb-reader-word')?.dataset.reading).toBe('よかったら');
+    });
+
     it('renders Jiten example, composite, and used-in audio affordances', () => {
         const info = jitenVocabularyInfo({
             composedOf: [{
