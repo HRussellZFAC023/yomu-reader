@@ -27390,6 +27390,34 @@ ${key}`] = { t: now, v: value };
     if (error instanceof Error) return error.message;
     return isRecord(error) && typeof error.message === "string" ? error.message : "";
   }
+  const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
+  const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
+  function orderedUchisenImages(images) {
+    const seen = /* @__PURE__ */ new Set();
+    const deduped = images.filter((item) => {
+      const key = uchisenImageDedupeKey(item);
+      if (!item.url || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    return [
+      ...deduped.filter((item) => !item.paywall),
+      ...deduped.filter((item) => item.paywall)
+    ].map(({ url, story }) => ({ url, story }));
+  }
+  function uchisenImageDedupeKey(item) {
+    return item.paywall && isUchisenPaywallImage(item.url) ? "paywall:enrollment" : `url:${item.url}`;
+  }
+  function isUchisenPaywallImage(url) {
+    try {
+      return UCHISEN_PAYWALL_IMAGE_RE.test(new URL(url).pathname);
+    } catch {
+      return UCHISEN_PAYWALL_IMAGE_RE.test(url.split(/[?#]/)[0]);
+    }
+  }
+  function isUchisenPaywallStory(story) {
+    return UCHISEN_PAYWALL_STORY_RE.test(cleanText(story));
+  }
   const imagePromptReplacementDefs = [
     [
       "\\bblood(y|ied|ing)?\\b",
@@ -27593,177 +27621,6 @@ ${key}`] = { t: now, v: value };
     ]
   ];
   const UCHISEN_INDEX_PREFIX = "yomu-jpdb-uchisen-index:";
-  const UCHISEN_PAYWALL_STORY_RE = /\bplease\s+subscribe\s+to\s+uchisen\s*pro\b/i;
-  const UCHISEN_PAYWALL_IMAGE_RE = /(?:^|\/)(?:kanji\/)?enrollment\.(?:png|jpe?g|webp)$/i;
-  function parseUchisenData(html) {
-    if (!html.trim()) return emptyUchisenData();
-    const doc = parseHtmlDocument(html);
-    const kanjiId = parseUchisenKanjiIdFromDocument(doc);
-    return {
-      images: parseUchisenImagesFromDocument(doc),
-      componentGroups: parseUchisenComponentGroupsFromDocument(doc),
-      kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
-      kanjiId,
-      canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
-    };
-  }
-  function emptyUchisenData() {
-    return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
-  }
-  function parseUchisenImagesFromDocument(doc) {
-    const images = [];
-    const mainImage = mainUchisenImageUrl(doc);
-    const mainStory = cleanText(doc.querySelector("#mnemonic_story")?.textContent ?? "");
-    if (mainImage) {
-      const url = canonicalUchisenUrl(mainImage);
-      images.push({
-        url,
-        story: mainStory || "No story available",
-        paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
-      });
-    }
-    doc.querySelectorAll(".mnemonic_card").forEach((card) => {
-      const image = uchisenCardImage(card, mainStory);
-      if (image) images.push(image);
-    });
-    return orderedUchisenImages(images);
-  }
-  function parseUchisenComponentGroupsFromDocument(doc) {
-    const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
-    if (!root) return [];
-    return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
-  }
-  function parseUchisenKanjiKeywordFromDocument(doc) {
-    const candidates = [
-      doc.querySelector("#kanji_keyword_container > span")?.textContent,
-      doc.querySelector("#kanji_keyword_container")?.textContent,
-      doc.querySelector(".kanji_name > span")?.textContent,
-      doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
-    ];
-    for (const candidate of candidates) {
-      const keyword = uchisenKanjiKeyword(candidate ?? "");
-      if (keyword) return keyword;
-    }
-    return null;
-  }
-  function parseUchisenKanjiIdFromDocument(doc) {
-    const candidates = [
-      doc.querySelector("input#kanji_id")?.value,
-      doc.querySelector("input#showing_kanji_id")?.value,
-      doc.querySelector('input[name="kanji_id"]')?.value
-    ];
-    return cleanText(candidates.find(Boolean) ?? "");
-  }
-  function parseUchisenCanGenerateFromDocument(doc) {
-    const userId = cleanText(doc.querySelector("input#user_id")?.value ?? "");
-    const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
-    const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
-    const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
-    const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
-    return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
-  }
-  function uchisenKanjiKeyword(value) {
-    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText(value));
-    if (!match) return null;
-    const kanji = cleanText(match[1].replace(/[「」]/g, ""));
-    const keyword = cleanText(match[2]);
-    if (!kanji || !keyword) return null;
-    return {
-      kanji,
-      keyword,
-      url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
-    };
-  }
-  function uchisenComponentGroup(group) {
-    const components = Array.from(group.querySelectorAll(".name_combo")).map(uchisenComponent).filter((component) => Boolean(component?.symbol || component?.name)).slice(0, 8);
-    if (!components.length) return null;
-    return {
-      title: uchisenComponentGroupTitle(group),
-      components
-    };
-  }
-  function uchisenComponentGroupTitle(group) {
-    if (group.querySelector(".prime_label")) return "Kanji Primes";
-    if (group.querySelector(".compound_label")) return "Compound Kanji";
-    return cleanText(group.querySelector(".prime_label, .compound_label")?.textContent ?? "") || "Components";
-  }
-  function uchisenComponent(item) {
-    const link = item.querySelector("a[href]");
-    if (!link) return null;
-    const symbol = cleanText(link.querySelector(".component_symbol")?.textContent ?? "");
-    const name = uchisenComponentName(link, symbol);
-    return {
-      name,
-      symbol,
-      url: absoluteUchisenUrl(link.getAttribute("href") ?? "")
-    };
-  }
-  function uchisenComponentName(link, symbol) {
-    const text2 = cleanText((link.textContent ?? "").replace(/\u00a0/g, " "));
-    const withoutSymbol = symbol ? cleanText(text2.replace(symbol, "")) : text2;
-    return cleanText(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
-  }
-  function absoluteUchisenUrl(value) {
-    try {
-      return new URL(value, "https://uchisen.com").href;
-    } catch {
-      return value;
-    }
-  }
-  function orderedUchisenImages(images) {
-    const seen = /* @__PURE__ */ new Set();
-    const deduped = images.filter((item) => {
-      const key = uchisenImageDedupeKey(item);
-      if (!item.url || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-    return [
-      ...deduped.filter((item) => !item.paywall),
-      ...deduped.filter((item) => item.paywall)
-    ].map(({ url, story }) => ({ url, story }));
-  }
-  function uchisenImageDedupeKey(item) {
-    return item.paywall && isUchisenPaywallImage(item.url) ? "paywall:enrollment" : `url:${item.url}`;
-  }
-  function mainUchisenImageUrl(doc) {
-    const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
-    return mainLoader?.getAttribute("data-large") || doc.querySelector("#full_kanji_image")?.getAttribute("src") || "";
-  }
-  function uchisenCardImage(card, mainStory) {
-    const rawUrl = card.querySelector("input.image_url")?.value.trim() ?? "";
-    if (!rawUrl) return null;
-    const url = canonicalUchisenUrl(rawUrl);
-    const story = uchisenCardStory(card, mainStory);
-    return {
-      url,
-      story,
-      paywall: isUchisenPaywallCard(card, url, story)
-    };
-  }
-  function uchisenCardStory(card, mainStory) {
-    const rawStory = card.querySelector("input.story")?.value ?? "";
-    const story = cleanText(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
-    return story || mainStory || "No story available";
-  }
-  function isUchisenPaywallCard(card, url, story) {
-    const thumbnailUrl = card.querySelector(".mnemonic_card_thumbnail img")?.getAttribute("src") ?? "";
-    return isUchisenPaywallImage(url) || isUchisenPaywallImage(thumbnailUrl) || isUchisenPaywallStory(story);
-  }
-  function isUchisenPaywallImage(url) {
-    try {
-      return UCHISEN_PAYWALL_IMAGE_RE.test(new URL(url).pathname);
-    } catch {
-      return UCHISEN_PAYWALL_IMAGE_RE.test(url.split(/[?#]/)[0]);
-    }
-  }
-  function isUchisenPaywallStory(story) {
-    return UCHISEN_PAYWALL_STORY_RE.test(cleanText(story));
-  }
-  async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
-    const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
-    return parseUchisenData(html);
-  }
   async function installUchisenCarousel(container, kanji, images, options = {}) {
     let currentImages = images.slice();
     let currentComponentGroups = options.componentGroups ?? [];
@@ -28291,31 +28148,6 @@ ${key}`] = { t: now, v: value };
   function isUchisenPaywallItem(item) {
     return Boolean(item && (isUchisenPaywallImage(item.url) || isUchisenPaywallStory(item.story)));
   }
-  async function requestUchisenPageText(url, timeout, proxyUrl) {
-    try {
-      return await requestText$3(url, {
-        timeoutMs: timeout,
-        failureLabel: "Uchisen request",
-        timeoutLabel: "Uchisen request timed out.",
-        credentials: "include",
-        anonymous: false,
-        withCredentials: true,
-        allowPublicProxies: false,
-        allowConfiguredProxy: false,
-        allowDirectCrossOrigin: false
-      });
-    } catch {
-      return requestText$2(url, timeout, proxyUrl);
-    }
-  }
-  function requestText$2(url, timeout, proxyUrl) {
-    return requestText$3(url, {
-      proxyUrl,
-      timeoutMs: timeout,
-      failureLabel: "Uchisen request",
-      timeoutLabel: "Uchisen request timed out."
-    });
-  }
   function postUchisenForm(url, fields, referrer, proxyUrl, failureLabel, timeout) {
     return requestText$3(url, {
       method: "POST",
@@ -28364,6 +28196,174 @@ ${key}`] = { t: now, v: value };
       timeoutMs: timeout,
       failureLabel: "Uchisen image request",
       timeoutLabel: "Uchisen image request timed out."
+    });
+  }
+  function parseUchisenData(html) {
+    if (!html.trim()) return emptyUchisenData();
+    const doc = parseHtmlDocument(html);
+    const kanjiId = parseUchisenKanjiIdFromDocument(doc);
+    return {
+      images: parseUchisenImagesFromDocument(doc),
+      componentGroups: parseUchisenComponentGroupsFromDocument(doc),
+      kanjiKeyword: parseUchisenKanjiKeywordFromDocument(doc),
+      kanjiId,
+      canGenerateImages: Boolean(kanjiId && parseUchisenCanGenerateFromDocument(doc))
+    };
+  }
+  function emptyUchisenData() {
+    return { images: [], componentGroups: [], kanjiKeyword: null, kanjiId: "", canGenerateImages: false };
+  }
+  function parseUchisenImagesFromDocument(doc) {
+    const images = [];
+    const mainImage = mainUchisenImageUrl(doc);
+    const mainStory = cleanText(doc.querySelector("#mnemonic_story")?.textContent ?? "");
+    if (mainImage) {
+      const url = canonicalUchisenUrl(mainImage);
+      images.push({
+        url,
+        story: mainStory || "No story available",
+        paywall: isUchisenPaywallImage(url) || isUchisenPaywallStory(mainStory)
+      });
+    }
+    doc.querySelectorAll(".mnemonic_card").forEach((card) => {
+      const image = uchisenCardImage(card, mainStory);
+      if (image) images.push(image);
+    });
+    return orderedUchisenImages(images);
+  }
+  function parseUchisenComponentGroupsFromDocument(doc) {
+    const root = doc.querySelector(".kanji_info_container .components") ?? doc.querySelector(".components");
+    if (!root) return [];
+    return Array.from(root.children).filter((child) => child instanceof HTMLElement && child.classList.contains("KP_primes")).map(uchisenComponentGroup).filter((group) => Boolean(group?.components.length)).slice(0, 4);
+  }
+  function parseUchisenKanjiKeywordFromDocument(doc) {
+    const candidates = [
+      doc.querySelector("#kanji_keyword_container > span")?.textContent,
+      doc.querySelector("#kanji_keyword_container")?.textContent,
+      doc.querySelector(".kanji_name > span")?.textContent,
+      doc.querySelector(".mnemonic_studio_right h2.kanji_info")?.textContent
+    ];
+    for (const candidate of candidates) {
+      const keyword = uchisenKanjiKeyword(candidate ?? "");
+      if (keyword) return keyword;
+    }
+    return null;
+  }
+  function parseUchisenKanjiIdFromDocument(doc) {
+    const candidates = [
+      doc.querySelector("input#kanji_id")?.value,
+      doc.querySelector("input#showing_kanji_id")?.value,
+      doc.querySelector('input[name="kanji_id"]')?.value
+    ];
+    return cleanText(candidates.find(Boolean) ?? "");
+  }
+  function parseUchisenCanGenerateFromDocument(doc) {
+    const userId = cleanText(doc.querySelector("input#user_id")?.value ?? "");
+    const hasAccountNav = Boolean(doc.querySelector('a[href^="/account/"], a[href="/logout"]'));
+    const hasStudioGenerateButton = Boolean(doc.querySelector('.generate_image_button, button[data-uchisen-action="generate-submit"]'));
+    const hasLoginPrompt = Boolean(doc.querySelector('#lo_links a[href*="login"], a[href*="/login"]'));
+    const explicitlyUnavailable = Boolean(doc.querySelector("[data-uchisen-generate-unavailable], .generate_image_button[disabled]"));
+    return !explicitlyUnavailable && (hasStudioGenerateButton || Boolean(userId) || hasAccountNav || hasLoginPrompt);
+  }
+  function uchisenKanjiKeyword(value) {
+    const match = /^(.+?)\s*[-\u2013\u2014]\s*(.+)$/u.exec(cleanText(value));
+    if (!match) return null;
+    const kanji = cleanText(match[1].replace(/[「」]/g, ""));
+    const keyword = cleanText(match[2]);
+    if (!kanji || !keyword) return null;
+    return {
+      kanji,
+      keyword,
+      url: `https://uchisen.com/kanji/${encodeURIComponent(kanji)}`
+    };
+  }
+  function uchisenComponentGroup(group) {
+    const components = Array.from(group.querySelectorAll(".name_combo")).map(uchisenComponent).filter((component) => Boolean(component?.symbol || component?.name)).slice(0, 8);
+    if (!components.length) return null;
+    return {
+      title: uchisenComponentGroupTitle(group),
+      components
+    };
+  }
+  function uchisenComponentGroupTitle(group) {
+    if (group.querySelector(".prime_label")) return "Kanji Primes";
+    if (group.querySelector(".compound_label")) return "Compound Kanji";
+    return cleanText(group.querySelector(".prime_label, .compound_label")?.textContent ?? "") || "Components";
+  }
+  function uchisenComponent(item) {
+    const link = item.querySelector("a[href]");
+    if (!link) return null;
+    const symbol = cleanText(link.querySelector(".component_symbol")?.textContent ?? "");
+    const name = uchisenComponentName(link, symbol);
+    return {
+      name,
+      symbol,
+      url: absoluteUchisenUrl(link.getAttribute("href") ?? "")
+    };
+  }
+  function uchisenComponentName(link, symbol) {
+    const text2 = cleanText((link.textContent ?? "").replace(/\u00a0/g, " "));
+    const withoutSymbol = symbol ? cleanText(text2.replace(symbol, "")) : text2;
+    return cleanText(withoutSymbol.replace(/[：:].*$/u, "")) || symbol;
+  }
+  function absoluteUchisenUrl(value) {
+    try {
+      return new URL(value, "https://uchisen.com").href;
+    } catch {
+      return value;
+    }
+  }
+  function mainUchisenImageUrl(doc) {
+    const mainLoader = doc.querySelector(".kanji_image_loader[data-large]");
+    return mainLoader?.getAttribute("data-large") || doc.querySelector("#full_kanji_image")?.getAttribute("src") || "";
+  }
+  function uchisenCardImage(card, mainStory) {
+    const rawUrl = card.querySelector("input.image_url")?.value.trim() ?? "";
+    if (!rawUrl) return null;
+    const url = canonicalUchisenUrl(rawUrl);
+    const story = uchisenCardStory(card, mainStory);
+    return {
+      url,
+      story,
+      paywall: isUchisenPaywallCard(card, url, story)
+    };
+  }
+  function uchisenCardStory(card, mainStory) {
+    const rawStory = card.querySelector("input.story")?.value ?? "";
+    const story = cleanText(decodeEntities(rawStory).replace(/<[^>]+>/g, " "));
+    return story || mainStory || "No story available";
+  }
+  function isUchisenPaywallCard(card, url, story) {
+    const thumbnailUrl = card.querySelector(".mnemonic_card_thumbnail img")?.getAttribute("src") ?? "";
+    return isUchisenPaywallImage(url) || isUchisenPaywallImage(thumbnailUrl) || isUchisenPaywallStory(story);
+  }
+  async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
+    const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
+    return parseUchisenData(html);
+  }
+  async function requestUchisenPageText(url, timeout, proxyUrl) {
+    try {
+      return await requestText$3(url, {
+        timeoutMs: timeout,
+        failureLabel: "Uchisen request",
+        timeoutLabel: "Uchisen request timed out.",
+        credentials: "include",
+        anonymous: false,
+        withCredentials: true,
+        allowPublicProxies: false,
+        allowConfiguredProxy: false,
+        allowDirectCrossOrigin: false
+      });
+    } catch {
+      return requestText$2(url, timeout, proxyUrl);
+    }
+  }
+  function requestText$2(url, timeout, proxyUrl) {
+    return requestText$3(url, {
+      proxyUrl,
+      timeoutMs: timeout,
+      failureLabel: "Uchisen request",
+      timeoutLabel: "Uchisen request timed out."
     });
   }
   const JITEN_KANJI_WORD_PAGE_SIZE = 9;
