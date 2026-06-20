@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.39] - 2026-06-20
+
+### Fixed
+
+- Apple Pencil handwriting on the Search tab no longer drops live strokes when Safari loses pointer capture mid-stroke. The shared kanji doodle canvas now keeps listening through document/window pointer events until the real pointerup/cancel, so Search handwriting, new-tab kanji practice, and popup kanji practice all use the same patched path.
+- Search results now include the kanji reading/inline-word metadata and hidden canonical spellings that the current result cards expect, so ruby-rendered words still expose their plain surface text.
+
 ## [1.4.38] - 2026-06-20
 
 ### Added

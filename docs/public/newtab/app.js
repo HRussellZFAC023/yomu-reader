@@ -58397,7 +58397,7 @@ ${newTabCardReading(card)}`;
   function renderSearchKanjiResult(result, context) {
     const preview = result.keyword.trim();
     const wordMeta = searchKanjiInlineWordMeta(result.words);
-    const meta = wordMeta || (context.showKanjiMeta ? searchKanjiSummaryMeta(result) : "");
+    const meta = wordMeta || (context.showKanjiFallbackReadings ? searchKanjiSummaryMeta(result) : "");
     return el(
       "div",
       { class: "jpdb-reader-newtab-search-card-shell", dataset: { newtabSearchCardShell: true } },
@@ -67578,7 +67578,7 @@ ${entry.url}`),
         language: this.language(),
         settings: this.dependencies.getSettings(),
         text: (key) => this.text(key),
-        showKanjiMeta: true
+        showKanjiFallbackReadings: true
       };
     }
     renderSearchNoResults(results) {

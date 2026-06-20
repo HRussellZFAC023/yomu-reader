@@ -41,7 +41,7 @@ export interface NewTabSearchViewContext {
     language: ReaderSettings['interfaceLanguage'];
     settings: ReaderSettings;
     text: (key: 'words' | 'kanji' | 'dictionary') => string;
-    showKanjiMeta?: boolean;
+    showKanjiFallbackReadings?: boolean;
 }
 
 export function searchCardStateLabel(state: string, language: ReaderSettings['interfaceLanguage']): string {
@@ -146,7 +146,7 @@ function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): str
 function renderSearchKanjiResult(result: NewTabSearchKanjiResult, context: NewTabSearchViewContext): HTMLElement {
     const preview = result.keyword.trim();
     const wordMeta = searchKanjiInlineWordMeta(result.words);
-    const meta = wordMeta || (context.showKanjiMeta ? searchKanjiSummaryMeta(result) : '');
+    const meta = wordMeta || (context.showKanjiFallbackReadings ? searchKanjiSummaryMeta(result) : '');
     return el('div', { class: 'jpdb-reader-newtab-search-card-shell', dataset: { newtabSearchCardShell: true } },
         el('button', {
             type: 'button',

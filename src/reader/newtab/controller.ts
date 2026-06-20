@@ -7551,7 +7551,7 @@ export class NewTabController {
             language: this.language(),
             settings: this.dependencies.getSettings(),
             text: key => this.text(key),
-            showKanjiMeta: true,
+            showKanjiFallbackReadings: true,
         };
     }
 
