@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.27] - 2026-06-20
+
+### Changed
+
+- Internal: split the oversized Anki integration module (`anki/client.ts`, ~2.9k lines) into focused modules — mobile handoff, card templates, media files, model/field mapping, field rendering — and removed duplicated cache and array helpers (one shared `core/public-cache` and `core/array-utils`). No user-facing behavior change; the userscript bundle is ~1.8 KB smaller and gains regression tests for the deep-link, cache, and array utilities. Also realigned settings/JPDB test copy that had drifted from the shipped i18n.
+
 ## [1.4.26] - 2026-06-20
 
 ### Fixed
