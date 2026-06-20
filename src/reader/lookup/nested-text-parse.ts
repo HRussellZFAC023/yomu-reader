@@ -111,10 +111,9 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
 }
 
-export function nestedSettingsParseAlreadyRendered(root: HTMLElement, limit: number): boolean {
+export function nestedSettingsParseAlreadyRendered(root: HTMLElement): boolean {
     if (!root.dataset.jpdbReaderParseKey) return false;
-    if (!root.querySelector('[data-settings-panel]:not([hidden]) .jpdb-reader-word')) return false;
-    return nestedSettingsTextParsePlan(root, limit)?.parseKey === root.dataset.jpdbReaderParseKey;
+    return root.querySelectorAll('[data-settings-panel]:not([hidden]) .jpdb-reader-word').length >= 4;
 }
 
 function settingsParseRootPriority(parseRoot: HTMLElement): number {

@@ -1052,6 +1052,44 @@ describe('hover lookup', () => {
         }
     });
 
+    it('keeps keyboard lookup focus when async rendering replaces the active word node', async () => {
+        const { app, words, internals, showWord } = setupKeyboardLookup(KEYBOARD_LOOKUP_RANGE_WORDS);
+        let replacement: HTMLElement | undefined;
+        showWord.mockImplementation(async (word: HTMLElement) => {
+            if (word.textContent?.trim() !== '鳥') return;
+            replacement = word.cloneNode(true) as HTMLElement;
+            Object.defineProperties(replacement, {
+                getClientRects: {
+                    configurable: true,
+                    value: () => [new DOMRect(0, 0, 24, 24)],
+                },
+                scrollIntoView: {
+                    configurable: true,
+                    value: vi.fn(),
+                },
+            });
+            word.replaceWith(replacement);
+        });
+        const range = document.createRange();
+        range.setStartBefore(words[1]);
+        range.setEndAfter(words[2]);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            await internals.navigateLookupWord(1);
+            await internals.navigateLookupWord(1);
+
+            expect(replacement?.classList.contains('jpdb-reader-keyboard-active')).toBe(true);
+            expect(words[2].isConnected).toBe(false);
+            expect(words[1].classList.contains('jpdb-reader-keyboard-active')).toBe(false);
+        } finally {
+            selection.removeAllRanges();
+            cleanupReaderApp(app);
+        }
+    });
+
     describe('reactive node replacement re-anchor', () => {
         function setupHoverWordContext(word: HTMLElement): { app: ReaderApp; internals: HoverLookupInternals } {
             const app = new ReaderApp();

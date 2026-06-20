@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.27] - 2026-06-20
+
+### Fixed
+
+- Keyboard lookup navigation now restores the active word marker after async lookup rendering, even if the page replaces the selected word node mid-render.
+- Hosted settings hydration now keeps local fallback reader-word markup for unresolved settings labels, so furigana parsing and pitch underline styling stay visible in the API, furigana, and underline controls after tab/status refreshes.
+
 ## [1.4.25] - 2026-06-19
 
 ### Fixed

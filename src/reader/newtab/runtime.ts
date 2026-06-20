@@ -2009,7 +2009,11 @@ export class NewTabRuntime {
         });
     }
 
-    private async enrichPublicVocabularyWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
+    private async enrichPublicVocabularyWords(
+        tokens: JPDBToken[],
+        limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT,
+        options: { preserveMissingFallbacks?: boolean } = {},
+    ): Promise<void> {
         if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
         const uniqueTokens = this.uniqueTokens(
             tokens,
@@ -2021,7 +2025,7 @@ export class NewTabRuntime {
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
             if (!card) {
-                this.unwrapRenderedFallbackWords(token.card);
+                if (!options.preserveMissingFallbacks) this.unwrapRenderedFallbackWords(token.card);
                 return;
             }
             this.parser.cacheCards?.([card]);
@@ -2213,7 +2217,7 @@ export class NewTabRuntime {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
-        if (nestedSettingsParseAlreadyRendered(form, 640)) return;
+        if (nestedSettingsParseAlreadyRendered(form)) return;
         if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
             form.dataset.yomuSettingsSelfEnhancePending = 'true';
             return;
@@ -2266,7 +2270,7 @@ export class NewTabRuntime {
             form.dataset.jpdbReaderParseKey = latestPlan.parseKey;
             form.dataset.yomuSettingsSelfEnhanced = 'true';
             const tokens = latestParsed.flat();
-            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT);
+            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT, { preserveMissingFallbacks: true });
             void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
         } catch {
         } finally {

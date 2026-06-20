@@ -57490,10 +57490,9 @@ ${normalizedReading}`;
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
   }
-  function nestedSettingsParseAlreadyRendered(root, limit) {
+  function nestedSettingsParseAlreadyRendered(root) {
     if (!root.dataset.jpdbReaderParseKey) return false;
-    if (!root.querySelector("[data-settings-panel]:not([hidden]) .jpdb-reader-word")) return false;
-    return nestedSettingsTextParsePlan(root, limit)?.parseKey === root.dataset.jpdbReaderParseKey;
+    return root.querySelectorAll("[data-settings-panel]:not([hidden]) .jpdb-reader-word").length >= 4;
   }
   function settingsParseRootPriority(parseRoot) {
     const panel = parseRoot.closest("[data-settings-panel]");
@@ -72335,7 +72334,7 @@ ${reading}`);
         this.applyPitchAccentToRenderedWords(token.card);
       });
     }
-    async enrichPublicVocabularyWords(tokens, limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT) {
+    async enrichPublicVocabularyWords(tokens, limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT, options = {}) {
       if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
       const uniqueTokens = this.uniqueTokens(
         tokens,
@@ -72346,7 +72345,7 @@ ${reading}`);
       await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async (token) => {
         const card = resolvedCards.get(cardKey(token.card));
         if (!card) {
-          this.unwrapRenderedFallbackWords(token.card);
+          if (!options.preserveMissingFallbacks) this.unwrapRenderedFallbackWords(token.card);
           return;
         }
         this.parser.cacheCards?.([card]);
@@ -72518,7 +72517,7 @@ ${reading}`);
     }
     async parseSettingsJapanese(form) {
       if (!this.isCurrentSettingsRoot(form)) return;
-      if (nestedSettingsParseAlreadyRendered(form, 640)) return;
+      if (nestedSettingsParseAlreadyRendered(form)) return;
       if (form.dataset.yomuSettingsSelfEnhancing === "true") {
         form.dataset.yomuSettingsSelfEnhancePending = "true";
         return;
@@ -72569,7 +72568,7 @@ ${reading}`);
         form.dataset.jpdbReaderParseKey = latestPlan.parseKey;
         form.dataset.yomuSettingsSelfEnhanced = "true";
         const tokens = latestParsed.flat();
-        void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT);
+        void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT, { preserveMissingFallbacks: true });
         void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
       } catch {
       } finally {

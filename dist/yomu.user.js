@@ -1,15 +1,15 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.25
+// @version      1.4.27
 // @description  Japanese popup reader.
 // @license      MIT
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.25#sha256-kz0y68XxcEn0ylji18xo7iE3RzuyHKBwEjYjbiUExes=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.25#sha256-XNV25RbMcKq+McsxkdJWYp4NaxdeDSkuqb5Gq9YY4F4=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.25#sha256-v2VQ0YgBAjiVLn5NJ8dCe4DKKirDHa7oN01z+BZT8mk=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.25#sha256-t5ilyOVPxORNS9jCaDMUxczb58CZOUCaqRYYZ0TM4Yw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.27#sha256-kz0y68XxcEn0ylji18xo7iE3RzuyHKBwEjYjbiUExes=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.27#sha256-XNV25RbMcKq+McsxkdJWYp4NaxdeDSkuqb5Gq9YY4F4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.27#sha256-v2VQ0YgBAjiVLn5NJ8dCe4DKKirDHa7oN01z+BZT8mk=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.27#sha256-t5ilyOVPxORNS9jCaDMUxczb58CZOUCaqRYYZ0TM4Yw=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -34714,10 +34714,9 @@ ${normalizedReading}`;
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
   }
-  function nestedSettingsParseAlreadyRendered(root, limit) {
+  function nestedSettingsParseAlreadyRendered(root) {
     if (!root.dataset.jpdbReaderParseKey) return false;
-    if (!root.querySelector("[data-settings-panel]:not([hidden]) .jpdb-reader-word")) return false;
-    return nestedSettingsTextParsePlan(root, limit)?.parseKey === root.dataset.jpdbReaderParseKey;
+    return root.querySelectorAll("[data-settings-panel]:not([hidden]) .jpdb-reader-word").length >= 4;
   }
   function settingsParseRootPriority(parseRoot) {
     let panel = parseRoot.closest("[data-settings-panel]");
@@ -39954,8 +39953,11 @@ ${reading}`);
       this.setKeyboardActiveWord(word);
       word.focus({ preventScroll: true });
       word.scrollIntoView({ block: "center", inline: "nearest", behavior: "smooth" });
-      await this.showWord(word, { trigger: "click", navigation: "reset", userGesture: true });
-      if (word.isConnected) this.setKeyboardActiveWord(word);
+      try {
+        await this.showWord(word, { trigger: "click", navigation: "reset", userGesture: true });
+      } finally {
+        this.restoreKeyboardActiveWord(word);
+      }
     }
     lookupWordNavigationCandidates() {
       let selected = this.selectedLookupNavigationWords();
@@ -39989,6 +39991,16 @@ ${reading}`);
     clearKeyboardActiveWord() {
       this.keyboardActiveWord?.classList.remove("jpdb-reader-keyboard-active");
       this.keyboardActiveWord = void 0;
+    }
+    restoreKeyboardActiveWord(word) {
+      let connected = this.connectedKeyboardActiveWord(word);
+      if (connected) this.setKeyboardActiveWord(connected);
+    }
+    connectedKeyboardActiveWord(word) {
+      if (word.isConnected && this.isKeyboardNavigableWord(word)) return word;
+      let key = renderedWordElementKey(word);
+      if (!isValidRenderedWordKey(key)) return null;
+      return this.lookupWordNavigationCandidates().find((candidate) => renderedWordElementKey(candidate) === key) ?? null;
     }
     queueReaderWordAudioPreloads(words, options = {}) {
       let queued = 0;
@@ -42514,7 +42526,7 @@ ${reading}`);
     }
     async parseSettingsJapanese(form) {
       if (!this.isCurrentSettingsRoot(form)) return;
-      if (nestedSettingsParseAlreadyRendered(form, 640)) return;
+      if (nestedSettingsParseAlreadyRendered(form)) return;
       if (form.dataset.yomuSettingsSelfEnhancing === "true") {
         form.dataset.yomuSettingsSelfEnhancePending = "true";
         return;
@@ -43607,7 +43619,7 @@ ${reading}`);
           suppressHoverTarget: false,
           preserveNavigation: true,
           preserveHoverGeneration: state2.mode === "hover",
-          preserveKeyboardActive: state2.resolvedAnchor === this.keyboardActiveWord
+          preserveKeyboardActive: this.shouldPreserveKeyboardActiveForMount(state2.resolvedAnchor)
         });
       }
       this.appendMountedPopover(popover, state2);
@@ -43628,6 +43640,13 @@ ${reading}`);
       let previousHoverPointerPosition = this.hoverPopoverPointerPosition;
       let mountParent = fullscreenPopoverMountParent(resolvedAnchor);
       return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+    }
+    shouldPreserveKeyboardActiveForMount(anchor) {
+      let active = this.keyboardActiveWord;
+      if (!anchor || !active) return false;
+      if (anchor === active) return true;
+      let activeKey = renderedWordElementKey(active);
+      return isValidRenderedWordKey(activeKey) && renderedWordElementKey(anchor) === activeKey;
     }
     settingsStackForMountedPopover(options) {
       return this.activeSettingsLookupStack() ?? (options.stackOverSettings ? this.currentSettingsDialogStack() : void 0);

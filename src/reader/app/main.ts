@@ -2654,8 +2654,11 @@ export class ReaderApp {
         this.setKeyboardActiveWord(word);
         word.focus({ preventScroll: true });
         word.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-        await this.showWord(word, { trigger: 'click', navigation: 'reset', userGesture: true });
-        if (word.isConnected) this.setKeyboardActiveWord(word);
+        try {
+            await this.showWord(word, { trigger: 'click', navigation: 'reset', userGesture: true });
+        } finally {
+            this.restoreKeyboardActiveWord(word);
+        }
     }
 
     private lookupWordNavigationCandidates(): HTMLElement[] {
@@ -2697,6 +2700,19 @@ export class ReaderApp {
     private clearKeyboardActiveWord(): void {
         this.keyboardActiveWord?.classList.remove('jpdb-reader-keyboard-active');
         this.keyboardActiveWord = undefined;
+    }
+
+    private restoreKeyboardActiveWord(word: HTMLElement): void {
+        const connected = this.connectedKeyboardActiveWord(word);
+        if (connected) this.setKeyboardActiveWord(connected);
+    }
+
+    private connectedKeyboardActiveWord(word: HTMLElement): HTMLElement | null {
+        if (word.isConnected && this.isKeyboardNavigableWord(word)) return word;
+        const key = renderedWordElementKey(word);
+        if (!isValidRenderedWordKey(key)) return null;
+        return this.lookupWordNavigationCandidates()
+            .find(candidate => renderedWordElementKey(candidate) === key) ?? null;
     }
 
     private queueReaderWordAudioPreloads(words: HTMLElement[], options: ReaderAudioPreloadOptions = {}): number {
@@ -6014,7 +6030,7 @@ export class ReaderApp {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
-        if (nestedSettingsParseAlreadyRendered(form, 640)) return;
+        if (nestedSettingsParseAlreadyRendered(form)) return;
         if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
             form.dataset.yomuSettingsSelfEnhancePending = 'true';
             return;
@@ -7304,7 +7320,7 @@ export class ReaderApp {
                 suppressHoverTarget: false,
                 preserveNavigation: true,
                 preserveHoverGeneration: state.mode === 'hover',
-                preserveKeyboardActive: state.resolvedAnchor === this.keyboardActiveWord,
+                preserveKeyboardActive: this.shouldPreserveKeyboardActiveForMount(state.resolvedAnchor),
             });
         }
         this.appendMountedPopover(popover, state);
@@ -7331,6 +7347,14 @@ export class ReaderApp {
         const previousHoverPointerPosition = this.hoverPopoverPointerPosition;
         const mountParent = fullscreenPopoverMountParent(resolvedAnchor);
         return { mode, backdrop, mountParent, resolvedAnchor, anchorRect, previousPopoverRect, previousHoverPointerPosition };
+    }
+
+    private shouldPreserveKeyboardActiveForMount(anchor: HTMLElement | undefined): boolean {
+        const active = this.keyboardActiveWord;
+        if (!anchor || !active) return false;
+        if (anchor === active) return true;
+        const activeKey = renderedWordElementKey(active);
+        return isValidRenderedWordKey(activeKey) && renderedWordElementKey(anchor) === activeKey;
     }
 
     private settingsStackForMountedPopover(options: MountPopoverOptions): SettingsDialogStack | undefined {
