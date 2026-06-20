@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.24
+// @version      1.4.26
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.24#sha256-CYPWaiVPt9XyOz4qy6poHmIjKOws0zyBYYXAi7fPjf8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.24#sha256-jsGXKSD5Z53FzKqpx7fPvDiK7J0qw892qEoLag2hxdg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.24#sha256-en+IxEnHqKB3PUFKqA6XJ1LjQu9TK3ibhDcD+QAMmKc=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.24#sha256-twllkx0coMFVVnl9SzqHAMSGUGCleasaEdmynF0d5MA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.26#sha256-m9oRQoZEUH/Vn575Dy+YZRHqVMYZXiq2RuC/r7sjY3E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.26#sha256-RlkZ+z1RaAzyJU/OXJ0Yj17MD5TtbOuRhUvBApNAgQM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.26#sha256-+IxjFYjpwd3I3MfYNg6T+lJWfBWeE3pArk9d6O100P8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.26#sha256-RYAqK+iGGeNXe4NjPET4OjiXhoqd8+lLdFRwzHpXh0E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -7094,7 +7094,7 @@
       immersionKitMediaRequestFailed: "Media request failed.",
       immersionKitMediaRequestFailedWithStatus: "Media request failed ({status}).",
       immersionKitMediaRequestTimedOut: "Media request timed out.",
-      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error page.",
+      immersionKitMediaRequestReturnedNonMedia: "Media request returned an error document.",
       immersionKitNoMediaCandidate: "No Immersion Kit media loaded.",
       nadeshikoRequest: "Nadeshiko request",
       nadeshikoRequestFailed: "Nadeshiko request failed.",
@@ -7302,11 +7302,11 @@
       dictionaryImporting: "Importing",
       importingBundledDictionaries: "Importing bundled dictionaries...",
       dictionaryImported: "Imported",
-      dictionaryPreparingImport: "Preparing import",
+      dictionaryPreparingImport: "Preparing to import",
       dictionaryRecords: "dictionary records",
       dictionaryEntries: "entries",
       dictionaryTotal: "total",
-      dictionaryDownloadProgress: "Downloading",
+      dictionaryDownloadProgress: "Downloading dictionary",
       dictionaryStatusSummary: "Dicts {dictionaries}, terms {terms}, kanji {kanji}, meta {metadata}",
       dictionaryStatusUnavailable: "Unavailable.",
       noLocalDictionariesImported: "No dictionaries imported yet.",
@@ -7314,7 +7314,7 @@
       dictionaryDownloadTimedOut: "Dictionary download timed out.",
       dictionaryDownloadNotZip: "Download was not a ZIP.",
       dictionaryDownloadNeedsBridge: "Download needs bridge; else import ZIP.",
-      dictionaryDownloadBlocked: "Download blocked. Import the ZIP.",
+      dictionaryDownloadBlocked: "Download is blocked. Import the ZIP.",
       dictionaryManualDownloadHint: "Enable userscript or import the ZIP.",
       dictionaryInstallQueueHelp: "Installs take a few minutes.",
       dictionaryInstallQueued: "{dictionary} queued.",
@@ -7364,7 +7364,7 @@
       noTextToRead: "No text to read aloud.",
       jpdbExampleAudioUnavailable: "No JPDB audio is available for this example.",
       jpdbAudioPlayableFileMissing: "JPDB audio returned no playable file.",
-      jpdbAudioResponseNotPlayable: "JPDB audio was not playable.",
+      jpdbAudioResponseNotPlayable: "JPDB audio response was not a playable audio file.",
       audioSourceReturnedNoAudio: "Audio source did not return audio.",
       audioJsonMissingPlayableUrl: "Audio JSON had no playable URL.",
       textToSpeechUnavailable: "Text-to-speech is unavailable.",
@@ -7665,7 +7665,7 @@
       openedInAnki: "Opened in Anki.",
       addedToDeckAndReviewed: "Added to deck and reviewed.",
       sentToAnki: "Sent to Anki.",
-      openedMobileAnkiHandoff: "Opened Anki handoff. Continue in Anki.",
+      openedMobileAnkiHandoff: "Opened mobile Anki handoff. Continue in Anki to create the new note.",
       alreadyInAnki: "Already in Anki. Use Edit in Anki instead.",
       removedFromDeck: "Removed from deck.",
       addedToDeckToast: "Added to deck.",
@@ -7750,7 +7750,7 @@
       importLocalDefinitionsHelp: "Import Yomitan for local definitions.",
       frequencyMetadataHelp: "Frequency, pitch, and kanji metadata for badges.",
       sourceHelpJpdb: "JPDB meanings from the current card.",
-      sourceHelpJiten: "Jiten meanings, examples, and related words.",
+      sourceHelpJiten: "Jiten meanings, examples, and related vocabulary from the current card.",
       sourceHelpAnki: "Matching Anki card content and status.",
       sourceHelpTranslation: "Sentence translation.",
       sourceHelpGrammar: "Local grammar hints.",
