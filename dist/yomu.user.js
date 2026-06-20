@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.28
+// @version      1.4.29
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.28#sha256-wbZjc06KXWHsaY3npO2TJeIKV4L7qKixB0OyFADt+Ao=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.28#sha256-RlkZ+z1RaAzyJU/OXJ0Yj17MD5TtbOuRhUvBApNAgQM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.28#sha256-+IxjFYjpwd3I3MfYNg6T+lJWfBWeE3pArk9d6O100P8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.28#sha256-RYAqK+iGGeNXe4NjPET4OjiXhoqd8+lLdFRwzHpXh0E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.29#sha256-wbZjc06KXWHsaY3npO2TJeIKV4L7qKixB0OyFADt+Ao=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.29#sha256-RlkZ+z1RaAzyJU/OXJ0Yj17MD5TtbOuRhUvBApNAgQM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.29#sha256-+IxjFYjpwd3I3MfYNg6T+lJWfBWeE3pArk9d6O100P8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.29#sha256-RYAqK+iGGeNXe4NjPET4OjiXhoqd8+lLdFRwzHpXh0E=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -12613,37 +12613,6 @@ recommendedJiten	Jiten頻度です。
     const trimmed = attrs.trim();
     return trimmed ? ` ${trimmed}` : "";
   }
-  const log$k = Logger.scope("StudyTools");
-  const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
-  const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
-  const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
-  const MAX_LOCAL_GRAMMAR_HINTS = 12;
-  const GRAMMAR_HINT_CACHE_LIMIT = 240;
-  const TRANSLATION_CACHE_LIMIT = 160;
-  const TRANSLATION_TIMEOUT_MS = 5e3;
-  const GRAMMAR_RULE_DATA_TIMEOUT_MS = 15e3;
-  const EN_GRAMMAR_RULE_DATA_URL = `${DOCS_BASE_URL}data/en-grammar-rule-copy.json`;
-  const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
-  const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
-  function gp(ruleId, level, name, source, url = "", confidence = "medium", priority2 = 30) {
-    return { ruleId, level, pattern: new RegExp(source, "gu"), name, url, confidence, priority: priority2 };
-  }
-  function grammarPatternFromRow(row) {
-    const [ruleId, level, name, source, priority2, confidence = "m", url = ""] = row.split("	");
-    return gp(
-      ruleId,
-      level,
-      name,
-      source.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
-      expandGrammarGuideUrl(url),
-      confidence === "h" ? "high" : "medium",
-      parseInt(priority2, 36)
-    );
-  }
-  function expandGrammarGuideUrl(url) {
-    if (!url) return "";
-    return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
-  }
   const GRAMMAR_PATTERN_DATA = String.raw`
 potential-koto-ga-dekiru	N4	ことができる	{F}ことができ(?:る|ます|ない|ません|た|ました|なかった|ませんでした)?	5	h	@g/koto-ga-dekiru/
 potential-dekiru	N4	できる	{P}でき(?:る|ます|た|ました|ない|ません|なかった|ませんでした)	8	h
@@ -12953,6 +12922,37 @@ unnecessary-made-mo-nai	N1	までもない	{F}までもない	e	h
 unnecessary-ni-wa-oyobanai	N1	には及ばない	{F}には及(?:ばない|びません)	g
 situation-tokoro-wo	N1	ところを	{F}ところを	e	h
 `;
+  const log$k = Logger.scope("StudyTools");
+  const PARTICLE_CHUNK = String.raw`[^はがをにへとでもやのて、。！？!?\s]{1,24}`;
+  const FORM_CHUNK = String.raw`[^はがをにへとでもやのてで、。！？!?\s]{0,24}`;
+  const GRAMMAR_PREFERENCES_KEY = "yomu.grammarPreferences.v1";
+  const MAX_LOCAL_GRAMMAR_HINTS = 12;
+  const GRAMMAR_HINT_CACHE_LIMIT = 240;
+  const TRANSLATION_CACHE_LIMIT = 160;
+  const TRANSLATION_TIMEOUT_MS = 5e3;
+  const GRAMMAR_RULE_DATA_TIMEOUT_MS = 15e3;
+  const EN_GRAMMAR_RULE_DATA_URL = `${DOCS_BASE_URL}data/en-grammar-rule-copy.json`;
+  const ENGLISH_TEXT_RE = /[A-Za-z]{3,}/u;
+  const JAPANESE_TEXT_RE$1 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  function gp(ruleId, level, name, source, url = "", confidence = "medium", priority2 = 30) {
+    return { ruleId, level, pattern: new RegExp(source, "gu"), name, url, confidence, priority: priority2 };
+  }
+  function grammarPatternFromRow(row) {
+    const [ruleId, level, name, source, priority2, confidence = "m", url = ""] = row.split("	");
+    return gp(
+      ruleId,
+      level,
+      name,
+      source.replaceAll("{F}", FORM_CHUNK).replaceAll("{P}", PARTICLE_CHUNK),
+      expandGrammarGuideUrl(url),
+      confidence === "h" ? "high" : "medium",
+      parseInt(priority2, 36)
+    );
+  }
+  function expandGrammarGuideUrl(url) {
+    if (!url) return "";
+    return url.replace("@g/", "https://www.tofugu.com/japanese-grammar/").replace("@j/", "https://www.tofugu.com/japanese/");
+  }
   const GRAMMAR_PATTERNS = GRAMMAR_PATTERN_DATA.trim().split("\n").map(grammarPatternFromRow);
   const translationCache = /* @__PURE__ */ new Map();
   const translationInFlight = /* @__PURE__ */ new Map();
