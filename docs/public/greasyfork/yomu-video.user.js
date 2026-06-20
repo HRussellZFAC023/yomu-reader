@@ -13217,7 +13217,7 @@ ${spelling}`);
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
-    return rootRect.width < 420 || rootRect.height < 260 ? 11 : 14;
+    return rootRect.width < 700 || rootRect.height < 360 ? 10 : 12;
   }
   function subtitleFrameTargetFontSize(root, settings) {
     const rootRect = root.getBoundingClientRect();
@@ -15515,12 +15515,13 @@ ${spelling}`);
         ...TRACK_LOAD_OPTIONS,
         tracks: this.tracks,
         transcriptEligible: request.transcriptEligible,
-        translationFallback: this.translationFallbackModeForSelection(request)
+        translationFallback: this.translationFallbackModeForSelection(request, selected)
       });
       return this.loadedTrackSelection(request, loaded.track, loaded.cues);
     }
-    translationFallbackModeForSelection(request) {
-      return request.role === "secondary" ? "skip" : "full";
+    translationFallbackModeForSelection(request, track) {
+      if (request.role !== "secondary") return "full";
+      return track?.kind === "youtube" && track.sourceType === "translation" ? "full" : "skip";
     }
     loadedTrackSelection(request, selected, cues) {
       if (!this.isTrackSelectionCurrent(request.role, request.requestId, request.id)) return null;

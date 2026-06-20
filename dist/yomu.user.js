@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.37
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.37
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.37
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.37
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.37#sha256-5B3YvyPXJ3362KZo3OoZ5Zb09lyQ2cb8r5AtNRELE3k=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.37#sha256-nFh5iMIF51bZBXFqlloKD2kB7KpG02kLJ6vhwhyda3o=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.37#sha256-eU1VYMEYXdP52vf9noZrZOgOOO+F6xPoLCXGlfFPjIU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.37#sha256-qY+x5ADPv5JTpZmP88JuSiTql6ye7Ri/D57AkfjS3nU=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -51,6 +51,8 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
+
+/* Bundled dependency source information: fflate*/
 
 (function () {
   'use strict';
@@ -2759,7 +2761,6 @@
     youtubeShowFilterNotice: true,
     youtubeShowChannelRecommendations: true,
     preferJapaneseSiteLanguage: true,
-    // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,
     ankiSectionPriority: 90,
@@ -3680,9 +3681,6 @@
     ".jpdb-reader-text-mirror",
     ".jpdb-reader-control-text-mirror",
     ".jpdb-reader-word",
-    // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
-    // letter soup, but "Kanji used" spellings are real JPDB links and should
-    // keep the same ruby/color treatment as other dictionary terms.
     ".subsection-pitch-accent .subsection"
   ];
   const FORM_BOUNDARY_SKIP_ENTRIES = ["form", "label", "fieldset", "legend"];
@@ -3753,13 +3751,6 @@
     "[hidden]",
     '[aria-hidden="true"]',
     '[contenteditable="true"]',
-    // The reader's own furigana mirror must never be re-ingested by a rescan.
-    // BASE_SKIP_SELECTOR_ENTRIES already skips it, but the passive-interaction
-    // path (used for every site profile root, incl. YouTube) did not — so a
-    // rescan of a mirror host re-collected the mirror's bare gap text nodes
-    // (punctuation/ASCII like （Googleによる翻訳）) ALONGSIDE the still-hidden
-    // original host text, doubling target.text and self-perpetuating into a
-    // rebuild loop (the duplicated, flashing caption strip).
     ".jpdb-reader-text-mirror",
     ".jpdb-reader-control-text-mirror",
     ".jpdb-reader-word",
@@ -6080,10 +6071,6 @@
     "[data-yomu-youtube-aria-hidden]",
     ".jpdb-youtube-filter-collapsed",
     ".jpdb-youtube-pending",
-    // YouTube's Polymer/view-model hosts own their measured height. Reserving
-    // ruby room on them writes inline height/max-height that YouTube treats as
-    // authoritative, causing watch descriptions to balloon and compact metadata
-    // rows/action chips to stack or flicker.
     "ytd-text-inline-expander",
     "yt-attributed-string",
     "yt-formatted-string",
@@ -10787,8 +10774,6 @@ recommendedJiten	Jiten頻度です。
       }
       return await this.playMissingAudioFallback(settings, requestId, isCurrent);
     }
-    // Runtime audio adapter: ReaderAudioActions calls this through dependency injection.
-    // fallow-ignore-next-line unused-class-member
     async playMediaUrl(audioUrl) {
       const settings = this.getSettings();
       this.ensureAudioEnabled(settings);
@@ -13920,8 +13905,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       };
       return handlers[action];
     }
-    // Flip the popover between Jiten and JPDB grading and re-render so the deck
-    // and grade buttons act on the chosen service.
     async toggleGradingProvider(card, sentence) {
       const settings = this.options.getSettings();
       const current = this.apiProviderForCard(card, settings);
@@ -14083,9 +14066,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.options.toast(uiText(settings.interfaceLanguage, toastKey));
       this.notifyApiCardStateChanged(card);
     }
-    // Anki has no blacklist/never-forget decks; map blacklist to native card
-    // suspension (same effect: never reviewed, dedicated state color) and
-    // never-forget to a tag that can also be filtered inside Anki.
     async changeAnkiDeckState(card, state2, settings) {
       const lookup = await this.options.anki.findExistingCards(card).catch(() => null);
       if (!lookup?.notes.length) return false;
@@ -14148,8 +14128,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       else if (settings.autoMineOnReview) await this.autoMineReviewedCard(provider, card, sentence, states, settings);
       this.notifyApiCardStateChanged(card);
     }
-    // Jiten Reader parity: optionally add every reviewed word to the mining
-    // deck so reviewing doubles as collecting (off by default).
     async autoMineReviewedCard(provider, card, sentence, states, settings) {
       if (!states.includes("not-in-deck")) return;
       try {
@@ -14232,9 +14210,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       this.options.invalidateCardData?.();
       this.options.onAnkiStatusChanged?.(card);
     }
-    // After an API-side state change (review, mining, blacklist/never-forget),
-    // rendered page words for the same card recolor immediately instead of
-    // waiting for a rescan.
     notifyApiCardStateChanged(card) {
       this.options.invalidateCardData?.();
       this.options.onApiCardStateChanged?.(card);
@@ -16671,7 +16646,6 @@ ${scopedInner}
     "filename too long",
     "stream finishing",
     "invalid zip data"
-    // determined by unknown compression method
   ];
   var err = function(ind, msg, nt) {
     var e = new Error(msg || ec[ind]);
@@ -17489,8 +17463,6 @@ ${entry.reading}`;
         }
       );
     }
-    // NewTabController loads dictionary kanji through the injected store dependency.
-    // fallow-ignore-next-line unused-class-member
     async listKanjiCharacters(limit, preferences = []) {
       const done = log$g.time("Kanji character list", { limit, dictionaries: preferences.length });
       try {
@@ -17649,8 +17621,6 @@ ${entry.reading}`;
       const summary = await this.summary();
       return summary.terms + summary.kanji + summary.termMeta + summary.kanjiMeta;
     }
-    // NewTabController checks local dictionary availability through this injected store.
-    // fallow-ignore-next-line unused-class-member
     async hasDictionaries() {
       const done = log$g.time("Dictionary presence check");
       try {
@@ -17663,8 +17633,6 @@ ${entry.reading}`;
         done();
       }
     }
-    // Lookup parsing checks term dictionary availability through this injected store.
-    // fallow-ignore-next-line unused-class-member
     async hasTermDictionaries() {
       const done = log$g.time("Term dictionary presence check");
       try {
@@ -18025,8 +17993,6 @@ ${entry.reading}`;
       log$g.info("Dexie dictionary import parsed", summary);
       return summary;
     }
-    // SettingsDialogController exports dictionaries through the injected store dependency.
-    // fallow-ignore-next-line unused-class-member
     async exportJson() {
       const done = log$g.time("Dictionary export");
       try {
@@ -20231,7 +20197,6 @@ ${entry.reading || ""}`;
       return renderReviewButtons(this.settings(), null, {
         targetLabel: provider?.label ?? uiText(language, "gradeJpdbCardTarget"),
         title: reviewButtonTitle(data, cardStates, selectedDeckLabel, language),
-        // Jiten/Anki parity: due-in previews on the popover grade row.
         intervals: card.reviewGradeIntervals
       });
     }
@@ -20749,8 +20714,6 @@ ${entry.reading || ""}`;
         return [];
       }), []);
     }
-    // Field-target plan for the new-card preview: shows which fields a mining
-    // write will actually target when the configured model is non-Yomu.
     loadAnkiFieldTargetPlan(card) {
       const settings = this.settings();
       if (!settings.ankiEnabled || !settings.ankiSectionEnabled) return Promise.resolve(null);
@@ -20792,10 +20755,6 @@ ${entry.reading || ""}`;
         return { localEntries: localEntriesValue, kanjiEntries, metaEntries, ankiLookup: ankiLookup2, jpdbDecks, jitenDecks, ankiDecks: ankiDecks2, jpdbVocabularyInfo: jpdbVocabularyInfo2, jitenVocabularyInfo: jitenVocabularyInfo2, componentPitches: componentPitchesValue, ankiFieldTargetPlan: ankiFieldTargetPlanValue };
       });
     }
-    // Expressions have no whole-word accent: when every pitch source for the
-    // card itself stays empty, segment the spelling against the local
-    // dictionaries (greedy longest match, particles skipped) and collect each
-    // component's own pitch for the per-component popover graphs.
     async loadExpressionComponentPitches(card, localMetaEntries) {
       const settings = this.settings();
       if (!settings.showPitchAccent || !settings.localDictionariesEnabled) return [];
@@ -22101,9 +22060,6 @@ ${glossaryKey}`;
       grouped,
       dictionarySourceIds,
       extraSections,
-      // A dictionary's own panel is redundant on its own site (the native
-      // jpdb.io / jiten.moe page already shows it), so suppress it there by
-      // default. Callers can still force it on with an explicit option.
       includeJpdbSource: options.includeJpdbSource ?? !isJpdbHost(),
       includeJitenSource: options.includeJitenSource ?? !isJitenHost(),
       includeStudySources: options.includeStudySources ?? true,
@@ -22482,8 +22438,6 @@ ${glossaryKey}`;
     minimumSentenceLength(settings) {
       return Math.max(settings.immersionKitMinLength, MIN_LEARNING_SENTENCE_LENGTH);
     }
-    // Compatibility helper for callers that still expect the first media candidate.
-    // fallow-ignore-next-line unused-class-member
     mediaUrl(example, kind) {
       return this.mediaUrls(example, kind)[0] ?? "";
     }
@@ -23935,9 +23889,6 @@ ${spelling}`);
       const extraFallbackTokens = fallbackTokens.filter((fallback) => replacementTokens.includes(fallback) || repairedFallbackTokens.includes(fallback) || !keptTokens.some((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
       return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
     }
-    // All-kanji compounds get their reading split per kanji when the user's
-    // kanji dictionaries allow an exact, unambiguous alignment (琉球藍 →
-    // 琉=りゅう 球=きゅう 藍=あい); otherwise the whole-word ruby stays.
     async localRubySegments(surface, reading, start, end) {
       const whole = [{ text: reading, start, end, length: end - start }];
       const characters = [...new Set(Array.from(surface))];
@@ -25188,7 +25139,6 @@ ${spelling}`);
     state = "closed";
     listeners;
     closeTimer;
-    // fallow-ignore-next-line unused-class-member
     isOpen() {
       return this.state === "open";
     }
@@ -25391,11 +25341,6 @@ ${spelling}`);
     button;
     abortController;
     radial;
-    // Live references, refreshed on every install. Reusing the existing puck
-    // element (instead of rebuilding it) lets an open radial menu survive the
-    // settings-save echo that fires whenever a menu toggle persists state —
-    // the menu just re-derives its item state in place, so toggling stays
-    // seamless rather than tearing the menu down mid-interaction.
     settings;
     actions;
     save = () => {
@@ -25457,7 +25402,6 @@ ${spelling}`);
       clampRestoredButtonPosition(button2, settings);
       this.installVideoAvoidance(button2);
     }
-    // Reflect current state on the persistent puck element without rebuilding it.
     syncButtonState() {
       const button2 = this.button;
       if (!button2) return;
@@ -25695,8 +25639,6 @@ ${spelling}`);
       const key = jitenStatsDateKey(now);
       const previous = stored[key];
       stored[key] = {
-        // Counters reset at Jiten's day boundary; keep the daily maximum
-        // so a late small batch never shrinks an earlier snapshot.
         newCardsToday: Math.max(previous?.newCardsToday ?? 0, newCardsToday ?? 0),
         reviewsToday: Math.max(previous?.reviewsToday ?? 0, reviewsToday ?? 0),
         updatedAt: now.getTime()
@@ -25862,9 +25804,6 @@ ${spelling}`);
       const response = await this.request("srs/reader-study-decks", void 0);
       return normalizeReaderStudyDecks(response);
     }
-    // UT-44: the user's Jiten STUDY decks (srs/study-decks; distinct from
-    // reader-study-decks). Rows carry userStudyDeckId + name.
-    // fallow-ignore-next-line unused-class-member
     async listStudyDecks() {
       const response = await this.requestEndpoint("srs/study-decks", void 0, { method: "GET" });
       if (!Array.isArray(response)) return [];
@@ -25875,9 +25814,6 @@ ${spelling}`);
         return Number.isFinite(id) && id > 0 && name ? { id, name } : null;
       }).filter((deck) => deck !== null);
     }
-    // UT-44: srs/study-batch has no deck parameter, so deck scoping
-    // intersects the batch with the deck's word keys.
-    // fallow-ignore-next-line unused-class-member
     async studyDeckWordKeys(deckId) {
       const response = await this.requestEndpoint(`srs/study-decks/${Math.floor(deckId)}/word-keys`, void 0, { method: "GET" });
       const keys = /* @__PURE__ */ new Set();
@@ -25905,13 +25841,9 @@ ${spelling}`);
         rating: jitenRatingForGrade(grade)
       });
     }
-    // Community ask (jpdb issue-tracker #417 class): reverse the most recent
-    // review of a word. Called by NewTabController through its Jiten dependency.
-    // fallow-ignore-next-line unused-class-member
     async undoReview(card) {
       await this.request("srs/undo-review", jitenCardReference(card));
     }
-    // Jiten v1.2.x parity: mass-review visible words in one transaction.
     async batchReviewCards(cards, grade) {
       const reviews = cards.flatMap((card) => {
         try {
@@ -25924,20 +25856,12 @@ ${spelling}`);
       await this.request("srs/batch-review", { reviews });
       return reviews.length;
     }
-    // Parity with JPDB's refreshCard: Jiten exposes card state only through
-    // /parse (knownState), so refresh by re-parsing the word itself and
-    // copying the fresh state back onto the card.
     async refreshCardState(card) {
       const reference = jitenCardReference(card);
       const [tokens] = await this.parse([card.spelling]);
       const fresh = (tokens ?? []).find((token) => token.card.vid === reference.wordId && token.card.sid === reference.readingIndex)?.card ?? (tokens ?? [])[0]?.card;
       if (fresh && fresh.cardState.length) card.cardState = fresh.cardState;
     }
-    // Batch parity for refreshCardState: refresh the known/SRS state of many
-    // cards in ONE reader/lookup-vocabulary request instead of re-parsing each
-    // word. After a mass review, grading 60 visible words costs one request, not
-    // 60 parses. Mutates each card's cardState in place; returns how many words
-    // were looked up.
     async refreshCardStates(cards) {
       const entries = cards.map((card) => {
         try {
@@ -28966,8 +28890,6 @@ ${key}`] = { t: now, v: value };
     paragraphParseInFlight = /* @__PURE__ */ new Map();
     parseBatchGate = new ConcurrencyGate(PARSE_BATCH_CONCURRENCY);
     userDeckPoolCache;
-    // Used by ReaderParser as the live JPDB parse backend.
-    // fallow-ignore-next-line unused-class-member
     async parse(paragraphs) {
       const text2 = normalizeParagraphs(paragraphs);
       if (!text2.length) return [];
@@ -28989,13 +28911,11 @@ ${key}`] = { t: now, v: value };
       });
       return promise;
     }
-    // Used by review controllers to submit JPDB grades.
     async reviewCard(card, grade) {
       log$7.info("Reviewing card", { term: card.spelling, grade });
       await this.api.request("review", { vid: card.vid, sid: card.sid, grade });
       await this.refreshCard(card);
     }
-    // Used by mining controls to add JPDB-backed cards to selected decks.
     async addToDeck(deckId, card, sentence) {
       log$7.info("Adding card to deck", { term: card.spelling, deckId, hasSentence: Boolean(sentence) });
       await this.addVocabularyToDeck(deckId, card);
@@ -29008,8 +28928,6 @@ ${key}`] = { t: now, v: value };
       const decks = Array.isArray(response.decks) ? response.decks.map(normalizeDeck).filter((deck) => deck !== null) : [];
       return decks;
     }
-    // Used by the settings dialog as the live JPDB connection probe.
-    // fallow-ignore-next-line unused-class-member
     async ping() {
       try {
         await this.api.request("ping", {});
@@ -29018,8 +28936,6 @@ ${key}`] = { t: now, v: value };
         return false;
       }
     }
-    // Used by new-tab study and stats loaders to sample deck cards.
-    // fallow-ignore-next-line unused-class-member
     async listDeckCards(deckId, limit = 80, options = {}) {
       const id = normalizeDeckRequestId(deckId);
       const maxCards = Math.max(1, Math.floor(limit));
@@ -29032,14 +28948,11 @@ ${key}`] = { t: now, v: value };
         done();
       }
     }
-    // Used by card render data to hydrate deck-membership status.
-    // fallow-ignore-next-line unused-class-member
     async isInUserDeckPool(card) {
       if (!isDeckMembershipCard(card)) return false;
       const pool = await this.cachedUserDeckPool();
       return pool.has(vocabularyPairKey(card.vid, card.sid));
     }
-    // Used by mining controls to toggle JPDB deck membership.
     async removeFromDeck(deckId, card) {
       log$7.info("Removing card from deck", { term: card.spelling, deckId });
       await this.api.request("deck/remove-vocabulary", {
@@ -29049,8 +28962,6 @@ ${key}`] = { t: now, v: value };
       this.clearUserDeckPoolCache();
       await this.refreshCard(card);
     }
-    // Used by ReaderParser to reuse cached JPDB cards from parsed vocabulary.
-    // fallow-ignore-next-line unused-class-member
     getCard(vid, sid) {
       return this.cardCache.get(vocabularyPairKey(vid, sid));
     }
@@ -29085,10 +28996,6 @@ ${key}`] = { t: now, v: value };
         log$7.warn("Failed to set JPDB sentence", { term: card.spelling }, error);
       });
     }
-    // Used by the new-tab live-bridge grade path through the client
-    // dependency: after grading on jpdb.io, read the card's true post-state
-    // back so other tabs can recolor from honest data.
-    // fallow-ignore-next-line unused-class-member
     async refreshCardState(card) {
       if (!(card.vid > 0)) return;
       await this.refreshCard(card);
@@ -29152,10 +29059,6 @@ ${key}`] = { t: now, v: value };
       });
       return pool;
     }
-    // All-decks listing: pairs from every user deck are unioned in parallel
-    // and resolved in bulk — the sequential per-deck scan used to blow the
-    // study page's load timeout on large accounts, which surfaced as
-    // "No reviews ready" despite due cards existing (user-reported).
     async listCardsFromListedDecks(limit, options) {
       const decks = await this.listDecks();
       const pairGroups = [];
@@ -30877,12 +30780,7 @@ ${normalizedReading}`;
     "[data-overflow-menu]"
   ];
   const YOMU_PDF_READER_ROOTS = [
-    // PDF.js paints each page to <canvas> for full fidelity and emits a
-    // transparent, absolutely-positioned text layer aligned over it. That text
-    // layer is the real selectable document text, so it is the reading surface
-    // the runtime scans for popups, mining and furigana.
     ".textLayer",
-    // App chrome so the Japanese UI gets the same lookup treatment.
     ".brand strong",
     "[data-yomu-pdf-empty] strong",
     "[data-yomu-pdf-empty] [data-status]",
@@ -31049,11 +30947,6 @@ ${normalizedReading}`;
       minLength: 1,
       includeUiChrome: true,
       includeFormChrome: true,
-      // PDF.js paints an accurate selectable text layer over each page, so the
-      // runtime reads that natively (popups/furigana/mining) and must NOT also
-      // run Google Lens image-OCR over the same canvas — re-OCRing double-paints
-      // a competing overlay over text that is already covered. Manual FAB OCR
-      // still works for genuinely scanned pages with no text layer.
       providesTextLayer: true,
       matches: (url) => isYomuHostedPdfReaderPage(url.href)
     },
@@ -31297,10 +31190,6 @@ ${normalizedReading}`;
       name: "YouTube text",
       description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
-        // High-value watch text comes first so huge virtualized grids or
-        // recommendation rails cannot starve the visible title,
-        // description, transcript panel, or watch sidebar inside one
-        // capped scan pass.
         "ytd-transcript-segment-renderer",
         "ytm-transcript-segment-renderer",
         "ytd-watch-metadata h1",
@@ -31353,8 +31242,6 @@ ${normalizedReading}`;
         "ytd-live-chat-frame yt-formatted-string",
         "ytd-watch-next-secondary-results-renderer",
         "ytd-compact-video-renderer",
-        // General feed/search grids are useful, but lower priority because
-        // YouTube can hydrate hundreds of them.
         "ytd-rich-grid-renderer",
         "ytd-rich-item-renderer",
         "ytd-video-renderer",
@@ -32104,10 +31991,6 @@ ${normalizedReading}`;
       publicLookupLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_LIMIT,
       publicLookupTotalLimit: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_TOTAL_LIMIT,
       publicLookupPageBudget: compactViewport ? YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET : YOUTUBE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET,
-      // 3 (not 2): dictionaryFirstFallbackLookupTerms places the surface form
-      // last, so a 2-term window can drop an inflected word's resolvable
-      // dictionary form. The loop stops at the first hit, so this only adds a
-      // lookup when the first candidates miss. Matches the subtitle path.
       publicLookupTermLimit: 3,
       substantivePublicLookupOnly: true,
       deferPublicLookup: false
@@ -36728,10 +36611,6 @@ ${criticalWordCss()}
     scanPending = false;
     scanPendingSilent = true;
     destroyed = false;
-    // P1 abortable scheduler: every scan request bumps the generation; an
-    // in-flight scan checks it between batches and stops early, so fast
-    // scrolls/navigations never keep parsing stale regions while the fresh
-    // request waits.
     scanGeneration = 0;
     asbScanInFlight = false;
     asbDrainTimer;
@@ -36765,11 +36644,6 @@ ${criticalWordCss()}
         done();
       }
     }
-    // UT-70: hosts that hydrate progressively (YouTube custom elements,
-    // notably on iPad Safari) apply line-clamp/ellipsis styles AFTER a scan
-    // annotated their text — the grown ruby line then gets cropped and the
-    // base text disappears. Sweep right after the scan and once more after
-    // hydration settles; rescans re-arm it, so late clamps are always caught.
     scheduleClampedRubySweep() {
       if (this.destroyed || typeof document === "undefined") return;
       const sweep = () => {
@@ -36781,11 +36655,6 @@ ${criticalWordCss()}
       window.clearTimeout(this.clampSweepTimer);
       this.clampSweepTimer = window.setTimeout(sweep, VISIBLE_SCAN_CLAMP_SWEEP_DELAY_MS);
     }
-    // asbplayer pre-renders the WHOLE track's cue HTML into its offscreen
-    // cache container and moves the same DOM node onscreen when the cue is
-    // current — so draining the offscreen cache in paced batches colorizes
-    // every cue BEFORE it is shown, instead of visibly recoloring the line
-    // ~120ms after it appears.
     async scanAsbPlayerSubtitles() {
       if (this.destroyed || this.asbScanInFlight) return;
       this.asbScanInFlight = true;
@@ -37547,8 +37416,6 @@ ${criticalWordCss()}
     suppressedHoverWord;
     suppressedHoverLookupKey = "";
     activePopoverMode;
-    // The video we paused when a subtitle word was clicked, so closing the
-    // lookup popover resumes exactly that video (and only if it is still paused).
     subtitleMiningPausedVideo;
     activePopoverAnchor;
     activePopoverAnchorRect;
@@ -37651,11 +37518,6 @@ ${criticalWordCss()}
         parseJapanese: async (text2, options) => (await this.parseJapanese([text2], options))[0] ?? [],
         parseJapaneseBatch: (texts, options) => this.parseJapanese(texts, options),
         onToast: (message) => this.toast(message),
-        // Skip image OCR auto-scan when the site already exposes an accurate
-        // native text layer (e.g. mokuro's `.textBox` overlays). Re-OCRing the
-        // same artwork with Google Lens misses characters the native layer has
-        // (Canna: 事 dropped) and double-paints a competing overlay. Manual FAB
-        // scan still works for panels the native layer missed.
         shouldAutoScan: () => !siteProvidesNativeTextLayer() && (this.pageHasJapaneseText || documentLooksLikeImageReadingPage()),
         enrichTokensBeforeRender: (tokens) => this.enrichOcrTokensBeforeRender(tokens),
         enrichRenderedTokens: (tokens, root) => this.enrichOcrRenderedTokens(tokens, root),
@@ -37723,9 +37585,6 @@ ${criticalWordCss()}
         this.scheduleAnkiStatusWarmup();
       }
     }
-    // Cross-tab card-state mutation bus: grading or mining a card in another
-    // tab (e.g. the new tab) recolors this page's rendered occurrences of the
-    // same card immediately, without a rescan.
     installCardStateSignalSubscription() {
       this.unsubscribeCardStateSignals?.();
       this.unsubscribeCardStateSignals = subscribeToCardStateSignals((card) => {
@@ -38302,9 +38161,6 @@ ${criticalWordCss()}
       log.info("Annotations paused toggled", { paused });
       this.toast(uiText(this.settings.interfaceLanguage, paused ? "annotationsPausedToast" : "annotationsResumedToast"));
     }
-    // Paused: drop any in-flight hover lookup and strip existing annotations so
-    // the page reads natively. Resumed: re-scan (unless the user opted into
-    // manual scanning, in which case the scan shortcut drives it).
     applyAnnotationsPausedState() {
       if (this.settings.annotationsPaused) {
         this.cancelPendingHoverLookup();
@@ -38678,9 +38534,6 @@ ${criticalWordCss()}
       event.stopPropagation();
       return true;
     }
-    // Clicking a subtitle word enters the pinned lookup state; pause the video so
-    // the user can read the entry, and remember which video we paused so closing
-    // the popover resumes it. Only tracks a video that was actually playing.
     pauseVideoForSubtitleMining() {
       if (!this.settings.subtitleMiningPause) return;
       const paused = pauseActiveVideo();
@@ -38777,9 +38630,6 @@ ${criticalWordCss()}
       log.info("Shortcut toggled subtitle overlay", { visible: this.settings.subtitleOverlayVisible });
       this.toast(uiText(this.settings.interfaceLanguage, this.settings.subtitleOverlayVisible ? "subtitleOverlayEnabled" : "subtitleOverlayHidden"));
     }
-    // Jiten v1.2.x parity: "review everything on screen" — grade every
-    // visible due/learning Jiten word as Good in one srs/batch-review
-    // transaction, then refresh their rendered states from a single parse.
     async massReviewVisibleJitenWords() {
       if (!hasJitenApiCredential(this.settings)) {
         this.toast(uiText(this.settings.interfaceLanguage, "massReviewNoKey"));
@@ -39210,11 +39060,6 @@ ${criticalWordCss()}
     canHoverLookupReaderWord(word) {
       return canHoverLookupReaderWordElement(word, this.hasHoverLookupShortcut());
     }
-    // pointermove fires far faster than the display refreshes; the hover path
-    // does forced-layout reads (caretPositionFromPoint) + querySelectorAll +
-    // getClientRects, so running it per raw event janks the main thread and
-    // delays the lookup popover (notably over OCR overlays). Coalesce to one
-    // hover probe per animation frame using the latest pointer position.
     queueHoverPointerMove(event) {
       this.pendingHoverPointerMove = event;
       if (this.hoverPointerMoveFrame !== void 0) return;
@@ -39423,13 +39268,6 @@ ${criticalWordCss()}
       }
       this.scheduleHoverClose(void 0, { ignoreCssHover: true });
     }
-    // Native interactive controls (e.g. YouTube action buttons) insert transient
-    // hover overlays — ripple, touch-feedback, animated icons — over their label
-    // on hover. The pointer moving onto such an overlay within the SAME control
-    // as the hovered word fires pointerout with relatedTarget inside that
-    // control; it is not a real exit. Closing here would thrash the hover
-    // popover open/closed as the overlay churns pointerout/pointerover. Treat
-    // staying anywhere within the word's host control as still hovering.
     isWithinHoverWordHostControl(word, related) {
       if (!related) return false;
       const control = word.closest('button,[role="button"],a[href],[aria-controls],[aria-expanded]');
@@ -39508,8 +39346,6 @@ ${criticalWordCss()}
       if (this.activePopoverMode !== "hover" || !this.activePopover || this.activePopover.classList.contains("jpdb-reader-sheet")) return;
       this.scheduleRepositionActivePopoverFrame();
     }
-    // Coalesce reposition requests (ResizeObserver bursts during hydration,
-    // scroll) to at most one forced-layout reposition per animation frame.
     scheduleRepositionActivePopoverFrame() {
       if (this.popoverRepositionFrame !== void 0) return;
       this.popoverRepositionFrame = window.requestAnimationFrame(() => {
@@ -39944,11 +39780,6 @@ ${criticalWordCss()}
       });
       return result;
     }
-    // Resolve fallback terms through Jiten with ZERO per-word requests: ALL
-    // terms go through one batched reader/parse (each term as its own line),
-    // which returns full vocabulary in a single request and is metered by
-    // Jiten's per-user parse budget. Only called for keyed users; keyless never
-    // bulk-hits Jiten this way (that path was the per-word /info request storm).
     async batchJitenFallbackCards(terms) {
       const cards = /* @__PURE__ */ new Map();
       const uniqueTerms = [...new Set(terms.map((term) => term.trim()).filter(Boolean))];
@@ -40431,9 +40262,6 @@ ${criticalWordCss()}
         return false;
       }
     }
-    // P0 kana-run identity: re-stamp the rendered fragment run with the
-    // resolved word's identity so grades/mining/cross-tab signals recolor the
-    // WHOLE word, not just the tapped fragment.
     restampKanaRunRenderedWords(word, token, sentence) {
       const surface = sentence.slice(token.start, token.end);
       const run = kanaRunRenderedWordsForSurface(word, surface);
@@ -41679,8 +41507,6 @@ ${criticalWordCss()}
       if (!plan || nestedParseAlreadyScheduled(root, plan.parseKey)) return;
       await this.parseNestedJapaneseContent(root, plan, () => this.isJpdbPageAddonRoot(root));
     }
-    // Welcome panel: furigana + pitch on its Japanese, through the same chrome
-    // parse path as the settings dialog (local/segmented, no remote parse spend).
     async parseOnboardingJapanese(panel) {
       if (!panel.isConnected) return;
       clearNestedParseState(panel);
@@ -41842,10 +41668,6 @@ ${criticalWordCss()}
       const targetRoots = roots.length ? roots : this.subtitleAnkiEnrichmentRoots();
       void this.enrichAnkiWords(tokens, targetRoots.length ? targetRoots : [document]);
     }
-    // Pitch/vocabulary enrichment lands after cue html is cached; pushing the
-    // enriched sentences back through the subtitle controller re-bakes those
-    // caches so stepping back to a previous line keeps its pitch colors
-    // (UT-66) instead of re-rendering the pre-enrichment html.
     queueSubtitleParsedHtmlRefresh(sentence) {
       const text2 = sentence?.trim();
       if (!text2 || this.isDestroyed) return;
@@ -41977,9 +41799,6 @@ ${criticalWordCss()}
       if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return;
       void this.enrichAnkiWords(tokens, roots);
     }
-    // Starts the cached status lookup before the scan touches the DOM so the
-    // IndexedDB roundtrip overlaps the token apply; colors then land in the
-    // same breath as the ruby instead of popping in afterwards.
     beginAnkiWordEnrichment(tokens) {
       if (!tokens.length || !this.shouldRunAnkiBackgroundWork()) return () => void 0;
       const uniqueTokens = uniqueTokensByCard(tokens);
@@ -42316,15 +42135,6 @@ ${criticalWordCss()}
         if (this.pitchEnrichmentQueue.length) await this.waitForIdle();
       }
     }
-    // Local pitch is IndexedDB-backed (no network, no rate limit), so EVERY
-    // visible word should get it — not just the first PITCH_ENRICHMENT_LIMIT.
-    // (The old slice(0, PITCH_ENRICHMENT_LIMIT) cap was a vestige of the
-    // network-queue batch size; on this branch resolvePitchFallbackCard and
-    // ensureCardPitchAccent both short-circuit, so it issues no HTTP and the
-    // cap only starved coverage — words past 12 were dropped with no re-queue.)
-    // Drain the whole batch at the wide local concurrency in idle-paced chunks
-    // so a dense page colours fully within a few idle ticks while staying
-    // responsive, instead of trickling in one word at a time as rescans fire.
     async enrichLocalOnlyPitchTokens(tokens, options) {
       for (let index = 0; index < tokens.length; index += PITCH_ENRICHMENT_LIMIT) {
         if (this.isDestroyed || !this.settings.showPitchAccent) return;

@@ -16,7 +16,7 @@
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.37#sha256-5B3YvyPXJ3362KZo3OoZ5Zb09lyQ2cb8r5AtNRELE3k=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.37#sha256-nFh5iMIF51bZBXFqlloKD2kB7KpG02kLJ6vhwhyda3o=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.37#sha256-eU1VYMEYXdP52vf9noZrZOgOOO+F6xPoLCXGlfFPjIU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.37#sha256-6IUNbL3O/uj8wkAFhfnLh/yWCidzDmGl3x1AAJlSLZQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.37#sha256-qY+x5ADPv5JTpZmP88JuSiTql6ye7Ri/D57AkfjS3nU=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -51,6 +51,7 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
+
 /* Bundled dependency source information: fflate*/
 
 (function () {
