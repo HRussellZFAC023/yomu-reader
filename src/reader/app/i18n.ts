@@ -197,7 +197,7 @@ const COPY = {
         lookupOnHover: 'Look up on hover',
         lookupOnMiddleMouse: 'Look up with middle-mouse hold',
         showFloatingButton: 'Show settings puck',
-        manualScanEnabled: 'Manual scan only (tap the puck to scan)',
+        manualScanEnabled: 'Manual scan only (use the scan shortcut)',
         puckMenuLabel: `${APP_NAME} menu`,
         puckStudyPage: 'Study page',
         puckPauseAnnotations: 'Pause annotations',
@@ -1769,7 +1769,7 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-manualScanEnabled	手動スキャンのみ（パックをタップしてスキャン）
+manualScanEnabled	手動スキャンのみ（スキャンのショートカットを使用）
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止

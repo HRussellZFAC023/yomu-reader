@@ -1063,12 +1063,7 @@
     urlTemplate: "https://www.weblio.jp/content/{query}",
     enabled: false
   };
-  const GOO_LOOKUP_LINK = {
-    id: "goo",
-    label: "goo",
-    urlTemplate: "https://dictionary.goo.ne.jp/srch/all/{query}/m0u/",
-    enabled: false
-  };
+  const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
   const KOTOBANK_LOOKUP_LINK = {
     id: "kotobank",
     label: "Kotobank",
@@ -1112,7 +1107,6 @@
     YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
-    GOO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
     TAKOBOTO_LOOKUP_LINK,
     WIKTIONARY_LOOKUP_LINK,
@@ -1131,7 +1125,7 @@
     JPDB_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -1144,7 +1138,7 @@
     YOMU_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -1158,7 +1152,7 @@
     YOMU_LOOKUP_LINK.id,
     JITEN_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -3237,7 +3231,7 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      manualScanEnabled: "Manual scan only (tap the puck to scan)",
+      manualScanEnabled: "Manual scan only (use the scan shortcut)",
       puckMenuLabel: `${APP_NAME} menu`,
       puckStudyPage: "Study page",
       puckPauseAnnotations: "Pause annotations",
@@ -4784,7 +4778,7 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-manualScanEnabled	手動スキャンのみ（パックをタップしてスキャン）
+manualScanEnabled	手動スキャンのみ（スキャンのショートカットを使用）
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
@@ -6722,6 +6716,9 @@ ${candidate.depth}`;
   const LENS_AUTO_FILTER = 7;
   const log$2 = Logger.scope("OCR");
   const STALE_OCR_STATE = Symbol("stale-ocr-state");
+  const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
+  const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
+  const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
   let ocrLayerCounter = 0;
   const OCR_RECOGNIZERS = {
     "google-lens": recognizeViaGoogleLens,
@@ -7897,9 +7894,10 @@ ${candidate.depth}`;
       if (!textElement) return;
       const hasFurigana = element.dataset.hasFuri === "true";
       const fontSize = Number.parseFloat(element.style.fontSize) || 16;
+      const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
       const padX = Math.max(4, Math.round(fontSize * 0.16));
       const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
-      const padBottom = Math.max(3, Math.round(fontSize * 0.1));
+      const padBottom = vertical ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(3, underlineBleed);
       element.style.setProperty("--jpdb-ocr-pad-x", `${padX}px`);
       element.style.setProperty("--jpdb-ocr-pad-top", `${padTop}px`);
       element.style.setProperty("--jpdb-ocr-pad-bottom", `${padBottom}px`);
@@ -7908,7 +7906,8 @@ ${candidate.depth}`;
       const contentHeight = Math.max(1, contentRect.height);
       const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
       const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
-      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2));
+      const underlineGutter = vertical ? underlineBleed : 0;
+      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2 + underlineGutter * 2));
       const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
@@ -8336,6 +8335,9 @@ ${spelling}`);
     const byBoxLength = vertical ? boxHeight / length * 1.12 : boxWidth / length * 1.08;
     const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
     return Math.max(11, Math.min(38, fitted));
+  }
+  function ocrWordUnderlineBleedPx(fontSize) {
+    return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM)) + OCR_WORD_UNDERLINE_CLEARANCE_PX;
   }
   function visualTextLength(text) {
     return [...text.trim()].reduce((total, char) => {

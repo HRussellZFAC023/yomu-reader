@@ -572,16 +572,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         matches: url => url.hostname === 'weblio.jp' || url.hostname.endsWith('.weblio.jp'),
     },
     {
-        id: 'goo-dictionary-parser',
-        name: 'goo dictionary',
-        description: 'goo dictionary result text.',
-        roots: ['#NR-main-in', '#main', '.content-box', '.contents', 'main', 'article'],
-        exclude: DICTIONARY_SITE_EXCLUDE,
-        allowUiText: true,
-        minLength: 1,
-        matches: url => url.hostname === 'dictionary.goo.ne.jp',
-    },
-    {
         id: 'kotobank-parser',
         name: 'Kotobank',
         description: 'Kotobank dictionary and encyclopedia result text.',

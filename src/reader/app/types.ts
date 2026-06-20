@@ -309,8 +309,8 @@ export interface ReaderSettings {
     popupActivationMode: PopupActivationMode;
     scanModifierKey: ScanModifierKey;
     showFloatingButton: boolean;
-    // When true, the page is only scanned on demand (puck radial "Scan page" or
-    // the scan shortcut) instead of automatically as content streams in.
+    // When true, the page is only scanned by shortcut instead of automatically
+    // as content streams in.
     manualScanEnabled: boolean;
     newTabEnabled: boolean;
     newTabAnkiEnabled: boolean;

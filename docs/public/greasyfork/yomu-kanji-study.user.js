@@ -2181,12 +2181,7 @@
     urlTemplate: "https://www.weblio.jp/content/{query}",
     enabled: false
   };
-  const GOO_LOOKUP_LINK = {
-    id: "goo",
-    label: "goo",
-    urlTemplate: "https://dictionary.goo.ne.jp/srch/all/{query}/m0u/",
-    enabled: false
-  };
+  const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
   const KOTOBANK_LOOKUP_LINK = {
     id: "kotobank",
     label: "Kotobank",
@@ -2230,7 +2225,6 @@
     YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
-    GOO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
     TAKOBOTO_LOOKUP_LINK,
     WIKTIONARY_LOOKUP_LINK,
@@ -2249,7 +2243,7 @@
     JPDB_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -2262,7 +2256,7 @@
     YOMU_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -2276,7 +2270,7 @@
     YOMU_LOOKUP_LINK.id,
     JITEN_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -2507,7 +2501,7 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      manualScanEnabled: "Manual scan only (tap the puck to scan)",
+      manualScanEnabled: "Manual scan only (use the scan shortcut)",
       puckMenuLabel: `${APP_NAME} menu`,
       puckStudyPage: "Study page",
       puckPauseAnnotations: "Pause annotations",
@@ -4054,7 +4048,7 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-manualScanEnabled	手動スキャンのみ（パックをタップしてスキャン）
+manualScanEnabled	手動スキャンのみ（スキャンのショートカットを使用）
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止

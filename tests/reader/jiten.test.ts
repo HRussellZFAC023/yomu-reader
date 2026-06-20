@@ -728,6 +728,29 @@ describe('JitenApiClient', () => {
         expect(reference?.innerHTML).toContain('<ruby>');
     });
 
+    it('drops JMdict orthography-form notes (e.g. "uk") from Jiten meanings', () => {
+        const card = jitenCard({ spelling: '全て', reading: 'すべて', jitenWordId: 7, jitenReadingIndex: 0 });
+        const info = jitenVocabularyInfo({
+            wordId: 7,
+            mainReading: { text: '全て', readingIndex: 0, frequencyRank: 100, usedInMediaAmount: null },
+            definitions: [
+                jitenDefinition({
+                    meanings: ['everything', 'all', 'the whole'],
+                    misc: ['uk'],
+                }),
+            ],
+        });
+
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJitenDefinitionSource(card, () => '', info, 'en');
+
+        const meaningText = mount.textContent?.replace(/\s+/g, ' ') ?? '';
+        expect(meaningText).toContain('everything');
+        expect(meaningText).toContain('the whole');
+        expect(meaningText).not.toContain('uk');
+        expect(meaningText).not.toContain('; uk');
+    });
+
     it('renders Jiten example, composite, and used-in audio affordances', () => {
         const info = jitenVocabularyInfo({
             composedOf: [{

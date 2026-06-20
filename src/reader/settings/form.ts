@@ -20,7 +20,7 @@ import {
     renderJpdbStatusLine,
 } from './status-lines';
 import { uniqueStrings } from '../core/string-utils';
-import type { ImmersionExampleSource, InterfaceLanguage, ReaderColorSource, ReaderSettings } from '../app/types';
+import type { DictionaryPreference, ImmersionExampleSource, InterfaceLanguage, ReaderColorSource, ReaderSettings } from '../app/types';
 import type { RecommendedDictionary } from '../dictionaries/recommended';
 import { RECOMMENDED_JAPANESE_DICTIONARIES } from '../dictionaries/recommended';
 import { definitionSourceRows, frequencySourceRows, kanjiSourceRows } from '../sources/sections';
@@ -788,7 +788,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                     </div>
                 </div>
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
-                    ${renderRecommendedDictionaries([])}
+                    ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
@@ -2193,11 +2193,45 @@ function renderRecommendedDictionary(dictionary: RecommendedDictionary, installe
     `;
 }
 
-function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
-    const targetName = normalizedDictionaryName(dictionary.name);
-    return installed.some(item => (dictionary.downloadUrl && item.downloadUrl === dictionary.downloadUrl) || normalizedDictionaryName(item.title).includes(targetName));
+function installedDictionariesFromPreferences(preferences: DictionaryPreference[]): YomitanDictionaryInfo[] {
+    return preferences.map(preference => ({
+        title: preference.name,
+        alias: preference.alias,
+        enabled: preference.enabled,
+        priority: preference.priority,
+        type: preference.type,
+    }));
 }
 
-function normalizedDictionaryName(value: string): string {
-    return value.toLowerCase().replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, '');
+function isRecommendedDictionaryInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo[]): boolean {
+    return installed.some(item => recommendedDictionaryMatchesInstalled(dictionary, item));
+}
+
+function recommendedDictionaryMatchesInstalled(dictionary: RecommendedDictionary, installed: YomitanDictionaryInfo): boolean {
+    if (dictionary.downloadUrl && installed.downloadUrl === dictionary.downloadUrl) return true;
+    const tokenSets = recommendedDictionaryMatchTokenSets(dictionary);
+    return [installed.title, installed.alias]
+        .map(dictionaryTitleTokens)
+        .some(tokens => tokenSets.some(required => required.every(token => tokens.has(token))));
+}
+
+const RECOMMENDED_DICTIONARY_MATCH_TOKENS: Record<string, string[][]> = {
+    jitendex: [['jitendex']],
+    jmdict: [['jmdict']],
+    jmnedict: [['jmnedict']],
+    'wty-ja-ja': [['wty', 'ja']],
+    'pixiv-light': [['pixiv', 'light']],
+    kanjidic: [['kanjidic']],
+    'jpdb-kanji': [['jpdb', 'kanji']],
+    jiten: [['jiten']],
+    'jpdbv2-kana': [['jpdb', 'v2'], ['jpdbv2']],
+    bccwj: [['bccwj']],
+};
+
+function recommendedDictionaryMatchTokenSets(dictionary: RecommendedDictionary): string[][] {
+    return RECOMMENDED_DICTIONARY_MATCH_TOKENS[dictionary.id] ?? [Array.from(dictionaryTitleTokens(dictionary.name))];
+}
+
+function dictionaryTitleTokens(value: string): Set<string> {
+    return new Set(value.toLowerCase().match(/[a-z0-9]+|[ぁ-んァ-ン一-龯]+/g) ?? []);
 }

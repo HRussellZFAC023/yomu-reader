@@ -100,6 +100,9 @@ const LENS_SURFACE_CHROMIUM = 4;
 const LENS_AUTO_FILTER = 7;
 const log = Logger.scope('OCR');
 const STALE_OCR_STATE = Symbol('stale-ocr-state');
+const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
+const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
+const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
 let ocrLayerCounter = 0;
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
     'google-lens': recognizeViaGoogleLens,
@@ -1522,9 +1525,12 @@ export class ImageOcrController {
         if (!textElement) return;
         const hasFurigana = element.dataset.hasFuri === 'true';
         const fontSize = Number.parseFloat(element.style.fontSize) || 16;
+        const underlineBleed = ocrWordUnderlineBleedPx(fontSize);
         const padX = Math.max(4, Math.round(fontSize * 0.16));
         const padTop = hasFurigana ? Math.max(3, Math.round(fontSize * 0.1)) : Math.max(2, Math.round(fontSize * 0.08));
-        const padBottom = Math.max(3, Math.round(fontSize * 0.1));
+        const padBottom = vertical
+            ? Math.max(3, Math.round(fontSize * 0.1))
+            : Math.max(3, underlineBleed);
         element.style.setProperty('--jpdb-ocr-pad-x', `${padX}px`);
         element.style.setProperty('--jpdb-ocr-pad-top', `${padTop}px`);
         element.style.setProperty('--jpdb-ocr-pad-bottom', `${padBottom}px`);
@@ -1539,7 +1545,8 @@ export class ImageOcrController {
         // column (the first one read in vertical Japanese) projects its reading
         // past the image edge, where .jpdb-ocr-layer{overflow:hidden} clips it.
         const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
-        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2));
+        const underlineGutter = vertical ? underlineBleed : 0;
+        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2 + underlineGutter * 2));
         const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
         const minLeft = frame.imageLeft;
         const minTop = frame.imageTop;
@@ -2060,6 +2067,11 @@ function ocrFontPx(text: string, boxWidth: number, boxHeight: number, vertical: 
     const byBoxLength = vertical ? (boxHeight / length) * 1.12 : (boxWidth / length) * 1.08;
     const fitted = Math.min(byBoxThickness, byBoxLength) * safeScale;
     return Math.max(11, Math.min(38, fitted));
+}
+
+function ocrWordUnderlineBleedPx(fontSize: number): number {
+    return Math.ceil(fontSize * (OCR_WORD_UNDERLINE_OFFSET_EM + OCR_WORD_UNDERLINE_THICKNESS_EM))
+        + OCR_WORD_UNDERLINE_CLEARANCE_PX;
 }
 
 function visualTextLength(text: string): number {

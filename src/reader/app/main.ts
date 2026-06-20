@@ -1470,7 +1470,6 @@ export class ReaderApp {
             () => void saveSettings(this.settings),
             {
                 openSettings: () => this.showSettings(),
-                scanPage: () => this.scanPageNow(),
                 openStudyPage: () => this.openStudyPage(),
                 togglePause: () => void this.toggleAnnotationsPaused(),
                 isPaused: () => this.settings.annotationsPaused,
@@ -1498,7 +1497,7 @@ export class ReaderApp {
 
     // Paused: drop any in-flight hover lookup and strip existing annotations so
     // the page reads natively. Resumed: re-scan (unless the user opted into
-    // manual scanning, in which case the puck's Scan action drives it).
+    // manual scanning, in which case the scan shortcut drives it).
     private applyAnnotationsPausedState(): void {
         if (this.settings.annotationsPaused) {
             this.cancelPendingHoverLookup();

@@ -8147,19 +8147,19 @@ html.jpdb-reader-doodle-active * {
   stroke-linejoin: round;
 }
 .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate {
-  border-color: var(--jpdb-reader-accent);
-  background: var(--jpdb-reader-accent);
+  border-color: var(--jpdb-reader-accent) !important;
+  background: var(--jpdb-reader-accent) !important;
   color: var(--jpdb-reader-accent-text) !important;
   box-shadow: 0 6px 16px
-    color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent);
+    color-mix(in srgb, var(--jpdb-reader-accent) 22%, transparent) !important;
 }
 .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate:hover,
 .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate:focus-visible {
-  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 86%, var(--jpdb-reader-white));
-  background: color-mix(in srgb, var(--jpdb-reader-accent) 90%, var(--jpdb-reader-white));
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 86%, var(--jpdb-reader-white)) !important;
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 90%, var(--jpdb-reader-white)) !important;
   color: var(--jpdb-reader-accent-text) !important;
   box-shadow: 0 8px 20px
-    color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent);
+    color-mix(in srgb, var(--jpdb-reader-accent) 28%, transparent) !important;
 }
 .jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-reset {
   border-color: color-mix(in srgb, var(--jpdb-reader-danger-readable) 64%, var(--jpdb-reader-border));

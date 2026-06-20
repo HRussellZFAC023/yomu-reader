@@ -6,7 +6,6 @@ import {
     radialAudioMutedIcon,
     radialAudioOnIcon,
     radialPowerIcon,
-    radialScanIcon,
     radialSettingsIcon,
     radialYoutubeIcon,
     type RadialAction,
@@ -19,7 +18,6 @@ function hostHasBottomActionDock(): boolean {
 /** Context actions surfaced by the puck's radial menu. */
 export interface FloatingButtonActions {
     openSettings(): void;
-    scanPage(): void;
     openStudyPage(): void;
     togglePause(): void;
     isPaused(): boolean;
@@ -152,13 +150,6 @@ export class FloatingButtonController {
                 label: uiText(language, 'settings'),
                 icon: radialSettingsIcon(),
                 run: () => actions.openSettings(),
-            },
-            {
-                id: 'scan',
-                label: uiText(language, 'scanPage'),
-                icon: radialScanIcon(),
-                disabled: paused,
-                run: () => actions.scanPage(),
             },
             {
                 id: 'study',

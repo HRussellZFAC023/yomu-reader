@@ -112,8 +112,14 @@ function isJitenDefinitionCard(card: JPDBCard): boolean {
         || (Number.isFinite(card.jitenWordId) && Number.isFinite(card.jitenReadingIndex));
 }
 
+// JMdict orthography-form codes describe how a word is written, not what it
+// means (e.g. "uk" = usually written using kana alone). They're noise in a
+// meaning list — and redundant with the kana headword — so drop them.
+const JITEN_ORTHOGRAPHY_NOTES = new Set(['uk', 'rk', 'ok', 'ik', 'io', 'ateji', 'gikun']);
+
 function jitenDefinitionMeaningTexts(definition: JitenVocabularyDefinition): string[] {
-    const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText));
+    const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText))
+        .filter(note => !JITEN_ORTHOGRAPHY_NOTES.has(note.toLowerCase()));
     return definition.meanings
         .map(meaning => [normalizeJitenMeaningText(meaning), ...notes].filter(Boolean).join('; '))
         .filter(Boolean);

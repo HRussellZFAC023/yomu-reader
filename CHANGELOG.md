@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.33] - 2026-06-20
+
+### Fixed
+
+- Recommended dictionary buttons in Settings now say "Update" immediately when the matching dictionary is already installed, including saved/imported title variants such as Jitendex.org and JPDB frequency dictionaries.
+- Historical lookup-link settings now migrate cleanly after retiring the goo lookup link, preserving the intended Jiten, JPDB, then Yomu order.
+- The Help tab Donate button now keeps its accent fill, border, and readable text instead of inheriting the dark base button background.
+
 ## [1.4.32] - 2026-06-20
 
 ### Fixed

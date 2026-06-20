@@ -2612,7 +2612,6 @@ function mockFloatingButtonRects(left = 700, top = 500, width = 52, height = 52)
 function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {}): FloatingButtonActions {
     return {
         openSettings: vi.fn(),
-        scanPage: vi.fn(),
         openStudyPage: vi.fn(),
         togglePause: vi.fn(),
         isPaused: () => false,
@@ -9473,11 +9472,14 @@ describe('reader helpers', () => {
                     x: Number.parseFloat(item.style.getPropertyValue('--radial-x')),
                     y: Number.parseFloat(item.style.getPropertyValue('--radial-y')),
                 }));
+            const labels = Array.from(document.querySelectorAll<HTMLButtonElement>('.jpdb-reader-fab-radial-item'))
+                .map(item => item.getAttribute('aria-label'));
             const adjacentDistances = offsets.slice(1).map((offset, index) => (
                 Math.hypot(offset.x - offsets[index].x, offset.y - offsets[index].y)
             ));
 
-            expect(offsets).toHaveLength(6);
+            expect(offsets).toHaveLength(5);
+            expect(labels).not.toContain('Scan page');
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
         } finally {
             controller.destroy();
@@ -11020,7 +11022,6 @@ describe('reader helpers', () => {
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
-            ['goo', false],
             ['kotobank', false],
             ['takoboto', false],
             ['wiktionary-ja', false],
@@ -11034,7 +11035,6 @@ describe('reader helpers', () => {
             ['yomu-search', true],
             ['jisho', false],
             ['weblio', false],
-            ['goo', false],
             ['kotobank', false],
             ['takoboto', false],
             ['wiktionary-ja', false],
@@ -11048,7 +11048,6 @@ describe('reader helpers', () => {
             ['yomu-search', 'Yomu', 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}'],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
-            ['goo', 'goo', 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/'],
             ['kotobank', 'Kotobank', 'https://kotobank.jp/search?q={query}'],
             ['takoboto', 'Takoboto', 'https://takoboto.jp/?q={query}'],
             ['wiktionary-ja', 'Wiktionary', 'https://ja.wiktionary.org/wiki/{query}'],
@@ -11065,13 +11064,15 @@ describe('reader helpers', () => {
             { id: 'yomu-search' },
             { id: 'jisho' },
             { id: 'weblio' },
-            { id: 'goo' },
             { id: 'kotobank' },
             { id: 'wiktionary-ja' },
             { id: 'immersion-kit' },
             { id: 'uchisen' },
             { id: 'copy' },
         ]);
+        expect(normalizeDictionaryLookupLinks([
+            { id: 'goo', label: 'goo', urlTemplate: 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/', enabled: true },
+        ]).map(link => link.id)).not.toContain('goo');
     });
 
     it('enables the JPDB lookup pill for old saved default lookup links', async () => {
@@ -11095,7 +11096,6 @@ describe('reader helpers', () => {
                 ['yomu-search', true],
                 ['jisho', false],
                 ['weblio', false],
-                ['goo', false],
                 ['kotobank', false],
                 ['takoboto', false],
                 ['wiktionary-ja', false],
@@ -11126,7 +11126,9 @@ describe('reader helpers', () => {
             'immersion-kit',
             'uchisen',
             'copy',
-        ].map(id => ({ ...linksById.get(id)! }));
+        ].map(id => id === 'goo'
+            ? { id: 'goo', label: 'goo', urlTemplate: 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/', enabled: false }
+            : { ...linksById.get(id)! });
         previousDefaultOrder[3]!.enabled = true;
         localStorage.setItem(storageKey, JSON.stringify({
             ...DEFAULT_SETTINGS,
@@ -11138,6 +11140,7 @@ describe('reader helpers', () => {
 
             expect(settings.dictionaryLookupLinks.map(link => link.id).slice(0, 3)).toEqual(['jiten', 'jpdb', 'yomu-search']);
             expect(settings.dictionaryLookupLinks.find(link => link.id === 'jisho')?.enabled).toBe(true);
+            expect(settings.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
         } finally {
             if (previous === null) localStorage.removeItem(storageKey);
             else localStorage.setItem(storageKey, previous);
@@ -33163,7 +33166,6 @@ describe('reader helpers', () => {
             'jisho-parser',
             'jiten-parser',
             'weblio-parser',
-            'goo-dictionary-parser',
             'kotobank-parser',
             'takoboto-parser',
             'wiktionary-ja-parser',
@@ -33191,7 +33193,7 @@ describe('reader helpers', () => {
         expect(getMatchingSiteParsers('https://www.weblio.jp/content/%E8%AA%AD%E3%82%80').map(profile => profile.id))
             .toContain('weblio-parser');
         expect(getMatchingSiteParsers('https://dictionary.goo.ne.jp/srch/all/%E8%AA%AD%E3%82%80/m0u/').map(profile => profile.id))
-            .toContain('goo-dictionary-parser');
+            .not.toContain('goo-dictionary-parser');
         expect(getMatchingSiteParsers('https://kotobank.jp/word/%E8%AA%AD%E3%82%80').map(profile => profile.id))
             .toContain('kotobank-parser');
         expect(getMatchingSiteParsers('https://takoboto.jp/?q=%E8%AA%AD%E3%82%80').map(profile => profile.id))
@@ -34470,7 +34472,6 @@ describe('reader helpers', () => {
         const rectSpy = mockElementBoundingClientRect({ width: 900, height: 260 });
         const cases: Array<[string, string, string, string, string[]]> = [
             ['https://www.weblio.jp/content/%E8%AA%AD%E3%82%80', 'weblio-parser', '<div id="main"><div class="NetDicBody">今日は本を読む。</div><button class="audio">音声</button><button>次へ</button><a role="button" href="/content">戻る</a></div>', '今日は本を読む。', ['音声', '次へ', '戻る']],
-            ['https://dictionary.goo.ne.jp/srch/all/%E8%AA%AD%E3%82%80/m0u/', 'goo-dictionary-parser', '<main id="NR-main-in"><section class="content-box">本を読むこと。</section><button aria-label="音声">音声</button><button aria-controls="menu">開く</button></main>', '本を読むこと。', ['音声', '開く']],
             ['https://kotobank.jp/word/%E8%AA%AD%E3%82%80', 'kotobank-parser', '<main><article><p class="description">文章を読む。</p><button class="speaker">音声</button><div role="tab">漢字タブ</div></article></main>', '文章を読む。', ['音声', '漢字タブ']],
             ['https://takoboto.jp/?q=%E8%AA%AD%E3%82%80', 'takoboto-parser', '<div id="SearchResultList"><div class="entry">本を読みます。</div><button class="sound">音声</button><button onclick="next()">次へ</button></div>', '本を読みます。', ['音声', '次へ']],
             ['https://ja.wiktionary.org/wiki/%E8%AA%AD%E3%82%80', 'wiktionary-ja-parser', '<h1 id="firstHeading">読む</h1><div id="mw-content-text"><div class="mw-parser-output"><p>文字や文章を読む。</p><sup class="reference">脚注</sup><button>編集する</button></div></div>', '文字や文章を読む。', ['編集する']],

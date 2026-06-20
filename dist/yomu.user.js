@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.32
+// @version      1.4.33
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.32#sha256-EI7Z/gbCklOfg8cespApnmzLi+RhGgMOd8RwV1QmR5E=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.32#sha256-sfRKQtndLmTBqH9G6FnSLI6UJD9AElaL92IuD9Ty1yw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.32#sha256-mCXZI9oST+/YyyAqGouvg16Pd5nIStOwCIwj4G1lURE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.32#sha256-ovwaqVekLqYhwnsfApypj5qzFLEm+PJFJMhaVMffS+Y=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.33#sha256-YpidDMbV5Hl361J8M1pNOhK8BhY2uWyhTuvHiCJKWmc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.33#sha256-yjT0gaHgmlT/Yos/3iwlbB78toHYKaEcU+BFyJn6MZM=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.33#sha256-cSTKH/e9z6EvZ3HNLkSvW4uc61Kab9e5xJe3E8TiJxo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.33#sha256-9iZgwq5SuqvAbZJDv9xRuGAt6bcZcziB97LFxsOMGUg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -51,7 +51,6 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
-
 /* Bundled dependency source information: fflate*/
 
 (function () {
@@ -249,7 +248,6 @@
     "yomu-search": { bg: "#b83280", border: "#f472b6", text: CORE_COLOR_TOKENS.white },
     jisho: { bg: "#4f46c7", border: "#7567f0", text: CORE_COLOR_TOKENS.white },
     weblio: { bg: "#0f766e", border: "#2dd4bf", text: CORE_COLOR_TOKENS.white },
-    goo: { bg: "#b45309", border: "#f59e0b", text: CORE_COLOR_TOKENS.white },
     kotobank: { bg: "#be123c", border: "#fb7185", text: CORE_COLOR_TOKENS.white },
     takoboto: { bg: "#0f5f99", border: "#38bdf8", text: CORE_COLOR_TOKENS.white },
     "wiktionary-ja": { bg: "#374151", border: "#9ca3af", text: CORE_COLOR_TOKENS.white },
@@ -2109,12 +2107,7 @@
     urlTemplate: "https://www.weblio.jp/content/{query}",
     enabled: false
   };
-  const GOO_LOOKUP_LINK = {
-    id: "goo",
-    label: "goo",
-    urlTemplate: "https://dictionary.goo.ne.jp/srch/all/{query}/m0u/",
-    enabled: false
-  };
+  const REMOVED_GOO_LOOKUP_LINK_ID = "goo";
   const KOTOBANK_LOOKUP_LINK = {
     id: "kotobank",
     label: "Kotobank",
@@ -2158,7 +2151,6 @@
     YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
-    GOO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
     TAKOBOTO_LOOKUP_LINK,
     WIKTIONARY_LOOKUP_LINK,
@@ -2177,7 +2169,7 @@
     JPDB_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -2190,7 +2182,7 @@
     YOMU_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -2204,7 +2196,7 @@
     YOMU_LOOKUP_LINK.id,
     JITEN_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -2259,9 +2251,12 @@
   }
   function isPreviousDefaultLookupLinkSet(value) {
     if (!Array.isArray(value)) return false;
+    const links = normalizeLookupLinkSet(value, value.length);
+    if (!links) return false;
+    const linkIds = links.map((link) => link.id).filter((id) => !isRemovedBuiltInLookupLinkId(id));
     return PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS.some((ids) => {
-      const links = normalizeLookupLinkSet(value, ids.length);
-      return Boolean(links && ids.every((id, index) => links[index]?.id === id));
+      const expectedIds = ids.filter((id) => !isRemovedBuiltInLookupLinkId(id));
+      return linkIds.length === expectedIds.length && expectedIds.every((id, index) => linkIds[index] === id);
     });
   }
   function normalizeLegacyLookupLinkSet(value) {
@@ -2291,10 +2286,16 @@
     };
     for (const item of value) {
       const link = normalizeDictionaryLookupLink(item);
-      if (link) add(link);
+      if (link && !isRemovedBuiltInLookupLink(link)) add(link);
     }
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
     return ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS));
+  }
+  function isRemovedBuiltInLookupLink(link) {
+    return isRemovedBuiltInLookupLinkId(link.id);
+  }
+  function isRemovedBuiltInLookupLinkId(id) {
+    return id === REMOVED_GOO_LOOKUP_LINK_ID;
   }
   function defaultLookupLinkMode(preferJpdb) {
     return preferJpdb ? "jpdb" : "local";
@@ -6958,7 +6959,7 @@
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      manualScanEnabled: "Manual scan only (tap the puck to scan)",
+      manualScanEnabled: "Manual scan only (use the scan shortcut)",
       puckMenuLabel: `${APP_NAME} menu`,
       puckStudyPage: "Study page",
       puckPauseAnnotations: "Pause annotations",
@@ -8524,7 +8525,7 @@ lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-manualScanEnabled	手動スキャンのみ（パックをタップしてスキャン）
+manualScanEnabled	手動スキャンのみ（スキャンのショートカットを使用）
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
@@ -21887,8 +21888,9 @@ ${glossaryKey}`;
   function isJitenDefinitionCard(card) {
     return card.source === "jiten" || Number.isFinite(card.jitenWordId) && Number.isFinite(card.jitenReadingIndex);
   }
+  const JITEN_ORTHOGRAPHY_NOTES = /* @__PURE__ */ new Set(["uk", "rk", "ok", "ik", "io", "ateji", "gikun"]);
   function jitenDefinitionMeaningTexts(definition) {
-    const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText));
+    const notes = dedupeText([...definition.field, ...definition.dial, ...definition.misc].map(normalizeJitenMeaningText)).filter((note) => !JITEN_ORTHOGRAPHY_NOTES.has(note.toLowerCase()));
     return definition.meanings.map((meaning) => [normalizeJitenMeaningText(meaning), ...notes].filter(Boolean).join("; ")).filter(Boolean);
   }
   function normalizeJitenMeaningText(value) {
@@ -25476,9 +25478,6 @@ ${spelling}`);
   function radialSettingsIcon() {
     return `${SVG_OPEN}<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>`;
   }
-  function radialScanIcon() {
-    return `${SVG_OPEN}<path d="M4 8V6a2 2 0 0 1 2-2h2"></path><path d="M16 4h2a2 2 0 0 1 2 2v2"></path><path d="M20 16v2a2 2 0 0 1-2 2h-2"></path><path d="M8 20H6a2 2 0 0 1-2-2v-2"></path><path d="M4 12h16"></path></svg>`;
-  }
   function radialAudioOnIcon() {
     return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="M15.5 8.5a4.5 4.5 0 0 1 0 7"></path><path d="M18.5 5.5a8.5 8.5 0 0 1 0 13"></path></svg>`;
   }
@@ -25595,13 +25594,6 @@ ${spelling}`);
           label: uiText(language, "settings"),
           icon: radialSettingsIcon(),
           run: () => actions.openSettings()
-        },
-        {
-          id: "scan",
-          label: uiText(language, "scanPage"),
-          icon: radialScanIcon(),
-          disabled: paused,
-          run: () => actions.scanPage()
         },
         {
           id: "study",
@@ -31718,16 +31710,6 @@ ${normalizedReading}`;
       allowUiText: true,
       minLength: 1,
       matches: (url) => url.hostname === "weblio.jp" || url.hostname.endsWith(".weblio.jp")
-    },
-    {
-      id: "goo-dictionary-parser",
-      name: "goo dictionary",
-      description: "goo dictionary result text.",
-      roots: ["#NR-main-in", "#main", ".content-box", ".contents", "main", "article"],
-      exclude: DICTIONARY_SITE_EXCLUDE,
-      allowUiText: true,
-      minLength: 1,
-      matches: (url) => url.hostname === "dictionary.goo.ne.jp"
     },
     {
       id: "kotobank-parser",
@@ -38616,7 +38598,6 @@ ${criticalWordCss()}
         () => void saveSettings(this.settings),
         {
           openSettings: () => this.showSettings(),
-          scanPage: () => this.scanPageNow(),
           openStudyPage: () => this.openStudyPage(),
           togglePause: () => void this.toggleAnnotationsPaused(),
           isPaused: () => this.settings.annotationsPaused,

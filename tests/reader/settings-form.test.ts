@@ -109,6 +109,12 @@ function settingsTone(form: HTMLFormElement, selector: string): string | undefin
     return form.querySelector<HTMLElement>(selector)?.dataset.statusTone;
 }
 
+function recommendedDictionaryButton(form: HTMLFormElement, id: string): HTMLButtonElement {
+    const button = form.querySelector<HTMLButtonElement>(`[data-action="download-recommended-dictionary"][data-dictionary-id="${id}"]`);
+    if (!button) throw new Error(`Missing recommended dictionary button: ${id}`);
+    return button;
+}
+
 function parsedAnkiFieldMappingsValue(form: HTMLFormElement): AnkiFieldMappings {
     const hidden = form.querySelector<HTMLInputElement>('input[name="ankiFieldMappings"]')!;
     expect(hidden.type).toBe('hidden');
@@ -182,6 +188,33 @@ describe('settings help panel', () => {
         const helpPanelText = form.querySelector('[data-settings-panel="help"]')?.textContent ?? '';
         expect(helpPanelText).not.toContain('Online Japanese vocabulary review and mining service used for lookup');
         expect(helpPanelText).not.toContain('Reading text from images');
+    });
+});
+
+describe('recommended dictionary settings buttons', () => {
+    it('shows Update for recommended dictionaries already present in saved settings', () => {
+        const form = renderSettingsTestForm({
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [
+                { name: 'Jitendex.org [2025-12-02]', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' },
+                { name: 'JPDB v2.2 Frequency Kana', alias: 'JPDB Frequency', enabled: true, priority: 1, type: 'frequency' },
+            ],
+        });
+
+        expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Update');
+        expect(recommendedDictionaryButton(form, 'jpdbv2-kana').textContent?.trim()).toBe('Update');
+    });
+
+    it('does not treat Jitendex as the Jiten frequency dictionary', () => {
+        const form = renderSettingsTestForm({
+            ...DEFAULT_SETTINGS,
+            dictionaryPreferences: [
+                { name: 'Jitendex.org [2025-12-02]', alias: 'Jitendex', enabled: true, priority: 0, type: 'terms' },
+            ],
+        });
+
+        expect(recommendedDictionaryButton(form, 'jitendex').textContent?.trim()).toBe('Update');
+        expect(recommendedDictionaryButton(form, 'jiten').textContent?.trim()).toBe('Install');
     });
 });
 
@@ -527,9 +560,12 @@ describe('settings form localization', () => {
             'uchisen',
         ];
         const migrated = normalizeReaderSettings({
-            dictionaryLookupLinks: staleJpdbFirstOrder.map(id => ({ ...defaultLinks.get(id)! })),
+            dictionaryLookupLinks: staleJpdbFirstOrder.map(id => id === 'goo'
+                ? { id: 'goo', label: 'goo', urlTemplate: 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/', enabled: false }
+                : { ...defaultLinks.get(id)! }),
         });
         expect(migrated.dictionaryLookupLinks.slice(0, 3).map(link => link.id)).toEqual(['jiten', 'jpdb', 'yomu-search']);
+        expect(migrated.dictionaryLookupLinks.map(link => link.id)).not.toContain('goo');
 
         const custom = normalizeReaderSettings({
             dictionaryLookupLinks: [
@@ -815,7 +851,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] { display: flex; align-items: flex-start; padding-top: 36px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%; min-width: 0; height: 40px;');
         expect(normalizedCss).toContain('.jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) { line-height: 1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate { border-color: var(--jpdb-reader-accent); background: var(--jpdb-reader-accent);');
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate { border-color: var(--jpdb-reader-accent) !important; background: var(--jpdb-reader-accent) !important;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist { display: flex; flex-wrap: wrap;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist a { color: var(--jpdb-reader-accent-readable);');
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word {');

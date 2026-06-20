@@ -13,6 +13,18 @@ import { waitForExpect } from './test-utils';
 const OCR_CSS = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
 type ImageOcrControllerOptions = ConstructorParameters<typeof ImageOcrController>[0];
 type OcrLineFixtureBox = { left: number; top: number; width: number; height: number };
+type OcrRenderedImageFrameFixture = { imageLeft: number; imageTop: number; imageWidth: number; imageHeight: number };
+type ImageOcrControllerFrameInternals = {
+    fitLineFrame(
+        element: HTMLElement,
+        boxLeft: number,
+        boxTop: number,
+        boxWidth: number,
+        boxHeight: number,
+        frame: OcrRenderedImageFrameFixture,
+        vertical: boolean,
+    ): void;
+};
 
 function createOcrImageControllerFixture(options: {
     sentence?: string;
@@ -186,6 +198,25 @@ function restorePrototypeDescriptor(prototype: object, key: PropertyKey, descrip
         return;
     }
     delete (prototype as Record<PropertyKey, unknown>)[key];
+}
+
+function measuredOcrLine(options: {
+    fontSize: number;
+    contentWidth: number;
+    contentHeight: number;
+    hasFurigana?: boolean;
+}): HTMLElement {
+    const line = document.createElement('div');
+    line.className = 'jpdb-ocr-line jpdb-ocr-line-active';
+    line.dataset.ocrText = '読む';
+    line.dataset.hasFuri = String(Boolean(options.hasFurigana));
+    line.style.fontSize = `${options.fontSize}px`;
+    const text = document.createElement('span');
+    text.className = 'jpdb-ocr-line-text';
+    text.getBoundingClientRect = () => new DOMRect(0, 0, options.contentWidth, options.contentHeight);
+    line.append(text);
+    document.body.append(line);
+    return line;
 }
 
 describe('OCR sentence focus', () => {
@@ -619,6 +650,60 @@ describe('OCR sentence focus', () => {
         const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) { color: var(--jpdb-reader-text); text-shadow: none;');
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
+    });
+
+    it('reserves paint room for pitch underlines in small horizontal OCR line frames', () => {
+        const controller = createLocalServiceOcrController();
+        const line = measuredOcrLine({
+            fontSize: 24,
+            contentWidth: 36,
+            contentHeight: 24,
+            hasFurigana: true,
+        });
+
+        try {
+            (controller as unknown as ImageOcrControllerFrameInternals).fitLineFrame(
+                line,
+                50,
+                20,
+                18,
+                14,
+                { imageLeft: 0, imageTop: 0, imageWidth: 180, imageHeight: 90 },
+                false,
+            );
+
+            expect(line.style.getPropertyValue('--jpdb-ocr-pad-bottom')).toBe('7px');
+            expect(line.style.height).toBe('34px');
+        } finally {
+            controller.destroy();
+            line.remove();
+        }
+    });
+
+    it('reserves side paint room for vertical OCR pitch underlines without requiring furigana', () => {
+        const controller = createLocalServiceOcrController();
+        const line = measuredOcrLine({
+            fontSize: 24,
+            contentWidth: 24,
+            contentHeight: 48,
+        });
+
+        try {
+            (controller as unknown as ImageOcrControllerFrameInternals).fitLineFrame(
+                line,
+                50,
+                20,
+                10,
+                48,
+                { imageLeft: 0, imageTop: 0, imageWidth: 180, imageHeight: 120 },
+                true,
+            );
+
+            expect(line.style.width).toBe('46px');
+        } finally {
+            controller.destroy();
+            line.remove();
+        }
     });
 
     it('normalizes late-added OCR furigana so OCR lines can show it immediately', () => {

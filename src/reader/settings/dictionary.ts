@@ -39,12 +39,7 @@ const WEBLIO_LOOKUP_LINK: DictionaryLookupLink = {
     enabled: false,
 };
 
-const GOO_LOOKUP_LINK: DictionaryLookupLink = {
-    id: 'goo',
-    label: 'goo',
-    urlTemplate: 'https://dictionary.goo.ne.jp/srch/all/{query}/m0u/',
-    enabled: false,
-};
+const REMOVED_GOO_LOOKUP_LINK_ID = 'goo';
 
 const KOTOBANK_LOOKUP_LINK: DictionaryLookupLink = {
     id: 'kotobank',
@@ -95,7 +90,6 @@ export const DEFAULT_DICTIONARY_LOOKUP_LINKS: DictionaryLookupLink[] = [
     YOMU_LOOKUP_LINK,
     JISHO_LOOKUP_LINK,
     WEBLIO_LOOKUP_LINK,
-    GOO_LOOKUP_LINK,
     KOTOBANK_LOOKUP_LINK,
     TAKOBOTO_LOOKUP_LINK,
     WIKTIONARY_LOOKUP_LINK,
@@ -120,7 +114,7 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
     JPDB_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -133,7 +127,7 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
     YOMU_LOOKUP_LINK.id,
     JISHO_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -147,7 +141,7 @@ const PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS = [[
     YOMU_LOOKUP_LINK.id,
     JITEN_LOOKUP_LINK.id,
     WEBLIO_LOOKUP_LINK.id,
-    GOO_LOOKUP_LINK.id,
+    REMOVED_GOO_LOOKUP_LINK_ID,
     KOTOBANK_LOOKUP_LINK.id,
     TAKOBOTO_LOOKUP_LINK.id,
     WIKTIONARY_LOOKUP_LINK.id,
@@ -216,9 +210,12 @@ function isLegacyDefaultLookupLinkSet(value: unknown): boolean {
 
 function isPreviousDefaultLookupLinkSet(value: unknown): boolean {
     if (!Array.isArray(value)) return false;
+    const links = normalizeLookupLinkSet(value, value.length);
+    if (!links) return false;
+    const linkIds = links.map(link => link.id).filter(id => !isRemovedBuiltInLookupLinkId(id));
     return PREVIOUS_DEFAULT_LOOKUP_LINK_ID_ORDERS.some(ids => {
-        const links = normalizeLookupLinkSet(value, ids.length);
-        return Boolean(links && ids.every((id, index) => links[index]?.id === id));
+        const expectedIds = ids.filter(id => !isRemovedBuiltInLookupLinkId(id));
+        return linkIds.length === expectedIds.length && expectedIds.every((id, index) => linkIds[index] === id);
     });
 }
 
@@ -260,12 +257,20 @@ export function normalizeDictionaryLookupLinks(value: unknown, preferJpdb = fals
 
     for (const item of value) {
         const link = normalizeDictionaryLookupLink(item);
-        if (link) add(link);
+        if (link && !isRemovedBuiltInLookupLink(link)) add(link);
     }
 
     appendMissingBuiltInLookupLinks(builtIns, seen, add);
 
     return ensureJitenBeforeJpdb(normalized.slice(0, MAX_DICTIONARY_LOOKUP_LINKS));
+}
+
+function isRemovedBuiltInLookupLink(link: DictionaryLookupLink): boolean {
+    return isRemovedBuiltInLookupLinkId(link.id);
+}
+
+function isRemovedBuiltInLookupLinkId(id: string): boolean {
+    return id === REMOVED_GOO_LOOKUP_LINK_ID;
 }
 
 function defaultLookupLinkMode(preferJpdb: boolean): 'jpdb' | 'local' {
