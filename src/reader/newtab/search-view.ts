@@ -19,7 +19,6 @@ import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-cre
 import { KANJI_DICTIONARIES_SOURCE_ID, orderedDefinitionSourceIds } from '../sources/sections';
 import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions, renderLocalDefinitionSourcesSection } from '../sources/definition-render';
 import { firstCardMeaning } from './index';
-import { searchKanjiInlineWordMeta } from './card-selection';
 import { ankiReviewSourceLabel, isJitenSrsCard } from './review-targets';
 import { newTabCardOptionalReading, newTabCardReading } from './study-queue';
 import { SEARCH_CARD_STATE_LABEL_KEYS } from './controller-config';
@@ -137,12 +136,7 @@ function renderSearchCardRubyHtml(card: JPDBCard, settings: ReaderSettings): str
 }
 
 function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
-    const detail = [
-        result.keyword,
-        result.meanings.filter(meaning => meaning !== result.keyword).slice(0, 2).join(', '),
-        result.readings.slice(0, 3).join(' · '),
-    ].filter(Boolean).join(' · ');
-    const words = searchKanjiInlineWordMeta(result.words);
+    const preview = result.keyword.trim();
     return el('div', { class: 'jpdb-reader-newtab-search-card-shell', dataset: { newtabSearchCardShell: true } },
         el('button', {
             type: 'button',
@@ -151,8 +145,7 @@ function renderSearchKanjiResult(result: NewTabSearchKanjiResult): HTMLElement {
             'aria-expanded': 'false',
         },
         el('span', { class: 'jpdb-reader-newtab-search-kanji-char jpdb-reader-parseable', lang: 'ja' }, result.character),
-        detail ? el('span', { class: 'jpdb-reader-newtab-search-meaning jpdb-reader-parseable', lang: 'ja' }, detail) : null,
-        words ? el('span', { class: 'jpdb-reader-newtab-search-meta jpdb-reader-parseable', lang: 'ja' }, words) : null),
+        preview ? el('span', { class: 'jpdb-reader-newtab-search-meaning' }, preview) : null),
         el('div', { class: 'jpdb-reader-newtab-search-detail', dataset: { newtabSearchDetail: true }, hidden: true }),
     );
 }

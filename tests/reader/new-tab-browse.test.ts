@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { browseStateCounts, filterBrowseCards, renderBrowseChips, renderBrowseControls, renderBrowseList, sortBrowseCards } from '../../src/reader/newtab/browse-view';
-import { renderSearchWordResults } from '../../src/reader/newtab/search-view';
+import { renderSearchKanjiResults, renderSearchWordResults } from '../../src/reader/newtab/search-view';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { CardState, JPDBCard } from '../../src/reader/app/types';
 
@@ -144,6 +144,24 @@ describe('study-page card browser (SH-3)', () => {
         expect(word?.classList.contains('jpdb-pitch-heiban')).toBe(true);
         expect(word?.classList.contains('jpdb-pitch-unknown')).toBe(false);
         expect(word?.querySelector('rt')?.textContent).toBe('がくしゅうのうりょく');
+    });
+
+    it('renders collapsed kanji search cards as keyword-only previews', () => {
+        const result = renderSearchKanjiResults([{
+            character: '索',
+            keyword: 'cord',
+            readings: ['さく', 'そ'],
+            meanings: ['cord', 'rope', 'searching'],
+            words: [card('検索', ['not-in-deck'], { reading: 'けんさく' })],
+        }], searchContext('off'));
+
+        const button = result.querySelector<HTMLElement>('[data-newtab-action="search-result-kanji"]')!;
+        expect(button.textContent).toContain('索');
+        expect(button.textContent).toContain('cord');
+        expect(button.textContent).not.toContain('rope');
+        expect(button.textContent).not.toContain('さく');
+        expect(button.textContent).not.toContain('検索');
+        expect(result.querySelector<HTMLElement>('[data-newtab-search-detail]')?.hidden).toBe(true);
     });
 });
 
