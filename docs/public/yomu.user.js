@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.20
+// @version      1.4.21
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.20#sha256-kTbkeJ1hrcy2MrRTe94bgH6aFtYvLDXiSSvJyYC6qNo=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.20#sha256-64TJtVlvRRqkuTyx/XstnmM53M5+MKACWXbhEo3VzzU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.20#sha256-IRd+BJNaf7RZ7KDmismb9ez5rYaiPqOXfzJU95OZNg8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.20#sha256-DQk1/vgaT5L5rf6xSuPI6FpC+tW/O32v0Sy/Nj4buv4=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.21#sha256-bbL/BsKo/ZzPvoQ9PX2Xz2e1Nf0kbcWDFC7O7ehooEU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.21#sha256-w97qBb/Uvl1ykRN/8pRoSsM1HC6aD7qDUtY54XUQFrE=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.21#sha256-ujLZ5K0CZlmAn1J+5I8a6cVZaFv7pz3dLE/4VEEhhgA=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.21#sha256-tFA6jPBMYtCxdGTJV6aboCyV8SksOW7IVMmrHL3uyq0=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -7766,7 +7766,7 @@
       sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
       sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
       sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
-      sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
+      sourceHelpJitenKanjiFacts: "Jiten kanji facts, exact frequency, readings, and vocabulary.",
       sourceHelpRtk: "RTK keywords, elements, and stories.",
       sourceHelpUchisen: "Uchisen mnemonic image carousel.",
       uchisenMnemonicImages: "Uchisen mnemonic images",

@@ -7046,7 +7046,7 @@
       sourceHelpImportedKanjiDictionary: "Imported Yomitan kanji dictionary.",
       sourceHelpStrokePractice: "Stroke order preview and drawing pad.",
       sourceHelpReadingsComponents: "JPDB readings, components, and mnemonic.",
-      sourceHelpJitenKanjiFacts: "Jiten kanji facts, frequency, readings, words.",
+      sourceHelpJitenKanjiFacts: "Jiten kanji facts, exact frequency, readings, and vocabulary.",
       sourceHelpRtk: "RTK keywords, elements, and stories.",
       sourceHelpUchisen: "Uchisen mnemonic image carousel.",
       uchisenMnemonicImages: "Uchisen mnemonic images",
