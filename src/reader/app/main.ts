@@ -6287,7 +6287,7 @@ export class ReaderApp {
         }).sort((first, second) => pitchEnrichmentPriority(first) - pitchEnrichmentPriority(second));
 
         if (options.publicLookup === false) {
-            await runLimited(uniqueTokens.slice(0, PITCH_ENRICHMENT_LIMIT), LOCAL_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
+            await this.enrichLocalOnlyPitchTokens(uniqueTokens, options);
             return;
         }
 
@@ -6526,6 +6526,24 @@ export class ReaderApp {
             });
             await runLimited(batch, BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, batchOptions.get(cardKey(token.card)) ?? {}));
             if (this.pitchEnrichmentQueue.length) await this.waitForIdle();
+        }
+    }
+
+    // Local pitch is IndexedDB-backed (no network, no rate limit), so EVERY
+    // visible word should get it — not just the first PITCH_ENRICHMENT_LIMIT.
+    // (The old slice(0, PITCH_ENRICHMENT_LIMIT) cap was a vestige of the
+    // network-queue batch size; on this branch resolvePitchFallbackCard and
+    // ensureCardPitchAccent both short-circuit, so it issues no HTTP and the
+    // cap only starved coverage — words past 12 were dropped with no re-queue.)
+    // Drain the whole batch at the wide local concurrency in idle-paced chunks
+    // so a dense page colours fully within a few idle ticks while staying
+    // responsive, instead of trickling in one word at a time as rescans fire.
+    private async enrichLocalOnlyPitchTokens(tokens: JPDBToken[], options: PitchEnrichmentOptions): Promise<void> {
+        for (let index = 0; index < tokens.length; index += PITCH_ENRICHMENT_LIMIT) {
+            if (this.isDestroyed || !this.settings.showPitchAccent) return;
+            const chunk = tokens.slice(index, index + PITCH_ENRICHMENT_LIMIT);
+            await runLimited(chunk, LOCAL_PITCH_ENRICHMENT_CONCURRENCY, token => this.enrichPitchToken(token, options));
+            if (index + PITCH_ENRICHMENT_LIMIT < tokens.length) await this.waitForIdle();
         }
     }
 

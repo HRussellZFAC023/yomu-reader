@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.32] - 2026-06-20
+
+### Fixed
+
+- Pitch accent now loads for every word on a page at once instead of trickling in a few words at a time. On non-YouTube pages, local-dictionary pitch lookups (which use no network) were capped at 12 words per scan and the rest were silently dropped, so dense pages only ever showed pitch on a handful of words until you scrolled or clicked each one. The whole visible batch is now enriched together — in idle-paced chunks that keep the page responsive — while public/online lookups stay throttled exactly as before.
+
 ## [1.4.31] - 2026-06-20
 
 ### Fixed

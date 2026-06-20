@@ -28088,6 +28088,62 @@ describe('reader helpers', () => {
         }
     });
 
+    it('enriches every local-only pitch token in a batch beyond PITCH_ENRICHMENT_LIMIT', async () => {
+        // Regression: the publicLookup:false branch (every non-YouTube visible
+        // scan) used to slice(0, PITCH_ENRICHMENT_LIMIT) and drop the rest with
+        // no re-queue, so dense pages only ever pitched the first 12 words —
+        // pitch appeared to load slowly, one word at a time. Local lookups are
+        // network-free, so the whole batch must be covered.
+        const app = new ReaderApp();
+        const tokenCount = PITCH_ENRICHMENT_LIMIT * 2 + 1;
+        const tokens: JPDBToken[] = Array.from({ length: tokenCount }, (_, index) => ({
+            card: {
+                ...card,
+                vid: 5_000 + index,
+                sid: index,
+                spelling: `単語${index}`,
+                reading: 'ねこ',
+                source: 'jpdb',
+                pitchAccent: [],
+            },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [],
+            pitchClass: '',
+        }));
+
+        const lookupTermMeta = vi.fn(async (expression: string) => [{
+            expression,
+            mode: 'pitch',
+            data: { pitches: [{ position: 1 }] },
+            dictionary: 'Pitch',
+        }]);
+        const publicPitch = vi.fn(async () => ['HLL']);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            dictionaries: { lookupTermMeta: typeof lookupTermMeta };
+            jpdbPublicPitch: { lookup: typeof publicPitch };
+            enrichPitchWords(tokens: JPDBToken[], options?: { publicLookup?: boolean }): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, localDictionariesEnabled: true, showPitchAccent: true };
+        internals.dictionaries = { lookupTermMeta };
+        internals.jpdbPublicPitch = { lookup: publicPitch };
+
+        try {
+            await internals.enrichPitchWords(tokens, { publicLookup: false });
+
+            // Every token — not just the first PITCH_ENRICHMENT_LIMIT — gets pitch.
+            expect(tokens.every(token => token.pitchClass === 'atamadaka')).toBe(true);
+            expect(tokens.every(token => token.card.pitchAccent.length > 0)).toBe(true);
+            expect(lookupTermMeta).toHaveBeenCalledTimes(tokenCount);
+            // Local-only branch must never reach the network.
+            expect(publicPitch).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+        }
+    });
+
     it('uses keyless Jiten vocabulary before JPDB public lookup for fallback words', async () => {
         const app = new ReaderApp();
         const fallbackCard = testFallbackCard({
