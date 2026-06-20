@@ -1812,6 +1812,14 @@
       subtitlePanelMode: "Subtitle panel mode",
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
+      subtitleTrackTiming: "Subtitle timing",
+      subtitleOffsetPrevious: "Align previous subtitle to current time",
+      subtitleOffsetNext: "Align next subtitle to current time",
+      subtitleOffsetPreviousShort: "Prev",
+      subtitleOffsetNextShort: "Next",
+      subtitleOffsetEarlier: "Show subtitles 100 ms earlier",
+      subtitleOffsetLater: "Show subtitles 100 ms later",
+      resetSubtitleOffset: "Reset subtitle timing",
       copySubtitleLine: "Copy subtitle line",
       subtitleCopyIncludeTranslation: "Copy line translation too",
       peekSubtitleTranslation: "Show translation",
@@ -2561,6 +2569,14 @@ subtitleNavigation	字幕ナビゲーション
 subtitlePanelMode	字幕パネル表示
 subtitleLines	行
 subtitleTracks	トラック
+subtitleTrackTiming	字幕タイミング
+subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
+subtitleOffsetNext	次の字幕を現在時刻に合わせる
+subtitleOffsetPreviousShort	前
+subtitleOffsetNextShort	次
+subtitleOffsetEarlier	字幕を100ミリ秒早く表示
+subtitleOffsetLater	字幕を100ミリ秒遅く表示
+resetSubtitleOffset	字幕タイミングをリセット
 copySubtitleLine	字幕行をコピー
 subtitleCopyIncludeTranslation	行コピー時に翻訳も含める
 peekSubtitleTranslation	翻訳を表示

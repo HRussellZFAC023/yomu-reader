@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.37
+// @version      1.4.38
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.37#sha256-5B3YvyPXJ3362KZo3OoZ5Zb09lyQ2cb8r5AtNRELE3k=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.37#sha256-nFh5iMIF51bZBXFqlloKD2kB7KpG02kLJ6vhwhyda3o=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.37#sha256-eU1VYMEYXdP52vf9noZrZOgOOO+F6xPoLCXGlfFPjIU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.37#sha256-qY+x5ADPv5JTpZmP88JuSiTql6ye7Ri/D57AkfjS3nU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.38#sha256-UOTBNTvcxpLyuAxFXnmC5TnSr6/GAluvEiVaeLdOcVU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.38#sha256-INFQ/hN/GEiGXsPoEv85IVAzr3kaRW9tv/U9k4h+F1Q=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.38#sha256-dIcpld17JUtBzV+NKu/NQgSE9HWEgkXsvJKlhyXw9Z0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.38#sha256-p4MRhwFiZK4b/4OtFbf23aKJ9rSz1u0IwnL/9C+6xIQ=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -51,7 +51,6 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
-
 /* Bundled dependency source information: fflate*/
 
 (function () {
@@ -7575,6 +7574,14 @@
       subtitlePanelMode: "Subtitle panel mode",
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
+      subtitleTrackTiming: "Subtitle timing",
+      subtitleOffsetPrevious: "Align previous subtitle to current time",
+      subtitleOffsetNext: "Align next subtitle to current time",
+      subtitleOffsetPreviousShort: "Prev",
+      subtitleOffsetNextShort: "Next",
+      subtitleOffsetEarlier: "Show subtitles 100 ms earlier",
+      subtitleOffsetLater: "Show subtitles 100 ms later",
+      resetSubtitleOffset: "Reset subtitle timing",
       copySubtitleLine: "Copy subtitle line",
       subtitleCopyIncludeTranslation: "Copy line translation too",
       peekSubtitleTranslation: "Show translation",
@@ -8324,6 +8331,14 @@ subtitleNavigation	字幕ナビゲーション
 subtitlePanelMode	字幕パネル表示
 subtitleLines	行
 subtitleTracks	トラック
+subtitleTrackTiming	字幕タイミング
+subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
+subtitleOffsetNext	次の字幕を現在時刻に合わせる
+subtitleOffsetPreviousShort	前
+subtitleOffsetNextShort	次
+subtitleOffsetEarlier	字幕を100ミリ秒早く表示
+subtitleOffsetLater	字幕を100ミリ秒遅く表示
+resetSubtitleOffset	字幕タイミングをリセット
 copySubtitleLine	字幕行をコピー
 subtitleCopyIncludeTranslation	行コピー時に翻訳も含める
 peekSubtitleTranslation	翻訳を表示
@@ -31907,7 +31922,13 @@ ${normalizedReading}`;
   const ANKI_TARGETED_RENDERED_WORD_SELECTOR_THRESHOLD = 24;
   const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
   const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
-  const SUBTITLE_SURFACE_SELECTOR = ".jpdb-subtitle-player, .jpdb-subtitle-list";
+  const SUBTITLE_SURFACE_SELECTOR = [
+    ".jpdb-subtitle-player",
+    ".jpdb-subtitle-list",
+    ".asbplayer-subtitles-container-bottom",
+    ".asbplayer-offscreen",
+    ".jpdb-reader-subtitle-surface"
+  ].join(", ");
   const KANA_ONLY_LOOKUP_RUN_RE = /^[\u3040-\u30ffー]+$/u;
   const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
   const TWO_BUTTON_REVIEW_SHORTCUTS = [

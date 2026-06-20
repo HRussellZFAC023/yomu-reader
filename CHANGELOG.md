@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.38] - 2026-06-20
+
+### Added
+
+- Added ASB-style subtitle timing controls under Tracks so loaded primary/native subtitle files can be nudged by 100 ms, aligned to the previous or next subtitle at the current playhead, and reset without reloading the track.
+
+### Fixed
+
+- YouTube Shorts subtitle rows now wrap long parsed/ruby cues instead of clipping after the first visible segment, and native YouTube translation overlays recover when the translated timedtext response is empty by translating from the source captions.
+
 ## [1.4.37] - 2026-06-20
 
 ### Fixed
@@ -7,6 +17,7 @@
 - Installed frequency dictionaries, including the Jiten frequency dictionary, now live under Settings -> Sources -> Lookup pills and render their popup frequency badges from the same enabled/order controls instead of a separate frequency-dictionary subsection.
 - Hover term audio now treats a fresh hover as a new auto-play attempt for the same word, so re-hovering or reopening a hover popup is no longer skipped by duplicate-render guards while repeated renders from one hover still stay quiet.
 - Fullscreen subtitle fallback now ignores ordinary page metadata such as title links, category chips, navigation labels, and centered text just below the player. This prevents fake one-line subtitles like `生成 フルボイス` from appearing after fullscreen on sites without real subtitle tracks, while preserving real custom caption overlays.
+- Clicking subtitle words in ASB and other subtitle-style overlays now pauses the playing video again, then resumes it when the lookup closes.
 - Tapping parsed words inside popup dictionary prose now opens a nested lookup instead of leaving those words render-only; dictionary links and source summaries still keep their native click behavior.
 
 ## [1.4.35] - 2026-06-20

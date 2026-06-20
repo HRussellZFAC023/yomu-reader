@@ -3691,6 +3691,14 @@
       subtitlePanelMode: "Subtitle panel mode",
       subtitleLines: "Lines",
       subtitleTracks: "Tracks",
+      subtitleTrackTiming: "Subtitle timing",
+      subtitleOffsetPrevious: "Align previous subtitle to current time",
+      subtitleOffsetNext: "Align next subtitle to current time",
+      subtitleOffsetPreviousShort: "Prev",
+      subtitleOffsetNextShort: "Next",
+      subtitleOffsetEarlier: "Show subtitles 100 ms earlier",
+      subtitleOffsetLater: "Show subtitles 100 ms later",
+      resetSubtitleOffset: "Reset subtitle timing",
       copySubtitleLine: "Copy subtitle line",
       subtitleCopyIncludeTranslation: "Copy line translation too",
       peekSubtitleTranslation: "Show translation",
@@ -4421,6 +4429,14 @@ subtitleNavigation	字幕ナビゲーション
 subtitlePanelMode	字幕パネル表示
 subtitleLines	行
 subtitleTracks	トラック
+subtitleTrackTiming	字幕タイミング
+subtitleOffsetPrevious	前の字幕を現在時刻に合わせる
+subtitleOffsetNext	次の字幕を現在時刻に合わせる
+subtitleOffsetPreviousShort	前
+subtitleOffsetNextShort	次
+subtitleOffsetEarlier	字幕を100ミリ秒早く表示
+subtitleOffsetLater	字幕を100ミリ秒遅く表示
+resetSubtitleOffset	字幕タイミングをリセット
 copySubtitleLine	字幕行をコピー
 subtitleCopyIncludeTranslation	行コピー時に翻訳も含める
 peekSubtitleTranslation	翻訳を表示
@@ -12139,8 +12155,38 @@ ${spelling}`);
                 <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml(uiText(language, isPrimary ? "unsetPrimarySubtitles" : "primarySubtitles"))}</button>
                 <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml(uiText(language, isSecondary ? "unsetNativeSubtitles" : "nativeSubtitles"))}</button>
             </div>
+            ${isPrimary || isSecondary ? renderSubtitleTrackTimingControls(track, language) : ""}
         </div>
     `;
+  }
+  function renderSubtitleTrackTimingControls(track, language) {
+    const timing = track.timing;
+    if (!timing) return "";
+    const disabled = timing.canAdjust ? "" : "disabled";
+    const timingLabel = uiText(language, "subtitleTrackTiming");
+    const previousLabel = uiText(language, "subtitleOffsetPrevious");
+    const nextLabel = uiText(language, "subtitleOffsetNext");
+    const previousShort = uiText(language, "subtitleOffsetPreviousShort");
+    const nextShort = uiText(language, "subtitleOffsetNextShort");
+    const earlierLabel = uiText(language, "subtitleOffsetEarlier");
+    const laterLabel = uiText(language, "subtitleOffsetLater");
+    const resetLabel = uiText(language, "resetSubtitleOffset");
+    return `
+        <div class="jpdb-subtitle-track-offset" role="group" aria-label="${escapeHtml(timingLabel)}">
+            <span class="jpdb-subtitle-track-offset-value" title="${escapeHtml(timingLabel)}">${escapeHtml(formatSubtitleTrackOffset(timing.offsetSeconds))}</span>
+            <button type="button" data-action="offset-previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}" ${timing.canAlignPrevious ? "" : "disabled"}>‹ ${escapeHtml(previousShort)}</button>
+            <button type="button" data-action="offset-earlier" title="${escapeHtml(earlierLabel)}" aria-label="${escapeHtml(earlierLabel)}" ${disabled}>−100</button>
+            <button type="button" data-action="offset-later" title="${escapeHtml(laterLabel)}" aria-label="${escapeHtml(laterLabel)}" ${disabled}>+100</button>
+            <button type="button" data-action="offset-next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}" ${timing.canAlignNext ? "" : "disabled"}>${escapeHtml(nextShort)} ›</button>
+            <button type="button" data-action="offset-reset" title="${escapeHtml(resetLabel)}" aria-label="${escapeHtml(resetLabel)}" ${disabled}>0</button>
+        </div>
+    `;
+  }
+  function formatSubtitleTrackOffset(seconds) {
+    const roundedMs = Math.round(seconds * 1e3);
+    const value = roundedMs / 1e3;
+    const sign = value >= 0 ? "+" : "";
+    return `${sign}${value.toFixed(2)}s`;
   }
   function trackPanelSummaryText(autoDetected, language) {
     return autoDetected ? autoDetected === 1 ? uiText(language, "autoDetectedOptionSingular") : `${autoDetected} ${uiText(language, "autoDetectedOptions")}` : uiText(language, "autoDetectedTracksWillAppear");
@@ -13282,6 +13328,8 @@ ${spelling}`);
   const SUBTITLE_ACTIVE_PREPARSE_BEHIND = 6;
   const SUBTITLE_ACTIVE_PREPARSE_AHEAD = 10;
   const SUBTITLE_CONTROLS_AUTO_IDLE_DELAY_MS = 2500;
+  const SUBTITLE_TIMING_OFFSET_STEP_SECONDS = 0.1;
+  const SUBTITLE_TIMING_OFFSET_MAX_SECONDS = 300;
   const TRANSCRIPT_ACTIVE_HYDRATION_BEHIND = 1;
   const TRANSCRIPT_ACTIVE_HYDRATION_AHEAD = 3;
   const TRANSCRIPT_HYDRATION_MAX_ROWS = 12;
@@ -13362,6 +13410,51 @@ ${spelling}`);
   }
   function shouldClearLoadedCue(next, current, time) {
     return Boolean(!next && current && (time > current.end + 0.12 || time < current.start - 0.12));
+  }
+  function normalizeSubtitleTimingOffsetSeconds(value) {
+    if (!Number.isFinite(value)) return 0;
+    const clamped = Math.max(-SUBTITLE_TIMING_OFFSET_MAX_SECONDS, Math.min(SUBTITLE_TIMING_OFFSET_MAX_SECONDS, value ?? 0));
+    const rounded = Math.round(clamped * 1e3) / 1e3;
+    return Object.is(rounded, -0) ? 0 : rounded;
+  }
+  function offsetSubtitleCues(cues, offsetSeconds) {
+    const offset = normalizeSubtitleTimingOffsetSeconds(offsetSeconds);
+    if (!cues.length || !offset) return cues;
+    return cues.map((cue) => offsetSubtitleCue(cue, offset));
+  }
+  function offsetSubtitleCue(cue, offsetSeconds) {
+    return {
+      ...cue,
+      start: cue.start + offsetSeconds,
+      end: cue.end + offsetSeconds,
+      words: cue.words?.map((word) => offsetSubtitleWordTiming(word, offsetSeconds))
+    };
+  }
+  function offsetSubtitleWordTiming(word, offsetSeconds) {
+    return {
+      ...word,
+      start: word.start + offsetSeconds,
+      end: word.end + offsetSeconds
+    };
+  }
+  function adjacentSubtitleCueForOffset(cues, time, offsetSeconds, forward) {
+    let adjacentIndex = -1;
+    let minDiff = Number.MAX_SAFE_INTEGER;
+    for (let index = 0; index < cues.length; index += 1) {
+      const cue = cues[index];
+      const start = cue.start + offsetSeconds;
+      const end = cue.end + offsetSeconds;
+      const diff = forward ? start - time : time - start;
+      if (minDiff <= diff) continue;
+      if (forward && time < start) {
+        minDiff = diff;
+        adjacentIndex = index;
+      } else if (!forward && time > start) {
+        minDiff = diff;
+        adjacentIndex = time < end ? Math.max(0, index - 1) : index;
+      }
+    }
+    return adjacentIndex >= 0 ? cues[adjacentIndex] : void 0;
   }
   function subtitleClipboardText(primary, secondary, includeTranslation) {
     return [primary?.text.trim(), includeTranslation ? secondary?.text.trim() : ""].filter(Boolean).join("\n");
@@ -13507,6 +13600,11 @@ ${spelling}`);
       "secondary-track": (target) => {
         void this.chooseSecondaryTrack(this.trackIdFromTarget(target));
       },
+      "offset-earlier": (target) => this.adjustTrackTimingOffset(this.trackIdFromTarget(target), -SUBTITLE_TIMING_OFFSET_STEP_SECONDS),
+      "offset-later": (target) => this.adjustTrackTimingOffset(this.trackIdFromTarget(target), SUBTITLE_TIMING_OFFSET_STEP_SECONDS),
+      "offset-previous": (target) => this.alignTrackTimingOffset(this.trackIdFromTarget(target), false),
+      "offset-next": (target) => this.alignTrackTimingOffset(this.trackIdFromTarget(target), true),
+      "offset-reset": (target) => this.setTrackTimingOffset(this.trackIdFromTarget(target), 0),
       "toggle-native-blur": (target) => this.toggleNativeSubtitleBlur(target.closest(".jpdb-subtitle-secondary"))
     };
     init() {
@@ -13979,8 +14077,10 @@ ${spelling}`);
       return cues.length > 0 && this.isTrackSelectionCurrent(role, requestId, option.id);
     }
     applyNativeTrackCues(role, optionId, cues) {
-      if (role === "primary" && this.selectedTrackId === optionId) this.cues = cues;
-      if (role === "secondary" && this.secondaryTrackId === optionId) this.secondaryCues = cues;
+      const option = this.tracks.find((track) => track.id === optionId);
+      if (option) option.cues = cues;
+      if (role === "primary" && this.selectedTrackId === optionId) this.cues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(optionId));
+      if (role === "secondary" && this.secondaryTrackId === optionId) this.secondaryCues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(optionId));
     }
     updateFromNativeTrack(track) {
       const active = track.activeCues?.[0];
@@ -13995,16 +14095,30 @@ ${spelling}`);
     updatePrimaryNativeTrackCue(track, active) {
       const primary = this.tracks.find((item) => item.id === this.selectedTrackId);
       if (primary?.track === track) {
+        const cues = readTextTrackCues(track);
+        if (cues.length) primary.cues = cues;
+        if (!this.cues.length && cues.length) this.cues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(primary.id));
+        if (this.trackTimingOffsetSeconds(primary.id)) {
+          this.updateFromLoadedCues();
+          return;
+        }
         this.currentCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active) }])[0];
-        if (!this.cues.length) this.cues = readTextTrackCues(track);
+        if (!this.cues.length) this.cues = cues;
         void this.autoCopyCurrentCue();
       }
     }
     updateSecondaryNativeTrackCue(track, active) {
       const secondary = this.tracks.find((item) => item.id === this.secondaryTrackId);
       if (secondary?.track === track) {
+        const cues = readTextTrackCues(track);
+        if (cues.length) secondary.cues = cues;
+        if (!this.secondaryCues.length && cues.length) this.secondaryCues = offsetSubtitleCues(cues, this.trackTimingOffsetSeconds(secondary.id));
+        if (this.trackTimingOffsetSeconds(secondary.id)) {
+          this.updateFromLoadedCues();
+          return;
+        }
         this.secondaryCue = normalizeSubtitleCues([{ start: active.startTime, end: active.endTime, text: getTextTrackCueText(active), transcriptEligible: false }])[0];
-        if (!this.secondaryCues.length) this.secondaryCues = readTextTrackCues(track);
+        if (!this.secondaryCues.length) this.secondaryCues = cues;
       }
     }
     tick() {
@@ -14965,6 +15079,81 @@ ${spelling}`);
     trackIdFromTarget(target) {
       return target.closest("[data-track-id]")?.dataset.trackId;
     }
+    adjustTrackTimingOffset(id, deltaSeconds) {
+      if (!id) return;
+      this.setTrackTimingOffset(id, this.trackTimingOffsetSeconds(id) + deltaSeconds);
+    }
+    alignTrackTimingOffset(id, forward) {
+      if (!id || !this.video) return;
+      const cue = this.adjacentTrackTimingCue(id, forward);
+      if (!cue) return;
+      this.setTrackTimingOffset(id, this.video.currentTime - cue.start);
+    }
+    setTrackTimingOffset(id, offsetSeconds) {
+      if (!id) return;
+      const track = this.tracks.find((item) => item.id === id);
+      if (!track) return;
+      const role = this.trackSelectionRole(id);
+      const previousOffset = this.trackTimingOffsetSeconds(id);
+      const baseCues = role ? this.baseCuesForSelectedTrack(id, role, previousOffset) : [];
+      const nextOffset = normalizeSubtitleTimingOffsetSeconds(offsetSeconds);
+      if (nextOffset) track.timingOffsetSeconds = nextOffset;
+      else delete track.timingOffsetSeconds;
+      if (role) this.applySelectedTrackTimingOffset(id, role, baseCues, nextOffset);
+      this.afterTrackTimingOffsetChanged();
+    }
+    applySelectedTrackTimingOffset(id, role, baseCues, offsetSeconds) {
+      const adjusted = offsetSubtitleCues(baseCues, offsetSeconds);
+      if (role === "primary") {
+        if (id !== this.selectedTrackId) return;
+        this.cues = adjusted;
+        this.currentCue = void 0;
+        this.lastAutoCopiedCueSignature = "";
+        this.lastRenderedPrimaryText = "";
+        this.lastRenderedPrimaryHtml = "";
+        this.lastAppliedSubtitleHtml = "";
+        this.renderSerial += 1;
+        this.parseWarmupSerial += 1;
+        this.lastParseWarmupAnchor = -1;
+        return;
+      }
+      if (id !== this.secondaryTrackId) return;
+      this.secondaryCues = adjusted;
+      this.secondaryCue = void 0;
+    }
+    afterTrackTimingOffsetChanged() {
+      this.lastTranscriptSignature = "";
+      this.clearTranscriptVirtualRender();
+      this.updateFromLoadedCues();
+      this.render();
+      this.renderOpenSubtitlePanel();
+      this.syncControls();
+      this.warmParseAroundActiveCue();
+      this.scheduleTranscriptCacheWarmup();
+      void this.autoCopyCurrentCue();
+    }
+    trackSelectionRole(id) {
+      if (id === this.selectedTrackId) return "primary";
+      if (id === this.secondaryTrackId) return "secondary";
+      return void 0;
+    }
+    baseCuesForSelectedTrack(id, role, previousOffset = this.trackTimingOffsetSeconds(id)) {
+      const track = this.tracks.find((item) => item.id === id);
+      if (track?.cues?.length) return track.cues;
+      const cues = role === "primary" ? this.cues : this.secondaryCues;
+      return offsetSubtitleCues(cues, -previousOffset);
+    }
+    trackTimingOffsetSeconds(id) {
+      return normalizeSubtitleTimingOffsetSeconds(this.tracks.find((track) => track.id === id)?.timingOffsetSeconds);
+    }
+    adjacentTrackTimingCue(id, forward) {
+      if (!this.video) return void 0;
+      const role = this.trackSelectionRole(id);
+      if (!role) return void 0;
+      const baseCues = this.baseCuesForSelectedTrack(id, role);
+      const offset = this.trackTimingOffsetSeconds(id);
+      return adjacentSubtitleCueForOffset(baseCues, this.video.currentTime, offset, forward);
+    }
     transcriptPlacementFromTarget(target) {
       const placement = target.closest("[data-placement]")?.dataset.placement;
       return placement === "left" || placement === "right" || placement === "bottom" ? placement : void 0;
@@ -15537,8 +15726,9 @@ ${spelling}`);
       else this.secondaryTrackId = trackId;
     }
     applyPrimaryTrackSelection(selection) {
-      this.cues = selection.cues;
       if (selection.trackId !== this.selectedTrackId) this.selectedTrackId = selection.trackId;
+      if (selection.track) selection.track.cues = selection.cues;
+      this.cues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
       this.applyYouTubeCaptionFallback(selection.track, selection.trackId);
       if (selection.track) selection.track.loadingState = loadedTrackState(this.cues);
     }
@@ -15589,8 +15779,9 @@ ${spelling}`);
       return this.loadTrackSelection({ id, requestId, role: "secondary", transcriptEligible: false });
     }
     applySecondaryTrackSelection(selection) {
-      this.secondaryCues = selection.cues;
       if (selection.trackId !== this.secondaryTrackId) this.secondaryTrackId = selection.trackId;
+      if (selection.track) selection.track.cues = selection.cues;
+      this.secondaryCues = offsetSubtitleCues(selection.cues, this.trackTimingOffsetSeconds(selection.trackId));
       if (selection.track) selection.track.loadingState = loadedTrackState(this.secondaryCues);
     }
     finishSecondaryTrackSelection(id, selected) {
@@ -16732,6 +16923,10 @@ ${spelling}`);
       const settings = this.options.getSettings();
       setInnerHtml(this.transcriptPanel, renderSubtitleTrackPanel({
         ...state2,
+        tracks: state2.tracks.map((track) => ({
+          ...track,
+          timing: this.trackTimingControlState(track.id)
+        })),
         selectedTrackId: this.selectedTrackId,
         secondaryTrackId: this.secondaryTrackId,
         hasTranscriptSurface: this.hasTranscriptSurface(),
@@ -16743,6 +16938,17 @@ ${spelling}`);
       }));
       this.bindTranscriptResizeHandle();
       this.syncPanelState();
+    }
+    trackTimingControlState(id) {
+      const role = this.trackSelectionRole(id);
+      if (!role) return void 0;
+      const baseCues = this.baseCuesForSelectedTrack(id, role);
+      return {
+        offsetSeconds: this.trackTimingOffsetSeconds(id),
+        canAdjust: baseCues.length > 0,
+        canAlignPrevious: Boolean(this.video && adjacentSubtitleCueForOffset(baseCues, this.video.currentTime, this.trackTimingOffsetSeconds(id), false)),
+        canAlignNext: Boolean(this.video && adjacentSubtitleCueForOffset(baseCues, this.video.currentTime, this.trackTimingOffsetSeconds(id), true))
+      };
     }
     beginTrackSelection(role) {
       if (role === "primary") {

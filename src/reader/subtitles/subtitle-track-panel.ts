@@ -15,6 +15,14 @@ export interface SubtitleTrackPanelTrack {
     kind: SubtitleTrackKind;
     language?: string;
     loadingState?: SubtitleTrackLoadingState;
+    timing?: SubtitleTrackTimingControlState;
+}
+
+export interface SubtitleTrackTimingControlState {
+    offsetSeconds: number;
+    canAdjust: boolean;
+    canAlignPrevious: boolean;
+    canAlignNext: boolean;
 }
 
 export interface SubtitleTrackPanelRenderState {
@@ -102,8 +110,40 @@ function renderSubtitleTrackRow(track: SubtitleTrackPanelTrack, state: SubtitleT
                 <button type="button" data-action="primary-track" aria-pressed="${isPrimary}">${escapeHtml(uiText(language, isPrimary ? 'unsetPrimarySubtitles' : 'primarySubtitles'))}</button>
                 <button type="button" data-action="secondary-track" aria-pressed="${isSecondary}">${escapeHtml(uiText(language, isSecondary ? 'unsetNativeSubtitles' : 'nativeSubtitles'))}</button>
             </div>
+            ${isPrimary || isSecondary ? renderSubtitleTrackTimingControls(track, language) : ''}
         </div>
     `;
+}
+
+function renderSubtitleTrackTimingControls(track: SubtitleTrackPanelTrack, language: InterfaceLanguage): string {
+    const timing = track.timing;
+    if (!timing) return '';
+    const disabled = timing.canAdjust ? '' : 'disabled';
+    const timingLabel = uiText(language, 'subtitleTrackTiming');
+    const previousLabel = uiText(language, 'subtitleOffsetPrevious');
+    const nextLabel = uiText(language, 'subtitleOffsetNext');
+    const previousShort = uiText(language, 'subtitleOffsetPreviousShort');
+    const nextShort = uiText(language, 'subtitleOffsetNextShort');
+    const earlierLabel = uiText(language, 'subtitleOffsetEarlier');
+    const laterLabel = uiText(language, 'subtitleOffsetLater');
+    const resetLabel = uiText(language, 'resetSubtitleOffset');
+    return `
+        <div class="jpdb-subtitle-track-offset" role="group" aria-label="${escapeHtml(timingLabel)}">
+            <span class="jpdb-subtitle-track-offset-value" title="${escapeHtml(timingLabel)}">${escapeHtml(formatSubtitleTrackOffset(timing.offsetSeconds))}</span>
+            <button type="button" data-action="offset-previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}" ${timing.canAlignPrevious ? '' : 'disabled'}>‹ ${escapeHtml(previousShort)}</button>
+            <button type="button" data-action="offset-earlier" title="${escapeHtml(earlierLabel)}" aria-label="${escapeHtml(earlierLabel)}" ${disabled}>−100</button>
+            <button type="button" data-action="offset-later" title="${escapeHtml(laterLabel)}" aria-label="${escapeHtml(laterLabel)}" ${disabled}>+100</button>
+            <button type="button" data-action="offset-next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}" ${timing.canAlignNext ? '' : 'disabled'}>${escapeHtml(nextShort)} ›</button>
+            <button type="button" data-action="offset-reset" title="${escapeHtml(resetLabel)}" aria-label="${escapeHtml(resetLabel)}" ${disabled}>0</button>
+        </div>
+    `;
+}
+
+function formatSubtitleTrackOffset(seconds: number): string {
+    const roundedMs = Math.round(seconds * 1000);
+    const value = roundedMs / 1000;
+    const sign = value >= 0 ? '+' : '';
+    return `${sign}${value.toFixed(2)}s`;
 }
 
 function trackPanelSummaryText(autoDetected: number, language: InterfaceLanguage): string {

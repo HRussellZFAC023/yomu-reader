@@ -11,6 +11,8 @@ import {
     appendSingleWordOcrLine,
 } from './helpers/hover-fixtures';
 
+type VitestMock = ReturnType<typeof vi.fn>;
+
 interface HoverLookupInternals {
     settings: ReaderSettings;
     activePopover?: HTMLElement;
@@ -65,6 +67,8 @@ interface HoverLookupInternals {
     shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean;
     showAlternativeRenderedWordCandidate(word: HTMLElement, card: JPDBCard, context: unknown, options: unknown, stackOverSettings: boolean): Promise<boolean>;
     showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: Record<string, unknown>): Promise<void>;
+    mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover'; focusOnMount?: boolean }): void;
+    dismiss(options?: { suppressHoverTarget?: boolean }): void;
     bindEvents(): void;
 }
 
@@ -214,6 +218,32 @@ function subtitleRowHitStackFixture(): { row: HTMLElement; surface: HTMLElement;
     return { row, surface, word };
 }
 
+function appendPlayingVideo() {
+    const video = document.createElement('video');
+    let paused = false;
+    const pause = vi.fn(() => {
+        paused = true;
+        video.dispatchEvent(new Event('pause'));
+    });
+    const play = vi.fn(async () => {
+        paused = false;
+        video.dispatchEvent(new Event('play'));
+    });
+    Object.defineProperties(video, {
+        readyState: { configurable: true, value: 4 },
+        paused: { configurable: true, get: () => paused },
+        ended: { configurable: true, value: false },
+        pause: { configurable: true, value: pause },
+        play: { configurable: true, value: play },
+        getBoundingClientRect: {
+            configurable: true,
+            value: () => new DOMRect(0, 0, 960, 540),
+        },
+    });
+    document.body.append(video);
+    return { video, pause: pause as VitestMock, play: play as VitestMock };
+}
+
 function stubElementFromPoint(element: Element): () => void {
     const originalElementFromPoint = document.elementFromPoint;
     Object.defineProperty(document, 'elementFromPoint', {
@@ -306,6 +336,36 @@ function expectNoHoverLookup({
 }
 
 describe('hover lookup', () => {
+    it('pauses a playing video for modal lookups opened from ASB subtitle words', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            subtitleMiningPause: true,
+        };
+        const { pause, play } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
+        document.body.append(asbRoot);
+        const word = asbRoot.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.tabIndex = -1;
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'modal', focusOnMount: false });
+
+            expect(pause).toHaveBeenCalledTimes(1);
+
+            internals.dismiss();
+
+            expect(play).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('does not suppress autoplay for a fresh hover of the same card', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;

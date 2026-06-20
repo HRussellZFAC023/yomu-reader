@@ -25,6 +25,7 @@ export interface SubtitleTrackOption {
     sourceKey?: string;
     loadingState?: SubtitleTrackLoadingState;
     translatedFromTrackId?: string;
+    timingOffsetSeconds?: number;
 }
 
 export interface LoadedSubtitleTrackSelection {

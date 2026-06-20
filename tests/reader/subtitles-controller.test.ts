@@ -2257,6 +2257,112 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('adjusts selected subtitle timing from the tracks panel without mutating source cues', async () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleTranscriptVisible: false });
+        const video = attachVideo(controller, { currentTime: 1.2 });
+        const cues = [{
+            start: 1,
+            end: 2,
+            text: '今日は読む。',
+            transcriptEligible: true,
+            words: [{ text: '今日', start: 1, end: 1.2 }],
+            wordTimingsExact: true,
+        }];
+        const track: {
+            id: string;
+            kind: 'file';
+            label: string;
+            cues: typeof cues;
+            timingOffsetSeconds?: number;
+        } = {
+            id: 'file-ja',
+            kind: 'file',
+            label: '日本語',
+            cues,
+        };
+        const internals = controllerInternals<{
+            tracks: Array<typeof track>;
+            cues: typeof cues;
+            openTracksPanel: () => void;
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+
+        try {
+            internals.tracks = [track];
+            internals.openTracksPanel();
+            await internals.selectTrack('file-ja');
+
+            let panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(panel.querySelector('.jpdb-subtitle-track-offset-value')?.textContent).toBe('+0.00s');
+
+            panel.querySelector<HTMLButtonElement>('[data-action="offset-later"]')!.click();
+
+            panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+            expect(track.timingOffsetSeconds).toBeCloseTo(0.1);
+            expect(track.cues[0].start).toBe(1);
+            expect(internals.cues[0].start).toBeCloseTo(1.1);
+            expect(internals.cues[0].words?.[0]?.start).toBeCloseTo(1.1);
+            expect(panel.querySelector('.jpdb-subtitle-track-offset-value')?.textContent).toBe('+0.10s');
+
+            panel.querySelector<HTMLButtonElement>('[data-action="offset-earlier"]')!.click();
+
+            expect(track.timingOffsetSeconds).toBeUndefined();
+            expect(internals.cues[0].start).toBe(1);
+            expect(document.querySelector('.jpdb-subtitle-track-offset-value')?.textContent).toBe('+0.00s');
+            expect(video.currentTime).toBe(1.2);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('aligns previous and next subtitle starts to the playhead from the tracks panel', async () => {
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true, subtitleTranscriptVisible: false });
+        attachVideo(controller, { currentTime: 5 });
+        const cues = [
+            { start: 2, end: 3, text: '前の字幕', transcriptEligible: true },
+            { start: 8, end: 9, text: '次の字幕', transcriptEligible: true },
+        ];
+        const track: {
+            id: string;
+            kind: 'file';
+            label: string;
+            cues: typeof cues;
+            timingOffsetSeconds?: number;
+        } = {
+            id: 'file-ja',
+            kind: 'file',
+            label: '日本語',
+            cues,
+        };
+        const internals = controllerInternals<{
+            tracks: Array<typeof track>;
+            cues: typeof cues;
+            openTracksPanel: () => void;
+            selectTrack: (id: string) => Promise<void>;
+        }>(controller);
+
+        try {
+            internals.tracks = [track];
+            internals.openTracksPanel();
+            await internals.selectTrack('file-ja');
+
+            document.querySelector<HTMLButtonElement>('[data-action="offset-next"]')!.click();
+
+            expect(track.timingOffsetSeconds).toBe(-3);
+            expect(internals.cues[1].start).toBe(5);
+            expect(document.querySelector('.jpdb-subtitle-track-offset-value')?.textContent).toBe('-3.00s');
+
+            document.querySelector<HTMLButtonElement>('[data-action="offset-reset"]')!.click();
+            document.querySelector<HTMLButtonElement>('[data-action="offset-previous"]')!.click();
+
+            expect(track.timingOffsetSeconds).toBe(3);
+            expect(internals.cues[0].start).toBe(5);
+            expect(document.querySelector('.jpdb-subtitle-track-offset-value')?.textContent).toBe('+3.00s');
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it('clears parsed ASBPlayer subtitle roots when the primary track is unset', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const internals = controllerInternals<{
@@ -3031,6 +3137,98 @@ describe('SubtitlePlayerController', () => {
 
         expect(internals.selectedTrackId).toBe('youtube-ja');
         expect(internals.secondaryTrackId).toBe('youtube-en');
+    });
+
+    it('recovers a secondary YouTube translation track when translated timedtext is empty', async () => {
+        const originalLocation = window.location;
+        const originalFetch = globalThis.fetch;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=native-overlay') as unknown as Location,
+        });
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const href = input instanceof Request ? input.url : String(input);
+            const url = new URL(href);
+            if (url.hostname === 'translate.googleapis.com') {
+                expect(url.searchParams.get('sl')).toBe('ja');
+                expect(url.searchParams.get('tl')).toBe('en');
+                return new Response(JSON.stringify({ sentences: [{ trans: 'I read today.' }] }), {
+                    status: 200,
+                    headers: { 'content-type': 'application/json' },
+                });
+            }
+            if (url.pathname === '/api/timedtext') {
+                return new Response(
+                    url.searchParams.has('tlang') ? '' : '<transcript><text start="1" dur="2">今日は読む。</text></transcript>',
+                    { status: 200, headers: { 'content-type': 'text/xml' } },
+                );
+            }
+            return new Response('', { status: 404 });
+        });
+        Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            value: fetchMock,
+        });
+        const { controller } = createInstalledSubtitleController({
+            subtitleOverlayVisible: true,
+            subtitleSecondaryVisible: true,
+        });
+        const internals = controllerInternals<{
+            tracks: Array<{
+                id: string;
+                label: string;
+                kind: 'youtube';
+                language: string;
+                sourceType: 'asr' | 'translation';
+                sourceLanguage?: string;
+                targetLanguage?: string;
+                url: string;
+                loadingState?: string;
+            }>;
+            secondaryTrackId: string;
+            secondaryCues: Array<{ start: number; end: number; text: string }>;
+            selectSecondaryTrack: (id: string) => Promise<void>;
+        }>(controller);
+        internals.tracks = [
+            {
+                id: 'youtube-ja',
+                label: '日本語 (ja) · auto-generated',
+                kind: 'youtube',
+                language: 'ja',
+                sourceType: 'asr',
+                sourceLanguage: 'ja',
+                url: 'https://www.youtube.com/api/timedtext?v=native-overlay&lang=ja',
+            },
+            {
+                id: 'youtube-en',
+                label: 'English (en) · auto-translated from 日本語',
+                kind: 'youtube',
+                language: 'en',
+                sourceType: 'translation',
+                sourceLanguage: 'ja',
+                targetLanguage: 'en',
+                url: 'https://www.youtube.com/api/timedtext?v=native-overlay&lang=ja&tlang=en',
+            },
+        ];
+
+        try {
+            await internals.selectSecondaryTrack('youtube-en');
+
+            expect(internals.secondaryTrackId).toBe('youtube-en');
+            expect(internals.secondaryCues).toMatchObject([{ start: 1, end: 3, text: 'I read today.' }]);
+            expect(internals.tracks[1]?.loadingState).toBe('ready');
+            expect(fetchMock.mock.calls.some(([input]) => (input instanceof Request ? input.url : String(input)).includes('translate.googleapis.com'))).toBe(true);
+        } finally {
+            controller.destroy();
+            Object.defineProperty(globalThis, 'fetch', {
+                configurable: true,
+                value: originalFetch,
+            });
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
     });
 
     it('synthesizes and auto-selects a translated Japanese track when YouTube only offers English captions', () => {

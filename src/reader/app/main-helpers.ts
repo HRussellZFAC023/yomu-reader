@@ -58,7 +58,13 @@ export const BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY = 4;
 // Local-only pitch lookups are IndexedDB-bound (no network): a wider lane
 // clears the cold-start backlog quickly instead of trickling 2 at a time.
 export const LOCAL_PITCH_ENRICHMENT_CONCURRENCY = 8;
-export const SUBTITLE_SURFACE_SELECTOR = '.jpdb-subtitle-player, .jpdb-subtitle-list';
+export const SUBTITLE_SURFACE_SELECTOR = [
+    '.jpdb-subtitle-player',
+    '.jpdb-subtitle-list',
+    '.asbplayer-subtitles-container-bottom',
+    '.asbplayer-offscreen',
+    '.jpdb-reader-subtitle-surface',
+].join(', ');
 export const KANA_ONLY_LOOKUP_RUN_RE = /^[\u3040-\u30ffー]+$/u;
 export const ANKI_RECOLOR_SCAN_CHUNK_SIZE = 600;
 
