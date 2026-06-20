@@ -300,11 +300,11 @@ describe('settings dialog keyboard dismissal', () => {
         expect(document.activeElement).toBe(opener);
     });
 
-    it('does not keep refreshing parsed settings text after cancel closes the dialog', () => {
+    it('does not keep refreshing parsed settings text after cancel closes the dialog', async () => {
         const parseSettingsJapanese = vi.fn();
         const { controller, dismiss, form } = createSettingsDialog({ parseSettingsJapanese });
 
-        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
         parseSettingsJapanese.mockClear();
 
         form.querySelector<HTMLButtonElement>('[data-action="cancel"]')!.click();
@@ -418,7 +418,7 @@ describe('settings dialog keyboard dismissal', () => {
         expect(dismiss).not.toHaveBeenCalled();
     });
 
-    it('requests Japanese settings parsing after opening and language changes without reparsing tab changes', async () => {
+    it('requests Japanese settings parsing after opening, language changes, and tab changes', async () => {
         const parseSettingsJapanese = vi.fn();
         const { form } = createSettingsDialog({
             parseSettingsJapanese,
@@ -426,19 +426,18 @@ describe('settings dialog keyboard dismissal', () => {
         });
         const language = form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
 
-        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
 
         parseSettingsJapanese.mockClear();
         language.value = 'ja';
         language.dispatchEvent(new Event('change', { bubbles: true }));
 
-        expect(parseSettingsJapanese).toHaveBeenCalledWith(form);
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
 
         parseSettingsJapanese.mockClear();
         form.querySelector<HTMLButtonElement>('[data-action="settings-panel"][data-panel="dictionaries"]')?.click();
-        await flushPromises();
 
-        expect(parseSettingsJapanese).not.toHaveBeenCalled();
+        await waitForCondition(() => parseSettingsJapanese.mock.calls.some(([target]) => target === form));
     });
 
     it('lets passive parsed settings tab words activate the tab instead of opening lookup', () => {

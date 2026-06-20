@@ -68,7 +68,8 @@ import {
     setMiningControlsExpanded as setMiningControlsExpandedState,
     toggleMiningControls as toggleMiningControlsState,
 } from '../study/mining-controls';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../lookup/nested-text-parse';
+import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { NewTabController, newTabKanjiSourceTitle, type NewTabLookupReviewTargetSelection } from './controller';
 import { createReaderBackdrop, createReaderPopover, forceReaderPopoverSurface, installMiningDrawerHandle, installSheetCloseButton, installSheetHandle, refreshForcedReaderPopoverSurface } from '../popup/shell';
 import { PopupNavigationController, renderModalNavigation, type CardNavigationMode, type PopupNavigationEntry } from '../popup/navigation';
@@ -2000,7 +2001,11 @@ export class NewTabRuntime {
         });
     }
 
-    private async enrichPublicVocabularyWords(tokens: JPDBToken[], limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT): Promise<void> {
+    private async enrichPublicVocabularyWords(
+        tokens: JPDBToken[],
+        limit = NEW_TAB_PITCH_ENRICHMENT_LIMIT,
+        options: { preserveMissingFallbacks?: boolean } = {},
+    ): Promise<void> {
         if (!this.settings.jpdbDefinitionsEnabled && !this.settings.showPitchAccent) return;
         const uniqueTokens = this.uniqueTokens(
             tokens,
@@ -2012,7 +2017,7 @@ export class NewTabRuntime {
         await runLimited(uniqueTokens, NEW_TAB_BACKGROUND_ENRICHMENT_CONCURRENCY, async token => {
             const card = resolvedCards.get(cardKey(token.card));
             if (!card) {
-                this.unwrapRenderedFallbackWords(token.card);
+                if (!options.preserveMissingFallbacks) this.unwrapRenderedFallbackWords(token.card);
                 return;
             }
             this.parser.cacheCards?.([card]);
@@ -2204,6 +2209,7 @@ export class NewTabRuntime {
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
         if (!this.isCurrentSettingsRoot(form)) return;
+        if (nestedSettingsParseAlreadyRendered(form)) return;
         if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
             form.dataset.yomuSettingsSelfEnhancePending = 'true';
             return;
@@ -2232,22 +2238,31 @@ export class NewTabRuntime {
                 requireJpdb: false,
                 skipJpdb: true,
             });
-            await this.hydrateSettingsFallbackTokens(parsed);
             if (!this.isCurrentSettingsRoot(form)
                 || form.dataset.jpdbReaderParseLoadingKey !== plan.parseKey
                 || form.dataset.jpdbReaderParseLoadingId !== parseLoadingId) return;
             const currentPlan = nestedSettingsTextParsePlan(form, 640);
             if (!currentPlan) return;
-            const currentParsed = parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan);
+            const currentParsed = supplementSettingsFallbackTokens(
+                currentPlan.targets,
+                parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
+            );
+            await this.hydrateSettingsFallbackTokens(currentParsed);
+            const latestPlan = nestedSettingsTextParsePlan(form, 640);
+            if (!latestPlan) return;
+            const latestParsed = supplementSettingsFallbackTokens(
+                latestPlan.targets,
+                parsedSettingsTargetsForCurrentPlan(currentPlan, currentParsed, latestPlan),
+            );
             const renderSettings = settingsForSettingsFormParse(form, this.settings);
-            applyNestedParsePlan(currentPlan, currentParsed, renderSettings);
+            applyNestedParsePlan(latestPlan, latestParsed, renderSettings);
             addSettingsRubyFromRenderedReadings(form, renderSettings);
             highlightCardTargetScopes(form);
             refreshReaderWordContrast(form);
-            form.dataset.jpdbReaderParseKey = currentPlan.parseKey;
+            form.dataset.jpdbReaderParseKey = latestPlan.parseKey;
             form.dataset.yomuSettingsSelfEnhanced = 'true';
-            const tokens = currentParsed.flat();
-            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT);
+            const tokens = latestParsed.flat();
+            void this.enrichPublicVocabularyWords(tokens, NEW_TAB_SETTINGS_PUBLIC_VOCABULARY_LIMIT, { preserveMissingFallbacks: true });
             void this.enrichPitchWords(tokens, NEW_TAB_SETTINGS_ENRICHMENT_LIMIT);
         } catch {
         } finally {
@@ -2288,20 +2303,6 @@ export class NewTabRuntime {
 
 function markNewTabRuntime(): void {
     (window as YomuNewTabWindow).__YOMU_READER_RUNTIME__ = 'newtab';
-}
-
-function parsedSettingsTargetsForCurrentPlan(
-    previousPlan: NonNullable<ReturnType<typeof nestedSettingsTextParsePlan>>,
-    previousParsed: JPDBToken[][],
-    currentPlan: NonNullable<ReturnType<typeof nestedSettingsTextParsePlan>>,
-): JPDBToken[][] {
-    const parsedByText = new Map<string, JPDBToken[][]>();
-    previousPlan.targets.forEach((target, index) => {
-        const queue = parsedByText.get(target.text) ?? [];
-        queue.push(previousParsed[index] ?? []);
-        parsedByText.set(target.text, queue);
-    });
-    return currentPlan.targets.map(target => parsedByText.get(target.text)?.shift() ?? []);
 }
 
 interface FallbackLookupEntry {

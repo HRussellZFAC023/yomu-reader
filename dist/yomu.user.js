@@ -15,7 +15,7 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.34#sha256-YpidDMbV5Hl361J8M1pNOhK8BhY2uWyhTuvHiCJKWmc=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.34#sha256-yjT0gaHgmlT/Yos/3iwlbB78toHYKaEcU+BFyJn6MZM=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.34#sha256-cSTKH/e9z6EvZ3HNLkSvW4uc61Kab9e5xJe3E8TiJxo=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.34#sha256-sY7pq4fevbGWeYjBvvbasgJeHnlFLqeeoNaLhtZrZpo=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.34#sha256-9iZgwq5SuqvAbZJDv9xRuGAt6bcZcziB97LFxsOMGUg=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -5408,13 +5408,13 @@
     const cardId = ` data-card-id="${readerCardId(token.card)}"`;
     const readingIndex = ` data-reading-index="${readerReadingIndex(token.card)}"`;
     const cardState = ` data-card-state="${escapeHtml$1(state2)}"`;
-    const tokenRange = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
+    const tokenRange2 = ` data-token-start="${token.start}" data-token-end="${token.end}"`;
     const surfaceAttr = ` data-surface="${escapeHtml$1(surface)}"`;
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
     const expression = token.card.spelling ? ` data-expression="${escapeHtml$1(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml$1(token.card.reading)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange2}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml$1(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -34431,6 +34431,10 @@ ${normalizedReading}`;
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
   }
+  function nestedSettingsParseAlreadyRendered(root) {
+    if (!root.dataset.jpdbReaderParseKey) return false;
+    return root.querySelectorAll("[data-settings-panel]:not([hidden]) .jpdb-reader-word").length >= 4;
+  }
   function settingsParseRootPriority(parseRoot) {
     const panel = parseRoot.closest("[data-settings-panel]");
     return panel?.hasAttribute("hidden") ? 1 : 0;
@@ -34503,6 +34507,137 @@ ${normalizedReading}`;
   }
   function nestedParseKey(targets) {
     return targets.map((target) => target.text).join("\n\n");
+  }
+  const SETTINGS_FALLBACK_READINGS = [
+    ["日本語", "にほんご"],
+    ["読み取り", "よみとり"],
+    ["読み上げ", "よみあげ"],
+    ["忘れない", "わすれない"],
+    ["変更", "へんこう"],
+    ["検索", "けんさく"],
+    ["設定", "せってい"],
+    ["外観", "がいかん"],
+    ["音声", "おんせい"],
+    ["表示", "ひょうじ"],
+    ["再生", "さいせい"],
+    ["翻訳", "ほんやく"],
+    ["画像", "がぞう"],
+    ["例文", "れいぶん"],
+    ["単語", "たんご"],
+    ["漢字", "かんじ"],
+    ["採掘", "さいくつ"],
+    ["学習", "がくしゅう"],
+    ["復習", "ふくしゅう"],
+    ["評価", "ひょうか"],
+    ["辞書", "じしょ"],
+    ["拡張", "かくちょう"],
+    ["選択", "せんたく"],
+    ["保存", "ほぞん"],
+    ["有効", "ゆうこう"],
+    ["追加", "ついか"],
+    ["新規", "しんき"],
+    ["既知", "きち"],
+    ["失敗", "しっぱい"],
+    ["下線", "かせん"],
+    ["字幕", "じまく"],
+    ["語句", "ごく"],
+    ["動画", "どうが"],
+    ["自動", "じどう"],
+    ["文脈", "ぶんみゃく"],
+    ["作成", "さくせい"],
+    ["表面", "おもてめん"],
+    ["裏面", "うらめん"],
+    ["意味", "いみ"],
+    ["前", "まえ"],
+    ["次", "つぎ"],
+    ["診断", "しんだん"],
+    ["便利", "べんり"],
+    ["寄付", "きふ"],
+    ["言葉", "ことば"],
+    ["毎日", "まいにち"],
+    ["勉強", "べんきょう"],
+    ["上手", "じょうず"],
+    ["新しい", "あたらしい"],
+    ["読む", "よむ"],
+    ["選ぶ", "えらぶ"],
+    ["開く", "ひらく"],
+    ["色", "いろ"]
+  ];
+  const SORTED_SETTINGS_FALLBACK_READINGS = [...SETTINGS_FALLBACK_READINGS].sort((left, right) => right[0].length - left[0].length || left[0].localeCompare(right[0]));
+  function supplementSettingsFallbackTokens(targets, parsed) {
+    return targets.map((target, index) => supplementSettingsTargetTokens(target.text, parsed[index] ?? []));
+  }
+  function parsedSettingsTargetsForCurrentPlan(previousPlan, previousParsed, currentPlan) {
+    const parsedByText = /* @__PURE__ */ new Map();
+    previousPlan.targets.forEach((target, index) => {
+      const queue = parsedByText.get(target.text) ?? [];
+      queue.push(previousParsed[index] ?? []);
+      parsedByText.set(target.text, queue);
+    });
+    return currentPlan.targets.map((target) => parsedByText.get(target.text)?.shift() ?? []);
+  }
+  function supplementSettingsTargetTokens(text2, tokens) {
+    const protectedRanges = tokens.filter(isHydratedSettingsToken).map(tokenRange);
+    const generated = [];
+    const occupied = [...protectedRanges];
+    for (const [surface, reading] of SORTED_SETTINGS_FALLBACK_READINGS) {
+      let start = text2.indexOf(surface);
+      while (start >= 0) {
+        const end = start + surface.length;
+        const range = { start, end };
+        if (!rangesOverlapAny(range, occupied)) {
+          generated.push(settingsFallbackToken(surface, reading, start, text2));
+          occupied.push(range);
+        }
+        start = text2.indexOf(surface, start + surface.length);
+      }
+    }
+    if (!generated.length) return tokens;
+    const generatedRanges = generated.map(tokenRange);
+    const kept = tokens.filter((token) => isHydratedSettingsToken(token) || !rangesOverlapAny(tokenRange(token), generatedRanges));
+    return [...kept, ...generated].sort((left, right) => left.start - right.start || right.length - left.length);
+  }
+  function isHydratedSettingsToken(token) {
+    return Boolean(token.rubies.length || token.card.reading && token.card.reading !== token.card.spelling || token.pitchClass);
+  }
+  function settingsFallbackToken(surface, reading, start, sentence) {
+    const card = settingsFallbackCard(surface, reading);
+    const end = start + surface.length;
+    return {
+      card,
+      start,
+      end,
+      length: surface.length,
+      rubies: reading !== surface ? [{ text: reading, start, end, length: surface.length }] : [],
+      pitchClass: "heiban",
+      sentence
+    };
+  }
+  function settingsFallbackCard(surface, reading) {
+    const id = -stablePositiveHashId(`settings-fallback
+${surface}
+${reading}`);
+    return {
+      vid: id,
+      sid: id,
+      rid: 0,
+      spelling: surface,
+      reading,
+      frequencyRank: null,
+      partOfSpeech: ["n"],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "fallback",
+      fallbackLookupTerms: [surface]
+    };
+  }
+  function tokenRange(token) {
+    return { start: token.start, end: token.end };
+  }
+  function rangesOverlapAny(range, ranges) {
+    return ranges.some((candidate) => range.start < candidate.end && candidate.start < range.end);
   }
   const log$4 = Logger.scope("Onboarding");
   const ONBOARDING_ACCENT_SWATCHES = ["#5ea780", "#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2"];
@@ -41970,18 +42105,38 @@ ${criticalWordCss()}
       return Boolean(root.isConnected && root.matches("[data-yomu-jpdb-addon]"));
     }
     async parseSettingsJapanese(form) {
-      const plan = this.settingsJapaneseParsePlan(form);
-      if (!plan) return;
-      const parseLoadingId = `${Date.now()}:${Math.random()}`;
-      form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-      form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
+      if (!this.isCurrentSettingsRoot(form)) return;
+      if (nestedSettingsParseAlreadyRendered(form)) return;
+      if (form.dataset.yomuSettingsSelfEnhancing === "true") {
+        form.dataset.yomuSettingsSelfEnhancePending = "true";
+        return;
+      }
+      form.dataset.yomuSettingsSelfEnhancing = "true";
+      let plan = null;
+      let parseLoadingId = "";
       try {
+        plan = this.settingsJapaneseParsePlan(form);
+        if (!plan) return;
+        parseLoadingId = `${Date.now()}:${Math.random()}`;
+        form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+        form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
         const parsed = await this.loadSettingsParsedJapaneseContent(plan);
         if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-        this.applySettingsJapaneseParse(form, plan, parsed);
+        const currentPlan = nestedSettingsTextParsePlan(form, 640);
+        if (!currentPlan) return;
+        const currentParsed = supplementSettingsFallbackTokens(
+          currentPlan.targets,
+          parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan)
+        );
+        this.applySettingsJapaneseParse(form, currentPlan, currentParsed);
       } catch {
       } finally {
-        clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+        if (plan) clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+        delete form.dataset.yomuSettingsSelfEnhancing;
+        if (form.dataset.yomuSettingsSelfEnhancePending === "true") {
+          delete form.dataset.yomuSettingsSelfEnhancePending;
+          void this.parseSettingsJapanese(form);
+        }
       }
     }
     settingsJapaneseParsePlan(form) {
@@ -42010,6 +42165,7 @@ ${criticalWordCss()}
       highlightCardTargetScopes(form);
       refreshReaderWordContrast(form);
       form.dataset.jpdbReaderParseKey = plan.parseKey;
+      form.dataset.yomuSettingsSelfEnhanced = "true";
       const tokens = parsed.flat();
       void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
       this.queueAnkiWordEnrichment(tokens, [form]);

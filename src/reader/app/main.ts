@@ -238,7 +238,8 @@ import {
 import { AUTO_SCAN_OBSERVER_OPTIONS, mutationInsideReaderRoot, mutationMayAffectJpdbPageEnhancements, mutationMayContainJapaneseText, mutationTouchesAsbPlayer } from './mutation-scan';
 import { NativeTitleGuard } from './native-title-guard';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
-import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
+import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 
@@ -5834,18 +5835,38 @@ export class ReaderApp {
     }
 
     private async parseSettingsJapanese(form: HTMLFormElement): Promise<void> {
-        const plan = this.settingsJapaneseParsePlan(form);
-        if (!plan) return;
-        const parseLoadingId = `${Date.now()}:${Math.random()}`;
-        form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
-        form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
+        if (!this.isCurrentSettingsRoot(form)) return;
+        if (nestedSettingsParseAlreadyRendered(form)) return;
+        if (form.dataset.yomuSettingsSelfEnhancing === 'true') {
+            form.dataset.yomuSettingsSelfEnhancePending = 'true';
+            return;
+        }
+        form.dataset.yomuSettingsSelfEnhancing = 'true';
+        let plan: NestedParsePlan | null = null;
+        let parseLoadingId = '';
         try {
+            plan = this.settingsJapaneseParsePlan(form);
+            if (!plan) return;
+            parseLoadingId = `${Date.now()}:${Math.random()}`;
+            form.dataset.jpdbReaderParseLoadingKey = plan.parseKey;
+            form.dataset.jpdbReaderParseLoadingId = parseLoadingId;
             const parsed = await this.loadSettingsParsedJapaneseContent(plan);
             if (!this.isCurrentSettingsJapaneseParse(form, plan.parseKey, parseLoadingId)) return;
-            this.applySettingsJapaneseParse(form, plan, parsed);
+            const currentPlan = nestedSettingsTextParsePlan(form, 640);
+            if (!currentPlan) return;
+            const currentParsed = supplementSettingsFallbackTokens(
+                currentPlan.targets,
+                parsedSettingsTargetsForCurrentPlan(plan, parsed, currentPlan),
+            );
+            this.applySettingsJapaneseParse(form, currentPlan, currentParsed);
         } catch {
         } finally {
-            clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+            if (plan) clearNestedParseLoadingKey(form, plan.parseKey, parseLoadingId);
+            delete form.dataset.yomuSettingsSelfEnhancing;
+            if (form.dataset.yomuSettingsSelfEnhancePending === 'true') {
+                delete form.dataset.yomuSettingsSelfEnhancePending;
+                void this.parseSettingsJapanese(form);
+            }
         }
     }
 
@@ -5880,6 +5901,7 @@ export class ReaderApp {
         highlightCardTargetScopes(form);
         refreshReaderWordContrast(form);
         form.dataset.jpdbReaderParseKey = plan.parseKey;
+        form.dataset.yomuSettingsSelfEnhanced = 'true';
         const tokens = parsed.flat();
         void this.enrichPitchWords(tokens, this.backgroundPitchEnrichmentOptions());
         this.queueAnkiWordEnrichment(tokens, [form]);

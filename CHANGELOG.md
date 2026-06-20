@@ -6,6 +6,10 @@
 
 - Imported dictionary sources now render directly in the definition stack instead of sitting behind a combined "Dictionaries" wrapper panel.
 
+### Fixed
+
+- Settings now keep furigana parsing and pitch underline styling in the API, furigana, and underline controls after tab changes and late status refreshes, including hosted settings text that only has local fallback readings.
+
 ## [1.4.33] - 2026-06-20
 
 ### Fixed

@@ -503,6 +503,7 @@ export class SettingsDialogController {
     private ankiConnectionProbeId = 0;
     private jpdbConnectionProbeId = 0;
     private ankiLibraryScanId = 0;
+    private settingsJapaneseParseRefreshTimer: number | undefined;
 
     constructor(private readonly dependencies: SettingsDialogDependencies) {}
 
@@ -698,6 +699,7 @@ export class SettingsDialogController {
             event.preventDefault();
             tabs[nextIndex]?.focus();
             activateSettingsPanel(form, tabs[nextIndex]?.dataset.panel ?? 'api');
+            this.refreshSettingsJapaneseParse(form);
         });
     }
 
@@ -1110,6 +1112,7 @@ export class SettingsDialogController {
         );
         status.dataset.statusTone = line.tone;
         status.textContent = formatSettingsStatusLine(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage));
+        this.refreshSettingsJapaneseParse(form);
     }
 
     // Live probe via jpdb /ping: upgrades the static "key set" line to a real
@@ -1252,6 +1255,7 @@ export class SettingsDialogController {
         if (line.state) status.dataset.ankiAdapterState = line.state;
         else delete status.dataset.ankiAdapterState;
         setInnerHtml(status, renderAnkiStatusHtml(line, getFormInterfaceLanguage(form, this.settings.interfaceLanguage)));
+        this.refreshSettingsJapaneseParse(form);
     }
 
     private setAnkiStatus(form: HTMLFormElement, message: string, tone: 'pending' | 'success' | 'error', action?: SettingsStatusAction, state?: AnkiAdapterState, details?: SettingsStatusLine['details']): void {
@@ -1280,7 +1284,11 @@ export class SettingsDialogController {
     }
 
     private refreshSettingsJapaneseParse(form: HTMLFormElement): void {
-        void this.dependencies.parseSettingsJapanese?.(form);
+        if (this.settingsJapaneseParseRefreshTimer !== undefined) window.clearTimeout(this.settingsJapaneseParseRefreshTimer);
+        this.settingsJapaneseParseRefreshTimer = window.setTimeout(() => {
+            this.settingsJapaneseParseRefreshTimer = undefined;
+            if (this.currentForm === form && form.isConnected) void this.dependencies.parseSettingsJapanese?.(form);
+        }, 0);
     }
 
     private async mergeDictionaryPreferencesFromSummary(summary: DictionarySummary): Promise<void> {
@@ -1429,6 +1437,7 @@ export class SettingsDialogController {
         if (action === 'settings-panel') {
             const panel = selectedSettingsPanel(control);
             activateSettingsPanel(form, panel);
+            this.refreshSettingsJapaneseParse(form);
             return true;
         }
         if (isDictionarySourceOrderAction(action)) {
