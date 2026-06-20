@@ -2404,7 +2404,7 @@ export class ReaderApp {
         this.preloadReaderCardAudio(card, {
             sourceLimit: 1,
             candidateLimit: 1,
-            prepareAudio: this.shouldPrepareHoverWordAudio(card, word),
+            prepareAudio: this.shouldPrepareHoverWordAudio(word),
         });
         if (this.canPreloadBackgroundReaderAudio()) this.scheduleNearbyReaderWordAudioPreloads(word);
     }
@@ -2428,14 +2428,19 @@ export class ReaderApp {
         return true;
     }
 
-    private shouldPrepareHoverWordAudio(card: JPDBCard, word: HTMLElement): boolean {
+    private shouldPrepareHoverWordAudio(word: HTMLElement): boolean {
+        // Prefetch (not just preconnect) the audio whenever a hover will auto-play,
+        // so the clip is fetched concurrently with the lookup instead of cold at
+        // play time. This must track the auto-play gate exactly — restricting it
+        // further (e.g. by the immersion-example heuristic) is what made hover
+        // playback lag behind the always-warm click/modal path.
         return canAttemptReaderAutoAudio({
             anchor: word,
             settings: this.settings,
             subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
             trigger: 'hover',
             userGesture: false,
-        }) && isUsefulImmersionPreloadQuery(card.spelling);
+        });
     }
 
     private canPreloadReaderAudio(): boolean {
@@ -4789,21 +4794,23 @@ export class ReaderApp {
         this.audio.preload(card, {
             sourceLimit: 1,
             candidateLimit: 1,
-            prepareAudio: this.shouldPrepareLookupCardAudio(card, options, anchor),
+            prepareAudio: this.shouldPrepareLookupCardAudio(options, anchor),
         });
     }
 
-    private shouldPrepareLookupCardAudio(card: JPDBCard, options: CardDisplayOptions, anchor?: HTMLElement): boolean {
+    private shouldPrepareLookupCardAudio(options: CardDisplayOptions, anchor?: HTMLElement): boolean {
         const trigger = cardDisplayTrigger(options);
         if (trigger !== 'hover') return true;
         if (options.autoPlay === false) return false;
+        // Match the auto-play gate so a hover that will play is warmed just like a
+        // modal lookup, instead of deferring the fetch to play time for some words.
         return canAttemptReaderAutoAudio({
             anchor,
             settings: this.settings,
             subtitleSurfaceSelector: SUBTITLE_SURFACE_SELECTOR,
             trigger,
             userGesture: Boolean(options.userGesture),
-        }) && isUsefulImmersionPreloadQuery(card.spelling);
+        });
     }
 
     private shouldAutoPlayInitialCard(

@@ -8281,7 +8281,7 @@ describe('reader helpers', () => {
         expect(deck.order('読む', ['a', 'c', 'b'])[0]).not.toBe(first);
     });
 
-    it('shuffles available audio sources across repeated play presses', async () => {
+    it('rotates to a different audio source on repeated presses in shuffle mode without reshuffling priority', async () => {
         const played: string[] = [];
         const requested: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
@@ -8306,9 +8306,12 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
 
             expect(requested).toEqual([]);
+            // The configured first source plays first; pressing again rotates to the
+            // next source to avoid an immediate repeat — the priority order is never
+            // reshuffled, so the first source always leads.
             expect(played).toEqual([
-                'http://x.test/second.mp3',
                 'http://x.test/first.mp3',
+                'http://x.test/second.mp3',
             ]);
         } finally {
             randomSpy.mockRestore();
@@ -8473,7 +8476,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('honors shuffled source order even when a later source prepares faster', async () => {
+    it('honors the configured source order in shuffle mode even when a later source prepares faster', async () => {
         const played: string[] = [];
         const requested: string[] = [];
         const restoreAudio = mockAudioPlaybackEnvironment(played, {
@@ -8501,34 +8504,29 @@ describe('reader helpers', () => {
                 audioFallbackChimeEnabled: false,
                 audioTimeoutMs: 2000,
                 audioSources: [
-                    { type: 'custom', url: 'http://x.test/fast.mp3', voice: '', enabled: true },
                     { type: 'custom', url: 'http://x.test/slow.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/fast.mp3', voice: '', enabled: true },
                 ],
             }));
 
             await expect(player.play(card)).resolves.toBe(true);
-            await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual([
-                'http://x.test/slow.mp3',
-                'http://x.test/fast.mp3',
-            ]);
-            expect(played).toEqual([
-                'blob:http://localhost/slow-source-audio',
-                'blob:http://localhost/fast-source-audio',
-            ]);
+            // Shuffle mode varies clips within a source, never the source priority:
+            // the first configured source wins even though the later one is faster.
+            expect(requested).toEqual(['http://x.test/slow.mp3']);
+            expect(played).toEqual(['blob:http://localhost/slow-source-audio']);
         } finally {
             restoreAudio();
             vi.unstubAllGlobals();
         }
     });
 
-    it('preloads the next shuffled audio source instead of the first configured source', async () => {
+    it('preloads the first configured audio source so the hover play is already warm', async () => {
         const played: string[] = [];
         const requested: string[] = [];
         const restoreAudio = mockAudioPlaybackEnvironment(played, {
             randomValue: 0,
-            objectUrl: 'blob:http://localhost/random-preload-source',
+            objectUrl: 'blob:http://localhost/first-preload-source',
         });
         vi.stubGlobal('GM', {
             xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
@@ -8550,13 +8548,15 @@ describe('reader helpers', () => {
                 ],
             }));
 
+            // Preload warms exactly the source the subsequent play will use (the first
+            // configured one), so the hover-triggered play reuses the cached blob.
             player.preload(card, { sourceLimit: 1, candidateLimit: 1, prepareAudio: true });
-            await waitForExpect(() => expect(requested).toEqual(['http://x.test/second.mp3']));
+            await waitForExpect(() => expect(requested).toEqual(['http://x.test/first.mp3']));
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual(['http://x.test/second.mp3']);
-            expect(played).toEqual(['blob:http://localhost/random-preload-source']);
+            expect(requested).toEqual(['http://x.test/first.mp3']);
+            expect(played).toEqual(['blob:http://localhost/first-preload-source']);
         } finally {
             restoreAudio();
             vi.unstubAllGlobals();
@@ -8974,8 +8974,13 @@ describe('reader helpers', () => {
 
         try {
             const candidateOnlyCard = { ...card, vid: 4, spelling: '見る', reading: 'みる' };
+            // Single-character words (火, 水, 人…) are extremely common lookups but are
+            // rejected by the immersion-example heuristic. They must still warm their
+            // audio on hover so playback is not cold — matching the auto-play gate.
+            const singleCharCard = { ...card, vid: 5, spelling: '火', reading: 'ひ' };
             internals.maybePreloadLookupCardAudio(card, { trigger: 'hover' }, anchor);
             internals.maybePreloadLookupCardAudio(candidateOnlyCard, { trigger: 'hover', autoPlay: false }, anchor);
+            internals.maybePreloadLookupCardAudio(singleCharCard, { trigger: 'hover' }, anchor);
 
             expect(preload).toHaveBeenNthCalledWith(1, card, {
                 sourceLimit: 1,
@@ -8986,6 +8991,11 @@ describe('reader helpers', () => {
                 sourceLimit: 1,
                 candidateLimit: 1,
                 prepareAudio: false,
+            });
+            expect(preload).toHaveBeenNthCalledWith(3, singleCharCard, {
+                sourceLimit: 1,
+                candidateLimit: 1,
+                prepareAudio: true,
             });
         } finally {
             app.destroy();
@@ -13936,7 +13946,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('tries configured real audio sources before text-to-speech on the first random pass', async () => {
+    it('plays recorded sources before text-to-speech, in list order, even in shuffle mode', async () => {
         const played: string[] = [];
         const spoken: string[] = [];
         const requested: string[] = [];
@@ -13972,10 +13982,10 @@ describe('reader helpers', () => {
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual([
-                'http://x.test/missing.mp3',
-                'http://x.test/available.mp3',
-            ]);
+            // "Shuffle audio" only varies the clips within a source. The first
+            // configured recorded source still wins, so the later sources and the
+            // text-to-speech fallback are never reached.
+            expect(requested).toEqual(['http://x.test/available.mp3']);
             expect(played).toEqual(['blob:http://localhost/random-source-audio.mp3']);
             expect(spoken).toEqual([]);
         } finally {
@@ -14218,7 +14228,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('starts the next audio source quickly when the first source is slow', async () => {
+    it('plays the configured first source even when a later source would be faster', async () => {
         vi.useFakeTimers();
         const played: string[] = [];
         const requested: string[] = [];
@@ -14227,7 +14237,7 @@ describe('reader helpers', () => {
         const originalRevokeObjectUrl = URL.revokeObjectURL;
         Object.defineProperty(URL, 'createObjectURL', {
             configurable: true,
-            value: vi.fn(() => 'blob:http://localhost/fast-audio.mp3'),
+            value: vi.fn(() => 'blob:http://localhost/preferred-audio.mp3'),
         });
         Object.defineProperty(URL, 'revokeObjectURL', {
             configurable: true,
@@ -14236,9 +14246,9 @@ describe('reader helpers', () => {
         vi.stubGlobal('GM', {
             xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
                 requested.push(details.url);
-                if (details.url === 'http://x.test/slow-missing.mp3') {
+                if (details.url === 'http://x.test/preferred-slow.mp3') {
                     window.setTimeout(() => {
-                        details.onload?.({ status: 200, response: new Blob(['missing'], { type: 'text/html' }) });
+                        details.onload?.({ status: 200, response: new Blob(['audio'], { type: 'audio/mpeg' }) });
                     }, 6000);
                     return;
                 }
@@ -14254,23 +14264,23 @@ describe('reader helpers', () => {
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
                 audioSources: [
-                    { type: 'custom', url: 'http://x.test/slow-missing.mp3', voice: '', enabled: true },
-                    { type: 'custom', url: 'http://x.test/fast.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/preferred-slow.mp3', voice: '', enabled: true },
+                    { type: 'custom', url: 'http://x.test/faster.mp3', voice: '', enabled: true },
                 ],
             }));
 
             const play = player.play(card);
-            await vi.advanceTimersByTimeAsync(0);
-            expect(requested).toEqual(['http://x.test/slow-missing.mp3']);
+            await vi.advanceTimersByTimeAsync(120);
+            // The configured source list is the priority: a later source is never
+            // started just because the first one is slow (no fastest-source race).
+            expect(requested).toEqual(['http://x.test/preferred-slow.mp3']);
 
-            await vi.advanceTimersByTimeAsync(119);
-            expect(requested).toEqual(['http://x.test/slow-missing.mp3']);
-
-            await vi.advanceTimersByTimeAsync(1);
+            await vi.advanceTimersByTimeAsync(6000);
             await expect(play).resolves.toBe(true);
 
-            expect(requested).toContain('http://x.test/fast.mp3');
-            expect(played).toEqual(['blob:http://localhost/fast-audio.mp3']);
+            // The first configured source wins; the faster later source is never requested.
+            expect(requested).toEqual(['http://x.test/preferred-slow.mp3']);
+            expect(played).toEqual(['blob:http://localhost/preferred-audio.mp3']);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
                 configurable: true,
@@ -14314,7 +14324,10 @@ describe('reader helpers', () => {
 
             await expect(player.play(card)).resolves.toBe(true);
 
-            expect(requested).toEqual(['http://x.test/second-missing.mp3', 'http://x.test/first-missing.mp3']);
+            // "Shuffle audio" varies the clips a single source offers, but never the
+            // configured source priority list itself: the two custom sources are tried
+            // in their authored order, then text-to-speech runs only as a fallback.
+            expect(requested).toEqual(['http://x.test/first-missing.mp3', 'http://x.test/second-missing.mp3']);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             randomSpy.mockRestore();
