@@ -1,6 +1,7 @@
 import { Logger } from '../app/logger';
 import type { JPDBCard, JPDBToken } from '../app/types';
 import { ConcurrencyGate, mapLimited } from '../core/async-utils';
+import { getPitchClass } from '../jpdb/jpdb-parser';
 import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import { requestJson } from '../network/http';
 import { readPublicJitenCache, writePublicJitenCache } from './jiten-public-cache';
@@ -10,6 +11,8 @@ const REQUEST_TIMEOUT_MS = 1500;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_LIMIT = 800;
 const DETAIL_CONCURRENCY = 4;
+const LOOKUP_DETAIL_LIMIT = 12;
+const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
 const REQUEST_BACKOFF_INITIAL_MS = 30_000;
 const REQUEST_BACKOFF_MAX_MS = 5 * 60_000;
 const PARSE_TEXT_LIMIT = 1900;
@@ -23,6 +26,10 @@ export interface JitenPublicVocabularyClientOptions {
     baseUrl?: string;
     proxyUrl?: string | (() => string);
     requestJsonImpl?: (url: string, options?: Parameters<typeof requestJson>[1]) => Promise<unknown>;
+}
+
+export interface JitenPublicLookupManyOptions {
+    detailLimit?: number;
 }
 
 export function resetJitenPublicVocabularyBackoffForTests(): void {
@@ -90,7 +97,7 @@ export class JitenPublicVocabularyClient {
         return promise;
     }
 
-    async lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> {
+    async lookupMany(terms: readonly string[], options: JitenPublicLookupManyOptions = {}): Promise<Map<string, JPDBCard>> {
         const uniqueTerms = uniqueNormalizedTerms(terms);
         const result = new Map<string, JPDBCard>();
         if (!uniqueTerms.length || this.isBackoffActive()) return result;
@@ -117,7 +124,7 @@ export class JitenPublicVocabularyClient {
 
         persistedCards.forEach((card, term) => result.set(term, card));
         if (pendingTerms.length) {
-            const loaded = await this.lookupManyUncached(pendingTerms).catch(error => {
+            const loaded = await this.lookupManyUncached(pendingTerms, options).catch(error => {
                 this.noteFailure(error);
                 log.warn('Jiten batch', { terms: pendingTerms.length }, error);
                 return new Map<string, JPDBCard>();
@@ -146,6 +153,41 @@ export class JitenPublicVocabularyClient {
             });
             applyPublicParseChunk(result, chunk, parsed, paragraphs);
         });
+        await this.hydrateParsedTokens(result, PARSE_DETAIL_LIMIT);
+        return result;
+    }
+
+    async hydrateCards(cards: readonly JPDBCard[], options: JitenPublicLookupManyOptions = {}): Promise<Map<string, JPDBCard>> {
+        const result = new Map<string, JPDBCard>();
+        if (!cards.length || this.isBackoffActive()) return result;
+        const pending: Array<{ key: string; word: PublicParseWord; requestedTerm: string }> = [];
+        const seen = new Set<string>();
+        const limit = normalizedDetailLimit(options.detailLimit);
+        const now = Date.now();
+        for (const card of cards) {
+            const word = publicParseWordFromCard(card);
+            if (!word) continue;
+            const key = parsedCardHydrationKey(card);
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const persisted = readPublicJitenCache<JPDBCard>('card', normalizeLookupText(card.spelling), now);
+            if (persisted) {
+                result.set(key, persisted);
+                this.remember(this.cardCache, normalizeLookupText(card.spelling), Promise.resolve(persisted), now);
+                continue;
+            }
+            if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
+        }
+        await mapLimited(pending, DETAIL_CONCURRENCY, async item => {
+            const card = await this.lookupDetail(item.word, item.requestedTerm).catch(error => {
+                this.noteFailure(error);
+                log.warn('Jiten parsed detail', { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
+                return null;
+            });
+            if (!card) return;
+            result.set(item.key, card);
+            writePublicJitenCache('card', normalizeLookupText(card.spelling), card);
+        });
         return result;
     }
 
@@ -160,7 +202,7 @@ export class JitenPublicVocabularyClient {
         return candidate ? this.lookupDetail(candidate, term) : null;
     }
 
-    private async lookupManyUncached(terms: string[]): Promise<Map<string, JPDBCard>> {
+    private async lookupManyUncached(terms: string[], options: JitenPublicLookupManyOptions): Promise<Map<string, JPDBCard>> {
         const parsed = await this.parseTerms(terms);
         const candidatesByTerm = new Map<string, PublicParseWord>();
         terms.forEach(term => {
@@ -168,7 +210,7 @@ export class JitenPublicVocabularyClient {
             if (candidate) candidatesByTerm.set(term, candidate);
         });
 
-        await mapLimited([...candidatesByTerm].slice(0, 12), DETAIL_CONCURRENCY, async ([term, candidate]) => {
+        await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
             const promise = this.lookupDetail(candidate, term);
             this.remember(this.cardCache, term, promise, Date.now());
             await promise;
@@ -182,6 +224,19 @@ export class JitenPublicVocabularyClient {
             writePublicJitenCache('card', term, card);
         }));
         return cards;
+    }
+
+    private async hydrateParsedTokens(result: JPDBToken[][], limit: number): Promise<void> {
+        const tokens = result.flat();
+        if (!tokens.length || limit <= 0) return;
+        const cards = await this.hydrateCards(tokens.map(token => token.card), { detailLimit: limit });
+        if (!cards.size) return;
+        for (const token of tokens) {
+            const card = cards.get(parsedCardHydrationKey(token.card));
+            if (!card) continue;
+            token.card = card;
+            token.pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass;
+        }
     }
 
     private async parseTerms(terms: readonly string[]): Promise<PublicParseWord[]> {
@@ -323,6 +378,17 @@ function publicJitenParsedCard(word: PublicParseWord, surface: string): JPDBCard
     };
 }
 
+function publicParseWordFromCard(card: JPDBCard): PublicParseWord | null {
+    const wordId = finiteInteger(card.jitenWordId) ?? finiteInteger(card.vid);
+    const readingIndex = finiteInteger(card.jitenReadingIndex) ?? finiteInteger(card.sid);
+    if (wordId === undefined || wordId <= 0 || readingIndex === undefined || readingIndex < 0) return null;
+    return {
+        wordId,
+        readingIndex,
+        originalText: card.spelling || card.reading,
+    };
+}
+
 function normalizePublicParseWord(value: unknown): PublicParseWord | null {
     if (!isRecord(value)) return null;
     const wordId = finiteInteger(value.wordId);
@@ -439,6 +505,15 @@ function chunkTermsForParse(terms: readonly string[]): string[][] {
 
 function uniqueNormalizedTerms(terms: readonly string[]): string[] {
     return [...new Set(terms.map(normalizeLookupText).filter(Boolean))];
+}
+
+function parsedCardHydrationKey(card: JPDBCard): string {
+    return `${card.vid}:${card.sid}`;
+}
+
+function normalizedDetailLimit(value: number | undefined): number {
+    if (value === undefined) return LOOKUP_DETAIL_LIMIT;
+    return Math.max(0, Math.floor(value));
 }
 
 function normalizeLookupText(value: string): string {

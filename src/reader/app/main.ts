@@ -239,6 +239,7 @@ import { NativeTitleGuard } from './native-title-guard';
 import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumentClickTarget } from './native-page-lookup-targets';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
+import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
 import { resolveUiLanguage, uiText } from './i18n';
 import { OnboardingController } from './onboarding';
 
@@ -268,7 +269,7 @@ import { bindReaderRuntimeEvents } from './runtime-events';
 import { detectReaderStartupJapaneseText, installReaderStartupBridge, loadReaderStartupSettings, shouldShowReaderOnboarding, type ReaderAppInitOptions } from './startup';
 import { scheduleReaderAnkiStatusRefresh, scheduleReaderAnkiStatusWarmup } from './status-warmup';
 import { refreshReaderWordContrast } from '../dom/word-contrast';
-import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeImageReadingPage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
+import { applyAnkiLookupToRenderedWord, applyPublicVocabularyFurigana, canClickLookupPassiveReaderWordElement, canHoverLookupReaderWordElement, canLookupReaderWordElement, currentLookupNavigationWord, documentLooksLikeImageReadingPage, isOcrLineFrameWord, ocrLineWordAtPoint, singleKanjiOcrLookupCharacter, updateRenderedPitch, wait } from './dom-helpers';
 import { ReaderParser, fallbackDictionaryLookupTermsForText, fallbackLookupRangeAtOffset, fallbackLookupTermAtOffset, fallbackLookupTermsForCard, jpdbFirstParseOptions, type ReaderParserParseOptions } from '../lookup/parser';
 import {
     clearRenderedWordAnkiState,
@@ -571,6 +572,7 @@ export class ReaderApp {
         },
         showSettings: panel => this.showSettings(panel),
         parseJapanese: panel => void this.parseOnboardingJapanese(panel),
+        lookupText: (text, sentence, anchor) => this.lookupText(text, sentence || text, { anchor, stackOverSettings: true }),
     });
     private subtitles = this.createSubtitlePlayer();
     private ocr: ImageOcrController = this.createImageOcrController();
@@ -1870,7 +1872,7 @@ export class ReaderApp {
         // and open its dictionary at the wrong location (and shift this popover).
         if (target.closest?.(TOKEN_LIST_POPOVER_CONTROL_SELECTOR)) return;
 
-        const word = this.readerWordForPointerEvent(event);
+        const word = this.readerWordForPointerEvent(event, { clickLookup: true });
         if (!word && target.closest?.('[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]')) return;
 
         const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
@@ -1935,19 +1937,26 @@ export class ReaderApp {
     }
 
     private readerWordClickSurfaces(event: MouseEvent, word: HTMLElement): { insideReaderPopup: boolean; insideSubtitlePlayer: boolean } | null {
-        if (!this.canLookupReaderWord(word)) return null;
-        if (word.dataset.jpdbReaderPassive === 'true') return null;
+        if (!this.canClickLookupReaderWord(word)) return null;
+        const passiveTextMirrorClick = canClickLookupPassiveReaderWordElement(word);
+        if (word.dataset.jpdbReaderPassive === 'true' && !passiveTextMirrorClick) return null;
         if (this.consumeSuppressedReaderWordClick(event, word)) return null;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
         if (this.settings.popupActivationMode === 'off' && !insideReaderPopup) return null;
+        const nativeClickable = nativeClickableAncestor(word);
         if (!insideReaderPopup && !insideSubtitlePlayer
-            && nativeClickableAncestor(word)
-            && !this.clickForcesReaderWordLookup(event)) {
+            && nativeClickable
+            && !this.clickForcesReaderWordLookup(event)
+            && !this.passiveTextMirrorClickOverridesNativeLink(word, nativeClickable)) {
             return null;
         }
         if (!this.settings.lookupOnClick && !insideReaderPopup && !insideSubtitlePlayer) return null;
         return { insideReaderPopup, insideSubtitlePlayer };
+    }
+
+    private passiveTextMirrorClickOverridesNativeLink(word: HTMLElement, nativeClickable: HTMLElement): boolean {
+        return canClickLookupPassiveReaderWordElement(word) && nativeClickable instanceof HTMLAnchorElement;
     }
 
     private consumeSuppressedReaderWordClick(event: MouseEvent, word: HTMLElement): boolean {
@@ -2389,11 +2398,16 @@ export class ReaderApp {
         return word && this.canLookupReaderWord(word) ? word : null;
     }
 
-    private wordFromPoint(x: number, y: number, surface: HTMLElement | null = null): HTMLElement | null {
+    private wordFromPoint(
+        x: number,
+        y: number,
+        surface: HTMLElement | null = null,
+        canUseWord: (word: HTMLElement) => boolean = word => this.canLookupReaderWord(word),
+    ): HTMLElement | null {
         if (typeof document.elementsFromPoint !== 'function') return null;
         for (const element of document.elementsFromPoint(x, y)) {
             const word = element.closest?.('.jpdb-reader-word') as HTMLElement | null;
-            if (word && this.readerWordBelongsToPointerSurface(word, surface) && this.canLookupReaderWord(word)) return word;
+            if (word && this.readerWordBelongsToPointerSurface(word, surface) && canUseWord(word)) return word;
         }
         return null;
     }
@@ -2585,6 +2599,10 @@ export class ReaderApp {
         return canLookupReaderWordElement(word);
     }
 
+    private canClickLookupReaderWord(word: HTMLElement): boolean {
+        return this.canLookupReaderWord(word) || canClickLookupPassiveReaderWordElement(word);
+    }
+
     private canHoverLookupReaderWord(word: HTMLElement): boolean {
         return canHoverLookupReaderWordElement(word, this.hasHoverLookupShortcut());
     }
@@ -2674,14 +2692,18 @@ export class ReaderApp {
         return word && this.canHoverLookupReaderWord(word) ? word : null;
     }
 
-    private readerWordForPointerEvent(event: MouseEvent, options: { hoverLookup?: boolean } = {}): HTMLElement | null {
+    private readerWordForPointerEvent(event: MouseEvent, options: { hoverLookup?: boolean; clickLookup?: boolean } = {}): HTMLElement | null {
         const target = event.target instanceof Element ? event.target : null;
         const surface = this.readerPointerSurfaceForTarget(target);
         const direct = target?.closest?.('.jpdb-reader-word') as HTMLElement | null;
-        const canUseWord = (word: HTMLElement): boolean => options.hoverLookup ? this.canHoverLookupReaderWord(word) : this.canLookupReaderWord(word);
+        const canUseWord = (word: HTMLElement): boolean => {
+            if (options.hoverLookup) return this.canHoverLookupReaderWord(word);
+            if (options.clickLookup) return this.canClickLookupReaderWord(word);
+            return this.canLookupReaderWord(word);
+        };
         if (direct && this.readerWordBelongsToPointerSurface(direct, surface) && canUseWord(direct)) return direct;
         return this.ocrLineWordForPointer(target, event.clientX, event.clientY)
-            ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface))
+            ?? (options.hoverLookup ? this.hoverReaderWordFromPointStack(event.clientX, event.clientY, surface) : this.wordFromPoint(event.clientX, event.clientY, surface, canUseWord))
             ?? this.readerWordFromRenderedGeometry(target, event.clientX, event.clientY, canUseWord);
     }
 
@@ -3495,7 +3517,7 @@ export class ReaderApp {
         const jitenTerms = [...new Set(entries.flatMap(entry => entry.terms))];
         const jitenCards = this.isJitenApiActive()
             ? await this.batchJitenFallbackCards(jitenTerms)
-            : await this.jitenPublicVocabulary.lookupMany(jitenTerms).catch(error => {
+            : await this.jitenPublicVocabulary.lookupMany(jitenTerms, { detailLimit: publicJitenDetailLimit(entries.length) }).catch(error => {
                 log.warn('Jiten fallback failed', { terms: jitenTerms.length }, error);
                 return new Map<string, JPDBCard>();
             });
@@ -3519,6 +3541,14 @@ export class ReaderApp {
             }
         });
         return result;
+    }
+
+    private async publicLookupHydratableJitenCards(cards: readonly JPDBCard[]): Promise<Map<string, JPDBCard>> {
+        if (!cards.length) return new Map<string, JPDBCard>();
+        return await this.jitenPublicVocabulary.hydrateCards(cards, { detailLimit: publicJitenDetailLimit(cards.length) }).catch(error => {
+            log.warn('Jiten parsed-card hydration failed', { cards: cards.length }, error);
+            return new Map<string, JPDBCard>();
+        });
     }
 
     // Resolve fallback terms through Jiten with ZERO per-word requests: ALL
@@ -5922,7 +5952,9 @@ export class ReaderApp {
     }
 
     private applySettingsJapaneseParse(form: HTMLFormElement, plan: NestedParsePlan, parsed: JPDBToken[][]): void {
-        applyNestedParsePlan(plan, parsed, this.settings);
+        const renderSettings = settingsForSettingsFormParse(form, this.settings);
+        applyNestedParsePlan(plan, parsed, renderSettings);
+        addSettingsRubyFromRenderedReadings(form, renderSettings);
         highlightCardTargetScopes(form);
         refreshReaderWordContrast(form);
         form.dataset.jpdbReaderParseKey = plan.parseKey;
@@ -6384,24 +6416,46 @@ export class ReaderApp {
     ): Promise<JPDBToken[]> {
         if (this.isJitenApiActive()) return tokens;
         const queuedTokens: JPDBToken[] = [];
-        const groups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
+        const fallbackGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
+        const jitenGroups = new Map<string, { card: JPDBCard; tokens: JPDBToken[] }>();
         for (const token of tokens) {
-            if (token.card.source !== 'fallback') {
+            if (token.card.source === 'fallback') {
+                const key = cardKey(token.card);
+                if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+                const group = fallbackGroups.get(key) ?? { card: token.card, tokens: [] };
+                group.tokens.push(token);
+                fallbackGroups.set(key, group);
+                continue;
+            }
+            if (isHydratablePublicJitenCard(token.card)) {
+                const key = cardKey(token.card);
+                if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
+                const group = jitenGroups.get(key) ?? { card: token.card, tokens: [] };
+                group.tokens.push(token);
+                jitenGroups.set(key, group);
+                continue;
+            }
+            {
                 queuedTokens.push(token);
                 continue;
             }
-            const key = cardKey(token.card);
-            if (!options.urgent && this.unresolvedFallbackVocabularyCache.has(key)) continue;
-            const group = groups.get(key) ?? { card: token.card, tokens: [] };
-            group.tokens.push(token);
-            groups.set(key, group);
         }
-        if (!groups.size) return queuedTokens;
+        if (!fallbackGroups.size && !jitenGroups.size) return queuedTokens;
 
-        const resolved = await this.publicLookupFallbackCards([...groups.values()].map(group => group.card), options);
+        const resolved = new Map<string, JPDBCard>();
+        const [fallbackCards, jitenCards] = await Promise.all([
+            fallbackGroups.size
+                ? this.publicLookupFallbackCards([...fallbackGroups.values()].map(group => group.card), options)
+                : Promise.resolve(new Map<string, JPDBCard>()),
+            jitenGroups.size
+                ? this.publicLookupHydratableJitenCards([...jitenGroups.values()].map(group => group.card))
+                : Promise.resolve(new Map<string, JPDBCard>()),
+        ]);
+        fallbackCards.forEach((card, key) => resolved.set(key, card));
+        jitenCards.forEach((card, key) => resolved.set(key, card));
         const cardsToCache: JPDBCard[] = [];
         const localOnlyTokens: JPDBToken[] = [];
-        for (const [key, group] of groups) {
+        for (const [key, group] of [...fallbackGroups, ...jitenGroups]) {
             const card = resolved.get(key);
             if (!card || card.source === 'fallback') {
                 this.rememberUnresolvedFallbackVocabulary(key);
@@ -6412,7 +6466,7 @@ export class ReaderApp {
             for (const token of group.tokens) {
                 const fallback = token.card;
                 const pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || 'unknown';
-                this.rememberResolvedFallbackVocabulary(fallback, card);
+                if (fallback.source === 'fallback') this.rememberResolvedFallbackVocabulary(fallback, card);
                 this.applyResolvedPitchCardToToken(token, fallback, card, pitchClass);
                 this.queueSubtitleParsedHtmlRefresh(token.sentence);
             }
@@ -7688,6 +7742,17 @@ function publicLookupCardFromResults(cards: JPDBCard[], term: string, exact: boo
     if (reading) return cards.find(card => card.spelling === term && card.reading === reading);
     const exactMatch = cards.find(card => card.spelling === term || card.reading === term);
     return exactMatch ?? (exact ? undefined : cards[0]);
+}
+
+function publicJitenDetailLimit(requested: number): number {
+    return Math.min(Math.max(0, Math.floor(requested)), PITCH_ENRICHMENT_LIMIT * 2);
+}
+
+function isHydratablePublicJitenCard(card: JPDBCard): boolean {
+    return card.source === 'jiten'
+        && Number.isFinite(card.jitenWordId ?? card.vid)
+        && Number.isFinite(card.jitenReadingIndex ?? card.sid)
+        && (!card.reading || !card.pitchAccent.length || !card.wordWithReading || !card.meanings.length);
 }
 
 interface FallbackLookupEntry {

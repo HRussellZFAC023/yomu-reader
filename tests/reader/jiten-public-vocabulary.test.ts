@@ -135,7 +135,7 @@ describe('JitenPublicVocabularyClient', () => {
         expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/0\/info/u.test(String(url)))).toHaveLength(12);
     });
 
-    it('parses full paragraph batches without public detail fan-out', async () => {
+    it('hydrates bounded details for public parsed paragraphs', async () => {
         const requestJson = vi.fn(async (url: string, options?: ReaderHttpOptions) => {
             if (url.includes('/vocabulary/parse?')) {
                 expect(new URL(url).searchParams.get('text')).toBe('本を読む。\n猫を見る。');
@@ -151,6 +151,25 @@ describe('JitenPublicVocabularyClient', () => {
                     { wordId: 0, readingIndex: 0, originalText: '。' },
                 ];
             }
+            const match = url.match(/\/vocabulary\/(\d+)\/0\/info/u);
+            if (match) {
+                const details = new Map([
+                    [112, { text: '本[ほん]', pitchAccents: [1] }],
+                    [2029010, { text: 'を', pitchAccents: [] }],
+                    [1456360, { text: '読[よ]む', pitchAccents: [1] }],
+                    [113, { text: '猫[ねこ]', pitchAccents: [1] }],
+                    [1259290, { text: '見[み]る', pitchAccents: [1] }],
+                ]);
+                const detail = details.get(Number(match[1]));
+                if (detail) {
+                    return {
+                        wordId: Number(match[1]),
+                        mainReading: { text: detail.text },
+                        definitions: [{ meanings: ['definition'] }],
+                        pitchAccents: detail.pitchAccents,
+                    };
+                }
+            }
             throw new Error(`Unexpected URL: ${url}`);
         });
         const client = new JitenPublicVocabularyClient({ requestJsonImpl: requestJson });
@@ -164,10 +183,11 @@ describe('JitenPublicVocabularyClient', () => {
         expect(parsed[1]?.[0]).toMatchObject({
             start: 0,
             end: 1,
-            card: { source: 'jiten', jitenWordId: 113, jitenReadingIndex: 0 },
+            card: { source: 'jiten', jitenWordId: 113, jitenReadingIndex: 0, reading: 'ねこ', pitchAccent: ['HLL'] },
+            pitchClass: 'atamadaka',
         });
         expect(requestJson.mock.calls.filter(([url]) => String(url).includes('/vocabulary/parse?'))).toHaveLength(1);
-        expect(requestJson.mock.calls.some(([url]) => /\/vocabulary\/\d+\/\d+\/info/u.test(String(url)))).toBe(false);
+        expect(requestJson.mock.calls.filter(([url]) => /\/vocabulary\/\d+\/\d+\/info/u.test(String(url)))).toHaveLength(5);
     });
 
     it('backs off after transient upstream failures so cold enrichment can skip Jiten quickly', async () => {

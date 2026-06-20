@@ -776,6 +776,86 @@ describe('hover lookup', () => {
         }
     });
 
+    it('opens passive text-mirror words inside title links on click lookup', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        document.body.innerHTML = `
+            <a class="video-title" href="/watch?v=abc123">
+                <span class="title-host">
+                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="【初見】">
+                        【<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="1798820" data-sid="0" data-card-source="jiten" data-card-id="1798820" data-reading-index="0" data-token-start="1" data-token-end="3" data-sentence="【初見】" data-expression="初見" data-jpdb-reader-passive="true">初見</span>】
+                    </span>
+                </span>
+            </a>
+        `;
+        const app = new ReaderApp();
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const linkClick = vi.fn();
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnClick: true,
+        };
+        internals.showWord = showWord;
+        internals.bindEvents();
+        document.querySelector<HTMLAnchorElement>('a.video-title')?.addEventListener('click', linkClick);
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 40, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(linkClick).not.toHaveBeenCalled();
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+        } finally {
+            cleanupReaderApp(app);
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('keeps passive text-mirror words inside native buttons click-through', () => {
+        document.body.innerHTML = `
+            <button type="button">
+                <span class="label-host">
+                    <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="設定">
+                        <span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="501" data-sid="501" data-token-start="0" data-token-end="2" data-sentence="設定" data-expression="設定" data-jpdb-reader-passive="true">設定</span>
+                    </span>
+                </span>
+            </button>
+        `;
+        const app = new ReaderApp();
+        const button = document.querySelector<HTMLButtonElement>('button')!;
+        const word = button.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const buttonClick = vi.fn();
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnClick: true,
+        };
+        internals.showWord = showWord;
+        internals.bindEvents();
+        button.addEventListener('click', buttonClick);
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(false);
+            expect(buttonClick).toHaveBeenCalledTimes(1);
+            expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('lets native JPDB data-audio links receive clicks beside passive parsed text', () => {
         vi.stubGlobal('location', {
             href: 'https://jpdb.io/review?c=v%2C1%2C2&r=1#a',

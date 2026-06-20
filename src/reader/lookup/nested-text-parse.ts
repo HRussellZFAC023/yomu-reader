@@ -19,6 +19,7 @@ const SETTINGS_PARSE_EXCLUDE_SELECTOR = [
     '[aria-hidden="true"]',
     '[data-anki-setup-help]',
     '.jpdb-reader-audio-source-choice',
+    '[data-settings-select-options-meta]',
     'a[href]',
     'button',
     'input',
@@ -51,7 +52,6 @@ const SETTINGS_CHROME_PARSE_ROOT_SELECTOR = [
     '.jpdb-reader-help-actions .jpdb-reader-btn',
     '.footer button',
 ].join(',');
-const SETTINGS_SELECT_META_PARSE_SELECTOR = '[data-settings-select-options-meta]';
 const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     '[hidden]',
     '[aria-hidden="true"]',
@@ -63,13 +63,11 @@ const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     'use',
     '.jpdb-reader-word',
 ].join(',');
-const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = `${SETTINGS_PARSE_EXCLUDE_SELECTOR},${SETTINGS_SELECT_META_PARSE_SELECTOR}`;
+const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
 const SETTINGS_PARSE_ROOT_SELECTOR = [
     'h2',
     '.jpdb-reader-settings-search>label',
-    SETTINGS_SELECT_META_PARSE_SELECTOR,
     '[data-settings-search-empty]',
-    '[data-audio-source-row] [data-settings-select-options-meta]',
     '[data-settings-panel]',
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR,
 ].join(',');
@@ -78,6 +76,7 @@ type FragmentParseOptions = Parameters<typeof collectFragmentTextTargetsIn>;
 type NestedParseTargetOptions = (FragmentParseOptions[4]) & {
     includeFormControls?: boolean;
     formControlExcludeSelector?: string;
+    formControlSelectTextMode?: 'options' | 'selected';
 };
 
 export interface NestedParsePlan {
@@ -125,7 +124,8 @@ export function nestedSettingsTextParsePlan(root: HTMLElement, limit: number): N
                 heading: true,
                 minLength: 2,
                 readerRootPassiveInteractions: true,
-                formControlExcludeSelector: settingsFormControlExcludeSelector(parseRoot),
+                formControlExcludeSelector: settingsFormControlExcludeSelector(),
+                formControlSelectTextMode: 'selected',
             },
         ))
         .slice(0, limit);
@@ -150,6 +150,7 @@ function nestedParseTargetsIn(
     const controlTargets = collectFormControlTextTargetsIn(parseRoot, remaining, visibleOnly, {
         includeReaderRoot: options?.includeReaderRoot,
         excludeSelector: options?.formControlExcludeSelector ?? excludeSelector,
+        selectTextMode: options?.formControlSelectTextMode,
     });
     return [...fragmentTargets, ...controlTargets];
 }
@@ -160,19 +161,16 @@ function settingsParseRootPriority(parseRoot: HTMLElement): number {
 }
 
 function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
-    return !parseRoot.hasAttribute('data-settings-select-options-meta')
-        && !isSettingsChromeParseRoot(parseRoot)
+    return !isSettingsChromeParseRoot(parseRoot)
         && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
 }
 
 function settingsParseExcludeSelector(parseRoot: HTMLElement): string {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
-    if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
     return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
 }
 
-function settingsFormControlExcludeSelector(parseRoot: HTMLElement): string {
-    if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
+function settingsFormControlExcludeSelector(): string {
     return SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR;
 }
 

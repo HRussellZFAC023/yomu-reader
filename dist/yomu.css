@@ -7283,55 +7283,17 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) {
   line-height: 1;
 }
-.jpdb-reader-select-options-meta {
+.jpdb-reader-settings select + .jpdb-reader-control-text-mirror {
   display: block;
-  min-width: 0;
-  color: var(--jpdb-reader-faint);
-  font: 800 10.5px/1.45 var(--jpdb-reader-font);
-  overflow-wrap: normal;
-  word-break: keep-all;
+  max-width: 100%;
+  margin-inline-start: 0;
+  color: var(--jpdb-reader-muted);
+  font: 800 11px/1.35 var(--jpdb-reader-font);
+  overflow-wrap: anywhere;
 }
-.jpdb-reader-settings .grid:has(.jpdb-reader-select-options-meta) {
-  row-gap: 16px;
-}
-.jpdb-reader-settings label:not(.inline):has(> .jpdb-reader-select-options-meta) {
-  position: relative;
-}
-.jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta {
-  position: static;
-  padding-top: 4px;
-}
-.jpdb-reader-settings label:not(.inline) > .jpdb-reader-select-options-meta.expanded {
-  position: static;
-  padding-top: 6px;
-}
-.jpdb-reader-select-options-full {
-  display: none;
-}
-.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-full {
-  display: inline;
-}
-.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-truncated,
-.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-toggle,
-.jpdb-reader-select-options-meta.expanded .jpdb-reader-select-options-separator {
-  display: none;
-}
-.jpdb-reader-select-options-toggle {
-  display: inline;
-  background: none !important;
-  border: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  color: var(--jpdb-reader-accent-readable) !important;
-  font: inherit !important;
-  font-weight: 800 !important;
-  cursor: pointer;
-  text-decoration: underline !important;
-}
-.jpdb-reader-select-options-toggle:hover,
-.jpdb-reader-select-options-toggle:focus-visible {
-  color: var(--jpdb-reader-accent) !important;
-  outline: none !important;
+
+.jpdb-reader-settings select + .jpdb-reader-control-text-mirror .jpdb-reader-word {
+  color: inherit !important;
 }
 .jpdb-reader-font-family-control {
   display: grid;
@@ -8482,11 +8444,30 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-lookup-link-row input {
   min-width: 0;
 }
+.jpdb-reader-lookup-link-row > .jpdb-reader-order-toggle {
+  grid-column: 1;
+}
+.jpdb-reader-lookup-link-row > input[name$=".label"] {
+  grid-column: 2;
+}
+.jpdb-reader-lookup-link-row > input[name$=".urlTemplate"],
+.jpdb-reader-lookup-link-row > .jpdb-reader-lookup-link-note {
+  grid-column: 3;
+}
+.jpdb-reader-lookup-link-row > .jpdb-reader-row-order-tools {
+  grid-column: 4;
+}
+.jpdb-reader-lookup-link-row > .jpdb-reader-row-remove-tools {
+  grid-column: 5;
+}
 .jpdb-reader-lookup-link-note {
   color: var(--jpdb-reader-muted);
   min-height: 38px;
+  min-width: 0;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  overflow-wrap: anywhere;
 }
 .jpdb-reader-lookup-link-fixed {
   width: 34px;
@@ -8524,12 +8505,8 @@ html.jpdb-reader-doodle-active * {
   grid-column: 2;
   grid-row: 1;
 }
-.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta {
+.jpdb-reader-audio-source-choice > .jpdb-reader-control-text-mirror {
   grid-column: 1 / -1;
-}
-.jpdb-reader-order-row .jpdb-reader-select-options-meta {
-  font-size: 10px;
-  line-height: 1.28;
 }
 .jpdb-reader-audio-source-fields {
   display: grid;
@@ -8662,6 +8639,104 @@ html.jpdb-reader-doodle-active * {
 
   .jpdb-reader-recommended-item {
     grid-template-columns: minmax(0, 1fr) minmax(112px, 140px);
+  }
+}
+
+@media (max-width: 699px), (hover: none), (pointer: coarse) {
+  .jpdb-reader-order-head {
+    display: none;
+  }
+
+  .jpdb-reader-dictionary-row,
+  .jpdb-reader-dictionary-row.compact,
+  .jpdb-reader-audio-source-row,
+  .jpdb-reader-lookup-link-row {
+    grid-template-columns: 44px minmax(0, 1fr) 73px;
+    align-items: start;
+    gap: 6px;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-order-toggle,
+  .jpdb-reader-audio-source-row > .jpdb-reader-order-toggle,
+  .jpdb-reader-lookup-link-row > .jpdb-reader-order-toggle {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display,
+  .jpdb-reader-dictionary-row > input[name$=".name"],
+  .jpdb-reader-audio-source-row .jpdb-reader-audio-source-choice,
+  .jpdb-reader-lookup-link-row > input[name$=".label"] {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-dictionary-row > input[name$=".alias"],
+  .jpdb-reader-dictionary-row > .jpdb-reader-field-display[aria-label="Display name"],
+  .jpdb-reader-audio-source-row .jpdb-reader-audio-source-fields,
+  .jpdb-reader-lookup-link-row > input[name$=".urlTemplate"],
+  .jpdb-reader-lookup-link-row > .jpdb-reader-lookup-link-note {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools,
+  .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-row-order-tools,
+  .jpdb-reader-audio-source-row .jpdb-reader-row-order-tools,
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-order-tools {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: start;
+    align-content: flex-start;
+    justify-content: flex-end;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
+  }
+
+  .jpdb-reader-dictionary-row > .jpdb-reader-row-remove-tools,
+  .jpdb-reader-audio-source-row .jpdb-reader-row-remove-tools,
+  .jpdb-reader-lookup-link-row .jpdb-reader-row-remove-tools {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    justify-content: flex-end;
+    width: 73px;
+    min-width: 73px;
+    max-width: 73px;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools {
+    display: grid;
+    grid-template-columns: 34px 34px;
+    grid-template-rows: 34px 34px;
+    gap: 5px;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-up"] {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-down"] {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-order-row .jpdb-reader-row-order-tools [data-source-drag-handle] {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .jpdb-reader-dictionary-row.compact[data-dictionary-source-row] > .jpdb-reader-field-display,
+  .jpdb-reader-dictionary-row[data-dictionary-source-row] > .jpdb-reader-dictionary-row-help {
+    grid-column: 2;
+    overflow-wrap: anywhere;
+  }
+
+  .jpdb-reader-dictionary-row-help {
+    grid-column: 1 / -1;
   }
 }
 
@@ -9082,14 +9157,6 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-dictionary-row > input[name$=".alias"] {
     min-width: 0;
     overflow-wrap: anywhere;
-  }
-
-  .jpdb-reader-order-row .jpdb-reader-select-options-meta:not(.expanded) {
-    display: -webkit-box;
-    max-height: 2.6em;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
 
   .jpdb-reader-audio-source-fields select,

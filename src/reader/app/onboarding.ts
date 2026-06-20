@@ -1,5 +1,5 @@
 import { APP_NAME } from './constants';
-import { setInnerHtml } from '../dom/index';
+import { readerWordSurfaceText, setInnerHtml } from '../dom/index';
 import { uiText, type UiCopyKey } from './i18n';
 import { Logger } from './logger';
 import { defaultDictionaryLookupLinks, sanitizeAccentColor, saveSettings } from '../settings/index';
@@ -15,6 +15,7 @@ interface OnboardingOptions {
     // Annotates the welcome panel's Japanese with furigana + pitch through the
     // same nested-parse path that handles popovers/settings chrome.
     parseJapanese: (panel: HTMLElement) => void;
+    lookupText?: (text: string, sentence: string, anchor: HTMLElement) => void;
 }
 
 function selectedOnboardingLanguage(value: string | undefined, fallback: InterfaceLanguage): InterfaceLanguage {
@@ -182,6 +183,13 @@ export class OnboardingController {
             this.options.setSettings({ ...this.options.getSettings(), interfaceLanguage: language });
             this.localize(language);
         });
+        this.panel.addEventListener('click', event => {
+            this.handleWordLookup(event);
+        });
+        this.panel.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            if (this.handleWordLookup(event)) event.preventDefault();
+        });
 
         this.panel.append(closeButton, eyebrow, title, copy, basics, immersionOptions, actions, featureList);
         this.syncThemeSwitch();
@@ -193,6 +201,22 @@ export class OnboardingController {
 
     private annotateJapanese(): void {
         if (this.panel) this.options.parseJapanese(this.panel);
+    }
+
+    private handleWordLookup(event: Event): boolean {
+        const target = event.target instanceof HTMLElement ? event.target : null;
+        const word = target?.closest<HTMLElement>('.jpdb-reader-onboarding .jpdb-reader-word');
+        if (!word || !this.panel?.contains(word) || !this.options.lookupText) return false;
+        if (isOnboardingCommandWord(word)) return false;
+        const expression = word.dataset.expression?.trim()
+            || readerWordSurfaceText(word).trim()
+            || word.textContent?.trim()
+            || '';
+        if (!expression) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        this.options.lookupText(expression, word.dataset.sentence || expression, word);
+        return true;
     }
 
     private localize(language: InterfaceLanguage): void {
@@ -416,6 +440,10 @@ function checkboxInput(name: keyof Pick<ReaderSettings, 'preferJapaneseSiteLangu
     input.checked = checked;
     input.setAttribute('aria-labelledby', onboardingCopyId(name));
     return input;
+}
+
+function isOnboardingCommandWord(word: HTMLElement): boolean {
+    return Boolean(word.closest('button, a[href], input, select, textarea, label, [data-onboarding-action], [data-onboarding-theme-switch], [data-onboarding-accent]'));
 }
 
 function checkboxLabel(input: HTMLInputElement, text: string): HTMLLabelElement {

@@ -161,6 +161,8 @@ async function verifyViewport(browserInstance, baseUrl, scenario) {
         assert(snapshot.panel.visible, `${scenario.name} ${scenario.panel} settings panel is not visible`, snapshot);
         assert(snapshot.rubyCount >= 4, `${scenario.name} settings did not render real ruby/furigana`, snapshot);
         assert(snapshot.pitchWordCount >= 2, `${scenario.name} settings did not hydrate pitch classes`, snapshot);
+        assert(snapshot.selectOptionMetaCount === 0, `${scenario.name} repeated select option metadata leaked into settings`, snapshot);
+        assert(snapshot.longSelectMirrorCount === 0, `${scenario.name} select mirrors rendered option lists instead of selected values`, snapshot);
         if (scenario.panel === 'media') {
             assert(snapshot.controlGridCount >= 5, `${scenario.name} compact media grids were not rendered`, snapshot);
             assert(snapshot.mediaFieldsetCount >= 5, `${scenario.name} did not expose all media settings groups`, snapshot);
@@ -350,7 +352,7 @@ async function settingsLayoutSnapshot(page, panel) {
         const scroll = document.querySelector('.jpdb-reader-settings-scroll');
         const horizontalBounds = scroll?.getBoundingClientRect() ?? dialog?.getBoundingClientRect();
 
-        for (const element of visibleElements(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) legend, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-local-title, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-settings-label-text, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-select-options-meta, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) button`)) {
+        for (const element of visibleElements(`.jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) legend, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-local-title, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-settings-label-text, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) .jpdb-reader-control-text-mirror, .jpdb-reader-settings [data-settings-panel="${panelName}"]:not([hidden]) button`)) {
             const rect = element.getBoundingClientRect();
             if (horizontalBounds && (rect.left < horizontalBounds.left - 2 || rect.right > horizontalBounds.right + 2)) {
                 issues.push({ type: 'horizontal-overflow', text: textOf(element), rect: rectSnapshot(rect), bounds: rectSnapshot(horizontalBounds) });
@@ -367,6 +369,11 @@ async function settingsLayoutSnapshot(page, panel) {
         issues.push(...gridInlineControlAlignmentIssues(panelRoot));
 
         const words = [...(panelRoot?.querySelectorAll('.jpdb-reader-word') ?? [])];
+        const selectOptionMeta = [...(panelRoot?.querySelectorAll('[data-settings-select-options-meta]') ?? [])];
+        const selectMirrors = [...(panelRoot?.querySelectorAll('.jpdb-reader-control-text-mirror') ?? [])];
+        const longSelectMirrors = selectMirrors
+            .map(mirror => textOf(mirror))
+            .filter(text => /\s\/\s/.test(text));
         const preview = previewSnapshot(panelRoot);
         return {
             dialog: { visible: isVisible(dialog), rect: dialogRect },
@@ -375,6 +382,9 @@ async function settingsLayoutSnapshot(page, panel) {
             controlGridCount: grids.length,
             rubyCount: panelRoot?.querySelectorAll('.jpdb-reader-word.jpdb-reader-has-furi rt').length ?? 0,
             pitchWordCount: words.filter(word => [...word.classList].some(className => /^jpdb-pitch-(?:heiban|atamadaka|nakadaka|odaka|kifuku)$/.test(className))).length,
+            selectOptionMetaCount: selectOptionMeta.length,
+            longSelectMirrorCount: longSelectMirrors.length,
+            longSelectMirrors,
             popoverCount: visibleElements('.jpdb-reader-popover').length,
             nativeControls: {
                 selectCount: Array.from(panelRoot?.querySelectorAll('select') ?? [])

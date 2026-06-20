@@ -313,11 +313,10 @@ describe('nested text parse plans', () => {
         expect(texts).toContain('よむ 設定');
         expect(texts).toContain('基本');
         expect(texts).toContain('設定言語');
-        expect(texts).toContain('選択肢: 自動 / 日本語');
-        expect(texts.filter(text => text === '選択肢: 自動 / 日本語')).toHaveLength(1);
+        expect(texts).not.toContain('選択肢: 自動 / 日本語');
         expect(texts).toContain('学習を開く');
         expect(texts).toContain('設定JSONをインポート');
-        expect(texts).toContain('選択肢: 内蔵音声 / ブラウザ読み上げ');
+        expect(texts).not.toContain('選択肢: 内蔵音声 / ブラウザ読み上げ');
         expect(texts).not.toContain('試聴');
         expect(texts).toContain('新規タブ');
         expect(texts).toContain('テーマ');
@@ -332,7 +331,7 @@ describe('nested text parse plans', () => {
         expect(texts).not.toContain('詳細');
     });
 
-    it('renders reader-owned dropdown options and placeholders as lookupable control mirrors', () => {
+    it('renders reader-owned selected dropdown values and placeholders as lookupable control mirrors', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <div data-settings-panel="appearance">
@@ -351,7 +350,8 @@ describe('nested text parse plans', () => {
         const texts = plan.targets.map(target => target.text);
 
         expect(texts).toContain('表示言語');
-        expect(texts.some(text => text.includes('日本語') && text.includes('英語'))).toBe(true);
+        expect(texts).toContain('日本語');
+        expect(texts.some(text => text.includes('英語'))).toBe(false);
         expect(texts).toContain('辞書を検索');
 
         applyNestedParsePlan(plan, texts.map(tokensForSettingsControlText), {
@@ -396,7 +396,6 @@ describe('nested text parse plans', () => {
         expect(plan.targets.map(target => target.text)).toEqual([
             'よむ 設定',
             '設定の表示言語',
-            '選択肢: 自動 / 英語 / 日本語',
             'APIアクセス',
         ]);
     });

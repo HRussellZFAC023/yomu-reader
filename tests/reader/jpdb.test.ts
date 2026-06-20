@@ -4487,12 +4487,19 @@ describe('reader helpers', () => {
         expect(SUBTITLES_YOUTUBE_CSS).toContain('.jpdb-subtitle-transcript-bottom .jpdb-subtitle-resize:hover::before');
     });
 
-    it('parses Japanese settings labels in the main reader runtime', async () => {
+    it('parses Japanese settings labels in the main reader runtime using current form display settings', async () => {
         const { app, form, parseJapanese, internals } = settingsJapaneseParserFixture({
             spelling: '設定',
             reading: 'せってい',
             vid: 2468,
+            settings: {
+                showFurigana: false,
+                furiganaMode: 'off',
+                showPitchAccent: false,
+            },
         });
+        form.querySelector<HTMLSelectElement>('select[name="furiganaMode"]')!.value = 'all';
+        form.querySelector<HTMLInputElement>('input[name="showPitchAccent"]')!.checked = true;
 
         try {
             await internals.parseSettingsJapanese(form);
@@ -27869,7 +27876,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(firstFallbackCard), testTokenForCard(secondFallbackCard)], { publicLookupLimit: 2 });
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空', '読む']);
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空', '読む'], { detailLimit: 2 });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([firstPublicCard, secondPublicCard]);
@@ -28288,7 +28295,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords([testTokenForCard(fallbackCard)], { publicLookupLimit: 1 });
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空']);
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1 });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(publicPitch).not.toHaveBeenCalled();
@@ -28562,7 +28569,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichPitchWords(tokens, { publicLookupLimit: 1 });
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空']);
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1 });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(jitenLookup).not.toHaveBeenCalledWith('の');
             expect(search).not.toHaveBeenCalled();
@@ -28947,7 +28954,7 @@ describe('reader helpers', () => {
         try {
             await internals.enrichOcrTokensBeforeRender([testTokenForCard(fallbackCard, '未解析語')]);
 
-            expect(jitenLookupMany).toHaveBeenCalledWith(['未解析語']);
+            expect(jitenLookupMany).toHaveBeenCalledWith(['未解析語'], { detailLimit: 1 });
             expect(publicSearch).not.toHaveBeenCalled();
             expect(publicPitch).not.toHaveBeenCalled();
         } finally {
@@ -31046,7 +31053,7 @@ describe('reader helpers', () => {
 
         try {
             await expect(internals.resolveLookupCard(fallbackCard)).resolves.toBe(publicCard);
-            expect(jitenLookupMany).toHaveBeenCalledWith(['青空']);
+            expect(jitenLookupMany).toHaveBeenCalledWith(['青空'], { detailLimit: 1 });
             expect(jitenLookup).not.toHaveBeenCalled();
             expect(search).not.toHaveBeenCalled();
             expect(cacheCards).toHaveBeenCalledWith([publicCard]);

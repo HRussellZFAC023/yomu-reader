@@ -7440,7 +7440,7 @@ recommendedJiten	Jiten頻度です。
   }
   function formControlTextTarget(control, visibleOnly, options) {
     if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
-    const text2 = collectableFormControlLookupText(control);
+    const text2 = collectableFormControlLookupText(control, options);
     if (!text2) return null;
     return {
       text: text2,
@@ -7449,7 +7449,8 @@ recommendedJiten	Jiten頻度です。
       parserId: options.parserId,
       layoutSensitive: true,
       nonDestructive: true,
-      controlTextMirror: true
+      controlTextMirror: true,
+      controlSelectTextMode: options.selectTextMode
     };
   }
   function isCollectableFormControlTextElement(control, visibleOnly, options) {
@@ -7466,22 +7467,27 @@ recommendedJiten	Jiten頻度です。
     if (!(control instanceof HTMLInputElement)) return false;
     return ["hidden", "password", "file", "image"].includes(control.type.toLowerCase());
   }
-  function collectableFormControlLookupText(control) {
-    const text2 = formControlLookupText(control);
+  function collectableFormControlLookupText(control, options = {}) {
+    const text2 = formControlLookupText(control, options);
     return isCollectableControlText(text2) ? text2 : "";
   }
-  function formControlLookupText(control) {
+  function formControlLookupText(control, options = {}) {
     const parts = [];
-    if (control instanceof HTMLSelectElement) pushUniqueControlText(parts, selectLookupText(control));
+    if (control instanceof HTMLSelectElement) {
+      pushUniqueControlText(parts, selectLookupText(control, options.selectTextMode ?? "options"));
+      if (options.selectTextMode === "selected") return parts.join(" / ");
+    }
     if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
       pushUniqueControlText(parts, formFieldPlaceholderText(control));
+      if (control.value.trim()) return parts.join(" / ");
     }
     pushUniqueControlText(parts, control.getAttribute("aria-label") ?? "");
     pushUniqueControlText(parts, control.getAttribute("title") ?? "");
     return parts.join(" / ");
   }
-  function selectLookupText(select2) {
+  function selectLookupText(select2, mode) {
     const selectedText = uniqueControlTexts(Array.from(select2.selectedOptions).map(optionText));
+    if (mode === "selected") return selectedText.join(" / ");
     const optionTextList = uniqueControlTexts(Array.from(select2.options).map(optionText)).filter((text2) => HAS_JAPANESE.test(text2));
     const compactOptionList = compactSelectOptionListText(optionTextList);
     return compactOptionList || selectedText.join(" / ");
@@ -7799,7 +7805,7 @@ recommendedJiten	Jiten頻度です。
   }
   function isCurrentFragmentScanTarget(target) {
     if (!target.parent.isConnected) return false;
-    if (target.controlTextMirror) return formControlLookupText(target.parent) === target.text;
+    if (target.controlTextMirror) return formControlLookupText(target.parent, { selectTextMode: target.controlSelectTextMode }) === target.text;
     if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
     const text2 = target.fragments.map((fragment2) => {
       if (!fragment2.node.isConnected || !fragment2.node.parentElement) return null;
@@ -27172,7 +27178,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     localizeSettingsActions(form, text2);
     localizeSettingsEditorChrome(form, text2);
     localizeHelpLinksPanel(form, language);
-    syncSettingsSelectOptionMeta(form, language);
+    removeSettingsSelectOptionMeta(form);
     normalizeSettingsLabelTextContainers(form);
     syncDisabledSettingsControlDescriptions(form, language);
   }
@@ -28086,56 +28092,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (option) option.textContent = label;
     });
   }
-  function syncSettingsSelectOptionMeta(form, language) {
-    const showMeta = resolveUiLanguage(language) === "ja";
-    form.querySelectorAll("select").forEach((selectElement) => {
-      const existing = selectElement.nextElementSibling;
-      const existingMeta = existing instanceof HTMLElement && existing.matches("[data-settings-select-options-meta]") ? existing : null;
-      if (!showMeta) {
-        existingMeta?.remove();
-        return;
-      }
-      const labels = Array.from(selectElement.options).map((option) => option.textContent?.replace(/\s+/g, " ").trim() ?? "").filter((label) => /[\u3040-\u30ff\u3400-\u9fff]/.test(label));
-      if (!labels.length) {
-        existingMeta?.remove();
-        return;
-      }
-      const wasExpanded = existingMeta?.classList.contains("expanded") ?? false;
-      const meta = existingMeta ?? document.createElement("div");
-      meta.className = wasExpanded ? "jpdb-reader-select-options-meta expanded" : "jpdb-reader-select-options-meta";
-      meta.dataset.settingsSelectOptionsMeta = "";
-      if (labels.length <= 5) {
-        meta.textContent = `${uiText(language, "selectOptions")}: ${labels.join(" / ")}`;
-      } else {
-        meta.replaceChildren();
-        const prefixText = `${uiText(language, "selectOptions")}: `;
-        const truncatedSpan = document.createElement("span");
-        truncatedSpan.className = "jpdb-reader-select-options-truncated";
-        truncatedSpan.textContent = prefixText + labels.slice(0, 4).join(" / ");
-        meta.appendChild(truncatedSpan);
-        const separatorSpan = document.createElement("span");
-        separatorSpan.className = "jpdb-reader-select-options-separator";
-        separatorSpan.textContent = " / ";
-        meta.appendChild(separatorSpan);
-        const toggle = document.createElement("button");
-        toggle.type = "button";
-        toggle.className = "jpdb-reader-select-options-toggle";
-        toggle.textContent = `+${labels.length - 4}`;
-        toggle.addEventListener("click", (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          meta.classList.add("expanded");
-        });
-        meta.appendChild(toggle);
-        const fullSpan = document.createElement("span");
-        fullSpan.className = "jpdb-reader-select-options-full";
-        fullSpan.textContent = prefixText + labels.join(" / ");
-        meta.appendChild(fullSpan);
-      }
-      if (!existingMeta) {
-        selectElement.insertAdjacentElement("afterend", meta);
-      }
-    });
+  function removeSettingsSelectOptionMeta(form) {
+    form.querySelectorAll("[data-settings-select-options-meta]").forEach((meta) => meta.remove());
   }
   function setShortcutPlaceholder(form, name, placeholder) {
     form.querySelectorAll("[data-shortcut-input]").forEach((inputElement) => {
@@ -55261,6 +55219,8 @@ ${key}`] = { t: now, v: value };
   const CACHE_TTL_MS$1 = 10 * 60 * 1e3;
   const CACHE_LIMIT$1 = 800;
   const DETAIL_CONCURRENCY = 4;
+  const LOOKUP_DETAIL_LIMIT = 12;
+  const PARSE_DETAIL_LIMIT = LOOKUP_DETAIL_LIMIT;
   const REQUEST_BACKOFF_INITIAL_MS$1 = 3e4;
   const REQUEST_BACKOFF_MAX_MS$1 = 5 * 6e4;
   const PARSE_TEXT_LIMIT = 1900;
@@ -55303,7 +55263,7 @@ ${key}`] = { t: now, v: value };
       this.remember(this.cardCache, normalized, promise, now);
       return promise;
     }
-    async lookupMany(terms) {
+    async lookupMany(terms, options = {}) {
       const uniqueTerms = uniqueNormalizedTerms(terms);
       const result = /* @__PURE__ */ new Map();
       if (!uniqueTerms.length || this.isBackoffActive()) return result;
@@ -55328,7 +55288,7 @@ ${key}`] = { t: now, v: value };
       });
       persistedCards.forEach((card, term) => result.set(term, card));
       if (pendingTerms.length) {
-        const loaded = await this.lookupManyUncached(pendingTerms).catch((error) => {
+        const loaded = await this.lookupManyUncached(pendingTerms, options).catch((error) => {
           this.noteFailure(error);
           log$7.warn("Jiten batch", { terms: pendingTerms.length }, error);
           return /* @__PURE__ */ new Map();
@@ -55355,6 +55315,40 @@ ${key}`] = { t: now, v: value };
         });
         applyPublicParseChunk(result, chunk, parsed, paragraphs);
       });
+      await this.hydrateParsedTokens(result, PARSE_DETAIL_LIMIT);
+      return result;
+    }
+    async hydrateCards(cards, options = {}) {
+      const result = /* @__PURE__ */ new Map();
+      if (!cards.length || this.isBackoffActive()) return result;
+      const pending = [];
+      const seen = /* @__PURE__ */ new Set();
+      const limit = normalizedDetailLimit(options.detailLimit);
+      const now = Date.now();
+      for (const card of cards) {
+        const word = publicParseWordFromCard(card);
+        if (!word) continue;
+        const key = parsedCardHydrationKey(card);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const persisted = readPublicJitenCache("card", normalizeLookupText(card.spelling), now);
+        if (persisted) {
+          result.set(key, persisted);
+          this.remember(this.cardCache, normalizeLookupText(card.spelling), Promise.resolve(persisted), now);
+          continue;
+        }
+        if (pending.length < limit) pending.push({ key, word, requestedTerm: card.spelling || word.originalText });
+      }
+      await mapLimited(pending, DETAIL_CONCURRENCY, async (item) => {
+        const card = await this.lookupDetail(item.word, item.requestedTerm).catch((error) => {
+          this.noteFailure(error);
+          log$7.warn("Jiten parsed detail", { wordId: item.word.wordId, readingIndex: item.word.readingIndex }, error);
+          return null;
+        });
+        if (!card) return;
+        result.set(item.key, card);
+        writePublicJitenCache("card", normalizeLookupText(card.spelling), card);
+      });
       return result;
     }
     clear() {
@@ -55366,14 +55360,14 @@ ${key}`] = { t: now, v: value };
       const candidate = bestParsedWordForTerm(term, parsed);
       return candidate ? this.lookupDetail(candidate, term) : null;
     }
-    async lookupManyUncached(terms) {
+    async lookupManyUncached(terms, options) {
       const parsed = await this.parseTerms(terms);
       const candidatesByTerm = /* @__PURE__ */ new Map();
       terms.forEach((term) => {
         const candidate = bestParsedWordForBatchTerm(term, parsed);
         if (candidate) candidatesByTerm.set(term, candidate);
       });
-      await mapLimited([...candidatesByTerm].slice(0, 12), DETAIL_CONCURRENCY, async ([term, candidate]) => {
+      await mapLimited([...candidatesByTerm].slice(0, normalizedDetailLimit(options.detailLimit)), DETAIL_CONCURRENCY, async ([term, candidate]) => {
         const promise = this.lookupDetail(candidate, term);
         this.remember(this.cardCache, term, promise, Date.now());
         await promise;
@@ -55386,6 +55380,18 @@ ${key}`] = { t: now, v: value };
         writePublicJitenCache("card", term, card);
       }));
       return cards;
+    }
+    async hydrateParsedTokens(result, limit) {
+      const tokens = result.flat();
+      if (!tokens.length || limit <= 0) return;
+      const cards = await this.hydrateCards(tokens.map((token) => token.card), { detailLimit: limit });
+      if (!cards.size) return;
+      for (const token of tokens) {
+        const card = cards.get(parsedCardHydrationKey(token.card));
+        if (!card) continue;
+        token.card = card;
+        token.pitchClass = getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass;
+      }
     }
     async parseTerms(terms) {
       const chunks2 = chunkTermsForParse(terms);
@@ -55509,6 +55515,16 @@ ${key}`] = { t: now, v: value };
       jitenReadingIndex: word.readingIndex
     };
   }
+  function publicParseWordFromCard(card) {
+    const wordId = finiteInteger(card.jitenWordId) ?? finiteInteger(card.vid);
+    const readingIndex = finiteInteger(card.jitenReadingIndex) ?? finiteInteger(card.sid);
+    if (wordId === void 0 || wordId <= 0 || readingIndex === void 0 || readingIndex < 0) return null;
+    return {
+      wordId,
+      readingIndex,
+      originalText: card.spelling || card.reading
+    };
+  }
   function normalizePublicParseWord(value) {
     if (!isRecord$1(value)) return null;
     const wordId = finiteInteger(value.wordId);
@@ -55609,6 +55625,13 @@ ${key}`] = { t: now, v: value };
   }
   function uniqueNormalizedTerms(terms) {
     return [...new Set(terms.map(normalizeLookupText).filter(Boolean))];
+  }
+  function parsedCardHydrationKey(card) {
+    return `${card.vid}:${card.sid}`;
+  }
+  function normalizedDetailLimit(value) {
+    if (value === void 0) return LOOKUP_DETAIL_LIMIT;
+    return Math.max(0, Math.floor(value));
   }
   function normalizeLookupText(value) {
     return value.replace(/\s+/g, "").trim();
@@ -56999,6 +57022,7 @@ ${normalizedReading}`;
     '[aria-hidden="true"]',
     "[data-anki-setup-help]",
     ".jpdb-reader-audio-source-choice",
+    "[data-settings-select-options-meta]",
     "a[href]",
     "button",
     "input",
@@ -57031,7 +57055,6 @@ ${normalizedReading}`;
     ".jpdb-reader-help-actions .jpdb-reader-btn",
     ".footer button"
   ].join(",");
-  const SETTINGS_SELECT_META_PARSE_SELECTOR = "[data-settings-select-options-meta]";
   const SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR = [
     "[hidden]",
     '[aria-hidden="true"]',
@@ -57043,13 +57066,11 @@ ${normalizedReading}`;
     "use",
     ".jpdb-reader-word"
   ].join(",");
-  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = `${SETTINGS_PARSE_EXCLUDE_SELECTOR},${SETTINGS_SELECT_META_PARSE_SELECTOR}`;
+  const SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR = SETTINGS_PARSE_EXCLUDE_SELECTOR;
   const SETTINGS_PARSE_ROOT_SELECTOR = [
     "h2",
     ".jpdb-reader-settings-search>label",
-    SETTINGS_SELECT_META_PARSE_SELECTOR,
     "[data-settings-search-empty]",
-    "[data-audio-source-row] [data-settings-select-options-meta]",
     "[data-settings-panel]",
     SETTINGS_CHROME_PARSE_ROOT_SELECTOR
   ].join(",");
@@ -57082,7 +57103,8 @@ ${normalizedReading}`;
         heading: true,
         minLength: 2,
         readerRootPassiveInteractions: true,
-        formControlExcludeSelector: settingsFormControlExcludeSelector(parseRoot)
+        formControlExcludeSelector: settingsFormControlExcludeSelector(),
+        formControlSelectTextMode: "selected"
       }
     )).slice(0, limit);
     return targets.length ? { targets, parseKey: nestedParseKey(targets) } : null;
@@ -57097,7 +57119,8 @@ ${normalizedReading}`;
     if (options?.includeFormControls === false) return fragmentTargets;
     const controlTargets = collectFormControlTextTargetsIn(parseRoot, remaining, visibleOnly, {
       includeReaderRoot: options?.includeReaderRoot,
-      excludeSelector: options?.formControlExcludeSelector ?? excludeSelector
+      excludeSelector: options?.formControlExcludeSelector ?? excludeSelector,
+      selectTextMode: options?.formControlSelectTextMode
     });
     return [...fragmentTargets, ...controlTargets];
   }
@@ -57106,15 +57129,13 @@ ${normalizedReading}`;
     return panel?.hasAttribute("hidden") ? 1 : 0;
   }
   function isExcludedSettingsParseRoot(parseRoot) {
-    return !parseRoot.hasAttribute("data-settings-select-options-meta") && !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
+    return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
   }
   function settingsParseExcludeSelector(parseRoot) {
     if (isSettingsChromeParseRoot(parseRoot)) return SETTINGS_CHROME_PARSE_CHILD_EXCLUDE_SELECTOR;
-    if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
     return SETTINGS_PARSE_CHILD_EXCLUDE_SELECTOR;
   }
-  function settingsFormControlExcludeSelector(parseRoot) {
-    if (parseRoot.matches(SETTINGS_SELECT_META_PARSE_SELECTOR)) return SETTINGS_PARSE_EXCLUDE_SELECTOR;
+  function settingsFormControlExcludeSelector() {
     return SETTINGS_FORM_CONTROL_PARSE_EXCLUDE_SELECTOR;
   }
   function isSettingsChromeParseRoot(parseRoot) {
@@ -57308,6 +57329,42 @@ ${reading}`);
   }
   function rangesOverlapAny(range, ranges) {
     return ranges.some((candidate) => range.start < candidate.end && candidate.start < range.end);
+  }
+  function settingsForSettingsFormParse(form, settings) {
+    const furiganaMode = form.querySelector('select[name="furiganaMode"]')?.value;
+    const showPitchAccent = form.querySelector('input[name="showPitchAccent"]')?.checked;
+    if (furiganaMode !== "all" && furiganaMode !== "difficult-kanji" && furiganaMode !== "known-status" && furiganaMode !== "hover" && furiganaMode !== "off") {
+      return typeof showPitchAccent === "boolean" ? { ...settings, showPitchAccent } : settings;
+    }
+    return {
+      ...settings,
+      showFurigana: furiganaMode !== "off",
+      furiganaMode,
+      showPitchAccent: typeof showPitchAccent === "boolean" ? showPitchAccent : settings.showPitchAccent
+    };
+  }
+  function addSettingsRubyFromRenderedReadings(form, settings) {
+    if (!settings.showFurigana || settings.furiganaMode === "off") return;
+    for (const word of form.querySelectorAll(".jpdb-reader-word")) {
+      if (word.querySelector("rt,.jpdb-reader-furi")) continue;
+      const reading = word.dataset.reading?.trim() ?? "";
+      const surface = word.dataset.surface?.trim() || word.dataset.expression?.trim() || word.textContent?.trim() || "";
+      if (!surface || !reading || reading === surface || !/[\u3400-\u9fff]/u.test(surface) || !/^[\u3040-\u30ffー・]+$/u.test(reading)) continue;
+      const ruby = document.createElement("ruby");
+      const base = document.createElement("span");
+      base.className = "jpdb-reader-ruby-base";
+      base.textContent = surface;
+      const open = document.createElement("rp");
+      open.textContent = "(";
+      const rt = document.createElement("rt");
+      rt.className = "jpdb-reader-furi";
+      rt.textContent = reading;
+      const close = document.createElement("rp");
+      close.textContent = ")";
+      ruby.append(base, open, rt, close);
+      word.replaceChildren(ruby);
+      word.classList.add("jpdb-reader-has-furi");
+    }
   }
   const FALLBACK_HEX_COLOR = "#000000";
   function normalizeHexColor(color) {
@@ -72282,42 +72339,6 @@ ${entry.url}`),
     const normalizedTerm = normalizedJitenLookupKey(term);
     const tokenSurface = normalizedJitenLookupKey(token.sentence?.slice(token.start, token.end) ?? "");
     return tokenSurface === normalizedTerm || normalizedJitenLookupKey(token.card.spelling) === normalizedTerm || normalizedJitenLookupKey(token.card.reading) === normalizedTerm;
-  }
-  function settingsForSettingsFormParse(form, settings) {
-    const furiganaMode = form.querySelector('select[name="furiganaMode"]')?.value;
-    const showPitchAccent = form.querySelector('input[name="showPitchAccent"]')?.checked;
-    if (furiganaMode !== "all" && furiganaMode !== "difficult-kanji" && furiganaMode !== "known-status" && furiganaMode !== "hover" && furiganaMode !== "off") {
-      return typeof showPitchAccent === "boolean" ? { ...settings, showPitchAccent } : settings;
-    }
-    return {
-      ...settings,
-      showFurigana: furiganaMode !== "off",
-      furiganaMode,
-      showPitchAccent: typeof showPitchAccent === "boolean" ? showPitchAccent : settings.showPitchAccent
-    };
-  }
-  function addSettingsRubyFromRenderedReadings(form, settings) {
-    if (!settings.showFurigana || settings.furiganaMode === "off") return;
-    for (const word of form.querySelectorAll(".jpdb-reader-word")) {
-      if (word.querySelector("rt,.jpdb-reader-furi")) continue;
-      const reading = word.dataset.reading?.trim() ?? "";
-      const surface = word.dataset.surface?.trim() || word.dataset.expression?.trim() || word.textContent?.trim() || "";
-      if (!surface || !reading || reading === surface || !/[\u3400-\u9fff]/u.test(surface) || !/^[\u3040-\u30ffー・]+$/u.test(reading)) continue;
-      const ruby = document.createElement("ruby");
-      const base = document.createElement("span");
-      base.className = "jpdb-reader-ruby-base";
-      base.textContent = surface;
-      const open = document.createElement("rp");
-      open.textContent = "(";
-      const rt = document.createElement("rt");
-      rt.className = "jpdb-reader-furi";
-      rt.textContent = reading;
-      const close = document.createElement("rp");
-      close.textContent = ")";
-      ruby.append(base, open, rt, close);
-      word.replaceChildren(ruby);
-      word.classList.add("jpdb-reader-has-furi");
-    }
   }
   function refreshableNoop() {
     return { refresh: () => void 0 };

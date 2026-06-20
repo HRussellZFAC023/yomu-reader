@@ -11049,7 +11049,7 @@ describe('new tab review helpers', () => {
 
     it('uses segmented fallback for hosted Japanese settings chrome without JPDB', async () => {
         const runtime = new NewTabRuntime();
-        const parse = vi.fn(async () => [[]]);
+        const parse = vi.fn(async (_texts: string[], _options?: unknown): Promise<JPDBToken[][]> => [[]]);
         const form = document.createElement('form');
         form.className = 'jpdb-reader-settings';
         form.innerHTML = `
@@ -11088,7 +11088,7 @@ describe('new tab review helpers', () => {
             await internals.parseSettingsJapanese(form);
 
             expect(parse).toHaveBeenCalledWith(
-                expect.arrayContaining(['よむ 設定', '外観', '設定の表示言語', '日本語']),
+                expect.arrayContaining(['よむ 設定', '外観', '設定の表示言語']),
                 expect.objectContaining({
                     allowJpdbTimeoutFallback: true,
                     allowSegmentedFallback: true,
@@ -11098,6 +11098,7 @@ describe('new tab review helpers', () => {
                     skipJpdb: true,
                 }),
             );
+            expect(parse.mock.calls[0]?.[0] ?? []).not.toContain('日本語');
         } finally {
             runtime.destroy();
             document.body.replaceChildren();

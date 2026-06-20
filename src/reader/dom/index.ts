@@ -315,6 +315,7 @@ export interface TextTarget {
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     controlTextMirror?: boolean;
+    controlSelectTextMode?: 'options' | 'selected';
 }
 
 export interface TextFragment {
@@ -337,6 +338,7 @@ export interface FragmentTextTarget {
     singlePassScan?: boolean;
     nonDestructive?: boolean;
     controlTextMirror?: boolean;
+    controlSelectTextMode?: 'options' | 'selected';
 }
 
 export type ScanTextTarget = TextTarget | FragmentTextTarget;
@@ -382,6 +384,7 @@ interface FormControlTextTargetCollectionOptions {
     includeReaderRoot?: boolean;
     excludeSelector?: string;
     parserId?: string;
+    selectTextMode?: 'options' | 'selected';
 }
 
 interface FragmentTextCollectionState {
@@ -660,7 +663,7 @@ function formControlTextTarget(
     options: FormControlTextTargetCollectionOptions,
 ): FragmentTextTarget | null {
     if (!isCollectableFormControlTextElement(control, visibleOnly, options)) return null;
-    const text = collectableFormControlLookupText(control);
+    const text = collectableFormControlLookupText(control, options);
     if (!text) return null;
     return {
         text,
@@ -670,6 +673,7 @@ function formControlTextTarget(
         layoutSensitive: true,
         nonDestructive: true,
         controlTextMirror: true,
+        controlSelectTextMode: options.selectTextMode,
     };
 }
 
@@ -695,24 +699,29 @@ function isUnlookupableFormControl(control: HTMLElement): boolean {
     return ['hidden', 'password', 'file', 'image'].includes(control.type.toLowerCase());
 }
 
-function collectableFormControlLookupText(control: HTMLElement): string {
-    const text = formControlLookupText(control);
+function collectableFormControlLookupText(control: HTMLElement, options: Pick<FormControlTextTargetCollectionOptions, 'selectTextMode'> = {}): string {
+    const text = formControlLookupText(control, options);
     return isCollectableControlText(text) ? text : '';
 }
 
-function formControlLookupText(control: HTMLElement): string {
+function formControlLookupText(control: HTMLElement, options: Pick<FormControlTextTargetCollectionOptions, 'selectTextMode'> = {}): string {
     const parts: string[] = [];
-    if (control instanceof HTMLSelectElement) pushUniqueControlText(parts, selectLookupText(control));
+    if (control instanceof HTMLSelectElement) {
+        pushUniqueControlText(parts, selectLookupText(control, options.selectTextMode ?? 'options'));
+        if (options.selectTextMode === 'selected') return parts.join(' / ');
+    }
     if (control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) {
         pushUniqueControlText(parts, formFieldPlaceholderText(control));
+        if (control.value.trim()) return parts.join(' / ');
     }
     pushUniqueControlText(parts, control.getAttribute('aria-label') ?? '');
     pushUniqueControlText(parts, control.getAttribute('title') ?? '');
     return parts.join(' / ');
 }
 
-function selectLookupText(select: HTMLSelectElement): string {
+function selectLookupText(select: HTMLSelectElement, mode: 'options' | 'selected'): string {
     const selectedText = uniqueControlTexts(Array.from(select.selectedOptions).map(optionText));
+    if (mode === 'selected') return selectedText.join(' / ');
     const optionTextList = uniqueControlTexts(Array.from(select.options).map(optionText))
         .filter(text => HAS_JAPANESE.test(text));
     const compactOptionList = compactSelectOptionListText(optionTextList);
@@ -1206,7 +1215,7 @@ export function isCurrentScanTarget(target: ScanTextTarget): boolean {
 
 function isCurrentFragmentScanTarget(target: FragmentTextTarget): boolean {
     if (!target.parent.isConnected) return false;
-    if (target.controlTextMirror) return formControlLookupText(target.parent) === target.text;
+    if (target.controlTextMirror) return formControlLookupText(target.parent, { selectTextMode: target.controlSelectTextMode }) === target.text;
     if (!target.fragments.length) return Boolean(target.nonDestructive && HAS_JAPANESE.test(target.text));
     const text = target.fragments.map(fragment => {
         if (!fragment.node.isConnected || !fragment.node.parentElement) return null;

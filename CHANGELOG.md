@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.42] - 2026-06-20
+
+### Fixed
+
+- Keyless public Jiten parsing now hydrates visible words with cached detail records so furigana and pitch accents appear without an API key while public requests stay capped and paced.
+- Welcome splash reader words now open the dictionary popover on click or keyboard activation without stealing onboarding action button clicks.
+- Japanese Settings no longer repeats every dropdown option below each select. Settings now keep only the parsed selected-value mirror where native controls need it, ignore stale option-list metadata, and apply furigana/pitch rendering from the current form controls in both hosted and userscript settings.
+
 ## [1.4.41] - 2026-06-20
 
 ### Fixed

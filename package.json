@@ -1,6 +1,6 @@
 {
   "name": "yomu-reader",
-  "version": "1.4.41",
+  "version": "1.4.42",
   "private": true,
   "type": "module",
   "description": "よむ: a small Jiten/JPDB/Yomitan popup dictionary and subtitle miner userscript.",
@@ -64,6 +64,8 @@
     "smoke:hosted-settings": "node scripts/hosted-settings-self-enhancement-smoke.mjs",
     "smoke:jiten-newtab": "node scripts/jiten-newtab-smoke.mjs",
     "smoke:jiten-keyless-definition": "node scripts/jiten-keyless-definition-smoke.mjs",
+    "smoke:keyless-jiten-detail": "node scripts/keyless-jiten-detail-smoke.mjs",
+    "smoke:onboarding-popover": "node scripts/onboarding-popover-smoke.mjs",
     "smoke:definition-sources": "node scripts/definition-sources-playwright-smoke.mjs",
     "smoke:keyless-popover": "node scripts/keyless-word-popover-smoke.mjs",
     "smoke:late-content": "node scripts/late-content-smoke.mjs",

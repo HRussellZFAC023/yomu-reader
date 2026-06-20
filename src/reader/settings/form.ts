@@ -938,7 +938,7 @@ export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceL
     localizeSettingsActions(form, text);
     localizeSettingsEditorChrome(form, text);
     localizeHelpLinksPanel(form, language);
-    syncSettingsSelectOptionMeta(form, language);
+    removeSettingsSelectOptionMeta(form);
     normalizeSettingsLabelTextContainers(form);
     syncDisabledSettingsControlDescriptions(form, language);
 }
@@ -1822,67 +1822,8 @@ function setSelectOptionLabels(form: HTMLFormElement, name: string, options: Arr
     });
 }
 
-function syncSettingsSelectOptionMeta(form: HTMLFormElement, language: InterfaceLanguage): void {
-    const showMeta = resolveUiLanguage(language) === 'ja';
-    form.querySelectorAll<HTMLSelectElement>('select').forEach(selectElement => {
-        const existing = selectElement.nextElementSibling;
-        const existingMeta = existing instanceof HTMLElement && existing.matches('[data-settings-select-options-meta]') ? existing : null;
-        if (!showMeta) {
-            existingMeta?.remove();
-            return;
-        }
-        const labels = Array.from(selectElement.options)
-            .map(option => option.textContent?.replace(/\s+/g, ' ').trim() ?? '')
-            .filter(label => /[\u3040-\u30ff\u3400-\u9fff]/.test(label));
-        if (!labels.length) {
-            existingMeta?.remove();
-            return;
-        }
-        const wasExpanded = existingMeta?.classList.contains('expanded') ?? false;
-
-        const meta = existingMeta ?? document.createElement('div');
-        meta.className = wasExpanded ? 'jpdb-reader-select-options-meta expanded' : 'jpdb-reader-select-options-meta';
-        meta.dataset.settingsSelectOptionsMeta = '';
-
-        if (labels.length <= 5) {
-            meta.textContent = `${uiText(language, 'selectOptions')}: ${labels.join(' / ')}`;
-        } else {
-            meta.replaceChildren();
-
-            const prefixText = `${uiText(language, 'selectOptions')}: `;
-
-            const truncatedSpan = document.createElement('span');
-            truncatedSpan.className = 'jpdb-reader-select-options-truncated';
-            truncatedSpan.textContent = prefixText + labels.slice(0, 4).join(' / ');
-            meta.appendChild(truncatedSpan);
-
-            const separatorSpan = document.createElement('span');
-            separatorSpan.className = 'jpdb-reader-select-options-separator';
-            separatorSpan.textContent = ' / ';
-            meta.appendChild(separatorSpan);
-
-            const toggle = document.createElement('button');
-            toggle.type = 'button';
-            toggle.className = 'jpdb-reader-select-options-toggle';
-            toggle.textContent = `+${labels.length - 4}`;
-
-            toggle.addEventListener('click', event => {
-                event.preventDefault();
-                event.stopPropagation();
-                meta.classList.add('expanded');
-            });
-            meta.appendChild(toggle);
-
-            const fullSpan = document.createElement('span');
-            fullSpan.className = 'jpdb-reader-select-options-full';
-            fullSpan.textContent = prefixText + labels.join(' / ');
-            meta.appendChild(fullSpan);
-        }
-
-        if (!existingMeta) {
-            selectElement.insertAdjacentElement('afterend', meta);
-        }
-    });
+function removeSettingsSelectOptionMeta(form: HTMLFormElement): void {
+    form.querySelectorAll('[data-settings-select-options-meta]').forEach(meta => meta.remove());
 }
 
 function setShortcutPlaceholder(form: HTMLFormElement, name: string, placeholder: string): void {

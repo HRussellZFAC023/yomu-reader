@@ -893,8 +893,8 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview-line .jpdb-reader-word { display: inline-block !important; width: auto !important; max-width: none !important; vertical-align: baseline; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings-appearance-preview .jpdb-reader-word.jpdb-reader-has-furi { line-height: 1.28; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-icon-mini { grid-column: 2; grid-row: 1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice .jpdb-reader-select-options-meta { grid-column: 1 / -1; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-select-options-meta { font-size: 10px; line-height: 1.28; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings select + .jpdb-reader-control-text-mirror { display: block; max-width: 100%; margin-inline-start: 0;');
+        expect(normalizedCss).toContain('.jpdb-reader-audio-source-choice > .jpdb-reader-control-text-mirror { grid-column: 1 / -1; }');
     });
 
     it('groups media settings into compact toggle and control grids', () => {
@@ -952,7 +952,6 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-up"] { grid-column: 1; grid-row: 1; }');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-action$="-down"] { grid-column: 1; grid-row: 2; }');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-order-tools [data-source-drag-handle] { grid-column: 2; grid-row: 2; }');
-        expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-select-options-meta:not(.expanded) { display: -webkit-box; max-height: 2.6em; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }');
         expect(normalizedCss).toContain('@media (max-width: 380px) { .jpdb-reader-order-row { grid-template-columns: 44px minmax(0, 1fr) 73px; gap: 5px;');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-tools { gap: 5px; width: 73px; min-width: 73px; max-width: 73px; }');
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 1; align-self: start; justify-content: flex-end; }');
@@ -1755,24 +1754,23 @@ describe('settings form localization', () => {
         expect(text).not.toContain('未翻訳');
     });
 
-    it('adds Japanese select option metadata for lookup without duplicating it on relocalize', () => {
+    it('removes stale Japanese select option metadata instead of repeating every option', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         const languageSelect = form.querySelector<HTMLSelectElement>('select[name="interfaceLanguage"]')!;
+        languageSelect.insertAdjacentHTML('afterend', '<div data-settings-select-options-meta>選択肢: 自動 / 英語 / 日本語</div>');
 
         localizeSettingsForm(form, 'ja');
         localizeSettingsForm(form, 'ja');
 
-        const metadata = languageSelect.parentElement?.querySelectorAll('[data-settings-select-options-meta]') ?? [];
-        expect(metadata).toHaveLength(1);
-        expect(metadata[0]?.textContent).toBe('選択肢: 自動 / 英語 / 日本語');
+        expect(languageSelect.parentElement?.querySelector('[data-settings-select-options-meta]')).toBeNull();
 
         localizeSettingsForm(form, 'en');
 
         expect(languageSelect.parentElement?.querySelector('[data-settings-select-options-meta]')).toBeNull();
     });
 
-    it('truncates select option metadata when options exceed 5 and expands on toggle click', () => {
+    it('does not add truncating option metadata for long selects', () => {
         const form = document.createElement('form');
         form.innerHTML = `
             <label>
@@ -1792,61 +1790,30 @@ describe('settings form localization', () => {
 
         localizeSettingsForm(form, 'ja');
 
-        const meta = select.nextElementSibling as HTMLElement;
-        expect(meta).not.toBeNull();
-        expect(meta.dataset.settingsSelectOptionsMeta).toBe('');
-        expect(meta.classList.contains('expanded')).toBe(false);
-
-        // Truncated list should show first 4 options
-        const truncated = meta.querySelector('.jpdb-reader-select-options-truncated')!;
-        expect(truncated.textContent).toBe('選択肢: 自動 / 英語 / 日本語 / ドイツ語');
-
-        // Toggle button should show +3
-        const toggle = meta.querySelector<HTMLButtonElement>('.jpdb-reader-select-options-toggle')!;
-        expect(toggle.textContent).toBe('+3');
-
-        // Full list should contain all 7 options
-        const full = meta.querySelector('.jpdb-reader-select-options-full')!;
-        expect(full.textContent).toBe('選択肢: 自動 / 英語 / 日本語 / ドイツ語 / フランス語 / 中国語 / 韓国語');
-
-        // Click the toggle button
-        toggle.click();
-
-        expect(meta.classList.contains('expanded')).toBe(true);
-
-        // Check that relocalizing keeps it expanded
-        localizeSettingsForm(form, 'ja');
-
-        const newMeta = select.nextElementSibling as HTMLElement;
-        expect(newMeta.classList.contains('expanded')).toBe(true);
+        expect(select.nextElementSibling?.matches('[data-settings-select-options-meta]') ?? false).toBe(false);
+        expect(form.querySelector('[data-settings-select-options-meta]')).toBeNull();
     });
 
-    it('keeps parsed audio source metadata out of the preview button column', () => {
+    it('keeps removed audio source option metadata out of the preview button column', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
         document.body.append(form);
         localizeSettingsForm(form, 'ja');
         activateSettingsPanel(form, 'media');
         const sourceChoice = form.querySelector<HTMLElement>('[data-audio-source-row] .jpdb-reader-audio-source-choice')!;
-        const meta = sourceChoice.querySelector<HTMLElement>('[data-settings-select-options-meta]')!;
+        const select = sourceChoice.querySelector<HTMLSelectElement>('select')!;
+        const japaneseOption = Array.from(select.options).find(option => /[\u3040-\u30ff\u3400-\u9fff]/u.test(option.textContent ?? ''));
+        expect(japaneseOption).toBeTruthy();
+        select.value = japaneseOption!.value;
+        const selectedText = select.selectedOptions[0]?.textContent?.trim() ?? '';
 
-        expect(meta.textContent).toContain('ブラウザ読み上げ');
+        expect(selectedText).toMatch(/[\u3040-\u30ff\u3400-\u9fff]/u);
+        expect(sourceChoice.querySelector('[data-settings-select-options-meta]')).toBeNull();
 
         const plan = nestedSettingsTextParsePlan(form, 640)!;
-        const targetIndex = plan.targets.findIndex(target => target.text === meta.textContent);
-        expect(targetIndex).toBeGreaterThanOrEqual(0);
-        const parsed = plan.targets.map(() => [] as JPDBToken[]);
-        const browserStart = meta.textContent!.indexOf('ブラウザ読み上げ');
-        parsed[targetIndex] = [
-            settingsToken('選択肢', 0, 'せんたくし'),
-            settingsToken('ブラウザ', browserStart),
-            settingsToken('読み上げ', browserStart + 'ブラウザ'.length, 'よみあげ'),
-        ];
-
-        applyNestedParsePlan(plan, parsed, DEFAULT_SETTINGS);
-
+        expect(plan.targets.some(target => target.parent === select && target.text === selectedText)).toBe(false);
+        expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-control-text-mirror')).toBeNull();
         expect(sourceChoice.querySelector<HTMLElement>('.jpdb-reader-icon-mini')?.nextElementSibling).toBeNull();
-        expect(meta.querySelectorAll('.jpdb-reader-word')).toHaveLength(3);
     });
 
     it('renders fixed voice selectors for Jiten and JPDB text-to-speech sources', () => {

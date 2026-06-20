@@ -19,6 +19,7 @@ describe('OnboardingController furigana parse wiring', () => {
             setSettings: next => { settings = next; },
             showSettings: vi.fn(),
             parseJapanese,
+            lookupText: vi.fn(),
         });
 
         await controller.showIfNeeded();
@@ -36,4 +37,47 @@ describe('OnboardingController furigana parse wiring', () => {
         expect(collected.some(text => text.includes('タップ可能にします'))).toBe(true);
         expect(collected.some(text => text.includes('内蔵の学習ページ'))).toBe(true);
     });
+
+    it('opens lookup for parsed welcome words without stealing action button clicks', async () => {
+        let settings: ReaderSettings = { ...DEFAULT_SETTINGS, onboardingSeen: false, interfaceLanguage: 'ja' };
+        const lookupText = vi.fn();
+        const showSettings = vi.fn();
+        const controller = new OnboardingController({
+            getSettings: () => settings,
+            setSettings: next => { settings = next; },
+            showSettings,
+            parseJapanese: vi.fn(),
+            lookupText,
+        });
+
+        await controller.showIfNeeded();
+
+        const panel = document.querySelector<HTMLElement>('.jpdb-reader-onboarding')!;
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.expression = '日本語';
+        word.dataset.sentence = '日本語を読みます。';
+        word.textContent = '日本語';
+        panel.querySelector('.jpdb-reader-onboarding-features > li span')?.append(' ', word);
+        word.click();
+
+        expect(lookupText).toHaveBeenCalledWith('日本語', '日本語を読みます。', word);
+
+        const buttonWord = document.createElement('span');
+        buttonWord.className = 'jpdb-reader-word';
+        buttonWord.dataset.expression = '辞書';
+        buttonWord.textContent = '辞書';
+        const withoutApi = document.querySelector<HTMLButtonElement>('[data-onboarding-action="without-api"]')!;
+        withoutApi.append(buttonWord);
+        buttonWord.click();
+        await settleAsyncHandlers();
+
+        expect(lookupText).toHaveBeenCalledTimes(1);
+        expect(showSettings).toHaveBeenCalledWith('dictionaries');
+        expect(settings.onboardingSeen).toBe(true);
+    });
 });
+
+function settleAsyncHandlers(): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, 0));
+}
