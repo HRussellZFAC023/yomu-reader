@@ -49,7 +49,6 @@ import {
     dictionaryEnabled,
     dictionaryPriority,
     dictionaryRank,
-    extractFrequency,
     nonOverlappingMatches,
 } from './ranking';
 import {
@@ -59,11 +58,26 @@ import {
     normalizeDexieTermMetaRow,
     normalizeDexieKanjiMetaRow,
 } from './dexie-normalize';
+import {
+    addCommonTermToReservoir,
+    addRandomListTermToReservoir,
+    addSimilarTermByKanjiCandidate,
+    addTopFrequencyExpression,
+    cursorScanLimitReached,
+    glossaryCursorSearchExpired,
+    glossaryFallbackSearchOptions,
+    glossaryIndexSearchOptions,
+    hasReadyEmptyGlossarySearchIndex,
+    optionalCursorScanLimitReached,
+    shouldSkipGlossaryFallback,
+} from './sampling';
 import type {
     DictionarySummary,
     EntryStoreName,
+    GlossaryCursorSearchOptions,
     ImportSummary,
     StoreName,
+    TermSearchOptions,
     UiTextKey,
     YomitanDictionaryInfo,
     YomitanKanjiEntry,
@@ -87,10 +101,6 @@ const TERM_SEARCH_INDEX_MAX_TOKENS_PER_TERM = 40;
 const TERM_SEARCH_INDEX_MIN_TOKEN_LENGTH = 2;
 const TERM_SEARCH_INDEX_MIN_SUFFIX_LENGTH = 3;
 const TERM_SEARCH_PREFIX_BOUNDARY = String.fromCharCode(0xf8ff);
-const TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS = 12000;
-const TERM_SEARCH_LEGACY_FALLBACK_MAX_MS = 140;
-const TERM_SEARCH_INDEX_CURSOR_MAX_ROWS = 8000;
-const TERM_SEARCH_INDEX_CURSOR_MAX_MS = 180;
 const TERM_SEARCH_DEFAULT_CANDIDATE_LIMIT = 240;
 const RANDOM_TERM_LIST_MAX_ROWS = 20000;
 const RANDOM_TERM_LIST_MAX_MS = 220;
@@ -119,11 +129,6 @@ interface YomitanTermKanjiEntry extends YomitanTermEntry {
     character: string;
 }
 
-interface GlossaryCursorSearchOptions {
-    maxRows?: number;
-    maxMs?: number;
-}
-
 interface TermIndexQuery {
     indexName: string;
     range: IDBKeyRange;
@@ -135,16 +140,6 @@ interface StoreCursorScanOptions {
     maxRows: number;
     maxMs: number;
     errorMessage: string;
-}
-
-interface TermSearchOptions {
-    candidateLimit?: number;
-    glossaryIndexMaxRows?: number;
-    glossaryIndexMaxMs?: number;
-    glossaryFallbackMaxRows?: number;
-    glossaryFallbackMaxMs?: number;
-    prepareIndex?: boolean;
-    fallbackWhileIndexing?: boolean;
 }
 
 interface HotLookupCacheEntry<T> {
@@ -1781,10 +1776,6 @@ async function readYomitanZipIndex(zip: ZipArchive, language: InterfaceLanguage 
     })) as YomitanZipIndex;
 }
 
-function cursorScanLimitReached(visited: number, startedAt: number, maxRows: number, maxMs: number): boolean {
-    return positiveLimitReached(maxRows, visited) || positiveLimitReached(maxMs, performance.now() - startedAt);
-}
-
 async function scanObjectStoreCursor<T>(
     db: IDBDatabase,
     { storeName, maxRows, maxMs, errorMessage }: StoreCursorScanOptions,
@@ -1807,134 +1798,6 @@ async function scanObjectStoreCursor<T>(
             cursor.continue();
         };
     });
-}
-
-function optionalCursorScanLimitReached(options: GlossaryCursorSearchOptions, visited: number, startedAt: number): boolean {
-    return optionalLimitReached(options.maxRows, visited) || optionalLimitReached(options.maxMs, performance.now() - startedAt);
-}
-
-function positiveLimitReached(limit: number, value: number): boolean {
-    return limit > 0 && value >= limit;
-}
-
-function optionalLimitReached(limit: number | undefined, value: number): boolean {
-    return Boolean(limit && value >= limit);
-}
-
-function addRandomListTermToReservoir(
-    entry: YomitanTermEntry,
-    rank: Map<string, DictionaryPreference>,
-    seen: Set<string>,
-    reservoir: YomitanTermEntry[],
-    limit: number,
-    count: number,
-): number {
-    if (!isRandomListTerm(entry, rank)) return count;
-    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
-}
-
-function addCommonTermToReservoir(
-    entry: YomitanTermEntry,
-    rank: Map<string, DictionaryPreference>,
-    seen: Set<string>,
-    reservoir: YomitanTermEntry[],
-    limit: number,
-    count: number,
-): number {
-    if (!isCommonDictionaryTerm(entry, rank)) return count;
-    return addUniqueTermToReservoir(entry, seen, reservoir, limit, count);
-}
-
-function addUniqueTermToReservoir(
-    entry: YomitanTermEntry,
-    seen: Set<string>,
-    reservoir: YomitanTermEntry[],
-    limit: number,
-    count: number,
-): number {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return count;
-    seen.add(key);
-    const nextCount = count + 1;
-    if (reservoir.length < limit) {
-        reservoir.push(entry);
-        return nextCount;
-    }
-    const index = Math.floor(Math.random() * nextCount);
-    if (index < limit) reservoir[index] = entry;
-    return nextCount;
-}
-
-function isRandomListTerm(entry: YomitanTermEntry, rank: Map<string, DictionaryPreference>): boolean {
-    if (!entry.expression) return false;
-    if (!JAPANESE_RE.test(entry.expression)) return false;
-    if (entry.expression.length > 6) return false;
-    return dictionaryEnabled(entry.dictionary, rank);
-}
-
-function addTopFrequencyExpression(
-    expressions: Map<string, number>,
-    entry: YomitanMetaEntry,
-    maxRank: number,
-    rank: Map<string, DictionaryPreference>,
-): void {
-    if (entry.mode !== 'freq') return;
-    if (!entry.expression) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    const freq = extractFrequency(entry.data);
-    if (freq === undefined) return;
-    if (freq > maxRank) return;
-    expressions.set(entry.expression, Math.min(freq, expressions.get(entry.expression) ?? Number.POSITIVE_INFINITY));
-}
-
-function addSimilarTermByKanjiCandidate(
-    entries: YomitanTermEntry[],
-    seen: Set<string>,
-    entry: YomitanTermEntry,
-    character: string,
-    rank: Map<string, DictionaryPreference>,
-): void {
-    if (!entry.expression?.includes(character)) return;
-    if (!dictionaryEnabled(entry.dictionary, rank)) return;
-    addUniqueTermEntry(entries, seen, entry);
-}
-
-function addUniqueTermEntry(entries: YomitanTermEntry[], seen: Set<string>, entry: YomitanTermEntry): void {
-    const key = termExpressionReadingKey(entry);
-    if (seen.has(key)) return;
-    seen.add(key);
-    entries.push(entry);
-}
-
-function termExpressionReadingKey(entry: Pick<YomitanTermEntry, 'expression' | 'reading'>): string {
-    return `${entry.expression}\n${entry.reading}`;
-}
-
-function glossaryIndexSearchOptions(options: TermSearchOptions): GlossaryCursorSearchOptions {
-    return {
-        maxRows: options.glossaryIndexMaxRows ?? TERM_SEARCH_INDEX_CURSOR_MAX_ROWS,
-        maxMs: options.glossaryIndexMaxMs ?? TERM_SEARCH_INDEX_CURSOR_MAX_MS,
-    };
-}
-
-function glossaryFallbackSearchOptions(options: TermSearchOptions): GlossaryCursorSearchOptions {
-    return {
-        maxRows: options.glossaryFallbackMaxRows ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_ROWS,
-        maxMs: options.glossaryFallbackMaxMs ?? TERM_SEARCH_LEGACY_FALLBACK_MAX_MS,
-    };
-}
-
-function glossaryCursorSearchExpired(options: GlossaryCursorSearchOptions, visited: number, startedAt: number): boolean {
-    return Boolean((options.maxRows && visited >= options.maxRows)
-        || (options.maxMs && performance.now() - startedAt >= options.maxMs));
-}
-
-function hasReadyEmptyGlossarySearchIndex(indexedCount: number, building: boolean): boolean {
-    return indexedCount > 0 && !building;
-}
-
-function shouldSkipGlossaryFallback(building: boolean, options: TermSearchOptions): boolean {
-    return building && options.fallbackWhileIndexing === false;
 }
 
 async function yomitanZipDictionaryInfo(
@@ -2190,30 +2053,6 @@ function reservoirSample<T>(items: T[], limit: number): T[] {
         }
     }
     return reservoir;
-}
-
-function isCommonDictionaryTerm(entry: YomitanTermEntry, rank: Map<string, DictionaryPreference>): boolean {
-    return isCommonDictionaryTermCandidate(entry, rank)
-        && (hasCommonDictionaryTags(entry) || hasCommonDictionaryScore(entry));
-}
-
-function isCommonDictionaryTermCandidate(entry: YomitanTermEntry, rank: Map<string, DictionaryPreference>): boolean {
-    return Boolean(entry.expression
-        && JAPANESE_RE.test(entry.expression)
-        && entry.expression.length <= 8
-        && dictionaryEnabled(entry.dictionary, rank));
-}
-
-function hasCommonDictionaryTags(entry: YomitanTermEntry): boolean {
-    return /\b(common|ichi1|news1|spec1|gai1|freq|popular)\b/.test(dictionaryTermTags(entry));
-}
-
-function dictionaryTermTags(entry: YomitanTermEntry): string {
-    return `${entry.definitionTags ?? ''} ${entry.termTags ?? ''} ${entry.rules ?? ''}`.toLowerCase();
-}
-
-function hasCommonDictionaryScore(entry: YomitanTermEntry): boolean {
-    return typeof entry.score === 'number' && entry.score >= 5;
 }
 
 function isKanji(value: string): boolean {

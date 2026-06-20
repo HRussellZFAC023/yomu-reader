@@ -85,3 +85,18 @@ export interface YomitanTermMatch {
     surface: string;
     deinflected?: DeinflectedTerm;
 }
+
+export interface GlossaryCursorSearchOptions {
+    maxRows?: number;
+    maxMs?: number;
+}
+
+export interface TermSearchOptions {
+    candidateLimit?: number;
+    glossaryIndexMaxRows?: number;
+    glossaryIndexMaxMs?: number;
+    glossaryFallbackMaxRows?: number;
+    glossaryFallbackMaxMs?: number;
+    prepareIndex?: boolean;
+    fallbackWhileIndexing?: boolean;
+}
