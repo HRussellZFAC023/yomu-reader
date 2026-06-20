@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.21
+// @version      1.4.24
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.21#sha256-bbL/BsKo/ZzPvoQ9PX2Xz2e1Nf0kbcWDFC7O7ehooEU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.21#sha256-w97qBb/Uvl1ykRN/8pRoSsM1HC6aD7qDUtY54XUQFrE=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.21#sha256-ujLZ5K0CZlmAn1J+5I8a6cVZaFv7pz3dLE/4VEEhhgA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.21#sha256-tFA6jPBMYtCxdGTJV6aboCyV8SksOW7IVMmrHL3uyq0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.24#sha256-CYPWaiVPt9XyOz4qy6poHmIjKOws0zyBYYXAi7fPjf8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.24#sha256-jsGXKSD5Z53FzKqpx7fPvDiK7J0qw892qEoLag2hxdg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.24#sha256-en+IxEnHqKB3PUFKqA6XJ1LjQu9TK3ibhDcD+QAMmKc=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.24#sha256-twllkx0coMFVVnl9SzqHAMSGUGCleasaEdmynF0d5MA=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -7684,9 +7684,9 @@
       ankiConnectRequestFailed: "AnkiConnect request failed.",
       ankiConnectTimedOut: "AnkiConnect timed out.",
       ankiConnectNeedsBridge: "AnkiConnect needs the userscript bridge.",
-      mobileAnkiReady: "Anki offline. Handoff can create notes.",
+      mobileAnkiReady: "Anki is not connected. Mobile handoff can create notes.",
       ankiConnectionReady: "Connected. AnkiConnect is reachable.",
-      ankiConnectedReady: 'Connected. "{deck}" / "{model}" ready.',
+      ankiConnectedReady: 'Deck "{deck}" and note type "{model}" are ready.',
       ankiPromptRecallWord: "Recall the highlighted word.",
       ankiMeaningHeading: "Meaning",
       ankiPitchHeading: "Pitch",
@@ -8437,7 +8437,7 @@ light	ライト
 popupMode	ポップアップ表示
 bottomSheet	下部シート
 popover	ポップオーバー
-stickyBottomSheet	検索後も開く
+stickyBottomSheet	検索後もシートを開いたままにする
 popoverBackdropEnabled	背後を暗くする
 popoverWidth	ポップオーバー幅 (px)
 popoverHeight	ポップオーバー高さ (px)
@@ -8464,20 +8464,20 @@ newTabAnkiEnabled	学習でAnkiカードを使う
 newTabAnkiReviewDecks	Anki復習デッキ
 newTabAnkiReviewDecksHelp	不要なデッキを外します。
 newTabSource	学習の復習ソース
-newTabAuto	自動: API/Anki後に学習語
+newTabAuto	自動: API/Anki、その後に学習語
 newTabApiSrs	API SRS（Jiten / JPDB）
 dictionaryFallback	辞書フォールバック
 newTabJpdbReviewMode	API復習モード
 newTabJpdbReviewAuto	自動: ライブ漢字+API語彙
 newTabLiveReview	ライブJPDB復習セッション
-newTabApiVocabulary	API語彙のみ（デッキ順）
+newTabApiVocabulary	API語彙のみ（デッキ順・JPDBの復習順とは異なります）
 corsProxyUrl	クロスオリジンプロキシURL
 newTabKanjiKeywordSource	漢字キーワードのソース
-newTabKanjiKeywordAuto	自動: RTK、{service}、ローカル
+newTabKanjiKeywordAuto	自動: RTK、{service}漢字情報、ローカルの順
 newTabKanjiKeywordRtk	RTK / Heisig
 newTabKanjiKeywordApiFacts	{service}漢字情報（Jiten / JPDB）
 newTabKanjiKeywordLocal	ローカルカードの意味
-newTabParsingEnabled	学習の文解析を有効
+newTabParsingEnabled	学習の文解析を有効にする
 newTabFrontSentenceEnabled	単語カード表面に文を表示
 newTabKanjiAutogradeEnabled	漢字書き取りを自動採点
 newTabKanjiAutoSubmit	漢字評価を自動送信
@@ -8787,7 +8787,7 @@ ankiStatusUseDesktopUrl	モバイルではLAN/Tailscale URLを使う
 ankiStatusEnableUserscript	よむを有効化
 ankiStatusRefreshAndCheck	更新して再確認
 ankiLibraryAdapter	既存ライブラリアダプター
-ankiLibraryAdapterStatus	既存デッキから対応付けを提案します。
+ankiLibraryAdapterStatus	既存デッキとノートタイプを読み取り、対応付けを提案します。
 ankiLibraryChoices	デッキとノートタイプ
 ankiLibraryChoicesHelp	作成・更新先を選びます。
 ankiTemplateSettings	よむカードテンプレート
