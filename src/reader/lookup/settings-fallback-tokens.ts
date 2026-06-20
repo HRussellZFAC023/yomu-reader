@@ -83,7 +83,7 @@ export function parsedSettingsTargetsForCurrentPlan(
 }
 
 function supplementSettingsTargetTokens(text: string, tokens: JPDBToken[]): JPDBToken[] {
-    const protectedRanges = tokens.filter(isHydratedSettingsToken).map(tokenRange);
+    const protectedRanges = tokens.filter(isProtectedSettingsToken).map(tokenRange);
     const generated: JPDBToken[] = [];
     const occupied = [...protectedRanges];
     for (const [surface, reading] of SORTED_SETTINGS_FALLBACK_READINGS) {
@@ -100,8 +100,15 @@ function supplementSettingsTargetTokens(text: string, tokens: JPDBToken[]): JPDB
     }
     if (!generated.length) return tokens;
     const generatedRanges = generated.map(tokenRange);
-    const kept = tokens.filter(token => isHydratedSettingsToken(token) || !rangesOverlapAny(tokenRange(token), generatedRanges));
+    const kept = tokens.filter(token => {
+        if (!rangesOverlapAny(tokenRange(token), generatedRanges)) return true;
+        return token.card.source !== 'fallback' && isHydratedSettingsToken(token);
+    });
     return [...kept, ...generated].sort((left, right) => left.start - right.start || right.length - left.length);
+}
+
+function isProtectedSettingsToken(token: JPDBToken): boolean {
+    return token.card.source !== 'fallback' && isHydratedSettingsToken(token);
 }
 
 function isHydratedSettingsToken(token: JPDBToken): boolean {

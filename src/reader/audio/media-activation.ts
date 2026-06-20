@@ -23,6 +23,24 @@ export function canAttemptAudiblePlayback(userGesture = false): boolean {
     return true;
 }
 
+export function canAttemptWebAudioFallback(userGesture = false): boolean {
+    installPageActivationTracking();
+    if (userGesture) {
+        pageHasUserActivation = true;
+        return true;
+    }
+
+    const browserActivation = browserUserActivationState();
+    if (browserActivation) {
+        pageHasUserActivation = true;
+        return true;
+    }
+    if (pageHasUserActivation) return true;
+    if (browserActivation === false) return false;
+    if (isFirefoxLikeBrowser()) return true;
+    return true;
+}
+
 function installPageActivationTracking(): void {
     if (activationTrackingInstalled || typeof window === 'undefined') return;
     activationTrackingInstalled = true;

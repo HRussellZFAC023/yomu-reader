@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
-import { getAudioCandidates } from '../../src/reader/audio/player';
+import { AudioPlayer, getAudioCandidates } from '../../src/reader/audio/player';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { audioCandidateSelectionMode, getOrderedAudioSources, orderAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
-import { builtInProxyUrls, DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../../src/reader/network/proxy-fetch-rules';
+import { builtInProxyUrls } from '../../src/reader/network/proxy-fetch-rules';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki/index';
-import type { AudioPlayer } from '../../src/reader/audio/player';
 import type { JPDBCard, ReaderSettings } from '../../src/reader/app/types';
 
 describe('audio module boundaries', () => {
@@ -199,7 +198,7 @@ describe('audio module boundaries', () => {
         }
     });
 
-    it('skips the default Yomu proxy for Jisho HTML lookup when the userscript bridge is unavailable', async () => {
+    it('skips proxying Jisho HTML lookup when no custom proxy or userscript bridge is available', async () => {
         const fetchMock = vi.fn<[RequestInfo | URL, RequestInit?], Promise<Response>>(async (_input, _init) => new Response(`
             Common word [Audio](http://d1vjc5dkcd3yh2.cloudfront.net/audio/yomu.mp3)
             * よ 読む
@@ -215,7 +214,7 @@ describe('audio module boundaries', () => {
             expect(fetchMock).toHaveBeenCalledTimes(1);
             const requestedUrl = String(fetchMock.mock.calls[0]?.[0] ?? '');
             expect(requestedUrl).toContain('https://r.jina.ai/http://jisho.org/search/');
-            expect(requestedUrl).not.toContain(DEFAULT_YOMU_PUBLIC_PROXY_URL);
+            expect(requestedUrl).not.toContain('?url=');
         } finally {
             vi.unstubAllGlobals();
         }
@@ -236,7 +235,7 @@ describe('audio module boundaries', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            await expect(getAudioCandidates(jitenSource('asmr'), card('猫', 'ねこ'), 1000, DEFAULT_SETTINGS.corsProxyUrl))
+            await expect(getAudioCandidates(jitenSource('asmr'), card('猫', 'ねこ'), 1000, 'https://proxy.example/fetch'))
                 .resolves.toEqual([{
                     url: 'https://api.jiten.moe/api/tts/word/1467640/0?voice=asmr',
                     sourceUrl: 'https://api.jiten.moe/api/tts/word/1467640/0?voice=asmr',
@@ -247,13 +246,9 @@ describe('audio module boundaries', () => {
         }
     });
 
-    it('routes Jiten sentence TTS through the public proxy when needed', () => {
+    it('does not provide built-in public proxy URLs for Jiten sentence TTS', () => {
         const targetUrl = 'https://api.jiten.moe/api/tts/sentence/803776181?voice=asmr';
-        const [proxyUrl] = builtInProxyUrls(targetUrl, { method: 'GET' });
-        const parsed = new URL(proxyUrl ?? '');
-
-        expect(parsed.origin).toBe(DEFAULT_YOMU_PUBLIC_PROXY_URL);
-        expect(parsed.searchParams.get('url')).toBe(targetUrl);
+        expect(builtInProxyUrls(targetUrl, { method: 'GET' })).toEqual([]);
     });
 
     it('uses a custom proxy for Jisho lookup when the userscript bridge is unavailable', async () => {
@@ -266,6 +261,14 @@ describe('audio module boundaries', () => {
             headers: { 'Content-Type': 'text/html' },
         }));
         vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('GM_xmlhttpRequest', undefined);
+        vi.stubGlobal('GM', {});
+        vi.stubGlobal('location', {
+            href: 'https://hrussellzfac023.github.io/yomu-reader/',
+            origin: 'https://hrussellzfac023.github.io',
+            hostname: 'hrussellzfac023.github.io',
+            pathname: '/yomu-reader/',
+        });
 
         try {
             await expect(getAudioCandidates(jishoSource(), card('読む', 'よむ'), 1000, 'https://proxy.example/fetch'))
@@ -388,6 +391,67 @@ describe('audio module boundaries', () => {
         expect(audio.loop).toBe(true);
         expect(audio.src).toContain('data:audio/wav;base64,');
         expect(play).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not wait on Web Audio fallback when hover autoplay has no browser activation', async () => {
+        const previousActivation = Object.getOwnPropertyDescriptor(navigator, 'userActivation');
+        Object.defineProperty(navigator, 'userActivation', {
+            configurable: true,
+            value: { hasBeenActive: false, isActive: false },
+        });
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('NotAllowedError'));
+        const previousAudioContext = Object.getOwnPropertyDescriptor(window, 'AudioContext');
+        let audioContexts = 0;
+        class BlockedAudioContext {
+            state = 'suspended';
+            constructor() {
+                audioContexts += 1;
+            }
+            resume(): Promise<void> {
+                return new Promise(() => undefined);
+            }
+            close(): Promise<void> {
+                return Promise.resolve();
+            }
+        }
+        vi.stubGlobal('AudioContext', BlockedAudioContext);
+        Object.defineProperty(window, 'AudioContext', {
+            configurable: true,
+            value: BlockedAudioContext,
+        });
+        vi.stubGlobal('fetch', vi.fn(async () => ({
+            arrayBuffer: async () => new ArrayBuffer(4),
+        })));
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnabled: true,
+            }));
+            const internals = player as unknown as {
+                playPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): Promise<boolean>;
+            };
+            const audio = document.createElement('audio');
+            audio.src = 'blob:http://localhost/blocked-hover-audio';
+
+            const result = await Promise.race([
+                internals.playPreparedAudio(audio, 0, () => true).then(
+                    () => 'played',
+                    error => error instanceof Error ? error.message : String(error),
+                ),
+                new Promise(resolve => window.setTimeout(() => resolve('pending'), 0)),
+            ]);
+
+            expect(result).toBe('NotAllowedError');
+            expect(audioContexts).toBe(0);
+        } finally {
+            if (previousActivation) Object.defineProperty(navigator, 'userActivation', previousActivation);
+            else delete (navigator as unknown as { userActivation?: Navigator['userActivation'] }).userActivation;
+            if (previousAudioContext) Object.defineProperty(window, 'AudioContext', previousAudioContext);
+            else delete (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext;
+            play.mockRestore();
+            vi.unstubAllGlobals();
+        }
     });
 });
 

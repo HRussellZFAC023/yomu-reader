@@ -1,6 +1,5 @@
 import { parseHtmlDocument } from '../dom';
 import { canonicalUchisenUrl, cleanText, decodeEntities } from '../jpdb/jpdb-text';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../network/proxy-fetch';
 import { requestText as requestReaderText } from '../network/http';
 import { isUchisenPaywallImage, isUchisenPaywallStory, orderedUchisenImages } from './uchisen-images';
 import type { UchisenImageCandidate } from './uchisen-images';
@@ -219,12 +218,12 @@ function isUchisenPaywallCard(card: HTMLElement, url: string, story: string): bo
         || isUchisenPaywallStory(story);
 }
 
-export async function loadUchisenData(kanji: string, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL): Promise<UchisenData> {
+export async function loadUchisenData(kanji: string, proxyUrl = ''): Promise<UchisenData> {
     const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9000, proxyUrl);
     return parseUchisenData(html);
 }
 
-export async function loadUchisenImages(kanji: string, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL): Promise<UchisenImage[]> {
+export async function loadUchisenImages(kanji: string, proxyUrl = ''): Promise<UchisenImage[]> {
     return (await loadUchisenData(kanji, proxyUrl)).images;
 }
 

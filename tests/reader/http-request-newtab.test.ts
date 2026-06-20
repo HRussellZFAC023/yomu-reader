@@ -11,7 +11,7 @@ function bridgeRequest(options: { url: string; onload?: (response: unknown) => v
 }
 
 const CLOUDFRONT_AUDIO = 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/%E8%AA%AD%E3%82%80_%E3%82%88%E3%82%80.mp3';
-const WORKER_PROXY = 'yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev';
+const CONFIGURED_PROXY = 'https://proxy.example/fetch';
 
 let fetchCalls: string[] = [];
 
@@ -33,13 +33,13 @@ afterEach(() => {
 });
 
 describe('audio blob requests on the hosted (newtab) runtime', () => {
-    it('routes cross-origin audio through the worker proxy fetch, not the blob-incapable bridge', async () => {
+    it('routes cross-origin audio through configured proxy fetch, not the blob-incapable bridge', async () => {
         (window as { __YOMU_READER_RUNTIME__?: string }).__YOMU_READER_RUNTIME__ = 'newtab';
 
-        const blob = await requestBlob(CLOUDFRONT_AUDIO, { responseType: 'blob', preferFetch: true });
+        const blob = await requestBlob(CLOUDFRONT_AUDIO, { responseType: 'blob', preferFetch: true, proxyUrl: CONFIGURED_PROXY });
 
         expect(blob.size).toBeGreaterThan(0);
-        expect(fetchCalls.some(url => url.includes(WORKER_PROXY))).toBe(true);
+        expect(fetchCalls).toEqual([`${CONFIGURED_PROXY}?url=${encodeURIComponent(CLOUDFRONT_AUDIO)}`]);
         expect(bridgeCalls).toHaveLength(0);
     });
 

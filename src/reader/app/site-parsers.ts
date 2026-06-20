@@ -521,6 +521,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         exclude: [
             COMMON_EXCLUDE,
+            '.subsection-headword .subsection-spelling ruby.v',
             '.subsection-spelling',
             '.primary-spelling',
         ].join(','),

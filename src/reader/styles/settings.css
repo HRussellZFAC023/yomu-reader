@@ -1398,6 +1398,10 @@
 .jpdb-reader-lookup-link-row {
   grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
 }
+.jpdb-reader-lookup-link-head,
+.jpdb-reader-lookup-link-row {
+  grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px;
+}
 .jpdb-reader-dictionary-head.no-remove,
 .jpdb-reader-dictionary-row.no-remove {
   grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
@@ -1630,6 +1634,11 @@
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
     grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
+  }
+
+  .jpdb-reader-lookup-link-head,
+  .jpdb-reader-lookup-link-row {
+    grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px;
   }
 
   .jpdb-reader-dictionary-head.no-remove,

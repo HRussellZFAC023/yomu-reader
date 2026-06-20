@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.43] - 2026-06-20
+
+### Changed
+
+- Removed Yomu's bundled public proxy fallback. Cross-origin requests now use direct/browser-readable paths, the userscript bridge, or a proxy URL the user explicitly configures.
+
+### Fixed
+
+- JPDB vocabulary detail pages no longer re-render JPDB's native large headword, fixing malformed furigana/layout on entries such as `表示`.
+- Japanese Settings parsing now replaces overbroad fallback tokens with curated settings words, so labels such as `ポップアップ表示` click and underline as `表示` instead of opening a broad synthetic selection.
+- Settings lookup-link rows now keep the label, URL template, order controls, and remove controls aligned on wider layouts.
+- Opening Settings no longer toggles `inert` on the host page, avoiding long modal-open pauses on large sites while preserving the dialog backdrop and focus trap.
+
 ## [1.4.42] - 2026-06-20
 
 ### Fixed

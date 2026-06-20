@@ -625,8 +625,9 @@ export class SettingsDialogController {
                     ariaHidden: element.getAttribute('aria-hidden'),
                     inert: element.inert,
                 };
+                // The backdrop and focus trap isolate the modal; toggling inert
+                // on arbitrary host-page roots can be a long task on large SPAs.
                 element.setAttribute('aria-hidden', 'true');
-                element.inert = true;
                 return state;
             });
     }
@@ -641,12 +642,12 @@ export class SettingsDialogController {
     }
 
     /**
-     * Clear the `aria-hidden`/`inert` the modal placed on background siblings.
+     * Clear the `aria-hidden` the modal placed on background siblings.
      * The controller's own close paths (Escape, Cancel, Save) already restore,
      * but the dialog can also be torn down from outside the controller — a
      * backdrop click, factory reset, or the close-popup shortcut all route
      * through ReaderApp.dismiss(). Those paths call this so the page is never
-     * stranded `inert` (which silently swallows every click until reload).
+     * stranded hidden from assistive technology.
      * Idempotent: a no-op once the background has been released.
      */
     releaseModalBackground(): void {

@@ -9,7 +9,6 @@ import {
 } from './proxy-fetch-rules';
 
 export {
-    DEFAULT_YOMU_PUBLIC_PROXY_URL,
     isKnownCorsBlockedPublicAudioCdnUrl,
 } from './proxy-fetch-rules';
 
@@ -107,7 +106,6 @@ function headerValue(headers: HeadersInit | undefined, name: string): string {
 }
 
 function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, options: ProxyFetchOptions): FetchUrlCandidate[] {
-    const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
     const configured = configuredProxySafe && options.allowConfiguredProxy !== false
@@ -117,6 +115,7 @@ function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, optio
     const publicProxies = publicProxySafe
         ? builtInProxyUrls(targetUrl, options)
         : [];
+    const direct = directFetchUrl(targetUrl, options, Boolean(configured));
     const directCandidate = direct ? { url: direct, kind: 'direct' as const } : null;
     const proxyCandidates = ([
         configured ? { url: configured, kind: 'configured-proxy' as const } : null,
@@ -130,9 +129,9 @@ function fetchUrlCandidates(targetUrl: string, configuredProxyUrl: string, optio
     ]);
 }
 
-function directFetchUrl(targetUrl: string, options: ProxyFetchOptions): string | null {
+function directFetchUrl(targetUrl: string, options: ProxyFetchOptions, hasConfiguredProxy: boolean): string | null {
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-    if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
 }
 

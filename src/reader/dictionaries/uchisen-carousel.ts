@@ -2,7 +2,6 @@ import { escapeHtml, setInnerHtml } from '../dom';
 import { canonicalUchisenUrl, cleanText } from '../jpdb/jpdb-text';
 import { createPageMediaUrl, revokePageMediaUrl } from '../app/page-media-url';
 import { externalLinkIcon } from '../ui/icons';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../network/proxy-fetch';
 import { requestBlob as requestReaderBlob, requestText as requestReaderText } from '../network/http';
 import { gmStorageGet, gmStorageSet } from '../app/storage';
 import { resolveUiLanguage, uiText } from '../app/i18n';
@@ -107,7 +106,7 @@ export async function installUchisenCarousel(
     let index = preferredUchisenIndex(storedIndex, currentImages);
     if (!isValidUchisenIndex(index, currentImages)) index = 0;
 
-    const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    const proxyUrl = options.proxyUrl ?? '';
     const language = options.interfaceLanguage ?? 'en';
     let generateOpen = false;
     let generateBusy = false;
@@ -420,7 +419,7 @@ function attachRenderedUchisenImage(
 async function generateAndPublishUchisenMnemonic(
     kanji: string,
     request: UchisenGenerateRequest,
-    proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL,
+    proxyUrl = '',
     onStatus?: (message: string) => void,
     language: InterfaceLanguage = 'en',
 ): Promise<UchisenGenerateResult> {

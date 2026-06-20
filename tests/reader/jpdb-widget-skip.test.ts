@@ -36,6 +36,49 @@ function token(surface: string, reading: string): JPDBToken {
 // letter soup, while "Kanji used" spellings are dictionary links the user can
 // hover just like other JPDB terms.
 describe('jpdb structural widget skip', () => {
+    it('leaves the native large JPDB vocabulary title untouched while scanning detail prose', () => {
+        const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+            left: 0,
+            right: 900,
+            top: 0,
+            bottom: 320,
+            width: 900,
+            height: 320,
+            x: 0,
+            y: 0,
+            toJSON: () => ({}),
+        } as DOMRect);
+        document.body.innerHTML = `
+            <div class="result vocabulary">
+                <div class="subsection-headword">
+                    <div class="subsection-spelling with-furigana">
+                        <div class="primary-spelling">
+                            <div class="spelling"><div><ruby class="v">表<rt>ひょう</rt>示<rt>じ</rt></ruby></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="subsection-meanings">
+                    <h6 class="subsection-label">Meanings</h6>
+                    <div class="description">1. 表示されます</div>
+                </div>
+                <div class="subsection-composed-of-kanji">
+                    <h6 class="subsection-label">Kanji used</h6>
+                    <div class="subsection"><div>
+                        <div class="spelling"><a class="plain" href="/kanji/表#a">表</a></div>
+                        <div class="description">front side</div>
+                    </div></div>
+                </div>
+            </div>`;
+
+        const targets = collectScanTargets(40, 'https://jpdb.io/vocabulary/1489610/%E8%A1%A8%E7%A4%BA/%E3%81%B2%E3%82%87%E3%81%86%E3%81%98?lang=english#a');
+        rectSpy.mockRestore();
+        const texts = targets.map(target => target.text.trim()).filter(Boolean);
+        expect(texts).toContain('1. 表示されます');
+        expect(texts).toContain('表');
+        expect(texts).not.toContain('表示');
+        document.body.innerHTML = '';
+    });
+
     it('annotates the kanji-used spelling glyph and skips the pitch diagram', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,

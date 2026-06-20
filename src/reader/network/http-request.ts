@@ -12,8 +12,8 @@ export async function requestHttp(url: string, options: ReaderHttpOptions = {}):
     // there is the DOM-event bridge, which serialises responses as JSON and so
     // cannot carry binary audio Blobs across the content/page world boundary
     // (they arrive empty, and the error is swallowed → "No playable audio found"
-    // with no detail). The public worker proxy serves that same cross-origin media
-    // with CORS headers, so a direct proxied fetch succeeds AND returns a real
+    // with no detail). A configured proxy can serve that same cross-origin media
+    // with CORS headers, so a direct proxied fetch succeeds and returns a real
     // Blob. Prefer fetch there, keeping the bridge as a fallback.
     if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
         try {

@@ -329,8 +329,9 @@ function createNewTabKanjiFrontFixture(
     card: JPDBCard,
     overrides: Partial<NewTabControllerOptions> = {},
     stateOverrides: Partial<{ revealAnswer: boolean; sort: string; filter: string; source: string }> = {},
+    settingsOverrides: Partial<NewTabSettings> = {},
 ): { controller: NewTabController; root: HTMLElement } {
-    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, newTabKanjiAutogradeEnabled: false }, {
+    const controller = newTabPromptController({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, newTabKanjiAutogradeEnabled: false, ...settingsOverrides }, {
         dictionaries: { lookupKanji: vi.fn(async () => []), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
         ...overrides,
     });
@@ -7807,7 +7808,7 @@ describe('new tab review helpers', () => {
                 jpdbKanji: { lookup: vi.fn(async () => ({ kanji: '柔', keyword: 'gentle', meanings: ['gentle'], readings: [], components: [], vocabulary: [], frequencyRank: null })) } as never,
                 rtk: { lookup: vi.fn(async () => ({ kanji: '柔', keyword: 'tenderness', frameNumber: '2042', onYomi: '', kunYomi: '', elements: '', componentKanji: [], heisigStory: '', heisigComment: '', koohiiStories: [] })) } as never,
                 dictionaries: { lookupKanji: vi.fn(async () => [{ character: '柔', onyomi: [], kunyomi: [], tags: [], meanings: ['soft', 'flexible', 'yielding'], dictionary: 'KANJIDIC' }]), lookupSimilarTermsByKanji: vi.fn(async () => []) } as never,
-            });
+            }, {}, { corsProxyUrl: 'https://proxy.example/fetch' });
 
             await waitForExpect(() => {
                 const rows = [...root.querySelectorAll('.jpdb-reader-newtab-kanji-front-keyword')].map(row => row.textContent);

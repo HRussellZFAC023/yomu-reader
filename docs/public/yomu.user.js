@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.42
+// @version      1.4.43
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.42#sha256-UOTBNTvcxpLyuAxFXnmC5TnSr6/GAluvEiVaeLdOcVU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.42#sha256-INFQ/hN/GEiGXsPoEv85IVAzr3kaRW9tv/U9k4h+F1Q=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.42#sha256-qx/WjLcPJu00Nvq/gCgKc+JozCjbLzHewD5sOSD5sjA=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.42#sha256-p4MRhwFiZK4b/4OtFbf23aKJ9rSz1u0IwnL/9C+6xIQ=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.43#sha256-UsZSI10WyZb0Ue15kyrahKQ0oSEEEes2CfQDW39VUPg=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.43#sha256-GyRw9tb+MqzuLPjoB1SZxeuEogXxicPyrRMVEA32/Rw=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.43#sha256-tz9CAwAClNYI5pZLs/XQeivx86U3Q+LNio2fqD+W2rY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.43#sha256-/qa6RtEfVp5oBAFhZKP01vS4zrtg/hYEkLQG6qsdCrY=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -6164,16 +6164,6 @@
   function baseVisibleInBox(baseRect, boxRect) {
     return baseRect.bottom > boxRect.top + 1 && baseRect.top < boxRect.bottom - 1;
   }
-  function isAppleTouchBrowser() {
-    if (typeof navigator === "undefined") return false;
-    const userAgent = navigator.userAgent ?? "";
-    const platform = navigator.platform ?? "";
-    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
-  }
-  const DEFAULT_YOMU_PUBLIC_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev";
-  const BUILT_IN_PROXY_BUILDERS = [
-    (targetUrl) => configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""
-  ];
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
   const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
@@ -6191,43 +6181,6 @@
     "d1pra95f92lrn3.cloudfront.net",
     "d1vjc5dkcd3yh2.cloudfront.net"
   ]);
-  const SPECIALIZED_PROXY_ROUTE_RULES = [
-    {
-      method: "GET",
-      route: "jisho-search",
-      matches: (target) => target.hostname === "jisho.org" && target.pathname.startsWith("/search/")
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php"
-    },
-    {
-      method: "POST",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post"
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => isKnownCorsBlockedPublicAudioCdnUrl(target)
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname))
-    }
-  ];
   function configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) {
     const proxyUrl = configuredProxyUrl.trim();
     if (!proxyUrl) return null;
@@ -6243,7 +6196,7 @@
     return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
   }
   function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
-    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && (isHostedGithubPagesApp$1() || isAppleTouchBrowser()) && isCrossOriginHttpUrl(targetUrl);
+    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp$1() && isCrossOriginHttpUrl(targetUrl);
   }
   function isKnownCorsBlockedPublicAudioCdnUrl(target) {
     try {
@@ -6255,12 +6208,11 @@
   }
   function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
     const target = fetchTarget(targetUrl);
-    return Boolean(target && isCrossOriginHttpTarget(target) && (specializedProxyRoute(target, requestMethod(options)) || isJpdbPublicLookupTarget(target, requestMethod(options)) || isLocalHostedBrowserCorsTarget(target, requestMethod(options))));
+    const method = requestMethod(options);
+    return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
   }
-  function builtInProxyUrls(targetUrl, options) {
-    const specialized = specializedProxyUrls(targetUrl, options);
-    const candidates = specialized ?? BUILT_IN_PROXY_BUILDERS.map((builder) => builder(targetUrl));
-    return candidates.filter(Boolean);
+  function builtInProxyUrls(_targetUrl, _options) {
+    return [];
   }
   function isJpdbPublicAudioUrl(targetUrl) {
     try {
@@ -6270,12 +6222,8 @@
       return false;
     }
   }
-  function isYomuPublicProxyUrl(candidateUrl) {
-    try {
-      return new URL(candidateUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
-    } catch {
-      return false;
-    }
+  function isYomuPublicProxyUrl(_candidateUrl) {
+    return false;
   }
   function isKnownDirectCorsTarget(targetUrl) {
     try {
@@ -6285,29 +6233,14 @@
       return false;
     }
   }
+  function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
+    return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
+  }
   function isJpdbPublicLookupTarget(target, method) {
     return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
   }
   function isLocalHostedBrowserCorsTarget(target, method) {
     return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
-  }
-  function specializedProxyUrls(targetUrl, options) {
-    const target = fetchTarget(targetUrl);
-    const route = target ? specializedProxyRoute(target, requestMethod(options)) : null;
-    if (!target || !route) return null;
-    const proxyTargetUrl = target.href;
-    if (route === "jisho-search") {
-      return [
-        yomuPublicProxyUrl(proxyTargetUrl)
-      ];
-    }
-    return [yomuPublicProxyUrl(proxyTargetUrl)];
-  }
-  function specializedProxyRoute(target, method) {
-    return SPECIALIZED_PROXY_ROUTE_RULES.find((rule) => rule.method === method && rule.matches(target))?.route ?? null;
-  }
-  function yomuPublicProxyUrl(targetUrl) {
-    return configuredProxyFetchUrl$1(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? "";
   }
   function isHostedGithubPagesApp$1() {
     if (typeof location === "undefined") return false;
@@ -6416,45 +6349,14 @@
     if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
       return { url: candidate.url, options };
     }
-    return {
-      url: proxyControlUrl(candidate.url, options.headers),
-      options: {
-        ...options,
-        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
-      }
-    };
-  }
-  function proxyControlUrl(candidateUrl, headers) {
-    const forceCaf = headerValue(headers, "x-forcecaf");
-    if (!forceCaf) return candidateUrl;
-    try {
-      const url = new URL(candidateUrl);
-      url.searchParams.set("x-forcecaf", forceCaf);
-      return url.href;
-    } catch {
-      return candidateUrl;
-    }
-  }
-  function stripProxyOnlyHeaders(headers, names) {
-    if (!headers) return headers;
-    const excluded = new Set(names.map((name) => name.toLowerCase()));
-    const sanitized = {};
-    new Headers(headers).forEach((value, key) => {
-      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
-    });
-    return Object.keys(sanitized).length ? sanitized : void 0;
-  }
-  function headerValue(headers, name) {
-    if (!headers) return "";
-    return new Headers(headers).get(name) ?? "";
   }
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
-    const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
     const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl$1(targetUrl, configuredProxyUrl) : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
-    const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
+    const publicProxies = publicProxySafe ? builtInProxyUrls() : [];
+    const direct = directFetchUrl(targetUrl, options, Boolean(configured));
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
       configured ? { url: configured, kind: "configured-proxy" } : null,
@@ -6465,9 +6367,9 @@
       ...orderedCandidates
     ]);
   }
-  function directFetchUrl(targetUrl, options) {
+  function directFetchUrl(targetUrl, options, hasConfiguredProxy) {
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-    if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
   }
   function uniqueFetchCandidates(candidates) {
@@ -9484,6 +9386,12 @@ recommendedJiten	Jiten頻度です。
       reader.readAsDataURL(blob);
     });
   }
+  function isAppleTouchBrowser() {
+    if (typeof navigator === "undefined") return false;
+    const userAgent = navigator.userAgent ?? "";
+    const platform = navigator.platform ?? "";
+    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
+  }
   const JPDB_AUDIO_ID_RE = /^(?:\/static\/user\/)?[A-Za-z0-9_./-]+$/;
   function parseJpdbAudioData(value) {
     return value.split(",").map(normalizeJpdbAudioGroup).filter(Boolean);
@@ -10111,7 +10019,8 @@ recommendedJiten	Jiten頻度です。
     const normalized = proxyUrl.trim();
     if (!normalized) return false;
     try {
-      return new URL(normalized).origin !== DEFAULT_YOMU_PUBLIC_PROXY_URL;
+      new URL(normalized);
+      return true;
     } catch {
       return false;
     }
@@ -10438,6 +10347,22 @@ recommendedJiten	Jiten頻度です。
     if (isFirefoxLikeBrowser()) return true;
     return true;
   }
+  function canAttemptWebAudioFallback(userGesture = false) {
+    installPageActivationTracking();
+    if (userGesture) {
+      pageHasUserActivation = true;
+      return true;
+    }
+    const browserActivation = browserUserActivationState();
+    if (browserActivation) {
+      pageHasUserActivation = true;
+      return true;
+    }
+    if (pageHasUserActivation) return true;
+    if (browserActivation === false) return false;
+    if (isFirefoxLikeBrowser()) return true;
+    return true;
+  }
   function installPageActivationTracking() {
     if (activationTrackingInstalled || typeof window === "undefined") return;
     activationTrackingInstalled = true;
@@ -10572,6 +10497,7 @@ recommendedJiten	Jiten頻度です。
   const READY_AUDIO_CACHE_LIMIT = 160;
   const GESTURE_AUDIO_RESERVATION_TTL_MS = 8e3;
   const LAST_AUDIO_IDENTITY_LIMIT = 400;
+  const WEB_AUDIO_RESUME_TIMEOUT_MS = 250;
   const SOFT_CHIME_NOTES = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 }
@@ -10616,9 +10542,9 @@ recommendedJiten	Jiten頻度です。
       this.stopCurrent(reservedAudio);
       if (!request.sources.length) return await this.playNoAudioSources(card, request);
       const done = log$l.time("play", { term: card.spelling, sources: request.sources.map((source) => source.type), viaBlob: true });
-      const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
+      const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
       done();
-      return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
+      return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
     }
     audioPlaybackRequest(options) {
       const settings = this.getSettings();
@@ -10669,29 +10595,29 @@ recommendedJiten	Jiten頻度です。
     }
     async playNoAudioSources(card, request) {
       log$l.warn("No audio sources configured", { term: card.spelling });
-      return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
+      return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
     }
-    async finishPlaybackResult(card, settings, requestId, isCurrent, result) {
+    async finishPlaybackResult(card, settings, requestId, isCurrent, userGesture, result) {
       if (result.state === "played") return true;
       if (result.state === "playback-error") return false;
       if (result.state === "superseded" || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
       log$l.warn("No playable audio found", { term: card.spelling, errors: result.errors });
-      return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+      return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
     }
-    async playFromSources(sources, card, settings, requestId, isCurrent, reservedAudio) {
+    async playFromSources(sources, card, settings, requestId, isCurrent, userGesture, reservedAudio) {
       const errors = [];
       const avoidIdentity = settings.audioSelectionMode === "random" ? this.lastPlayedAudioIdentity(card) : void 0;
-      const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio, avoidIdentity);
+      const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity);
       if (result.state === "miss" && result.skippedAvoidedIdentity) {
-        const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio);
+        const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio);
         return { state: retry.state, errors };
       }
       return { state: result.state, errors };
     }
-    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio, avoidIdentity) {
+    async playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity) {
       const triedUrls = /* @__PURE__ */ new Set();
       const attemptState = { skippedAvoidedIdentity: false };
-      const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState };
+      const context = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState, userGesture };
       const fallbackContext = { ...context, reservedAudio: void 0 };
       if (settings.audioTtsMode === "source-order") {
         const result = await this.playOrderedSources(orderAudioSources(sources, card), context);
@@ -10777,7 +10703,8 @@ recommendedJiten	Jiten頻度です。
       if (!candidates.length) throw new Error(uiText(settings.interfaceLanguage, "jpdbExampleAudioUnavailable"));
       const requestId = ++this.playRequestId;
       this.stopCurrent();
-      const reservedAudio = this.reserveJpdbGestureAudioElement(options.userGesture);
+      const userGesture = Boolean(options.userGesture);
+      const reservedAudio = this.reserveJpdbGestureAudioElement(userGesture);
       const isCurrent = () => true;
       const bagKey = getJpdbAudioBagKey(candidates.map((candidate) => candidate.deckId));
       const byDeckId = new Map(candidates.map((candidate) => [candidate.deckId, candidate]));
@@ -10785,7 +10712,7 @@ recommendedJiten	Jiten頻度です。
         const candidate = byDeckId.get(deckId);
         if (!candidate) continue;
         try {
-          if (await this.playJpdbAudioCandidate(candidate, settings, requestId, isCurrent, reservedAudio)) {
+          if (await this.playJpdbAudioCandidate(candidate, settings, requestId, isCurrent, userGesture, reservedAudio)) {
             this.shuffledAudio.markPlayed(bagKey, deckId);
             return true;
           }
@@ -10794,7 +10721,7 @@ recommendedJiten	Jiten頻度です。
           this.shuffledAudio.markSkipped(bagKey, deckId);
         }
       }
-      return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+      return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
     }
     async playMediaUrl(audioUrl) {
       const settings = this.getSettings();
@@ -10804,7 +10731,7 @@ recommendedJiten	Jiten頻度です。
       this.stopCurrent();
       const playableUrl = await this.prepareDirectMediaUrl(audioUrl, settings);
       const audio = await this.createReadyAudio(playableUrl);
-      return await this.playPreparedAudio(audio, requestId, () => true);
+      return await this.playPreparedAudio(audio, requestId, () => true, { userGesture: true });
     }
     async prepareDirectMediaUrl(audioUrl, settings) {
       if (!shouldFetchDirectMediaAsBlob(audioUrl)) return audioUrl;
@@ -10819,24 +10746,24 @@ recommendedJiten	Jiten頻度です。
         return createPageMediaUrl(await fetchJpdbAudioBlob(audioId, settings));
       });
     }
-    async playJpdbAudioCandidate(candidate, settings, requestId, isCurrent, reservedAudio) {
-      return await this.playJpdbAudioSegment(candidate.audioIds, 0, settings, requestId, isCurrent, reservedAudio);
+    async playJpdbAudioCandidate(candidate, settings, requestId, isCurrent, userGesture, reservedAudio) {
+      return await this.playJpdbAudioSegment(candidate.audioIds, 0, settings, requestId, isCurrent, userGesture, reservedAudio);
     }
-    async playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, reservedAudio) {
+    async playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture, reservedAudio) {
       const audioId = audioIds[index];
       if (!audioId) return false;
       const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       const audio = await this.createReadyAudio(audioUrl, reservedAudio);
-      if (!await this.playPreparedAudio(audio, requestId, isCurrent)) return false;
-      this.queueNextJpdbAudioSegment(audio, audioIds, index + 1, settings, requestId, isCurrent);
+      if (!await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture })) return false;
+      this.queueNextJpdbAudioSegment(audio, audioIds, index + 1, settings, requestId, isCurrent, userGesture);
       return true;
     }
-    queueNextJpdbAudioSegment(audio, audioIds, index, settings, requestId, isCurrent) {
+    queueNextJpdbAudioSegment(audio, audioIds, index, settings, requestId, isCurrent, userGesture) {
       if (index >= audioIds.length) return;
       audio.addEventListener("ended", () => {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return;
-        void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent).catch((error) => {
+        void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture).catch((error) => {
           const audioId = audioIds[index];
           if (audioId) this.markJpdbAudioUnavailable(audioId);
           log$l.warn("JPDB grouped audio segment failed", { audioId }, error);
@@ -10901,12 +10828,12 @@ recommendedJiten	Jiten頻度です。
           this.shuffledAudio.markSkipped(bagKey, id);
           continue;
         }
-        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, reservedAudio)) return true;
+        if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, context.userGesture, reservedAudio)) return true;
         this.shuffledAudio.markSkipped(bagKey, id);
       }
       return false;
     }
-    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, errors, reservedAudio) {
+    async playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, errors, userGesture, reservedAudio) {
       let audio;
       try {
         audio = await this.createPlayableAudio(candidate, sourceType, settings, reservedAudio);
@@ -10918,7 +10845,7 @@ recommendedJiten	Jiten頻度です。
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       let played = false;
       try {
-        played = await this.playPreparedAudio(audio, requestId, isCurrent);
+        played = await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture });
       } catch (error) {
         throw new AudioPlaybackAttemptError(error);
       }
@@ -11024,14 +10951,14 @@ recommendedJiten	Jiten頻度です。
       audio.preload = "auto";
       return audio;
     }
-    async playPreparedAudio(audio, requestId, isCurrent) {
+    async playPreparedAudio(audio, requestId, isCurrent, options = {}) {
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       this.current = audio;
       this.rewindPreparedAudio(audio);
       try {
         await audio.play();
       } catch (error) {
-        if (await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
+        if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
         throw error;
       }
       return true;
@@ -11044,7 +10971,7 @@ recommendedJiten	Jiten頻度です。
       try {
         const bytes = await (await fetch(audioUrl)).arrayBuffer();
         context = new AudioContextCtor();
-        await resumeAudioContext(context);
+        if (!await resumeAudioContext(context)) return false;
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const decoded = await context.decodeAudioData(bytes);
         const source = context.createBufferSource();
@@ -11159,12 +11086,12 @@ recommendedJiten	Jiten頻度です。
     textToSpeechTextBagKey(text2, voiceName, settings) {
       return settings.audioSelectionMode === "random" && !voiceName.trim() ? ["text-to-speech", text2].join("") : void 0;
     }
-    async playMissingAudioFallback(settings, requestId, isCurrent) {
-      if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent)) return false;
+    async playMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
+      if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture)) return false;
       return await this.tryPlayMissingAudioFallback(requestId, isCurrent);
     }
-    shouldPlayMissingAudioFallback(settings, requestId, isCurrent) {
-      if (settings.audioFallbackChimeEnabled) return this.isPlaybackCurrent(requestId, isCurrent);
+    shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture = false) {
+      if (settings.audioFallbackChimeEnabled && canAttemptWebAudioFallback(userGesture)) return this.isPlaybackCurrent(requestId, isCurrent);
       return false;
     }
     async tryPlayMissingAudioFallback(requestId, isCurrent) {
@@ -11179,7 +11106,11 @@ recommendedJiten	Jiten頻度です。
       if (!AudioContextCtor) return false;
       const context = new AudioContextCtor();
       this.fallbackChimeContext = context;
-      await resumeAudioContext(context);
+      if (!await resumeAudioContext(context)) {
+        if (this.fallbackChimeContext === context) this.fallbackChimeContext = void 0;
+        await context.close().catch(() => void 0);
+        return false;
+      }
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
       scheduleSoftChime(context, context.currentTime + 0.015);
       await waitForSoftChime();
@@ -11222,8 +11153,18 @@ recommendedJiten	Jiten頻度です。
     return window.AudioContext ?? window.webkitAudioContext;
   }
   async function resumeAudioContext(context) {
-    if (context.state !== "suspended") return;
-    await context.resume().catch(() => void 0);
+    if (context.state !== "suspended") return true;
+    const resumed = context.resume().then(() => true).catch(() => false);
+    const completed = await Promise.race([
+      resumed,
+      waitForAudioContextResumeTimeout()
+    ]);
+    return completed && context.state !== "suspended";
+  }
+  function waitForAudioContextResumeTimeout() {
+    return new Promise((resolve) => {
+      window.setTimeout(() => resolve(false), WEB_AUDIO_RESUME_TIMEOUT_MS);
+    });
   }
   function scheduleSoftChime(context, start) {
     const output = createSoftChimeOutput(context, start);
@@ -27616,7 +27557,7 @@ ${key}`] = { t: now, v: value };
     const storedIndex = await gmStorageGet(`${UCHISEN_INDEX_PREFIX}${kanji}`, 0);
     let index = preferredUchisenIndex(storedIndex, currentImages);
     if (!isValidUchisenIndex(index, currentImages)) index = 0;
-    const proxyUrl = options.proxyUrl ?? DEFAULT_YOMU_PUBLIC_PROXY_URL;
+    const proxyUrl = options.proxyUrl ?? "";
     const language = options.interfaceLanguage ?? "en";
     let generateOpen = false;
     let generateBusy = false;
@@ -27879,7 +27820,7 @@ ${key}`] = { t: now, v: value };
       else if (image.getAttribute("src") !== srcUrl) image.src = srcUrl;
     });
   }
-  async function generateAndPublishUchisenMnemonic(kanji, request, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL, onStatus, language = "en") {
+  async function generateAndPublishUchisenMnemonic(kanji, request, proxyUrl = "", onStatus, language = "en") {
     const kanjiId = request.kanjiId.trim();
     const mnemonic = request.mnemonic.trim();
     const imagePrompt = request.imagePrompt.trim();
@@ -28323,7 +28264,7 @@ ${key}`] = { t: now, v: value };
     const thumbnailUrl = card.querySelector(".mnemonic_card_thumbnail img")?.getAttribute("src") ?? "";
     return isUchisenPaywallImage(url) || isUchisenPaywallImage(thumbnailUrl) || isUchisenPaywallStory(story);
   }
-  async function loadUchisenData(kanji, proxyUrl = DEFAULT_YOMU_PUBLIC_PROXY_URL) {
+  async function loadUchisenData(kanji, proxyUrl = "") {
     const html = await requestUchisenPageText(`https://uchisen.com/kanji/${encodeURIComponent(kanji)}`, 9e3, proxyUrl);
     return parseUchisenData(html);
   }
@@ -31149,6 +31090,7 @@ ${normalizedReading}`;
       ],
       exclude: [
         COMMON_EXCLUDE,
+        ".subsection-headword .subsection-spelling ruby.v",
         ".subsection-spelling",
         ".primary-spelling"
       ].join(","),
@@ -34140,7 +34082,7 @@ ${normalizedReading}`;
     return currentPlan.targets.map((target) => parsedByText.get(target.text)?.shift() ?? []);
   }
   function supplementSettingsTargetTokens(text2, tokens) {
-    const protectedRanges = tokens.filter(isHydratedSettingsToken).map(tokenRange);
+    const protectedRanges = tokens.filter(isProtectedSettingsToken).map(tokenRange);
     const generated = [];
     const occupied = [...protectedRanges];
     for (const [surface, reading] of SORTED_SETTINGS_FALLBACK_READINGS) {
@@ -34157,8 +34099,14 @@ ${normalizedReading}`;
     }
     if (!generated.length) return tokens;
     const generatedRanges = generated.map(tokenRange);
-    const kept = tokens.filter((token) => isHydratedSettingsToken(token) || !rangesOverlapAny(tokenRange(token), generatedRanges));
+    const kept = tokens.filter((token) => {
+      if (!rangesOverlapAny(tokenRange(token), generatedRanges)) return true;
+      return token.card.source !== "fallback" && isHydratedSettingsToken(token);
+    });
     return [...kept, ...generated].sort((left, right) => left.start - right.start || right.length - left.length);
+  }
+  function isProtectedSettingsToken(token) {
+    return token.card.source !== "fallback" && isHydratedSettingsToken(token);
   }
   function isHydratedSettingsToken(token) {
     return Boolean(token.rubies.length || token.card.reading && token.card.reading !== token.card.spelling || token.pitchClass);

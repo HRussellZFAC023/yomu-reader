@@ -40,7 +40,7 @@ import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, read
 import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../src/reader/popup/shell';
 import { jpdbPointerLookupCandidates, pointerTextLookupFromTextNode } from '../../src/reader/lookup/pointer-text-lookup';
 import { formatPartOfSpeech } from '../../src/reader/lookup/pos';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL, fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/network/proxy-fetch';
+import { fetchWithCorsFallbacks, proxyUrlCandidates } from '../../src/reader/network/proxy-fetch';
 import { renderJpdbKanjiInfo, renderJpdbKanjiMiningControls, renderKanjiOrigins, renderKanjiPractice, renderPitch, renderRtkInfo, tokensOverlappingSelection } from '../../src/reader/popup/render';
 import { RECOMMENDED_JAPANESE_DICTIONARIES, findRecommendedDictionary } from '../../src/reader/dictionaries/recommended';
 import { ReaderApp } from '../../src/reader/app/main';
@@ -385,6 +385,7 @@ const TEST_IOS_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like
 const TEST_IPAD_SAFARI_USER_AGENT = 'Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1';
 const TEST_IPADOS_DESKTOP_SAFARI_USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15';
 const TEST_ANDROID_CHROME_USER_AGENT = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+const TEST_PROXY_URL = 'https://yomu-proxy.example/fetch';
 
 function createStackedReaderSettingsFixture(app: ReaderApp) {
     const { settings, settingsForm, settingsBackdrop, anchor } = stackedSettingsFixtureDom();
@@ -1629,7 +1630,7 @@ function stubNhkArticleLocation(): TestLocationStub {
 }
 
 function publicProxyUrlFor(target: string): string {
-    return `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent(target)}`;
+    return `${TEST_PROXY_URL}?url=${encodeURIComponent(target)}`;
 }
 
 function expectFetchUrls(fetchMock: { mock: { calls: Array<[RequestInfo | URL, ...unknown[]]> } }, urls: string[]): void {
@@ -2780,7 +2781,8 @@ function unproxiedFetchTarget(input: RequestInfo | URL): string {
     const value = String(input);
     try {
         const url = new URL(value);
-        return url.origin === DEFAULT_YOMU_PUBLIC_PROXY_URL
+        const proxy = new URL(TEST_PROXY_URL);
+        return url.origin === proxy.origin && url.pathname === proxy.pathname
             ? url.searchParams.get('url') ?? value
             : value;
     } catch {
@@ -2840,7 +2842,7 @@ function mockJpdbOggAudioFetch(requested: string[]): void {
 function mockProxyAudioBlobFetch(errorPrefix = 'unexpected fetch') {
     const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
         const url = String(input);
-        if (url.startsWith(DEFAULT_YOMU_PUBLIC_PROXY_URL)) {
+        if (url.startsWith(TEST_PROXY_URL)) {
             return Promise.resolve({
                 ok: true,
                 status: 200,
@@ -8867,7 +8869,7 @@ describe('reader helpers', () => {
                 { type: 'jiten-tts', url: '', voice: '', enabled: true },
                 { ...card, source: 'jpdb' },
                 1000,
-                '',
+                TEST_PROXY_URL,
             )).resolves.toEqual([
                 'female',
                 'female2',
@@ -8908,7 +8910,7 @@ describe('reader helpers', () => {
                 { type: 'jpdb-tts', url: '', voice: 'f1', enabled: true },
                 jpdbCard,
                 1000,
-                DEFAULT_YOMU_PUBLIC_PROXY_URL,
+                TEST_PROXY_URL,
             )).resolves.toEqual([
                 expect.objectContaining({ jpdbAudioId: 'f1/word' }),
             ]);
@@ -8917,7 +8919,7 @@ describe('reader helpers', () => {
                 { type: 'jpdb-tts', url: '', voice: 'female', enabled: true },
                 jpdbCard,
                 1000,
-                DEFAULT_YOMU_PUBLIC_PROXY_URL,
+                TEST_PROXY_URL,
             )).resolves.toEqual([
                 expect.objectContaining({ jpdbAudioId: 'f1/word' }),
                 expect.objectContaining({ jpdbAudioId: 'f2/word' }),
@@ -8927,7 +8929,7 @@ describe('reader helpers', () => {
                 { type: 'jpdb-tts', url: '', voice: 'm2', enabled: true },
                 jpdbCard,
                 1000,
-                DEFAULT_YOMU_PUBLIC_PROXY_URL,
+                TEST_PROXY_URL,
             )).resolves.toEqual([
                 expect.objectContaining({ jpdbAudioId: 'm2/word' }),
             ]);
@@ -8959,7 +8961,7 @@ describe('reader helpers', () => {
                 { type: 'jpdb-tts', url: '', voice: 'female', enabled: true },
                 { ...card, vid: 1456360, sid: 1456360, spelling: '読む', reading: 'よむ', source: 'jpdb' as const },
                 1000,
-                DEFAULT_YOMU_PUBLIC_PROXY_URL,
+                TEST_PROXY_URL,
             )).resolves.toEqual([]);
         } finally {
             vi.unstubAllGlobals();
@@ -9160,7 +9162,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('routes hosted JPDB static audio through the public proxy without custom browser headers', async () => {
+    it('routes hosted JPDB static audio through a configured proxy', async () => {
         const target = 'https://jpdb.io/static/v/m1/e9cac7e3d132';
         const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('audio', { status: 200 })));
         vi.stubGlobal('location', {
@@ -9171,7 +9173,7 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            await expect(fetchWithCorsFallbacks(target, DEFAULT_YOMU_PUBLIC_PROXY_URL, {
+            await expect(fetchWithCorsFallbacks(target, TEST_PROXY_URL, {
                 allowDirectCrossOrigin: true,
                 credentials: 'omit',
                 headers: {
@@ -9183,12 +9185,12 @@ describe('reader helpers', () => {
             expect(fetchMock).toHaveBeenCalledTimes(1);
             const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
             const requestedUrl = new URL(String(input));
-            expect(requestedUrl.origin).toBe(DEFAULT_YOMU_PUBLIC_PROXY_URL);
+            expect(`${requestedUrl.origin}${requestedUrl.pathname}`).toBe(TEST_PROXY_URL);
             expect(requestedUrl.searchParams.get('url')).toBe(target);
-            expect(requestedUrl.searchParams.get('x-forcecaf')).toBe('1');
+            expect(requestedUrl.searchParams.get('x-forcecaf')).toBeNull();
             const headers = new Headers(init?.headers);
-            expect(headers.has('x-access')).toBe(false);
-            expect(headers.has('x-forcecaf')).toBe(false);
+            expect(headers.get('x-access')).toBe("please don't steal these files");
+            expect(headers.get('x-forcecaf')).toBe('1');
         } finally {
             vi.unstubAllGlobals();
         }
@@ -10073,13 +10075,14 @@ describe('reader helpers', () => {
                 ...DEFAULT_SETTINGS,
                 audioViaBlob: true,
                 audioEnableDefaultSources: false,
+                corsProxyUrl: TEST_PROXY_URL,
                 audioSources: [{ type: 'jpod101', url: '', voice: '', enabled: true }],
             }));
 
             await expect(player.play({ ...card, spelling: '月光', reading: 'げっこう' })).resolves.toBe(true);
 
             const requestedUrl = String(fetchMock.mock.calls[0][0]);
-            expect(requestedUrl).toBe(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=%E6%9C%88%E5%85%89&kana=%E3%81%92%E3%81%A3%E3%81%93%E3%81%86')}`);
+            expect(requestedUrl).toBe(publicProxyUrlFor('https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=%E6%9C%88%E5%85%89&kana=%E3%81%92%E3%81%A3%E3%81%93%E3%81%86'));
             expect(played).toEqual(['blob:https://hrussellzfac023.github.io/yomu-reader/audio']);
         } finally {
             restoreAudio();
@@ -10422,7 +10425,7 @@ describe('reader helpers', () => {
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
             expect(urls.some(url => url === 'https://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')).toBe(false);
             expect(urls.some(url => url === 'https://r.jina.ai/http://jisho.org/search/%E9%A3%9F%E3%81%B9%E3%82%8B')).toBe(true);
-            expect(urls.some(url => url.startsWith('https://yomu-jpdb-public-proxy.') && url.includes('jisho.org%2Fsearch'))).toBe(false);
+            expect(urls.some(url => url.includes('?url=') && url.includes('jisho.org%2Fsearch'))).toBe(false);
             expect(spoken).toEqual([card.spelling]);
         } finally {
             vi.unstubAllGlobals();
@@ -10715,7 +10718,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('plays Jisho audio on hosted pages through the default public proxy', async () => {
+    it('plays Jisho audio on hosted pages through a configured proxy', async () => {
         const played: string[] = [];
         const requested: string[] = [];
         const restoreMedia = mockHtmlAudioPlayback(played);
@@ -10729,12 +10732,12 @@ describe('reader helpers', () => {
             const rawUrl = String(input);
             const target = unproxiedFetchTarget(input);
             requested.push(rawUrl);
-            if (rawUrl === 'https://r.jina.ai/http://jisho.org/search/%E7%8C%AB') {
+            if (target === 'https://jisho.org/search/%E7%8C%AB') {
                 return Promise.resolve(new Response(`
-                    # Words
-                    猫 【ねこ】
-                    https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3
-                `, { status: 200 }));
+                    <audio id="audio_猫:ねこ" preload="none">
+                        <source src="//d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3" type="audio/mpeg">
+                    </audio>
+                `, { status: 200, headers: { 'Content-Type': 'text/html' } }));
             }
             if (target === 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3') {
                 return Promise.resolve(new Response('audio', {
@@ -10751,6 +10754,7 @@ describe('reader helpers', () => {
                 audioEnableDefaultSources: false,
                 audioViaBlob: true,
                 audioFallbackChimeEnabled: false,
+                corsProxyUrl: TEST_PROXY_URL,
                 audioSources: [{ type: 'jisho', url: '', voice: '', enabled: true }],
             }));
 
@@ -10762,8 +10766,8 @@ describe('reader helpers', () => {
                 'blob:https://hrussellzfac023.github.io/yomu-reader/jisho-neko',
             ]);
             expect(requested).toEqual([
-                'https://r.jina.ai/http://jisho.org/search/%E7%8C%AB',
-                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent('https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3')}`,
+                publicProxyUrlFor('https://jisho.org/search/%E7%8C%AB'),
+                publicProxyUrlFor('https://d1vjc5dkcd3yh2.cloudfront.net/audio/6b96f918b54d9a75a6bd12a8fb98c48e.mp3'),
             ]);
         } finally {
             restoreObjectUrls();
@@ -11014,7 +11018,7 @@ describe('reader helpers', () => {
         });
     });
 
-    it('tries public proxy fallbacks for JPDB pitch from another site without the userscript bridge', async () => {
+    it('does not use public proxy fallbacks for JPDB pitch without a configured proxy', async () => {
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
         vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
 
@@ -11023,15 +11027,13 @@ describe('reader helpers', () => {
 
             await expect(client.lookup('易しい', 'やさしい')).resolves.toEqual([]);
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls[0]).toBe(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jpdb.io/search?q=%E6%98%93%E3%81%97%E3%81%84')}`);
-            expect(urls.some(url => url.startsWith('https://api.allorigins.win/'))).toBe(false);
-            expect(urls.some(url => url.startsWith('https://corsproxy.io/'))).toBe(false);
+            expect(urls).toEqual([]);
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('tries public proxy fallbacks for JPDB vocabulary details from another site without the userscript bridge', async () => {
+    it('does not use public proxy fallbacks for JPDB vocabulary details without a configured proxy', async () => {
         vi.stubGlobal('location', { origin: 'https://www.nhk.or.jp', hostname: 'www.nhk.or.jp' });
         vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('fetch should not be called'))));
 
@@ -11040,9 +11042,7 @@ describe('reader helpers', () => {
 
             await expect(client.lookup(123, '読む', 'よむ')).resolves.toBeNull();
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL]> } }).mock.calls.map(([url]) => String(url));
-            expect(urls[0]).toBe(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://jpdb.io/vocabulary/123/%E8%AA%AD%E3%82%80/%E3%82%88%E3%82%80')}`);
-            expect(urls.some(url => url.startsWith('https://api.allorigins.win/'))).toBe(false);
-            expect(urls.some(url => url.startsWith('https://corsproxy.io/'))).toBe(false);
+            expect(urls).toEqual([]);
         } finally {
             vi.unstubAllGlobals();
         }
@@ -11630,27 +11630,22 @@ describe('reader helpers', () => {
         expect(readDictionaryLookupLinks(new FormData(form)).at(-1)?.id).toBe(sourceId);
     });
 
-    it('builds configured proxy URLs before public fallback URLs', () => {
+    it('builds only configured proxy URLs', () => {
         const target = 'https://jpdb.io/kanji/%E5%9B%B3';
-        const candidates = proxyUrlCandidates(target, 'https://yomu-proxy.example/fetch');
+        const candidates = proxyUrlCandidates(target, TEST_PROXY_URL);
 
-        expect(candidates[0]).toBe(`https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`);
-        expect(candidates).toContain(`https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`);
+        expect(candidates).toEqual([publicProxyUrlFor(target)]);
         expect(candidates.some(url => url.startsWith('https://api.allorigins.win/'))).toBe(false);
-        expect(proxyUrlCandidates(target, 'https://yomu-proxy.example/fetch', false)).toEqual([
-            `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
-        ]);
+        expect(proxyUrlCandidates(target, TEST_PROXY_URL, false)).toEqual([publicProxyUrlFor(target)]);
+        expect(proxyUrlCandidates(target, '')).toEqual([]);
     });
 
-    it('falls back from configured proxy HTTP failures for safe public GET requests', async () => {
+    it('does not fall back from configured proxy HTTP failures to a public proxy', async () => {
         const target = 'https://jpdb.io/search?q=%E5%9B%B3';
         const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
-            if (url.startsWith('https://yomu-proxy.example/fetch')) {
+            if (url.startsWith(TEST_PROXY_URL)) {
                 return Promise.resolve(new Response('blocked', { status: 403 }));
-            }
-            if (url.startsWith('https://yomu-jpdb-public-proxy')) {
-                return Promise.resolve(new Response('ok', { status: 200 }));
             }
             return Promise.reject(new Error('unexpected fetch'));
         });
@@ -11658,43 +11653,39 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const response = await fetchWithCorsFallbacks(target, 'https://yomu-proxy.example/fetch', { credentials: 'omit' });
+            const response = await fetchWithCorsFallbacks(target, TEST_PROXY_URL, { credentials: 'omit' });
 
-            expect(await response.text()).toBe('ok');
-            expectFetchUrls(fetchMock, [
-                `https://yomu-proxy.example/fetch?url=${encodeURIComponent(target)}`,
-                publicProxyUrlFor(target),
-            ]);
+            expect(response.status).toBe(403);
+            expectFetchUrls(fetchMock, [publicProxyUrlFor(target)]);
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('starts public JPDB lookup page requests through the proxy from local app pages', async () => {
+    it('does not invent a proxy for public JPDB lookup page requests from local app pages', async () => {
         const target = 'https://jpdb.io/search?q=%E8%AA%AD';
         const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('ok', { status: 200 })));
         stubLocalAppLocation();
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const response = await fetchWithCorsFallbacks(target, '', { credentials: 'omit' });
+            await expect(fetchWithCorsFallbacks(target, '', { credentials: 'omit' }))
+                .rejects.toThrow(/configured proxy/);
 
-            expect(await response.text()).toBe('ok');
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-            expect(String(fetchMock.mock.calls[0][0])).toBe(publicProxyUrlFor(target));
+            expect(fetchMock).not.toHaveBeenCalled();
         } finally {
             vi.unstubAllGlobals();
         }
     });
 
-    it('starts local hosted Immersion Kit search through the proxy to avoid browser CORS errors', async () => {
+    it('uses a configured proxy when direct local hosted Immersion Kit search is not enabled', async () => {
         const target = 'https://apiv2express.immersionkit.com/search?q=%E8%AA%AD%E3%82%80&limit=48';
         const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(new Response('ok', { status: 200 })));
         stubLocalAppLocation();
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const response = await fetchWithCorsFallbacks(target, DEFAULT_YOMU_PUBLIC_PROXY_URL, { allowDirectCrossOrigin: true, credentials: 'omit' });
+            const response = await fetchWithCorsFallbacks(target, TEST_PROXY_URL, { credentials: 'omit' });
 
             expect(await response.text()).toBe('ok');
             expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -11711,7 +11702,7 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const response = await fetchWithCorsFallbacks(target, DEFAULT_YOMU_PUBLIC_PROXY_URL, { allowDirectCrossOrigin: true, credentials: 'omit' });
+            const response = await fetchWithCorsFallbacks(target, TEST_PROXY_URL, { allowDirectCrossOrigin: true, credentials: 'omit' });
 
             expect(response.status).toBe(429);
             expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -11728,7 +11719,7 @@ describe('reader helpers', () => {
         vi.stubGlobal('fetch', fetchMock);
 
         try {
-            const response = await fetchWithCorsFallbacks(target, DEFAULT_YOMU_PUBLIC_PROXY_URL, { allowDirectCrossOrigin: true, credentials: 'omit' });
+            const response = await fetchWithCorsFallbacks(target, TEST_PROXY_URL, { allowDirectCrossOrigin: true, credentials: 'omit' });
 
             expect(await response.text()).toBe('ok');
             expectFetchUrls(fetchMock, [target]);
@@ -11755,25 +11746,25 @@ describe('reader helpers', () => {
         }
     });
 
-    it('skips direct browser fetches for known CORS-blocked public audio lookup URLs', async () => {
+    it('does not use public proxy fallbacks for known CORS-blocked public audio lookup URLs', async () => {
         const target = 'https://jisho.org/search/%E5%A4%A7%E5%88%87';
         const jishoAudioTarget = 'https://d1vjc5dkcd3yh2.cloudfront.net/audio/7f5db2ba73cff9c5ef681c0431a12d93.mp3';
         const studyAudioTarget = 'https://d1pra95f92lrn3.cloudfront.net/audio/271184.mp3';
         const japanesePodTarget = 'https://assets.languagepod101.com/dictionary/japanese/audiomp3.php?kanji=%E5%A4%A7%E5%88%87&kana=%E3%81%9F%E3%81%84%E3%81%9B%E3%81%A4';
         const innovativeLanguageTarget = 'https://cdn.innovativelanguage.com/japanesepod101/learningcenter/audio/vocabulary/4306.mp3';
         const languagePodPostTarget = 'https://www.japanesepod101.com/learningcenter/reference/dictionary_post';
-        const proxiedResponses: Array<[string, string]> = [
-            ['jisho.org', 'ok'],
-            ['d1vjc5dkcd3yh2.cloudfront.net', 'jisho audio'],
-            ['d1pra95f92lrn3.cloudfront.net', 'study audio'],
-            ['assets.languagepod101.com', 'audio'],
-            ['cdn.innovativelanguage.com', 'innovative audio'],
-            ['www.japanesepod101.com', 'language pod html'],
-        ];
+        const responses = new Map<string, string>([
+            [target, 'ok'],
+            [jishoAudioTarget, 'jisho audio'],
+            [studyAudioTarget, 'study audio'],
+            [japanesePodTarget, 'audio'],
+            [innovativeLanguageTarget, 'innovative audio'],
+            [languagePodPostTarget, 'language pod html'],
+        ]);
         const fetchMock = vi.fn((input: RequestInfo | URL, _init?: RequestInit) => {
             const url = String(input);
-            const response = proxiedResponses.find(([fragment]) => url.startsWith('https://yomu-jpdb-public-proxy') && url.includes(fragment));
-            if (response) return Promise.resolve(new Response(response[1], { status: 200 }));
+            const response = responses.get(unproxiedFetchTarget(input));
+            if (response) return Promise.resolve(new Response(response, { status: 200 }));
             return Promise.reject(new Error(`unexpected fetch: ${url}`));
         });
         stubNhkArticleLocation();
@@ -11783,34 +11774,33 @@ describe('reader helpers', () => {
             const response = await fetchWithCorsFallbacks(target, '', { allowDirectCrossOrigin: true, credentials: 'omit' });
 
             expect(await response.text()).toBe('ok');
-            expectFetchUrls(fetchMock, [publicProxyUrlFor(target)]);
+            expectFetchUrls(fetchMock, [target]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(jishoAudioTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [publicProxyUrlFor(jishoAudioTarget)]);
+            expectFetchUrls(fetchMock, [jishoAudioTarget]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(studyAudioTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [publicProxyUrlFor(studyAudioTarget)]);
+            expectFetchUrls(fetchMock, [studyAudioTarget]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(japanesePodTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [publicProxyUrlFor(japanesePodTarget)]);
+            expectFetchUrls(fetchMock, [japanesePodTarget]);
 
             fetchMock.mockClear();
             await expect(fetchWithCorsFallbacks(innovativeLanguageTarget, '', { allowDirectCrossOrigin: true, credentials: 'omit' }))
                 .resolves.toBeInstanceOf(Response);
-            expectFetchUrls(fetchMock, [publicProxyUrlFor(innovativeLanguageTarget)]);
+            expectFetchUrls(fetchMock, [innovativeLanguageTarget]);
 
             fetchMock.mockClear();
-            await expect(fetchWithCorsFallbacks(languagePodPostTarget, DEFAULT_YOMU_PUBLIC_PROXY_URL, {
+            await expect(fetchWithCorsFallbacks(languagePodPostTarget, TEST_PROXY_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'post=dictionary_reference',
-                allowDirectCrossOrigin: true,
                 credentials: 'omit',
             })).resolves.toBeInstanceOf(Response);
             expectFetchUrls(fetchMock, [publicProxyUrlFor(languagePodPostTarget)]);
@@ -12548,7 +12538,7 @@ describe('reader helpers', () => {
         }));
 
         try {
-            const client = new JpdbVocabularyClient(() => '');
+            const client = new JpdbVocabularyClient(() => TEST_PROXY_URL);
             const info = await client.lookup(1456360, '読む', 'よむ');
             const html = renderJpdbDefinitionSource({
                 ...card,
@@ -15079,6 +15069,7 @@ describe('reader helpers', () => {
                 audioEnableDefaultSources: false,
                 audioViaBlob: false,
                 audioFallbackChimeEnabled: false,
+                corsProxyUrl: TEST_PROXY_URL,
                 audioSources: [
                     { type: 'custom', url: target, voice: '', enabled: true },
                 ],
@@ -15087,7 +15078,7 @@ describe('reader helpers', () => {
             await expect(player.play(card)).resolves.toBe(true);
 
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
-                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent(target)}`,
+                publicProxyUrlFor(target),
             ]);
             expect(played).toEqual(['blob:http://localhost/study-audio']);
         } finally {
@@ -15282,7 +15273,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('uses direct hosted Immersion Kit search before public proxy fallbacks', async () => {
+    it('uses direct hosted Immersion Kit search before configured proxy fallbacks', async () => {
         const client = new ImmersionKitClient();
         const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve({
             ok: true,
@@ -15726,10 +15717,10 @@ describe('reader helpers', () => {
         const fetchMock = mockProxyAudioBlobFetch('unexpected direct fetch');
 
         try {
-            await expect(client.fetchBlobUrl(target, DEFAULT_SETTINGS.audioTimeoutMs, DEFAULT_SETTINGS.corsProxyUrl))
+            await expect(client.fetchBlobUrl(target, DEFAULT_SETTINGS.audioTimeoutMs, TEST_PROXY_URL))
                 .resolves.toBe('blob:https://hrussellzfac023.github.io/yomu-reader/immersion-kit-audio');
             expect(fetchMock.mock.calls.map(([url]) => String(url))).toEqual([
-                `${DEFAULT_YOMU_PUBLIC_PROXY_URL}/?url=${encodeURIComponent(target)}`,
+                publicProxyUrlFor(target),
             ]);
         } finally {
             Object.defineProperty(URL, 'createObjectURL', {
@@ -20685,7 +20676,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('imports remote dictionary ZIPs through the configured public proxy when no userscript bridge is available', async () => {
+    it('imports remote dictionary ZIPs through a configured proxy when no userscript bridge is available', async () => {
         const blob = yomitanZipBlob({
             'index.json': { title: 'Hosted Proxy Dict', format: 3 },
             'term_bank_1.json': [
@@ -20762,14 +20753,12 @@ describe('reader helpers', () => {
             await store.clear();
 
             await expect(store.importFromUrl('https://github.com/example/dict.zip', 'dict.zip'))
-                .rejects.toThrow(/Download blocked/i);
+                .rejects.toThrow(/configured proxy/i);
             const urls = (fetch as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit]> } }).mock.calls
                 .map(([url]) => String(url))
                 .filter(url => url.includes('dict.zip'));
-            expect(urls).toEqual([
-                `https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/?url=${encodeURIComponent('https://github.com/example/dict.zip')}`,
-            ]);
-            expect(fetch).toHaveBeenCalledWith(urls[0], expect.objectContaining({ credentials: 'omit' }));
+            expect(urls).toEqual([]);
+            expect(fetch).not.toHaveBeenCalledWith(expect.stringContaining('dict.zip'), expect.objectContaining({ credentials: 'omit' }));
         } finally {
             vi.unstubAllGlobals();
         }
@@ -25000,7 +24989,7 @@ describe('reader helpers', () => {
         expect(visibleJpdbKanjiActions(info)).toEqual([]);
     });
 
-    it('loads hosted new-tab JPDB kanji info through the configured public proxy', async () => {
+    it('loads hosted new-tab JPDB kanji info through a configured proxy', async () => {
         const target = 'https://jpdb.io/kanji/%E5%9B%B3';
         const { proxyUrl, fetchMock } = stubHostedProxyFetch(target, `
             <meta name="description" content="Dictionary definition of kanji 図 — diagram">
@@ -25251,7 +25240,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('falls back to the direct Uchisen image URL when blob hydration fails', async () => {
+    it('falls back to the direct Uchisen image URL when no image proxy is configured', async () => {
         const imageUrl = 'https://ik.imagekit.io/uchisen/generated/saved/generated_many.jpg';
         const fetchMock = vi.fn(() => Promise.reject(new Error('proxy offline')));
         vi.stubGlobal('fetch', fetchMock);
@@ -25267,7 +25256,7 @@ describe('reader helpers', () => {
             await vi.waitFor(() => {
                 expect(mount.querySelector<HTMLImageElement>('[data-uchisen-image]')?.src).toBe(imageUrl);
             });
-            expect(fetchMock).toHaveBeenCalled();
+            expect(fetchMock).not.toHaveBeenCalled();
         } finally {
             cleanup?.();
             mount.remove();
@@ -25320,7 +25309,7 @@ describe('reader helpers', () => {
         }
     });
 
-    it('loads Uchisen mnemonic HTML through the configured public proxy', async () => {
+    it('loads Uchisen mnemonic HTML through a configured proxy', async () => {
         const target = 'https://uchisen.com/kanji/%E5%9B%B3';
         const { proxyUrl, fetchMock } = stubHostedProxyFetch(target, `
             <div class="kanji_image_loader" data-large="generated_diagram.jpg"></div>

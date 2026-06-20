@@ -957,6 +957,13 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-order-row .jpdb-reader-row-remove-tools { grid-column: 3; grid-row: 1; align-self: start; justify-content: flex-end; }');
     });
 
+    it('keeps lookup link editor columns aligned on wider settings layouts', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px; }');
+    });
+
     it('keeps hosted settings companions lazy while preserving settings warmup', () => {
         const normalizedTheme = DOCS_THEME_SOURCE.replace(/\s+/g, ' ');
 

@@ -2374,16 +2374,6 @@
     if (s.installed) return;
     recorderBootstrap(pageWindow(), { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
   }
-  function isAppleTouchBrowser() {
-    if (typeof navigator === "undefined") return false;
-    const userAgent = navigator.userAgent ?? "";
-    const platform = navigator.platform ?? "";
-    return /iPad|iPhone|iPod/i.test(userAgent) || (platform === "MacIntel" || /Mac/i.test(platform)) && (navigator.maxTouchPoints ?? 0) > 1 && (/Macintosh|Mac OS X/i.test(userAgent) || platform === "MacIntel");
-  }
-  const DEFAULT_YOMU_PUBLIC_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev";
-  const BUILT_IN_PROXY_BUILDERS = [
-    (targetUrl) => configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? ""
-  ];
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
   const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
@@ -2401,43 +2391,6 @@
     "d1pra95f92lrn3.cloudfront.net",
     "d1vjc5dkcd3yh2.cloudfront.net"
   ]);
-  const SPECIALIZED_PROXY_ROUTE_RULES = [
-    {
-      method: "GET",
-      route: "jisho-search",
-      matches: (target) => target.hostname === "jisho.org" && target.pathname.startsWith("/search/")
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php"
-    },
-    {
-      method: "POST",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "www.japanesepod101.com" && target.pathname === "/learningcenter/reference/dictionary_post"
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => isKnownCorsBlockedPublicAudioCdnUrl(target)
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/")
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/")
-    },
-    {
-      method: "GET",
-      route: "yomu-public-only",
-      matches: (target) => target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname))
-    }
-  ];
   function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
     const proxyUrl = configuredProxyUrl.trim();
     if (!proxyUrl) return null;
@@ -2453,7 +2406,7 @@
     return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
   }
   function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
-    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && (isHostedGithubPagesApp() || isAppleTouchBrowser()) && isCrossOriginHttpUrl(targetUrl);
+    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp() && isCrossOriginHttpUrl(targetUrl);
   }
   function isKnownCorsBlockedPublicAudioCdnUrl(target) {
     try {
@@ -2465,12 +2418,11 @@
   }
   function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
     const target = fetchTarget(targetUrl);
-    return Boolean(target && isCrossOriginHttpTarget(target) && (specializedProxyRoute(target, requestMethod(options)) || isJpdbPublicLookupTarget(target, requestMethod(options)) || isLocalHostedBrowserCorsTarget(target, requestMethod(options))));
+    const method = requestMethod(options);
+    return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
   }
-  function builtInProxyUrls(targetUrl, options) {
-    const specialized = specializedProxyUrls(targetUrl, options);
-    const candidates = specialized ?? BUILT_IN_PROXY_BUILDERS.map((builder) => builder(targetUrl));
-    return candidates.filter(Boolean);
+  function builtInProxyUrls(_targetUrl, _options) {
+    return [];
   }
   function isJpdbPublicAudioUrl(targetUrl) {
     try {
@@ -2480,12 +2432,8 @@
       return false;
     }
   }
-  function isYomuPublicProxyUrl(candidateUrl) {
-    try {
-      return new URL(candidateUrl).origin === DEFAULT_YOMU_PUBLIC_PROXY_URL;
-    } catch {
-      return false;
-    }
+  function isYomuPublicProxyUrl(_candidateUrl) {
+    return false;
   }
   function isKnownDirectCorsTarget(targetUrl) {
     try {
@@ -2495,29 +2443,14 @@
       return false;
     }
   }
+  function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
+    return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
+  }
   function isJpdbPublicLookupTarget(target, method) {
     return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
   }
   function isLocalHostedBrowserCorsTarget(target, method) {
     return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
-  }
-  function specializedProxyUrls(targetUrl, options) {
-    const target = fetchTarget(targetUrl);
-    const route = target ? specializedProxyRoute(target, requestMethod(options)) : null;
-    if (!target || !route) return null;
-    const proxyTargetUrl = target.href;
-    if (route === "jisho-search") {
-      return [
-        yomuPublicProxyUrl(proxyTargetUrl)
-      ];
-    }
-    return [yomuPublicProxyUrl(proxyTargetUrl)];
-  }
-  function specializedProxyRoute(target, method) {
-    return SPECIALIZED_PROXY_ROUTE_RULES.find((rule) => rule.method === method && rule.matches(target))?.route ?? null;
-  }
-  function yomuPublicProxyUrl(targetUrl) {
-    return configuredProxyFetchUrl(targetUrl, DEFAULT_YOMU_PUBLIC_PROXY_URL) ?? "";
   }
   function isHostedGithubPagesApp() {
     if (typeof location === "undefined") return false;
@@ -2626,45 +2559,14 @@
     if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
       return { url: candidate.url, options };
     }
-    return {
-      url: proxyControlUrl(candidate.url, options.headers),
-      options: {
-        ...options,
-        headers: stripProxyOnlyHeaders(options.headers, ["x-access", "x-forcecaf"])
-      }
-    };
-  }
-  function proxyControlUrl(candidateUrl, headers) {
-    const forceCaf = headerValue(headers, "x-forcecaf");
-    if (!forceCaf) return candidateUrl;
-    try {
-      const url = new URL(candidateUrl);
-      url.searchParams.set("x-forcecaf", forceCaf);
-      return url.href;
-    } catch {
-      return candidateUrl;
-    }
-  }
-  function stripProxyOnlyHeaders(headers, names) {
-    if (!headers) return headers;
-    const excluded = new Set(names.map((name) => name.toLowerCase()));
-    const sanitized = {};
-    new Headers(headers).forEach((value, key) => {
-      if (!excluded.has(key.toLowerCase())) sanitized[key] = value;
-    });
-    return Object.keys(sanitized).length ? sanitized : void 0;
-  }
-  function headerValue(headers, name) {
-    if (!headers) return "";
-    return new Headers(headers).get(name) ?? "";
   }
   function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
-    const direct = directFetchUrl(targetUrl, options);
     const proxySafe = isProxySafeRequest(targetUrl, options);
     const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
     const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl) : null;
     const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
-    const publicProxies = publicProxySafe ? builtInProxyUrls(targetUrl, options) : [];
+    const publicProxies = publicProxySafe ? builtInProxyUrls() : [];
+    const direct = directFetchUrl(targetUrl, options, Boolean(configured));
     const directCandidate = direct ? { url: direct, kind: "direct" } : null;
     const proxyCandidates = [
       configured ? { url: configured, kind: "configured-proxy" } : null,
@@ -2675,9 +2577,9 @@
       ...orderedCandidates
     ]);
   }
-  function directFetchUrl(targetUrl, options) {
+  function directFetchUrl(targetUrl, options, hasConfiguredProxy) {
     if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
-    if (shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
     return targetUrl;
   }
   function uniqueFetchCandidates(candidates) {

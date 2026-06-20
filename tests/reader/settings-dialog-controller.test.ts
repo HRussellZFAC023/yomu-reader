@@ -289,7 +289,7 @@ describe('settings dialog keyboard dismissal', () => {
         const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
 
         expect(opener.getAttribute('aria-hidden')).toBe('true');
-        expect((opener as HTMLElement & { inert?: boolean }).inert).toBe(true);
+        expect((opener as HTMLElement & { inert?: boolean }).inert).not.toBe(true);
 
         input.dispatchEvent(event);
 
@@ -314,16 +314,16 @@ describe('settings dialog keyboard dismissal', () => {
         expect(parseSettingsJapanese).not.toHaveBeenCalled();
     });
 
-    it('releases the inert page when torn down outside the controller (backdrop, factory reset, close-popup shortcut)', () => {
+    it('releases the hidden page when torn down outside the controller (backdrop, factory reset, close-popup shortcut)', () => {
         // Regression: these paths run through ReaderApp.dismiss(), not the
-        // controller's own close, so the page stayed aria-hidden + inert and
-        // swallowed every click until the user reloaded.
+        // controller's own close, so the page stayed aria-hidden until the user
+        // reloaded.
         const page = document.createElement('main');
         document.body.append(page);
         const { controller } = createSettingsDialog();
 
         expect(page.getAttribute('aria-hidden')).toBe('true');
-        expect((page as HTMLElement & { inert?: boolean }).inert).toBe(true);
+        expect((page as HTMLElement & { inert?: boolean }).inert).not.toBe(true);
 
         controller.releaseModalBackground();
 

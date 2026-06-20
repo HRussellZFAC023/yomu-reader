@@ -8,7 +8,7 @@ import { isAppleTouchBrowser } from '../platform/browser';
 import { uiText } from '../app/i18n';
 import { jpdbAudioPageSourceUrl, jpdbAudioRequest, normalizeJpdbAudioIds } from '../jpdb/jpdb-audio-file';
 import { jpdbVocabularyIdentityFromUrl as parseJpdbVocabularyUrlIdentity } from '../jpdb/jpdb-vocabulary-url';
-import { DEFAULT_YOMU_PUBLIC_PROXY_URL, isKnownCorsBlockedPublicAudioCdnUrl } from '../network/proxy-fetch';
+import { isKnownCorsBlockedPublicAudioCdnUrl } from '../network/proxy-fetch';
 import { uniqueStrings } from '../core/string-utils';
 import { getUserscriptHttpRequest } from '../userscript/index';
 import { jitenTtsVoicesForValue, jitenWordTtsUrl } from './jiten-tts';
@@ -567,7 +567,8 @@ function hasCustomJishoHtmlProxy(proxyUrl: string): boolean {
     const normalized = proxyUrl.trim();
     if (!normalized) return false;
     try {
-        return new URL(normalized).origin !== DEFAULT_YOMU_PUBLIC_PROXY_URL;
+        new URL(normalized);
+        return true;
     } catch {
         return false;
     }

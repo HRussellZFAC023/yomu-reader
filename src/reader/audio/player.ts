@@ -33,7 +33,7 @@ import {
     type AudioPreloadOptions,
     type OrderedAudioSource,
 } from './source-resolution';
-import { canAttemptAudiblePlayback, reserveGestureAudioElement } from './media-activation';
+import { canAttemptAudiblePlayback, canAttemptWebAudioFallback, reserveGestureAudioElement } from './media-activation';
 import {
     fetchJpdbAudioBlob,
     jpdbAudioPlaybackCandidates,
@@ -64,6 +64,7 @@ interface AudioSourcePlaybackContext {
     avoidIdentity?: string;
     attemptState: AudioSourcePlaybackAttemptState;
     reservedAudio?: HTMLAudioElement;
+    userGesture: boolean;
 }
 
 interface AudioSourcePlaybackAttemptState {
@@ -109,6 +110,7 @@ const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
 const READY_AUDIO_CACHE_LIMIT = 160;
 const GESTURE_AUDIO_RESERVATION_TTL_MS = 8000;
 const LAST_AUDIO_IDENTITY_LIMIT = 400;
+const WEB_AUDIO_RESUME_TIMEOUT_MS = 250;
 const SOFT_CHIME_NOTES: SoftChimeNote[] = [
     { frequency: 587.33, offset: 0, duration: 0.22, gain: 0.032 },
     { frequency: 783.99, offset: 0.11, duration: 0.28, gain: 0.024 },
@@ -170,9 +172,9 @@ export class AudioPlayer {
         if (!request.sources.length) return await this.playNoAudioSources(card, request);
 
         const done = log.time('play', { term: card.spelling, sources: request.sources.map(source => source.type), viaBlob: true });
-        const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, reservedAudio);
+        const result = await this.playFromSources(request.sources, card, request.settings, request.requestId, request.isCurrent, request.userGesture, reservedAudio);
         done();
-        return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, result);
+        return this.finishPlaybackResult(card, request.settings, request.requestId, request.isCurrent, request.userGesture, result);
     }
 
     private audioPlaybackRequest(options: AudioPlaybackOptions): AudioPlaybackRequest {
@@ -230,7 +232,7 @@ export class AudioPlayer {
 
     private async playNoAudioSources(card: JPDBCard, request: AudioPlaybackRequest): Promise<boolean> {
         log.warn('No audio sources configured', { term: card.spelling });
-        return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent);
+        return await this.playMissingAudioFallback(request.settings, request.requestId, request.isCurrent, request.userGesture);
     }
 
     private async finishPlaybackResult(
@@ -238,13 +240,14 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        userGesture: boolean,
         result: AudioSourcePlayResult,
     ): Promise<boolean> {
         if (result.state === 'played') return true;
         if (result.state === 'playback-error') return false;
         if (result.state === 'superseded' || !this.isPlaybackCurrent(requestId, isCurrent)) return false;
         log.warn('No playable audio found', { term: card.spelling, errors: result.errors });
-        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+        return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
     }
 
     private async playFromSources(
@@ -253,15 +256,16 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        userGesture: boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<AudioSourcePlayResult> {
         const errors: string[] = [];
         const avoidIdentity = settings.audioSelectionMode === 'random'
             ? this.lastPlayedAudioIdentity(card)
             : undefined;
-        const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio, avoidIdentity);
+        const result = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio, avoidIdentity);
         if (result.state === 'miss' && result.skippedAvoidedIdentity) {
-            const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, reservedAudio);
+            const retry = await this.playFromSourcesAttempt(sources, card, settings, requestId, isCurrent, errors, userGesture, reservedAudio);
             return { state: retry.state, errors };
         }
         return { state: result.state, errors };
@@ -274,12 +278,13 @@ export class AudioPlayer {
         requestId: number,
         isCurrent: () => boolean,
         errors: string[],
+        userGesture: boolean,
         reservedAudio?: HTMLAudioElement,
         avoidIdentity?: string,
     ): Promise<AudioSourcePlaybackAttemptResult> {
         const triedUrls = new Set<string>();
         const attemptState: AudioSourcePlaybackAttemptState = { skippedAvoidedIdentity: false };
-        const context: AudioSourcePlaybackContext = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState };
+        const context: AudioSourcePlaybackContext = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState, userGesture };
         const fallbackContext: AudioSourcePlaybackContext = { ...context, reservedAudio: undefined };
         if (settings.audioTtsMode === 'source-order') {
             const result = await this.playOrderedSources(orderAudioSources(sources, card), context);
@@ -391,7 +396,8 @@ export class AudioPlayer {
 
         const requestId = ++this.playRequestId;
         this.stopCurrent();
-        const reservedAudio = this.reserveJpdbGestureAudioElement(options.userGesture);
+        const userGesture = Boolean(options.userGesture);
+        const reservedAudio = this.reserveJpdbGestureAudioElement(userGesture);
         const isCurrent = () => true;
         const bagKey = getJpdbAudioBagKey(candidates.map(candidate => candidate.deckId));
         const byDeckId = new Map(candidates.map(candidate => [candidate.deckId, candidate]));
@@ -399,7 +405,7 @@ export class AudioPlayer {
             const candidate = byDeckId.get(deckId);
             if (!candidate) continue;
             try {
-                if (await this.playJpdbAudioCandidate(candidate, settings, requestId, isCurrent, reservedAudio)) {
+                if (await this.playJpdbAudioCandidate(candidate, settings, requestId, isCurrent, userGesture, reservedAudio)) {
                     this.shuffledAudio.markPlayed(bagKey, deckId);
                     return true;
                 }
@@ -409,7 +415,7 @@ export class AudioPlayer {
                 // Try the next JPDB candidate when a page lists more than one.
             }
         }
-        return await this.playMissingAudioFallback(settings, requestId, isCurrent);
+        return await this.playMissingAudioFallback(settings, requestId, isCurrent, userGesture);
     }
 
     // Runtime audio adapter: ReaderAudioActions calls this through dependency injection.
@@ -422,7 +428,7 @@ export class AudioPlayer {
         this.stopCurrent();
         const playableUrl = await this.prepareDirectMediaUrl(audioUrl, settings);
         const audio = await this.createReadyAudio(playableUrl);
-        return await this.playPreparedAudio(audio, requestId, () => true);
+        return await this.playPreparedAudio(audio, requestId, () => true, { userGesture: true });
     }
 
     private async prepareDirectMediaUrl(audioUrl: string, settings: ReaderSettings): Promise<string> {
@@ -446,9 +452,10 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        userGesture: boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
-        return await this.playJpdbAudioSegment(candidate.audioIds, 0, settings, requestId, isCurrent, reservedAudio);
+        return await this.playJpdbAudioSegment(candidate.audioIds, 0, settings, requestId, isCurrent, userGesture, reservedAudio);
     }
 
     private async playJpdbAudioSegment(
@@ -457,6 +464,7 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        userGesture: boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         const audioId = audioIds[index];
@@ -464,8 +472,8 @@ export class AudioPlayer {
         const audioUrl = await this.jpdbAudioBlobUrl(audioId, settings);
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         const audio = await this.createReadyAudio(audioUrl, reservedAudio);
-        if (!(await this.playPreparedAudio(audio, requestId, isCurrent))) return false;
-        this.queueNextJpdbAudioSegment(audio, audioIds, index + 1, settings, requestId, isCurrent);
+        if (!(await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture }))) return false;
+        this.queueNextJpdbAudioSegment(audio, audioIds, index + 1, settings, requestId, isCurrent, userGesture);
         return true;
     }
 
@@ -476,11 +484,12 @@ export class AudioPlayer {
         settings: ReaderSettings,
         requestId: number,
         isCurrent: () => boolean,
+        userGesture: boolean,
     ): void {
         if (index >= audioIds.length) return;
         audio.addEventListener('ended', () => {
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return;
-            void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent)
+            void this.playJpdbAudioSegment(audioIds, index, settings, requestId, isCurrent, userGesture)
                 .catch(error => {
                     const audioId = audioIds[index];
                     if (audioId) this.markJpdbAudioUnavailable(audioId);
@@ -559,7 +568,7 @@ export class AudioPlayer {
                 this.shuffledAudio.markSkipped(bagKey, id);
                 continue;
             }
-            if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, reservedAudio)) return true;
+            if (await this.playAudioCandidate(candidate, sourceType, id, bagKey, settings, requestId, isCurrent, card, context.errors, context.userGesture, reservedAudio)) return true;
             this.shuffledAudio.markSkipped(bagKey, id);
         }
         return false;
@@ -575,6 +584,7 @@ export class AudioPlayer {
         isCurrent: () => boolean,
         card: JPDBCard,
         errors: string[],
+        userGesture: boolean,
         reservedAudio?: HTMLAudioElement,
     ): Promise<boolean> {
         let audio: HTMLAudioElement;
@@ -588,7 +598,7 @@ export class AudioPlayer {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         let played = false;
         try {
-            played = await this.playPreparedAudio(audio, requestId, isCurrent);
+            played = await this.playPreparedAudio(audio, requestId, isCurrent, { userGesture });
         } catch (error) {
             throw new AudioPlaybackAttemptError(error);
         }
@@ -718,7 +728,12 @@ export class AudioPlayer {
         return audio;
     }
 
-    private async playPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): Promise<boolean> {
+    private async playPreparedAudio(
+        audio: HTMLAudioElement,
+        requestId: number,
+        isCurrent: () => boolean,
+        options: { userGesture?: boolean } = {},
+    ): Promise<boolean> {
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
         this.current = audio;
         this.rewindPreparedAudio(audio);
@@ -728,7 +743,7 @@ export class AudioPlayer {
             // Pages with a strict CSP media-src (e.g. claude.ai) refuse blob/
             // data URLs on media elements; Web Audio decoding is not subject
             // to media-src, so fall through to it before giving up.
-            if (await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
+            if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
             throw error;
         }
         return true;
@@ -742,7 +757,7 @@ export class AudioPlayer {
         try {
             const bytes = await (await fetch(audioUrl)).arrayBuffer();
             context = new AudioContextCtor();
-            await resumeAudioContext(context);
+            if (!(await resumeAudioContext(context))) return false;
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
             const decoded = await context.decodeAudioData(bytes);
             const source = context.createBufferSource();
@@ -885,13 +900,13 @@ export class AudioPlayer {
             : undefined;
     }
 
-    private async playMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean): Promise<boolean> {
-        if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent)) return false;
+    private async playMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean, userGesture = false): Promise<boolean> {
+        if (!this.shouldPlayMissingAudioFallback(settings, requestId, isCurrent, userGesture)) return false;
         return await this.tryPlayMissingAudioFallback(requestId, isCurrent);
     }
 
-    private shouldPlayMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean): boolean {
-        if (settings.audioFallbackChimeEnabled) return this.isPlaybackCurrent(requestId, isCurrent);
+    private shouldPlayMissingAudioFallback(settings: ReaderSettings, requestId: number, isCurrent: () => boolean, userGesture = false): boolean {
+        if (settings.audioFallbackChimeEnabled && canAttemptWebAudioFallback(userGesture)) return this.isPlaybackCurrent(requestId, isCurrent);
         return false;
     }
 
@@ -909,7 +924,11 @@ export class AudioPlayer {
 
         const context = new AudioContextCtor();
         this.fallbackChimeContext = context;
-        await resumeAudioContext(context);
+        if (!(await resumeAudioContext(context))) {
+            if (this.fallbackChimeContext === context) this.fallbackChimeContext = undefined;
+            await context.close().catch(() => undefined);
+            return false;
+        }
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
 
         scheduleSoftChime(context, context.currentTime + 0.015);
@@ -962,9 +981,22 @@ function getAudioContextConstructor(): typeof AudioContext | undefined {
         ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
 }
 
-async function resumeAudioContext(context: AudioContext): Promise<void> {
-    if (context.state !== 'suspended') return;
-    await context.resume().catch(() => undefined);
+async function resumeAudioContext(context: AudioContext): Promise<boolean> {
+    if (context.state !== 'suspended') return true;
+    const resumed = context.resume()
+        .then(() => true)
+        .catch(() => false);
+    const completed = await Promise.race([
+        resumed,
+        waitForAudioContextResumeTimeout(),
+    ]);
+    return completed && context.state !== 'suspended';
+}
+
+function waitForAudioContextResumeTimeout(): Promise<boolean> {
+    return new Promise(resolve => {
+        window.setTimeout(() => resolve(false), WEB_AUDIO_RESUME_TIMEOUT_MS);
+    });
 }
 
 function scheduleSoftChime(context: AudioContext, start: number): void {
