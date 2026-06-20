@@ -11162,7 +11162,7 @@ describe('reader helpers', () => {
 
         expect(definitionSourceRows(settings).map(row => row.name)).toEqual(expect.arrayContaining(['Jiten', 'JPDB']));
         expect(renderDictionarySourceRows(settings)).toContain('JPDB meanings from the current card.');
-        expect(renderDictionarySourceRows(settings)).toContain('Jiten meanings, examples, and related vocabulary from the current card.');
+        expect(renderDictionarySourceRows(settings)).toContain('Jiten meanings, examples, and related words.');
 
         const data = new FormData();
         data.set('jpdbDefinitionsEnabled', 'on');
@@ -15581,7 +15581,7 @@ describe('reader helpers', () => {
 
         try {
             await expect(client.fetchBlobUrl(client.mediaUrl(example, 'sound'), DEFAULT_SETTINGS.audioTimeoutMs))
-                .rejects.toThrow('error document');
+                .rejects.toThrow('Media request returned an error page.');
         } finally {
             vi.unstubAllGlobals();
         }
@@ -24360,7 +24360,7 @@ describe('reader helpers', () => {
             expect(confirmSpy).toHaveBeenCalledWith('Open AnkiMobile to add "読む"? This creates a new note only.');
             expect(locationStub.href.startsWith('anki://x-callback-url/addnote?')).toBe(true);
             expect(new URL(locationStub.href).searchParams.get('deck')).toBe('Mobile Deck');
-            expect(toast).toHaveBeenCalledWith('Opened mobile Anki handoff. Continue in Anki to create the new note.');
+            expect(toast).toHaveBeenCalledWith('Opened Anki handoff. Continue in Anki.');
         } finally {
             restore();
         }
@@ -34740,7 +34740,7 @@ describe('reader helpers', () => {
 
         const summary = await store.importFile(file, message => progress.push(message));
         expect(summary).toMatchObject({ terms: 1, kanji: 1, termMeta: 1 });
-        expect(progress).toContain('Preparing to import 3 dictionary records...');
+        expect(progress).toContain('Preparing import 3 dictionary records...');
         expect(progress).toContain('Importing terms: 0 / 1 entries (0 / 3 total)...');
         expect(progress).toContain('Importing terms: 1 / 1 entries (3 / 3 total)...');
         expect(progress).toContain('Imported 3 / 3 dictionary records...');
