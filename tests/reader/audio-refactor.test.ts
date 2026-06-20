@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderAnkiExistingSection } from '../../src/reader/anki/render';
 import { resolveAnkiWordAudio } from '../../src/reader/anki/audio';
 import { getAudioCandidates } from '../../src/reader/audio/player';
-import { audioCandidateSelectionMode, getOrderedAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
+import { audioCandidateSelectionMode, getOrderedAudioSources, orderAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
 import { builtInProxyUrls, DEFAULT_YOMU_PUBLIC_PROXY_URL } from '../../src/reader/network/proxy-fetch-rules';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -39,6 +39,59 @@ describe('audio module boundaries', () => {
         expect(audioCandidateSelectionMode('jiten-tts', 'first')).toBe('random');
         expect(audioCandidateSelectionMode('jpdb-tts', 'first')).toBe('random');
         expect(audioCandidateSelectionMode('jisho', 'first')).toBe('first');
+    });
+
+    it('keeps the configured source list at the front, appending only missing built-in defaults', () => {
+        const custom = customJsonSource('http://localhost:9090/?term={term}&reading={reading}');
+        const ordered = getOrderedAudioSources({ ...DEFAULT_SETTINGS, audioSources: [custom, jishoSource()] })
+            .map(source => source.type);
+
+        expect(ordered[0]).toBe('custom-json');
+        expect(ordered[1]).toBe('jisho');
+        // Defaults are appended after the user's list, never reordered ahead of it.
+        expect(ordered).toContain('jpod101');
+        expect(ordered.indexOf('custom-json')).toBeLessThan(ordered.indexOf('jpod101'));
+    });
+
+    it('plays sources strictly in their authored order without reshuffling the priority list', () => {
+        const sources = [
+            customJsonSource('http://localhost:9090/?term={term}&reading={reading}'),
+            { type: 'jpod101' as const, url: '', voice: '', enabled: true },
+            jishoSource(),
+        ];
+
+        expect(orderAudioSources(sources, card('猫', 'ねこ')).map(entry => entry.source.type))
+            .toEqual(['custom-json', 'jpod101', 'jisho']);
+        // Deterministic across cards and repeated calls — the list is the priority, not a shuffle bag.
+        expect(orderAudioSources(sources, card('犬', 'いぬ')).map(entry => entry.source.type))
+            .toEqual(['custom-json', 'jpod101', 'jisho']);
+    });
+
+    it('resolves a custom JSON audio server (e.g. http://localhost:9090) into ordered clips', async () => {
+        const requested = stubAudioServerJson({
+            type: 'audioSourceList',
+            audioSources: [
+                { name: 'daijisen ね＼こ [1]', url: 'http://localhost:9090/audio/daijisen/media/s1.mp3' },
+                { name: 'nhk16 ネ＼コ [1]', url: 'http://localhost:9090/audio/nhk16/media/x.mp3' },
+                { name: 'forvo_jp akitomo', url: 'http://localhost:9090/audio/forvo_jp/akitomo/neko.mp3' },
+            ],
+        });
+
+        try {
+            const source = customJsonSource('http://localhost:9090/?term={term}&reading={reading}');
+            const candidates = await getAudioCandidates(source, card('猫', 'ねこ'), 1000, '');
+
+            expect(candidates.map(candidate => candidate.url)).toEqual([
+                'http://localhost:9090/audio/daijisen/media/s1.mp3',
+                'http://localhost:9090/audio/nhk16/media/x.mp3',
+                'http://localhost:9090/audio/forvo_jp/akitomo/neko.mp3',
+            ]);
+            expect(requested[0]).toContain('localhost:9090');
+            expect(requested[0]).toContain(encodeURIComponent('猫'));
+            expect(requested[0]).toContain(encodeURIComponent('ねこ'));
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('keeps generated API text-to-speech out of fallback preloads', () => {
@@ -342,6 +395,25 @@ function jishoSource(): Parameters<typeof getAudioCandidates>[0] {
 
 function jitenSource(voice = ''): Parameters<typeof getAudioCandidates>[0] {
     return { type: 'jiten-tts', url: '', voice, enabled: true };
+}
+
+function customJsonSource(url: string): Parameters<typeof getAudioCandidates>[0] {
+    return { type: 'custom-json', url, voice: '', enabled: true };
+}
+
+function stubAudioServerJson(payload: unknown): string[] {
+    const requested: string[] = [];
+    vi.stubGlobal('GM', {
+        xmlHttpRequest: (details: Parameters<UserscriptHttpRequest>[0]) => {
+            requested.push(details.url);
+            details.onload?.({
+                status: 200,
+                responseText: JSON.stringify(payload),
+                response: '',
+            });
+        },
+    });
+    return requested;
 }
 
 function jishoCandidate(filename: string): AudioCandidate {

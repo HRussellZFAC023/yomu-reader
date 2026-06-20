@@ -100,14 +100,18 @@ export function audioCandidateSelectionMode(sourceType: AudioSourceType, mode: A
     return sourceType === 'jpdb-tts' || sourceType === 'jiten-tts' ? 'random' : mode;
 }
 
+/**
+ * Returns the configured sources in their authored priority order. The order of
+ * the source list IS the user's priority; only the individual clips/voices a
+ * single source offers are shuffled (see {@link orderAudioCandidates}) when
+ * "Shuffle audio" is selected. Reshuffling the source list itself would make the
+ * Media → Audio sources list feel ignored, so it is intentionally preserved here.
+ */
 export function orderAudioSources(
     sources: AudioSourceSetting[],
-    mode: AudioSelectionMode,
     card: JPDBCard,
-    shuffledAudio: ShuffledAudioDeck,
 ): OrderedAudioSource[] {
-    const bagKey = getAudioSourceBagKey(sources, card);
-    return orderAudioDeckEntries(audioSourceDeckEntries(sources, bagKey), mode, bagKey, shuffledAudio);
+    return audioSourceDeckEntries(sources, getAudioSourceBagKey(sources, card));
 }
 
 function audioSourceDeckEntries(sources: AudioSourceSetting[], bagKey: string): OrderedAudioSource[] {

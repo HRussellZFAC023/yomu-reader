@@ -26,9 +26,7 @@ export async function resolveAnkiWordAudio(card: JPDBCard, settings: ReaderSetti
     if (!settings.audioEnabled) return null;
     const sources = orderAudioSources(
         getOrderedAudioSources(settings).filter(source => !isBrowserTextToSpeechSource(source)),
-        settings.audioSelectionMode,
         card,
-        new ShuffledAudioDeck(),
     );
     const triedUrls = new Set<string>();
     for (const { source } of sources) {

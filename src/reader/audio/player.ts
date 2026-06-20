@@ -75,28 +75,6 @@ interface AudioSourcePlaybackAttemptResult {
     skippedAvoidedIdentity: boolean;
 }
 
-interface PreparedAudioCandidate {
-    audio: HTMLAudioElement;
-    candidate: AudioCandidate;
-    id: string;
-    bagKey: string;
-    sourceType: AudioSourceType;
-    sourceId: string;
-    sourceBagKey: string;
-}
-
-interface AudioSourcePrepareResult {
-    state: 'ready' | 'miss' | 'superseded';
-    prepared?: PreparedAudioCandidate;
-}
-
-type PendingAudioSourcePreparation = Promise<CompletedAudioSourcePreparation>;
-
-interface CompletedAudioSourcePreparation {
-    promise: PendingAudioSourcePreparation;
-    result: AudioSourcePrepareResult;
-}
-
 interface AudioPlaybackRequest {
     requestId: number;
     isCurrent: () => boolean;
@@ -129,7 +107,6 @@ const AUDIO_BLOB_CACHE_TTL_MS = 10 * 60 * 1000;
 const READY_AUDIO_CACHE_TTL_MS = 5 * 60 * 1000;
 const AUDIO_CANDIDATE_CACHE_LIMIT = 600;
 const READY_AUDIO_CACHE_LIMIT = 160;
-const AUDIO_SOURCE_RACE_STAGGER_MS = 120;
 const GESTURE_AUDIO_RESERVATION_TTL_MS = 8000;
 const LAST_AUDIO_IDENTITY_LIMIT = 400;
 const SOFT_CHIME_NOTES: SoftChimeNote[] = [
@@ -305,22 +282,20 @@ export class AudioPlayer {
         const context: AudioSourcePlaybackContext = { card, settings, requestId, triedUrls, isCurrent, errors, reservedAudio, avoidIdentity, attemptState };
         const fallbackContext: AudioSourcePlaybackContext = { ...context, reservedAudio: undefined };
         if (settings.audioTtsMode === 'source-order') {
-            const result = await this.playOrderedSources(orderAudioSources(sources, settings.audioSelectionMode, card, this.shuffledAudio), context);
+            const result = await this.playOrderedSources(orderAudioSources(sources, card), context);
             return { state: result, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
         }
 
         const realSourceSettings = sources.filter(source => !isTextToSpeechFallbackSource(source));
-        const realAudioSources = orderAudioSources(realSourceSettings, settings.audioSelectionMode, card, this.shuffledAudio);
-        const realAudioResult = settings.audioSelectionMode === 'random'
-            ? await this.playOrderedSources(realAudioSources, context)
-            : await this.playGreedyAudioSources(realAudioSources, context);
+        const realAudioSources = orderAudioSources(realSourceSettings, card);
+        const realAudioResult = await this.playOrderedSources(realAudioSources, context);
         if (realAudioResult !== 'miss') return { state: realAudioResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
         if (attemptState.skippedAvoidedIdentity) return { state: 'miss', skippedAvoidedIdentity: true };
 
-        const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
+        const apiTextToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isApiTextToSpeechSource), card), fallbackContext);
         if (apiTextToSpeechResult !== 'miss') return { state: apiTextToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
 
-        const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), settings.audioSelectionMode, card, this.shuffledAudio), fallbackContext);
+        const textToSpeechResult = await this.playOrderedSources(orderAudioSources(sources.filter(isBrowserTextToSpeechSource), card), fallbackContext);
         return { state: textToSpeechResult, skippedAvoidedIdentity: attemptState.skippedAvoidedIdentity };
     }
 
@@ -333,109 +308,6 @@ export class AudioPlayer {
             if (result !== 'miss') return result;
         }
         return 'miss';
-    }
-
-    private async playGreedyAudioSources(
-        sources: OrderedAudioSource[],
-        context: AudioSourcePlaybackContext,
-    ): Promise<AudioSourcePlayResult['state']> {
-        if (sources.length <= 1) {
-            return await this.playOrderedSources(sources, context);
-        }
-
-        const race = new AudioSourcePreparationRace(sources, sourceEntry =>
-            this.prepareSourceWithErrors(sourceEntry, context),
-        );
-
-        while (race.hasWork()) {
-            const current = await race.next();
-            if (!current) {
-                continue;
-            }
-
-            const result = await this.playPreparedSourceResult(current.result, context);
-            if (result !== 'miss') return result;
-        }
-        return 'miss';
-    }
-
-    private async playPreparedSourceResult(
-        result: AudioSourcePrepareResult,
-        context: AudioSourcePlaybackContext,
-    ): Promise<AudioSourcePlayResult['state']> {
-        if (result.state === 'superseded') return 'superseded';
-        if (result.state !== 'ready' || !result.prepared) return 'miss';
-        return await this.playPreparedCandidate(result.prepared, context.settings, context.requestId, context.isCurrent, context.card, context.reservedAudio)
-            .catch(error => audioPlaybackAttemptResult(error, context.errors));
-    }
-
-    private prepareSourceWithErrors(
-        sourceEntry: OrderedAudioSource,
-        context: AudioSourcePlaybackContext,
-    ): PendingAudioSourcePreparation {
-        let promise!: PendingAudioSourcePreparation;
-        promise = this.prepareSource(sourceEntry, context.card, context.settings, context.requestId, context.triedUrls, context.isCurrent, context.errors)
-            .catch(error => {
-                context.errors.push(error instanceof Error ? error.message : String(error));
-                this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
-                return { state: 'miss' as const };
-            })
-            .then(result => ({ promise, result }));
-        return promise;
-    }
-
-    private async prepareSource(
-        sourceEntry: OrderedAudioSource,
-        card: JPDBCard,
-        settings: ReaderSettings,
-        requestId: number,
-        triedUrls: Set<string>,
-        isCurrent: () => boolean,
-        errors: string[],
-    ): Promise<AudioSourcePrepareResult> {
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
-        const { source } = sourceEntry;
-        const candidates = await this.getCachedAudioCandidates(source, card, settings.audioTimeoutMs, settings.corsProxyUrl);
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
-        const bagKey = getAudioBagKey(source, card);
-        for (const { candidate, id } of orderAudioCandidates(candidates, audioCandidateSelectionMode(source.type, settings.audioSelectionMode), bagKey, this.shuffledAudio)) {
-            if (!registerAudioAttempt(triedUrls, candidate)) {
-                this.shuffledAudio.markSkipped(bagKey, id);
-                continue;
-            }
-            const audio = await Promise.resolve(this.createPlayableAudio(candidate, source.type, settings))
-                .catch(error => { errors.push(audioErrorMessage(error)); return null; });
-            if (!this.isPlaybackCurrent(requestId, isCurrent)) return { state: 'superseded' };
-            if (audio) return { state: 'ready', prepared: { audio, candidate, id, bagKey, sourceType: source.type, sourceId: sourceEntry.id, sourceBagKey: sourceEntry.bagKey } };
-            this.shuffledAudio.markSkipped(bagKey, id);
-        }
-        this.shuffledAudio.markSkipped(sourceEntry.bagKey, sourceEntry.id);
-        return { state: 'miss' };
-    }
-
-    private async playPreparedCandidate(
-        prepared: PreparedAudioCandidate,
-        settings: ReaderSettings,
-        requestId: number,
-        isCurrent: () => boolean,
-        card: JPDBCard,
-        reservedAudio?: HTMLAudioElement,
-    ): Promise<AudioSourcePlayResult['state']> {
-        let played = false;
-        try {
-            const audio = reservedAudio
-                ? await this.createPlayableAudio(prepared.candidate, prepared.sourceType, settings, reservedAudio)
-                : prepared.audio;
-            played = await this.playPreparedAudio(audio, requestId, isCurrent);
-        } catch (error) {
-            throw new AudioPlaybackAttemptError(error);
-        }
-        if (!this.isPlaybackCurrent(requestId, isCurrent)) return 'superseded';
-        if (!played) return 'miss';
-        this.shuffledAudio.markPlayed(prepared.bagKey, prepared.id);
-        this.shuffledAudio.markPlayed(prepared.sourceBagKey, prepared.sourceId);
-        this.markAudioCandidatePlayed(card, prepared.candidate);
-        return 'played';
     }
 
     private async playSourceWithErrors(
@@ -474,12 +346,7 @@ export class AudioPlayer {
         const { sourceLimit, candidateLimit, prepareAudio } = audioPreloadLimits(options);
         const candidateSources = preloadableAudioSources(getOrderedAudioSources(settings), settings);
         const preloadedSources = prepareAudio ? candidateSources : cheapCandidatePreloadAudioSources(candidateSources, card);
-        const sources = orderAudioSources(
-            preloadedSources,
-            settings.audioSelectionMode,
-            card,
-            this.shuffledAudio,
-        ).slice(0, sourceLimit);
+        const sources = orderAudioSources(preloadedSources, card).slice(0, sourceLimit);
         if (!sources.length) return false;
 
         for (const { source } of sources) {
@@ -1090,48 +957,6 @@ function audioIdentityCardKey(card: JPDBCard): string {
     ].join('\u0001');
 }
 
-class AudioSourcePreparationRace {
-    private pending = new Set<PendingAudioSourcePreparation>();
-    private nextSourceIndex = 0;
-
-    constructor(
-        private sources: OrderedAudioSource[],
-        private prepare: (source: OrderedAudioSource) => PendingAudioSourcePreparation,
-    ) {}
-
-    hasWork(): boolean {
-        return this.pending.size > 0 || this.hasQueuedSources();
-    }
-
-    async next(): Promise<CompletedAudioSourcePreparation | undefined> {
-        if (!this.pending.size) return this.startNextSource();
-        const current = await this.racePendingSources();
-        if (!current) return this.startNextSource();
-        this.pending.delete(current.promise);
-        return current;
-    }
-
-    private async racePendingSources(): Promise<CompletedAudioSourcePreparation | null> {
-        if (!this.hasQueuedSources()) return Promise.race(this.pending);
-        const stagger = delayAudioSourceRace(AUDIO_SOURCE_RACE_STAGGER_MS);
-        try {
-            return await Promise.race([...this.pending, stagger.promise]);
-        } finally {
-            stagger.cancel();
-        }
-    }
-
-    private startNextSource(): undefined {
-        const sourceEntry = this.sources[this.nextSourceIndex++];
-        if (sourceEntry) this.pending.add(this.prepare(sourceEntry));
-        return undefined;
-    }
-
-    private hasQueuedSources(): boolean {
-        return this.nextSourceIndex < this.sources.length;
-    }
-}
-
 function getAudioContextConstructor(): typeof AudioContext | undefined {
     return window.AudioContext
         ?? (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -1181,17 +1006,6 @@ function waitForSoftChime(): Promise<void> {
 function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolean {
     return request.userGesture
         && request.sources.some(source => !isBrowserTextToSpeechSource(source));
-}
-
-function delayAudioSourceRace(ms: number): { promise: Promise<null>; cancel: () => void } {
-    let timer = 0;
-    const promise = new Promise<null>(resolve => { timer = window.setTimeout(() => resolve(null), ms); });
-    return { promise, cancel: () => window.clearTimeout(timer) };
-}
-
-function audioPlaybackAttemptResult(error: unknown, errors: string[]): AudioSourcePlayResult['state'] {
-    errors.push(audioErrorMessage(error));
-    return 'miss';
 }
 
 function audioErrorMessage(error: unknown): string {
