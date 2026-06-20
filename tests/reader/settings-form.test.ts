@@ -988,8 +988,8 @@ describe('settings form localization', () => {
         localizeSettingsForm(bothKeysForm, 'en');
 
         expect(settingsText(form, '[data-source-id="__kanji_stroke__"] .jpdb-reader-dictionary-row-help')).toBe('Stroke order preview and drawing pad.');
-        expect(settingsText(form, '[data-source-id="__kanji_jpdb__"] .jpdb-reader-dictionary-row-help')).toBe('Jiten kanji facts, exact frequency, readings, and vocabulary.');
-        expect(settingsText(bothKeysForm, '[data-source-id="__kanji_jpdb__"] .jpdb-reader-dictionary-row-help')).toBe('Jiten kanji facts, exact frequency, readings, and vocabulary.');
+        expect(settingsText(form, '[data-source-id="__kanji_jpdb__"] .jpdb-reader-dictionary-row-help')).toBe('Jiten kanji facts, frequency, readings, words.');
+        expect(settingsText(bothKeysForm, '[data-source-id="__kanji_jpdb__"] .jpdb-reader-dictionary-row-help')).toBe('Jiten kanji facts, frequency, readings, words.');
         expect(form.querySelector('[data-source-id="__kanji_similar_words__"]')).toBeNull();
         expect(form.textContent).not.toContain('Related vocabulary');
         expect(form.textContent).not.toContain('Words using this kanji');
