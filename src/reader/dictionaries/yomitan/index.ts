@@ -111,7 +111,6 @@ const TERM_KANJI_INDEX_FALLBACK_MAX_ROWS = 12000;
 const TERM_KANJI_INDEX_FALLBACK_MAX_MS = 140;
 const DB_DELETE_BLOCKED_TIMEOUT_MS = 12000;
 const DB_FACTORY_RESET_DELETE_TIMEOUT_MS = 2500;
-const JAPANESE_CHARACTER_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
 const log = Logger.scope('Yomitan');
 
 type InternalStoreName = StoreName | 'termKanji';
@@ -440,7 +439,7 @@ export class YomitanDictionaryStore {
         const candidates: TermMatchCandidates = new Map();
         const maxLength = Math.min(18, source.length);
         for (let start = 0; start < source.length; start++) {
-            if (!JAPANESE_CHARACTER_RE.test(source[start])) continue;
+            if (!JAPANESE_RE.test(source[start])) continue;
             this.collectTermMatchCandidatesAt(source, start, maxLength, candidates);
         }
         return candidates;
