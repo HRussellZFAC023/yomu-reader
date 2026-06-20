@@ -1128,7 +1128,8 @@ function kanjiRelatedWordNavigationFixture(lookupCard: JPDBCard) {
 
 async function expectKanjiRelatedWordBackNavigation(): Promise<void> {
     await waitForExpect(() => {
-        expect(document.querySelector('.jpdb-reader-spelling')?.textContent).toBe('漢語');
+        const spelling = document.querySelector<HTMLElement>('.jpdb-reader-spelling');
+        expect(spelling ? readerWordSurfaceText(spelling) : '').toBe('漢語');
         expect(document.querySelector<HTMLButtonElement>('[data-action="word-history-back"]')?.title).toBe('Back to kanji: 漢');
     });
 
@@ -4962,7 +4963,7 @@ describe('reader helpers', () => {
         const kanjiButtons = [...document.querySelectorAll<HTMLElement>('.jpdb-reader-spelling .jpdb-reader-kanji-inline')];
 
         expect(spelling.classList.contains('jpdb-reader-parseable')).toBe(false);
-        expect(spelling.textContent).toBe('漢語');
+        expect(readerWordSurfaceText(spelling)).toBe('漢語');
         expect(kanjiButtons.map(button => button.dataset.kanji)).toEqual(['漢', '語']);
         expect(kanjiButtons.map(button => button.dataset.action)).toEqual(['kanji', 'kanji']);
     });
