@@ -34418,6 +34418,8 @@ ${spelling}`);
     element.style.height = `${100 * line.box.height / result.height}%`;
   }
   function renderedOcrImageFrame(image, rect, result) {
+    const pausedVideoFrame = renderedPausedVideoFrame(image, rect);
+    if (pausedVideoFrame) return pausedVideoFrame;
     const style = getComputedStyle(image);
     const content = imageContentBox(image, rect, style);
     const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
@@ -34428,6 +34430,15 @@ ${spelling}`);
       imageTop: content.top + offset.y,
       imageWidth: Math.max(1, object.width),
       imageHeight: Math.max(1, object.height)
+    };
+  }
+  function renderedPausedVideoFrame(image, rect) {
+    if (image.dataset.yomuVideoFrame !== "true") return null;
+    return {
+      imageLeft: 0,
+      imageTop: 0,
+      imageWidth: Math.max(1, rect.width),
+      imageHeight: Math.max(1, rect.height)
     };
   }
   function ocrSourceDimensions(image, rect, content, result) {
@@ -35256,15 +35267,27 @@ ${spelling}`);
     const intrinsicWidth = video.videoWidth;
     const intrinsicHeight = video.videoHeight;
     if (!intrinsicWidth || !intrinsicHeight || !rect.width || !rect.height) return rect;
-    const scale = Math.min(rect.width / intrinsicWidth, rect.height / intrinsicHeight);
-    const width = intrinsicWidth * scale;
-    const height = intrinsicHeight * scale;
+    const style = getComputedStyle(video);
+    const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
+    const offset = objectPositionOffset(style.objectPosition || "50% 50%", rect.width - object.width, rect.height - object.height);
     return {
-      left: rect.left + (rect.width - width) / 2,
-      top: rect.top + (rect.height - height) / 2,
-      width,
-      height
+      left: rect.left + offset.x,
+      top: rect.top + offset.y,
+      width: object.width,
+      height: object.height
     };
+  }
+  function videoObjectFit(value) {
+    switch (value) {
+      case "contain":
+      case "cover":
+      case "none":
+      case "scale-down":
+        return value;
+      case "fill":
+      default:
+        return "contain";
+    }
   }
   function imageCacheKey(image) {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
@@ -39678,6 +39701,16 @@ ${spelling}`);
     "mozfullscreenchange",
     "MSFullscreenChange"
   ];
+  const TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS = [
+    "pointerdown",
+    "pointerup",
+    "pointercancel",
+    "mousedown",
+    "mouseup",
+    "touchstart",
+    "touchend",
+    "touchcancel"
+  ];
   const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = ".asbplayer-subtitles-container-bottom";
   const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
   const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
@@ -40242,8 +40275,11 @@ ${spelling}`);
       this.subtitleEl = root.querySelector(".jpdb-subtitle-lines");
       this.transcriptPanel = root.querySelector(".jpdb-subtitle-list");
       this.transcriptPanel.dataset.jpdbReaderRoot = "true";
-      this.transcriptPanel.addEventListener("click", (event) => this.handleClick(event), this.eventOptions());
+      this.transcriptPanel.addEventListener("click", (event) => this.handleTranscriptPanelClick(event), this.eventOptions());
       this.transcriptPanel.addEventListener("keydown", (event) => this.handleTranscriptPanelKeydown(event), this.eventOptions());
+      for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
+        this.transcriptPanel.addEventListener(eventName, (event) => this.stopTranscriptPanelPropagation(event), this.eventOptions());
+      }
       document.body.appendChild(root);
       document.body.appendChild(this.transcriptPanel);
       this.root = root;
@@ -41552,6 +41588,13 @@ ${spelling}`);
       if (event.detail > 0) target.closest("button")?.blur();
       if (action !== "menu") this.syncControls();
     }
+    handleTranscriptPanelClick(event) {
+      this.handleClick(event);
+      event.stopPropagation();
+    }
+    stopTranscriptPanelPropagation(event) {
+      event.stopPropagation();
+    }
     handleTranscriptPanelKeydown(event) {
       if (event.key !== "Enter" && event.key !== " ") return;
       const target = event.target;
@@ -42540,6 +42583,7 @@ ${spelling}`);
       this.transcriptPanelClosing = false;
       this.prepareTranscriptPanelPlacementForOpen();
       panel.hidden = false;
+      this.syncTranscriptPanelFullscreenDisplayOverride();
       panel.classList.remove("jpdb-subtitle-panel-entering", "jpdb-subtitle-panel-closing");
       panel.classList.add("jpdb-subtitle-panel-opened");
     }
@@ -42565,6 +42609,7 @@ ${spelling}`);
       if (this.transcriptPanel !== panel) return;
       this.clearTranscriptPanelAnimation();
       panel.hidden = true;
+      this.syncTranscriptPanelFullscreenDisplayOverride();
       panel.classList.remove("jpdb-subtitle-panel-entering", "jpdb-subtitle-panel-opened", "jpdb-subtitle-panel-closing");
       this.transcriptPanelClosing = false;
       this.syncControls();
@@ -42950,8 +42995,12 @@ ${spelling}`);
     }
     updateTranscriptActiveLine(currentIndex) {
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== "lines") return;
-      this.transcriptPanel.querySelectorAll(".jpdb-subtitle-list-row.active").forEach((row) => row.classList.remove("active"));
+      const activeRows = Array.from(this.transcriptPanel.querySelectorAll(".jpdb-subtitle-list-row.active"));
       const active = this.transcriptPanel.querySelector(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
+      if (active && activeRows.length === 1 && activeRows[0] === active) return;
+      activeRows.forEach((row) => {
+        if (row !== active) row.classList.remove("active");
+      });
       if (active) active.classList.add("active");
       this.scrollTranscriptToActive();
     }
@@ -43555,12 +43604,13 @@ ${spelling}`);
       if (cleared) log$j.info("Cleared parsed ASBPlayer subtitle lines", { roots: roots.length, cleared });
     }
     positionTranscriptPanel(options = {}) {
-      if (this.fullscreen) {
-        this.clearVideoInsetForTranscriptPanel();
-        return;
-      }
       if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {
         this.clearVideoInsetForTranscriptPanel();
+        this.syncTranscriptPanelFullscreenDisplayOverride();
+        return;
+      }
+      if (this.fullscreen) {
+        this.positionFullscreenTranscriptPanel(options);
         return;
       }
       const panel = this.transcriptPanel;
@@ -43579,16 +43629,37 @@ ${spelling}`);
         preferredPlacement: settings.subtitleTranscriptPlacement,
         size: this.transcriptPanelSize
       }, referenceVideoRect);
+      this.commitTranscriptPanelLayout(panel, layout, options);
+      const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
+        resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred ? "none" : options.skipInset ? "settled" : "immediate")
+      });
+      if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
+    }
+    positionFullscreenTranscriptPanel(options = {}) {
+      const panel = this.transcriptPanel;
+      if (!panel) return;
+      this.clearVideoInsetForTranscriptPanel();
+      this.syncTranscriptPanelFullscreenDisplayOverride();
+      const viewport = this.transcriptViewportSize();
+      const viewportWidth = viewport.width;
+      const viewportHeight = viewport.height;
+      const layout = computeSubtitleDrawerLayout({
+        viewportWidth,
+        viewportHeight,
+        anchorTop: Math.max(0, this.videoLayoutRect().top),
+        compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
+        preferredPlacement: this.options.getSettings().subtitleTranscriptPlacement,
+        size: this.transcriptPanelSize
+      });
+      this.commitTranscriptPanelLayout(panel, layout, options);
+    }
+    commitTranscriptPanelLayout(panel, layout, options = {}) {
       const placementChanged = layout.placement !== this.effectiveTranscriptPlacement;
       applyTranscriptPanelLayout(panel, layout);
       this.effectiveTranscriptPlacement = layout.placement;
       if (placementChanged) this.syncTranscriptPlacementClass();
       if (!options.skipResizeHandle) this.syncTranscriptResizeHandle(layout);
       if (!options.skipControlSync) this.syncDrawerButtons(this.hasVisibleSubtitleLines());
-      const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
-        resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred ? "none" : options.skipInset ? "settled" : "immediate")
-      });
-      if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
     }
     transcriptDrawerLayout(options, referenceVideoRect) {
       const layoutOptions = this.withConstrainedSideTranscriptSize(options, referenceVideoRect);
@@ -43728,6 +43799,8 @@ ${spelling}`);
       this.syncSubtitleRootParent(fullscreenHost);
       document.documentElement.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
       this.root?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
+      this.transcriptPanel?.classList.toggle("jpdb-subtitle-fullscreen", this.fullscreen);
+      this.syncTranscriptPanelFullscreenDisplayOverride();
       if (this.fullscreen) {
         this.clearVideoInsetForTranscriptPanel();
         return;
@@ -43737,9 +43810,26 @@ ${spelling}`);
     }
     syncSubtitleRootParent(fullscreenHost = this.subtitleFullscreenHost()) {
       if (!this.root) return;
-      const parent = !fullscreenHost || fullscreenHost === document.documentElement ? document.body : fullscreenHost;
-      if (this.root.parentElement === parent) return;
-      parent.appendChild(this.root);
+      const parent = this.fullscreenReaderRootParent(fullscreenHost);
+      if (this.root.parentElement !== parent) parent.appendChild(this.root);
+      if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) parent.appendChild(this.transcriptPanel);
+    }
+    fullscreenReaderRootParent(fullscreenHost) {
+      return !fullscreenHost || fullscreenHost === document.documentElement ? document.body : fullscreenHost;
+    }
+    syncTranscriptPanelFullscreenDisplayOverride() {
+      const panel = this.transcriptPanel;
+      if (!panel) return;
+      const shouldOverride = this.fullscreen && !panel.hidden && !this.transcriptPanelClosing;
+      if (shouldOverride) {
+        panel.style.setProperty("display", "grid", "important");
+        panel.dataset.jpdbFullscreenDisplayOverride = "true";
+        return;
+      }
+      if (panel.dataset.jpdbFullscreenDisplayOverride === "true") {
+        panel.style.removeProperty("display");
+        delete panel.dataset.jpdbFullscreenDisplayOverride;
+      }
     }
     subtitleFullscreenHost(fullscreenElement = currentFullscreenElement()) {
       if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;

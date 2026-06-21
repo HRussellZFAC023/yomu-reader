@@ -190,7 +190,7 @@ export const CRITICAL_READER_CSS = `
   background: var(--jpdb-reader-faint, #687384);
 }
 .jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) transparent var(--yw)!important;text-underline-offset:var(--yo)!important}
-.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:calc(-1 * var(--yo));border-block-end:var(--yw) var(--ys) var(--yu,transparent);pointer-events:none}
+.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,transparent);pointer-events:none}
 ${criticalWordCss()}
 `.trim();
 

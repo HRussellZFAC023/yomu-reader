@@ -192,6 +192,16 @@ const SUBTITLE_FULLSCREEN_CHANGE_EVENTS = [
     'mozfullscreenchange',
     'MSFullscreenChange',
 ] as const;
+const TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS = [
+    'pointerdown',
+    'pointerup',
+    'pointercancel',
+    'mousedown',
+    'mouseup',
+    'touchstart',
+    'touchend',
+    'touchcancel',
+] as const;
 const ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR = '.asbplayer-subtitles-container-bottom';
 const ASBPLAYER_SUBTITLE_ROOT_SELECTOR = `.asbplayer-offscreen, ${ASBPLAYER_VISIBLE_SUBTITLE_ROOT_SELECTOR}`;
 const ASBPLAYER_SUBTITLE_DRAG_HANDLE_SELECTOR = '[data-yomu-asb-subtitle-drag-handle="true"]';
@@ -911,8 +921,11 @@ export class SubtitlePlayerController {
         this.subtitleEl = root.querySelector('.jpdb-subtitle-lines') as HTMLElement;
         this.transcriptPanel = root.querySelector('.jpdb-subtitle-list') as HTMLElement;
         this.transcriptPanel.dataset.jpdbReaderRoot = 'true';
-        this.transcriptPanel.addEventListener('click', event => this.handleClick(event), this.eventOptions());
+        this.transcriptPanel.addEventListener('click', event => this.handleTranscriptPanelClick(event), this.eventOptions());
         this.transcriptPanel.addEventListener('keydown', event => this.handleTranscriptPanelKeydown(event), this.eventOptions());
+        for (const eventName of TRANSCRIPT_PANEL_OWNED_POINTER_EVENTS) {
+            this.transcriptPanel.addEventListener(eventName, event => this.stopTranscriptPanelPropagation(event), this.eventOptions());
+        }
         document.body.appendChild(root);
         document.body.appendChild(this.transcriptPanel);
         this.root = root;
@@ -2481,6 +2494,15 @@ export class SubtitlePlayerController {
         if (action !== 'menu') this.syncControls();
     }
 
+    private handleTranscriptPanelClick(event: MouseEvent): void {
+        this.handleClick(event);
+        event.stopPropagation();
+    }
+
+    private stopTranscriptPanelPropagation(event: Event): void {
+        event.stopPropagation();
+    }
+
     private handleTranscriptPanelKeydown(event: KeyboardEvent): void {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         const target = event.target as HTMLElement;
@@ -3654,6 +3676,7 @@ export class SubtitlePlayerController {
         this.transcriptPanelClosing = false;
         this.prepareTranscriptPanelPlacementForOpen();
         panel.hidden = false;
+        this.syncTranscriptPanelFullscreenDisplayOverride();
         panel.classList.remove('jpdb-subtitle-panel-entering', 'jpdb-subtitle-panel-closing');
         panel.classList.add('jpdb-subtitle-panel-opened');
     }
@@ -3684,6 +3707,7 @@ export class SubtitlePlayerController {
         if (this.transcriptPanel !== panel) return;
         this.clearTranscriptPanelAnimation();
         panel.hidden = true;
+        this.syncTranscriptPanelFullscreenDisplayOverride();
         panel.classList.remove('jpdb-subtitle-panel-entering', 'jpdb-subtitle-panel-opened', 'jpdb-subtitle-panel-closing');
         this.transcriptPanelClosing = false;
         this.syncControls();
@@ -4127,9 +4151,12 @@ export class SubtitlePlayerController {
 
     private updateTranscriptActiveLine(currentIndex: number): void {
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing || this.panelMode !== 'lines') return;
-        this.transcriptPanel.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row.active')
-            .forEach(row => row.classList.remove('active'));
+        const activeRows = Array.from(this.transcriptPanel.querySelectorAll<HTMLElement>('.jpdb-subtitle-list-row.active'));
         const active = this.transcriptPanel.querySelector<HTMLElement>(`.jpdb-subtitle-list-row[data-row-index="${currentIndex}"]`);
+        if (active && activeRows.length === 1 && activeRows[0] === active) return;
+        activeRows.forEach(row => {
+            if (row !== active) row.classList.remove('active');
+        });
         if (active) active.classList.add('active');
         this.scrollTranscriptToActive();
     }
@@ -4834,12 +4861,13 @@ export class SubtitlePlayerController {
         skipControlSync?: boolean;
         skipResizeHandle?: boolean;
     } = {}): void {
-        if (this.fullscreen) {
-            this.clearVideoInsetForTranscriptPanel();
-            return;
-        }
         if (!this.transcriptPanel || this.transcriptPanel.hidden || this.transcriptPanelClosing) {
             this.clearVideoInsetForTranscriptPanel();
+            this.syncTranscriptPanelFullscreenDisplayOverride();
+            return;
+        }
+        if (this.fullscreen) {
+            this.positionFullscreenTranscriptPanel(options);
             return;
         }
         const panel = this.transcriptPanel;
@@ -4868,16 +4896,49 @@ export class SubtitlePlayerController {
             preferredPlacement: settings.subtitleTranscriptPlacement,
             size: this.transcriptPanelSize,
         }, referenceVideoRect);
+        this.commitTranscriptPanelLayout(panel, layout, options);
+        const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
+            resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred ? 'none' : options.skipInset ? 'settled' : 'immediate'),
+        });
+        if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
+    }
+
+    private positionFullscreenTranscriptPanel(options: {
+        skipControlSync?: boolean;
+        skipResizeHandle?: boolean;
+    } = {}): void {
+        const panel = this.transcriptPanel;
+        if (!panel) return;
+        this.clearVideoInsetForTranscriptPanel();
+        this.syncTranscriptPanelFullscreenDisplayOverride();
+        const viewport = this.transcriptViewportSize();
+        const viewportWidth = viewport.width;
+        const viewportHeight = viewport.height;
+        const layout = computeSubtitleDrawerLayout({
+            viewportWidth,
+            viewportHeight,
+            anchorTop: Math.max(0, this.videoLayoutRect().top),
+            compactPanel: shouldUseCompactSubtitleDrawer(viewportWidth),
+            preferredPlacement: this.options.getSettings().subtitleTranscriptPlacement,
+            size: this.transcriptPanelSize,
+        });
+        this.commitTranscriptPanelLayout(panel, layout, options);
+    }
+
+    private commitTranscriptPanelLayout(
+        panel: HTMLElement,
+        layout: TranscriptPanelLayout,
+        options: {
+            skipControlSync?: boolean;
+            skipResizeHandle?: boolean;
+        } = {},
+    ): void {
         const placementChanged = layout.placement !== this.effectiveTranscriptPlacement;
         applyTranscriptPanelLayout(panel, layout);
         this.effectiveTranscriptPlacement = layout.placement;
         if (placementChanged) this.syncTranscriptPlacementClass();
         if (!options.skipResizeHandle) this.syncTranscriptResizeHandle(layout);
         if (!options.skipControlSync) this.syncDrawerButtons(this.hasVisibleSubtitleLines());
-        const insetChanged = this.applyVideoInsetForTranscriptLayout(layout, referenceVideoRect, {
-            resizeEventMode: options.resizeEventMode ?? (this.transcriptPreviewPlayerResizeDeferred ? 'none' : options.skipInset ? 'settled' : 'immediate'),
-        });
-        if (!options.skipInset && options.realignAfterInset && insetChanged) this.scheduleTranscriptPanelRealignAfterInset();
     }
 
     private transcriptDrawerLayout(options: SubtitleDrawerLayoutOptions, referenceVideoRect: DOMRect): TranscriptPanelLayout {
@@ -5068,6 +5129,8 @@ export class SubtitlePlayerController {
         this.syncSubtitleRootParent(fullscreenHost);
         document.documentElement.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
         this.root?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
+        this.transcriptPanel?.classList.toggle('jpdb-subtitle-fullscreen', this.fullscreen);
+        this.syncTranscriptPanelFullscreenDisplayOverride();
         if (this.fullscreen) {
             this.clearVideoInsetForTranscriptPanel();
             return;
@@ -5079,15 +5142,34 @@ export class SubtitlePlayerController {
     private syncSubtitleRootParent(fullscreenHost: HTMLElement | null = this.subtitleFullscreenHost()): void {
         if (!this.root) return;
         // When the entire document is the fullscreen element (YouTube's desktop
-        // fullscreen promotes <html> to the top layer) the overlay already
-        // renders inside it through <body>; appending a <div> directly under
+        // fullscreen promotes <html> to the top layer) reader roots already
+        // render inside it through <body>; appending a <div> directly under
         // <html> is unnecessary and a non-standard place for it, so keep it in
         // <body>.
-        const parent = !fullscreenHost || fullscreenHost === document.documentElement
+        const parent = this.fullscreenReaderRootParent(fullscreenHost);
+        if (this.root.parentElement !== parent) parent.appendChild(this.root);
+        if (this.transcriptPanel && this.transcriptPanel.parentElement !== parent) parent.appendChild(this.transcriptPanel);
+    }
+
+    private fullscreenReaderRootParent(fullscreenHost: HTMLElement | null): HTMLElement {
+        return !fullscreenHost || fullscreenHost === document.documentElement
             ? document.body
             : fullscreenHost;
-        if (this.root.parentElement === parent) return;
-        parent.appendChild(this.root);
+    }
+
+    private syncTranscriptPanelFullscreenDisplayOverride(): void {
+        const panel = this.transcriptPanel;
+        if (!panel) return;
+        const shouldOverride = this.fullscreen && !panel.hidden && !this.transcriptPanelClosing;
+        if (shouldOverride) {
+            panel.style.setProperty('display', 'grid', 'important');
+            panel.dataset.jpdbFullscreenDisplayOverride = 'true';
+            return;
+        }
+        if (panel.dataset.jpdbFullscreenDisplayOverride === 'true') {
+            panel.style.removeProperty('display');
+            delete panel.dataset.jpdbFullscreenDisplayOverride;
+        }
     }
 
     private subtitleFullscreenHost(fullscreenElement: Element | null = currentFullscreenElement()): HTMLElement | null {

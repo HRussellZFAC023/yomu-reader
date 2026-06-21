@@ -3605,7 +3605,7 @@ describe('reader helpers', () => {
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word');
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; color: var(--jpdb-reader-source-jpdb-color');
         expect(normalizedCss).toContain('--jpdb-reader-word-inline-gap: 0.08em; --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap));');
-        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset)); border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: 0; border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
         expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');
         expect(normalizedCss).toContain(':has(> .jpdb-reader-word.jpdb-reader-has-furi) > .jpdb-reader-word { line-height: 1.85; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
@@ -8266,6 +8266,93 @@ describe('reader helpers', () => {
         } finally {
             controller.destroy();
             vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('aligns paused-video OCR boxes to fullscreen contain pixels after parsing is ready', async () => {
+        const player = document.createElement('div');
+        player.id = 'movie_player';
+        const video = document.createElement('video');
+        video.style.objectPosition = 'left center';
+        Object.defineProperties(video, {
+            videoWidth: { configurable: true, value: 1080 },
+            videoHeight: { configurable: true, value: 1920 },
+        });
+        video.getBoundingClientRect = () => testDomRect({ left: 0, top: 0, width: 1920, height: 1080 });
+        player.append(video);
+        document.body.replaceChildren(player);
+
+        let resolveParse: (tokens: JPDBToken[]) => void = () => undefined;
+        let resolveEnrich: () => void = () => undefined;
+        const parseJapanese = vi.fn(() => new Promise<JPDBToken[]>(resolve => { resolveParse = resolve; }));
+        const enrichTokensBeforeRender = vi.fn(() => new Promise<void>(resolve => { resolveEnrich = resolve; }));
+        const controller = new ImageOcrController({
+            getSettings: () => ({
+                ...DEFAULT_SETTINGS,
+                ocrEnabled: true,
+                ocrVideoPauseFrames: true,
+                ocrShowTextOverlay: true,
+                ocrProvider: 'google-lens' as const,
+                ocrMinImageArea: 1,
+                ocrConcurrency: 1,
+            }),
+            captureVideoFrame: () => 'data:image/jpeg;base64,ZmFrZQ==',
+            parseJapanese,
+            enrichTokensBeforeRender,
+            onToast: vi.fn(),
+            shouldAutoScan: () => true,
+        });
+
+        try {
+            controller.init();
+            video.dispatchEvent(new Event('pause'));
+
+            const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
+            expect(frame).not.toBeNull();
+            expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
+            expect(frame.dataset.ocrPending).toBe('true');
+            expect(Number.parseFloat(frame.style.left)).toBeCloseTo(0, 1);
+            expect(Number.parseFloat(frame.style.width)).toBeCloseTo(607.5, 1);
+
+            Object.defineProperties(frame, {
+                naturalWidth: { configurable: true, value: 540 },
+                naturalHeight: { configurable: true, value: 960 },
+            });
+            frame.getBoundingClientRect = () => testDomRect({
+                left: Number.parseFloat(frame.style.left),
+                top: Number.parseFloat(frame.style.top),
+                width: Number.parseFloat(frame.style.width),
+                height: Number.parseFloat(frame.style.height),
+            });
+            frame.dataset.ocrLines = JSON.stringify([
+                { text: '一人だった。', box: { left: 0, top: 420, width: 540, height: 80 } },
+            ]);
+            frame.dispatchEvent(new Event('load'));
+
+            await waitForExpect(() => expect(parseJapanese).toHaveBeenCalledWith('一人だった。', expect.any(Object)));
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+            expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
+
+            resolveParse([]);
+            await waitForExpect(() => expect(enrichTokensBeforeRender).toHaveBeenCalled());
+            expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
+            expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
+
+            resolveEnrich();
+            await waitForExpect(() => {
+                const overlay = document.querySelector<HTMLElement>('.jpdb-ocr-layer');
+                const line = document.querySelector<HTMLElement>('.jpdb-ocr-line');
+                expect(overlay).not.toBeNull();
+                expect(line).not.toBeNull();
+                expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
+                expect(Number.parseFloat(overlay?.style.left || '')).toBeCloseTo(0, 1);
+                expect(Number.parseFloat(overlay?.style.width || '')).toBeCloseTo(607.5, 1);
+                expect(Number.parseFloat(line?.style.left || '')).toBeCloseTo(0, 1);
+                expect(Number.parseFloat(line?.style.width || '')).toBeCloseTo(607.5, 1);
+            });
+        } finally {
+            controller.destroy();
             document.body.replaceChildren();
         }
     });
@@ -26650,6 +26737,7 @@ describe('reader helpers', () => {
             time: 0,
         });
         expect(loading.html).toContain('jpdb-subtitle-primary-loading');
+        expect(loading.html).toContain('今日は読む');
         expect(loading.shouldRequestParse).toBe(true);
 
         const parsed = renderSubtitlePrimary({
@@ -32064,6 +32152,87 @@ describe('reader helpers', () => {
         ]);
     });
 
+    it('sweeps visible Japanese comments controls and nav after generic prose', () => {
+        const rectSpy = mockElementBoundingClientRect();
+        document.body.innerHTML = `
+            <main>
+                <article>
+                    <h1>青空の下で日本語を読む</h1>
+                    <p>今日は静かな喫茶店で新しい本を読みました。</p>
+                </article>
+            </main>
+            <nav><a href="/back">戻る</a></nav>
+            <aside>
+                <button type="button">保存する</button>
+                <div class="comment">短いコメントです</div>
+            </aside>
+        `;
+
+        const targets = collectScanTargets(20, 'https://example.com/article');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '青空の下で日本語を読む',
+            '今日は静かな喫茶店で新しい本を読みました。',
+            '戻る',
+            '保存する',
+            '短いコメントです',
+        ]));
+        expect(targets.find(target => target.text === '短いコメントです')).toMatchObject({
+            parserId: 'residual-visible-japanese-parser',
+        });
+    });
+
+    it('keeps residual visible Japanese from starving on already-seen prose', () => {
+        const rectSpy = mockElementBoundingClientRect();
+        document.body.innerHTML = `
+            <main>
+                <article>
+                    <h1>青空の下で日本語を読む</h1>
+                    <p>今日は静かな喫茶店で新しい本を読みました。</p>
+                </article>
+            </main>
+            <nav><a href="/back">戻る</a></nav>
+            <aside>
+                <button type="button">保存する</button>
+                <div class="comment">短いコメントです</div>
+            </aside>
+        `;
+
+        const targets = collectScanTargets(5, 'https://example.com/article');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual([
+            '青空の下で日本語を読む',
+            '今日は静かな喫茶店で新しい本を読みました。',
+            '戻る',
+            '保存する',
+            '短いコメントです',
+        ]);
+        expect(targets.at(-1)).toMatchObject({
+            parserId: 'residual-visible-japanese-parser',
+        });
+    });
+
+    it('still parses visible Japanese on parser-disabled storefront pages', () => {
+        const rectSpy = mockElementBoundingClientRect();
+        document.body.innerHTML = `
+            <main>
+                <button type="button">購入する</button>
+                <p>セール情報を読む</p>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://bookwalker.jp/');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual([
+            '購入する',
+            'セール情報を読む',
+        ]);
+        expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
+    });
+
     it('keeps split inline kana as one automatic scan target', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
@@ -33649,23 +33818,11 @@ describe('reader helpers', () => {
             'ホーム',
         ]));
         const subscriptions = targets.find(target => target.text === '登録チャンネル')!;
-        expect(subscriptions).toMatchObject({ passiveInteraction: true, nonDestructive: true });
+        const home = targets.find(target => target.text === 'ホーム')!;
+        expect('parserId' in subscriptions && subscriptions.parserId).toMatch(/^youtube-(comments|watch-guide|chrome)-parser$/);
+        expect('parserId' in home && home.parserId).toMatch(/^youtube-(comments|watch-guide|chrome)-parser$/);
         expect(subscriptions.suppressRuby).not.toBe(true);
-
-        applyTokensToScanTarget(subscriptions, [{
-            card: { ...card, cardState: ['known'], spelling: '登録', reading: 'とうろく', source: 'jpdb' },
-            start: 0,
-            end: 2,
-            length: 2,
-            rubies: [{ text: 'とうろく', start: 0, end: 2, length: 2 }],
-            pitchClass: 'heiban',
-            sentence: '登録チャンネル',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
-
-        const word = document.querySelector<HTMLElement>('ytd-guide-renderer .jpdb-reader-word')!;
-        expect(readerWordSurfaceText(word)).toBe('登録');
-        expect(word.querySelector('rt')?.textContent).toBe('とうろく');
-        expectRenderedPitchWord(word, 'heiban');
+        expect(home.suppressRuby).not.toBe(true);
     });
 
     it('scans YouTube comment action controls as passive hover targets while comment text remains active', () => {
@@ -34186,7 +34343,7 @@ describe('reader helpers', () => {
         ]));
     });
 
-    it('scans YouTube masthead chrome passively without touching mini-guide labels', () => {
+    it('scans YouTube masthead and mini-guide chrome passively', () => {
         const targets = collectYouTubeTargets(`
             <ytd-masthead>
                 <yt-button-shape>
@@ -34221,12 +34378,13 @@ describe('reader helpers', () => {
 
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '作成',
-        ]));
-        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             'ホーム',
             '登録チャンネル',
+        ]));
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             '押下中',
         ]));
+        expect(targets.every(target => target.passiveInteraction === true)).toBe(true);
 
         const create = targets.find(target => target.text === '作成')!;
         applyTokensToScanTarget(create, [{
@@ -34243,8 +34401,19 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(createWord)).toBe('作成');
         expect(createWord.dataset.jpdbReaderPassive).toBe('true');
         expect(createWord.tabIndex).toBe(-1);
-        expect(document.querySelector('ytd-mini-guide-renderer .jpdb-reader-text-mirror')).toBeNull();
-        expect(document.querySelector('ytd-mini-guide-renderer .jpdb-reader-word')).toBeNull();
+        const home = targets.find(target => target.text === 'ホーム')!;
+        applyTokensToScanTarget(home, [{
+            card: { ...card, cardState: ['known'], spelling: 'ホーム', reading: 'ほーむ', source: 'jpdb' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'ほーむ', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: 'ホーム',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        const homeWord = document.querySelector<HTMLElement>('ytd-mini-guide-renderer .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(homeWord)).toBe('ホーム');
+        expect(homeWord.dataset.jpdbReaderPassive).toBe('true');
     });
 
     it('scans modern YouTube view-model chrome passively', () => {
@@ -34271,8 +34440,6 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '作成',
             '関連動画',
-        ]));
-        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
             'ホーム',
         ]));
         expect(targets.every(target => target.passiveInteraction === true)).toBe(true);

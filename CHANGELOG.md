@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.50] - 2026-06-21
+
+### Fixed
+
+- Hover lookup audio now attempts and preloads immediately even before the page has browser-level user activation, fixing hover cards that stayed in the audio loading state while clicked cards played.
+- YouTube comments now render ruby/pitch inline without falling back to text mirrors that make every short comment look overflowed and show "詳細".
+- YouTube chrome text, mobile controls, guide labels, and comment buttons stay in the ruby/pitch scan path while native caption windows remain reserved for YouTube itself.
+- Generic page scanning now does a final visible-Japanese sweep across comments, nav, buttons, tabs, and other UI text on ordinary pages, while BookWalker storefront chrome and other parser-disabled/native profiles keep their DOM opt-outs.
+- Subtitle primary text no longer flashes unparsed while parser enrichment is pending; lines render only after parsed furigana/pitch-ready HTML is available.
+
 ## [1.4.49] - 2026-06-21
 
 ### Changed

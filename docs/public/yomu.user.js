@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.49
+// @version      1.4.50
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.49#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.49#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.49#sha256-p062IrP6bRM1RQtlYLUUJ+XKwWa8BdgtuqJo+uA5Yy8=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.49#sha256-Kgq39K6GyCEtkgHN6g1RML9+RHP6QPM/IiPnUBdgHeY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.50#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.50#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.50#sha256-p062IrP6bRM1RQtlYLUUJ+XKwWa8BdgtuqJo+uA5Yy8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.50#sha256-Ek/hjvUScS2GImrRHlUJ7q/wEaUeEb4ANfowFYC/y8A=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -51,7 +51,6 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
-
 /* Bundled dependency source information: fflate*/
 
 (function () {
@@ -30696,11 +30695,14 @@ ${normalizedReading}`;
     "rp",
     "[hidden]",
     '[aria-hidden="true"]',
-    '[contenteditable="true"]'
+    '[contenteditable="true"]',
+    "details:not([open]) > :not(summary)",
+    "details:not([open]) > :not(summary) *"
   ];
   const COMMON_EXCLUDE = STRUCTURAL_EXCLUDE_ENTRIES.join(",");
   const ASBPLAYER_ROOT_SELECTOR = ".asbplayer-offscreen, .asbplayer-subtitles-container-bottom";
   const DEFAULT_SCAN_TARGET_LIMIT = Number.POSITIVE_INFINITY;
+  const RESIDUAL_VISIBLE_JAPANESE_PARSER_ID = "residual-visible-japanese-parser";
   const MOKURO_SCAN_ROOT_LIMIT = 160;
   const MOKURO_SCAN_MARGIN_VIEWPORTS = 0.75;
   const GENERIC_PROSE_ROOTS = [
@@ -30876,14 +30878,9 @@ ${normalizedReading}`;
     ".caption-window",
     ".captions-text"
   ];
-  const YT_NAV_CHROME_EXCLUDE_ENTRIES = [
-    "ytd-mini-guide-renderer",
-    "ytd-guide-renderer"
-  ];
   const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     ...STRUCTURAL_EXCLUDE_ENTRIES,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-    ...YT_NAV_CHROME_EXCLUDE_ENTRIES,
     "[disabled]",
     '[aria-disabled="true"]'
   ];
@@ -30973,15 +30970,28 @@ ${normalizedReading}`;
     "ytd-masthead .ytSearchboxComponentInputBox",
     "ytd-masthead .ytSearchboxComponentSearchButton",
     "ytd-masthead .ytAttributedStringHost",
-    "ytd-masthead yt-attributed-string"
+    "ytd-masthead yt-attributed-string",
+    "ytd-masthead ~ ytd-mini-guide-renderer ytd-mini-guide-entry-renderer",
+    "ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer"
+  ];
+  const YOUTUBE_GUIDE_EXCLUDE_ENTRIES = [
+    "ytd-mini-guide-renderer",
+    "ytd-guide-renderer"
   ];
   const YOUTUBE_TEXT_EXCLUDE = [
+    COMMON_EXCLUDE,
+    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
+    ...YOUTUBE_GUIDE_EXCLUDE_ENTRIES
+  ].join(",");
+  const YOUTUBE_WATCH_GUIDE_ROOTS = [
+    "ytd-mini-guide-renderer",
+    "ytd-guide-renderer"
+  ];
+  const YOUTUBE_WATCH_GUIDE_EXCLUDE = [
     COMMON_EXCLUDE,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES
   ].join(",");
   const YOUTUBE_MOBILE_CHROME_ROOTS = [
-    "ytd-mini-guide-renderer",
-    "ytd-guide-renderer",
     "ytm-pivot-bar-renderer",
     "ytm-pivot-bar-item-renderer",
     "ytm-mobile-topbar-renderer",
@@ -31056,8 +31066,6 @@ ${normalizedReading}`;
   const SITE_PARSER_PROFILES = [
     {
       id: YOMU_HOSTED_DOCS_PARSER_ID,
-      name: "Yomu hosted docs",
-      description: "Hosted Yomu docs Japanese text.",
       roots: YOMU_HOSTED_DOCS_ROOTS,
       exclude: YOMU_HOSTED_DOCS_EXCLUDE,
       allowUiText: true,
@@ -31070,8 +31078,6 @@ ${normalizedReading}`;
     },
     {
       id: "yomu-video-player-parser",
-      name: "Yomu video player",
-      description: "Hosted Yomu video-player Japanese controls and empty-state text.",
       roots: YOMU_VIDEO_PLAYER_ROOTS,
       exclude: COMMON_EXCLUDE,
       allowUiText: true,
@@ -31083,8 +31089,6 @@ ${normalizedReading}`;
     },
     {
       id: "yomu-pdf-reader-parser",
-      name: "Yomu PDF reader",
-      description: "Hosted Yomu PDF reader text layer and Japanese controls.",
       roots: YOMU_PDF_READER_ROOTS,
       exclude: YOMU_PDF_READER_EXCLUDE,
       allowUiText: true,
@@ -31097,8 +31101,6 @@ ${normalizedReading}`;
     },
     {
       id: "google-search-parser",
-      name: "Google Search",
-      description: "Google result titles and snippets without inline ruby.",
       roots: [GOOGLE_SEARCH_ROOTS],
       exclude: GOOGLE_SEARCH_EXCLUDE,
       allowUiText: true,
@@ -31109,8 +31111,6 @@ ${normalizedReading}`;
     },
     {
       id: BLOOMEE_LANDING_PARSER_ID,
-      name: "Bloomee landing page",
-      description: "Bloomee landing page point headings and supporting Japanese copy.",
       roots: [BLOOMEE_LANDING_ROOTS],
       exclude: COMMON_EXCLUDE,
       allowUiText: true,
@@ -31121,8 +31121,6 @@ ${normalizedReading}`;
     },
     {
       id: BOOKWALKER_STOREFRONT_PARSER_ID,
-      name: "BookWalker storefront",
-      description: "BookWalker storefront chrome and carousels opt out of generic DOM scans.",
       roots: [],
       disableGenericDomScan: true,
       includePassiveInteractionRoots: false,
@@ -31130,8 +31128,6 @@ ${normalizedReading}`;
     },
     {
       id: JPDB_PARSER_ID,
-      name: "JPDB",
-      description: "JPDB dictionary, review, and search result Japanese text.",
       roots: [
         ".subsection-spelling ruby.v",
         ".result.vocabulary",
@@ -31158,8 +31154,6 @@ ${normalizedReading}`;
     },
     {
       id: "jisho-parser",
-      name: "Jisho",
-      description: "Jisho word, kanji, and example sentence result text.",
       roots: [
         ".concept_light-representation .text",
         ".concept_light-readings .text",
@@ -31180,8 +31174,6 @@ ${normalizedReading}`;
     },
     {
       id: "jiten-parser",
-      name: "Jiten",
-      description: "Jiten dictionary, parse, vocabulary, and example sentence text.",
       roots: [
         '[lang="ja"]',
         "blockquote",
@@ -31197,8 +31189,6 @@ ${normalizedReading}`;
     },
     {
       id: "weblio-parser",
-      name: "Weblio",
-      description: "Weblio dictionary result text.",
       roots: ["#main", "#mainContents", ".mainBlock", ".NetDicBody", ".kiji", "main", "article"],
       exclude: DICTIONARY_SITE_EXCLUDE,
       allowUiText: true,
@@ -31207,8 +31197,6 @@ ${normalizedReading}`;
     },
     {
       id: "kotobank-parser",
-      name: "Kotobank",
-      description: "Kotobank dictionary and encyclopedia result text.",
       roots: ["main", "article", ".description", ".ex.cf", ".dictype", ".articleBody"],
       exclude: DICTIONARY_SITE_EXCLUDE,
       allowUiText: true,
@@ -31217,8 +31205,6 @@ ${normalizedReading}`;
     },
     {
       id: "takoboto-parser",
-      name: "Takoboto",
-      description: "Takoboto dictionary result and example sentence text.",
       roots: ["#SearchResultList", "#results", "#main", ".result", ".entry", "main", "article"],
       exclude: DICTIONARY_SITE_EXCLUDE,
       allowUiText: true,
@@ -31228,8 +31214,6 @@ ${normalizedReading}`;
     },
     {
       id: "wiktionary-ja-parser",
-      name: "Japanese Wiktionary",
-      description: "Japanese Wiktionary entry text.",
       roots: ["#firstHeading", "#mw-content-text .mw-parser-output"],
       exclude: [
         DICTIONARY_SITE_EXCLUDE,
@@ -31242,43 +31226,31 @@ ${normalizedReading}`;
     },
     {
       id: "luna-translator-parser",
-      name: "Luna Translator",
-      description: "Local LunaTranslator transcript windows.",
       roots: [".lunatranslator_clickword", ".lunatranslator_text_all", ".origin"],
       matches: (url) => url.protocol === "file:" && /LunaTranslator.*(?:mainui|transhist)\.html/i.test(decodeURIComponent(url.pathname))
     },
     {
       id: "texthooker-parser",
-      name: "Texthooker",
-      description: "Hooked game text from common texthooker pages.",
       roots: ["#textlog", "main", ".textline", ".line_box", ".my-2.cursor-pointer", "p"],
       matches: (url) => /^(anacreondjt\.gitlab\.io|learnjapanese\.moe)$/.test(url.hostname) || url.hostname === "renji-xd.github.io" || /\/texthooker\/?$/.test(url.pathname)
     },
     {
       id: "exstatic-parser",
-      name: "ExStatic",
-      description: "ExStatic sentence tracker entries.",
       roots: [".sentence-entry", "#entry_holder"],
       matches: (url) => url.hostname === "kamwithk.github.io" && url.pathname.endsWith("/exSTATic/tracker.html")
     },
     {
       id: "readwok-parser",
-      name: "Readwok",
-      description: "Readwok reader paragraphs.",
       roots: ['div[class*="styles_paragraph_"]', 'div[class*="styles_reader_"]'],
       matches: (url) => url.hostname === "app.readwok.com"
     },
     {
       id: "ttsu-parser",
-      name: "Ttsu",
-      description: "Ttsu book reader content.",
       roots: ["div.book-content", "div.book-content-container", "#book-content"],
       matches: (url) => url.hostname === "reader.ttsu.app"
     },
     {
       id: "tadoku-parser",
-      name: "Tadoku",
-      description: "Tadoku book titles, descriptions, metadata, and readable book pages.",
       roots: [
         ".bd-title h1",
         ".bd-desc-jp",
@@ -31300,8 +31272,6 @@ ${normalizedReading}`;
     },
     {
       id: "youtube-live-chat-frame-parser",
-      name: "YouTube live chat frame",
-      description: "Japanese live-chat frame messages, chrome, and fallback/error text.",
       roots: [
         "yt-live-chat-text-message-renderer #author-name",
         "yt-live-chat-text-message-renderer #message",
@@ -31333,8 +31303,6 @@ ${normalizedReading}`;
     },
     {
       id: "youtube-comments-parser",
-      name: "YouTube text",
-      description: "Japanese descriptions, comments, live chat, and watch UI in YouTube views.",
       roots: [
         "ytd-transcript-segment-renderer",
         "ytm-transcript-segment-renderer",
@@ -31409,9 +31377,19 @@ ${normalizedReading}`;
       matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
     },
     {
+      id: "youtube-watch-guide-parser",
+      roots: YOUTUBE_WATCH_GUIDE_ROOTS,
+      exclude: YOUTUBE_WATCH_GUIDE_EXCLUDE,
+      allowUiText: true,
+      minLength: 1,
+      includeUiChrome: true,
+      singlePassScan: true,
+      nonDestructive: true,
+      includePassiveInteractionRoots: false,
+      matches: (url) => (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be") && url.pathname === "/watch"
+    },
+    {
       id: "youtube-chrome-parser",
-      name: "YouTube chrome",
-      description: "Stable Japanese YouTube chips and topbar controls.",
       roots: YOUTUBE_CHROME_ROOTS,
       exclude: YOUTUBE_TEXT_EXCLUDE,
       allowUiText: true,
@@ -31424,8 +31402,6 @@ ${normalizedReading}`;
     },
     {
       id: "cijapanese-transcript-parser",
-      name: "Comprehensible Japanese",
-      description: "Comprehensible Japanese video transcripts with native furigana.",
       roots: [
         ".transcript",
         '[data-tab-type="transcript"]'
@@ -31440,8 +31416,6 @@ ${normalizedReading}`;
     },
     {
       id: "mokuro-parser",
-      name: "Mokuro",
-      description: "Mokuro manga text boxes.",
       roots: [".textBox", "#manga-panel .textBox", "#pagesContainer .textBox", ".volume-card__title"],
       allowUiText: true,
       minLength: 1,
@@ -31455,8 +31429,6 @@ ${normalizedReading}`;
     },
     {
       id: "wikipedia-parser",
-      name: "Japanese Wikipedia",
-      description: "Japanese Wikipedia article text and previews.",
       roots: ["#firstHeading", "#mw-content-text", ".mwe-popups-extract"],
       exclude: [
         COMMON_EXCLUDE
@@ -31468,8 +31440,6 @@ ${normalizedReading}`;
     },
     {
       id: "satori-reader-parser",
-      name: "Satori Reader",
-      description: "Satori Reader article text.",
       roots: ["#article-content"],
       exclude: [COMMON_EXCLUDE, ".fg", ".wpr"].join(","),
       allowUiText: true,
@@ -31478,8 +31448,6 @@ ${normalizedReading}`;
     },
     {
       id: "nhk-parser",
-      name: "NHK Easy",
-      description: "NHK Easy visible page text with native ruby.",
       roots: [
         "body"
       ],
@@ -31495,8 +31463,6 @@ ${normalizedReading}`;
     },
     {
       id: "nhk-news-parser",
-      name: "NHK",
-      description: "NHK article text with native ruby.",
       roots: [
         "#main article",
         "#main",
@@ -31510,15 +31476,11 @@ ${normalizedReading}`;
     },
     {
       id: "bunpro-parser",
-      name: "Bunpro",
-      description: "Bunpro graded reader and study sections.",
       roots: ["article", "div.mx-auto", '[id^="study-question-"]'],
       matches: (url) => url.hostname === "bunpro.jp" || url.hostname.endsWith(".bunpro.jp")
     },
     {
       id: "asbplayer-parser",
-      name: "asbplayer",
-      description: "asbplayer subtitle overlays.",
       roots: [".asbplayer-offscreen", ".asbplayer-subtitles-container-bottom"],
       matches: () => Boolean(document.querySelector(ASBPLAYER_ROOT_SELECTOR))
     }
@@ -31664,12 +31626,9 @@ ${normalizedReading}`;
     return siteScanExcludeSelector(profile);
   }
   function addUniqueSiteScanTarget(profile, target, context) {
-    const nodes = textNodesForFragmentTarget(target);
-    if (!nodes.length || nodes.some((node) => context.seen.has(node))) return false;
-    if (isResidualReaderParticleTarget(target)) return false;
-    nodes.forEach((node) => context.seen.add(node));
-    context.targets.push(siteScanTargetWithProfileOptions(profile, target));
-    return true;
+    return appendAdmittedFragmentTarget(context.targets, context.seen, target, {
+      transform: (candidate) => siteScanTargetWithProfileOptions(profile, candidate)
+    });
   }
   function siteScanTargetWithProfileOptions(profile, target) {
     const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
@@ -31698,7 +31657,7 @@ ${normalizedReading}`;
     return parent.matches("ytd-comment-view-model, ytm-comment-renderer") && Boolean(parent.querySelector("#content-text"));
   }
   function isYouTubeSiteParserProfile(profile) {
-    return profile.id === "youtube-comments-parser" || profile.id === "youtube-chrome-parser" || profile.id === "youtube-live-chat-parser";
+    return profile.id === "youtube-comments-parser" || profile.id === "youtube-chrome-parser" || profile.id === "youtube-watch-guide-parser" || profile.id === "youtube-live-chat-parser";
   }
   function shouldSuppressSiteScanRuby(profile, target) {
     if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
@@ -31755,19 +31714,89 @@ ${normalizedReading}`;
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
-    if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) return baseTargets;
+    if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
+      return shouldCollectResidualForDisabledProfiles(matchingProfiles) ? withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles) : baseTargets;
+    }
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
-    if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) return [...baseTargets, ...profileUiChromeTargets];
+    if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
+      return [...baseTargets, ...profileUiChromeTargets];
+    }
     const genericTargets = collectGenericProseTargets(effectiveLimit - baseTargets.length - profileUiChromeTargets.length, [...baseTargets, ...profileUiChromeTargets]);
     const uiChromeTargets = collectSafeUiChromeTargets(
       effectiveLimit - baseTargets.length - profileUiChromeTargets.length - genericTargets.length,
       [...baseTargets, ...profileUiChromeTargets, ...genericTargets]
     );
-    if (baseTargets.length || profileUiChromeTargets.length || genericTargets.length || uiChromeTargets.length) {
-      return [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
-    }
+    const collectedTargets = [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
+    const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles);
+    if (targetsWithResidual.length) return targetsWithResidual;
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
-    return broadTargets.length ? broadTargets : collectVisibleTextTargets(effectiveLimit);
+    const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles);
+    if (broadWithResidual.length) return broadWithResidual;
+    return collectVisibleTextTargets(effectiveLimit);
+  }
+  function withResidualVisibleJapaneseTargets(targets, effectiveLimit, profiles) {
+    const remaining = effectiveLimit - targets.length;
+    if (remaining <= 0) return targets;
+    const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles);
+    return residual.length ? [...targets, ...residual] : targets;
+  }
+  function shouldCollectResidualForDisabledProfiles(profiles) {
+    if (profiles.some((profile) => profile.id === BOOKWALKER_STOREFRONT_PARSER_ID)) {
+      return !hasBookWalkerStorefrontChrome();
+    }
+    return true;
+  }
+  function hasBookWalkerStorefrontChrome() {
+    return Boolean(document.querySelector([
+      "header nav",
+      ".top-carousel",
+      ".sidebar",
+      '[class*="carousel" i]',
+      'a[href="/ranking/"]',
+      'a[href="/genre/"]',
+      'button[aria-label*="おすすめ"]'
+    ].join(",")));
+  }
+  function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, _href = window.location.href) {
+    if (limit <= 0 || !document.body) return [];
+    const collection = {
+      targets: [],
+      seen: seenTextNodes(existingTargets),
+      limit
+    };
+    const candidateLimit = residualVisibleJapaneseCandidateLimit(limit, existingTargets.length);
+    const collected = collectFragmentTextTargetsIn(document.body, candidateLimit, true, residualVisibleJapaneseExcludeSelector(profiles), {
+      allowUiText: true,
+      includeUiChrome: true,
+      includeFormChrome: true,
+      includeTabChrome: true,
+      includePassiveInteractions: true,
+      heading: true,
+      minLength: 1
+    });
+    for (const target of collected) {
+      appendGenericProseTarget(collection.targets, collection.seen, {
+        ...target,
+        parserId: RESIDUAL_VISIBLE_JAPANESE_PARSER_ID
+      });
+      if (genericProseCollectionFull(collection)) break;
+    }
+    return collection.targets;
+  }
+  function residualVisibleJapaneseCandidateLimit(limit, existingTargetCount) {
+    if (!Number.isFinite(limit)) return limit;
+    return Math.max(limit, existingTargetCount + limit + 24);
+  }
+  function residualVisibleJapaneseExcludeSelector(profiles) {
+    const entries = [COMMON_EXCLUDE];
+    if (profiles.some(isYouTubeSiteParserProfile)) {
+      entries.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
+      entries.push(...YOUTUBE_GUIDE_EXCLUDE_ENTRIES);
+    }
+    if (profiles.some((profile) => profile.id === JPDB_PARSER_ID)) {
+      entries.push(".subsection-spelling.with-furigana > :not(.primary-spelling)");
+    }
+    return entries.join(",");
   }
   function completeSiteScanTargets(profiles, limit, href) {
     if (!profiles.length) return null;
@@ -31927,18 +31956,28 @@ ${normalizedReading}`;
   function genericProseCollectionFull(collection) {
     return genericProseRemaining(collection) <= 0;
   }
-  function appendGenericProseTarget(targets, seen, target) {
+  function appendGenericProseTarget(targets, seen, target, options) {
+    const admissionOptions = { defaultParserId: "generic-prose-parser" };
+    return appendAdmittedFragmentTarget(targets, seen, target, admissionOptions);
+  }
+  function appendAdmittedFragmentTarget(targets, seen, target, options = {}) {
     const nodes = textNodesForFragmentTarget(target);
-    if (!nodes.length) return false;
+    if (!nodes.length || nodes.some((node) => seen.has(node))) return false;
+    if (options.reject?.(target)) return false;
     if (isResidualReaderParticleTarget(target)) return false;
-    if (nodes.some((node) => seen.has(node))) return false;
+    if (isResidualJpdbAlternateSpellingTarget(target)) return false;
     nodes.forEach((node) => seen.add(node));
-    targets.push({ ...target, parserId: target.parserId ?? "generic-prose-parser" });
+    const admittedTarget = options.transform ? options.transform(target) : { ...target, parserId: target.parserId ?? options.defaultParserId };
+    targets.push(admittedTarget);
     return true;
   }
   function isResidualReaderParticleTarget(target) {
     const text2 = target.text.replace(/\s+/g, "");
     return /^[のはをがにでへもとやかねよな]$/u.test(text2) && Boolean(target.parent.querySelector(".jpdb-reader-word"));
+  }
+  function isResidualJpdbAlternateSpellingTarget(target) {
+    const spelling = target.parent.closest(".subsection-spelling.with-furigana");
+    return Boolean(spelling && !target.parent.closest(".primary-spelling"));
   }
   function textNodesForFragmentTarget(target) {
     const nodes = [];
@@ -36763,7 +36802,7 @@ ${reading}`);
   background: var(--jpdb-reader-faint, #687384);
 }
 .jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) transparent var(--yw)!important;text-underline-offset:var(--yo)!important}
-.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:calc(-1 * var(--yo));border-block-end:var(--yw) var(--ys) var(--yu,transparent);pointer-events:none}
+.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,transparent);pointer-events:none}
 ${criticalWordCss()}
 `.trim();
   function initialReaderCss(css = READER_CSS) {

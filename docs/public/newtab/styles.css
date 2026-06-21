@@ -5207,7 +5207,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   position: absolute;
   z-index: 1;
   inset-inline: var(--jpdb-reader-word-inline-gap);
-  inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
+  inset-block-end: 0;
   border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
   pointer-events: none;
 }
@@ -15117,7 +15117,6 @@ html.jpdb-subtitle-video-inset-right ytd-watch-flexy #primary {
 html.jpdb-subtitle-video-inset-left ytd-watch-flexy #primary {
   margin-right: 0 !important;
 }
-html.jpdb-subtitle-fullscreen .jpdb-subtitle-list,
 html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   display: none !important;
 }
@@ -15390,6 +15389,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   border-radius: 0;
   background: transparent;
   cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+  will-change: background-color, box-shadow;
 }
 .jpdb-subtitle-row-body {
   min-width: 0;

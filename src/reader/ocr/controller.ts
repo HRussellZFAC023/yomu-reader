@@ -1878,6 +1878,8 @@ function setOcrLinePosition(element: HTMLElement, result: OcrResult, line: OcrLi
 }
 
 function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: OcrResult | undefined): OcrRenderedImageFrame {
+    const pausedVideoFrame = renderedPausedVideoFrame(image, rect);
+    if (pausedVideoFrame) return pausedVideoFrame;
     const style = getComputedStyle(image);
     const content = imageContentBox(image, rect, style);
     const { sourceWidth, sourceHeight } = ocrSourceDimensions(image, rect, content, result);
@@ -1888,6 +1890,16 @@ function renderedOcrImageFrame(image: HTMLImageElement, rect: DOMRect, result: O
         imageTop: content.top + offset.y,
         imageWidth: Math.max(1, object.width),
         imageHeight: Math.max(1, object.height),
+    };
+}
+
+function renderedPausedVideoFrame(image: HTMLImageElement, rect: DOMRect): OcrRenderedImageFrame | null {
+    if (image.dataset.yomuVideoFrame !== 'true') return null;
+    return {
+        imageLeft: 0,
+        imageTop: 0,
+        imageWidth: Math.max(1, rect.width),
+        imageHeight: Math.max(1, rect.height),
     };
 }
 
@@ -2952,15 +2964,32 @@ function videoContentBox(rect: DOMRect, video: HTMLVideoElement): { left: number
     const intrinsicWidth = video.videoWidth;
     const intrinsicHeight = video.videoHeight;
     if (!intrinsicWidth || !intrinsicHeight || !rect.width || !rect.height) return rect;
-    const scale = Math.min(rect.width / intrinsicWidth, rect.height / intrinsicHeight);
-    const width = intrinsicWidth * scale;
-    const height = intrinsicHeight * scale;
+    const style = getComputedStyle(video);
+    const object = fittedObjectSize(videoObjectFit(style.objectFit), intrinsicWidth, intrinsicHeight, rect.width, rect.height);
+    const offset = objectPositionOffset(style.objectPosition || '50% 50%', rect.width - object.width, rect.height - object.height);
     return {
-        left: rect.left + (rect.width - width) / 2,
-        top: rect.top + (rect.height - height) / 2,
-        width,
-        height,
+        left: rect.left + offset.x,
+        top: rect.top + offset.y,
+        width: object.width,
+        height: object.height,
     };
+}
+
+function videoObjectFit(value: string): string {
+    switch (value) {
+        case 'contain':
+        case 'cover':
+        case 'none':
+        case 'scale-down':
+            return value;
+        case 'fill':
+        default:
+            // YouTube commonly sizes the <video> as a player surface while the
+            // actual frame is aspect-preserved within it. Preserve the existing
+            // contain-fit behavior unless the page explicitly opts into another
+            // fit mode.
+            return 'contain';
+    }
 }
 
 function imageCacheKey(image: HTMLImageElement): string {

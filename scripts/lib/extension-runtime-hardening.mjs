@@ -22,7 +22,7 @@ export function hardenExtensionBackgroundSource(source) {
     return installExtensionScreenshotBridgeSource(hardened);
 }
 
-export function installExtensionScreenshotBridgeSource(source) {
+function installExtensionScreenshotBridgeSource(source) {
     if (source.includes(SCREENSHOT_BRIDGE_MARKER)) return source;
     return `${source}\n\n${extensionScreenshotBridgeSource()}\n`;
 }

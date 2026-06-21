@@ -51,7 +51,7 @@
   position: absolute;
   z-index: 1;
   inset-inline: var(--jpdb-reader-word-inline-gap);
-  inset-block-end: calc(-1 * var(--jpdb-reader-word-underline-offset));
+  inset-block-end: 0;
   border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent);
   pointer-events: none;
 }
