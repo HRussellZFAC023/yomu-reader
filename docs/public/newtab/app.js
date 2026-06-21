@@ -23634,59 +23634,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function findRecommendedDictionary(id) {
     return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
   }
-  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
-  const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
-  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
-  const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
-  const MIN_SHEET_HEIGHT_PX = 180;
-  const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
-  const SHEET_DISMISS_OVERSHOOT_PX = 72;
-  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
-  const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
-  const SHEET_TAP_MOVEMENT_PX = 8;
-  const SHEET_KEYBOARD_STEP_PX = 48;
-  const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
-  const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
-  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
-  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
-  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
-  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
-  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
-  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
-  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
-  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
-  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
-  const POPOVER_BODY_ACTION_SELECTOR = [
-    "button",
-    '[role="button"]',
-    "input",
-    "select",
-    "textarea",
-    "[data-action]",
-    "[data-immersion-action]",
-    "[data-yomu-immersion-action]",
-    "[data-uchisen-action]"
-  ].join(",");
-  function popoverScrollBody$1(popover) {
-    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
-  }
-  function capturePopoverScrollFrame(target) {
-    const popover = target.closest(".jpdb-reader-popover") ?? target;
-    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
-    return { scrollBody, scrollTop: scrollBody.scrollTop };
-  }
-  function restorePopoverScrollFrame(frame) {
-    if (!frame.scrollBody.isConnected) return;
-    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
-  }
-  function restorePopoverScrollFrameSoon(frame) {
-    restorePopoverScrollFrame(frame);
-    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
-  }
-  function popoverBodyActionElement(target, scrollBody) {
-    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
-    return action && scrollBody.contains(action) ? action : null;
-  }
   function createHandleDragController(options) {
     let state2 = initialDragState();
     let pointerId = 0;
@@ -23878,6 +23825,59 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     window.addEventListener("orientationchange", listener, options);
     window.visualViewport?.addEventListener?.("resize", listener, options);
     window.visualViewport?.addEventListener?.("scroll", listener, options);
+  }
+  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
+  const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
+  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+  const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
+  const MIN_SHEET_HEIGHT_PX = 180;
+  const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
+  const SHEET_DISMISS_OVERSHOOT_PX = 72;
+  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SHEET_TAP_MOVEMENT_PX = 8;
+  const SHEET_KEYBOARD_STEP_PX = 48;
+  const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
+  const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
+  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
+  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
+  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
+  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
+  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
+  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
+  const POPOVER_BODY_ACTION_SELECTOR = [
+    "button",
+    '[role="button"]',
+    "input",
+    "select",
+    "textarea",
+    "[data-action]",
+    "[data-immersion-action]",
+    "[data-yomu-immersion-action]",
+    "[data-uchisen-action]"
+  ].join(",");
+  function popoverScrollBody$1(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function capturePopoverScrollFrame(target) {
+    const popover = target.closest(".jpdb-reader-popover") ?? target;
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+  }
+  function restorePopoverScrollFrame(frame) {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+  }
+  function restorePopoverScrollFrameSoon(frame) {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+  }
+  function popoverBodyActionElement(target, scrollBody) {
+    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
+    return action && scrollBody.contains(action) ? action : null;
   }
   function createReaderPopover(appName, settings) {
     const popover = document.createElement("div");

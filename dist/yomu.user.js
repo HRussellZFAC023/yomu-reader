@@ -15,7 +15,7 @@
 // @match        file:///*
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.43#sha256-UsZSI10WyZb0Ue15kyrahKQ0oSEEEes2CfQDW39VUPg=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.43#sha256-ZjabS95wvvHdjp+PfBDITXinF/MXVZ4+UUv+xVoPtuU=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.43#sha256-tz9CAwAClNYI5pZLs/XQeivx86U3Q+LNio2fqD+W2rY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.43#sha256-h4ZFCJ1a5kpZjDDWnxqrPnVwUTFvGEZSTiNd1f2Hfb0=
 // @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.43#sha256-/qa6RtEfVp5oBAFhZKP01vS4zrtg/hYEkLQG6qsdCrY=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
@@ -11906,53 +11906,6 @@ recommendedJiten	Jiten頻度です。
       }
     };
   }
-  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
-  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
-  const MIN_SHEET_HEIGHT_PX = 180;
-  const SHEET_DISMISS_OVERSHOOT_PX = 72;
-  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
-  const SHEET_TAP_MOVEMENT_PX = 8;
-  const SHEET_KEYBOARD_STEP_PX = 48;
-  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
-  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
-  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
-  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
-  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
-  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
-  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
-  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
-  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
-  const POPOVER_BODY_ACTION_SELECTOR = [
-    "button",
-    '[role="button"]',
-    "input",
-    "select",
-    "textarea",
-    "[data-action]",
-    "[data-immersion-action]",
-    "[data-yomu-immersion-action]",
-    "[data-uchisen-action]"
-  ].join(",");
-  function popoverScrollBody$1(popover) {
-    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
-  }
-  function capturePopoverScrollFrame(target) {
-    const popover = target.closest(".jpdb-reader-popover") ?? target;
-    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
-    return { scrollBody, scrollTop: scrollBody.scrollTop };
-  }
-  function restorePopoverScrollFrame(frame) {
-    if (!frame.scrollBody.isConnected) return;
-    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
-  }
-  function restorePopoverScrollFrameSoon(frame) {
-    restorePopoverScrollFrame(frame);
-    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
-  }
-  function popoverBodyActionElement(target, scrollBody) {
-    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
-    return action && scrollBody.contains(action) ? action : null;
-  }
   function createHandleDragController(options) {
     let state2 = initialDragState();
     let pointerId = 0;
@@ -12144,6 +12097,53 @@ recommendedJiten	Jiten頻度です。
     window.addEventListener("orientationchange", listener, options);
     window.visualViewport?.addEventListener?.("resize", listener, options);
     window.visualViewport?.addEventListener?.("scroll", listener, options);
+  }
+  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
+  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+  const MIN_SHEET_HEIGHT_PX = 180;
+  const SHEET_DISMISS_OVERSHOOT_PX = 72;
+  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SHEET_TAP_MOVEMENT_PX = 8;
+  const SHEET_KEYBOARD_STEP_PX = 48;
+  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
+  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
+  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
+  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
+  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
+  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
+  const POPOVER_BODY_ACTION_SELECTOR = [
+    "button",
+    '[role="button"]',
+    "input",
+    "select",
+    "textarea",
+    "[data-action]",
+    "[data-immersion-action]",
+    "[data-yomu-immersion-action]",
+    "[data-uchisen-action]"
+  ].join(",");
+  function popoverScrollBody$1(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function capturePopoverScrollFrame(target) {
+    const popover = target.closest(".jpdb-reader-popover") ?? target;
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+  }
+  function restorePopoverScrollFrame(frame) {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+  }
+  function restorePopoverScrollFrameSoon(frame) {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+  }
+  function popoverBodyActionElement(target, scrollBody) {
+    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
+    return action && scrollBody.contains(action) ? action : null;
   }
   function createReaderPopover(appName, settings) {
     const popover = document.createElement("div");
