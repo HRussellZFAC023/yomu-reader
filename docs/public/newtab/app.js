@@ -18062,7 +18062,17 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       this.current = audio;
       this.rewindPreparedAudio(audio);
       try {
-        await audio.play();
+        const play = audio.play();
+        const started = await Promise.race([
+          play.then(() => true),
+          waitForAudioContextResumeTimeout(1800)
+        ]).finally(() => {
+          void play.catch(() => void 0);
+        });
+        if (!started) {
+          if (this.current === audio) audio.pause();
+          return false;
+        }
       } catch (error) {
         if (canAttemptWebAudioFallback(options.userGesture) && await this.playViaWebAudio(audio.src, requestId, isCurrent)) return true;
         throw error;
@@ -18267,9 +18277,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ]);
     return completed && context.state !== "suspended";
   }
-  function waitForAudioContextResumeTimeout() {
+  function waitForAudioContextResumeTimeout(timeoutMs = WEB_AUDIO_RESUME_TIMEOUT_MS) {
     return new Promise((resolve) => {
-      window.setTimeout(() => resolve(false), WEB_AUDIO_RESUME_TIMEOUT_MS);
+      window.setTimeout(() => resolve(false), timeoutMs);
     });
   }
   function scheduleSoftChime(context, start) {
