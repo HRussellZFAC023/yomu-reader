@@ -929,18 +929,20 @@ export function getFormInterfaceLanguage(form: HTMLFormElement, fallback: Interf
 export function localizeSettingsForm(form: HTMLFormElement, language: InterfaceLanguage): void {
     unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: '[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word' });
     const text = (key: Parameters<typeof uiText>[1]) => uiText(language, key);
-    localizeSettingsShell(form, language, text);
-    localizeSettingsLabels(form, text);
-    localizeSettingsSectionTitles(form, text);
-    localizeSettingsSelects(form, text);
-    localizeSettingsShortcuts(form, text);
-    localizeSettingsHelpText(form, text);
-    localizeSettingsActions(form, text);
-    localizeSettingsEditorChrome(form, text);
-    localizeHelpLinksPanel(form, language);
-    removeSettingsSelectOptionMeta(form);
-    normalizeSettingsLabelTextContainers(form);
-    syncDisabledSettingsControlDescriptions(form, language);
+    withNamedControlIndex(form, () => {
+        localizeSettingsShell(form, language, text);
+        localizeSettingsLabels(form, text);
+        localizeSettingsSectionTitles(form, text);
+        localizeSettingsSelects(form, text);
+        localizeSettingsShortcuts(form, text);
+        localizeSettingsHelpText(form, text);
+        localizeSettingsActions(form, text);
+        localizeSettingsEditorChrome(form, text);
+        localizeHelpLinksPanel(form, language);
+        removeSettingsSelectOptionMeta(form);
+        normalizeSettingsLabelTextContainers(form);
+        syncDisabledSettingsControlDescriptions(form, language);
+    });
 }
 
 export function syncDisabledSettingsControlDescriptions(form: HTMLFormElement, language: InterfaceLanguage): void {
@@ -1706,15 +1708,53 @@ const SETTINGS_CONTROL_LABELS: readonly (readonly [string, SettingsTextKey])[] =
     ...SETTINGS_CONTROL_LABEL_ALIASES,
 ];
 
-function getNamedControl<T extends HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(form: HTMLFormElement, name: string): T | null {
+type NamedFormControl = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
+// A localize pass re-labels ~200 named controls across a ~500-control form.
+// Reading `form.elements` per lookup is O(n) in jsdom (and re-resolves the live
+// collection in browsers), making the whole pass quadratic. Snapshot the
+// controls by name once for the duration of the synchronous pass; localization
+// only re-texts existing labels and never adds or removes named controls, so the
+// snapshot stays valid. Outside an active pass, callers fall back to a single
+// query, which is still far cheaper than repeatedly walking `form.elements`.
+// Both paths enumerate form descendants only, which matches renderSettingsForm
+// (every control lives inside the form). If the form ever gains a control bound
+// via a `form=""` attribute outside its subtree, revisit this: `form.elements`
+// would include it but `querySelectorAll` will not.
+let activeNamedControls: { form: HTMLFormElement; byName: Map<string, NamedFormControl[]> } | null = null;
+
+function withNamedControlIndex<T>(form: HTMLFormElement, run: () => T): T {
+    const previous = activeNamedControls;
+    activeNamedControls = { form, byName: indexNamedControls(form) };
+    try {
+        return run();
+    } finally {
+        activeNamedControls = previous;
+    }
+}
+
+function indexNamedControls(form: HTMLFormElement): Map<string, NamedFormControl[]> {
+    const byName = new Map<string, NamedFormControl[]>();
+    form.querySelectorAll<NamedFormControl>('input, select, textarea').forEach(control => {
+        const existing = byName.get(control.name);
+        if (existing) existing.push(control);
+        else byName.set(control.name, [control]);
+    });
+    return byName;
+}
+
+function namedFormControls(form: HTMLFormElement, name: string): NamedFormControl[] {
+    if (activeNamedControls?.form === form) return activeNamedControls.byName.get(name) ?? [];
+    return Array.from(form.querySelectorAll<NamedFormControl>('input, select, textarea')).filter(control => control.name === name);
+}
+
+function getNamedControl<T extends NamedFormControl>(form: HTMLFormElement, name: string): T | null {
     const item = form.elements.namedItem(name);
     if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
         return item as T;
     }
     if (item instanceof RadioNodeList) {
-        return Array.from(form.elements).find((element): element is T =>
-            element instanceof HTMLInputElement && element.name === name,
-        ) ?? null;
+        return namedFormControls(form, name).find((element): element is T => element instanceof HTMLInputElement) ?? null;
     }
     return null;
 }
@@ -1727,13 +1767,6 @@ function setControlLabel(form: HTMLFormElement, name: string, label: string): vo
         if (labelElement.classList.contains('inline')) setInlineLabelText(labelElement, label);
         else setBlockLabelText(labelElement, label);
     });
-}
-
-function namedFormControls(form: HTMLFormElement, name: string): Array<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> {
-    return Array.from(form.elements).filter((element): element is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement =>
-        (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement)
-            && element.name === name,
-    );
 }
 
 function setBlockLabelText(label: Element, text: string): void {
@@ -1801,19 +1834,16 @@ function isWrappableSettingsLabelNode(node: ChildNode): boolean {
 }
 
 function setRadioLabel(form: HTMLFormElement, name: string, value: string, label: string): void {
-    const radio = Array.from(form.elements).find((element): element is HTMLInputElement =>
-        element instanceof HTMLInputElement
-        && element.type === 'radio'
-        && element.name === name
-        && element.value === value,
+    const radio = namedFormControls(form, name).find((element): element is HTMLInputElement =>
+        element instanceof HTMLInputElement && element.type === 'radio' && element.value === value,
     );
     const labelElement = radio?.closest('label');
     if (labelElement) setInlineLabelText(labelElement, label);
 }
 
 function setSelectOptionLabels(form: HTMLFormElement, name: string, options: Array<[string, string]>): void {
-    const selectElement = Array.from(form.elements).find((element): element is HTMLSelectElement =>
-        element instanceof HTMLSelectElement && element.name === name,
+    const selectElement = namedFormControls(form, name).find((element): element is HTMLSelectElement =>
+        element instanceof HTMLSelectElement,
     ) ?? null;
     if (!selectElement) return;
     options.forEach(([value, label]) => {
