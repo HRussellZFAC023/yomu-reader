@@ -5861,47 +5861,6 @@ recommendedJiten	Jiten頻度です。
         return action.label;
     }
   }
-  function renderKanjiOriginGraph(graph, language) {
-    const model = buildKanjiOriginGraphRenderModel(graph);
-    if (!model) return "";
-    const { hasSubcomponentEdges, markerId, outboundMarkerId, subcomponentMarkerId } = model;
-    const lines = renderOriginGraphLines(model);
-    const nodeButtons = renderOriginGraphNodeButtons(model);
-    return `
-        <div class="jpdb-reader-origin-graph-wrap"${hasSubcomponentEdges ? ' data-origin-has-subcomponents="true"' : ""} aria-label="${uiText(language, "originMapLabel")}">
-            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                <defs>
-                    <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
-                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
-                    </marker>
-                    <marker id="${outboundMarkerId}" class="jpdb-reader-origin-edge-arrow-outbound" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
-                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
-                    </marker>
-                    <marker id="${subcomponentMarkerId}" class="jpdb-reader-origin-edge-arrow-subcomponent" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
-                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
-                    </marker>
-                </defs>
-                ${lines}
-            </svg>
-            ${renderOriginGraphToggles(model, language)}
-            ${nodeButtons}
-        </div>
-    `;
-  }
-  function renderOriginGraphToggles(model, language) {
-    const toggles = [
-      model.hasSubcomponentEdges ? renderOriginGraphToggle(uiText(language, "originShowSubcomponents"), "data-origin-subcomponent-toggle") : "",
-      model.hasOutboundEdges ? renderOriginGraphToggle(uiText(language, "originShowOutbound"), "data-origin-outbound-toggle") : ""
-    ].filter(Boolean);
-    return toggles.length ? `<div class="jpdb-reader-origin-graph-toggles">${toggles.join("")}</div>` : "";
-  }
-  function renderOriginGraphToggle(label, attribute) {
-    return `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml(label)}">
-        <input type="checkbox" ${attribute} checked>
-        <span>${escapeHtml(label)}</span>
-    </label>`;
-  }
-  const SIMPLIFIED_ONLY_COMPONENTS = /* @__PURE__ */ new Set(["讠", "钅", "饣", "纟", "门", "车", "贝", "见", "长", "马", "鸟", "鱼"]);
   const TOP_COMPONENTS = /* @__PURE__ */ new Set(["亠", "宀", "冖", "艹", "⺾", "竹", "⺮", "雨", "穴", "覀", "西", "爫", "𠂉"]);
   const BOTTOM_COMPONENTS = /* @__PURE__ */ new Set(["心", "忄", "灬", "儿", "皿", "貝", "贝", "日", "寸", "廾"]);
   const LEFT_COMPONENTS = /* @__PURE__ */ new Set(["亻", "人", "彳", "氵", "忄", "扌", "木", "言", "訁", "口", "女", "糸", "纟", "土", "王", "犭", "礻", "衤", "月", "火", "禾", "虫", "足", "車", "车"]);
@@ -5931,225 +5890,8 @@ recommendedJiten	Jiten頻度です。
     ["友\0ナ", { zone: "upper", x: 33, y: 39 }],
     ["友\0又", { zone: "bottom", x: 58, y: 72 }]
   ]);
-  function buildKanjiOriginGraphRenderModel(graph) {
-    const base = originGraphBase(graph);
-    if (!base) return null;
-    const selectedEdges = selectedOriginGraphEdges(base);
-    const visible = visibleOriginGraph(base, selectedEdges);
-    if (!visible) return null;
-    const roles = originGraphNodeRoles(visible.edgeGroups, base.current.id);
-    const positioned = forceLayoutOriginGraph(visible.nodes, visible.edgeGroups, base.current.id);
-    const markerId = originGraphMarkerId(positioned);
-    return {
-      current: base.current,
-      nodeById: base.nodeById,
-      edgeGroups: visible.edgeGroups,
-      positioned,
-      ...roles,
-      markerId,
-      outboundMarkerId: `${markerId}-outbound`,
-      subcomponentMarkerId: `${markerId}-subcomponent`,
-      hasOutboundEdges: visible.edgeGroups.some((edge) => isOriginOutboundEdge(edge, base.current.id)),
-      hasSubcomponentEdges: visible.edgeGroups.some(isOriginSubcomponentEdge)
-    };
-  }
-  function originGraphBase(graph) {
-    const nodes = originGraphRenderableNodes(graph);
-    const nodeById = new Map(nodes.map((node) => [node.id, node]));
-    const edges = originGraphRenderableEdges(graph, nodeById);
-    if (shouldSkipOriginGraph(nodes, edges)) return null;
-    return {
-      nodes,
-      nodeById,
-      edges,
-      current: originGraphCurrentNode(nodes)
-    };
-  }
-  function originGraphRenderableNodes(graph) {
-    return graph?.nodes.filter((node) => !node.id.startsWith("rtk:")) ?? [];
-  }
-  function originGraphRenderableEdges(graph, nodeById) {
-    const nodeIds = new Set(nodeById.keys());
-    return graph?.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to)) ?? [];
-  }
-  function shouldSkipOriginGraph(nodes, edges) {
-    return nodes.length <= 1 || !edges.length;
-  }
-  function originGraphCurrentNode(nodes) {
-    return nodes.find((node) => node.kind === "current") ?? nodes[0];
-  }
-  function selectedOriginGraphEdges(base) {
-    const groupedEdges = groupOriginEdges(base.edges);
-    const primaryEdges = selectOriginEdgeGroups(
-      groupedEdges.filter((edge) => !isOriginOutboundEdge(edge, base.current.id) && !isOriginSubcomponentEdge(edge)),
-      base.nodeById
-    );
-    return [
-      ...primaryEdges,
-      ...selectOriginSubcomponentEdgeGroups(groupedEdges, base.nodeById),
-      ...selectOriginOutboundEdgeGroups(groupedEdges, base.nodeById, base.current.id)
-    ];
-  }
-  function visibleOriginGraph(base, selectedEdges) {
-    if (!selectedEdges.length) {
-      return null;
-    }
-    const connectedIds = connectedOriginNodeIds(base.current.id, selectedEdges);
-    const graphNodes = base.nodes.filter((node) => connectedIds.has(node.id) && !isNoisyOriginNode(node));
-    const visibleNodes = chooseOriginGraphNodes(graphNodes, selectedEdges, base.current.id);
-    const visibleIds = new Set(visibleNodes.map((node) => node.id));
-    const edgeGroups = selectedEdges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to));
-    if (visibleNodes.length <= 1 || !edgeGroups.length) {
-      return null;
-    }
-    return { nodes: visibleNodes, edgeGroups };
-  }
-  function connectedOriginNodeIds(currentId, edges) {
-    const ids = /* @__PURE__ */ new Set([currentId]);
-    edges.forEach((edge) => {
-      ids.add(edge.from);
-      ids.add(edge.to);
-    });
-    return ids;
-  }
-  function originGraphNodeRoles(edgeGroups, currentId) {
-    const primaryIds = /* @__PURE__ */ new Set([currentId]);
-    const outboundIds = /* @__PURE__ */ new Set();
-    const subcomponentIds = /* @__PURE__ */ new Set();
-    edgeGroups.forEach((edge) => addOriginGraphNodeRole(edge, currentId, primaryIds, outboundIds, subcomponentIds));
-    return { primaryIds, outboundIds, subcomponentIds };
-  }
-  function addOriginGraphNodeRole(edge, currentId, primaryIds, outboundIds, subcomponentIds) {
-    if (isOriginOutboundEdge(edge, currentId)) {
-      outboundIds.add(edge.to);
-      return;
-    }
-    if (isOriginSubcomponentEdge(edge)) {
-      subcomponentIds.add(edge.from);
-      if (edge.to !== currentId) subcomponentIds.add(edge.to);
-      return;
-    }
-    primaryIds.add(edge.from);
-    primaryIds.add(edge.to);
-  }
-  function originGraphMarkerId(positioned) {
-    return `jpdb-reader-origin-target-${hashOriginGraphId(positioned.map((item) => item.node.id).join("|"))}`;
-  }
-  function renderOriginGraphLines(model) {
-    const coords = new Map(model.positioned.map((item) => [item.node.id, item]));
-    return model.edgeGroups.map((edge) => renderOriginGraphEdgeGroup(edge, coords, model)).join("");
-  }
-  function renderOriginGraphEdgeGroup(edge, coords, model) {
-    const from = coords.get(edge.from);
-    const to = coords.get(edge.to);
-    if (!from || !to) return "";
-    const targetZone = originEdgeTargetZone(edge, model.current.id, model.nodeById);
-    const edgePath = clippedOriginEdgePath(from, to, targetZone);
-    const label = edge.labels.join(" / ");
-    const outbound = isOriginOutboundEdge(edge, model.current.id);
-    const subcomponent = isOriginSubcomponentEdge(edge);
-    const outboundAttrs = outbound ? ' data-origin-outbound="true"' : "";
-    const subcomponentAttrs = subcomponent ? ' data-origin-subcomponent="true"' : "";
-    const markerId = outbound ? model.outboundMarkerId : subcomponent ? model.subcomponentMarkerId : model.markerId;
-    return `<g class="jpdb-reader-origin-edge-group${outbound ? " outbound" : ""}${subcomponent ? " subcomponent" : ""}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}${subcomponentAttrs}>
-        <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml(label)}</title></path>
-    </g>`;
-  }
-  function renderOriginGraphNodeButtons(model) {
-    return model.positioned.map((node) => renderOriginGraphNodeButton(node, model)).join("");
-  }
-  function renderOriginGraphNodeButton(positioned, model) {
-    const { node, x, y, rx, ry } = positioned;
-    const style = `left:${formatGraphNumber(x)}%;top:${formatGraphNumber(y)}%`;
-    const outboundOnly = node.id !== model.current.id && model.outboundIds.has(node.id) && !model.primaryIds.has(node.id);
-    const subcomponentOnly = node.id !== model.current.id && model.subcomponentIds.has(node.id) && !model.primaryIds.has(node.id) && !model.outboundIds.has(node.id);
-    const attrs = `data-graph-node="${escapeHtml(node.id)}" data-label-length="${originGraphLabelLengthAttribute(node.label)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ""}${subcomponentOnly ? ' data-origin-subcomponent="true"' : ""} style="${style}"`;
-    if (node.kind === "related") return renderRelatedOriginGraphNode(node, attrs);
-    return renderKanjiOriginGraphNode(node, attrs);
-  }
-  function originGraphLabelLengthAttribute(label) {
-    const length = Array.from(label).length;
-    return length > 2 ? "many" : String(length || 1);
-  }
-  function renderRelatedOriginGraphNode(node, attrs) {
-    return `<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
-  }
-  function renderKanjiOriginGraphNode(node, attrs) {
-    const title = [node.detail, node.source].filter(Boolean).join(" · ");
-    return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" ${attrs} title="${escapeHtml(title)}">${escapeHtml(node.label)}</button>`;
-  }
-  function chooseOriginGraphNodes(nodes, edges, currentId) {
-    const current = nodes.find((node) => node.id === currentId) ?? nodes[0];
-    const degree = /* @__PURE__ */ new Map();
-    edges.forEach((edge) => {
-      degree.set(edge.from, (degree.get(edge.from) ?? 0) + 1);
-      degree.set(edge.to, (degree.get(edge.to) ?? 0) + 1);
-    });
-    const ranked = nodes.filter((node) => node.id !== current.id).sort((a, b) => {
-      const priority = originNodePriority(a.id, edges, current.id) - originNodePriority(b.id, edges, current.id);
-      if (priority) return priority;
-      const degreeDelta = (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0);
-      if (degreeDelta) return degreeDelta;
-      return a.label.localeCompare(b.label, "ja");
-    });
-    return [current, ...ranked.slice(0, 18)];
-  }
-  function originNodePriority(id, edges, currentId) {
-    if (edges.some((edge) => edge.from === id && edge.to === currentId)) return 0;
-    if (edges.some((edge) => edge.from === currentId && edge.to === id)) return 1;
-    if (edges.some((edge) => edge.from === id || edge.to === id)) return 2;
-    return 3;
-  }
-  function selectOriginEdgeGroups(groups, nodeById) {
-    const useful = groups.filter((edge) => {
-      const from = nodeById.get(edge.from);
-      const to = nodeById.get(edge.to);
-      return from && to && !isNoisyOriginNode(from) && !isNoisyOriginNode(to);
-    });
-    const structural = useful.filter((edge) => edge.labels.some((label) => label === "radical" || label === "structural part"));
-    if (structural.length) return structural;
-    const jpdb = useful.filter((edge) => edge.labels.includes("JPDB component"));
-    if (jpdb.length) return jpdb;
-    return useful.filter((edge) => !edge.labels.includes("memory cue"));
-  }
-  function selectOriginOutboundEdgeGroups(groups, nodeById, currentId) {
-    return groups.filter((edge) => {
-      if (!isOriginOutboundEdge(edge, currentId)) return false;
-      const to = nodeById.get(edge.to);
-      return to && !isNoisyOriginNode(to);
-    });
-  }
-  function selectOriginSubcomponentEdgeGroups(groups, nodeById) {
-    return groups.filter((edge) => {
-      if (!isOriginSubcomponentEdge(edge)) return false;
-      const from = nodeById.get(edge.from);
-      const to = nodeById.get(edge.to);
-      return from && to && !isNoisyOriginNode(from) && !isNoisyOriginNode(to);
-    });
-  }
-  function isOriginOutboundEdge(edge, currentId) {
-    return edge.from === currentId && edge.to !== currentId;
-  }
   function isOriginSubcomponentEdge(edge) {
     return edge.labels.includes("subcomponent");
-  }
-  function originEdgeTargetZone(edge, currentId, nodeById) {
-    if (edge.to === currentId) {
-      const source = nodeById.get(edge.from);
-      return source ? inferInboundComponentZone(source, currentId) : "auto";
-    }
-    if (edge.from === currentId) {
-      const target = nodeById.get(edge.to);
-      return target ? inferOutboundComponentZone(currentId, target) : "auto";
-    }
-    if (isOriginSubcomponentEdge(edge)) {
-      const source = nodeById.get(edge.from);
-      return source ? inferInboundComponentZone(source, edge.to) : "auto";
-    }
-    return "auto";
-  }
-  function isNoisyOriginNode(node) {
-    return SIMPLIFIED_ONLY_COMPONENTS.has(node.id) || SIMPLIFIED_ONLY_COMPONENTS.has(node.label);
   }
   function groupOriginEdges(edges) {
     const groups = /* @__PURE__ */ new Map();
@@ -6595,6 +6337,264 @@ recommendedJiten	Jiten頻度です。
       hash = (hash << 5) - hash + character.charCodeAt(0) | 0;
     }
     return Math.abs(hash).toString(36);
+  }
+  function renderKanjiOriginGraph(graph, language) {
+    const model = buildKanjiOriginGraphRenderModel(graph);
+    if (!model) return "";
+    const { hasSubcomponentEdges, markerId, outboundMarkerId, subcomponentMarkerId } = model;
+    const lines = renderOriginGraphLines(model);
+    const nodeButtons = renderOriginGraphNodeButtons(model);
+    return `
+        <div class="jpdb-reader-origin-graph-wrap"${hasSubcomponentEdges ? ' data-origin-has-subcomponents="true"' : ""} aria-label="${uiText(language, "originMapLabel")}">
+            <svg class="jpdb-reader-origin-graph-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                    <marker id="${markerId}" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
+                    </marker>
+                    <marker id="${outboundMarkerId}" class="jpdb-reader-origin-edge-arrow-outbound" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
+                    </marker>
+                    <marker id="${subcomponentMarkerId}" class="jpdb-reader-origin-edge-arrow-subcomponent" viewBox="0 0 6 6" markerWidth="3" markerHeight="3" refX="6" refY="3" orient="auto" markerUnits="strokeWidth">
+                        <path class="jpdb-reader-origin-edge-arrow" d="M0,0 L6,3 L0,6 L1.8,3 Z"></path>
+                    </marker>
+                </defs>
+                ${lines}
+            </svg>
+            ${renderOriginGraphToggles(model, language)}
+            ${nodeButtons}
+        </div>
+    `;
+  }
+  function renderOriginGraphToggles(model, language) {
+    const toggles = [
+      model.hasSubcomponentEdges ? renderOriginGraphToggle(uiText(language, "originShowSubcomponents"), "data-origin-subcomponent-toggle") : "",
+      model.hasOutboundEdges ? renderOriginGraphToggle(uiText(language, "originShowOutbound"), "data-origin-outbound-toggle") : ""
+    ].filter(Boolean);
+    return toggles.length ? `<div class="jpdb-reader-origin-graph-toggles">${toggles.join("")}</div>` : "";
+  }
+  function renderOriginGraphToggle(label, attribute) {
+    return `<label class="jpdb-reader-origin-graph-toggle" title="${escapeHtml(label)}">
+        <input type="checkbox" ${attribute} checked>
+        <span>${escapeHtml(label)}</span>
+    </label>`;
+  }
+  const SIMPLIFIED_ONLY_COMPONENTS = /* @__PURE__ */ new Set(["讠", "钅", "饣", "纟", "门", "车", "贝", "见", "长", "马", "鸟", "鱼"]);
+  function buildKanjiOriginGraphRenderModel(graph) {
+    const base = originGraphBase(graph);
+    if (!base) return null;
+    const selectedEdges = selectedOriginGraphEdges(base);
+    const visible = visibleOriginGraph(base, selectedEdges);
+    if (!visible) return null;
+    const roles = originGraphNodeRoles(visible.edgeGroups, base.current.id);
+    const positioned = forceLayoutOriginGraph(visible.nodes, visible.edgeGroups, base.current.id);
+    const markerId = originGraphMarkerId(positioned);
+    return {
+      current: base.current,
+      nodeById: base.nodeById,
+      edgeGroups: visible.edgeGroups,
+      positioned,
+      ...roles,
+      markerId,
+      outboundMarkerId: `${markerId}-outbound`,
+      subcomponentMarkerId: `${markerId}-subcomponent`,
+      hasOutboundEdges: visible.edgeGroups.some((edge) => isOriginOutboundEdge(edge, base.current.id)),
+      hasSubcomponentEdges: visible.edgeGroups.some(isOriginSubcomponentEdge)
+    };
+  }
+  function originGraphBase(graph) {
+    const nodes = originGraphRenderableNodes(graph);
+    const nodeById = new Map(nodes.map((node) => [node.id, node]));
+    const edges = originGraphRenderableEdges(graph, nodeById);
+    if (shouldSkipOriginGraph(nodes, edges)) return null;
+    return {
+      nodes,
+      nodeById,
+      edges,
+      current: originGraphCurrentNode(nodes)
+    };
+  }
+  function originGraphRenderableNodes(graph) {
+    return graph?.nodes.filter((node) => !node.id.startsWith("rtk:")) ?? [];
+  }
+  function originGraphRenderableEdges(graph, nodeById) {
+    const nodeIds = new Set(nodeById.keys());
+    return graph?.edges.filter((edge) => nodeIds.has(edge.from) && nodeIds.has(edge.to)) ?? [];
+  }
+  function shouldSkipOriginGraph(nodes, edges) {
+    return nodes.length <= 1 || !edges.length;
+  }
+  function originGraphCurrentNode(nodes) {
+    return nodes.find((node) => node.kind === "current") ?? nodes[0];
+  }
+  function selectedOriginGraphEdges(base) {
+    const groupedEdges = groupOriginEdges(base.edges);
+    const primaryEdges = selectOriginEdgeGroups(
+      groupedEdges.filter((edge) => !isOriginOutboundEdge(edge, base.current.id) && !isOriginSubcomponentEdge(edge)),
+      base.nodeById
+    );
+    return [
+      ...primaryEdges,
+      ...selectOriginSubcomponentEdgeGroups(groupedEdges, base.nodeById),
+      ...selectOriginOutboundEdgeGroups(groupedEdges, base.nodeById, base.current.id)
+    ];
+  }
+  function visibleOriginGraph(base, selectedEdges) {
+    if (!selectedEdges.length) {
+      return null;
+    }
+    const connectedIds = connectedOriginNodeIds(base.current.id, selectedEdges);
+    const graphNodes = base.nodes.filter((node) => connectedIds.has(node.id) && !isNoisyOriginNode(node));
+    const visibleNodes = chooseOriginGraphNodes(graphNodes, selectedEdges, base.current.id);
+    const visibleIds = new Set(visibleNodes.map((node) => node.id));
+    const edgeGroups = selectedEdges.filter((edge) => visibleIds.has(edge.from) && visibleIds.has(edge.to));
+    if (visibleNodes.length <= 1 || !edgeGroups.length) {
+      return null;
+    }
+    return { nodes: visibleNodes, edgeGroups };
+  }
+  function connectedOriginNodeIds(currentId, edges) {
+    const ids = /* @__PURE__ */ new Set([currentId]);
+    edges.forEach((edge) => {
+      ids.add(edge.from);
+      ids.add(edge.to);
+    });
+    return ids;
+  }
+  function originGraphNodeRoles(edgeGroups, currentId) {
+    const primaryIds = /* @__PURE__ */ new Set([currentId]);
+    const outboundIds = /* @__PURE__ */ new Set();
+    const subcomponentIds = /* @__PURE__ */ new Set();
+    edgeGroups.forEach((edge) => addOriginGraphNodeRole(edge, currentId, primaryIds, outboundIds, subcomponentIds));
+    return { primaryIds, outboundIds, subcomponentIds };
+  }
+  function addOriginGraphNodeRole(edge, currentId, primaryIds, outboundIds, subcomponentIds) {
+    if (isOriginOutboundEdge(edge, currentId)) {
+      outboundIds.add(edge.to);
+      return;
+    }
+    if (isOriginSubcomponentEdge(edge)) {
+      subcomponentIds.add(edge.from);
+      if (edge.to !== currentId) subcomponentIds.add(edge.to);
+      return;
+    }
+    primaryIds.add(edge.from);
+    primaryIds.add(edge.to);
+  }
+  function originGraphMarkerId(positioned) {
+    return `jpdb-reader-origin-target-${hashOriginGraphId(positioned.map((item) => item.node.id).join("|"))}`;
+  }
+  function renderOriginGraphLines(model) {
+    const coords = new Map(model.positioned.map((item) => [item.node.id, item]));
+    return model.edgeGroups.map((edge) => renderOriginGraphEdgeGroup(edge, coords, model)).join("");
+  }
+  function renderOriginGraphEdgeGroup(edge, coords, model) {
+    const from = coords.get(edge.from);
+    const to = coords.get(edge.to);
+    if (!from || !to) return "";
+    const targetZone = originEdgeTargetZone(edge, model.current.id, model.nodeById);
+    const edgePath = clippedOriginEdgePath(from, to, targetZone);
+    const label = edge.labels.join(" / ");
+    const outbound = isOriginOutboundEdge(edge, model.current.id);
+    const subcomponent = isOriginSubcomponentEdge(edge);
+    const outboundAttrs = outbound ? ' data-origin-outbound="true"' : "";
+    const subcomponentAttrs = subcomponent ? ' data-origin-subcomponent="true"' : "";
+    const markerId = outbound ? model.outboundMarkerId : subcomponent ? model.subcomponentMarkerId : model.markerId;
+    return `<g class="jpdb-reader-origin-edge-group${outbound ? " outbound" : ""}${subcomponent ? " subcomponent" : ""}" data-from="${escapeHtml(edge.from)}" data-to="${escapeHtml(edge.to)}" data-label="${escapeHtml(label)}" data-target-zone="${targetZone}"${outboundAttrs}${subcomponentAttrs}>
+        <path class="jpdb-reader-origin-edge" d="${edgePath.d}" marker-end="url(#${markerId})"><title>${escapeHtml(label)}</title></path>
+    </g>`;
+  }
+  function renderOriginGraphNodeButtons(model) {
+    return model.positioned.map((node) => renderOriginGraphNodeButton(node, model)).join("");
+  }
+  function renderOriginGraphNodeButton(positioned, model) {
+    const { node, x, y, rx, ry } = positioned;
+    const style = `left:${formatGraphNumber(x)}%;top:${formatGraphNumber(y)}%`;
+    const outboundOnly = node.id !== model.current.id && model.outboundIds.has(node.id) && !model.primaryIds.has(node.id);
+    const subcomponentOnly = node.id !== model.current.id && model.subcomponentIds.has(node.id) && !model.primaryIds.has(node.id) && !model.outboundIds.has(node.id);
+    const attrs = `data-graph-node="${escapeHtml(node.id)}" data-label-length="${originGraphLabelLengthAttribute(node.label)}" data-x="${formatGraphNumber(x)}" data-y="${formatGraphNumber(y)}" data-rx="${formatGraphNumber(rx)}" data-ry="${formatGraphNumber(ry)}"${outboundOnly ? ' data-origin-outbound="true"' : ""}${subcomponentOnly ? ' data-origin-subcomponent="true"' : ""} style="${style}"`;
+    if (node.kind === "related") return renderRelatedOriginGraphNode(node, attrs);
+    return renderKanjiOriginGraphNode(node, attrs);
+  }
+  function originGraphLabelLengthAttribute(label) {
+    const length = Array.from(label).length;
+    return length > 2 ? "many" : String(length || 1);
+  }
+  function renderRelatedOriginGraphNode(node, attrs) {
+    return `<span class="jpdb-reader-origin-graph-node ${node.kind}" ${attrs} title="${escapeHtml(node.detail)}">${escapeHtml(node.label)}</span>`;
+  }
+  function renderKanjiOriginGraphNode(node, attrs) {
+    const title = [node.detail, node.source].filter(Boolean).join(" · ");
+    return `<button class="jpdb-reader-origin-graph-node ${node.kind}" type="button" data-action="kanji" data-kanji="${escapeHtml(node.id)}" ${attrs} title="${escapeHtml(title)}">${escapeHtml(node.label)}</button>`;
+  }
+  function chooseOriginGraphNodes(nodes, edges, currentId) {
+    const current = nodes.find((node) => node.id === currentId) ?? nodes[0];
+    const degree = /* @__PURE__ */ new Map();
+    edges.forEach((edge) => {
+      degree.set(edge.from, (degree.get(edge.from) ?? 0) + 1);
+      degree.set(edge.to, (degree.get(edge.to) ?? 0) + 1);
+    });
+    const ranked = nodes.filter((node) => node.id !== current.id).sort((a, b) => {
+      const priority = originNodePriority(a.id, edges, current.id) - originNodePriority(b.id, edges, current.id);
+      if (priority) return priority;
+      const degreeDelta = (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0);
+      if (degreeDelta) return degreeDelta;
+      return a.label.localeCompare(b.label, "ja");
+    });
+    return [current, ...ranked.slice(0, 18)];
+  }
+  function originNodePriority(id, edges, currentId) {
+    if (edges.some((edge) => edge.from === id && edge.to === currentId)) return 0;
+    if (edges.some((edge) => edge.from === currentId && edge.to === id)) return 1;
+    if (edges.some((edge) => edge.from === id || edge.to === id)) return 2;
+    return 3;
+  }
+  function selectOriginEdgeGroups(groups, nodeById) {
+    const useful = groups.filter((edge) => {
+      const from = nodeById.get(edge.from);
+      const to = nodeById.get(edge.to);
+      return from && to && !isNoisyOriginNode(from) && !isNoisyOriginNode(to);
+    });
+    const structural = useful.filter((edge) => edge.labels.some((label) => label === "radical" || label === "structural part"));
+    if (structural.length) return structural;
+    const jpdb = useful.filter((edge) => edge.labels.includes("JPDB component"));
+    if (jpdb.length) return jpdb;
+    return useful.filter((edge) => !edge.labels.includes("memory cue"));
+  }
+  function selectOriginOutboundEdgeGroups(groups, nodeById, currentId) {
+    return groups.filter((edge) => {
+      if (!isOriginOutboundEdge(edge, currentId)) return false;
+      const to = nodeById.get(edge.to);
+      return to && !isNoisyOriginNode(to);
+    });
+  }
+  function selectOriginSubcomponentEdgeGroups(groups, nodeById) {
+    return groups.filter((edge) => {
+      if (!isOriginSubcomponentEdge(edge)) return false;
+      const from = nodeById.get(edge.from);
+      const to = nodeById.get(edge.to);
+      return from && to && !isNoisyOriginNode(from) && !isNoisyOriginNode(to);
+    });
+  }
+  function isOriginOutboundEdge(edge, currentId) {
+    return edge.from === currentId && edge.to !== currentId;
+  }
+  function originEdgeTargetZone(edge, currentId, nodeById) {
+    if (edge.to === currentId) {
+      const source = nodeById.get(edge.from);
+      return source ? inferInboundComponentZone(source, currentId) : "auto";
+    }
+    if (edge.from === currentId) {
+      const target = nodeById.get(edge.to);
+      return target ? inferOutboundComponentZone(currentId, target) : "auto";
+    }
+    if (isOriginSubcomponentEdge(edge)) {
+      const source = nodeById.get(edge.from);
+      return source ? inferInboundComponentZone(source, edge.to) : "auto";
+    }
+    return "auto";
+  }
+  function isNoisyOriginNode(node) {
+    return SIMPLIFIED_ONLY_COMPONENTS.has(node.id) || SIMPLIFIED_ONLY_COMPONENTS.has(node.label);
   }
   function renderKanjiOrigins(facts, graph, sourceInfo, settings, language, initiallyExpanded = settings.dictionarySourcesInitiallyExpanded, sourceStateKey, excludeFactLabels, title = uiText(language, "originStructure")) {
     if (!hasKanjiOriginContent(facts, graph, sourceInfo)) {
