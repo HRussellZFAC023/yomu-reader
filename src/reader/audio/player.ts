@@ -738,7 +738,17 @@ export class AudioPlayer {
         this.current = audio;
         this.rewindPreparedAudio(audio);
         try {
-            await audio.play();
+            const play = audio.play();
+            const started = await Promise.race([
+                play.then(() => true),
+                waitForAudioContextResumeTimeout(1800),
+            ]).finally(() => {
+                void play.catch(() => undefined);
+            });
+            if (!started) {
+                if (this.current === audio) audio.pause();
+                return false;
+            }
         } catch (error) {
             // Pages with a strict CSP media-src (e.g. claude.ai) refuse blob/
             // data URLs on media elements; Web Audio decoding is not subject
@@ -993,9 +1003,9 @@ async function resumeAudioContext(context: AudioContext): Promise<boolean> {
     return completed && context.state !== 'suspended';
 }
 
-function waitForAudioContextResumeTimeout(): Promise<boolean> {
+function waitForAudioContextResumeTimeout(timeoutMs = WEB_AUDIO_RESUME_TIMEOUT_MS): Promise<boolean> {
     return new Promise(resolve => {
-        window.setTimeout(() => resolve(false), WEB_AUDIO_RESUME_TIMEOUT_MS);
+        window.setTimeout(() => resolve(false), timeoutMs);
     });
 }
 

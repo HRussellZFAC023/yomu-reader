@@ -24,6 +24,7 @@ const VIDEO_TMP_DIR = path.join(ARTIFACT_DIR, 'raw-video');
 const SILENT_WAV_BYTES = Buffer.from('UklGRiYAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQIAAAAAAA==', 'base64');
 const FIXTURE_TEXT = '今日は日本語を読む練習をします。明日も読む予定です。';
 const TARGET_SELECTOR = '.jpdb-reader-word[data-expression="読む"]';
+const SELECTED_SCENARIOS = selectedScenarioNames();
 
 const VOCABULARY = [
     ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 200, ['not-in-deck'], ['LHHH']],
@@ -68,16 +69,17 @@ const fixture = await createFixtureServer();
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 
 try {
-    scenarios.push(await runFixtureClickBlobScenario(browser, fixture.baseUrl));
-    scenarios.push(await runFixtureHoverScenario(browser, fixture.baseUrl));
-    scenarios.push(await runFixtureBlockedFallbackScenario(browser, fixture.baseUrl));
-    scenarios.push(await runFixtureRandomCandidateScenario(browser, fixture.baseUrl));
-    scenarios.push(await runFixtureDuplicateNestedCandidateScenario(browser, fixture.baseUrl));
-    scenarios.push(await runFixtureFallbackTtsDeprioritizedScenario(browser, fixture.baseUrl));
-    scenarios.push(await runFixtureSourceOrderTtsScenario(browser, fixture.baseUrl));
-    scenarios.push(await runFixtureIpadBlobScenario(browser, fixture.baseUrl));
-    scenarios.push(await runWikipediaScenario(browser));
-    scenarios.push(await runYouTubeScenario(browser));
+    await pushScenario('fixture-click-open-blob', () => runFixtureClickBlobScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-hover-direct', () => runFixtureHoverScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-hover-return-retries-pending-audio', () => runFixtureHoverReturnAfterPendingScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-blocked-source-fallback', () => runFixtureBlockedFallbackScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-random-candidate-no-repeat', () => runFixtureRandomCandidateScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-random-nested-duplicate-no-repeat', () => runFixtureDuplicateNestedCandidateScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-fallback-tts-deprioritized-random-replay', () => runFixtureFallbackTtsDeprioritizedScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-source-order-tts-random-no-repeat', () => runFixtureSourceOrderTtsScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-ipad-tap-blob', () => runFixtureIpadBlobScenario(browser, fixture.baseUrl));
+    await pushScenario('wikipedia-click-open', () => runWikipediaScenario(browser));
+    await pushScenario('youtube-click-open-video-page', () => runYouTubeScenario(browser));
 } finally {
     await browser.close().catch(() => undefined);
     await closeServer(fixture.server);
@@ -86,6 +88,18 @@ try {
 const summaryPath = path.join(ARTIFACT_DIR, 'summary.json');
 writeFileSync(summaryPath, `${JSON.stringify({ generatedAt: new Date().toISOString(), scenarios }, null, 2)}\n`);
 console.log(JSON.stringify({ summaryPath, scenarios }, null, 2));
+
+async function pushScenario(name, run) {
+    if (SELECTED_SCENARIOS.size && !SELECTED_SCENARIOS.has(name)) return;
+    scenarios.push(await run());
+}
+
+function selectedScenarioNames() {
+    return new Set((process.env.YOMU_AUDIO_POPOVER_SCENARIOS ?? '')
+        .split(',')
+        .map(name => name.trim())
+        .filter(Boolean));
+}
 
 async function runFixtureClickBlobScenario(browser, baseUrl) {
     return await runReaderScenario(browser, {
@@ -126,6 +140,37 @@ async function runFixtureHoverScenario(browser, baseUrl) {
         },
         assertResult: result => {
             assert(result.audiblePlays.some(play => play.src.includes('/hover-')), 'fixture hover did not play the hover source', result);
+        },
+    });
+}
+
+async function runFixtureHoverReturnAfterPendingScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-hover-return-retries-pending-audio',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioViaBlob: false,
+            audioSources: [{ type: 'custom', url: 'https://audio.test/pending-{term}.mp3', voice: '', enabled: true }],
+        },
+        pendingPlayPattern: 'pending-',
+        action: async page => {
+            await page.mouse.click(12, 12);
+            const box = await targetWordBox(page);
+            const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+            await page.mouse.move(point.x, point.y);
+            await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+            await waitForPendingPlayCount(page, 1, 'initial hover did not attempt pending audio');
+            await page.mouse.move(10, 10);
+            await page.waitForTimeout(80);
+            await page.mouse.move(point.x, point.y);
+            await waitForPendingPlayCount(page, 2, 'returning to the same hover word did not retry pending audio');
+            await page.waitForTimeout(2000);
+            await page.waitForFunction(() => document.querySelector('.jpdb-reader-popover')?.dataset.audioLoading !== 'true', { timeout: 3000 });
+        },
+        assertResult: result => {
+            assert(result.pendingPlays.length >= 2, 'hover return did not produce a second pending audio attempt', result);
+            assert(result.audioLoading !== 'true', 'hover return left the popover in audio loading state', result);
         },
     });
 }
@@ -459,9 +504,9 @@ function bytesResponse(buffer, contentType, status = 200) {
 }
 
 async function installAudioInstrumentation(page, options) {
-    await page.addInitScript(({ blockedPlayPattern, initRandomValue }) => {
+    await page.addInitScript(({ blockedPlayPattern, initRandomValue, pendingPlayPattern }) => {
         if (typeof initRandomValue === 'number') Math.random = () => initRandomValue;
-        window.__yomuAudioSmoke = { plays: [], rejected: [], speech: [], sourceByBlob: {} };
+        window.__yomuAudioSmoke = { plays: [], rejected: [], pending: [], speech: [], sourceByBlob: {} };
         const originalPlay = HTMLMediaElement.prototype.play;
         const originalLoad = HTMLMediaElement.prototype.load;
         const originalCreateObjectUrl = URL.createObjectURL.bind(URL);
@@ -479,6 +524,10 @@ async function installAudioInstrumentation(page, options) {
                 if (blockedPlayPattern && event.src.includes(blockedPlayPattern)) {
                     window.__yomuAudioSmoke.rejected.push(event);
                     return Promise.reject(new Error('blocked by audio smoke'));
+                }
+                if (pendingPlayPattern && event.src.includes(pendingPlayPattern)) {
+                    window.__yomuAudioSmoke.pending.push(event);
+                    return new Promise(() => undefined);
                 }
                 window.__yomuAudioSmoke.plays.push(event);
             }
@@ -541,7 +590,7 @@ async function installAudioInstrumentation(page, options) {
                 // Blob instances can be non-extensible in some browser engines.
             }
         }
-    }, { blockedPlayPattern: options.blockedPlayPattern ?? '', initRandomValue: options.initRandomValue });
+    }, { blockedPlayPattern: options.blockedPlayPattern ?? '', initRandomValue: options.initRandomValue, pendingPlayPattern: options.pendingPlayPattern ?? '' });
 }
 
 async function clickTargetWord(page, selector = TARGET_SELECTOR) {
@@ -604,6 +653,14 @@ async function waitForAudioOrSpeechCount(page, count, message) {
     });
 }
 
+async function waitForPendingPlayCount(page, count, message) {
+    await page.waitForFunction(expectedCount => {
+        return (window.__yomuAudioSmoke?.pending?.length ?? 0) >= expectedCount;
+    }, count, { timeout: 10_000 }).catch(async error => {
+        throw new Error(`${message}: ${JSON.stringify(await safeEvidence(page))}: ${error.message}`);
+    });
+}
+
 async function scenarioSnapshot(page, name, requests, browserErrors) {
     const evidence = await safeEvidence(page);
     await page.screenshot({ path: path.join(ARTIFACT_DIR, `${name}.png`), fullPage: false }).catch(() => undefined);
@@ -615,8 +672,10 @@ async function scenarioSnapshot(page, name, requests, browserErrors) {
         readerRootCount: evidence.readerRootCount,
         popoverCount: evidence.popoverCount,
         runtimeMarker: evidence.runtimeMarker,
+        audioLoading: evidence.audioLoading,
         audiblePlays: evidence.audiblePlays,
         rejectedPlays: evidence.rejectedPlays,
+        pendingPlays: evidence.pendingPlays,
         speech: evidence.speech,
         requests,
         browserErrors,
@@ -633,9 +692,11 @@ async function safeEvidence(page) {
             readerRootCount: document.querySelectorAll('[data-jpdb-reader-root]').length,
             popoverCount: document.querySelectorAll('.jpdb-reader-popover').length,
             runtimeMarker: { ...document.getElementById('jpdb-reader-runtime-owner')?.dataset },
+            audioLoading: document.querySelector('.jpdb-reader-popover')?.dataset.audioLoading ?? '',
             plays,
             audiblePlays: plays.filter(play => play.src && !play.src.includes('UklGRiYAAABX')),
             rejectedPlays: window.__yomuAudioSmoke?.rejected ?? [],
+            pendingPlays: window.__yomuAudioSmoke?.pending ?? [],
             speech: window.__yomuAudioSmoke?.speech ?? [],
             targetWords: [...document.querySelectorAll('.jpdb-reader-word')].slice(0, 12).map(word => ({
                 text: word.textContent,

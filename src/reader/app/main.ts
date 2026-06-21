@@ -2842,6 +2842,7 @@ export class ReaderApp {
         if (this.isActiveHoverLookup(hoverLookupKey)) {
             this.cancelHoverClose();
             this.refreshActiveHoverAnchor(word);
+            if (this.shouldRetryHoverAudio(word, event)) this.retryActiveHoverAudio(word, hoverLookupKey);
             return;
         }
         if (this.activePopoverMode === 'hover' && this.activeHoverWord === word) {
@@ -2852,6 +2853,21 @@ export class ReaderApp {
         this.pageScanner.interruptVisiblePageScan();
         this.preloadHoverWordAudio(word);
         this.scheduleHoverLookup(word, event);
+    }
+
+    private shouldRetryHoverAudio(word: HTMLElement, event: PointerEvent): boolean {
+        if (event.type !== 'pointerover' || !this.shouldPrepareHoverWordAudio(word)) return false;
+        const related = event.relatedTarget as Node | null;
+        return !this.isInsideNode(related, word) && !this.isInsideActivePopover(related);
+    }
+
+    private retryActiveHoverAudio(word: HTMLElement, hoverLookupKey: string): void {
+        const card = this.cardForRenderedWord(word);
+        if (!card) return;
+        void this.audioActions.playTermAudio(card, {
+            isCurrent: () => this.isActiveHoverLookup(hoverLookupKey) && this.isHoverContextActive(),
+            autoPlay: true,
+        });
     }
 
     private handleHoverPointerOut(event: PointerEvent): void {

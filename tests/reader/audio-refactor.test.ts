@@ -453,6 +453,35 @@ describe('audio module boundaries', () => {
             vi.unstubAllGlobals();
         }
     });
+
+    it('stops waiting when media playback never starts', async () => {
+        vi.useFakeTimers();
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => new Promise(() => undefined));
+        const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnabled: true,
+            }));
+            const internals = player as unknown as {
+                playPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean): Promise<boolean>;
+            };
+            const audio = document.createElement('audio');
+            audio.src = 'https://audio.example.test/stuck.mp3';
+
+            const result = internals.playPreparedAudio(audio, 0, () => true);
+            await vi.advanceTimersByTimeAsync(2000);
+
+            await expect(result).resolves.toBe(false);
+            expect(play).toHaveBeenCalledTimes(1);
+            expect(pause).toHaveBeenCalledTimes(1);
+        } finally {
+            play.mockRestore();
+            pause.mockRestore();
+            vi.useRealTimers();
+        }
+    });
 });
 
 function card(spelling: string, reading: string): JPDBCard {

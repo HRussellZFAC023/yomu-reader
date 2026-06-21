@@ -18,6 +18,7 @@ interface HoverLookupInternals {
     activePopover?: HTMLElement;
     activePopoverMode?: 'modal' | 'hover';
     activeHoverWord?: HTMLElement;
+    activeHoverLookupKey: string;
     activePopoverAnchor?: HTMLElement;
     activePointerTextLookup?: { text: string; start: number; end: number; anchor: HTMLElement };
     lastPointerPosition?: { x: number; y: number };
@@ -64,6 +65,7 @@ interface HoverLookupInternals {
     preloadHoverWordAudio(word: HTMLElement): void;
     preloadParsedTokens(tokens: JPDBToken[]): void;
     preloadTermAudioForTokens(tokens: JPDBToken[]): void;
+    audioActions: { playTermAudio(card: JPDBCard, options?: Record<string, unknown>): Promise<void> | void };
     shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean;
     showAlternativeRenderedWordCandidate(word: HTMLElement, card: JPDBCard, context: unknown, options: unknown, stackOverSettings: boolean): Promise<boolean>;
     showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: Record<string, unknown>): Promise<void>;
@@ -382,6 +384,52 @@ describe('hover lookup', () => {
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 1)).toBe(false);
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 2)).toBe(true);
         } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('retries audio when the pointer returns to the same active hover card', () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const internals = app as unknown as HoverLookupInternals;
+        const playTermAudio = vi.fn();
+        const restoreElementFromPoint = stubElementFromPoint(word);
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover',
+            suppressAutoAudioOnVideo: false,
+            lookupOnHover: true,
+        };
+        internals.activePopover = popover;
+        internals.activePopoverMode = 'hover';
+        internals.activeHoverWord = word;
+        internals.activePopoverAnchor = word;
+        internals.activeHoverLookupKey = 'word:1:2:今日は読む';
+        internals.cardForRenderedWord = vi.fn(() => HOVER_LOOKUP_CARD);
+        internals.audioActions = { playTermAudio };
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', {}, document.body));
+
+            expect(playTermAudio).toHaveBeenCalledTimes(1);
+            expect(playTermAudio).toHaveBeenCalledWith(
+                HOVER_LOOKUP_CARD,
+                expect.objectContaining({
+                    autoPlay: true,
+                    isCurrent: expect.any(Function),
+                }),
+            );
+            expect((playTermAudio.mock.calls[0]?.[1] as { isCurrent: () => boolean }).isCurrent()).toBe(true);
+
+            internals.handleHoverPointer(hoverPointerEvent(word, 'mouse', 'pointerover', {}, word));
+            expect(playTermAudio).toHaveBeenCalledTimes(1);
+        } finally {
+            restoreElementFromPoint();
             cleanupReaderApp(app);
         }
     });
