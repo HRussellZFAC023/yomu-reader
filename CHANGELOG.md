@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.44] - 2026-06-21
+
+### Changed
+
+- Folded the remaining upstream release heads and current local topic branches into main as superseded integration merges, leaving no unmerged remote branches.
+
+### Fixed
+
+- YouTube and Yomu-hosted video frames that request fullscreen on the bare video element now redirect fullscreen to the player container, so the subtitle overlay remains visible above the video in mobile/narrow fullscreen layouts.
+
 ## [1.4.43] - 2026-06-20
 
 ### Changed

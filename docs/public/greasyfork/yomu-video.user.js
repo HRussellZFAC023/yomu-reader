@@ -11744,6 +11744,87 @@ ${spelling}`);
   function escapeRegExp$1(value) {
     return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
+  const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
+  const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
+  function fullscreenRedirectBootstrap(win) {
+    const flag = "__yomuSubtitleFullscreenRedirect";
+    if (win[flag]) return;
+    const selector = "#movie_player, .html5-video-player, [data-yomu-video-frame]";
+    const elementCtor = win.HTMLElement;
+    const videoCtor = win.HTMLVideoElement;
+    const proto = elementCtor?.prototype;
+    if (!proto || !videoCtor) return;
+    const methods = ["requestFullscreen", "webkitRequestFullscreen", "webkitRequestFullScreen", "mozRequestFullScreen", "msRequestFullscreen"];
+    for (const name of methods) {
+      const original = proto[name];
+      if (typeof original !== "function") continue;
+      const native = original;
+      proto[name] = function patchedRequestFullscreen(...args) {
+        const container = this instanceof videoCtor ? this.closest(selector) : null;
+        const target = container && container !== this && typeof container[name] === "function" ? container : this;
+        return native.apply(target, args);
+      };
+    }
+    win[flag] = true;
+  }
+  function fullscreenRedirectStyleText() {
+    const fill = "width:100%!important;height:100%!important;left:0!important;top:0!important;";
+    return [
+      `#movie_player:fullscreen video.html5-main-video{${fill}}`,
+      "#movie_player:fullscreen .html5-video-container{width:100%!important;height:100%!important;}",
+      `#movie_player:-webkit-full-screen video.html5-main-video{${fill}}`,
+      "#movie_player:-webkit-full-screen .html5-video-container{width:100%!important;height:100%!important;}",
+      `[data-yomu-video-frame]:fullscreen video{${fill}}`,
+      `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`
+    ].join("\n");
+  }
+  function injectFullscreenRedirectStyle() {
+    const parent = document.head || document.documentElement;
+    if (!parent || document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = fullscreenRedirectStyleText();
+    parent.append(style);
+  }
+  function injectFullscreenRedirectScript() {
+    const parent = document.head || document.documentElement;
+    if (!parent) return false;
+    const source = `;(${fullscreenRedirectBootstrap.toString()})(window);`;
+    try {
+      const script = document.createElement("script");
+      const nonce = [...document.querySelectorAll("script[nonce]")].map((el) => el.getAttribute("nonce")).find(Boolean);
+      if (nonce) script.setAttribute("nonce", nonce);
+      const trusted = createTrustedRedirectScript(source);
+      if (trusted) script.textContent = trusted;
+      else script.textContent = source;
+      parent.append(script);
+      script.remove();
+    } catch {
+      return false;
+    }
+    const pageWin = globalThis.unsafeWindow ?? window;
+    return Boolean(pageWin[REDIRECT_FLAG]);
+  }
+  function createTrustedRedirectScript(code) {
+    try {
+      const factory = globalThis.trustedTypes;
+      if (!factory?.createPolicy) return null;
+      const policy = factory.createPolicy("yomu-subtitle-fullscreen-redirect", { createScript: (value) => value });
+      return policy?.createScript ? policy.createScript(code) : null;
+    } catch {
+      return null;
+    }
+  }
+  function installSubtitleFullscreenRedirect() {
+    injectFullscreenRedirectStyle();
+    const unsafe = globalThis.unsafeWindow;
+    const differentRealm = Boolean(unsafe) && unsafe !== globalThis;
+    if (differentRealm && unsafe) {
+      if (unsafe[REDIRECT_FLAG]) return;
+      if (injectFullscreenRedirectScript()) return;
+    }
+    fullscreenRedirectBootstrap(unsafe ?? window);
+  }
   const TRANSLATION_BATCH_SIZE = 80;
   const TRANSLATION_BATCH_ENCODED_CHAR_BUDGET = 6e3;
   const TRANSLATION_TIMEOUT_MS = 8e3;
@@ -13653,6 +13734,7 @@ ${spelling}`);
     install() {
       if (this.root) return;
       document.querySelectorAll('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach((element) => element.remove());
+      if (isYouTubePage() || document.querySelector("[data-yomu-video-frame]")) installSubtitleFullscreenRedirect();
       const root = document.createElement("div");
       root.className = "jpdb-subtitle-player";
       root.dataset.jpdbReaderRoot = "true";
