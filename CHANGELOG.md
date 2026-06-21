@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.46] - 2026-06-21
+
+### Fixed
+
+- The "Prefer Japanese site language and location" setting now actively redirects common multilingual sites to their Japanese URL variants instead of relying only on browser-language hints. YouTube, Google, Google News, MDN, GitHub Docs, Microsoft Learn, Apple Support, Wikipedia alternates, and other pages that expose Japanese alternate links now move to Japanese reliably when the setting is enabled.
+
 ## [1.4.45] - 2026-06-21
 
 ### Added

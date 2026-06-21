@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.45
+// @version      1.4.46
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.45#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.45#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.45#sha256-weJd9EsDx0qo32rpXnS6LJOlCpApHqR4U5Aq99qXRs0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.45#sha256-pAgA9yOoORlqKGF/6LnGNK2MSC/Dfwd5AJ3QMsmFKIU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.46#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.46#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.46#sha256-weJd9EsDx0qo32rpXnS6LJOlCpApHqR4U5Aq99qXRs0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.46#sha256-pAgA9yOoORlqKGF/6LnGNK2MSC/Dfwd5AJ3QMsmFKIU=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -34639,8 +34639,14 @@ ${reading}`);
   const JAPANESE_LANGUAGE = "ja";
   const JAPANESE_COUNTRY = "JP";
   const JAPANESE_TIME_ZONE = "Asia/Tokyo";
+  const JAPANESE_LOCALE = "ja-JP";
   const PREFERENCE_CACHE_KEY = "yomu:prefer-japanese-site-language";
+  const REDIRECT_CACHE_KEY = "yomu:prefer-japanese-site-language:last-redirect";
   const INJECTION_RETRY_LIMIT = 12;
+  const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
+  const ALTERNATE_REDIRECT_RETRY_MS = 125;
+  const REDIRECT_RETRY_SUPPRESSION_MS = 6e4;
+  let alternateRedirectCleanup;
   function installPreferredJapaneseSiteLanguageFromStoredSettings() {
     const syncPreference = readStoredPreferenceEnabledSync();
     if (typeof syncPreference === "boolean") {
@@ -34653,8 +34659,21 @@ ${reading}`);
     if (typeof window === "undefined") return;
     writeCachedPreferenceEnabled(enabled);
     applyPageContextJapanesePreferences(enabled);
-    if (enabled) applySitePreferenceCookies();
-    else clearSitePreferenceCookies();
+    if (enabled) {
+      applySitePreferenceCookies();
+      schedulePreferredJapaneseSiteRedirect();
+    } else {
+      clearSitePreferenceCookies();
+      cancelPreferredJapaneseSiteRedirectWatcher();
+    }
+  }
+  function preferredJapaneseSiteUrl(sourceHref, root) {
+    const current = parseHttpUrl(sourceHref);
+    if (!current) return null;
+    const alternate = japaneseAlternateLinkUrl(current, root);
+    const target = alternate ?? siteRuleJapaneseUrl(current);
+    if (!target || target.href === current.href) return null;
+    return target.href;
   }
   function readStoredPreferenceEnabledSync() {
     const cached = readCachedPreferenceEnabled();
@@ -34764,6 +34783,7 @@ ${reading}`);
   function injectedPagePreferenceSource(enabled) {
     return [
       ";(() => {",
+      `const JAPANESE_LOCALE = ${JSON.stringify(JAPANESE_LOCALE)};`,
       `const defineUntrackedValue = ${defineUntrackedValue.toString()};`,
       `const preferenceState = ${preferenceState.toString()};`,
       `const rememberDescriptor = ${rememberDescriptor.toString()};`,
@@ -34806,6 +34826,217 @@ ${reading}`);
   function currentLocationHostname() {
     return typeof location.hostname === "string" ? location.hostname.toLowerCase() : "";
   }
+  function schedulePreferredJapaneseSiteRedirect() {
+    if (attemptPreferredJapaneseSiteRedirect()) return;
+    installAlternateRedirectWatcher();
+  }
+  function attemptPreferredJapaneseSiteRedirect() {
+    const href = currentLocationHref();
+    const target = href ? preferredJapaneseSiteUrl(href, document) : null;
+    if (!target || recentlyAttemptedRedirect(href, target)) return false;
+    rememberRedirectAttempt(href, target);
+    replaceLocation(target);
+    return true;
+  }
+  function currentLocationHref() {
+    return typeof location.href === "string" ? location.href : "";
+  }
+  function installAlternateRedirectWatcher(attempt = 0) {
+    if (alternateRedirectCleanup) return;
+    const root = document.documentElement || document.head;
+    if (!root) {
+      if (attempt < INJECTION_RETRY_LIMIT) window.setTimeout(() => installAlternateRedirectWatcher(attempt + 1), 0);
+      return;
+    }
+    let checks = 0;
+    const stop = () => {
+      cleanup();
+      alternateRedirectCleanup = void 0;
+    };
+    const check = () => {
+      checks += 1;
+      if (attemptPreferredJapaneseSiteRedirect() || checks >= ALTERNATE_REDIRECT_RETRY_LIMIT) stop();
+    };
+    const observer = new MutationObserver(check);
+    const timer = window.setInterval(check, ALTERNATE_REDIRECT_RETRY_MS);
+    const cleanup = () => {
+      observer.disconnect();
+      window.clearInterval(timer);
+    };
+    alternateRedirectCleanup = stop;
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["href", "hreflang", "rel"]
+    });
+  }
+  function cancelPreferredJapaneseSiteRedirectWatcher() {
+    alternateRedirectCleanup?.();
+    alternateRedirectCleanup = void 0;
+  }
+  function replaceLocation(href) {
+    try {
+      if (typeof location.replace === "function") {
+        location.replace(href);
+        return;
+      }
+    } catch {
+    }
+    try {
+      location.href = href;
+    } catch {
+    }
+  }
+  function recentlyAttemptedRedirect(sourceHref, targetHref) {
+    try {
+      const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
+      if (!value) return false;
+      const record = JSON.parse(value);
+      return record.source === sourceHref && record.target === targetHref && typeof record.at === "number" && Date.now() - record.at < REDIRECT_RETRY_SUPPRESSION_MS;
+    } catch {
+      return false;
+    }
+  }
+  function rememberRedirectAttempt(sourceHref, targetHref) {
+    try {
+      sessionStorage.setItem(REDIRECT_CACHE_KEY, JSON.stringify({ source: sourceHref, target: targetHref, at: Date.now() }));
+    } catch {
+    }
+  }
+  function parseHttpUrl(sourceHref) {
+    try {
+      const url = new URL(sourceHref);
+      return url.protocol === "http:" || url.protocol === "https:" ? url : null;
+    } catch {
+      return null;
+    }
+  }
+  function japaneseAlternateLinkUrl(current, root) {
+    if (!root) return null;
+    try {
+      for (const link of Array.from(root.querySelectorAll('link[rel~="alternate"][hreflang][href]'))) {
+        const candidate = japaneseAlternateCandidateUrl(current, link);
+        if (candidate && candidate.href !== current.href) return candidate;
+      }
+      for (const anchor of Array.from(root.querySelectorAll("a[hreflang][href]"))) {
+        const candidate = japaneseAlternateCandidateUrl(current, anchor);
+        if (candidate && candidate.href !== current.href) return candidate;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+  function japaneseAlternateCandidateUrl(current, element2) {
+    const hreflang = element2.getAttribute("hreflang")?.toLowerCase().replace(/_/g, "-");
+    if (hreflang !== JAPANESE_LANGUAGE && hreflang !== JAPANESE_LOCALE.toLowerCase()) return null;
+    const href = element2.getAttribute("href");
+    return href ? parseHttpUrl(new URL(href, current.href).href) : null;
+  }
+  function siteRuleJapaneseUrl(current) {
+    const hostname = current.hostname.toLowerCase();
+    if (hostname === "youtu.be") return youtuBeJapaneseUrl(current);
+    if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, youtubeJapaneseSearchParams());
+    if (hostname === "consent.google.com") return googleConsentJapaneseUrl(current);
+    if (hostname === "news.google.com") return withSearchParams(current, googleNewsJapaneseSearchParams());
+    if (isGooglePreferenceHost(hostname)) return withSearchParams(current, googleJapaneseSearchParams());
+    if (hostname === "wikipedia.org") return withHostname(current, "ja.wikipedia.org");
+    if (hostname.endsWith(".wikipedia.org") && hostname !== "ja.wikipedia.org" && isRootPath(current)) {
+      return withHostname(current, "ja.wikipedia.org");
+    }
+    if (hostname === "developer.mozilla.org") return withLeadingLocaleSegment(current, "ja");
+    if (hostname === "docs.github.com") return withLeadingLocaleSegment(current, "ja");
+    if (hostname === "learn.microsoft.com" || hostname === "support.microsoft.com") return withLeadingLocaleSegment(current, "ja-jp");
+    if (hostname === "support.apple.com") return withLeadingLocaleSegment(current, "ja-jp");
+    return null;
+  }
+  function youtuBeJapaneseUrl(current) {
+    const videoId = current.pathname.split("/").filter(Boolean)[0];
+    if (!videoId) return withSearchParams(current, youtubeJapaneseSearchParams());
+    const target = new URL("https://www.youtube.com/watch");
+    target.searchParams.set("v", videoId);
+    for (const [key, value] of current.searchParams.entries()) {
+      if (key !== "v" && key !== "hl" && key !== "gl") target.searchParams.append(key, value);
+    }
+    for (const [key, value] of Object.entries(youtubeJapaneseSearchParams())) target.searchParams.set(key, value);
+    target.hash = current.hash;
+    return target;
+  }
+  function googleConsentJapaneseUrl(current) {
+    const next = new URL(current.href);
+    let changed = false;
+    for (const [key, value] of Object.entries(googleJapaneseSearchParams())) {
+      if (next.searchParams.get(key) !== value) {
+        next.searchParams.set(key, value);
+        changed = true;
+      }
+    }
+    const continueHref = current.searchParams.get("continue");
+    const japaneseContinueHref = continueHref ? preferredJapaneseSiteUrl(continueHref) : null;
+    if (japaneseContinueHref && japaneseContinueHref !== continueHref) {
+      next.searchParams.set("continue", japaneseContinueHref);
+      changed = true;
+    }
+    return changed ? next : null;
+  }
+  function youtubeJapaneseSearchParams() {
+    return {
+      hl: JAPANESE_LANGUAGE,
+      gl: JAPANESE_COUNTRY
+    };
+  }
+  function googleNewsJapaneseSearchParams() {
+    return {
+      hl: JAPANESE_LANGUAGE,
+      gl: JAPANESE_COUNTRY,
+      ceid: `${JAPANESE_COUNTRY}:${JAPANESE_LANGUAGE}`
+    };
+  }
+  function googleJapaneseSearchParams() {
+    return {
+      hl: JAPANESE_LANGUAGE,
+      gl: JAPANESE_COUNTRY
+    };
+  }
+  function isGooglePreferenceHost(hostname) {
+    return hostname === "google.com" || hostname.startsWith("www.google.") || hostname === "support.google.com" || hostname === "cloud.google.com";
+  }
+  function isRootPath(current) {
+    return current.pathname === "" || current.pathname === "/";
+  }
+  function withSearchParams(current, values) {
+    const next = new URL(current.href);
+    let changed = false;
+    for (const [key, value] of Object.entries(values)) {
+      if (next.searchParams.get(key) === value) continue;
+      next.searchParams.set(key, value);
+      changed = true;
+    }
+    return changed ? next : null;
+  }
+  function withHostname(current, hostname) {
+    if (current.hostname.toLowerCase() === hostname) return null;
+    const next = new URL(current.href);
+    next.hostname = hostname;
+    return next;
+  }
+  function withLeadingLocaleSegment(current, locale) {
+    const parts = current.pathname.split("/");
+    const first = safeDecodePathSegment(parts[1] ?? "").toLowerCase();
+    if (!/^[a-z]{2}(?:-[a-z]{2})?$/.test(first) || first === locale) return null;
+    const next = new URL(current.href);
+    parts[1] = locale;
+    next.pathname = parts.join("/") || "/";
+    return next;
+  }
+  function safeDecodePathSegment(segment) {
+    try {
+      return decodeURIComponent(segment);
+    } catch {
+      return segment;
+    }
+  }
   function mergeCookie(name, values, domain) {
     try {
       const params = new URLSearchParams(cookieValue(name));
@@ -34844,7 +35075,7 @@ ${reading}`);
     }
     if (state2.installed) return;
     state2.installed = true;
-    const locale = "ja-JP";
+    const locale = JAPANESE_LOCALE;
     const languages = ["ja-JP", "ja", "en-US", "en"];
     const timeZone = "Asia/Tokyo";
     const acceptLanguage = "ja-JP,ja;q=0.9,en-US;q=0.5,en;q=0.3";
