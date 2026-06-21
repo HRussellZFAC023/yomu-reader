@@ -30967,8 +30967,7 @@ ${normalizedReading}`;
   ];
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-    ...YT_NAV_CHROME_EXCLUDE_ENTRIES
+    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES
   ].join(",");
   const YOUTUBE_MOBILE_CHROME_ROOTS = [
     "ytd-mini-guide-renderer",
@@ -31658,7 +31657,6 @@ ${normalizedReading}`;
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length || nodes.some((node) => context.seen.has(node))) return false;
     if (isResidualReaderParticleTarget(target)) return false;
-    if (isYouTubeSiteParserProfile(profile) && isYouTubeNativeGuideTarget(target.parent)) return false;
     nodes.forEach((node) => context.seen.add(node));
     context.targets.push(siteScanTargetWithProfileOptions(profile, target));
     return true;
@@ -31688,9 +31686,6 @@ ${normalizedReading}`;
     const content = parent.closest("#content-text");
     if (content?.closest("ytd-comment-view-model, ytm-comment-renderer")) return true;
     return parent.matches("ytd-comment-view-model, ytm-comment-renderer") && Boolean(parent.querySelector("#content-text"));
-  }
-  function isYouTubeNativeGuideTarget(parent) {
-    return Boolean(parent.closest(YT_NAV_CHROME_EXCLUDE_ENTRIES.join(",")));
   }
   function isYouTubeSiteParserProfile(profile) {
     return profile.id === "youtube-comments-parser" || profile.id === "youtube-chrome-parser" || profile.id === "youtube-live-chat-parser";
