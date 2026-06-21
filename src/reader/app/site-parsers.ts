@@ -77,6 +77,30 @@ const GENERIC_PROSE_ROOTS = [
     'article',
     'main article',
     '[role="main"] article',
+    '[role="article"]',
+    // LLM/chat UIs often render assistant responses as markdown/message blocks
+    // without article/prose tags. Keep these generic so new chat surfaces still
+    // get normal reader rendering instead of requiring one-off site profiles.
+    '.markdown',
+    '.markdown-body',
+    '.markdown-content',
+    '.message',
+    '.message-body',
+    '.message-content',
+    '.messageContent',
+    '.chat-message',
+    '.conversation-turn',
+    '.model-response',
+    '.model-response-text',
+    '.response-content',
+    '[data-message-author-role]',
+    '[data-message-id]',
+    '[data-testid*="conversation-turn" i]',
+    '[data-testid*="chat-message" i]',
+    '[data-testid*="message-content" i]',
+    '[data-testid*="message-bubble" i]',
+    '[data-test-id*="chat-message" i]',
+    '[data-test-id*="message-content" i]',
     '.article',
     '.post',
     '.entry',
@@ -230,9 +254,14 @@ const YT_PLAYER_CHROME_EXCLUDE_ENTRIES = [
     '.caption-window',
     '.captions-text',
 ];
+const YT_NAV_CHROME_EXCLUDE_ENTRIES = [
+    'ytd-mini-guide-renderer',
+    'ytd-guide-renderer',
+];
 const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     ...STRUCTURAL_EXCLUDE_ENTRIES,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
+    ...YT_NAV_CHROME_EXCLUDE_ENTRIES,
     '[disabled]',
     '[aria-disabled="true"]',
 ];
@@ -331,15 +360,33 @@ const YOUTUBE_CHROME_ROOTS = [
     'ytd-masthead .ytAttributedStringHost',
     'ytd-masthead yt-attributed-string',
 ];
-const YOUTUBE_NAV_CHROME_EXCLUDE = [
+const YOUTUBE_TEXT_EXCLUDE = [
+    COMMON_EXCLUDE,
+    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
+    ...YT_NAV_CHROME_EXCLUDE_ENTRIES,
+].join(',');
+const YOUTUBE_MOBILE_CHROME_ROOTS = [
     'ytd-mini-guide-renderer',
     'ytd-guide-renderer',
     'ytm-pivot-bar-renderer',
     'ytm-pivot-bar-item-renderer',
+    'ytm-mobile-topbar-renderer',
+    'ytm-app-header',
+    'ytm-searchbox',
+    'ytm-shorts-player-controls',
+    'ytm-slim-video-action-bar-renderer',
+    'ytm-actions-renderer',
+    'ytm-menu-renderer',
+    'ytm-button-renderer',
+    'ytm-toggle-button-renderer',
+    'ytm-bottom-sheet-renderer',
+    'ytm-engagement-panel-section-list-renderer',
+    'ytm-reel-player-overlay-renderer',
+    'ytm-shorts-video-title-view-model',
 ].join(',');
-const YOUTUBE_TEXT_EXCLUDE = [
-    COMMON_EXCLUDE,
-    YOUTUBE_NAV_CHROME_EXCLUDE,
+const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
+    YOUTUBE_MOBILE_CHROME_ROOTS,
+    YOUTUBE_CHROME_ROOTS.join(','),
 ].join(',');
 const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
     'button',
@@ -361,35 +408,6 @@ const YOUTUBE_SYNTHETIC_TEXT_ROOTS = [
 const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
     '#view-count[aria-label]',
     '#date-text[aria-label]',
-].join(',');
-const YOUTUBE_COMPACT_RUBY_SUPPRESS_SELECTOR = [
-    'yt-lockup-view-model',
-    'ytd-rich-grid-renderer',
-    'ytd-rich-item-renderer',
-    'ytd-video-renderer',
-    'ytd-compact-video-renderer',
-    'ytd-watch-next-secondary-results-renderer',
-    'ytm-rich-grid-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-shorts-lockup-view-model',
-    'ytm-shorts-lockup-view-model-v2',
-    'ytm-item-section-renderer',
-].join(',');
-const YOUTUBE_RICH_TEXT_SAFE_SELECTOR = [
-    'ytd-watch-metadata',
-    'ytm-watch-metadata',
-    'ytm-slim-video-metadata-section-renderer',
-    'ytm-expandable-video-description-body-renderer',
-    'ytm-structured-description-content-renderer',
-    'ytd-comment-view-model',
-    'ytm-comment-renderer',
-    'ytd-comments',
-    'ytd-transcript-segment-renderer',
-    'ytm-transcript-segment-renderer',
-    'yt-live-chat-renderer',
-    'yt-live-chat-text-message-renderer',
-    'yt-live-chat-paid-message-renderer',
-    'yt-live-chat-membership-item-renderer',
 ].join(',');
 const GOOGLE_SEARCH_ROOTS = [
     '#search',
@@ -766,6 +784,8 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytd-live-chat-frame #header',
             'ytd-live-chat-frame #panel-pages',
             'ytd-live-chat-frame yt-formatted-string',
+            YOUTUBE_MOBILE_CHROME_ROOTS,
+            ...YOUTUBE_CHROME_ROOTS,
             'ytd-watch-next-secondary-results-renderer',
             'ytd-compact-video-renderer',
             // General feed/search grids are useful, but lower priority because
@@ -777,6 +797,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-rich-grid-renderer',
             'ytm-video-with-context-renderer',
             'ytm-shorts-lockup-view-model',
+            'ytm-shorts-lockup-view-model-v2',
             'ytm-item-section-renderer',
         ],
         exclude: YOUTUBE_TEXT_EXCLUDE,
@@ -784,7 +805,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includeUiChrome: true,
         singlePassScan: true,
         nonDestructive: true,
-        includePassiveInteractionRoots: false,
+        includePassiveInteractionRoots: true,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
             || url.hostname === 'youtu.be',
@@ -800,7 +821,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         includeUiChrome: true,
         singlePassScan: true,
         nonDestructive: true,
-        includePassiveInteractionRoots: false,
+        includePassiveInteractionRoots: true,
         matches: url => url.hostname === 'youtube.com'
             || url.hostname.endsWith('.youtube.com')
             || url.hostname === 'youtu.be',
@@ -1106,6 +1127,7 @@ function addUniqueSiteScanTarget(
 ): boolean {
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length || nodes.some(node => context.seen.has(node))) return false;
+    if (isYouTubeSiteParserProfile(profile) && isYouTubeNativeGuideTarget(target.parent)) return false;
     if (isResidualReaderParticleTarget(target)) return false;
     nodes.forEach(node => context.seen.add(node));
     context.targets.push(siteScanTargetWithProfileOptions(profile, target));
@@ -1114,27 +1136,34 @@ function addUniqueSiteScanTarget(
 
 function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: FragmentTextTarget): FragmentTextTarget {
     const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
+    const targetSuppressRuby = isYouTubeSiteParserProfile(profile) ? false : target.suppressRuby;
+    const youtubePassiveChrome = isYouTubeSiteParserProfile(profile)
+        && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
     const baseTarget = {
         ...target,
         parserId: profile.id,
-        suppressRuby: target.suppressRuby || suppressRuby || undefined,
-        passiveInteraction: target.passiveInteraction || suppressRuby || undefined,
+        suppressRuby: targetSuppressRuby || suppressRuby || undefined,
+        passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || undefined,
         singlePassScan: profile.singlePassScan || undefined,
         nonDestructive: profile.nonDestructive || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
 }
 
+function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {
+    return profile.id === 'youtube-comments-parser'
+        || profile.id === 'youtube-chrome-parser'
+        || profile.id === 'youtube-live-chat-parser';
+}
+
+function isYouTubeNativeGuideTarget(parent: HTMLElement): boolean {
+    return Boolean(parent.closest(YT_NAV_CHROME_EXCLUDE_ENTRIES.join(',')));
+}
+
 function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {
     if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
     if (profile.id === 'jiten-parser') return isJitenStudyPromptTarget(target.parent, target.text);
-    if (profile.id === 'youtube-comments-parser') return isYouTubeCompactFeedTarget(target.parent);
     return false;
-}
-
-function isYouTubeCompactFeedTarget(parent: HTMLElement): boolean {
-    if (!parent.closest(YOUTUBE_COMPACT_RUBY_SUPPRESS_SELECTOR)) return false;
-    return !parent.closest(YOUTUBE_RICH_TEXT_SAFE_SELECTOR);
 }
 
 function isJpdbReviewPromptTarget(parent: HTMLElement, text: string): boolean {

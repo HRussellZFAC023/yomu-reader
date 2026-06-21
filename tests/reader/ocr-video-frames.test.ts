@@ -91,6 +91,8 @@ describe('paused-video OCR frames', () => {
         video.dispatchEvent(new Event('pause'));
         const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
         const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status');
+        expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
+        expect(frame.dataset.ocrPending).toBe('true');
         expect(status).not.toBeNull();
         expect(status!.dataset.status).toBe('loading');
         expect(status!.textContent).toBe('');
@@ -105,6 +107,8 @@ describe('paused-video OCR frames', () => {
 
         await waitForExpect(() => {
             expect(document.querySelector('.jpdb-ocr-line')).not.toBeNull();
+            expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
+            expect(frame.dataset.ocrPending).toBeUndefined();
             expect(status!.dataset.status).toBe('ready');
             expect(status!.textContent).toBe('');
             expect(status!.getAttribute('aria-label')).toBe('Text ready');

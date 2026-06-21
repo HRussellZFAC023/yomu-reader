@@ -47,7 +47,6 @@ export function canClickLookupPassiveReaderWordElement(word: HTMLElement): boole
     if (isOcrLineFrameWord(word)) return false;
     if (word.dataset.jpdbReaderPassive !== 'true') return false;
     if (!word.classList.contains('jpdb-reader-scan-word')) return false;
-    if (!word.closest('.jpdb-reader-text-mirror')) return false;
     return !isNativePageLookupBlocked(word);
 }
 

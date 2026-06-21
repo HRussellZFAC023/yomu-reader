@@ -370,6 +370,7 @@ export class ImageOcrController {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) {
+            this.releaseAllVideoFrames();
             this.clear();
             return;
         }
@@ -407,6 +408,22 @@ export class ImageOcrController {
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) return;
         if (this.options.shouldAutoScan?.() === false) {
+            this.clearAutoScannedOverlays();
+            this.schedulePosition();
+            return;
+        }
+        this.refresh();
+    }
+
+    refreshForModeChange(): void {
+        if (this.destroyed) return;
+        const settings = this.options.getSettings();
+        if (!settings.ocrEnabled) {
+            this.releaseAllVideoFrames();
+            this.clear();
+            return;
+        }
+        if (!settings.ocrAutoScanImages) {
             this.clearAutoScannedOverlays();
             this.schedulePosition();
             return;
@@ -874,6 +891,7 @@ export class ImageOcrController {
         for (const [index, line] of lines.entries()) {
             state.overlay.append(this.renderOcrLineElement(state, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
         }
+        this.revealVideoFrameOverlay(state.image);
         this.positionState(state.image);
         this.updateOcrStatus(state.image, 'ready');
         void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state.overlay)).finally(() => this.schedulePosition());
@@ -1044,7 +1062,9 @@ export class ImageOcrController {
         if (!dataUrl) return;
         const frame = document.createElement('img');
         frame.className = 'jpdb-ocr-video-frame';
+        frame.classList.add('jpdb-ocr-video-frame-pending');
         frame.dataset.yomuVideoFrame = 'true';
+        frame.dataset.ocrPending = 'true';
         frame.alt = '';
         positionVideoFrameImage(frame, rect, target);
         frame.addEventListener('load', () => {
@@ -1065,6 +1085,12 @@ export class ImageOcrController {
         this.videoFrameControls.set(target, resume);
         positionVideoFrameResumeControl(resume, rect, target);
         this.schedulePosition();
+    }
+
+    private revealVideoFrameOverlay(image: HTMLImageElement): void {
+        if (!this.videoFrameVideos.has(image)) return;
+        image.classList.remove('jpdb-ocr-video-frame-pending');
+        delete image.dataset.ocrPending;
     }
 
     private createVideoFrameResumeControl(video: HTMLVideoElement): HTMLElement {

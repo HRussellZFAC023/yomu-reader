@@ -3787,7 +3787,7 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
-    it('renders cached provisional subtitle ruby and pitch on the first primary paint', () => {
+    it('keeps cached provisional subtitle hidden until ruby and pitch are enriched for the first primary paint', () => {
         const originalLocation = window.location;
         Object.defineProperty(window, 'location', {
             configurable: true,
@@ -3799,13 +3799,15 @@ describe('SubtitlePlayerController', () => {
             const cue = { start: 0, end: 2, text: '読む', transcriptEligible: true };
             const { settings, internals } = setupTranscriptCueController<typeof cue, {
                 parseCacheKey: (text: string, settings: ReaderSettings) => string;
+                enrichedProvisionalParsedHtmlKeys: Set<string>;
                 provisionalParsedHtmlCache: Map<string, string>;
                 render: () => void;
             }>([cue], {
                 hooks: { parseJapanese },
                 selectedTrackId: 'youtube-0',
                 settings: {
-                    apiKey: 'test-key',
+                    apiKey: '',
+                    jitenApiKey: '',
                     subtitleKaraokeMode: false,
                 },
             });
@@ -3815,6 +3817,10 @@ describe('SubtitlePlayerController', () => {
                 '<span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban jpdb-reader-has-furi"><ruby><span class="jpdb-reader-ruby-base">読</span><rt class="jpdb-reader-furi">よ</rt></ruby>む</span>',
             );
 
+            internals.render();
+            expect(document.querySelector('.jpdb-subtitle-primary .jpdb-reader-word')).toBeNull();
+
+            internals.enrichedProvisionalParsedHtmlKeys.add(key);
             internals.render();
 
             const word = document.querySelector<HTMLElement>('.jpdb-subtitle-primary .jpdb-reader-word')!;

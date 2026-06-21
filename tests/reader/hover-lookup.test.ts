@@ -820,6 +820,87 @@ describe('hover lookup', () => {
         }
     });
 
+    it('opens chatbot text-mirror words when the click target is the message host', () => {
+        document.body.innerHTML = `
+            <section>
+                <div data-message-author-role="assistant">
+                    <div class="markdown message-content">
+                        <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-source-text="今日は日本語を勉強しました">
+                            今日は<span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="501" data-sid="502" data-card-source="jiten" data-card-id="501" data-reading-index="0" data-token-start="3" data-token-end="6" data-sentence="今日は日本語を勉強しました" data-expression="日本語" data-jpdb-reader-passive="true">日本語</span>を勉強しました
+                        </span>
+                    </div>
+                </div>
+            </section>
+        `;
+        const app = new ReaderApp();
+        const host = document.querySelector<HTMLElement>('[data-message-author-role]')!;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        Object.defineProperties(word, {
+            getClientRects: {
+                configurable: true,
+                value: () => [new DOMRect(36, 12, 48, 20)],
+            },
+            getBoundingClientRect: {
+                configurable: true,
+                value: () => new DOMRect(36, 12, 48, 20),
+            },
+        });
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const restoreElementsFromPoint = stubElementsFromPoint([host]);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnClick: true,
+        };
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 48, clientY: 16 });
+            host.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+        } finally {
+            restoreElementsFromPoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('opens passive scan words on click when no native control owns them', () => {
+        document.body.innerHTML = `
+            <div class="message-content">
+                <span class="jpdb-reader-word jpdb-reader-scan-word jpdb-reader-passive-word" data-vid="501" data-sid="502" data-token-start="0" data-token-end="2" data-sentence="日本語" data-expression="日本語" data-jpdb-reader-passive="true">日本語</span>
+            </div>
+        `;
+        const app = new ReaderApp();
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            lookupOnClick: true,
+        };
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('keeps passive text-mirror words inside native buttons click-through', () => {
         document.body.innerHTML = `
             <button type="button">

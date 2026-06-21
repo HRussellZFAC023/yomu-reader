@@ -721,22 +721,25 @@
 }
 .jpdb-reader-furi {
   font-size: 0.52em;
-  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));
+  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
   line-height: 1;
   user-select: none;
 }
 .jpdb-reader-word ruby {
-  position: static;
-  display: ruby;
-  ruby-align: center;
-  ruby-position: over;
+  position: static !important;
+  display: ruby !important;
+  ruby-align: center !important;
+  ruby-position: over !important;
   line-height: 1;
-  vertical-align: baseline;
+  vertical-align: baseline !important;
   text-decoration-line: inherit !important;
   text-decoration-style: inherit !important;
   text-decoration-color: inherit !important;
   text-decoration-thickness: inherit !important;
   text-underline-offset: inherit !important;
+}
+.jpdb-reader-word rt.jpdb-reader-furi {
+  display: ruby-text !important;
 }
 .jpdb-reader-ruby-base {
   display: inline;
@@ -832,6 +835,11 @@
   border: 0;
   pointer-events: none;
   object-fit: fill;
+}
+
+.jpdb-ocr-video-frame-pending {
+  opacity: 0.001;
+  pointer-events: none !important;
 }
 
 /* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the

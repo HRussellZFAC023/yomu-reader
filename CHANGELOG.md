@@ -9,6 +9,9 @@
 ### Fixed
 
 - YouTube and Yomu-hosted video frames that request fullscreen on the bare video element now redirect fullscreen to the player container, so the subtitle overlay remains visible above the video in mobile/narrow fullscreen layouts.
+- YouTube Shorts subtitles now stay on the native player until the Yomu line is fully parsed and enriched with furigana/pitch, sync on video time events, sit slightly higher by default, and use larger coarse-pointer tap targets.
+- Paused-video OCR snapshots now keep the native player visible until OCR text is ready, then reveal the still frame together with the parsed OCR overlay.
+- YouTube comments, buttons, mobile navigation, and compact titles now stay in the ruby/pitch annotation path instead of suppressing furigana on compact or chrome text.
 
 ## [1.4.43] - 2026-06-20
 

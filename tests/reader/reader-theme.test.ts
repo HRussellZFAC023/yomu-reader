@@ -748,7 +748,7 @@ describe('reader theme', () => {
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) 100% !important;');
-        expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));');
+        expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;');
         expect(normalizedCss).toContain('touch-action: manipulation;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1;');
         expect(normalizedCss).toContain(':has(> .jpdb-reader-word.jpdb-reader-has-furi) > .jpdb-reader-word { line-height: 1.85; }');

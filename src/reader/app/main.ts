@@ -240,7 +240,7 @@ import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumen
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
-import { resolveUiLanguage, uiText } from './i18n';
+import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
 import { OnboardingController } from './onboarding';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
@@ -248,6 +248,7 @@ import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import { contextPitchPattern } from '../lookup/pitch-accent';
 import { cardPronunciationReading, isKanjiCharacter, uniqueKanji } from '../popup/pitch';
 import type { ImageOcrController } from '../ocr/controller';
+import { applyOcrInteractionMode, nextOcrInteractionMode, ocrInteractionModeFromSettings, type OcrInteractionMode } from '../ocr/mode';
 import { isApiMiningEnabled } from '../cards/srs-providers';
 import {
     caretTextPositionFromPoint,
@@ -333,6 +334,18 @@ const HOST_THEME_ENFORCE_STEP_MS = 200;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.textBox',
     '.ocr-line',
+    '.markdown',
+    '.markdown-body',
+    '.markdown-content',
+    '.message',
+    '.message-body',
+    '.message-content',
+    '.messageContent',
+    '.chat-message',
+    '.conversation-turn',
+    '.model-response',
+    '.model-response-text',
+    '.response-content',
     'p',
     'li',
     'blockquote',
@@ -341,6 +354,15 @@ const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     'article',
     'main',
     '[data-jpdb-reader-root]',
+    '[role="article"]',
+    '[data-message-author-role]',
+    '[data-message-id]',
+    '[data-testid*="conversation-turn" i]',
+    '[data-testid*="chat-message" i]',
+    '[data-testid*="message-content" i]',
+    '[data-testid*="message-bubble" i]',
+    '[data-test-id*="chat-message" i]',
+    '[data-test-id*="message-content" i]',
     'a[href]',
     'button',
     'summary',
@@ -375,10 +397,17 @@ function createNoopImageOcrController(): ImageOcrController {
         refresh: noop,
         destroy: noop,
         scanVisible: noop,
+        refreshForModeChange: noop,
         pinLineForElement: noop,
         clearActiveLines: noop,
         captureSourceImageForElement: () => undefined,
     } as unknown as ImageOcrController;
+}
+
+function ocrModeToastKey(mode: OcrInteractionMode): UiCopyKey {
+    if (mode === 'auto') return 'ocrModeAutoToast';
+    if (mode === 'manual') return 'ocrModeManualToast';
+    return 'ocrModeOffToast';
 }
 
 function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => void } {
@@ -1482,6 +1511,8 @@ export class ReaderApp {
                 openStudyPage: () => this.openStudyPage(),
                 togglePause: () => void this.toggleAnnotationsPaused(),
                 isPaused: () => this.settings.annotationsPaused,
+                toggleOcrMode: () => void this.cycleOcrMode(),
+                ocrMode: () => ocrInteractionModeFromSettings(this.settings),
                 toggleAutoPlayAudio: () => void this.toggleAutoPlayAudio(),
                 isAutoPlayAudioEnabled: () => this.isAutoPlayAudioEnabled(),
                 isYouTube: () => isYouTubeHostname(),
@@ -1535,6 +1566,15 @@ export class ReaderApp {
         await saveSettings(this.settings);
         log.info('Auto-play audio toggled', { enabled: !enabled });
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
+    }
+
+    private async cycleOcrMode(): Promise<void> {
+        const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
+        applyOcrInteractionMode(this.settings, nextMode);
+        await saveSettings(this.settings);
+        this.ocr.refreshForModeChange();
+        log.info('OCR mode changed', { mode: nextMode });
+        this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
     }
 
     private openStudyPage(): void {
@@ -1907,6 +1947,7 @@ export class ReaderApp {
         this.prepareModalLookupFromPointer(event);
         this.suppressSelectionLookupUntil = Date.now() + 350;
         this.ocr.pinLineForElement(word);
+        if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
         void this.showWord(word, surfaces.insideReaderPopup
             ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
             : { trigger: 'click', userGesture: true });
@@ -1938,8 +1979,8 @@ export class ReaderApp {
 
     private readerWordClickSurfaces(event: MouseEvent, word: HTMLElement): { insideReaderPopup: boolean; insideSubtitlePlayer: boolean } | null {
         if (!this.canClickLookupReaderWord(word)) return null;
-        const passiveTextMirrorClick = canClickLookupPassiveReaderWordElement(word);
-        if (word.dataset.jpdbReaderPassive === 'true' && !passiveTextMirrorClick) return null;
+        const passiveReaderClick = canClickLookupPassiveReaderWordElement(word);
+        if (word.dataset.jpdbReaderPassive === 'true' && !passiveReaderClick) return null;
         if (this.consumeSuppressedReaderWordClick(event, word)) return null;
         const insideReaderPopup = Boolean(word.closest('.jpdb-reader-popover'));
         const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
@@ -1956,7 +1997,9 @@ export class ReaderApp {
     }
 
     private passiveTextMirrorClickOverridesNativeLink(word: HTMLElement, nativeClickable: HTMLElement): boolean {
-        return canClickLookupPassiveReaderWordElement(word) && nativeClickable instanceof HTMLAnchorElement;
+        return canClickLookupPassiveReaderWordElement(word)
+            && Boolean(word.closest('.jpdb-reader-text-mirror'))
+            && nativeClickable instanceof HTMLAnchorElement;
     }
 
     private consumeSuppressedReaderWordClick(event: MouseEvent, word: HTMLElement): boolean {
@@ -2059,11 +2102,7 @@ export class ReaderApp {
 
     private toggleOcrFromShortcut(event: KeyboardEvent): void {
         event.preventDefault();
-        this.settings.ocrEnabled = !this.settings.ocrEnabled;
-        void saveSettings(this.settings);
-        this.ocr.refresh();
-        log.info('Shortcut toggled OCR', { enabled: this.settings.ocrEnabled });
-        this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? 'imageReadingEnabled' : 'imageReadingHidden'));
+        void this.cycleOcrMode();
     }
 
     private toggleSubtitleOverlayFromShortcut(event: KeyboardEvent): void {

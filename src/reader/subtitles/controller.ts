@@ -224,6 +224,7 @@ interface ParseCueHtmlOptions {
     allowProvisional?: boolean;
     enrichBeforeRender?: boolean;
     authoritativeUpgrade?: boolean;
+    requireEnrichedProvisional?: boolean;
     refreshProvisional?: boolean;
 }
 
@@ -294,7 +295,7 @@ function isYouTubeMobileFullscreenHost(element: HTMLElement | null | undefined):
 
 function subtitleMinimumFontSize(root: HTMLElement): number {
     const rootRect = root.getBoundingClientRect();
-    return rootRect.width < 700 || rootRect.height < 360 ? 10 : 12;
+    return rootRect.width < 700 || rootRect.height < 360 ? 12 : 14;
 }
 
 function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings): number {
@@ -1100,6 +1101,11 @@ export class SubtitlePlayerController {
             this.scheduleAlignToVideo();
         }, this.eventOptions({ passive: true }));
         video.addEventListener('loadeddata', () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+        const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
+        video.addEventListener('timeupdate', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+        video.addEventListener('seeking', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+        video.addEventListener('seeked', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+        video.addEventListener('ratechange', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
         video.addEventListener('pause', () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
         const handlePlaybackStarted = () => {
             this.pausePanelDismissed = false;
@@ -1111,6 +1117,13 @@ export class SubtitlePlayerController {
         video.addEventListener('play', handlePlaybackStarted, this.eventOptions({ passive: true }));
         video.addEventListener('playing', handlePlaybackStarted, this.eventOptions({ passive: true }));
         this.scheduleAlignToVideo();
+    }
+
+    private syncSubtitleToPlaybackTime(): void {
+        if (this.destroyed || document.hidden || !this.options.getSettings().subtitlePlayerEnabled) return;
+        this.refreshNativeCueLists();
+        this.updateFromLoadedCues();
+        if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
 
     private addNativeTrack(track: TextTrack): void {
@@ -1819,8 +1832,12 @@ export class SubtitlePlayerController {
         const provisional = this.provisionalParsedHtmlCache.get(key);
         if (provisional !== undefined) {
             if (this.shouldUseProvisionalSubtitleParse(settings)) {
-                if (this.enrichedProvisionalParsedHtmlKeys.has(key)) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
-                else this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
+                if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) {
+                    this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
+                    if (!this.parsedTokenCache.has(key)) return undefined;
+                } else {
+                    this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+                }
             }
             return provisional;
         }
@@ -1867,7 +1884,7 @@ export class SubtitlePlayerController {
         }
 
         try {
-            const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true });
+            const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
             this.applyParsedPrimaryHtml(key, text, html, serial);
         } catch {
             // Keep plain selectable subtitles if JPDB is unavailable.
@@ -1963,11 +1980,14 @@ export class SubtitlePlayerController {
         if (restored) return restored;
         if (options.authoritativeUpgrade !== false) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
         const cached = this.provisionalParsedHtmlCache.get(key);
-        if (cached && (!options.refreshProvisional || this.enrichedProvisionalParsedHtmlKeys.has(key))) {
+        const cachedIsEnriched = this.enrichedProvisionalParsedHtmlKeys.has(key);
+        if (cached
+            && (!options.refreshProvisional || cachedIsEnriched)
+            && (!options.requireEnrichedProvisional || cachedIsEnriched)) {
             return cached;
         }
         const pending = options.refreshProvisional
-            ? this.pendingProvisionalParsedHtml.get(key)
+            ? options.requireEnrichedProvisional ? undefined : this.pendingProvisionalParsedHtml.get(key)
             : this.pendingParsedCueHtml(key, 'provisional');
         if (pending) return pending;
         const promise = (async () => {
@@ -1990,8 +2010,10 @@ export class SubtitlePlayerController {
         void this.parseProvisionalCueHtml(text, settings, key, {
             authoritativeUpgrade: false,
             enrichBeforeRender: true,
+            requireEnrichedProvisional: true,
             refreshProvisional: true,
         }).then(html => {
+            if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) return;
             this.updateTranscriptRowsForParseKey(key, html, { provisional: true, force: true });
             if (this.currentPrimaryParseCacheKey() === key) this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
         }).catch(() => undefined);
@@ -2010,8 +2032,9 @@ export class SubtitlePlayerController {
         const parsed = this.options.parseJapaneseBatch
             ? this.options.parseJapaneseBatch(missing.map(item => item.text), authoritativeSubtitleParseOptions())
             : Promise.all(missing.map(item => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
-        const parsedHtml = missing.map((item, index) => parsed.then(tokens => {
+        const parsedHtml = missing.map((item, index) => parsed.then(async tokens => {
             const tokenList = tokens[index] ?? [];
+            await this.beforeRenderParsedTokens(tokenList);
             const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
             this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
             this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
@@ -2164,10 +2187,11 @@ export class SubtitlePlayerController {
         }
     }
 
-    private usableProvisionalParsedHtml(key: string, options: Pick<ParseCueHtmlOptions, 'refreshProvisional'>): string | undefined {
+    private usableProvisionalParsedHtml(key: string, options: Pick<ParseCueHtmlOptions, 'refreshProvisional' | 'requireEnrichedProvisional'>): string | undefined {
         const html = this.provisionalParsedHtmlCache.get(key);
         if (!html) return undefined;
-        return options.refreshProvisional && !this.enrichedProvisionalParsedHtmlKeys.has(key) ? undefined : html;
+        if ((options.refreshProvisional || options.requireEnrichedProvisional) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) return undefined;
+        return html;
     }
 
     // A cue is only "fully enriched" when every kanji-bearing token can render
@@ -2347,11 +2371,9 @@ export class SubtitlePlayerController {
         if (!texts.length) return;
         void (async () => {
             try {
-                // Allow the provisional tier so upcoming overlay cues render
-                // parsed immediately; the provisional path already enqueues the
-                // authoritative upgrade, and the shared pending maps dedupe this
-                // work against transcript-panel hydration.
-                await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true });
+                // Warm ahead with enrichment so upcoming overlay cues do not
+                // appear until furigana/pitch-ready HTML is cached.
+                await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
             } catch {
             }
             if (serial !== this.parseWarmupSerial) return;
@@ -2390,7 +2412,7 @@ export class SubtitlePlayerController {
     // a failed authoritative upgrade is retried by the next warmup turn.
     private isWarmParsedCueKey(key: string): boolean {
         if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
-        return !this.hasAuthoritativeParseTier() && this.provisionalParsedHtmlCache.has(key);
+        return !this.hasAuthoritativeParseTier() && this.enrichedProvisionalParsedHtmlKeys.has(key);
     }
 
     // Keyless both tiers produce the same local-tokenizer result, so an
@@ -4408,9 +4430,16 @@ export class SubtitlePlayerController {
 
     private async hydrateTranscriptRowTargets(targets: TranscriptRowHydrationTarget[], settings: ReaderSettings, serial: number): Promise<void> {
         try {
-            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings, { enrichBeforeRender: true, refreshProvisional: true });
+            const parsed = await this.parseCueHtmlBatch(targets.map(target => target.cue.text), settings, {
+                enrichBeforeRender: true,
+                refreshProvisional: true,
+                requireEnrichedProvisional: true,
+            });
             if (serial !== this.transcriptHydrationSerial) return;
-            for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
+            for (const item of parsed) {
+                if (item.provisional === true && !this.enrichedProvisionalParsedHtmlKeys.has(item.key)) continue;
+                this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
+            }
         } catch {
             targets.forEach(hydration => {
                 hydration.target.dataset.parseFailedKey = hydration.key;
@@ -4425,7 +4454,8 @@ export class SubtitlePlayerController {
         const target = this.transcriptPanel?.querySelector<HTMLElement>(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
         if (!cue || !target) return null;
         const key = this.parseCacheKey(cue.text, settings);
-        const provisionalNeedsHydration = target.dataset.parsedProvisional === 'true'
+        const provisionalNeedsHydration = (target.dataset.parsedProvisional === 'true'
+            || (this.provisionalParsedHtmlCache.has(key) && !this.enrichedProvisionalParsedHtmlKeys.has(key)))
             && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
         return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
     }

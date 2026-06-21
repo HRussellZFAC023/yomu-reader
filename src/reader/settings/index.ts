@@ -353,7 +353,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: 'auto',
     subtitleFontSize: 28,
-    subtitleBottomOffset: 12,
+    subtitleBottomOffset: 16,
     subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
     subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
     subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,

@@ -1464,10 +1464,18 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 }
 
 function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
+    if (isYouTubeHost()) return false;
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
         return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
     }
     return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
+}
+
+function isYouTubeHost(): boolean {
+    const hostname = location.hostname.toLowerCase();
+    return hostname === 'youtube.com'
+        || hostname.endsWith('.youtube.com')
+        || hostname === 'youtu.be';
 }
 
 function isCompactMediaCardLinkText(parent: HTMLElement): boolean {
