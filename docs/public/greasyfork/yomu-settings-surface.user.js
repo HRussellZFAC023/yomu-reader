@@ -5176,12 +5176,6 @@ recommendedJiten	Jiten頻度です。
     custom: "audioSourceCustom",
     "custom-json": "audioSourceCustomJson"
   };
-  const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
-  const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
-  const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
-  const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
-  const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
-  const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
   function createHandleDragController(options) {
     let state = initialDragState();
     let pointerId = 0;
@@ -5374,6 +5368,12 @@ recommendedJiten	Jiten頻度です。
     window.visualViewport?.addEventListener?.("resize", listener, options);
     window.visualViewport?.addEventListener?.("scroll", listener, options);
   }
+  const SETTINGS_DRAWER_HEIGHT_STORAGE_KEY = "jpdb-reader-settings-drawer-height-ratio";
+  const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
+  const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
+  const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SETTINGS_DRAWER_TAP_MOVEMENT_PX = 8;
+  const SETTINGS_DRAWER_KEYBOARD_STEP_PX = 56;
   function installSettingsDrawerHandle(drawer, label = "Resize settings", onTap) {
     if (drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled === "true") return;
     drawer.dataset.jpdbReaderSettingsDrawerHandleInstalled = "true";
