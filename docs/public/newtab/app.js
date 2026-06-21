@@ -58323,9 +58323,6 @@ ${kanaInsensitiveKey(newTabCardReading(card))}`;
   function searchKanjiInlineWordMeta(cards) {
     return uniqueTrimmedStrings(cards.map(searchKanjiInlineWordLabel)).slice(0, 4).join("、");
   }
-  function liveJpdbCardIdentity(card) {
-    return card.jpdbReviewId || cardKey(card);
-  }
   function newTabDueSummary(cards) {
     const summary = { dueWords: 0, dueKanji: 0, newWords: 0, newKanji: 0 };
     for (const card of cards) {
@@ -60687,6 +60684,49 @@ ${entry.url}`),
   function doodlePreviewBackground(canvas) {
     const stage = canvas.closest(".jpdb-reader-doodle-stage");
     return getComputedStyle(stage ?? canvas).backgroundColor || DEFAULT_OVERLAY_BACKGROUND_COLOR;
+  }
+  const LIVE_REVIEW_CARD_ID = /^v[a-z]?,(\d+),(\d+)$/;
+  function liveJpdbCardIdentity(card) {
+    return card.jpdbReviewId || cardKey(card);
+  }
+  function liveJpdbCardFromBridgeCard(card, spelling) {
+    const { vid, sid } = cardReviewIds(card);
+    return {
+      vid,
+      sid,
+      rid: 0,
+      spelling,
+      reading: cardReading(card, spelling),
+      frequencyRank: null,
+      partOfSpeech: [],
+      meanings: [{ glosses: cardGlosses(card), partOfSpeech: [] }],
+      cardState: ["due"],
+      pitchAccent: [],
+      wordWithReading: null,
+      source: "jpdb",
+      sentence: cardSentence(card),
+      reviewSource: "jpdb-live",
+      jpdbReviewId: card.id,
+      kanjiKeyword: cardKeyword(card),
+      jpdbDeckMembership: card.deckMembership
+    };
+  }
+  function cardReviewIds(card) {
+    const match = LIVE_REVIEW_CARD_ID.exec(card.id ?? "");
+    if (!match) return { vid: 0, sid: 0 };
+    return { vid: Number(match[1]), sid: Number(match[2]) };
+  }
+  function cardReading(card, spelling) {
+    return normalizedJapaneseCardReading(spelling, card.reading || spelling);
+  }
+  function cardGlosses(card) {
+    return card.kind === "kanji" ? [cardKeyword(card)].filter(Boolean) : [];
+  }
+  function cardSentence(card) {
+    return card.sentence || card.prompt;
+  }
+  function cardKeyword(card) {
+    return card.keyword || card.prompt;
   }
   const SESSION_PROGRESS_SOURCES = ["jiten", "jpdb", "anki"];
   const DUE_SESSION_STATES = /* @__PURE__ */ new Set(["due", "failed", "learning"]);
@@ -68483,7 +68523,7 @@ ${entry.url}`),
       return jpdbCard;
     }
     rememberPendingLiveJpdbGrade(card) {
-      const id = card.jpdbReviewId || cardKey(card);
+      const id = liveJpdbCardIdentity(card);
       this.pendingLiveJpdbGrade = id ? { id, until: Date.now() + NEW_TAB_LIVE_REVIEW_STALE_MS } : null;
     }
     isPendingLiveJpdbCard(card) {
@@ -69106,48 +69146,6 @@ ${entry.url}`),
     const reading = newTabCardOptionalReading(card);
     if (sentence.includes(card.spelling)) return card.spelling;
     return reading && sentence.includes(reading) ? reading : "";
-  }
-  function liveJpdbCardIds(card) {
-    const match = /^v[a-z]?,(\d+),(\d+)$/.exec(card.id ?? "");
-    if (!match) return { vid: 0, sid: 0 };
-    return { vid: Number(match[1]), sid: Number(match[2]) };
-  }
-  function liveJpdbCardFromBridgeCard(card, spelling) {
-    const ids = liveJpdbCardIds(card);
-    return {
-      vid: ids.vid,
-      sid: ids.sid,
-      rid: 0,
-      spelling,
-      reading: liveJpdbCardReading(card, spelling),
-      frequencyRank: null,
-      partOfSpeech: [],
-      meanings: [{
-        glosses: liveJpdbCardGlosses(card),
-        partOfSpeech: []
-      }],
-      cardState: ["due"],
-      pitchAccent: [],
-      wordWithReading: null,
-      source: "jpdb",
-      sentence: liveJpdbCardSentence(card),
-      reviewSource: "jpdb-live",
-      jpdbReviewId: card.id,
-      kanjiKeyword: liveJpdbCardKeyword(card),
-      jpdbDeckMembership: card.deckMembership
-    };
-  }
-  function liveJpdbCardReading(card, spelling) {
-    return normalizedJapaneseCardReading(spelling, card.reading || spelling);
-  }
-  function liveJpdbCardGlosses(card) {
-    return card.kind === "kanji" ? [liveJpdbCardKeyword(card)].filter(Boolean) : [];
-  }
-  function liveJpdbCardSentence(card) {
-    return card.sentence || card.prompt;
-  }
-  function liveJpdbCardKeyword(card) {
-    return card.keyword || card.prompt;
   }
   function firstNonEmptyPitch(promises) {
     if (!promises.length) return Promise.resolve([]);

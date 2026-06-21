@@ -1,4 +1,4 @@
-import { cardKey, firstCardMeaning } from './index';
+import { firstCardMeaning } from './index';
 import { mergeDedupeCardMetadata } from './source-orchestrator';
 import { newTabCardOptionalReading, newTabCardReading, normalizeNewTabCard } from './study-queue';
 import { isPositiveJpdbCard, isReviewSource } from './review-targets';
@@ -101,11 +101,6 @@ export function searchKanjiInlineWordMeta(cards: JPDBCard[]): string {
         .slice(0, 4)
         .join('、');
 }
-
-export function liveJpdbCardIdentity(card: JPDBCard): string {
-    return card.jpdbReviewId || cardKey(card);
-}
-
 
 export interface NewTabDueSummary {
     dueWords: number;

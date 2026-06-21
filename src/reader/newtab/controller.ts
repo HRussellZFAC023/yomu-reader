@@ -28,7 +28,7 @@ import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { renderApiMiningPanel, togglePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { apiSrsProviderViewForCard, isJitenBackedCard } from '../cards/srs-providers';
 import type { CardRenderData } from '../cards/render-data';
-import { isCardHighlightWord, normalizedJapaneseCardReading } from '../cards/highlight';
+import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
 import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID } from '../app/constants';
 import { htmlToFirstElement, setInnerHtml } from '../dom';
@@ -182,7 +182,6 @@ import {
     dedupeSearchWords,
     dedupeWords,
     jpdbReviewCardsForNewTab,
-    liveJpdbCardIdentity,
     normalizeSearchQuery,
     preferMultiCharacterVocabulary,
     queryHasJapanese,
@@ -192,6 +191,7 @@ import {
     shouldReplaceKanjiStudyCard,
     type NewTabSearchSuggestion,
 } from './card-selection';
+import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-card';
 import {
     ankiCardKindLabel,
     isJitenSrsCard,
@@ -8351,7 +8351,7 @@ export class NewTabController {
     }
 
     private rememberPendingLiveJpdbGrade(card: JPDBCard): void {
-        const id = card.jpdbReviewId || cardKey(card);
+        const id = liveJpdbCardIdentity(card);
         this.pendingLiveJpdbGrade = id
             ? { id, until: Date.now() + NEW_TAB_LIVE_REVIEW_STALE_MS }
             : null;
@@ -9107,56 +9107,6 @@ function sentencePromptTarget(card: JPDBCard, sentence: string): string {
     const reading = newTabCardOptionalReading(card);
     if (sentence.includes(card.spelling)) return card.spelling;
     return reading && sentence.includes(reading) ? reading : '';
-}
-
-// The review URL's c= parameter ('vf,<vid>,<sid>') rides on the bridge card
-// id; real ids let the API read the card's post-grade state back.
-function liveJpdbCardIds(card: JpdbReviewBridgeCard): { vid: number; sid: number } {
-    const match = /^v[a-z]?,(\d+),(\d+)$/.exec(card.id ?? '');
-    if (!match) return { vid: 0, sid: 0 };
-    return { vid: Number(match[1]), sid: Number(match[2]) };
-}
-
-function liveJpdbCardFromBridgeCard(card: JpdbReviewBridgeCard, spelling: string): JPDBCard {
-    const ids = liveJpdbCardIds(card);
-    return {
-        vid: ids.vid,
-        sid: ids.sid,
-        rid: 0,
-        spelling,
-        reading: liveJpdbCardReading(card, spelling),
-        frequencyRank: null,
-        partOfSpeech: [],
-        meanings: [{
-            glosses: liveJpdbCardGlosses(card),
-            partOfSpeech: [],
-        }],
-        cardState: ['due'],
-        pitchAccent: [],
-        wordWithReading: null,
-        source: 'jpdb',
-        sentence: liveJpdbCardSentence(card),
-        reviewSource: 'jpdb-live',
-        jpdbReviewId: card.id,
-        kanjiKeyword: liveJpdbCardKeyword(card),
-        jpdbDeckMembership: card.deckMembership,
-    };
-}
-
-function liveJpdbCardReading(card: JpdbReviewBridgeCard, spelling: string): string {
-    return normalizedJapaneseCardReading(spelling, card.reading || spelling);
-}
-
-function liveJpdbCardGlosses(card: JpdbReviewBridgeCard): string[] {
-    return card.kind === 'kanji' ? [liveJpdbCardKeyword(card)].filter(Boolean) : [];
-}
-
-function liveJpdbCardSentence(card: JpdbReviewBridgeCard): string {
-    return card.sentence || card.prompt;
-}
-
-function liveJpdbCardKeyword(card: JpdbReviewBridgeCard): string {
-    return card.keyword || card.prompt;
 }
 
 function firstNonEmptyPitch(promises: Promise<string[]>[]): Promise<string[]> {

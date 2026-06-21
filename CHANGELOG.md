@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.49] - 2026-06-21
+
+### Changed
+
+- Internal: extracted the live JPDB review bridge → card adapter and the live-card identity helper into a dedicated, unit-tested `jpdb-live-card` module, shrinking the new-tab controller and giving the live-review card model a single owner. No change to behavior.
+
 ## [1.4.47] - 2026-06-21
 
 ### Fixed
