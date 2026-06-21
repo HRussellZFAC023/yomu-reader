@@ -1,5 +1,15 @@
 (function() {
   "use strict";
+  function promiseWithTimeout(promise, timeoutMs, message) {
+    let timeoutId = 0;
+    const timeout = new Promise((_resolve, reject) => {
+      timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+    return Promise.race([
+      promise,
+      timeout
+    ]).finally(() => window.clearTimeout(timeoutId));
+  }
   async function runLimited(items, concurrency, worker) {
     if (!items.length) return;
     const workerCount = Math.max(1, Math.min(items.length, Math.floor(concurrency) || 1));
@@ -5255,6 +5265,12 @@ recommendedJiten	Jiten頻度です。
     } catch {
       return null;
     }
+  }
+  function hasPositiveRectArea(rect, right = rect.right || rect.left + rect.width, bottom = rect.bottom || rect.top + rect.height) {
+    return right > rect.left && bottom > rect.top;
+  }
+  function coordinateInRange(value, start, end, slack) {
+    return value >= start - slack && value <= end + slack;
   }
   const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
@@ -58861,6 +58877,36 @@ ${newTabCardReading(card)}`;
       context.getSettings().interfaceLanguage
     ));
   }
+  function pointerPointFromEvent(event) {
+    const point = { x: event.clientX, y: event.clientY };
+    return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
+  }
+  function nearestElementByPoint(elements, point) {
+    let nearest = null;
+    let nearestDistance2 = Number.POSITIVE_INFINITY;
+    for (const element of elements) {
+      const distance = squaredDistanceToVisibleElement(element, point);
+      if (distance === null || distance >= nearestDistance2) continue;
+      nearest = element;
+      nearestDistance2 = distance;
+    }
+    return nearest;
+  }
+  function pointInElementClientRects(clientX, clientY, element) {
+    return Array.from(element.getClientRects()).some((rect) => coordinateInRange(clientX, rect.left, rect.right, 0) && coordinateInRange(clientY, rect.top, rect.bottom, 0));
+  }
+  function squaredDistanceToVisibleElement(element, point) {
+    const rect = element.getBoundingClientRect();
+    if (!hasPositiveRectArea(rect)) return null;
+    const dx = distanceOutsideRange(point.x, rect.left, rect.right);
+    const dy = distanceOutsideRange(point.y, rect.top, rect.bottom);
+    return dx * dx + dy * dy;
+  }
+  function distanceOutsideRange(value, min, max2) {
+    if (value < min) return min - value;
+    if (value > max2) return value - max2;
+    return 0;
+  }
   function eventTargetElement(target) {
     if (target instanceof HTMLElement) return target;
     if (target instanceof Element) return closestHtmlAncestor(target);
@@ -60828,6 +60874,133 @@ ${entry.url}`),
   function cardKeyword(card) {
     return card.keyword || card.prompt;
   }
+  function sourceResult(value, state2) {
+    return { value, state: state2 };
+  }
+  class KanjiDetailSource {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    cache = /* @__PURE__ */ new Map();
+    load(kanji) {
+      const settings = this.deps.getSettings();
+      const cache2 = this.cacheEntry(kanji);
+      const signature = this.settingsSignature(settings);
+      if (cache2.details && cache2.detailsSignature === signature) return cache2.details;
+      this.primeSources(cache2, kanji, settings);
+      cache2.details = this.resolveBundle(cache2, settings);
+      cache2.detailsSignature = signature;
+      return cache2.details;
+    }
+    invalidate(kanji) {
+      this.cache.delete(kanji);
+    }
+    clear() {
+      this.cache.clear();
+    }
+    primeSources(cache2, kanji, settings) {
+      this.primeJpdb(cache2, kanji, settings);
+      this.primeJiten(cache2, kanji, settings);
+      this.primeRtk(cache2, kanji, settings);
+      this.primeKanjiVg(cache2, kanji, settings);
+      this.primeLocal(cache2, kanji, settings);
+    }
+    primeJpdb(cache2, kanji, settings) {
+      const lookupJpdbKanji = this.deps.jpdbKanji.lookup;
+      if (!settings.jpdbKanjiEnabled || typeof lookupJpdbKanji !== "function" || cache2.jpdb) return;
+      cache2.jpdb = this.remoteResult(
+        promiseWithTimeout(lookupJpdbKanji.call(this.deps.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "JPDB kanji lookup timed out."),
+        null
+      );
+    }
+    primeJiten(cache2, kanji, settings) {
+      const lookupJitenKanji = this.deps.jiten?.lookupKanji;
+      if (!settings.jpdbKanjiEnabled || !hasJitenApiCredential(settings) || typeof lookupJitenKanji !== "function" || cache2.jiten) return;
+      cache2.jiten = this.remoteResult(
+        promiseWithTimeout(lookupJitenKanji.call(this.deps.jiten, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "Jiten kanji lookup timed out."),
+        null
+      );
+    }
+    primeRtk(cache2, kanji, settings) {
+      const lookupRtk = this.deps.rtk.lookup;
+      if (!settings.rtkEnabled || typeof lookupRtk !== "function" || cache2.rtk) return;
+      cache2.rtk = this.remoteResult(
+        promiseWithTimeout(lookupRtk.call(this.deps.rtk, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "RTK lookup timed out."),
+        null
+      );
+    }
+    primeKanjiVg(cache2, kanji, settings) {
+      const lookupKanjiVG = this.deps.kanjiVG.lookup;
+      if (!this.shouldLoadKanjiVg(settings) || typeof lookupKanjiVG !== "function" || cache2.vg) return;
+      cache2.vg = this.remoteResult(
+        promiseWithTimeout(lookupKanjiVG.call(this.deps.kanjiVG, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "KanjiVG lookup timed out."),
+        null
+      );
+    }
+    primeLocal(cache2, kanji, settings) {
+      if (!this.shouldLoadLocal(settings) || cache2.local) return;
+      cache2.local = this.localResult(this.deps.localSearchWithTimeout(
+        this.deps.dictionaries.lookupKanji?.(kanji, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
+        []
+      ));
+    }
+    resolveBundle(cache2, settings) {
+      return Promise.all([
+        settings.jpdbKanjiEnabled ? cache2.jpdb ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
+        settings.jpdbKanjiEnabled && hasJitenApiCredential(settings) ? cache2.jiten ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
+        settings.rtkEnabled ? cache2.rtk ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
+        this.shouldLoadKanjiVg(settings) ? cache2.vg ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
+        this.shouldLoadLocal(settings) ? cache2.local ?? Promise.resolve(sourceResult([], "unavailable")) : Promise.resolve(sourceResult([], "disabled"))
+      ]).then(([jpdb, jiten, rtk, vg, local]) => ({
+        jpdb: jpdb.value,
+        jiten: jiten.value,
+        rtk: rtk.value,
+        vg: vg.value,
+        local: local.value,
+        sourceStates: {
+          jpdb: jpdb.state,
+          jiten: jiten.state,
+          rtk: rtk.state,
+          vg: vg.state,
+          local: local.state
+        }
+      }));
+    }
+    async remoteResult(promise, emptyValue) {
+      try {
+        const value = await promise;
+        return sourceResult(value, value ? "ok" : "not-found");
+      } catch {
+        return sourceResult(emptyValue, "unavailable");
+      }
+    }
+    async localResult(promise) {
+      const value = await promise;
+      return sourceResult(value, value.length ? "ok" : "not-found");
+    }
+    cacheEntry(kanji) {
+      const existing = this.cache.get(kanji);
+      if (existing) return existing;
+      const created = {};
+      this.cache.set(kanji, created);
+      return created;
+    }
+    shouldLoadKanjiVg(settings) {
+      return settings.kanjivgEnabled || settings.kanjiOriginsEnabled && settings.kanjiOriginGraphEnabled;
+    }
+    settingsSignature(settings) {
+      return [
+        settings.jpdbKanjiEnabled,
+        hasJitenApiCredential(settings),
+        settings.rtkEnabled,
+        this.shouldLoadKanjiVg(settings),
+        this.shouldLoadLocal(settings)
+      ].map(Boolean).join(":");
+    }
+    shouldLoadLocal(settings) {
+      return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
+    }
+  }
   const SESSION_PROGRESS_SOURCES = ["jiten", "jpdb", "anki"];
   const DUE_SESSION_STATES = /* @__PURE__ */ new Set(["due", "failed", "learning"]);
   const DEFAULT_SESSION_PROGRESS_LABELS = {
@@ -62024,9 +62197,6 @@ ${entry.url}`),
   function normalizedKeywordText(value) {
     return value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   }
-  function sourceResult(value, state2) {
-    return { value, state: state2 };
-  }
   function searchParentMeaningKeys(cards, kanji) {
     return new Set(cards.filter((card) => card.spelling !== kanji && kanjiCharacters(card.spelling).includes(kanji)).flatMap((card) => firstCardMeaning(card).split(/;\s*/u)).map(normalizedKeywordText).filter(Boolean));
   }
@@ -62081,6 +62251,15 @@ ${entry.url}`),
         void this.applyExternalState(state2);
       });
       this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate((status) => this.applyJpdbBridgeStatus(status));
+      this.kanjiDetailSource = new KanjiDetailSource({
+        getSettings: () => this.dependencies.getSettings(),
+        jpdbKanji: this.dependencies.jpdbKanji,
+        jiten: this.dependencies.jiten,
+        rtk: this.dependencies.rtk,
+        kanjiVG: this.dependencies.kanjiVG,
+        dictionaries: this.dependencies.dictionaries,
+        localSearchWithTimeout: (promise, fallback) => this.localSearchWithTimeout(promise, fallback)
+      });
     }
     allWords = [];
     visibleWords = [];
@@ -62096,7 +62275,7 @@ ${entry.url}`),
     liveCards = /* @__PURE__ */ new Map();
     pendingLiveJpdbGrade = null;
     keywordCache = /* @__PURE__ */ new Map();
-    kanjiInfoCache = /* @__PURE__ */ new Map();
+    kanjiDetailSource;
     uchisenDataCache = /* @__PURE__ */ new Map();
     immersionCache = /* @__PURE__ */ new Map();
     immersionExampleIndex = /* @__PURE__ */ new Map();
@@ -62329,7 +62508,7 @@ ${entry.url}`),
       this.liveCards.clear();
       this.clearSourceResultCache();
       this.keywordCache.clear();
-      this.kanjiInfoCache.clear();
+      this.kanjiDetailSource.clear();
       this.uchisenDataCache.clear();
       this.searchHandwritingShapeCandidateCache.clear();
       this.immersionCache.clear();
@@ -66526,119 +66705,10 @@ ${entry.url}`),
       );
     }
     loadKanjiDetails(kanji) {
-      const settings = this.dependencies.getSettings();
-      const cache2 = this.kanjiDetailCacheEntry(kanji);
-      const signature = this.kanjiDetailSettingsSignature(settings);
-      if (cache2.details && cache2.detailsSignature === signature) return cache2.details;
-      this.primeKanjiDetailSources(cache2, kanji, settings);
-      cache2.details = this.resolveKanjiDetailBundle(cache2, settings);
-      cache2.detailsSignature = signature;
-      return cache2.details;
-    }
-    primeKanjiDetailSources(cache2, kanji, settings) {
-      this.primeJpdbKanjiDetail(cache2, kanji, settings);
-      this.primeJitenKanjiDetail(cache2, kanji, settings);
-      this.primeRtkKanjiDetail(cache2, kanji, settings);
-      this.primeKanjiVGDetail(cache2, kanji, settings);
-      this.primeLocalKanjiDetail(cache2, kanji, settings);
-    }
-    primeJpdbKanjiDetail(cache2, kanji, settings) {
-      const lookupJpdbKanji = this.dependencies.jpdbKanji.lookup;
-      if (!settings.jpdbKanjiEnabled || typeof lookupJpdbKanji !== "function" || cache2.jpdb) return;
-      cache2.jpdb = this.remoteKanjiSourceResult(
-        promiseWithTimeout(lookupJpdbKanji.call(this.dependencies.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "JPDB kanji lookup timed out."),
-        null
-      );
-    }
-    primeJitenKanjiDetail(cache2, kanji, settings) {
-      const lookupJitenKanji = this.dependencies.jiten?.lookupKanji;
-      if (!settings.jpdbKanjiEnabled || !this.isJitenApiActive(settings) || typeof lookupJitenKanji !== "function" || cache2.jiten) return;
-      cache2.jiten = this.remoteKanjiSourceResult(
-        promiseWithTimeout(lookupJitenKanji.call(this.dependencies.jiten, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "Jiten kanji lookup timed out."),
-        null
-      );
-    }
-    primeRtkKanjiDetail(cache2, kanji, settings) {
-      const lookupRtk = this.dependencies.rtk.lookup;
-      if (!settings.rtkEnabled || typeof lookupRtk !== "function" || cache2.rtk) return;
-      cache2.rtk = this.remoteKanjiSourceResult(
-        promiseWithTimeout(lookupRtk.call(this.dependencies.rtk, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "RTK lookup timed out."),
-        null
-      );
-    }
-    primeKanjiVGDetail(cache2, kanji, settings) {
-      const lookupKanjiVG = this.dependencies.kanjiVG.lookup;
-      if (!this.shouldLoadKanjiVG(settings) || typeof lookupKanjiVG !== "function" || cache2.vg) return;
-      cache2.vg = this.remoteKanjiSourceResult(
-        promiseWithTimeout(lookupKanjiVG.call(this.dependencies.kanjiVG, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, "KanjiVG lookup timed out."),
-        null
-      );
-    }
-    primeLocalKanjiDetail(cache2, kanji, settings) {
-      if (!this.shouldLoadLocalKanjiDetails(settings) || cache2.local) return;
-      cache2.local = this.localKanjiSourceResult(this.localSearchWithTimeout(
-        this.dependencies.dictionaries.lookupKanji?.(kanji, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
-        []
-      ));
-    }
-    resolveKanjiDetailBundle(cache2, settings) {
-      return Promise.all([
-        settings.jpdbKanjiEnabled ? cache2.jpdb ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
-        settings.jpdbKanjiEnabled && this.isJitenApiActive(settings) ? cache2.jiten ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
-        settings.rtkEnabled ? cache2.rtk ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
-        this.shouldLoadKanjiVG(settings) ? cache2.vg ?? Promise.resolve(sourceResult(null, "unavailable")) : Promise.resolve(sourceResult(null, "disabled")),
-        this.shouldLoadLocalKanjiDetails(settings) ? cache2.local ?? Promise.resolve(sourceResult([], "unavailable")) : Promise.resolve(sourceResult([], "disabled"))
-      ]).then(([jpdb, jiten, rtk, vg, local]) => ({
-        jpdb: jpdb.value,
-        jiten: jiten.value,
-        rtk: rtk.value,
-        vg: vg.value,
-        local: local.value,
-        sourceStates: {
-          jpdb: jpdb.state,
-          jiten: jiten.state,
-          rtk: rtk.state,
-          vg: vg.state,
-          local: local.state
-        }
-      }));
-    }
-    async remoteKanjiSourceResult(promise, emptyValue) {
-      try {
-        const value = await promise;
-        return sourceResult(value, value ? "ok" : "not-found");
-      } catch {
-        return sourceResult(emptyValue, "unavailable");
-      }
-    }
-    async localKanjiSourceResult(promise) {
-      const value = await promise;
-      return sourceResult(value, value.length ? "ok" : "not-found");
-    }
-    kanjiDetailCacheEntry(kanji) {
-      const existing = this.kanjiInfoCache.get(kanji);
-      if (existing) return existing;
-      const created = {};
-      this.kanjiInfoCache.set(kanji, created);
-      return created;
-    }
-    shouldLoadKanjiVG(settings) {
-      return settings.kanjivgEnabled || settings.kanjiOriginsEnabled && settings.kanjiOriginGraphEnabled;
-    }
-    kanjiDetailSettingsSignature(settings) {
-      return [
-        settings.jpdbKanjiEnabled,
-        this.isJitenApiActive(settings),
-        settings.rtkEnabled,
-        this.shouldLoadKanjiVG(settings),
-        this.shouldLoadLocalKanjiDetails(settings)
-      ].map(Boolean).join(":");
+      return this.kanjiDetailSource.load(kanji);
     }
     isJitenApiActive(settings) {
       return hasJitenApiCredential(settings);
-    }
-    shouldLoadLocalKanjiDetails(settings) {
-      return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
     }
     waitForIdle(timeoutMs = 75) {
       return waitForIdle(timeoutMs);
@@ -68098,7 +68168,7 @@ ${entry.url}`),
       }
     }
     finishJpdbKanjiAction(root, card, kanji) {
-      if (kanji) this.kanjiInfoCache.delete(kanji);
+      if (kanji) this.kanjiDetailSource.invalidate(kanji);
       if (card && this.visibleWords[this.index] === card) this.renderWord(root, card);
       this.setStatus(root, this.text("jpdbKanjiUpdated"));
     }
@@ -69105,55 +69175,12 @@ ${entry.url}`),
   function isNewTabEnterRevealKey(key) {
     return key === "Enter";
   }
-  function pointerPointFromEvent(event) {
-    const point = { x: event.clientX, y: event.clientY };
-    return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
-  }
-  function nearestElementByPoint(elements, point) {
-    let nearest = null;
-    let nearestDistance2 = Number.POSITIVE_INFINITY;
-    for (const element of elements) {
-      const distance = squaredDistanceToVisibleElement(element, point);
-      if (distance === null || distance >= nearestDistance2) continue;
-      nearest = element;
-      nearestDistance2 = distance;
-    }
-    return nearest;
-  }
-  function squaredDistanceToVisibleElement(element, point) {
-    const rect = element.getBoundingClientRect();
-    if (!hasVisibleArea(rect)) return null;
-    const dx = distanceOutsideRange(point.x, rect.left, rect.right);
-    const dy = distanceOutsideRange(point.y, rect.top, rect.bottom);
-    return dx * dx + dy * dy;
-  }
-  function hasVisibleArea(rect) {
-    return rect.width > 0 && rect.height > 0;
-  }
-  function distanceOutsideRange(value, min, max2) {
-    if (value < min) return min - value;
-    if (value > max2) return value - max2;
-    return 0;
-  }
-  function pointInElementClientRects(clientX, clientY, element) {
-    return Array.from(element.getClientRects()).some((rect) => clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom);
-  }
   function consumeNestedLookupEvent(event) {
     event.preventDefault();
     event.stopPropagation();
   }
   function setOptionalText(element, text2) {
     if (element) element.textContent = text2;
-  }
-  function promiseWithTimeout(promise, timeoutMs, message) {
-    let timeoutId = 0;
-    const timeout = new Promise((_resolve, reject) => {
-      timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-    });
-    return Promise.race([
-      promise,
-      timeout
-    ]).finally(() => window.clearTimeout(timeoutId));
   }
   function isQueuedNewTabGrade(value) {
     if (!isObjectRecord(value)) return false;

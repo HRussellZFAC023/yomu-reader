@@ -1,3 +1,14 @@
+export function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+    let timeoutId = 0;
+    const timeout = new Promise<never>((_resolve, reject) => {
+        timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    });
+    return Promise.race([
+        promise,
+        timeout,
+    ]).finally(() => window.clearTimeout(timeoutId));
+}
+
 export async function runLimited<T>(
     items: readonly T[],
     concurrency: number,

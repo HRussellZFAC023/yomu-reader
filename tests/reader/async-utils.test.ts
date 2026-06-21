@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ConcurrencyGate, mapLimited, runLimited } from '../../src/reader/core/async-utils';
+import { ConcurrencyGate, mapLimited, promiseWithTimeout, runLimited } from '../../src/reader/core/async-utils';
 
 async function measureMaxConcurrentWorkers<T>(items: T[], concurrency: number): Promise<number> {
     let active = 0;
@@ -118,5 +118,22 @@ describe('ConcurrencyGate', () => {
         await expect(gate.run(() => { throw new Error('boom'); })).rejects.toThrow('boom');
         // Gate is not wedged after an error: a later task still runs.
         await expect(gate.run(() => 'ok')).resolves.toBe('ok');
+    });
+});
+
+describe('promiseWithTimeout', () => {
+    it('resolves with the underlying value when it settles before the timeout', async () => {
+        await expect(promiseWithTimeout(Promise.resolve('ok'), 1000, 'late')).resolves.toBe('ok');
+    });
+
+    it('rejects with the given message when the timeout fires first', async () => {
+        await expect(promiseWithTimeout(new Promise<string>(() => {}), 10, 'timed out')).rejects.toThrow('timed out');
+    });
+
+    it('clears the pending timer once the promise wins the race', async () => {
+        const clearSpy = vi.spyOn(window, 'clearTimeout');
+        await promiseWithTimeout(Promise.resolve('done'), 1000, 'late');
+        expect(clearSpy).toHaveBeenCalled();
+        clearSpy.mockRestore();
     });
 });

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.51] - 2026-06-22
+
+### Changed
+
+- Internal: extracted the new-tab kanji-detail multi-source fetch/cache subsystem into a dedicated, unit-tested `KanjiDetailSource` module (load/invalidate/clear) and lifted the shared `promiseWithTimeout` helper into `core/async-utils`, shrinking the new-tab controller. No change to behavior.
+- Internal: moved pointer hit-testing geometry out of the new-tab controller into a focused `dom/pointer-geometry` module, converging duplicated rect math onto the shared `dom/rect` primitives. No change to behavior.
+
 ## [1.4.50] - 2026-06-21
 
 ### Fixed

@@ -33,6 +33,7 @@ import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/pars
 import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID } from '../app/constants';
 import { htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
+import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
 import { isKanjiCharacter } from '../popup/pitch';
 import { eventTargetElement } from '../dom/target';
 import { isImmersionKitRateLimitError, type ImmersionKitClient, type ImmersionKitExample, type ImmersionKitSearchOptions } from '../immersion/kit';
@@ -48,7 +49,7 @@ import {
     shouldFilterImmersionExamplesBySurface,
     uniqueImmersionQueries,
 } from '../immersion/query';
-import { runLimited } from '../core/async-utils';
+import { promiseWithTimeout, runLimited } from '../core/async-utils';
 import type { JitenApiClient, JitenKanjiInfo, JitenVocabularyInfo } from '../dictionaries/jiten';
 import {
     jitenKanjiFactRows,
@@ -192,6 +193,7 @@ import {
     type NewTabSearchSuggestion,
 } from './card-selection';
 import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-card';
+import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source';
 import {
     ankiCardKindLabel,
     isJitenSrsCard,
@@ -462,10 +464,6 @@ function normalizedKeywordText(value: string): string {
     return value.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
 }
 
-function sourceResult<T>(value: T, state: KanjiDetailSourceState): KanjiDetailSourceResult<T> {
-    return { value, state };
-}
-
 function searchParentMeaningKeys(cards: JPDBCard[], kanji: string): Set<string> {
     return new Set(cards
         .filter(card => card.spelling !== kanji && kanjiCharacters(card.spelling).includes(kanji))
@@ -524,11 +522,6 @@ interface StatsClickRequest {
 type StatsClickHandler = (root: HTMLElement, target: HTMLElement, request: StatsClickRequest) => void;
 type StudyClickHandler = (root: HTMLElement, target: HTMLElement, event: MouseEvent) => void;
 
-interface PointerPoint {
-    x: number;
-    y: number;
-}
-
 interface ParsedWordLookupRequest {
     word: HTMLElement;
     expression: string;
@@ -554,30 +547,6 @@ interface SourceToggleContext {
     canOfferAnki: boolean;
     ankiUnavailable: boolean;
 }
-interface KanjiDetailBundle {
-    jpdb: JpdbKanjiInfo | null;
-    jiten: JitenKanjiInfo | null;
-    rtk: RtkInfo | null;
-    vg: KanjiVGInfo | null;
-    local: YomitanKanjiEntry[];
-    sourceStates: KanjiDetailSourceStates;
-}
-
-type KanjiDetailSourceState = 'disabled' | 'ok' | 'not-found' | 'unavailable';
-
-interface KanjiDetailSourceStates {
-    jpdb: KanjiDetailSourceState;
-    jiten: KanjiDetailSourceState;
-    rtk: KanjiDetailSourceState;
-    vg: KanjiDetailSourceState;
-    local: KanjiDetailSourceState;
-}
-
-interface KanjiDetailSourceResult<T> {
-    value: T;
-    state: KanjiDetailSourceState;
-}
-
 interface NewTabKanjiSourceRenderContext {
     card: JPDBCard;
     kanji: string;
@@ -591,16 +560,6 @@ interface NewTabKanjiSourceRenderContext {
     localEntries: YomitanKanjiEntry[];
     settings: ReaderSettings;
     excludeFactLabels: Set<string>;
-}
-
-interface KanjiDetailCacheEntry {
-    details?: Promise<KanjiDetailBundle>;
-    detailsSignature?: string;
-    jpdb?: Promise<KanjiDetailSourceResult<JpdbKanjiInfo | null>>;
-    jiten?: Promise<KanjiDetailSourceResult<JitenKanjiInfo | null>>;
-    rtk?: Promise<KanjiDetailSourceResult<RtkInfo | null>>;
-    vg?: Promise<KanjiDetailSourceResult<KanjiVGInfo | null>>;
-    local?: Promise<KanjiDetailSourceResult<YomitanKanjiEntry[]>>;
 }
 
 interface KanjiPromptKeyword {
@@ -698,7 +657,7 @@ export class NewTabController {
     private liveCards = new Map<string, JpdbReviewBridgeCard>();
     private pendingLiveJpdbGrade: { id: string; until: number } | null = null;
     private keywordCache = new Map<string, string>();
-    private kanjiInfoCache = new Map<string, KanjiDetailCacheEntry>();
+    private readonly kanjiDetailSource: KanjiDetailSource;
     private uchisenDataCache = new Map<string, Promise<UchisenData | null>>();
     private immersionCache = new Map<string, Promise<ImmersionKitExample[]>>();
     private immersionExampleIndex = new Map<string, number>();
@@ -797,6 +756,15 @@ export class NewTabController {
         if (routeSearchQuery) this.searchQuery = routeSearchQuery;
         this.stateChannel = createNewTabStateChannel(state => { void this.applyExternalState(state); });
         this.unsubscribeJpdbBridge = dependencies.jpdbReviewBridge.onUpdate(status => this.applyJpdbBridgeStatus(status));
+        this.kanjiDetailSource = new KanjiDetailSource({
+            getSettings: () => this.dependencies.getSettings(),
+            jpdbKanji: this.dependencies.jpdbKanji,
+            jiten: this.dependencies.jiten,
+            rtk: this.dependencies.rtk,
+            kanjiVG: this.dependencies.kanjiVG,
+            dictionaries: this.dependencies.dictionaries,
+            localSearchWithTimeout: <T>(promise: Promise<T>, fallback: T) => this.localSearchWithTimeout(promise, fallback),
+        });
     }
 
     isCurrentPage(): boolean {
@@ -964,7 +932,7 @@ export class NewTabController {
         this.liveCards.clear();
         this.clearSourceResultCache();
         this.keywordCache.clear();
-        this.kanjiInfoCache.clear();
+        this.kanjiDetailSource.clear();
         this.uchisenDataCache.clear();
         this.searchHandwritingShapeCandidateCache.clear();
         this.immersionCache.clear();
@@ -5987,136 +5955,13 @@ export class NewTabController {
     }
 
     private loadKanjiDetails(kanji: string): Promise<KanjiDetailBundle> {
-        const settings = this.dependencies.getSettings();
-        const cache = this.kanjiDetailCacheEntry(kanji);
-        const signature = this.kanjiDetailSettingsSignature(settings);
-        if (cache.details && cache.detailsSignature === signature) return cache.details;
-
-        this.primeKanjiDetailSources(cache, kanji, settings);
-        cache.details = this.resolveKanjiDetailBundle(cache, settings);
-        cache.detailsSignature = signature;
-        return cache.details;
-    }
-
-    private primeKanjiDetailSources(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
-        this.primeJpdbKanjiDetail(cache, kanji, settings);
-        this.primeJitenKanjiDetail(cache, kanji, settings);
-        this.primeRtkKanjiDetail(cache, kanji, settings);
-        this.primeKanjiVGDetail(cache, kanji, settings);
-        this.primeLocalKanjiDetail(cache, kanji, settings);
-    }
-
-    private primeJpdbKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
-        const lookupJpdbKanji = this.dependencies.jpdbKanji.lookup;
-        if (!settings.jpdbKanjiEnabled || typeof lookupJpdbKanji !== 'function' || cache.jpdb) return;
-        cache.jpdb = this.remoteKanjiSourceResult(
-            promiseWithTimeout(lookupJpdbKanji.call(this.dependencies.jpdbKanji, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'JPDB kanji lookup timed out.'),
-            null,
-        );
-    }
-
-    private primeJitenKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
-        const lookupJitenKanji = this.dependencies.jiten?.lookupKanji;
-        if (!settings.jpdbKanjiEnabled || !this.isJitenApiActive(settings) || typeof lookupJitenKanji !== 'function' || cache.jiten) return;
-        cache.jiten = this.remoteKanjiSourceResult(
-            promiseWithTimeout(lookupJitenKanji.call(this.dependencies.jiten, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'Jiten kanji lookup timed out.'),
-            null,
-        );
-    }
-
-    private primeRtkKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
-        const lookupRtk = this.dependencies.rtk.lookup;
-        if (!settings.rtkEnabled || typeof lookupRtk !== 'function' || cache.rtk) return;
-        cache.rtk = this.remoteKanjiSourceResult(
-            promiseWithTimeout(lookupRtk.call(this.dependencies.rtk, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'RTK lookup timed out.'),
-            null,
-        );
-    }
-
-    private primeKanjiVGDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
-        const lookupKanjiVG = this.dependencies.kanjiVG.lookup;
-        if (!this.shouldLoadKanjiVG(settings) || typeof lookupKanjiVG !== 'function' || cache.vg) return;
-        cache.vg = this.remoteKanjiSourceResult(
-            promiseWithTimeout(lookupKanjiVG.call(this.dependencies.kanjiVG, kanji), NEW_TAB_REMOTE_SOURCE_TIMEOUT_MS, 'KanjiVG lookup timed out.'),
-            null,
-        );
-    }
-
-    private primeLocalKanjiDetail(cache: KanjiDetailCacheEntry, kanji: string, settings: ReaderSettings): void {
-        if (!this.shouldLoadLocalKanjiDetails(settings) || cache.local) return;
-        cache.local = this.localKanjiSourceResult(this.localSearchWithTimeout(
-            this.dependencies.dictionaries.lookupKanji?.(kanji, 6, settings.dictionaryPreferences) ?? Promise.resolve([]),
-            [] as YomitanKanjiEntry[],
-        ));
-    }
-
-    private resolveKanjiDetailBundle(cache: KanjiDetailCacheEntry, settings: ReaderSettings): Promise<KanjiDetailBundle> {
-        return Promise.all([
-            settings.jpdbKanjiEnabled ? cache.jpdb ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
-            settings.jpdbKanjiEnabled && this.isJitenApiActive(settings) ? cache.jiten ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
-            settings.rtkEnabled ? cache.rtk ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
-            this.shouldLoadKanjiVG(settings) ? cache.vg ?? Promise.resolve(sourceResult(null, 'unavailable')) : Promise.resolve(sourceResult(null, 'disabled')),
-            this.shouldLoadLocalKanjiDetails(settings) ? cache.local ?? Promise.resolve(sourceResult([] as YomitanKanjiEntry[], 'unavailable')) : Promise.resolve(sourceResult([] as YomitanKanjiEntry[], 'disabled')),
-        ]).then(([jpdb, jiten, rtk, vg, local]) => ({
-            jpdb: jpdb.value,
-            jiten: jiten.value,
-            rtk: rtk.value,
-            vg: vg.value,
-            local: local.value,
-            sourceStates: {
-                jpdb: jpdb.state,
-                jiten: jiten.state,
-                rtk: rtk.state,
-                vg: vg.state,
-                local: local.state,
-            },
-        }));
-    }
-
-    private async remoteKanjiSourceResult<T>(promise: Promise<T | null>, emptyValue: T | null): Promise<KanjiDetailSourceResult<T | null>> {
-        try {
-            const value = await promise;
-            return sourceResult(value, value ? 'ok' : 'not-found');
-        } catch {
-            return sourceResult(emptyValue, 'unavailable');
-        }
-    }
-
-    private async localKanjiSourceResult(promise: Promise<YomitanKanjiEntry[]>): Promise<KanjiDetailSourceResult<YomitanKanjiEntry[]>> {
-        const value = await promise;
-        return sourceResult(value, value.length ? 'ok' : 'not-found');
-    }
-
-    private kanjiDetailCacheEntry(kanji: string): KanjiDetailCacheEntry {
-        const existing = this.kanjiInfoCache.get(kanji);
-        if (existing) return existing;
-        const created: KanjiDetailCacheEntry = {};
-        this.kanjiInfoCache.set(kanji, created);
-        return created;
-    }
-
-    private shouldLoadKanjiVG(settings: ReaderSettings): boolean {
-        return settings.kanjivgEnabled || (settings.kanjiOriginsEnabled && settings.kanjiOriginGraphEnabled);
-    }
-
-    private kanjiDetailSettingsSignature(settings: ReaderSettings): string {
-        return [
-            settings.jpdbKanjiEnabled,
-            this.isJitenApiActive(settings),
-            settings.rtkEnabled,
-            this.shouldLoadKanjiVG(settings),
-            this.shouldLoadLocalKanjiDetails(settings),
-        ].map(Boolean).join(':');
+        return this.kanjiDetailSource.load(kanji);
     }
 
     private isJitenApiActive(settings: ReaderSettings): boolean {
         // UT-61: Jiten features are active whenever a Jiten key exists,
         // regardless of a coexisting JPDB key.
         return hasJitenApiCredential(settings);
-    }
-
-    private shouldLoadLocalKanjiDetails(settings: ReaderSettings): boolean {
-        return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
     }
 
     private waitForIdle(timeoutMs = 75): Promise<void> {
@@ -7744,7 +7589,7 @@ export class NewTabController {
     }
 
     private finishJpdbKanjiAction(root: HTMLElement, card: JPDBCard | undefined, kanji: string): void {
-        if (kanji) this.kanjiInfoCache.delete(kanji);
+        if (kanji) this.kanjiDetailSource.invalidate(kanji);
         if (card && this.visibleWords[this.index] === card) this.renderWord(root, card);
         this.setStatus(root, this.text('jpdbKanjiUpdated'));
     }
@@ -8915,50 +8760,6 @@ function isNewTabEnterRevealKey(key: string): boolean {
     return key === 'Enter';
 }
 
-function pointerPointFromEvent(event: MouseEvent): PointerPoint | null {
-    const point = { x: event.clientX, y: event.clientY };
-    return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
-}
-
-function nearestElementByPoint(elements: HTMLElement[], point: PointerPoint): HTMLElement | null {
-    let nearest: HTMLElement | null = null;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-    for (const element of elements) {
-        const distance = squaredDistanceToVisibleElement(element, point);
-        if (distance === null || distance >= nearestDistance) continue;
-        nearest = element;
-        nearestDistance = distance;
-    }
-    return nearest;
-}
-
-function squaredDistanceToVisibleElement(element: HTMLElement, point: PointerPoint): number | null {
-    const rect = element.getBoundingClientRect();
-    if (!hasVisibleArea(rect)) return null;
-    const dx = distanceOutsideRange(point.x, rect.left, rect.right);
-    const dy = distanceOutsideRange(point.y, rect.top, rect.bottom);
-    return dx * dx + dy * dy;
-}
-
-function hasVisibleArea(rect: Pick<DOMRect, 'width' | 'height'>): boolean {
-    return rect.width > 0 && rect.height > 0;
-}
-
-function distanceOutsideRange(value: number, min: number, max: number): number {
-    if (value < min) return min - value;
-    if (value > max) return value - max;
-    return 0;
-}
-
-function pointInElementClientRects(clientX: number, clientY: number, element: HTMLElement): boolean {
-    return Array.from(element.getClientRects()).some(rect => (
-        clientX >= rect.left
-        && clientX <= rect.right
-        && clientY >= rect.top
-        && clientY <= rect.bottom
-    ));
-}
-
 function consumeNestedLookupEvent(event: MouseEvent): void {
     event.preventDefault();
     event.stopPropagation();
@@ -8966,17 +8767,6 @@ function consumeNestedLookupEvent(event: MouseEvent): void {
 
 function setOptionalText(element: HTMLElement | null, text: string): void {
     if (element) element.textContent = text;
-}
-
-function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
-    let timeoutId = 0;
-    const timeout = new Promise<never>((_resolve, reject) => {
-        timeoutId = window.setTimeout(() => reject(new Error(message)), timeoutMs);
-    });
-    return Promise.race([
-        promise,
-        timeout,
-    ]).finally(() => window.clearTimeout(timeoutId));
 }
 
 function isQueuedNewTabGrade(value: unknown): value is QueuedNewTabGrade {
