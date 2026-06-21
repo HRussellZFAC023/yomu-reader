@@ -52,6 +52,7 @@ import {
     youtubeCaptionTrackIdentity,
     youtubeVideoHasNativeCaptions,
 } from './subtitle-youtube';
+import { installSubtitleFullscreenRedirect } from './subtitle-fullscreen-redirect';
 import {
     ensureTextTrackReadable,
     getTextTrackCueText,
@@ -885,6 +886,7 @@ export class SubtitlePlayerController {
     private install(): void {
         if (this.root) return;
         document.querySelectorAll<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"], .jpdb-subtitle-list[data-jpdb-reader-root="true"]').forEach(element => element.remove());
+        if (isYouTubePage() || document.querySelector('[data-yomu-video-frame]')) installSubtitleFullscreenRedirect();
 
         const root = document.createElement('div');
         root.className = 'jpdb-subtitle-player';
