@@ -543,6 +543,7 @@ function textTargetChunk(target: TextTarget, start: number, end: number): Fragme
         layoutSensitive: target.layoutSensitive,
         passiveInteraction: target.passiveInteraction,
         singlePassScan: target.singlePassScan,
+        forceInlineRender: target.forceInlineRender,
     };
 }
 

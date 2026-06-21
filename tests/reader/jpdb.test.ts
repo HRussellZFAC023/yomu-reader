@@ -33634,6 +33634,40 @@ describe('reader helpers', () => {
         expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
     });
 
+    it('scans desktop YouTube guide navigation with ruby-capable targets', () => {
+        const targets = collectYouTubeTargets(`
+            <ytd-guide-renderer>
+                <a id="endpoint" href="/feed/subscriptions"><span class="title">登録チャンネル</span></a>
+            </ytd-guide-renderer>
+            <ytd-mini-guide-renderer>
+                <a id="endpoint" href="/"><span class="title">ホーム</span></a>
+            </ytd-mini-guide-renderer>
+        `, YOUTUBE_WATCH_TEST_URL, undefined);
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '登録チャンネル',
+            'ホーム',
+        ]));
+        const subscriptions = targets.find(target => target.text === '登録チャンネル')!;
+        expect(subscriptions).toMatchObject({ passiveInteraction: true, nonDestructive: true });
+        expect(subscriptions.suppressRuby).not.toBe(true);
+
+        applyTokensToScanTarget(subscriptions, [{
+            card: { ...card, cardState: ['known'], spelling: '登録', reading: 'とうろく', source: 'jpdb' },
+            start: 0,
+            end: 2,
+            length: 2,
+            rubies: [{ text: 'とうろく', start: 0, end: 2, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '登録チャンネル',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('ytd-guide-renderer .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('登録');
+        expect(word.querySelector('rt')?.textContent).toBe('とうろく');
+        expectRenderedPitchWord(word, 'heiban');
+    });
+
     it('scans YouTube comment action controls as passive hover targets while comment text remains active', () => {
         const targets = collectYouTubeWatchTargets(`
             <ytd-comment-view-model>
@@ -33661,16 +33695,18 @@ describe('reader helpers', () => {
         expect(reply).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(targets.map(target => target.text)).not.toContain('押下中');
         expect('passiveInteraction' in comment! && comment.passiveInteraction).not.toBe(true);
+        expect('nonDestructive' in comment! && comment.nonDestructive).not.toBe(true);
+        expect(comment).toMatchObject({ forceInlineRender: true });
 
         applyTokensToScanTarget(comment!, [{
-            card: { ...card, cardState: ['known'], spelling: '配信', reading: 'はいしん' },
+            card: { ...card, cardState: ['known'], spelling: '配信', reading: 'はいしん', source: 'jpdb' },
             start: 3,
             end: 5,
             length: 2,
-            rubies: [],
-            pitchClass: '',
+            rubies: [{ text: 'はいしん', start: 3, end: 5, length: 2 }],
+            pitchClass: 'heiban',
             sentence: '今夜も配信見なかったごめんね。',
-        }], DEFAULT_SETTINGS);
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         applyTokensToScanTarget(more!, [{
             card: { ...card, cardState: ['known'], spelling: '詳細', reading: 'しょうさい', source: 'jpdb' },
             start: 0,
@@ -33698,8 +33734,12 @@ describe('reader helpers', () => {
             sentence: '英語に翻訳',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
         const commentWord = document.querySelector<HTMLElement>('#content-text .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(commentWord)).toBe('配信');
+        expect(commentWord.querySelector('rt')?.textContent).toBe('はいしん');
+        expectRenderedPitchWord(commentWord, 'heiban');
         expect(commentWord.dataset.jpdbReaderPassive).toBeUndefined();
         expect(commentWord.tabIndex).toBe(-1);
+        expect(document.querySelector('#content-text .jpdb-reader-text-mirror')).toBeNull();
         const moreWord = document.querySelector<HTMLElement>('.more-button .jpdb-reader-word')!;
         expect(readerWordSurfaceText(moreWord)).toBe('詳細');
         expect(moreWord.dataset.jpdbReaderPassive).toBe('true');

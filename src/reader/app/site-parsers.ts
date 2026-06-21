@@ -363,7 +363,6 @@ const YOUTUBE_CHROME_ROOTS = [
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-    ...YT_NAV_CHROME_EXCLUDE_ENTRIES,
 ].join(',');
 const YOUTUBE_MOBILE_CHROME_ROOTS = [
     'ytd-mini-guide-renderer',
@@ -1127,7 +1126,6 @@ function addUniqueSiteScanTarget(
 ): boolean {
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length || nodes.some(node => context.seen.has(node))) return false;
-    if (isYouTubeSiteParserProfile(profile) && isYouTubeNativeGuideTarget(target.parent)) return false;
     if (isResidualReaderParticleTarget(target)) return false;
     nodes.forEach(node => context.seen.add(node));
     context.targets.push(siteScanTargetWithProfileOptions(profile, target));
@@ -1139,25 +1137,36 @@ function siteScanTargetWithProfileOptions(profile: SiteParserProfile, target: Fr
     const targetSuppressRuby = isYouTubeSiteParserProfile(profile) ? false : target.suppressRuby;
     const youtubePassiveChrome = isYouTubeSiteParserProfile(profile)
         && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
+    const youtubeCommentBody = isYouTubeCommentBodyTarget(profile, target.parent);
     const baseTarget = {
         ...target,
         parserId: profile.id,
         suppressRuby: targetSuppressRuby || suppressRuby || undefined,
         passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || undefined,
         singlePassScan: profile.singlePassScan || undefined,
-        nonDestructive: profile.nonDestructive || undefined,
+        nonDestructive: siteScanTargetUsesNonDestructive(profile, youtubeCommentBody) || undefined,
+        forceInlineRender: youtubeCommentBody || undefined,
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
+}
+
+function siteScanTargetUsesNonDestructive(profile: SiteParserProfile, youtubeCommentBody = false): boolean {
+    if (!profile.nonDestructive) return false;
+    return !youtubeCommentBody;
+}
+
+function isYouTubeCommentBodyTarget(profile: SiteParserProfile, parent: HTMLElement): boolean {
+    if (profile.id !== 'youtube-comments-parser') return false;
+    const content = parent.closest<HTMLElement>('#content-text');
+    if (content?.closest('ytd-comment-view-model, ytm-comment-renderer')) return true;
+    return parent.matches('ytd-comment-view-model, ytm-comment-renderer')
+        && Boolean(parent.querySelector('#content-text'));
 }
 
 function isYouTubeSiteParserProfile(profile: SiteParserProfile): boolean {
     return profile.id === 'youtube-comments-parser'
         || profile.id === 'youtube-chrome-parser'
         || profile.id === 'youtube-live-chat-parser';
-}
-
-function isYouTubeNativeGuideTarget(parent: HTMLElement): boolean {
-    return Boolean(parent.closest(YT_NAV_CHROME_EXCLUDE_ENTRIES.join(',')));
 }
 
 function shouldSuppressSiteScanRuby(profile: SiteParserProfile, target: FragmentTextTarget): boolean {

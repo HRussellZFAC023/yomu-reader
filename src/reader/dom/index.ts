@@ -314,6 +314,7 @@ export interface TextTarget {
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
     nonDestructive?: boolean;
+    forceInlineRender?: boolean;
     controlTextMirror?: boolean;
     controlSelectTextMode?: 'options' | 'selected';
 }
@@ -337,6 +338,7 @@ export interface FragmentTextTarget {
     passiveInteraction?: boolean;
     singlePassScan?: boolean;
     nonDestructive?: boolean;
+    forceInlineRender?: boolean;
     controlTextMirror?: boolean;
     controlSelectTextMode?: 'options' | 'selected';
 }
@@ -1256,7 +1258,7 @@ export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToke
         applyTokensToControlTextMirrorTarget(target, tokens, settings);
         return;
     }
-    if (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text)) {
+    if (!target.forceInlineRender && (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text))) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }

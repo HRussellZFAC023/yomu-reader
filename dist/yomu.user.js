@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.46
+// @version      1.4.47
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.46#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.46#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.46#sha256-weJd9EsDx0qo32rpXnS6LJOlCpApHqR4U5Aq99qXRs0=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.46#sha256-pAgA9yOoORlqKGF/6LnGNK2MSC/Dfwd5AJ3QMsmFKIU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.47#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.47#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.47#sha256-p062IrP6bRM1RQtlYLUUJ+XKwWa8BdgtuqJo+uA5Yy8=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.47#sha256-Kgq39K6GyCEtkgHN6g1RML9+RHP6QPM/IiPnUBdgHeY=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -2748,7 +2748,7 @@
     subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: "auto",
     subtitleFontSize: 28,
-    subtitleBottomOffset: 12,
+    subtitleBottomOffset: 16,
     subtitleTextColor: DEFAULT_OVERLAY_TEXT_COLOR,
     subtitleOutlineColor: DEFAULT_OVERLAY_OUTLINE_COLOR,
     subtitleBackgroundColor: DEFAULT_OVERLAY_BACKGROUND_COLOR,
@@ -4489,7 +4489,7 @@
       applyTokensToControlTextMirrorTarget(target, tokens, settings);
       return;
     }
-    if (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text)) {
+    if (!target.forceInlineRender && (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text))) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }
@@ -4668,10 +4668,15 @@
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function shouldSuppressCompactMediaRuby(parent) {
+    if (isYouTubeHost()) return false;
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
       return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
     }
     return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
+  }
+  function isYouTubeHost() {
+    const hostname = location.hostname.toLowerCase();
+    return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
   }
   function isCompactMediaCardLinkText(parent) {
     const link = parent.closest("a[href]");
@@ -30694,6 +30699,27 @@ ${normalizedReading}`;
     "article",
     "main article",
     '[role="main"] article',
+    '[role="article"]',
+    ".markdown",
+    ".markdown-body",
+    ".markdown-content",
+    ".message",
+    ".message-body",
+    ".message-content",
+    ".messageContent",
+    ".chat-message",
+    ".conversation-turn",
+    ".model-response",
+    ".model-response-text",
+    ".response-content",
+    "[data-message-author-role]",
+    "[data-message-id]",
+    '[data-testid*="conversation-turn" i]',
+    '[data-testid*="chat-message" i]',
+    '[data-testid*="message-content" i]',
+    '[data-testid*="message-bubble" i]',
+    '[data-test-id*="chat-message" i]',
+    '[data-test-id*="message-content" i]',
     ".article",
     ".post",
     ".entry",
@@ -30840,9 +30866,14 @@ ${normalizedReading}`;
     ".caption-window",
     ".captions-text"
   ];
+  const YT_NAV_CHROME_EXCLUDE_ENTRIES = [
+    "ytd-mini-guide-renderer",
+    "ytd-guide-renderer"
+  ];
   const SAFE_UI_CHROME_EXCLUDE_ENTRIES = [
     ...STRUCTURAL_EXCLUDE_ENTRIES,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
+    ...YT_NAV_CHROME_EXCLUDE_ENTRIES,
     "[disabled]",
     '[aria-disabled="true"]'
   ];
@@ -30934,15 +30965,33 @@ ${normalizedReading}`;
     "ytd-masthead .ytAttributedStringHost",
     "ytd-masthead yt-attributed-string"
   ];
-  const YOUTUBE_NAV_CHROME_EXCLUDE = [
+  const YOUTUBE_TEXT_EXCLUDE = [
+    COMMON_EXCLUDE,
+    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
+    ...YT_NAV_CHROME_EXCLUDE_ENTRIES
+  ].join(",");
+  const YOUTUBE_MOBILE_CHROME_ROOTS = [
     "ytd-mini-guide-renderer",
     "ytd-guide-renderer",
     "ytm-pivot-bar-renderer",
-    "ytm-pivot-bar-item-renderer"
+    "ytm-pivot-bar-item-renderer",
+    "ytm-mobile-topbar-renderer",
+    "ytm-app-header",
+    "ytm-searchbox",
+    "ytm-shorts-player-controls",
+    "ytm-slim-video-action-bar-renderer",
+    "ytm-actions-renderer",
+    "ytm-menu-renderer",
+    "ytm-button-renderer",
+    "ytm-toggle-button-renderer",
+    "ytm-bottom-sheet-renderer",
+    "ytm-engagement-panel-section-list-renderer",
+    "ytm-reel-player-overlay-renderer",
+    "ytm-shorts-video-title-view-model"
   ].join(",");
-  const YOUTUBE_TEXT_EXCLUDE = [
-    COMMON_EXCLUDE,
-    YOUTUBE_NAV_CHROME_EXCLUDE
+  const YOUTUBE_PASSIVE_CHROME_SELECTOR = [
+    YOUTUBE_MOBILE_CHROME_ROOTS,
+    YOUTUBE_CHROME_ROOTS.join(",")
   ].join(",");
   const YOUTUBE_COMMENT_CONTROL_SELECTORS = [
     "button",
@@ -30964,35 +31013,6 @@ ${normalizedReading}`;
   const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
     "#view-count[aria-label]",
     "#date-text[aria-label]"
-  ].join(",");
-  const YOUTUBE_COMPACT_RUBY_SUPPRESS_SELECTOR = [
-    "yt-lockup-view-model",
-    "ytd-rich-grid-renderer",
-    "ytd-rich-item-renderer",
-    "ytd-video-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-watch-next-secondary-results-renderer",
-    "ytm-rich-grid-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2",
-    "ytm-item-section-renderer"
-  ].join(",");
-  const YOUTUBE_RICH_TEXT_SAFE_SELECTOR = [
-    "ytd-watch-metadata",
-    "ytm-watch-metadata",
-    "ytm-slim-video-metadata-section-renderer",
-    "ytm-expandable-video-description-body-renderer",
-    "ytm-structured-description-content-renderer",
-    "ytd-comment-view-model",
-    "ytm-comment-renderer",
-    "ytd-comments",
-    "ytd-transcript-segment-renderer",
-    "ytm-transcript-segment-renderer",
-    "yt-live-chat-renderer",
-    "yt-live-chat-text-message-renderer",
-    "yt-live-chat-paid-message-renderer",
-    "yt-live-chat-membership-item-renderer"
   ].join(",");
   const GOOGLE_SEARCH_ROOTS = [
     "#search",
@@ -31357,6 +31377,8 @@ ${normalizedReading}`;
         "ytd-live-chat-frame #header",
         "ytd-live-chat-frame #panel-pages",
         "ytd-live-chat-frame yt-formatted-string",
+        YOUTUBE_MOBILE_CHROME_ROOTS,
+        ...YOUTUBE_CHROME_ROOTS,
         "ytd-watch-next-secondary-results-renderer",
         "ytd-compact-video-renderer",
         "ytd-rich-grid-renderer",
@@ -31366,6 +31388,7 @@ ${normalizedReading}`;
         "ytm-rich-grid-renderer",
         "ytm-video-with-context-renderer",
         "ytm-shorts-lockup-view-model",
+        "ytm-shorts-lockup-view-model-v2",
         "ytm-item-section-renderer"
       ],
       exclude: YOUTUBE_TEXT_EXCLUDE,
@@ -31373,7 +31396,7 @@ ${normalizedReading}`;
       includeUiChrome: true,
       singlePassScan: true,
       nonDestructive: true,
-      includePassiveInteractionRoots: false,
+      includePassiveInteractionRoots: true,
       matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
     },
     {
@@ -31387,7 +31410,7 @@ ${normalizedReading}`;
       includeUiChrome: true,
       singlePassScan: true,
       nonDestructive: true,
-      includePassiveInteractionRoots: false,
+      includePassiveInteractionRoots: true,
       matches: (url) => url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtu.be"
     },
     {
@@ -31635,31 +31658,47 @@ ${normalizedReading}`;
     const nodes = textNodesForFragmentTarget(target);
     if (!nodes.length || nodes.some((node) => context.seen.has(node))) return false;
     if (isResidualReaderParticleTarget(target)) return false;
+    if (isYouTubeSiteParserProfile(profile) && isYouTubeNativeGuideTarget(target.parent)) return false;
     nodes.forEach((node) => context.seen.add(node));
     context.targets.push(siteScanTargetWithProfileOptions(profile, target));
     return true;
   }
   function siteScanTargetWithProfileOptions(profile, target) {
     const suppressRuby = shouldSuppressSiteScanRuby(profile, target);
+    const targetSuppressRuby = isYouTubeSiteParserProfile(profile) ? false : target.suppressRuby;
+    const youtubePassiveChrome = isYouTubeSiteParserProfile(profile) && Boolean(target.parent.closest(YOUTUBE_PASSIVE_CHROME_SELECTOR));
+    const youtubeCommentBody = isYouTubeCommentBodyTarget(profile, target.parent);
     const baseTarget = {
       ...target,
       parserId: profile.id,
-      suppressRuby: target.suppressRuby || suppressRuby || void 0,
-      passiveInteraction: target.passiveInteraction || suppressRuby || void 0,
+      suppressRuby: targetSuppressRuby || suppressRuby || void 0,
+      passiveInteraction: target.passiveInteraction || target.suppressRuby || suppressRuby || youtubePassiveChrome || void 0,
       singlePassScan: profile.singlePassScan || void 0,
-      nonDestructive: profile.nonDestructive || void 0
+      nonDestructive: siteScanTargetUsesNonDestructive(profile, youtubeCommentBody) || void 0,
+      forceInlineRender: youtubeCommentBody || void 0
     };
     return profile.plainScan ? plainScanTarget(baseTarget) : baseTarget;
+  }
+  function siteScanTargetUsesNonDestructive(profile, youtubeCommentBody = false) {
+    if (!profile.nonDestructive) return false;
+    return !youtubeCommentBody;
+  }
+  function isYouTubeCommentBodyTarget(profile, parent) {
+    if (profile.id !== "youtube-comments-parser") return false;
+    const content = parent.closest("#content-text");
+    if (content?.closest("ytd-comment-view-model, ytm-comment-renderer")) return true;
+    return parent.matches("ytd-comment-view-model, ytm-comment-renderer") && Boolean(parent.querySelector("#content-text"));
+  }
+  function isYouTubeNativeGuideTarget(parent) {
+    return Boolean(parent.closest(YT_NAV_CHROME_EXCLUDE_ENTRIES.join(",")));
+  }
+  function isYouTubeSiteParserProfile(profile) {
+    return profile.id === "youtube-comments-parser" || profile.id === "youtube-chrome-parser" || profile.id === "youtube-live-chat-parser";
   }
   function shouldSuppressSiteScanRuby(profile, target) {
     if (profile.id === JPDB_PARSER_ID) return isJpdbReviewPromptTarget(target.parent, target.text);
     if (profile.id === "jiten-parser") return isJitenStudyPromptTarget(target.parent, target.text);
-    if (profile.id === "youtube-comments-parser") return isYouTubeCompactFeedTarget(target.parent);
     return false;
-  }
-  function isYouTubeCompactFeedTarget(parent) {
-    if (!parent.closest(YOUTUBE_COMPACT_RUBY_SUPPRESS_SELECTOR)) return false;
-    return !parent.closest(YOUTUBE_RICH_TEXT_SAFE_SELECTOR);
   }
   function isJpdbReviewPromptTarget(parent, text2) {
     if (location.hostname !== "jpdb.io" || !location.pathname.startsWith("/review")) return false;
@@ -32829,7 +32868,6 @@ ${normalizedReading}`;
     if (isOcrLineFrameWord(word)) return false;
     if (word.dataset.jpdbReaderPassive !== "true") return false;
     if (!word.classList.contains("jpdb-reader-scan-word")) return false;
-    if (!word.closest(".jpdb-reader-text-mirror")) return false;
     return !isNativePageLookupBlocked(word);
   }
   function canHoverLookupReaderWordElement(word, hasHoverLookupShortcut) {
@@ -37418,7 +37456,8 @@ ${criticalWordCss()}
       }],
       layoutSensitive: target.layoutSensitive,
       passiveInteraction: target.passiveInteraction,
-      singlePassScan: target.singlePassScan
+      singlePassScan: target.singlePassScan,
+      forceInlineRender: target.forceInlineRender
     };
   }
   function textTargetTrimmedSourceRange(target) {
@@ -37578,6 +37617,18 @@ ${criticalWordCss()}
   const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     ".textBox",
     ".ocr-line",
+    ".markdown",
+    ".markdown-body",
+    ".markdown-content",
+    ".message",
+    ".message-body",
+    ".message-content",
+    ".messageContent",
+    ".chat-message",
+    ".conversation-turn",
+    ".model-response",
+    ".model-response-text",
+    ".response-content",
     "p",
     "li",
     "blockquote",
@@ -37586,6 +37637,15 @@ ${criticalWordCss()}
     "article",
     "main",
     "[data-jpdb-reader-root]",
+    '[role="article"]',
+    "[data-message-author-role]",
+    "[data-message-id]",
+    '[data-testid*="conversation-turn" i]',
+    '[data-testid*="chat-message" i]',
+    '[data-testid*="message-content" i]',
+    '[data-testid*="message-bubble" i]',
+    '[data-test-id*="chat-message" i]',
+    '[data-test-id*="message-content" i]',
     "a[href]",
     "button",
     "summary",
@@ -38948,6 +39008,7 @@ ${criticalWordCss()}
       this.prepareModalLookupFromPointer(event);
       this.suppressSelectionLookupUntil = Date.now() + 350;
       this.ocr.pinLineForElement(word);
+      if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
       void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
     }
     handleOcrReaderWordPointerDown(event) {
@@ -38971,8 +39032,8 @@ ${criticalWordCss()}
     }
     readerWordClickSurfaces(event, word) {
       if (!this.canClickLookupReaderWord(word)) return null;
-      const passiveTextMirrorClick = canClickLookupPassiveReaderWordElement(word);
-      if (word.dataset.jpdbReaderPassive === "true" && !passiveTextMirrorClick) return null;
+      const passiveReaderClick = canClickLookupPassiveReaderWordElement(word);
+      if (word.dataset.jpdbReaderPassive === "true" && !passiveReaderClick) return null;
       if (this.consumeSuppressedReaderWordClick(event, word)) return null;
       const insideReaderPopup = Boolean(word.closest(".jpdb-reader-popover"));
       const insideSubtitlePlayer = Boolean(word.closest(SUBTITLE_SURFACE_SELECTOR));
@@ -38985,7 +39046,7 @@ ${criticalWordCss()}
       return { insideReaderPopup, insideSubtitlePlayer };
     }
     passiveTextMirrorClickOverridesNativeLink(word, nativeClickable) {
-      return canClickLookupPassiveReaderWordElement(word) && nativeClickable instanceof HTMLAnchorElement;
+      return canClickLookupPassiveReaderWordElement(word) && Boolean(word.closest(".jpdb-reader-text-mirror")) && nativeClickable instanceof HTMLAnchorElement;
     }
     consumeSuppressedReaderWordClick(event, word) {
       if (Date.now() >= this.suppressWordClickUntil && !this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) return false;

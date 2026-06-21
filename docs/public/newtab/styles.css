@@ -5877,22 +5877,25 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 .jpdb-reader-furi {
   font-size: 0.52em;
-  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted));
+  color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;
   line-height: 1;
   user-select: none;
 }
 .jpdb-reader-word ruby {
-  position: static;
-  display: ruby;
-  ruby-align: center;
-  ruby-position: over;
+  position: static !important;
+  display: ruby !important;
+  ruby-align: center !important;
+  ruby-position: over !important;
   line-height: 1;
-  vertical-align: baseline;
+  vertical-align: baseline !important;
   text-decoration-line: inherit !important;
   text-decoration-style: inherit !important;
   text-decoration-color: inherit !important;
   text-decoration-thickness: inherit !important;
   text-underline-offset: inherit !important;
+}
+.jpdb-reader-word rt.jpdb-reader-furi {
+  display: ruby-text !important;
 }
 .jpdb-reader-ruby-base {
   display: inline;
@@ -5988,6 +5991,11 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   border: 0;
   pointer-events: none;
   object-fit: fill;
+}
+
+.jpdb-ocr-video-frame-pending {
+  opacity: 0.001;
+  pointer-events: none !important;
 }
 
 /* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the
@@ -14239,7 +14247,7 @@ html.jpdb-reader-doodle-active * {
   pointer-events: none;
   --subtitle-font-size-target: 28px;
   --subtitle-font-size: var(--subtitle-font-size-target);
-  --subtitle-bottom: 12%;
+  --subtitle-bottom: 16%;
   --subtitle-drag-offset-y: 0px;
   --subtitle-color: var(--jpdb-reader-video-text);
   --subtitle-outline: var(--jpdb-reader-video-outline);
@@ -14380,6 +14388,9 @@ html.jpdb-reader-doodle-active * {
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
   paint-order: stroke fill;
 }
+.jpdb-subtitle-primary:empty {
+  display: none;
+}
 .jpdb-subtitle-secondary {
   --jpdb-subtitle-secondary-color: var(--jpdb-reader-video-text-muted);
   display: block;
@@ -14475,6 +14486,17 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-subtitle-primary .jpdb-reader-word::after {
   text-shadow: none !important;
+}
+
+@media (pointer: coarse) {
+  .jpdb-subtitle-primary .jpdb-reader-word::before,
+  .jpdb-subtitle-row-text .jpdb-reader-word::before {
+    content: "";
+    position: absolute;
+    inset: -0.5em -0.24em;
+    z-index: 0;
+    pointer-events: auto;
+  }
 }
 .jpdb-subtitle-primary .jpdb-reader-word:hover,
 .jpdb-subtitle-primary .jpdb-reader-word:focus-visible {

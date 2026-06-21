@@ -292,7 +292,9 @@ async function runScenario(browser, scenario) {
         profile.steps.push(hoverStressStep);
 
         profile.mobileStress = await runMobileHoverStress(context, scenario, scenarioArtifactsDir);
+        validateYoutubeCommentState(profile.mobileStress.page, scenario, 'mobile');
         profile.finalState = await readPageState(page);
+        validateYoutubeCommentState(profile.finalState, scenario, 'desktop');
         profile.parseRequests = parseRequestSummary(0);
         profile.jitenPublicRequests = jitenPublicRequestSummary(0);
         profile.ankiRequests = ankiRequestSummary(0);
@@ -1165,12 +1167,15 @@ async function readPageState(page) {
     return page.evaluate(() => {
         const subtitleWords = [...document.querySelectorAll('.jpdb-subtitle-player .jpdb-reader-word, .jpdb-subtitle-list .jpdb-reader-word')];
         const pageWords = [...document.querySelectorAll('ytd-watch-metadata .jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word, ytd-comment-view-model .jpdb-reader-word, ytm-comment-renderer .jpdb-reader-word, #secondary .jpdb-reader-word')];
+        const commentWords = [...document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word')];
         return {
             perf: { ...window.__yomuProfilePerf },
             hostRestores: window.__yomuProfileHostRestores ?? 0,
             readerWords: document.querySelectorAll('.jpdb-reader-word').length,
             descriptionWords: document.querySelectorAll('ytd-watch-metadata #description-inline-expander .jpdb-reader-word, ytm-expandable-video-description-body-renderer.jpdb-reader-word, ytm-expandable-video-description-body-renderer .jpdb-reader-word').length,
-            commentWords: document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word').length,
+            commentWords: commentWords.length,
+            commentRubyWords: commentWords.filter(word => word.querySelector('rt')).length,
+            commentTextMirrors: document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-text-mirror, ytm-comment-renderer #content-text .jpdb-reader-text-mirror').length,
             sidebarWords: document.querySelectorAll('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word').length,
             overlayWords: document.querySelectorAll('.jpdb-subtitle-primary .jpdb-reader-word').length,
             rowWords: document.querySelectorAll('.jpdb-subtitle-row-text .jpdb-reader-word').length,
@@ -1187,6 +1192,18 @@ async function readPageState(page) {
             videoTime: document.querySelector('video')?.currentTime ?? 0,
         };
     });
+}
+
+function validateYoutubeCommentState(state, scenario, label) {
+    if (!state || state.commentWords <= 0) {
+        throw new Error(`${scenario.name} ${label}: YouTube comment text was not parsed`);
+    }
+    if (state.commentTextMirrors !== 0) {
+        throw new Error(`${scenario.name} ${label}: YouTube comment bodies used text mirrors (${state.commentTextMirrors}), which can trigger false 詳細 overflow`);
+    }
+    if (scenario.apiKey && state.commentRubyWords <= 0) {
+        throw new Error(`${scenario.name} ${label}: YouTube comments did not receive API furigana`);
+    }
 }
 
 function youtubePlayerResponse() {

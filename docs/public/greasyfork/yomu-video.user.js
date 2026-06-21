@@ -7316,6 +7316,7 @@ ${candidate.depth}`;
       for (const [index, line] of lines.entries()) {
         state2.overlay.append(this.renderOcrLineElement(state2, result, line, renderedTokens[index] ?? [], sentence, showText, settings));
       }
+      this.revealVideoFrameOverlay(state2.image);
       this.positionState(state2.image);
       this.updateOcrStatus(state2.image, "ready");
       void Promise.resolve(this.options.enrichRenderedTokens?.(flatTokens, state2.overlay)).finally(() => this.schedulePosition());
@@ -7451,7 +7452,9 @@ ${candidate.depth}`;
       if (!dataUrl) return;
       const frame = document.createElement("img");
       frame.className = "jpdb-ocr-video-frame";
+      frame.classList.add("jpdb-ocr-video-frame-pending");
       frame.dataset.yomuVideoFrame = "true";
+      frame.dataset.ocrPending = "true";
       frame.alt = "";
       positionVideoFrameImage(frame, rect, target);
       frame.addEventListener("load", () => {
@@ -7468,6 +7471,11 @@ ${candidate.depth}`;
       this.videoFrameControls.set(target, resume);
       positionVideoFrameResumeControl(resume, rect, target);
       this.schedulePosition();
+    }
+    revealVideoFrameOverlay(image) {
+      if (!this.videoFrameVideos.has(image)) return;
+      image.classList.remove("jpdb-ocr-video-frame-pending");
+      delete image.dataset.ocrPending;
     }
     createVideoFrameResumeControl(video) {
       const language = this.options.getSettings().interfaceLanguage;
@@ -13274,7 +13282,7 @@ ${spelling}`);
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
-    return rootRect.width < 700 || rootRect.height < 360 ? 10 : 12;
+    return rootRect.width < 700 || rootRect.height < 360 ? 12 : 14;
   }
   function subtitleFrameTargetFontSize(root, settings) {
     const rootRect = root.getBoundingClientRect();
@@ -13947,6 +13955,11 @@ ${spelling}`);
         this.scheduleAlignToVideo();
       }, this.eventOptions({ passive: true }));
       video.addEventListener("loadeddata", () => this.scheduleAlignToVideo(), this.eventOptions({ passive: true }));
+      const handlePlaybackTimeChanged = () => this.syncSubtitleToPlaybackTime();
+      video.addEventListener("timeupdate", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+      video.addEventListener("seeking", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+      video.addEventListener("seeked", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
+      video.addEventListener("ratechange", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
       video.addEventListener("pause", () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
       const handlePlaybackStarted = () => {
         this.pausePanelDismissed = false;
@@ -13956,6 +13969,12 @@ ${spelling}`);
       video.addEventListener("play", handlePlaybackStarted, this.eventOptions({ passive: true }));
       video.addEventListener("playing", handlePlaybackStarted, this.eventOptions({ passive: true }));
       this.scheduleAlignToVideo();
+    }
+    syncSubtitleToPlaybackTime() {
+      if (this.destroyed || document.hidden || !this.options.getSettings().subtitlePlayerEnabled) return;
+      this.refreshNativeCueLists();
+      this.updateFromLoadedCues();
+      if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
     }
     addNativeTrack(track) {
       if (isYouTubePage()) return;
@@ -14544,8 +14563,12 @@ ${spelling}`);
       const provisional = this.provisionalParsedHtmlCache.get(key);
       if (provisional !== void 0) {
         if (this.shouldUseProvisionalSubtitleParse(settings)) {
-          if (this.enrichedProvisionalParsedHtmlKeys.has(key)) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
-          else this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
+          if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) {
+            this.ensureEnrichedProvisionalParsedCueHtml(text, settings, key);
+            if (!this.parsedTokenCache.has(key)) return void 0;
+          } else {
+            this.ensureAuthoritativeParsedCueHtml(text, settings, key);
+          }
         }
         return provisional;
       }
@@ -14583,7 +14606,7 @@ ${spelling}`);
         return;
       }
       try {
-        const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true });
+        const html = await this.parseCueHtml(text, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
         this.applyParsedPrimaryHtml(key, text, html, serial);
       } catch {
       }
@@ -14662,10 +14685,11 @@ ${spelling}`);
       if (restored) return restored;
       if (options.authoritativeUpgrade !== false) this.ensureAuthoritativeParsedCueHtml(text, settings, key);
       const cached = this.provisionalParsedHtmlCache.get(key);
-      if (cached && (!options.refreshProvisional || this.enrichedProvisionalParsedHtmlKeys.has(key))) {
+      const cachedIsEnriched = this.enrichedProvisionalParsedHtmlKeys.has(key);
+      if (cached && (!options.refreshProvisional || cachedIsEnriched) && (!options.requireEnrichedProvisional || cachedIsEnriched)) {
         return cached;
       }
-      const pending = options.refreshProvisional ? this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedCueHtml(key, "provisional");
+      const pending = options.refreshProvisional ? options.requireEnrichedProvisional ? void 0 : this.pendingProvisionalParsedHtml.get(key) : this.pendingParsedCueHtml(key, "provisional");
       if (pending) return pending;
       const promise = (async () => {
         const tokens = await this.options.parseJapanese(text, provisionalSubtitleParseOptions());
@@ -14686,8 +14710,10 @@ ${spelling}`);
       void this.parseProvisionalCueHtml(text, settings, key, {
         authoritativeUpgrade: false,
         enrichBeforeRender: true,
+        requireEnrichedProvisional: true,
         refreshProvisional: true
       }).then((html) => {
+        if (!this.enrichedProvisionalParsedHtmlKeys.has(key)) return;
         this.updateTranscriptRowsForParseKey(key, html, { provisional: true, force: true });
         if (this.currentPrimaryParseCacheKey() === key) this.applyParsedPrimaryHtml(key, text, html, ++this.renderSerial);
       }).catch(() => void 0);
@@ -14700,8 +14726,9 @@ ${spelling}`);
       const missing = items.filter((item) => !this.parsedHtmlCache.has(item.key) && !this.pendingParsedHtml.has(item.key));
       if (!missing.length) return;
       const parsed = this.options.parseJapaneseBatch ? this.options.parseJapaneseBatch(missing.map((item) => item.text), authoritativeSubtitleParseOptions()) : Promise.all(missing.map((item) => this.options.parseJapanese(item.text, authoritativeSubtitleParseOptions())));
-      const parsedHtml = missing.map((item, index) => parsed.then((tokens) => {
+      const parsedHtml = missing.map((item, index) => parsed.then(async (tokens) => {
         const tokenList = tokens[index] ?? [];
+        await this.beforeRenderParsedTokens(tokenList);
         const html = withBreaks(renderTokensToHtml(item.text, tokenList, settings));
         this.rememberParsedCueHtml(item.key, html, tokenList, { forceNotify: true });
         this.applyAuthoritativeParsedCueHtml(item.key, item.text, html);
@@ -14826,7 +14853,8 @@ ${spelling}`);
     usableProvisionalParsedHtml(key, options) {
       const html = this.provisionalParsedHtmlCache.get(key);
       if (!html) return void 0;
-      return options.refreshProvisional && !this.enrichedProvisionalParsedHtmlKeys.has(key) ? void 0 : html;
+      if ((options.refreshProvisional || options.requireEnrichedProvisional) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) return void 0;
+      return html;
     }
     // A cue is only "fully enriched" when every kanji-bearing token can render
     // furigana (explicit rubies, or a usable kana reading != surface). A
@@ -14979,7 +15007,7 @@ ${spelling}`);
       if (!texts.length) return;
       void (async () => {
         try {
-          await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true });
+          await this.parseCueHtmlBatch(texts, settings, { enrichBeforeRender: true, requireEnrichedProvisional: true });
         } catch {
         }
         if (serial !== this.parseWarmupSerial) return;
@@ -15015,7 +15043,7 @@ ${spelling}`);
     // a failed authoritative upgrade is retried by the next warmup turn.
     isWarmParsedCueKey(key) {
       if (this.parsedHtmlCache.has(key) || this.hasFreshEmptyParsedHtml(key)) return true;
-      return !this.hasAuthoritativeParseTier() && this.provisionalParsedHtmlCache.has(key);
+      return !this.hasAuthoritativeParseTier() && this.enrichedProvisionalParsedHtmlKeys.has(key);
     }
     // Keyless both tiers produce the same local-tokenizer result, so an
     // in-flight parse on EITHER tier satisfies the other — without this the
@@ -16733,9 +16761,16 @@ ${spelling}`);
     }
     async hydrateTranscriptRowTargets(targets, settings, serial) {
       try {
-        const parsed = await this.parseCueHtmlBatch(targets.map((target) => target.cue.text), settings, { enrichBeforeRender: true, refreshProvisional: true });
+        const parsed = await this.parseCueHtmlBatch(targets.map((target) => target.cue.text), settings, {
+          enrichBeforeRender: true,
+          refreshProvisional: true,
+          requireEnrichedProvisional: true
+        });
         if (serial !== this.transcriptHydrationSerial) return;
-        for (const item of parsed) this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
+        for (const item of parsed) {
+          if (item.provisional === true && !this.enrichedProvisionalParsedHtmlKeys.has(item.key)) continue;
+          this.updateTranscriptRowsForParseKey(item.key, item.html, { provisional: item.provisional === true, force: item.provisional === true });
+        }
       } catch {
         targets.forEach((hydration) => {
           hydration.target.dataset.parseFailedKey = hydration.key;
@@ -16749,7 +16784,7 @@ ${spelling}`);
       const target = this.transcriptPanel?.querySelector(`.jpdb-subtitle-row-text[data-row-index="${index}"]`);
       if (!cue || !target) return null;
       const key = this.parseCacheKey(cue.text, settings);
-      const provisionalNeedsHydration = target.dataset.parsedProvisional === "true" && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
+      const provisionalNeedsHydration = (target.dataset.parsedProvisional === "true" || this.provisionalParsedHtmlCache.has(key) && !this.enrichedProvisionalParsedHtmlKeys.has(key)) && (this.hasAuthoritativeParseTier() || !this.enrichedProvisionalParsedHtmlKeys.has(key));
       return !provisionalNeedsHydration && hasAttemptedTranscriptParse(target, key) ? null : { cue, target, key };
     }
     applyCachedTranscriptRowHtml(hydration, html) {
