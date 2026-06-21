@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.44
+// @version      1.4.45
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.44#sha256-UsZSI10WyZb0Ue15kyrahKQ0oSEEEes2CfQDW39VUPg=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.44#sha256-GyRw9tb+MqzuLPjoB1SZxeuEogXxicPyrRMVEA32/Rw=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.44#sha256-tz9CAwAClNYI5pZLs/XQeivx86U3Q+LNio2fqD+W2rY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.44#sha256-2kkvD6T1AdEcPCmQpwq15DssbYEIQV4aVzZGhqxy0/E=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.45#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.45#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.45#sha256-weJd9EsDx0qo32rpXnS6LJOlCpApHqR4U5Aq99qXRs0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.45#sha256-pAgA9yOoORlqKGF/6LnGNK2MSC/Dfwd5AJ3QMsmFKIU=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -7039,6 +7039,9 @@
       puckStudyPage: "Study page",
       puckPauseAnnotations: "Pause annotations",
       puckResumeAnnotations: "Resume annotations",
+      puckOcrAuto: "OCR: Auto",
+      puckOcrManual: "OCR: Tap/Hover",
+      puckOcrOff: "OCR: Off",
       annotationsPausedToast: "Annotations paused.",
       annotationsResumedToast: "Annotations resumed.",
       puckMuteAudio: "Mute auto-play audio",
@@ -7785,6 +7788,9 @@
       selectionPopoverShowTranslation: "Show translation in selection popovers",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
+      ocrModeAutoToast: "Image OCR automatic.",
+      ocrModeManualToast: "Image OCR on tap or hover.",
+      ocrModeOffToast: "Image OCR off.",
       subtitleOverlayEnabled: "Subtitle overlay enabled.",
       subtitleOverlayHidden: "Subtitle overlay hidden.",
       reviewFailed: "Review failed.",
@@ -8403,6 +8409,9 @@ parsedFrom	解析元
 selectionPopoverShowTranslation	選択ポップアップに翻訳を表示
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
+ocrModeAutoToast	画像OCRを自動にしました。
+ocrModeManualToast	画像OCRをタップ/ホバーにしました。
+ocrModeOffToast	画像OCRをオフにしました。
 subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
 subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
@@ -8633,6 +8642,9 @@ puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
+puckOcrAuto	OCR: 自動
+puckOcrManual	OCR: タップ/ホバー
+puckOcrOff	OCR: オフ
 annotationsPausedToast	注釈を一時停止しました。
 annotationsResumedToast	注釈を再開しました。
 puckMuteAudio	音声の自動再生をミュート
@@ -11906,53 +11918,6 @@ recommendedJiten	Jiten頻度です。
       }
     };
   }
-  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
-  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
-  const MIN_SHEET_HEIGHT_PX = 180;
-  const SHEET_DISMISS_OVERSHOOT_PX = 72;
-  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
-  const SHEET_TAP_MOVEMENT_PX = 8;
-  const SHEET_KEYBOARD_STEP_PX = 48;
-  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
-  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
-  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
-  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
-  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
-  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
-  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
-  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
-  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
-  const POPOVER_BODY_ACTION_SELECTOR = [
-    "button",
-    '[role="button"]',
-    "input",
-    "select",
-    "textarea",
-    "[data-action]",
-    "[data-immersion-action]",
-    "[data-yomu-immersion-action]",
-    "[data-uchisen-action]"
-  ].join(",");
-  function popoverScrollBody$1(popover) {
-    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
-  }
-  function capturePopoverScrollFrame(target) {
-    const popover = target.closest(".jpdb-reader-popover") ?? target;
-    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
-    return { scrollBody, scrollTop: scrollBody.scrollTop };
-  }
-  function restorePopoverScrollFrame(frame) {
-    if (!frame.scrollBody.isConnected) return;
-    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
-  }
-  function restorePopoverScrollFrameSoon(frame) {
-    restorePopoverScrollFrame(frame);
-    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
-  }
-  function popoverBodyActionElement(target, scrollBody) {
-    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
-    return action && scrollBody.contains(action) ? action : null;
-  }
   function createHandleDragController(options) {
     let state2 = initialDragState();
     let pointerId = 0;
@@ -12144,6 +12109,53 @@ recommendedJiten	Jiten頻度です。
     window.addEventListener("orientationchange", listener, options);
     window.visualViewport?.addEventListener?.("resize", listener, options);
     window.visualViewport?.addEventListener?.("scroll", listener, options);
+  }
+  const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
+  const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
+  const MIN_SHEET_HEIGHT_PX = 180;
+  const SHEET_DISMISS_OVERSHOOT_PX = 72;
+  const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
+  const SHEET_TAP_MOVEMENT_PX = 8;
+  const SHEET_KEYBOARD_STEP_PX = 48;
+  const MINING_DRAWER_DRAG_THRESHOLD_PX = 22;
+  const MINING_DRAWER_TAP_MOVEMENT_PX = 8;
+  const AUTO_SHEET_COMPACT_WIDTH_PX = 768;
+  const AUTO_SHEET_PORTRAIT_MAX_WIDTH_PX = 1100;
+  const AUTO_POPOVER_VIEWPORT_MARGIN_PX = 48;
+  const AUTO_POPOVER_MIN_HEIGHT_PX = 520;
+  const FORCED_POPOVER_SURFACE_DATA_KEY = "jpdbReaderForcedPopoverSurface";
+  const MINING_DRAWER_HANDLE_SELECTOR = ".jpdb-reader-mining-drawer-handle";
+  const MINING_DRAWER_POINTER_TARGET_SELECTOR = ".jpdb-reader-mining-drawer-handle, .jpdb-reader-actions-gutter";
+  const POPOVER_BODY_ACTION_SELECTOR = [
+    "button",
+    '[role="button"]',
+    "input",
+    "select",
+    "textarea",
+    "[data-action]",
+    "[data-immersion-action]",
+    "[data-yomu-immersion-action]",
+    "[data-uchisen-action]"
+  ].join(",");
+  function popoverScrollBody$1(popover) {
+    return popover.querySelector(".jpdb-reader-popover-body") ?? popover;
+  }
+  function capturePopoverScrollFrame(target) {
+    const popover = target.closest(".jpdb-reader-popover") ?? target;
+    const scrollBody = target.closest(".jpdb-reader-popover-body") ?? popoverScrollBody$1(popover);
+    return { scrollBody, scrollTop: scrollBody.scrollTop };
+  }
+  function restorePopoverScrollFrame(frame) {
+    if (!frame.scrollBody.isConnected) return;
+    if (frame.scrollBody.scrollTop !== frame.scrollTop) frame.scrollBody.scrollTop = frame.scrollTop;
+  }
+  function restorePopoverScrollFrameSoon(frame) {
+    restorePopoverScrollFrame(frame);
+    requestAnimationFrame(() => restorePopoverScrollFrame(frame));
+  }
+  function popoverBodyActionElement(target, scrollBody) {
+    const action = target.closest(POPOVER_BODY_ACTION_SELECTOR);
+    return action && scrollBody.contains(action) ? action : null;
   }
   function createReaderPopover(appName, settings) {
     const popover = document.createElement("div");
@@ -25353,6 +25365,9 @@ ${spelling}`);
   function radialAudioMutedIcon() {
     return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="m23 9-6 6"></path><path d="m17 9 6 6"></path></svg>`;
   }
+  function radialOcrIcon() {
+    return `${SVG_OPEN}<rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M7 8h4"></path><path d="M7 12h10"></path><path d="M7 16h7"></path><path d="M15.5 7.5 17 6l1.5 1.5"></path><path d="M17 6v5"></path></svg>`;
+  }
   function radialYoutubeIcon() {
     return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
   }
@@ -25436,6 +25451,7 @@ ${spelling}`);
       if (!settings || !actions) return [];
       const language = settings.interfaceLanguage;
       const paused = actions.isPaused();
+      const ocrMode = actions.ocrMode();
       const audioOn = actions.isAutoPlayAudioEnabled();
       const items = [
         {
@@ -25457,6 +25473,14 @@ ${spelling}`);
           tone: audioOn ? "on" : "off",
           keepOpen: true,
           run: () => actions.toggleAutoPlayAudio()
+        },
+        {
+          id: "ocr",
+          label: ocrModeLabel(language, ocrMode),
+          icon: radialOcrIcon(),
+          tone: ocrMode === "off" ? "off" : "on",
+          keepOpen: true,
+          run: () => actions.toggleOcrMode()
         },
         {
           id: "settings",
@@ -25545,6 +25569,11 @@ ${spelling}`);
       button2.addEventListener("pointerup", finishDrag);
       button2.addEventListener("pointercancel", finishDrag);
     }
+  }
+  function ocrModeLabel(language, mode) {
+    if (mode === "auto") return uiText(language, "puckOcrAuto");
+    if (mode === "manual") return uiText(language, "puckOcrManual");
+    return uiText(language, "puckOcrOff");
   }
   function shouldShowFloatingButton(settings) {
     return settings.showFloatingButton || isCoarsePointerDevice();
@@ -35016,6 +35045,19 @@ ${reading}`);
       }
     }
   }
+  function ocrInteractionModeFromSettings(settings) {
+    if (!settings.ocrEnabled) return "off";
+    return settings.ocrAutoScanImages ? "auto" : "manual";
+  }
+  function nextOcrInteractionMode(mode) {
+    if (mode === "auto") return "manual";
+    if (mode === "manual") return "off";
+    return "auto";
+  }
+  function applyOcrInteractionMode(settings, mode) {
+    settings.ocrEnabled = mode !== "off";
+    settings.ocrAutoScanImages = mode === "auto";
+  }
   const log$3 = Logger.scope("ReaderAudioActions");
   class ReaderAudioActions {
     constructor(dependencies) {
@@ -37343,10 +37385,16 @@ ${criticalWordCss()}
       refresh: noop2,
       destroy: noop2,
       scanVisible: noop2,
+      refreshForModeChange: noop2,
       pinLineForElement: noop2,
       clearActiveLines: noop2,
       captureSourceImageForElement: () => void 0
     };
+  }
+  function ocrModeToastKey(mode) {
+    if (mode === "auto") return "ocrModeAutoToast";
+    if (mode === "manual") return "ocrModeManualToast";
+    return "ocrModeOffToast";
   }
   function noopKanjiPracticeDoodle() {
     const noop2 = () => void 0;
@@ -38307,6 +38355,8 @@ ${criticalWordCss()}
           openStudyPage: () => this.openStudyPage(),
           togglePause: () => void this.toggleAnnotationsPaused(),
           isPaused: () => this.settings.annotationsPaused,
+          toggleOcrMode: () => void this.cycleOcrMode(),
+          ocrMode: () => ocrInteractionModeFromSettings(this.settings),
           toggleAutoPlayAudio: () => void this.toggleAutoPlayAudio(),
           isAutoPlayAudioEnabled: () => this.isAutoPlayAudioEnabled(),
           isYouTube: () => isYouTubeHostname(),
@@ -38349,6 +38399,14 @@ ${criticalWordCss()}
       await saveSettings(this.settings);
       log.info("Auto-play audio toggled", { enabled: !enabled });
       this.toast(uiText(this.settings.interfaceLanguage, enabled ? "autoplayAudioOffToast" : "autoplayAudioOnToast"));
+    }
+    async cycleOcrMode() {
+      const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
+      applyOcrInteractionMode(this.settings, nextMode);
+      await saveSettings(this.settings);
+      this.ocr.refreshForModeChange();
+      log.info("OCR mode changed", { mode: nextMode });
+      this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
     }
     openStudyPage() {
       const opened = window.open(NEW_TAB_PAGE_URL, "_blank");
@@ -38786,11 +38844,7 @@ ${criticalWordCss()}
     }
     toggleOcrFromShortcut(event) {
       event.preventDefault();
-      this.settings.ocrEnabled = !this.settings.ocrEnabled;
-      void saveSettings(this.settings);
-      this.ocr.refresh();
-      log.info("Shortcut toggled OCR", { enabled: this.settings.ocrEnabled });
-      this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? "imageReadingEnabled" : "imageReadingHidden"));
+      void this.cycleOcrMode();
     }
     toggleSubtitleOverlayFromShortcut(event) {
       event.preventDefault();
