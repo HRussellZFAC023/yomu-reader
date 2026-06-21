@@ -5,11 +5,13 @@ import {
     RadialMenuController,
     radialAudioMutedIcon,
     radialAudioOnIcon,
+    radialOcrIcon,
     radialPowerIcon,
     radialSettingsIcon,
     radialYoutubeIcon,
     type RadialAction,
 } from './radial-menu';
+import type { OcrInteractionMode } from '../ocr/mode';
 
 function hostHasBottomActionDock(): boolean {
     return location.hostname === 'jiten.moe' && location.pathname.startsWith('/srs/');
@@ -21,6 +23,8 @@ export interface FloatingButtonActions {
     openStudyPage(): void;
     togglePause(): void;
     isPaused(): boolean;
+    toggleOcrMode(): void;
+    ocrMode(): OcrInteractionMode;
     toggleAutoPlayAudio(): void;
     isAutoPlayAudioEnabled(): boolean;
     isYouTube(): boolean;
@@ -123,6 +127,7 @@ export class FloatingButtonController {
         if (!settings || !actions) return [];
         const language = settings.interfaceLanguage;
         const paused = actions.isPaused();
+        const ocrMode = actions.ocrMode();
         const audioOn = actions.isAutoPlayAudioEnabled();
         const items: RadialAction[] = [
             {
@@ -144,6 +149,14 @@ export class FloatingButtonController {
                 tone: audioOn ? 'on' : 'off',
                 keepOpen: true,
                 run: () => actions.toggleAutoPlayAudio(),
+            },
+            {
+                id: 'ocr',
+                label: ocrModeLabel(language, ocrMode),
+                icon: radialOcrIcon(),
+                tone: ocrMode === 'off' ? 'off' : 'on',
+                keepOpen: true,
+                run: () => actions.toggleOcrMode(),
             },
             {
                 id: 'settings',
@@ -234,6 +247,12 @@ export class FloatingButtonController {
         button.addEventListener('pointerup', finishDrag);
         button.addEventListener('pointercancel', finishDrag);
     }
+}
+
+function ocrModeLabel(language: ReaderSettings['interfaceLanguage'], mode: OcrInteractionMode): string {
+    if (mode === 'auto') return uiText(language, 'puckOcrAuto');
+    if (mode === 'manual') return uiText(language, 'puckOcrManual');
+    return uiText(language, 'puckOcrOff');
 }
 
 function shouldShowFloatingButton(settings: ReaderSettings): boolean {

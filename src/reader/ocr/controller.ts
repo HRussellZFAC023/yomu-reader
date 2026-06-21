@@ -370,6 +370,7 @@ export class ImageOcrController {
         if (this.destroyed) return;
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) {
+            this.releaseAllVideoFrames();
             this.clear();
             return;
         }
@@ -407,6 +408,22 @@ export class ImageOcrController {
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled) return;
         if (this.options.shouldAutoScan?.() === false) {
+            this.clearAutoScannedOverlays();
+            this.schedulePosition();
+            return;
+        }
+        this.refresh();
+    }
+
+    refreshForModeChange(): void {
+        if (this.destroyed) return;
+        const settings = this.options.getSettings();
+        if (!settings.ocrEnabled) {
+            this.releaseAllVideoFrames();
+            this.clear();
+            return;
+        }
+        if (!settings.ocrAutoScanImages) {
             this.clearAutoScannedOverlays();
             this.schedulePosition();
             return;

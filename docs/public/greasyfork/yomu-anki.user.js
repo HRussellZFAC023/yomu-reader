@@ -1270,6 +1270,9 @@
       puckStudyPage: "Study page",
       puckPauseAnnotations: "Pause annotations",
       puckResumeAnnotations: "Resume annotations",
+      puckOcrAuto: "OCR: Auto",
+      puckOcrManual: "OCR: Tap/Hover",
+      puckOcrOff: "OCR: Off",
       annotationsPausedToast: "Annotations paused.",
       annotationsResumedToast: "Annotations resumed.",
       puckMuteAudio: "Mute auto-play audio",
@@ -2016,6 +2019,9 @@
       selectionPopoverShowTranslation: "Show translation in selection popovers",
       imageReadingEnabled: "Image reading enabled.",
       imageReadingHidden: "Image reading hidden.",
+      ocrModeAutoToast: "Image OCR automatic.",
+      ocrModeManualToast: "Image OCR on tap or hover.",
+      ocrModeOffToast: "Image OCR off.",
       subtitleOverlayEnabled: "Subtitle overlay enabled.",
       subtitleOverlayHidden: "Subtitle overlay hidden.",
       reviewFailed: "Review failed.",
@@ -2634,6 +2640,9 @@ parsedFrom	解析元
 selectionPopoverShowTranslation	選択ポップアップに翻訳を表示
 imageReadingEnabled	画像読み取りを有効にしました。
 imageReadingHidden	画像読み取りを非表示にしました。
+ocrModeAutoToast	画像OCRを自動にしました。
+ocrModeManualToast	画像OCRをタップ/ホバーにしました。
+ocrModeOffToast	画像OCRをオフにしました。
 subtitleOverlayEnabled	字幕オーバーレイを有効にしました。
 subtitleOverlayHidden	字幕オーバーレイを非表示にしました。
 reviewFailed	レビューに失敗しました。
@@ -2864,6 +2873,9 @@ puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
 puckResumeAnnotations	注釈を再開
+puckOcrAuto	OCR: 自動
+puckOcrManual	OCR: タップ/ホバー
+puckOcrOff	OCR: オフ
 annotationsPausedToast	注釈を一時停止しました。
 annotationsResumedToast	注釈を再開しました。
 puckMuteAudio	音声の自動再生をミュート

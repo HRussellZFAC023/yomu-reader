@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.45] - 2026-06-21
+
+### Added
+
+- The puck radial menu now has an OCR mode toggle that cycles Auto -> Tap/Hover -> Off. Tap/Hover keeps image OCR available on intentional pointer activation and keeps paused-video frame OCR available, since videos do not have a still image to tap.
+
+### Fixed
+
+- Turning OCR fully off now releases any paused-video OCR frame overlay as well as image/canvas OCR overlays.
+
 ## [1.4.44] - 2026-06-21
 
 ### Changed

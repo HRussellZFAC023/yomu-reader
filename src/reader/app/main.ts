@@ -240,7 +240,7 @@ import { isNativePageLookupBlocked, nativeClickableAncestor, shouldIgnoreDocumen
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsParseAlreadyRendered, nestedSettingsTextParsePlan, nestedTextParsePlan, type NestedParsePlan } from '../lookup/nested-text-parse';
 import { parsedSettingsTargetsForCurrentPlan, supplementSettingsFallbackTokens } from '../lookup/settings-fallback-tokens';
 import { addSettingsRubyFromRenderedReadings, settingsForSettingsFormParse } from '../lookup/settings-parse-render';
-import { resolveUiLanguage, uiText } from './i18n';
+import { resolveUiLanguage, uiText, type UiCopyKey } from './i18n';
 import { OnboardingController } from './onboarding';
 
 import { applyPreferredJapaneseSiteLanguage as applyJapaneseSiteLanguagePreference } from './preferred-site-language';
@@ -248,6 +248,7 @@ import { localPitchPatternFromMeta } from '../lookup/pitch-meta';
 import { contextPitchPattern } from '../lookup/pitch-accent';
 import { cardPronunciationReading, isKanjiCharacter, uniqueKanji } from '../popup/pitch';
 import type { ImageOcrController } from '../ocr/controller';
+import { applyOcrInteractionMode, nextOcrInteractionMode, ocrInteractionModeFromSettings, type OcrInteractionMode } from '../ocr/mode';
 import { isApiMiningEnabled } from '../cards/srs-providers';
 import {
     caretTextPositionFromPoint,
@@ -375,10 +376,17 @@ function createNoopImageOcrController(): ImageOcrController {
         refresh: noop,
         destroy: noop,
         scanVisible: noop,
+        refreshForModeChange: noop,
         pinLineForElement: noop,
         clearActiveLines: noop,
         captureSourceImageForElement: () => undefined,
     } as unknown as ImageOcrController;
+}
+
+function ocrModeToastKey(mode: OcrInteractionMode): UiCopyKey {
+    if (mode === 'auto') return 'ocrModeAutoToast';
+    if (mode === 'manual') return 'ocrModeManualToast';
+    return 'ocrModeOffToast';
 }
 
 function noopKanjiPracticeDoodle(): { reassess: () => void; clear: () => void } {
@@ -1482,6 +1490,8 @@ export class ReaderApp {
                 openStudyPage: () => this.openStudyPage(),
                 togglePause: () => void this.toggleAnnotationsPaused(),
                 isPaused: () => this.settings.annotationsPaused,
+                toggleOcrMode: () => void this.cycleOcrMode(),
+                ocrMode: () => ocrInteractionModeFromSettings(this.settings),
                 toggleAutoPlayAudio: () => void this.toggleAutoPlayAudio(),
                 isAutoPlayAudioEnabled: () => this.isAutoPlayAudioEnabled(),
                 isYouTube: () => isYouTubeHostname(),
@@ -1535,6 +1545,15 @@ export class ReaderApp {
         await saveSettings(this.settings);
         log.info('Auto-play audio toggled', { enabled: !enabled });
         this.toast(uiText(this.settings.interfaceLanguage, enabled ? 'autoplayAudioOffToast' : 'autoplayAudioOnToast'));
+    }
+
+    private async cycleOcrMode(): Promise<void> {
+        const nextMode = nextOcrInteractionMode(ocrInteractionModeFromSettings(this.settings));
+        applyOcrInteractionMode(this.settings, nextMode);
+        await saveSettings(this.settings);
+        this.ocr.refreshForModeChange();
+        log.info('OCR mode changed', { mode: nextMode });
+        this.toast(uiText(this.settings.interfaceLanguage, ocrModeToastKey(nextMode)));
     }
 
     private openStudyPage(): void {
@@ -2059,11 +2078,7 @@ export class ReaderApp {
 
     private toggleOcrFromShortcut(event: KeyboardEvent): void {
         event.preventDefault();
-        this.settings.ocrEnabled = !this.settings.ocrEnabled;
-        void saveSettings(this.settings);
-        this.ocr.refresh();
-        log.info('Shortcut toggled OCR', { enabled: this.settings.ocrEnabled });
-        this.toast(uiText(this.settings.interfaceLanguage, this.settings.ocrEnabled ? 'imageReadingEnabled' : 'imageReadingHidden'));
+        void this.cycleOcrMode();
     }
 
     private toggleSubtitleOverlayFromShortcut(event: KeyboardEvent): void {

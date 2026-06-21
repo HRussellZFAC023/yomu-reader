@@ -2617,6 +2617,8 @@ function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {
         openStudyPage: vi.fn(),
         togglePause: vi.fn(),
         isPaused: () => false,
+        toggleOcrMode: vi.fn(),
+        ocrMode: () => 'auto',
         toggleAutoPlayAudio: vi.fn(),
         isAutoPlayAudioEnabled: () => true,
         isYouTube: () => false,
@@ -9585,9 +9587,48 @@ describe('reader helpers', () => {
                 Math.hypot(offset.x - offsets[index].x, offset.y - offsets[index].y)
             ));
 
-            expect(offsets).toHaveLength(5);
+            expect(offsets).toHaveLength(6);
             expect(labels).not.toContain('Scan page');
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('cycles OCR mode from the puck without closing the radial menu', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        let mode: 'auto' | 'manual' | 'off' = 'auto';
+        const toggleOcrMode = vi.fn(() => {
+            mode = mode === 'auto' ? 'manual' : mode === 'manual' ? 'off' : 'auto';
+        });
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: true,
+        };
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions({
+                    toggleOcrMode,
+                    ocrMode: () => mode,
+                }));
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            const ocrButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="ocr"]');
+            expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Auto');
+
+            ocrButton()?.click();
+            expect(toggleOcrMode).toHaveBeenCalledTimes(1);
+            expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Tap/Hover');
+            expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
+
+            ocrButton()?.click();
+            expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Off');
+            expect(ocrButton()?.classList.contains('is-off')).toBe(true);
         } finally {
             controller.destroy();
             restoreRects();

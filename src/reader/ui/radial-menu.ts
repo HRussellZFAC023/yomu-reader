@@ -282,6 +282,11 @@ export function radialAudioMutedIcon(): string {
     return `${SVG_OPEN}<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"></path><path d="m23 9-6 6"></path><path d="m17 9 6 6"></path></svg>`;
 }
 
+/** Image/text scan — cycle OCR interaction mode. */
+export function radialOcrIcon(): string {
+    return `${SVG_OPEN}<rect x="3" y="4" width="18" height="16" rx="2.5"></rect><path d="M7 8h4"></path><path d="M7 12h10"></path><path d="M7 16h7"></path><path d="M15.5 7.5 17 6l1.5 1.5"></path><path d="M17 6v5"></path></svg>`;
+}
+
 /** Video filter — toggle YouTube immersion filtering (YouTube only). */
 export function radialYoutubeIcon(): string {
     return `${SVG_OPEN}<rect x="3" y="6" width="18" height="12" rx="3"></rect><path d="M10.2 9.6 14.4 12l-4.2 2.4z" fill="currentColor" stroke="none"></path></svg>`;
