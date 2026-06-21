@@ -969,6 +969,17 @@ export class ReaderApp {
         log.info('YouTube filter notice changed', { visible });
     }
 
+    private async togglePreferredJapaneseSiteLanguage(): Promise<void> {
+        await this.setPreferredJapaneseSiteLanguage(!this.settings.preferJapaneseSiteLanguage);
+    }
+
+    private async setPreferredJapaneseSiteLanguage(enabled: boolean): Promise<void> {
+        this.settings.preferJapaneseSiteLanguage = enabled;
+        await saveSettings(this.settings);
+        this.applyPreferredJapaneseSiteLanguage(this.settings, true);
+        log.info('Preferred Japanese site language toggled', { enabled });
+    }
+
     private async setYoutubeChannelRecommendationsVisible(visible: boolean): Promise<void> {
         this.settings.youtubeShowChannelRecommendations = visible;
         await saveSettings(this.settings);
@@ -1132,8 +1143,11 @@ export class ReaderApp {
         this.publishThemeSettingsChange();
     }
 
-    private applyPreferredJapaneseSiteLanguage(settings = this.settings): void {
-        applyJapaneseSiteLanguagePreference(settings.preferJapaneseSiteLanguage);
+    private applyPreferredJapaneseSiteLanguage(
+        settings = this.settings,
+        options?: Parameters<typeof applyJapaneseSiteLanguagePreference>[1],
+    ): void {
+        applyJapaneseSiteLanguagePreference(settings.preferJapaneseSiteLanguage, options);
     }
 
     private publishThemeSettingsChange(): void {
@@ -1515,6 +1529,7 @@ export class ReaderApp {
                 ocrMode: () => ocrInteractionModeFromSettings(this.settings),
                 toggleAutoPlayAudio: () => void this.toggleAutoPlayAudio(),
                 isAutoPlayAudioEnabled: () => this.isAutoPlayAudioEnabled(),
+                toggleJapaneseSiteLanguage: () => void this.togglePreferredJapaneseSiteLanguage(),
                 isYouTube: () => isYouTubeHostname(),
                 toggleYoutubeFilter: () => void this.toggleYoutubeImmersion(),
                 isYoutubeFilterEnabled: () => this.settings.youtubeImmersionEnabled,

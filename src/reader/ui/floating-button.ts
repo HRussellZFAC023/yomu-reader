@@ -27,6 +27,7 @@ export interface FloatingButtonActions {
     ocrMode(): OcrInteractionMode;
     toggleAutoPlayAudio(): void;
     isAutoPlayAudioEnabled(): boolean;
+    toggleJapaneseSiteLanguage(): void;
     isYouTube(): boolean;
     toggleYoutubeFilter(): void;
     isYoutubeFilterEnabled(): boolean;
@@ -129,6 +130,7 @@ export class FloatingButtonController {
         const paused = actions.isPaused();
         const ocrMode = actions.ocrMode();
         const audioOn = actions.isAutoPlayAudioEnabled();
+        const japaneseSiteLanguage = settings.preferJapaneseSiteLanguage;
         const items: RadialAction[] = [
             {
                 id: 'power',
@@ -157,6 +159,15 @@ export class FloatingButtonController {
                 tone: ocrMode === 'off' ? 'off' : 'on',
                 keepOpen: true,
                 run: () => actions.toggleOcrMode(),
+            },
+            {
+                id: 'japanese-site',
+                label: uiText(language, 'preferJapaneseSiteLanguage'),
+                icon: '日',
+                glyph: true,
+                tone: japaneseSiteLanguage ? 'on' : 'off',
+                keepOpen: true,
+                run: () => actions.toggleJapaneseSiteLanguage(),
             },
             {
                 id: 'settings',

@@ -8,11 +8,13 @@ const JAPANESE_COUNTRY = 'JP';
 const JAPANESE_TIME_ZONE = 'Asia/Tokyo';
 const JAPANESE_LOCALE = 'ja-JP';
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
-const REDIRECT_CACHE_KEY = 'yomu:prefer-japanese-site-language:last-redirect';
+const REDIRECT_CACHE_KEY = 'yomu:jps';
 const INJECTION_RETRY_LIMIT = 12;
 const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
 const ALTERNATE_REDIRECT_RETRY_MS = 125;
-const REDIRECT_RETRY_SUPPRESSION_MS = 60_000;
+const ENGLISH_LOCALE_SEGMENT_RE = /^en(?:[-_][a-z]{2})?$/i;
+const JAPANESE_SEARCH_PARAMS: Record<string, string> = { hl: 'ja', gl: 'JP' };
+const JAPANESE_NEWS_SEARCH_PARAMS: Record<string, string> = { hl: 'ja', gl: 'JP', ceid: 'JP:ja' };
 
 type StoredSettings = Partial<Pick<ReaderSettings, 'preferJapaneseSiteLanguage'>> | null;
 type QueryRoot = Pick<ParentNode, 'querySelectorAll'>;
@@ -28,7 +30,7 @@ export function installPreferredJapaneseSiteLanguageFromStoredSettings(): void {
     void readStoredPreferenceEnabledAsync().then(applyPreferredJapaneseSiteLanguage);
 }
 
-export function applyPreferredJapaneseSiteLanguage(enabled: boolean): void {
+export function applyPreferredJapaneseSiteLanguage(enabled: boolean, revertOnDisable = false): void {
     if (typeof window === 'undefined') return;
     writeCachedPreferenceEnabled(enabled);
     applyPageContextJapanesePreferences(enabled);
@@ -38,6 +40,7 @@ export function applyPreferredJapaneseSiteLanguage(enabled: boolean): void {
     } else {
         clearSitePreferenceCookies();
         cancelPreferredJapaneseSiteRedirectWatcher();
+        if (revertOnDisable) attemptPreferredDefaultSiteRedirect();
     }
 }
 
@@ -45,7 +48,7 @@ export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): 
     const current = parseHttpUrl(sourceHref);
     if (!current) return null;
     const alternate = japaneseAlternateLinkUrl(current, root);
-    const target = alternate ?? siteRuleJapaneseUrl(current);
+    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current);
     if (!target || target.href === current.href) return null;
     return target.href;
 }
@@ -243,6 +246,14 @@ function attemptPreferredJapaneseSiteRedirect(): boolean {
     return true;
 }
 
+function attemptPreferredDefaultSiteRedirect(): boolean {
+    const href = currentLocationHref();
+    const target = href ? rememberedRedirectSourceForTarget(href) : null;
+    if (!target) return false;
+    replaceLocation(target);
+    return true;
+}
+
 function currentLocationHref(): string {
     return typeof location.href === 'string' ? location.href : '';
 }
@@ -304,11 +315,10 @@ function recentlyAttemptedRedirect(sourceHref: string, targetHref: string): bool
     try {
         const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
         if (!value) return false;
-        const record = JSON.parse(value) as { source?: string; target?: string; at?: number };
-        return record.source === sourceHref
-            && record.target === targetHref
-            && typeof record.at === 'number'
-            && Date.now() - record.at < REDIRECT_RETRY_SUPPRESSION_MS;
+        const [source, target, at] = JSON.parse(value) as [string?, string?, number?];
+        return source === sourceHref
+            && target === targetHref
+            && Date.now() - (at ?? 0) < 60_000;
     } catch {
         return false;
     }
@@ -316,9 +326,21 @@ function recentlyAttemptedRedirect(sourceHref: string, targetHref: string): bool
 
 function rememberRedirectAttempt(sourceHref: string, targetHref: string): void {
     try {
-        sessionStorage.setItem(REDIRECT_CACHE_KEY, JSON.stringify({ source: sourceHref, target: targetHref, at: Date.now() }));
+        sessionStorage.setItem(REDIRECT_CACHE_KEY, JSON.stringify([sourceHref, targetHref, Date.now()]));
     } catch {
         // Redirect suppression is only a loop guard; failure should not block the redirect.
+    }
+}
+
+function rememberedRedirectSourceForTarget(targetHref: string): string | null {
+    try {
+        const value = sessionStorage.getItem(REDIRECT_CACHE_KEY);
+        if (!value) return null;
+        const [source, target] = JSON.parse(value) as [string?, string?];
+        if (target !== targetHref || !source) return null;
+        return source;
+    } catch {
+        return null;
     }
 }
 
@@ -331,15 +353,14 @@ function parseHttpUrl(sourceHref: string): URL | null {
     }
 }
 
-function japaneseAlternateLinkUrl(current: URL, root?: QueryRoot): URL | null {
+function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): URL | null {
     if (!root) return null;
     try {
-        for (const link of Array.from(root.querySelectorAll<HTMLLinkElement>('link[rel~="alternate"][hreflang][href]'))) {
-            const candidate = japaneseAlternateCandidateUrl(current, link);
-            if (candidate && candidate.href !== current.href) return candidate;
-        }
-        for (const anchor of Array.from(root.querySelectorAll<HTMLAnchorElement>('a[hreflang][href]'))) {
-            const candidate = japaneseAlternateCandidateUrl(current, anchor);
+        for (const element of Array.from(root.querySelectorAll<HTMLLinkElement | HTMLAnchorElement>('link[rel~="alternate"][hreflang][href],a[hreflang][href]'))) {
+            const hreflang = element.getAttribute('hreflang')?.toLowerCase().replace(/_/g, '-');
+            if (hreflang !== JAPANESE_LANGUAGE && hreflang !== JAPANESE_LOCALE.toLowerCase()) continue;
+            const href = element.getAttribute('href');
+            const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
             if (candidate && candidate.href !== current.href) return candidate;
         }
     } catch {
@@ -348,22 +369,15 @@ function japaneseAlternateLinkUrl(current: URL, root?: QueryRoot): URL | null {
     return null;
 }
 
-function japaneseAlternateCandidateUrl(current: URL, element: Element): URL | null {
-    const hreflang = element.getAttribute('hreflang')?.toLowerCase().replace(/_/g, '-');
-    if (hreflang !== JAPANESE_LANGUAGE && hreflang !== JAPANESE_LOCALE.toLowerCase()) return null;
-    const href = element.getAttribute('href');
-    return href ? parseHttpUrl(new URL(href, current.href).href) : null;
-}
-
 function siteRuleJapaneseUrl(current: URL): URL | null {
     const hostname = current.hostname.toLowerCase();
     if (hostname === 'youtu.be') return youtuBeJapaneseUrl(current);
-    if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, youtubeJapaneseSearchParams());
+    if (/(^|\.)youtube\.com$/.test(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
     if (hostname === 'consent.google.com') return googleConsentJapaneseUrl(current);
-    if (hostname === 'news.google.com') return withSearchParams(current, googleNewsJapaneseSearchParams());
-    if (isGooglePreferenceHost(hostname)) return withSearchParams(current, googleJapaneseSearchParams());
+    if (hostname === 'news.google.com') return withSearchParams(current, JAPANESE_NEWS_SEARCH_PARAMS);
+    if (isGooglePreferenceHost(hostname)) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
     if (hostname === 'wikipedia.org') return withHostname(current, 'ja.wikipedia.org');
-    if (hostname.endsWith('.wikipedia.org') && hostname !== 'ja.wikipedia.org' && isRootPath(current)) {
+    if (hostname.endsWith('.wikipedia.org') && hostname !== 'ja.wikipedia.org' && (current.pathname === '' || current.pathname === '/')) {
         return withHostname(current, 'ja.wikipedia.org');
     }
     if (hostname === 'developer.mozilla.org') return withLeadingLocaleSegment(current, 'ja');
@@ -375,13 +389,13 @@ function siteRuleJapaneseUrl(current: URL): URL | null {
 
 function youtuBeJapaneseUrl(current: URL): URL | null {
     const videoId = current.pathname.split('/').filter(Boolean)[0];
-    if (!videoId) return withSearchParams(current, youtubeJapaneseSearchParams());
+    if (!videoId) return withSearchParams(current, JAPANESE_SEARCH_PARAMS);
     const target = new URL('https://www.youtube.com/watch');
     target.searchParams.set('v', videoId);
     for (const [key, value] of current.searchParams.entries()) {
         if (key !== 'v' && key !== 'hl' && key !== 'gl') target.searchParams.append(key, value);
     }
-    for (const [key, value] of Object.entries(youtubeJapaneseSearchParams())) target.searchParams.set(key, value);
+    for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) target.searchParams.set(key, value);
     target.hash = current.hash;
     return target;
 }
@@ -389,7 +403,7 @@ function youtuBeJapaneseUrl(current: URL): URL | null {
 function googleConsentJapaneseUrl(current: URL): URL | null {
     const next = new URL(current.href);
     let changed = false;
-    for (const [key, value] of Object.entries(googleJapaneseSearchParams())) {
+    for (const [key, value] of Object.entries(JAPANESE_SEARCH_PARAMS)) {
         if (next.searchParams.get(key) !== value) {
             next.searchParams.set(key, value);
             changed = true;
@@ -404,37 +418,11 @@ function googleConsentJapaneseUrl(current: URL): URL | null {
     return changed ? next : null;
 }
 
-function youtubeJapaneseSearchParams(): Record<string, string> {
-    return {
-        hl: JAPANESE_LANGUAGE,
-        gl: JAPANESE_COUNTRY,
-    };
-}
-
-function googleNewsJapaneseSearchParams(): Record<string, string> {
-    return {
-        hl: JAPANESE_LANGUAGE,
-        gl: JAPANESE_COUNTRY,
-        ceid: `${JAPANESE_COUNTRY}:${JAPANESE_LANGUAGE}`,
-    };
-}
-
-function googleJapaneseSearchParams(): Record<string, string> {
-    return {
-        hl: JAPANESE_LANGUAGE,
-        gl: JAPANESE_COUNTRY,
-    };
-}
-
 function isGooglePreferenceHost(hostname: string): boolean {
     return hostname === 'google.com'
         || hostname.startsWith('www.google.')
         || hostname === 'support.google.com'
         || hostname === 'cloud.google.com';
-}
-
-function isRootPath(current: URL): boolean {
-    return current.pathname === '' || current.pathname === '/';
 }
 
 function withSearchParams(current: URL, values: Record<string, string>): URL | null {
@@ -457,20 +445,29 @@ function withHostname(current: URL, hostname: string): URL | null {
 
 function withLeadingLocaleSegment(current: URL, locale: string): URL | null {
     const parts = current.pathname.split('/');
-    const first = safeDecodePathSegment(parts[1] ?? '').toLowerCase();
-    if (!/^[a-z]{2}(?:-[a-z]{2})?$/.test(first) || first === locale) return null;
+    const first = (parts[1] ?? '').toLowerCase();
+    if (!/^[a-z]{2}(?:[-_][a-z]{2})?$/.test(first) || first === locale.toLowerCase()) return null;
     const next = new URL(current.href);
     parts[1] = locale;
     next.pathname = parts.join('/') || '/';
     return next;
 }
 
-function safeDecodePathSegment(segment: string): string {
-    try {
-        return decodeURIComponent(segment);
-    } catch {
-        return segment;
+function genericJapaneseUrl(current: URL): URL | null {
+    const next = new URL(current.href);
+    let changed = false;
+    if (/^en\./i.test(next.hostname)) {
+        next.hostname = next.hostname.replace(/^en\./i, 'ja.');
+        changed = true;
     }
+    const pathParts = next.pathname.split('/');
+    const firstPathPart = (pathParts[1] ?? '').toLowerCase();
+    if (ENGLISH_LOCALE_SEGMENT_RE.test(firstPathPart)) {
+        pathParts[1] = /[-_]/.test(firstPathPart) ? 'ja-jp' : JAPANESE_LANGUAGE;
+        next.pathname = pathParts.join('/') || '/';
+        changed = true;
+    }
+    return changed ? next : null;
 }
 
 function mergeCookie(name: string, values: Record<string, string>, domain?: string): void {

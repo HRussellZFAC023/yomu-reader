@@ -58,7 +58,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 - **Bring your dictionaries:** import Yomitan ZIPs, settings exports, Dexie exports, and JMdict; reorder Jiten, JPDB, Anki, local, grammar, example, and kanji sources.
 - **Japanese that stays readable:** furigana modes, status/pitch/accent coloring, Jiten/JPDB kanji details, stroke tracing, Uchisen, RTK, origin graphs, and local kanji dictionaries.
 - **Examples and audio:** Immersion Kit, Nadeshiko, Jisho.org, Jiten/JPDB audio, browser voices, custom audio URLs, thumbnails, translations, and replay buttons.
-- **Immersion tools:** manga/image OCR, ASB-style subtitle overlay, transcript mining, local video player, YouTube Japanese-mode filtering, and touch-first mobile controls.
+- **Immersion tools:** manga/image OCR, ASB-style subtitle overlay, transcript mining, local video player, YouTube Japanese-mode filtering, Japanese-site requesting for multilingual pages, and touch-first mobile controls.
 
 ## Privacy
 

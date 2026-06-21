@@ -48,6 +48,11 @@ describe('preferred Japanese site language', () => {
         expect(preferredJapaneseSiteUrl('https://support.apple.com/en-us/102603')).toBe('https://support.apple.com/ja-jp/102603');
     });
 
+    it('rewrites generic English URL locale hints to Japanese', () => {
+        expect(preferredJapaneseSiteUrl('https://en.example.com/docs/start?locale=en_US')).toBe('https://ja.example.com/docs/start?locale=en_US');
+        expect(preferredJapaneseSiteUrl('https://example.com/en-US/products?language=en-US&region=US')).toBe('https://example.com/ja-jp/products?language=en-US&region=US');
+    });
+
     it('rewrites Google consent continuations to the Japanese destination', () => {
         const target = preferredJapaneseSiteUrl('https://consent.google.com/m?continue=https%3A%2F%2Fnews.google.com%2Fhome%3Fhl%3Den-US%26gl%3DUS%26ceid%3DUS%253Aen&gl=GB&hl=en-US');
         const consent = new URL(target!);
@@ -96,6 +101,47 @@ describe('preferred Japanese site language', () => {
         applyPreferredJapaneseSiteLanguage(true);
 
         expect(replace).toHaveBeenCalledWith('https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP');
+    });
+
+    it('returns to the remembered default URL when the setting is disabled after a redirect', () => {
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123',
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(true);
+        expect(replace).toHaveBeenCalledWith('https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP');
+
+        replace.mockClear();
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP',
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(false, true);
+
+        expect(replace).toHaveBeenCalledWith('https://www.youtube.com/watch?v=abc123');
+    });
+
+    it('does not force a default URL when an already-disabled preference is applied at startup', () => {
+        const replace = vi.fn();
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://developer.mozilla.org/ja/docs/Web/JavaScript',
+            hostname: 'developer.mozilla.org',
+            protocol: 'https:',
+            replace,
+        });
+
+        applyPreferredJapaneseSiteLanguage(false);
+
+        expect(replace).not.toHaveBeenCalled();
     });
 
     it('uses the local opt-out cache before the default-on setting', () => {

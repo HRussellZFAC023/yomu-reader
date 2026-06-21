@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.52] - 2026-06-22
+
+### Fixed
+
+- The Japanese-site request now catches more generic multilingual URL patterns (`en` subdomains and `/en` or `/en-US` path segments) and the Yomu puck can toggle it on or off. Turning it off after Yomu redirects the page returns to the remembered original URL.
+
 ## [1.4.51] - 2026-06-22
 
 ### Changed

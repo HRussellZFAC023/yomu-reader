@@ -144,7 +144,7 @@ export class RadialMenuController {
         while (hAngle - vAngle < -PI) hAngle += 2 * PI;
 
         const count = actions.length;
-        const pad = count >= 5 ? 0.08 : 0.12; // keep items off the exact screen-edge directions
+        const pad = count >= 7 ? 0.01 : count >= 5 ? 0.08 : 0.12; // keep dense menus touch-spaced without throwing items off-screen
         const radius = this.radiusForLayout(cx, cy, vw, vh, vAngle, hAngle, count, pad);
 
         actions.forEach((action, index) => {

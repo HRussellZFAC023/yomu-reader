@@ -2621,6 +2621,7 @@ function stubFloatingButtonActions(overrides: Partial<FloatingButtonActions> = {
         ocrMode: () => 'auto',
         toggleAutoPlayAudio: vi.fn(),
         isAutoPlayAudioEnabled: () => true,
+        toggleJapaneseSiteLanguage: vi.fn(),
         isYouTube: () => false,
         toggleYoutubeFilter: vi.fn(),
         isYoutubeFilterEnabled: () => false,
@@ -9674,8 +9675,9 @@ describe('reader helpers', () => {
                 Math.hypot(offset.x - offsets[index].x, offset.y - offsets[index].y)
             ));
 
-            expect(offsets).toHaveLength(6);
+            expect(offsets).toHaveLength(7);
             expect(labels).not.toContain('Scan page');
+            expect(labels).toContain('Prefer Japanese site language and location');
             expect(Math.min(...adjacentDistances)).toBeGreaterThanOrEqual(60);
         } finally {
             controller.destroy();
@@ -9716,6 +9718,42 @@ describe('reader helpers', () => {
             ocrButton()?.click();
             expect(ocrButton()?.getAttribute('aria-label')).toBe('OCR: Off');
             expect(ocrButton()?.classList.contains('is-off')).toBe(true);
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('toggles Japanese site requests from the puck without closing the radial menu', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(760, 520);
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            showFloatingButton: true,
+        };
+        const toggleJapaneseSiteLanguage = vi.fn(() => {
+            settings.preferJapaneseSiteLanguage = !settings.preferJapaneseSiteLanguage;
+        });
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, vi.fn(), stubFloatingButtonActions({
+                    toggleJapaneseSiteLanguage,
+                }));
+                document.querySelector<HTMLButtonElement>('.jpdb-reader-fab')?.click();
+            }));
+
+            const siteButton = () => document.querySelector<HTMLButtonElement>('.jpdb-reader-fab-radial-item[data-radial-id="japanese-site"]');
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Prefer Japanese site language and location');
+            expect(siteButton()?.classList.contains('is-on')).toBe(true);
+
+            siteButton()?.click();
+
+            expect(toggleJapaneseSiteLanguage).toHaveBeenCalledTimes(1);
+            expect(siteButton()?.getAttribute('aria-label')).toBe('Prefer Japanese site language and location');
+            expect(siteButton()?.classList.contains('is-off')).toBe(true);
+            expect(document.querySelector('.jpdb-reader-fab-radial.is-open')).not.toBeNull();
         } finally {
             controller.destroy();
             restoreRects();
