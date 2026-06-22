@@ -13,7 +13,7 @@
   <a href="https://github.com/HRussellZFAC023/yomu-reader/releases/latest"><img src="https://img.shields.io/github/v/release/HRussellZFAC023/yomu-reader?color=5ea780&label=release" alt="Latest release" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/HRussellZFAC023/yomu-reader?color=5ea780" alt="License: MIT" /></a>
   <a href="https://github.com/HRussellZFAC023/yomu-reader/stargazers"><img src="https://img.shields.io/github/stars/HRussellZFAC023/yomu-reader?color=5ea780" alt="GitHub stars" /></a>
-  <a href="https://discord.gg/WvDt57uk5"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Join the Discord" /></a>
+  <a href="https://discord.gg/jD6NPURewD"><img src="https://img.shields.io/badge/Discord-join-5865F2?logo=discord&logoColor=white" alt="Join the Discord" /></a>
 </p>
 
 <p>
@@ -21,7 +21,7 @@
   <a href="https://yomureader.com/getting-started">Setup guide</a> ·
   <a href="https://yomureader.com/newtab/">Study app</a> ·
   <a href="https://yomureader.com/features">Features</a> ·
-  <a href="https://discord.gg/WvDt57uk5">Discord</a>
+  <a href="https://discord.gg/jD6NPURewD">Discord</a>
 </p>
 
 <img src="https://yomureader.com/screenshots/real-popup-lookup.png" alt="A よむ popup on a Japanese Wikipedia article, showing the reading, meaning, pitch, and mining buttons" width="760" />
@@ -291,7 +291,7 @@ If よむ helps you read more Japanese, a ⭐ makes it easier for other learners
 
 - Documentation: https://yomureader.com/
 - Issues and source: https://github.com/HRussellZFAC023/yomu-reader/issues
-- Discord: https://discord.gg/WvDt57uk5
+- Discord: https://discord.gg/jD6NPURewD
 - Donate: https://paypal.me/HenryRussell163
 
 Donation note: よむ has already cost more in AI/API tokens than donations are likely to repay, so every bit of support helps. Feature requests left in the PayPal message get personal attention and will be implemented when they are feasible for よむ.

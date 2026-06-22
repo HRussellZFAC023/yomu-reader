@@ -270,7 +270,7 @@ export default defineConfig({
         },
         socialLinks: [
             { icon: 'github', link: `https://github.com/HRussellZFAC023/${repositoryName}` },
-            { icon: 'discord', link: 'https://discord.gg/WvDt57uk5' },
+            { icon: 'discord', link: 'https://discord.gg/jD6NPURewD' },
         ],
         footer: {
             message: 'Free userscript now. Chrome, Firefox, and Safari packages are being prepared for store submission.',

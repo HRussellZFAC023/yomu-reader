@@ -57,7 +57,7 @@
   const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
   const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
   const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
-  const DISCORD_INVITE_URL = "https://discord.gg/WvDt57uk5";
+  const DISCORD_INVITE_URL = "https://discord.gg/jD6NPURewD";
   const DONATE_URL = "https://paypal.me/HenryRussell163";
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;

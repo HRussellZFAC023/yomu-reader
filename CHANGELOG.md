@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.71] - 2026-06-22
+
+### Changed
+
+- Updated every Discord invite link to the new server invite.
+
 ## [1.4.70] - 2026-06-22
 
 ### Changed
