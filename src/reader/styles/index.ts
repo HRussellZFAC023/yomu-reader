@@ -3,7 +3,6 @@ import { getUserscriptHttpRequest } from '../userscript/index';
 
 const READER_CSS_RESOURCE = 'yomuCss';
 const READER_CSS_RESOURCE_URL = 'https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css';
-const HOSTED_READER_CSS_PATH = '/yomu-reader/yomu.css';
 const READER_CSS_CACHE_KEY = 'yomu:reader-css-cache:v1';
 
 export const READER_CSS = resourceReaderCss();
@@ -295,19 +294,25 @@ function hostedReaderCssUrl(href: string): string | null {
     try {
         const url = new URL(href);
         if (!isHostedYomuPage(url)) return null;
-        return new URL(HOSTED_READER_CSS_PATH, url.origin).href;
+        const path = url.hostname === 'hrussellzfac023.github.io' ? '/yomu-reader/yomu.css' : '/yomu.css';
+        return new URL(path, url.origin).href;
     } catch {
         return null;
     }
 }
 
 function isHostedYomuPage(url: URL): boolean {
-    return url.pathname.startsWith('/yomu-reader/')
-        && (
-            url.hostname === 'hrussellzfac023.github.io'
-            || url.hostname === '127.0.0.1'
-            || url.hostname === 'localhost'
-        );
+    return (
+        url.hostname === 'yomureader.com'
+        || (
+            url.pathname.startsWith('/yomu-reader/')
+            && (
+                url.hostname === 'hrussellzfac023.github.io'
+                || url.hostname === '127.0.0.1'
+                || url.hostname === 'localhost'
+            )
+        )
+    );
 }
 
 function isFullReaderCss(css: string): boolean {

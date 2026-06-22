@@ -2,8 +2,8 @@ import { defineConfig, type HeadConfig } from 'vitepress';
 import { jpdbAudioDevProxyPlugin } from '../../config/vite/jpdb-audio-proxy';
 
 const repositoryName = 'yomu-reader';
-const base = `/${repositoryName}/`;
-const origin = 'https://hrussellzfac023.github.io';
+const base = '/';
+const origin = 'https://yomureader.com';
 const siteUrl = `${origin}${base}`;
 const socialImage = `${siteUrl}og-image.png`;
 const newTabLink = '/newtab/index.html';
@@ -14,6 +14,16 @@ const pdfReaderLink = '/pdf-reader/';
 const siteTitle = 'よむ - Free Japanese popup reader';
 const siteDescription =
     'よむ is a free Japanese immersion reader. Tap a word on any web page, manga image, PDF, or subtitle to see readings, meanings, kanji, audio, examples, and study actions.';
+const googleSiteVerification = googleSiteVerificationContent(process.env.YOMU_GOOGLE_SITE_VERIFICATION);
+const googleSiteVerificationHead: HeadConfig[] = googleSiteVerification
+    ? [['meta', { name: 'google-site-verification', content: googleSiteVerification }]]
+    : [];
+
+function googleSiteVerificationContent(value: string | undefined): string {
+    const trimmed = value?.trim() ?? '';
+    const content = trimmed.match(/content=["']([^"']+)["']/i)?.[1]?.trim();
+    return content || trimmed;
+}
 
 // Turn a VitePress relativePath (e.g. "features.md", "tools/japanese-ocr.md",
 // "index.md") into the canonical absolute URL with cleanUrls applied.
@@ -168,6 +178,7 @@ export default defineConfig({
         ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
         ['meta', { name: 'twitter:image', content: socialImage }],
         ['meta', { name: 'twitter:image:alt', content: 'よむ app icon and Japanese reader preview card' }],
+        ...googleSiteVerificationHead,
     ],
     transformHead({ pageData }) {
         const pageUrl = canonicalUrl(pageData.relativePath);

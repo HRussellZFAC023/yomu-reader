@@ -25,14 +25,14 @@ The practical takeaway: pick videos where you understand most of what is happeni
 
 The hard part of YouTube immersion is that the homepage keeps serving you whatever you usually watch. よむ fixes this with a **YouTube immersion filter** that reshapes the feed instead of fighting it.
 
-<figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/real-youtube-filter.png'" alt="YouTube homepage with non-Japanese video cards filtered out by よむ"><figcaption>The immersion filter keeps Japanese and comprehensible-input videos and hides the rest.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-filter.png'" alt="YouTube homepage with non-Japanese video cards filtered out by よむ"><figcaption>The immersion filter keeps Japanese and comprehensible-input videos and hides the rest.</figcaption></figure>
 
 - **On by default.** Once installed, it works straight away on the homepage, search results and the sidebar recommendations.
 - **Smart, not blunt.** It checks each video's original Japanese title via oEmbed, so it keeps Japanese-learning and comprehensible-input videos **even when they have English titles**, and hides cards that do not look Japanese.
 - **Alt+Y to toggle.** Flip it off for a moment, then back on — handy when you want to look something up in your own language.
 - **Playback is untouched.** The filter only affects which cards you see. It never breaks the player, captions or controls.
 
-<figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/real-youtube-cij.png'" alt="A Comprehensible Japanese video playing with the よむ subtitle overlay"><figcaption>A beginner CI video with the tappable subtitle overlay running.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-cij.png'" alt="A Comprehensible Japanese video playing with the よむ subtitle overlay"><figcaption>A beginner CI video with the tappable subtitle overlay running.</figcaption></figure>
 
 It also ships a dismissible **starter guide of about 100 curated Japanese channels** with one-tap subscribe links and a **JLPT-level filter**, so you can build a feed at your level in a couple of minutes. The list below is a representative subset of that guide.
 
@@ -106,8 +106,8 @@ Install よむ and its YouTube immersion filter is on by default. It checks each
 For N5 beginners, Comprehensible Japanese (@cijapanese) is the canonical comprehensible-input channel, with Nihongo con Teppei, WAKU WAKU JAPANESE and Japanese with Shun close behind. よむ ships a curated starter guide of about 100 Japanese channels with one-tap subscribe links and a JLPT-level filter so you can find input at your level.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/youtube-japanese">YouTube immersion tool</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/japanese-subtitle-reader">Subtitle reader</a>
-  <a class="yomu-cta-button" href="/yomu-reader/guides/mine-sentences-to-anki">Mine sentences to Anki</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/tools/youtube-japanese">YouTube immersion tool</a>
+  <a class="yomu-cta-button" href="/tools/japanese-subtitle-reader">Subtitle reader</a>
+  <a class="yomu-cta-button" href="/guides/mine-sentences-to-anki">Mine sentences to Anki</a>
 </div>

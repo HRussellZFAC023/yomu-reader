@@ -53,8 +53,8 @@
   const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
   const GITHUB_OWNER = "HRussellZFAC023";
-  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const DOCS_ORIGIN = "https://yomureader.com";
+  const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
   const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
   const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
   const DISCORD_INVITE_URL = "https://discord.gg/WvDt57uk5";
@@ -1110,6 +1110,7 @@
     try {
       const host = location.hostname;
       const path = location.pathname;
+      if (location.origin === DOCS_ORIGIN) return true;
       if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
       return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
     } catch {

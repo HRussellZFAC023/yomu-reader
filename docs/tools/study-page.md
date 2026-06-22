@@ -32,7 +32,7 @@ The page tries your sources in order, so it stays useful no matter how much you'
 A fresh install starts by sending you to **Settings → Dictionaries** so JMdict or another Yomitan ZIP can be downloaded into local storage — after that the page works even with no API key or Anki account.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-newtab.png'" alt="The よむ new-tab study page loaded with a real study card.">
+  <img :src="'/screenshots/real-newtab.png'" alt="The よむ new-tab study page loaded with a real study card.">
   <figcaption>New-tab study using the current app defaults.</figcaption>
 </figure>
 
@@ -44,7 +44,7 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
 
 ## Set it up
 
-1. Install the free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js) (see the [setup guide](/getting-started)).
+1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open the [study page](/newtab/index.html) and import a dictionary in **Settings → Dictionaries**.
 3. Optionally connect Jiten, [JPDB](https://jpdb.io), or Anki, then set the page as your new-tab or Home Screen shortcut.
 
@@ -57,9 +57,9 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
 **Does it work on iPad?** Yes — it's often the easiest daily-review surface on mobile.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="/yomu-reader/newtab/index.html" target="_self">Open study page</a>
-  <a class="yomu-cta-button" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="/newtab/index.html" target="_self">Open study page</a>
+  <a class="yomu-cta-button" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 
 **Related guide:** [Yomitan vs JPDB vs Anki: which to use when](/guides/study-setup).

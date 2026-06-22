@@ -1,7 +1,5 @@
-const githubOwner = 'HRussellZFAC023';
-const packageName = 'yomu-reader';
 const packageVersion = require('../../package.json').version;
-const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${packageName}/`;
+const docsUrl = 'https://yomureader.com/';
 const greasyForkLibraryDir = 'greasyfork';
 
 const GREASY_FORK_LIBRARIES = [

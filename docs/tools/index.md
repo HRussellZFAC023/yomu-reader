@@ -14,27 +14,27 @@ head:
 Everything here is **free**, runs **in your browser**, and needs **no account** to start. Pick the tool that matches what you're trying to do:
 
 <div class="yomu-link-grid">
-  <a class="yomu-link-card" href="/yomu-reader/tools/japanese-ocr">
+  <a class="yomu-link-card" href="/tools/japanese-ocr">
     <strong>Japanese OCR &amp; manga reader</strong>
     <span>Tap untranslatable text inside manga panels, screenshots, and image-only pages.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/tools/furigana-reader">
+  <a class="yomu-link-card" href="/tools/furigana-reader">
     <strong>Furigana reader</strong>
     <span>Add furigana to any Japanese web page — all words, hard kanji only, or unknown words.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/tools/kanji-stroke-order">
+  <a class="yomu-link-card" href="/tools/kanji-stroke-order">
     <strong>Kanji stroke order</strong>
     <span>See stroke order, readings, JLPT level, RTK data, and components for any kanji.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/tools/japanese-subtitle-reader">
+  <a class="yomu-link-card" href="/tools/japanese-subtitle-reader">
     <strong>Subtitle miner &amp; video reader</strong>
     <span>Turn Japanese subtitles into tappable words on YouTube and your own video files.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/tools/study-page">
+  <a class="yomu-link-card" href="/tools/study-page">
     <strong>Study &amp; review</strong>
     <span>A new-tab study page that reviews Jiten, JPDB, Anki, or imported dictionary cards.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/tools/youtube-japanese">
+  <a class="yomu-link-card" href="/tools/youtube-japanese">
     <strong>YouTube for Japanese</strong>
     <span>Filter recommendations down to Japanese and comprehensible-input videos.</span>
   </a>
@@ -49,13 +49,13 @@ You can use a single tool and ignore the rest. Read manga with just OCR, or watc
 ## What you need
 
 - A **userscript manager** (Tampermonkey on desktop, Userscripts on iPhone/iPad) — both are free.
-- The free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js).
+- The free [よむ userscript](https://yomureader.com/yomu.user.js).
 - Optionally: a [Jiten](https://jiten.moe/) or [JPDB](https://jpdb.io) account, [Anki](https://apps.ankiweb.net/) with AnkiConnect, or a Yomitan dictionary — all optional.
 
 New here? Start with the [setup guide](/getting-started) — it takes about three minutes.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/getting-started">Setup guide</a>
-  <a class="yomu-cta-button" href="/yomu-reader/features">See all features</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/getting-started">Setup guide</a>
+  <a class="yomu-cta-button" href="/features">See all features</a>
 </div>

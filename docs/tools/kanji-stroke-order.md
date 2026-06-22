@@ -33,7 +33,7 @@ Click a kanji inside the popup headword and the drilldown opens. Depending on yo
 Kanji origin sources are modular and license-aware: you can turn optional public sources on or off independently.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
   <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
 </figure>
 
@@ -43,7 +43,7 @@ A standalone kanji dictionary makes you stop reading, switch apps, and search. �
 
 ## Set it up
 
-1. Install the free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js) (see the [setup guide](/getting-started)).
+1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open a Japanese page and tap a word that contains kanji.
 3. Click the kanji in the popup headword to open the drilldown.
 
@@ -56,7 +56,7 @@ A standalone kanji dictionary makes you stop reading, switch apps, and search. �
 **Is it free?** Yes. よむ is a free userscript and the kanji data comes from open sources.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/features#kanji-drilldown">Kanji details</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/features#kanji-drilldown">Kanji details</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>

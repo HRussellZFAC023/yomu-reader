@@ -1,4 +1,5 @@
 import { MANAGED_STORAGE_KEY_PREFIXES, isManagedStorageKey } from './managed-storage-keys';
+import { DOCS_ORIGIN } from './constants';
 import { getUserscriptGmStorage } from '../userscript/storage-bridge';
 
 const MISSING = { missing: true };
@@ -452,6 +453,7 @@ function isHostedYomuOrigin(): boolean {
     try {
         const host = location.hostname;
         const path = location.pathname;
+        if (location.origin === DOCS_ORIGIN) return true;
         if (host === 'hrussellzfac023.github.io') return path.startsWith('/yomu-reader/');
         return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes('/newtab/');
     } catch {

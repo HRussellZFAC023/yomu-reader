@@ -52,6 +52,8 @@ jobs:
       - run: npm run build
       - run: node scripts/sync-docs-userscript.cjs
       - run: npm run docs:build
+        env:
+          YOMU_GOOGLE_SITE_VERIFICATION: ${{ secrets.YOMU_GOOGLE_SITE_VERIFICATION }}
       - run: npm run verify
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

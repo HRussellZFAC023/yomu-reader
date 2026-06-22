@@ -61,7 +61,8 @@
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
   const GITHUB_OWNER = "HRussellZFAC023";
   const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const DOCS_ORIGIN = "https://yomureader.com";
+  const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
   const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
   const ANKI_CONNECT_ADDON_URL = "https://ankiweb.net/shared/info/2055492159";
   const DISCORD_INVITE_URL = "https://discord.gg/WvDt57uk5";
@@ -164,7 +165,8 @@
     if (typeof location === "undefined") return false;
     try {
       const current = new URL(location.href);
-      return current.origin === GITHUB_PAGES_ORIGIN && current.pathname.replace(/\/index\.html$/, "/").startsWith(`/${APP_REPOSITORY_NAME}/`);
+      const path = current.pathname.replace(/\/index\.html$/, "/");
+      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
     } catch {
       return false;
     }
@@ -346,13 +348,10 @@
   }
   function isYomuNewTabUrlObject(url) {
     const path = normalizedNewTabPath(url);
-    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
+    return url.searchParams.has("yomu-newtab") || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
   }
   function normalizedNewTabPath(url) {
     return url.pathname.replace(/\/index\.html$/, "/");
-  }
-  function isHostedNewTabPath(url, path) {
-    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
   }
   function isLocalNewTabPath(url, path) {
     return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
@@ -3953,6 +3952,7 @@ recommendedJiten	Jiten頻度です。
     try {
       const host = location.hostname;
       const path = location.pathname;
+      if (location.origin === DOCS_ORIGIN) return true;
       if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
       return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
     } catch {
@@ -53978,7 +53978,8 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     if (typeof location === "undefined") return false;
     try {
       const current = new URL(location.href);
-      return current.origin === "https://hrussellzfac023.github.io" && current.pathname.replace(/\/index\.html$/, "/").startsWith("/yomu-reader/");
+      const path = current.pathname.replace(/\/index\.html$/, "/");
+      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
     } catch {
       return false;
     }

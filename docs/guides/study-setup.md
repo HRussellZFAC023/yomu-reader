@@ -59,7 +59,7 @@ This table is about *fit*, not "better" — each is excellent at the job it was 
 The point of よむ is that you do not have to choose a workflow up front — you read, and the popup gives you every option at the moment a word matters.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-dictionaries.png'" alt="The よむ dictionary popup showing imported Yomitan dictionary entries alongside JPDB state.">
+  <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ dictionary popup showing imported Yomitan dictionary entries alongside JPDB state.">
   <figcaption>One popup, showing imported dictionary entries and JPDB state together.</figcaption>
 </figure>
 
@@ -72,7 +72,7 @@ From a single lookup popup, よむ lets you:
 Because all of this lives in one popup, you can adopt the tools gradually: read with the dictionary first, add JPDB when you want structured reviews, and bring in Anki for the cards you want to own.
 
 <div class="yomu-callout">
-  <strong>Tip:</strong> the hosted <a href="/yomu-reader/newtab/index.html">new-tab study page</a> reviews Anki when it is reachable, then Jiten, then JPDB, then your local dictionary words in turn — a single daily-review surface for whatever you have connected.
+  <strong>Tip:</strong> the hosted <a href="/newtab/index.html">new-tab study page</a> reviews Anki when it is reachable, then Jiten, then JPDB, then your local dictionary words in turn — a single daily-review surface for whatever you have connected.
 </div>
 
 A reasonable starting point for most people: import a dictionary so reading is comfortable, then pick **one** SRS — JPDB for speed, Anki for control — and only add the second later if you actually miss it.
@@ -92,8 +92,8 @@ JPDB is a Japanese-specific SRS with prebuilt decks, frequency data, and word-st
 No. They overlap and you can use any one of them. A common combination is a dictionary for instant lookups plus one SRS for reviews. よむ lets you read with a popup dictionary and then mine to JPDB or Anki from the same popup, so you can adopt them gradually rather than all at once.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/study-page">Study page</a>
-  <a class="yomu-cta-button" href="/yomu-reader/guides/mine-sentences-to-anki">Mine sentences to Anki</a>
-  <a class="yomu-cta-button" href="/yomu-reader/features">All features</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/tools/study-page">Study page</a>
+  <a class="yomu-cta-button" href="/guides/mine-sentences-to-anki">Mine sentences to Anki</a>
+  <a class="yomu-cta-button" href="/features">All features</a>
 </div>

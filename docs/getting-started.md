@@ -47,7 +47,7 @@ Use **Userscripts**, a free and open-source app. (Tampermonkey for Safari also w
 
 ## Step 2: Install よむ
 
-[Install the よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js)
+[Install the よむ userscript](https://yomureader.com/yomu.user.js)
 
 ### On a computer
 
@@ -192,7 +192,7 @@ Below, replace every `100.x.y.z` with your computer's Tailscale address. It usua
 4. On the computer, open Anki and choose **Tools → Add-ons → AnkiConnect → Config**.
 5. Find the `webBindAddress` line. Replace `127.0.0.1` with your computer's Tailscale address, for example `100.x.y.z`.
 6. Leave `webBindPort` as `8765`.
-7. If AnkiConnect has an allowed-origins list, keep the existing entries and add `https://hrussellzfac023.github.io`. This helps the hosted study page talk to your own Anki.
+7. If AnkiConnect has an allowed-origins list, keep the existing entries and add `https://yomureader.com`. This helps the hosted study page talk to your own Anki.
 8. Save, restart Anki, and leave Anki open on the computer.
 9. On the phone, make sure Tailscale says it is connected. Open `http://100.x.y.z:8765` in the mobile browser. A short AnkiConnect message means the phone can reach your computer.
 10. In よむ settings → Mining, set **AnkiConnect URL** to the same address, such as `http://100.x.y.z:8765` or `http://desktop-name.tailnet-name.ts.net:8765`.
@@ -205,7 +205,7 @@ If **Check AnkiConnect** does not work:
 - Try the `100.x.y.z` address instead of the MagicDNS name.
 - Reopen the AnkiConnect config and check that `webBindAddress` is not still `127.0.0.1`. A phone cannot reach your computer through `127.0.0.1` or `localhost`.
 - If the mobile browser cannot open `http://100.x.y.z:8765`, よむ will not be able to reach it either. Check Tailscale, firewall prompts, and whether Anki was restarted after the config change.
-- If the hosted study page works on desktop but not mobile, check that the allowed-origins list includes `https://hrussellzfac023.github.io`.
+- If the hosted study page works on desktop but not mobile, check that the allowed-origins list includes `https://yomureader.com`.
 
 Don't put AnkiConnect on the public internet or forward port `8765` on your router. Use Tailscale or a trusted home Wi-Fi address instead.
 
@@ -225,8 +225,8 @@ The usual fixes:
 - **Settings changes don't take effect** — refresh the page after saving.
 - **JPDB features are missing** — recheck that the API key was pasted correctly, with no extra spaces.
 - **AnkiConnect is unreachable on mobile** — keep Anki open on the computer, keep Tailscale connected on both devices, and use your computer's Tailscale URL in よむ. `localhost` and `127.0.0.1` on a phone mean the phone itself, not your computer.
-- **Hosted AnkiConnect checks fail** — if you are using the hosted study page, use the Tailscale URL, not `localhost`. Also make sure the AnkiConnect allowed-origins list includes `https://hrussellzfac023.github.io`.
+- **Hosted AnkiConnect checks fail** — if you are using the hosted study page, use the Tailscale URL, not `localhost`. Also make sure the AnkiConnect allowed-origins list includes `https://yomureader.com`.
 
-If the hosted study page or a Home Screen shortcut still looks like an old version after an update, open [the new-tab page](https://hrussellzfac023.github.io/yomu-reader/newtab/index.html) directly, refresh once, then close and reopen the tab or shortcut. よむ checks a small `version.json` and reloads when the build changes, but mobile caches sometimes hold an old copy until the page is reopened. If it's still stale, remove and re-add the shortcut, or clear site data for `hrussellzfac023.github.io` and sign in again.
+If the hosted study page or a Home Screen shortcut still looks like an old version after an update, open [the new-tab page](https://yomureader.com/newtab/index.html) directly, refresh once, then close and reopen the tab or shortcut. よむ checks a small `version.json` and reloads when the build changes, but mobile caches sometimes hold an old copy until the page is reopened. If it's still stale, remove and re-add the shortcut, or clear site data for `yomureader.com` and sign in again.
 
 If the install link or hosted tools are down, check [Support](/support) for reinstall, Discord, and bug-report options.

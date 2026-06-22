@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://hrussellzfac023.github.io/yomu-reader/yomu-icon.svg" width="120" height="120" alt="よむ logo" />
+<img src="https://yomureader.com/yomu-icon.svg" width="120" height="120" alt="よむ logo" />
 
 <h1>よむ <sub>· Yomu</sub></h1>
 
@@ -17,14 +17,14 @@
 </p>
 
 <p>
-  <a href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js"><b>⬇ Install よむ</b></a> ·
-  <a href="https://hrussellzfac023.github.io/yomu-reader/getting-started">Setup guide</a> ·
-  <a href="https://hrussellzfac023.github.io/yomu-reader/newtab/">Study app</a> ·
-  <a href="https://hrussellzfac023.github.io/yomu-reader/features">Features</a> ·
+  <a href="https://yomureader.com/yomu.user.js"><b>⬇ Install よむ</b></a> ·
+  <a href="https://yomureader.com/getting-started">Setup guide</a> ·
+  <a href="https://yomureader.com/newtab/">Study app</a> ·
+  <a href="https://yomureader.com/features">Features</a> ·
   <a href="https://discord.gg/WvDt57uk5">Discord</a>
 </p>
 
-<img src="https://hrussellzfac023.github.io/yomu-reader/screenshots/real-popup-lookup.png" alt="A よむ popup on a Japanese Wikipedia article, showing the reading, meaning, pitch, and mining buttons" width="760" />
+<img src="https://yomureader.com/screenshots/real-popup-lookup.png" alt="A よむ popup on a Japanese Wikipedia article, showing the reading, meaning, pitch, and mining buttons" width="760" />
 
 </div>
 
@@ -41,12 +41,12 @@
 
 ## Install
 
-**Easiest:** follow the [setup guide](https://hrussellzfac023.github.io/yomu-reader/getting-started). It assumes no prior experience and walks you through a userscript manager — Tampermonkey on desktop, Userscripts on iPhone/iPad — and installing よむ.
+**Easiest:** follow the [setup guide](https://yomureader.com/getting-started). It assumes no prior experience and walks you through a userscript manager — Tampermonkey on desktop, Userscripts on iPhone/iPad — and installing よむ.
 
 **One click on desktop:** with Tampermonkey installed, open the hosted userscript and click Install:
 
 ```text
-https://hrussellzfac023.github.io/yomu-reader/yomu.user.js
+https://yomureader.com/yomu.user.js
 ```
 
 Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until then, the userscript is the install path.
@@ -68,7 +68,7 @@ Selected Japanese text is sent to Jiten or JPDB only when parsing, showing their
 
 Audio sources follow Yomitan’s source model and fallback order. Custom JSON sources should return an `audioSourceList` with `audioSources`, matching Yomitan’s format. The Audio settings include the shared cross-origin proxy URL used by hosted-page audio and public lookup requests. **Shuffle audio** behaves like a shuffled deck: よむ tries every available candidate for a word before reshuffling, instead of independently picking a random clip each time. By default, JPDB and browser text-to-speech stay as fallbacks after recorded sources miss; switch **Text-to-speech handling** to **Follow source order / shuffle** if you want those rows to participate in your configured order or shuffled audio pool.
 
-Local setup guide: https://hrussellzfac023.github.io/yomu-reader/local-audio
+Local setup guide: https://yomureader.com/local-audio
 
 Hosted Ultimate Yomitan Audio guide: https://animecards.site/yomitan_audio/
 
@@ -95,7 +95,7 @@ Anki mobile note: AnkiConnect is an Anki desktop add-on, so full Anki status, up
 Open the hosted video player from the userscript menu or this URL:
 
 ```text
-https://hrussellzfac023.github.io/yomu-reader/video-player/index.html
+https://yomureader.com/video-player/index.html
 ```
 
 Drop a local video file into the page, use the Subtitles button to add Japanese or native subtitle files, and よむ can read the resulting browser video/text tracks with the same overlay and transcript workflow used on streaming pages. The files stay local to the browser tab.
@@ -105,7 +105,7 @@ Drop a local video file into the page, use the Subtitles button to add Japanese 
 Open the hosted PDF reader from the userscript menu or this URL:
 
 ```text
-https://hrussellzfac023.github.io/yomu-reader/pdf-reader/
+https://yomureader.com/pdf-reader/
 ```
 
 Open or drop any PDF and read it with よむ. Pages render with [PDF.js](https://github.com/mozilla/pdf.js) (Apache-2.0, vendored under `docs/public/pdf-reader/vendor/`): each page is drawn to a canvas for full fidelity — images, figures, multi-column layouts, CJK fonts via cMaps, and scanned-image codecs (JBIG2/JPEG2000) — with a selectable text layer over it that よむ scans for popup lookup, mining, and furigana. Image-only/scanned pages fall through to よむ's OCR. Large and scanned books stay responsive via capped-resolution canvases and off-screen page eviction. The reader remembers your last page per document, and zoom/fit, page navigation, theme, accent, and interface language follow your よむ settings.
@@ -115,10 +115,10 @@ Open or drop any PDF and read it with よむ. Pages render with [PDF.js](https:/
 Use this address as a browser new-tab/home-page URL or add it to the iPad Home Screen:
 
 ```text
-https://hrussellzfac023.github.io/yomu-reader/newtab/
+https://yomureader.com/newtab/
 ```
 
-The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is reachable and new-tab Anki cards are enabled. On mobile, use desktop Anki through Wi-Fi or Tailscale for existing-card status, updates, and review queues; mobile handoff only creates new notes. Otherwise the page uses connected Jiten/JPDB study data, public lookup, and imported dictionary words. Local Yomitan dictionaries are optional and add offline study cards plus local definitions. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://hrussellzfac023.github.io` in AnkiConnect's `webCorsOriginList`.
+The page uses your accent color as the background, adjusts foreground colors for contrast, and shows words from Anki when AnkiConnect is reachable and new-tab Anki cards are enabled. On mobile, use desktop Anki through Wi-Fi or Tailscale for existing-card status, updates, and review queues; mobile handoff only creates new notes. Otherwise the page uses connected Jiten/JPDB study data, public lookup, and imported dictionary words. Local Yomitan dictionaries are optional and add offline study cards plus local definitions. Tapping a word opens the same popup dictionary used on normal pages. On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests. Browsers that allow direct local requests without the bridge also need `https://yomureader.com` in AnkiConnect's `webCorsOriginList`.
 
 If a mobile Home Screen shortcut or browser tab keeps showing an older new-tab build after a release, open the full URL above, refresh once, then close and reopen the shortcut. The hosted new tab uses a build id plus `version.json` to refresh itself, but mobile service-worker caches can need that manual nudge.
 
@@ -212,7 +212,7 @@ http://127.0.0.1:5174/yomu.user.js
 http://127.0.0.1:5173/yomu-reader/newtab/index.html
 ```
 
-Use `/yomu-reader/newtab/index.html` for local VitePress. The shorter `/yomu-reader/newtab/` path is a production/GitHub Pages URL and can load the VitePress shell in local dev.
+Use `/yomu-reader/newtab/index.html` for local VitePress. The production custom-domain path is `/newtab/`.
 
 For the plain Vite app/new-tab dev server, run:
 
@@ -232,7 +232,7 @@ For iPad testing over Tailscale, run:
 npm run dev:ipad
 ```
 
-That command lets Vite choose a free port when `5174` is already busy, publishes the chosen localhost port with Tailscale Serve, and prints the exact iPad links to open. Use the root URL it prints, not `/yomu-reader/`; that path is for the production GitHub Pages site.
+That command lets Vite choose a free port when `5174` is already busy, publishes the chosen localhost port with Tailscale Serve, and prints the exact iPad links to open. Use the root URL it prints, not `/yomu-reader/`.
 
 `npm run dev` is the userscript/docs harness: it rebuilds the userscript, serves the install file, and starts VitePress docs. `npm run dev:vite` is the plain Vite dev server; it serves `/newtab/` from the TypeScript entry. Dev builds enable console logging automatically; production builds still follow the Settings toggle. Chrome may require Tampermonkey's user scripts permission to be enabled before local dev installs can run.
 
@@ -289,7 +289,7 @@ If よむ helps you read more Japanese, a ⭐ makes it easier for other learners
 
 ## Support
 
-- Documentation: https://hrussellzfac023.github.io/yomu-reader/
+- Documentation: https://yomureader.com/
 - Issues and source: https://github.com/HRussellZFAC023/yomu-reader/issues
 - Discord: https://discord.gg/WvDt57uk5
 - Donate: https://paypal.me/HenryRussell163

@@ -29,7 +29,7 @@ Video is some of the best Japanese input you can get — if you can actually rea
 - **Shortcuts** — previous subtitle, next subtitle, copy subtitle, and mine. The panel can be set to open only while the video is paused, and becomes a bottom sheet on phones so the video stays usable.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
+  <img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
   <figcaption>Subtitle overlay and transcript on a live Comprehensible Japanese video.</figcaption>
 </figure>
 
@@ -48,7 +48,7 @@ If you've used asbplayer-style sentence mining before, this will feel familiar �
 
 ## Set it up
 
-1. Install the free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js) (see the [setup guide](/getting-started)).
+1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open a Japanese video, or open the [Yomu video player](/video-player/index.html) and load a file.
 3. Open the subtitle controls, turn on the transcript panel, and tap a word.
 
@@ -61,9 +61,9 @@ If you've used asbplayer-style sentence mining before, this will feel familiar �
 **Can I mine sentences to Anki?** Yes — with AnkiConnect reachable, a subtitle line becomes a card with sentence, audio, and image.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/video-player/index.html" target="_self">Open video player</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/video-player/index.html" target="_self">Open video player</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 
 **Related guide:** [How to mine sentences from anime & YouTube to Anki](/guides/mine-sentences-to-anki).

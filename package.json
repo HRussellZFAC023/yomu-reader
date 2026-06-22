@@ -12,7 +12,7 @@
   "bugs": {
     "url": "https://github.com/HRussellZFAC023/yomu-reader/issues"
   },
-  "homepage": "https://hrussellzfac023.github.io/yomu-reader/",
+  "homepage": "https://yomureader.com/",
   "keywords": [
     "userscript",
     "jpdb",
@@ -25,10 +25,10 @@
   ],
   "yomu": {
     "allowedRequireUrls": [
-      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js",
-      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js",
-      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js",
-      "https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js"
+      "https://yomureader.com/greasyfork/yomu-anki.user.js",
+      "https://yomureader.com/greasyfork/yomu-kanji-study.user.js",
+      "https://yomureader.com/greasyfork/yomu-settings-surface.user.js",
+      "https://yomureader.com/greasyfork/yomu-video.user.js"
     ]
   },
   "scripts": {

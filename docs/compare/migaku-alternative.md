@@ -40,7 +40,7 @@ repetition system. よむ covers each step of that loop in the browser:
   endpoint you control.
 - **Mining** — create Anki cards via AnkiConnect, or send JPDB actions and review grades.
 
-<figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="The よむ popup dictionary showing reading, meaning, pitch accent and frequency for a selected word"><figcaption>Popup lookup is the heart of the loop — the same idea any immersion tool sells, here for free in the browser.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-popup-lookup.png'" alt="The よむ popup dictionary showing reading, meaning, pitch accent and frequency for a selected word"><figcaption>Popup lookup is the heart of the loop — the same idea any immersion tool sells, here for free in the browser.</figcaption></figure>
 
 ## An honest comparison
 
@@ -116,9 +116,9 @@ and an optional image), supports Jiten review actions, and sends JPDB actions su
 never-forget, blacklist and review grades. These integrations are optional — you can use よむ without them.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/japanese-subtitle-reader">Subtitle reader</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/tools/japanese-subtitle-reader">Subtitle reader</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 
 Next steps: [mine sentences to Anki](/guides/mine-sentences-to-anki) and

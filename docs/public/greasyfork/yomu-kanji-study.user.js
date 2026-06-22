@@ -29,7 +29,8 @@
   const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
   const GITHUB_OWNER = "HRussellZFAC023";
   const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const DOCS_ORIGIN = "https://yomureader.com";
+  const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
@@ -578,6 +579,7 @@
     try {
       const host = location.hostname;
       const path = location.pathname;
+      if (location.origin === DOCS_ORIGIN) return true;
       if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
       return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
     } catch {
@@ -834,7 +836,8 @@
     if (typeof location === "undefined") return false;
     try {
       const current = new URL(location.href);
-      return current.origin === GITHUB_PAGES_ORIGIN && current.pathname.replace(/\/index\.html$/, "/").startsWith(`/${APP_REPOSITORY_NAME}/`);
+      const path = current.pathname.replace(/\/index\.html$/, "/");
+      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
     } catch {
       return false;
     }

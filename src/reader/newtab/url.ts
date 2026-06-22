@@ -16,17 +16,12 @@ function parseNewTabUrl(value: string): URL | null {
 function isYomuNewTabUrlObject(url: URL): boolean {
     const path = normalizedNewTabPath(url);
     return url.searchParams.has('yomu-newtab')
-        || isHostedNewTabPath(url, path)
         || isLocalNewTabPath(url, path)
         || isRepositoryNewTabPath(path);
 }
 
 function normalizedNewTabPath(url: URL): string {
     return url.pathname.replace(/\/index\.html$/, '/');
-}
-
-function isHostedNewTabPath(url: URL, path: string): boolean {
-    return url.hostname === 'hrussellzfac023.github.io' && path === `/${APP_REPOSITORY_NAME}/newtab/`;
 }
 
 function isLocalNewTabPath(url: URL, path: string): boolean {

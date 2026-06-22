@@ -1,8 +1,5 @@
-# よむ (Yomu) — https://hrussellzfac023.github.io/yomu-reader/
-# NOTE: On *.github.io project pages the authoritative robots.txt is served from
-# the host root (https://hrussellzfac023.github.io/robots.txt), not this path.
-# This file is kept for tooling, validators, and a future custom domain.
+# よむ (Yomu) — https://yomureader.com/
 User-agent: *
 Allow: /
 
-Sitemap: https://hrussellzfac023.github.io/yomu-reader/sitemap.xml
+Sitemap: https://yomureader.com/sitemap.xml

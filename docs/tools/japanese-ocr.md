@@ -37,7 +37,7 @@ There are two ways よむ gets the text:
 - **Image-heavy pages** — sites that render Japanese as pictures instead of selectable text.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
+  <img :src="'/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
   <figcaption>Image OCR settings for manga and embedded image text.</figcaption>
 </figure>
 
@@ -47,7 +47,7 @@ The image itself is **not** uploaded anywhere unless you turn on a local OCR end
 
 ## Set it up
 
-1. Install the free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js) (see the [setup guide](/getting-started)).
+1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open a manga or image page with Japanese text.
 3. For local OCR, point よむ at your OCR server in **Settings → Images**. For Mokuro and similar embedded data, it just works.
 
@@ -60,9 +60,9 @@ The image itself is **not** uploaded anywhere unless you turn on a local OCR end
 **Does my image get uploaded?** Only if you enable a local OCR endpoint you control. Otherwise nothing leaves your device.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/features#image-and-manga-ocr">OCR details</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/features#image-and-manga-ocr">OCR details</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 
 **Related guide:** [How to read manga in Japanese (free setup)](/guides/read-manga-in-japanese).

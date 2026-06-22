@@ -18,7 +18,7 @@ hero:
   actions:
     - theme: brand
       text: Install よむ
-      link: https://hrussellzfac023.github.io/yomu-reader/yomu.user.js
+      link: https://yomureader.com/yomu.user.js
       target: _self
     - theme: alt
       text: Setup Guide
@@ -51,8 +51,8 @@ features:
   </div>
   <div class="yomu-install-steps" aria-label="Install steps">
     <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
-    <a class="yomu-install-step-link" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
-    <a class="yomu-install-step-link" href="/yomu-reader/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page and tap a word for your first lookup"><b>3</b> <span>Tap a word</span></a>
+    <a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
+    <a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page and tap a word for your first lookup"><b>3</b> <span>Tap a word</span></a>
   </div>
 </div>
 
@@ -74,31 +74,31 @@ Start with lookup. Add local dictionaries, Anki, OCR, subtitles, and the study p
 ## Next Steps
 
 <div class="yomu-link-grid yomu-next-grid">
-  <a class="yomu-link-card" href="/yomu-reader/getting-started">
+  <a class="yomu-link-card" href="/getting-started">
     <strong>Set up よむ</strong>
     <span>Install a userscript manager, add よむ, and try your first lookup.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/tools/">
+  <a class="yomu-link-card" href="/tools/">
     <strong>Try the tools</strong>
     <span>OCR, furigana, kanji stroke order, subtitles, PDFs, and YouTube helpers.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/guides/">
+  <a class="yomu-link-card" href="/guides/">
     <strong>Find things to read</strong>
     <span>Manga, anime, YouTube, graded readers, and comprehensible-input ideas.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/newtab/index.html">
+  <a class="yomu-link-card" href="/newtab/index.html">
     <strong>Open study app</strong>
     <span>Review study cards, Anki cards, or imported dictionary cards from the study app.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/video-player/index.html">
+  <a class="yomu-link-card" href="/video-player/index.html">
     <strong>Open video player</strong>
     <span>Use local browser-supported videos and subtitle files with よむ lookup.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/pdf-reader/">
+  <a class="yomu-link-card" href="/pdf-reader/">
     <strong>Open PDF reader</strong>
     <span>Open any PDF and read it with よむ lookup, mining, and OCR.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/support">
+  <a class="yomu-link-card" href="/support">
     <strong>Get support</strong>
     <span>Report a bug, join Discord, donate, or reinstall the userscript.</span>
   </a>

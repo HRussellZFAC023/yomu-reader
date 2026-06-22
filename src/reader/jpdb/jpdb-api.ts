@@ -1,3 +1,4 @@
+import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/constants';
 import { Logger } from '../app/logger';
 import { isAppleTouchBrowser } from '../platform/browser';
 import { getUserscriptHttpRequest } from '../userscript';
@@ -233,8 +234,9 @@ function isHostedGithubPagesApp(): boolean {
     if (typeof location === 'undefined') return false;
     try {
         const current = new URL(location.href);
-        return current.origin === 'https://hrussellzfac023.github.io'
-            && current.pathname.replace(/\/index\.html$/, '/').startsWith('/yomu-reader/');
+        const path = current.pathname.replace(/\/index\.html$/, '/');
+        return current.origin === DOCS_ORIGIN
+            || (current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`));
     } catch {
         return false;
     }

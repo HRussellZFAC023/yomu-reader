@@ -30,7 +30,7 @@ The filter is on by default. For each video, よむ checks the original YouTube 
 A temporary notice shows how many cards were hidden. Use **Show hidden videos** to reveal them, **Hide notice** to keep the filter without the banner, or `Alt+Y` to toggle the filter itself.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
+  <img :src="'/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
   <figcaption>Filtered recommendations with a temporary reveal and notice control.</figcaption>
 </figure>
 
@@ -39,7 +39,7 @@ A temporary notice shows how many cards were hidden. Use **Show hidden videos** 
 On the YouTube home feed, once よむ hides enough English-heavy recommendations, it can offer a dismissible starter guide of Japanese YouTube channels. Use **Show all** to browse the full 100-channel list with direct subscribe links, or **Never show** to turn it off.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-youtube-search-results.png'" alt="A real YouTube results page where よむ keeps beginner Japanese comprehensible-input videos and Shorts visible.">
+  <img :src="'/screenshots/real-youtube-search-results.png'" alt="A real YouTube results page where よむ keeps beginner Japanese comprehensible-input videos and Shorts visible.">
   <figcaption>Search results stay usable for beginner comprehensible input, including English-titled videos.</figcaption>
 </figure>
 
@@ -49,7 +49,7 @@ The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader)
 
 ## Set it up
 
-1. Install the free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js) (see the [setup guide](/getting-started)).
+1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open YouTube — the filter runs automatically.
 3. Use `Alt+Y` to toggle it, or open subtitle controls to read along.
 
@@ -62,9 +62,9 @@ The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader)
 **Can I look up the subtitles?** Yes — Japanese subtitle lines become tappable words you can look up and mine.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/features#youtube-immersion-filter">Filter details</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/features#youtube-immersion-filter">Filter details</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>
 
 **Related guide:** [Comprehensible-input Japanese: best YouTube channels](/guides/comprehensible-input-youtube).

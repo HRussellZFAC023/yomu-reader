@@ -1,4 +1,4 @@
-import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from '../app/constants';
+import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from '../app/constants';
 
 interface ProxyRuleOptions {
     method?: RequestInit['method'];
@@ -132,8 +132,9 @@ function isHostedGithubPagesApp(): boolean {
     if (typeof location === 'undefined') return false;
     try {
         const current = new URL(location.href);
-        return current.origin === GITHUB_PAGES_ORIGIN
-            && current.pathname.replace(/\/index\.html$/, '/').startsWith(`/${APP_REPOSITORY_NAME}/`);
+        const path = current.pathname.replace(/\/index\.html$/, '/');
+        return current.origin === DOCS_ORIGIN
+            || (current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`));
     } catch {
         return false;
     }

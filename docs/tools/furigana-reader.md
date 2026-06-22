@@ -48,7 +48,7 @@ The same furigana settings apply across all of よむ's reading surfaces:
 
 ## Set it up
 
-1. Install the free [よむ userscript](https://hrussellzfac023.github.io/yomu-reader/yomu.user.js) (see the [setup guide](/getting-started)).
+1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open a Japanese page.
 3. Open よむ settings and pick a furigana mode — all words, hard kanji only, or hide-for-known.
 
@@ -61,7 +61,7 @@ The same furigana settings apply across all of よむ's reading surfaces:
 **Is it free?** Yes. よむ is a free userscript and needs no account for furigana.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/features#popup-lookup-and-mining">Reading controls</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/features#popup-lookup-and-mining">Reading controls</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>

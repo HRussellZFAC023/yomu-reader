@@ -16,23 +16,23 @@ immersion task end to end, using free software and no account to start, and poin
 New here? Start with the [setup guide](/getting-started), then pick a workflow:
 
 <div class="yomu-link-grid">
-  <a class="yomu-link-card" href="/yomu-reader/guides/read-manga-in-japanese">
+  <a class="yomu-link-card" href="/guides/read-manga-in-japanese">
     <strong>How to read manga in Japanese</strong>
     <span>The free OCR setup for raw, image-only manga — tap words inside panels and get furigana.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/guides/mine-sentences-to-anki">
+  <a class="yomu-link-card" href="/guides/mine-sentences-to-anki">
     <strong>Mine sentences to Anki</strong>
     <span>Turn anime and YouTube subtitle lines into Anki cards with audio and a screenshot.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/guides/comprehensible-input-youtube">
+  <a class="yomu-link-card" href="/guides/comprehensible-input-youtube">
     <strong>Comprehensible-input YouTube</strong>
     <span>Filter YouTube into a Japanese feed, plus a levelled list of channels from N5 to N1.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/guides/study-setup">
+  <a class="yomu-link-card" href="/guides/study-setup">
     <strong>Yomitan vs JPDB vs Anki</strong>
     <span>What each one is for, and how to use any or all of them from one popup.</span>
   </a>
-  <a class="yomu-link-card" href="/yomu-reader/compare/migaku-alternative">
+  <a class="yomu-link-card" href="/compare/migaku-alternative">
     <strong>A free Migaku alternative</strong>
     <span>How よむ covers the core immersion loop for free, and where a paid suite differs.</span>
   </a>
@@ -47,7 +47,7 @@ to the one that matches what you're trying to do today.
 If you haven't installed よむ yet, that's step zero for all of them:
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/getting-started">Setup guide</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/">All tools</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/getting-started">Setup guide</a>
+  <a class="yomu-cta-button" href="/tools/">All tools</a>
 </div>

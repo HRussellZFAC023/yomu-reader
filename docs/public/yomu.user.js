@@ -5,18 +5,18 @@
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
-// @icon         https://hrussellzfac023.github.io/yomu-reader/yomu-icon.svg
-// @homepage     https://hrussellzfac023.github.io/yomu-reader/
+// @icon         https://yomureader.com/yomu-icon.svg
+// @homepage     https://yomureader.com/
 // @homepageURL  https://github.com/HRussellZFAC023/yomu-reader
 // @source       https://github.com/HRussellZFAC023/yomu-reader.git
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.69#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.69#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.69#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.69#sha256-i0uxsaEjPv1dFajsn3A4PYN2/helB0Z6r+LLQ2ScqVI=
-// @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
+// @require      https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.69#sha256-zeGzhFrcb2BH9BXJ5Cz/bRA1G5qVRcpvHADwzuzCXcw=
+// @require      https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.69#sha256-XtJXsoGN0so6+T8qVz8GtNHqKx26Ayatlc4hMucjSwQ=
+// @require      https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.69#sha256-v6FfDRupD6CGCLgRrfemk3JAtNAUESEHrZo4Br8n8Bc=
+// @require      https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.69#sha256-DYJkceaRo3zvD5Vwbty7ClR9njG9ZONc3lNOXWbUPtc=
+// @resource     yomuCss  https://yomureader.com/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
 // @grant        GM.getValue
@@ -933,7 +933,8 @@
   const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
   const GITHUB_OWNER = "HRussellZFAC023";
   const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
-  const DOCS_BASE_URL = `${GITHUB_PAGES_ORIGIN}/${APP_REPOSITORY_NAME}/`;
+  const DOCS_ORIGIN = "https://yomureader.com";
+  const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const VIDEO_PLAYER_PAGE_URL = `${DOCS_BASE_URL}video-player/index.html`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
@@ -962,13 +963,10 @@
   }
   function isYomuNewTabUrlObject(url) {
     const path = normalizedNewTabPath(url);
-    return url.searchParams.has("yomu-newtab") || isHostedNewTabPath(url, path) || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
+    return url.searchParams.has("yomu-newtab") || isLocalNewTabPath(url, path) || isRepositoryNewTabPath(path);
   }
   function normalizedNewTabPath(url) {
     return url.pathname.replace(/\/index\.html$/, "/");
-  }
-  function isHostedNewTabPath(url, path) {
-    return url.hostname === "hrussellzfac023.github.io" && path === `/${APP_REPOSITORY_NAME}/newtab/`;
   }
   function isLocalNewTabPath(url, path) {
     return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(url.hostname) && path.endsWith("/newtab/");
@@ -1014,6 +1012,7 @@
     return isHostedRepositoryAppUrl(appUrl) || isLocalRepositoryAppUrl(appUrl);
   }
   function isHostedRepositoryAppUrl(appUrl) {
+    if (appUrl.url.origin === DOCS_ORIGIN) return true;
     return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
   }
   function isLocalRepositoryAppUrl(appUrl) {
@@ -1703,6 +1702,7 @@
     try {
       const host = location.hostname;
       const path = location.pathname;
+      if (location.origin === DOCS_ORIGIN) return true;
       if (host === "hrussellzfac023.github.io") return path.startsWith("/yomu-reader/");
       return /^(127\.0\.0\.1|localhost|\[::1\])$/.test(host) && path.includes("/newtab/");
     } catch {
@@ -6417,7 +6417,8 @@
     if (typeof location === "undefined") return false;
     try {
       const current = new URL(location.href);
-      return current.origin === GITHUB_PAGES_ORIGIN && current.pathname.replace(/\/index\.html$/, "/").startsWith(`/${APP_REPOSITORY_NAME}/`);
+      const path = current.pathname.replace(/\/index\.html$/, "/");
+      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
     } catch {
       return false;
     }
@@ -29018,7 +29019,8 @@ ${key}`] = { t: now, v: value };
     if (typeof location === "undefined") return false;
     try {
       const current = new URL(location.href);
-      return current.origin === "https://hrussellzfac023.github.io" && current.pathname.replace(/\/index\.html$/, "/").startsWith("/yomu-reader/");
+      const path = current.pathname.replace(/\/index\.html$/, "/");
+      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
     } catch {
       return false;
     }
@@ -36701,7 +36703,6 @@ ${reading}`);
   }
   const READER_CSS_RESOURCE = "yomuCss";
   const READER_CSS_RESOURCE_URL = "https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css";
-  const HOSTED_READER_CSS_PATH = "/yomu-reader/yomu.css";
   const READER_CSS_CACHE_KEY = "yomu:reader-css-cache:v1";
   const READER_CSS = resourceReaderCss();
   const CRITICAL_STATES = [
@@ -36959,13 +36960,14 @@ ${criticalWordCss()}
     try {
       const url = new URL(href);
       if (!isHostedYomuPage(url)) return null;
-      return new URL(HOSTED_READER_CSS_PATH, url.origin).href;
+      const path = url.hostname === "hrussellzfac023.github.io" ? "/yomu-reader/yomu.css" : "/yomu.css";
+      return new URL(path, url.origin).href;
     } catch {
       return null;
     }
   }
   function isHostedYomuPage(url) {
-    return url.pathname.startsWith("/yomu-reader/") && (url.hostname === "hrussellzfac023.github.io" || url.hostname === "127.0.0.1" || url.hostname === "localhost");
+    return url.hostname === "yomureader.com" || url.pathname.startsWith("/yomu-reader/") && (url.hostname === "hrussellzfac023.github.io" || url.hostname === "127.0.0.1" || url.hostname === "localhost");
   }
   function isFullReaderCss(css) {
     return css.includes(".jpdb-reader-popover") && css.includes(".jpdb-reader-settings") && css.includes(".jpdb-reader-source-card") && css.includes(".jpdb-subtitle-player") && css.includes(".jpdb-ocr-layer");

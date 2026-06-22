@@ -39,13 +39,13 @@ This is the fastest place to start, because there is nothing to download.
 2. When a line lands at i+1, **tap the one unknown word**. The popup shows its reading, meaning, pitch accent and frequency.
 3. Hit **mine**. Yomu captures the whole subtitle line as the source sentence, pulls the word and reading, and — if you've enabled it — grabs the audio and a screenshot of the frame.
 
-<figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/store-02-youtube-subtitles.png'" alt="Japanese subtitle overlay on a YouTube video with tappable words"><figcaption>Tap an unknown word in the subtitle overlay, then mine the whole line.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="Japanese subtitle overlay on a YouTube video with tappable words"><figcaption>Tap an unknown word in the subtitle overlay, then mine the whole line.</figcaption></figure>
 
 ## Workflow on your own video files
 
 For anime episodes, drama or anything with a local subtitle file, use the free hosted **[Yomu video player](/video-player/index.html)** — no desktop app required. Open your video and its `.srt`/`.ass` subtitle file in the browser and you get the same overlay, transcript panel and mining flow. Prev/next-line and copy/mine shortcuts let you scrub to the exact line and card it without touching the mouse.
 
-<figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/real-immersion-popover.png'" alt="Yomu popup dictionary showing reading, meaning and pitch for a mined word"><figcaption>The lookup popover: reading, meaning, pitch and the mine button.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-immersion-popover.png'" alt="Yomu popup dictionary showing reading, meaning and pitch for a mined word"><figcaption>The lookup popover: reading, meaning, pitch and the mine button.</figcaption></figure>
 
 ## What ends up on the card
 
@@ -84,8 +84,8 @@ No. Yomu is free and runs in your browser. Paired with Anki and the free AnkiCon
 Yes. AnkiConnect runs on a desktop copy of Anki, and Yomu on your phone or iPad sends cards to it over your local network. Pointing the AnkiConnect address at your computer (directly on the LAN, or through a tool like Tailscale) lets mobile mining write to the same deck.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/japanese-subtitle-reader">Subtitle reader</a>
-  <a class="yomu-cta-button" href="/yomu-reader/guides/comprehensible-input-youtube">Comprehensible input on YouTube</a>
-  <a class="yomu-cta-button" href="/yomu-reader/guides/study-setup">Yomitan + JPDB + Anki</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/tools/japanese-subtitle-reader">Subtitle reader</a>
+  <a class="yomu-cta-button" href="/guides/comprehensible-input-youtube">Comprehensible input on YouTube</a>
+  <a class="yomu-cta-button" href="/guides/study-setup">Yomitan + JPDB + Anki</a>
 </div>

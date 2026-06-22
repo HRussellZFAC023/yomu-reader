@@ -24,7 +24,7 @@ Furigana and word colors are separate controls. You can show furigana only for h
 The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links. These tools are meant to help you keep reading, not to replace a dictionary or grammar textbook.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
+  <img :src="'/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
   <figcaption>Popup lookup with live study data and mining controls.</figcaption>
 </figure>
 
@@ -35,7 +35,7 @@ The popup also has optional study helpers for the current sentence. The translat
 This is useful if you want native-language dictionaries, monolingual Japanese definitions, frequency dictionaries, kanji dictionaries, or pitch dictionaries without depending on a remote service for every lookup.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-dictionaries.png'" alt="The よむ Dictionaries settings panel showing imported dictionary controls and definition source ordering.">
+  <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ Dictionaries settings panel showing imported dictionary controls and definition source ordering.">
   <figcaption>Dictionary import and source ordering controls.</figcaption>
 </figure>
 
@@ -48,7 +48,7 @@ Example sentences can come from JPDB's public example rows, Immersion Kit withou
 Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. If you want to practice without seeing English immediately, turn on blurred example translations and reveal them by tapping or clicking the translation.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-immersion-popover.png'" alt="A よむ popup scrolled to the Immersion Kit section after a live Japanese lookup.">
+  <img :src="'/screenshots/real-immersion-popover.png'" alt="A よむ popup scrolled to the Immersion Kit section after a live Japanese lookup.">
   <figcaption>Examples, translations, and audio stay inside the normal popup.</figcaption>
 </figure>
 
@@ -59,7 +59,7 @@ Click a kanji inside the popup headword to open a focused kanji panel. Depending
 Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
   <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
 </figure>
 
@@ -72,7 +72,7 @@ Recognized text stays lightweight: touch targets sit over the image without cove
 Use this for manga panels, screenshots, and image-heavy pages where normal text selection does not work. The image itself is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
+  <img :src="'/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
   <figcaption>Image OCR settings for manga and embedded image text.</figcaption>
 </figure>
 
@@ -87,7 +87,7 @@ For local files, open the [Yomu video player](/video-player/index.html), drop in
 You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and mining. The transcript panel is off by default, opens from the subtitle controls, and can also be set to open only while the video is paused. On phones it becomes a bottom panel so the video stays usable.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
+  <img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="The よむ subtitle overlay and transcript panel open on a live Comprehensible Japanese YouTube video.">
   <figcaption>Subtitle overlay and transcript controls on a live Comprehensible Japanese video.</figcaption>
 </figure>
 
@@ -102,12 +102,12 @@ The separate **Prefer Japanese site language and location** setting asks multili
 On the YouTube home feed, when よむ hides enough English-heavy recommendations, it can also offer a dismissible starter guide of Japanese YouTube channels. Use **Later** to hide it for the current page, **Never show** to turn it off, or **Show all** to browse the full 100-channel list with direct subscribe links.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-youtube-search-results.png'" alt="A real YouTube results page where よむ keeps beginner Japanese comprehensible-input videos and Shorts visible.">
+  <img :src="'/screenshots/real-youtube-search-results.png'" alt="A real YouTube results page where よむ keeps beginner Japanese comprehensible-input videos and Shorts visible.">
   <figcaption>Search results stay usable for beginner Japanese comprehensible input, including English-titled videos and Shorts.</figcaption>
 </figure>
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
+  <img :src="'/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
   <figcaption>Filtered YouTube recommendations with temporary reveal and notice controls visible.</figcaption>
 </figure>
 
@@ -136,7 +136,7 @@ On iPhone, iPad, and Android, this is often the easiest daily-review surface. Fo
 The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](/getting-started#if-something-does-not-work) cover the heavier reset path.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-newtab.png'" alt="The よむ study page loaded with a real study card.">
+  <img :src="'/screenshots/real-newtab.png'" alt="The よむ study page loaded with a real study card.">
   <figcaption>New-tab study using the current app defaults.</figcaption>
 </figure>
 
@@ -145,6 +145,6 @@ The hosted new-tab page carries a build id and checks for a fresh `version.json`
 The Help tab includes quick links to the hosted tools and docs, GitHub issues, Discord, donation support, and a Factory Reset action that clears よむ settings, API keys, cached data, and imported dictionaries back to defaults.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/yomu-reader/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">
+  <img :src="'/screenshots/real-help-settings.png'" alt="The よむ Help settings tab with donation, issue reporting, GitHub, Discord, docs, video player, and new-tab links.">
   <figcaption>Support links live inside settings.</figcaption>
 </figure>

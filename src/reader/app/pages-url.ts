@@ -1,4 +1,4 @@
-import { APP_REPOSITORY_NAME, GITHUB_PAGES_ORIGIN } from './constants';
+import { APP_REPOSITORY_NAME, DOCS_ORIGIN, GITHUB_PAGES_ORIGIN } from './constants';
 import { isYomuNewTabUrl } from '../newtab/url';
 
 const LOCAL_HOSTS = /^(127\.0\.0\.1|localhost|\[::1\])$/;
@@ -54,8 +54,8 @@ function isYomuRepositoryAppUrl(appUrl: YomuAppUrl): boolean {
 }
 
 function isHostedRepositoryAppUrl(appUrl: YomuAppUrl): boolean {
-    return appUrl.url.origin === GITHUB_PAGES_ORIGIN
-        && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+    if (appUrl.url.origin === DOCS_ORIGIN) return true;
+    return appUrl.url.origin === GITHUB_PAGES_ORIGIN && appUrl.path.startsWith(`/${APP_REPOSITORY_NAME}/`);
 }
 
 function isLocalRepositoryAppUrl(appUrl: YomuAppUrl): boolean {

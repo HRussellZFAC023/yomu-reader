@@ -39,7 +39,7 @@ Full walkthrough on the [getting started](/getting-started) page if this is your
 
 A few readers and graded-reader sites publish manga as real HTML text rather than flat images. There, よむ works immediately: tap, select, or hover a word and the popup shows the reading, meaning, pitch accent, frequency, Jiten/JPDB and Yomitan dictionary entries, audio, and example sentences.
 
-<figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/real-popup-lookup.png'" alt="The よむ popup dictionary showing reading, meaning, pitch and frequency for a Japanese word"><figcaption>The lookup popup: reading, meaning, pitch, frequency and dictionary entries.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-popup-lookup.png'" alt="The よむ popup dictionary showing reading, meaning, pitch and frequency for a Japanese word"><figcaption>The lookup popup: reading, meaning, pitch, frequency and dictionary entries.</figcaption></figure>
 
 If your manga is selectable text, you can skip straight to looking things up. Most raw manga, though, is image-only — that is where OCR comes in.
 
@@ -55,7 +55,7 @@ When the page is just pictures, よむ uses OCR to recognise the Japanese and th
 
 You configure all of this in the OCR settings:
 
-<figure class="yomu-feature-shot"><img :src="'/yomu-reader/screenshots/real-ocr-settings.png'" alt="よむ OCR settings showing embedded Mokuro detection and local OCR engine endpoint configuration"><figcaption>OCR settings: embedded Mokuro detection plus your own local OCR endpoint.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-ocr-settings.png'" alt="よむ OCR settings showing embedded Mokuro detection and local OCR engine endpoint configuration"><figcaption>OCR settings: embedded Mokuro detection plus your own local OCR endpoint.</figcaption></figure>
 
 The full reference for OCR engines, endpoints and image handling lives on the [Japanese OCR](/tools/japanese-ocr) page.
 
@@ -106,7 +106,7 @@ No. Embedded Mokuro OCR is read locally from the page, so nothing leaves your br
 No. Pick a manga that is mostly comprehensible and look up only the words that block your understanding. Tap an unknown word, read the popup, and move on. Save the words that matter to Anki, Jiten, or JPDB so you meet them again, rather than trying to memorise everything in one sitting.
 
 <div class="yomu-cta-grid">
-  <a class="yomu-cta-button primary" href="https://hrussellzfac023.github.io/yomu-reader/yomu.user.js">Install よむ (free)</a>
-  <a class="yomu-cta-button" href="/yomu-reader/tools/japanese-ocr">Japanese OCR</a>
-  <a class="yomu-cta-button" href="/yomu-reader/guides/mine-sentences-to-anki">Mine to Anki</a>
+  <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
+  <a class="yomu-cta-button" href="/tools/japanese-ocr">Japanese OCR</a>
+  <a class="yomu-cta-button" href="/guides/mine-sentences-to-anki">Mine to Anki</a>
 </div>
