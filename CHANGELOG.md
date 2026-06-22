@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.63] - 2026-06-22
+
+### Fixed
+
+- Mirrored input and textarea placeholders now hide the native placeholder while the annotated overlay is visible, preventing double-rendered text in compact controls such as Google/Gemini voice/search inputs. Placeholder mirrors suppress furigana in the 24px control line and clean up their temporary styles as soon as the field changes.
+- YouTube title mirrors with furigana now use ruby-friendly line-height and the crop sweep detects absolute mirror overflow, so modern lockup/card titles reserve enough height instead of clipping or packing ruby into broken-looking line breaks.
+- Page-word highlights now refresh contrast before scan chunks yield and mirrored hosts hide before their overlay is attached, preventing dark first-paint highlights that only corrected after hover.
+
 ## [1.4.62] - 2026-06-22
 
 ### Fixed

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { canHoverLookupReaderWordElement, canLookupReaderWordElement } from '../../src/reader/app/dom-helpers';
-import { readerWordSurfaceText } from '../../src/reader/dom/index';
+import { applyTokensToScanTarget, collectFormControlTextTargetsIn, readerWordSurfaceText } from '../../src/reader/dom/index';
 import { applyNestedParsePlan, clearNestedParseLoadingKey, clearNestedParseState, nestedParseAlreadyScheduled, nestedSettingsTextParsePlan, nestedTextParsePlan } from '../../src/reader/lookup/nested-text-parse';
 import { lookupPopoverParsedWordElement } from '../../src/reader/newtab/lookup-dom';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
@@ -376,6 +376,40 @@ describe('nested text parse plans', () => {
         expect(inputWord ? canLookupReaderWordElement(inputWord) : false).toBe(true);
     });
 
+    it('overlays textarea placeholders without duplicating native text or ruby clipping', () => {
+        document.body.innerHTML = `
+            <div class="Txyg0d SJXlhf">
+                <textarea class="ITIRGe" placeholder="質問する" style="height:24px;font:16px/24px Arial,sans-serif"></textarea>
+                <div aria-live="polite">Transcribing...</div>
+            </div>
+        `;
+        const root = document.body.querySelector<HTMLElement>('.Txyg0d')!;
+        const targets = collectFormControlTextTargetsIn(root, 24, false);
+        const target = targets.find(candidate => candidate.text === '質問する');
+
+        expect(target).toBeTruthy();
+        applyTokensToScanTarget(target!, tokensForSettingsControlText(target!.text), {
+            ...DEFAULT_SETTINGS,
+            ankiEnabled: false,
+            furiganaMode: 'all',
+        });
+
+        const textarea = root.querySelector<HTMLTextAreaElement>('textarea')!;
+        const mirror = textarea.nextElementSibling as HTMLElement | null;
+        expect(textarea.getAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe('true');
+        expect(mirror?.matches('.jpdb-reader-control-text-mirror')).toBe(true);
+        expect(mirror?.dataset.jpdbReaderControlMirrorKind).toBe('placeholder');
+        expect(mirror?.style.left).toMatch(/^\d+px$/);
+        expect(mirror?.style.top).toMatch(/^\d+px$/);
+        expect(mirror?.style.whiteSpace).toBe('pre-wrap');
+        expect(mirror?.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="質問"]')).not.toBeNull();
+        expect(mirror?.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+
+        textarea.dispatchEvent(new Event('input'));
+        expect(mirror?.isConnected).toBe(false);
+        expect(textarea.hasAttribute('data-jpdb-reader-control-placeholder-hidden')).toBe(false);
+    });
+
     it('skips inactive settings panel text', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
@@ -503,6 +537,7 @@ function tokensForSettingsControlText(text: string): JPDBToken[] {
     return [
         ['日本語', 'にほんご', 'heiban'],
         ['辞書', 'じしょ', 'heiban'],
+        ['質問', 'しつもん', 'heiban'],
     ].flatMap(([surface, reading, pitchClass]) => {
         const start = text.indexOf(surface);
         return start >= 0 ? [token(surface, start, reading, pitchClass)] : [];

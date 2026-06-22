@@ -289,6 +289,34 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
+    it('uses absolute text-mirror height to detect clipped YouTube title ruby', () => {
+        document.body.innerHTML = `
+            <yt-lockup-view-model>
+                <h3 id="title-row" class="ytLockupMetadataViewModelHeadingReset" style="display:-webkit-box;-webkit-line-clamp:2;overflow:hidden;max-height:44px;line-height:22px">
+                    <a href="/watch?v=jp">
+                        <span class="yt-core-attributed-string ytAttributedStringHost" style="position:relative;visibility:hidden;overflow:visible">
+                            巨大な石を運んだ理由
+                            <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" data-jpdb-reader-has-ruby="true" style="visibility:visible">
+                                ${annotatedWord('きょだい', '巨大')}な石を運んだ理由
+                            </span>
+                        </span>
+                    </a>
+                </h3>
+            </yt-lockup-view-model>
+        `;
+        const row = document.querySelector<HTMLElement>('#title-row')!;
+        const mirror = document.querySelector<HTMLElement>('.jpdb-reader-text-mirror')!;
+        mockOverflow(row, 44, 44);
+        mockOverflow(mirror, 66, 44);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(row.style.maxHeight).toBe('none');
+        expect(row.style.minHeight).toBe('66px');
+        expect(row.dataset.yomuRubyRoomHeight).toBe('66');
+        expect(mirror.closest<HTMLElement>('.ytAttributedStringHost')?.dataset.yomuRubyRoom).toBeUndefined();
+        document.body.innerHTML = '';
+    });
+
     it('reserves ruby room on clipped Google related-search buttons', () => {
         vi.stubGlobal('location', {
             href: 'https://www.google.com/search?q=test',

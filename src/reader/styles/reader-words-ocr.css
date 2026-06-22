@@ -113,6 +113,27 @@
   opacity: 0.88;
 }
 
+input[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder,
+textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
+  color: transparent !important;
+  opacity: 0 !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.jpdb-reader-control-text-mirror[data-jpdb-reader-control-mirror-kind="placeholder"] {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  align-items: normal;
+  max-width: none;
+  margin-inline-start: 0;
+  vertical-align: baseline;
+  overflow: visible;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
 .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word {
   white-space: nowrap;
   word-break: keep-all;

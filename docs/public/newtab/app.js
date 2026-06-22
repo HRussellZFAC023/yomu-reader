@@ -7328,6 +7328,7 @@ recommendedJiten	Jiten頻度です。
   ]);
   const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
   const READER_CONTROL_TEXT_MIRROR_SELECTOR = ".jpdb-reader-control-text-mirror";
+  const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = "data-jpdb-reader-control-placeholder-hidden";
   const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
     "yt-formatted-string",
     "yt-attributed-string",
@@ -7808,7 +7809,7 @@ recommendedJiten	Jiten頻度です。
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment2 = document.createDocumentFragment();
     const suppressRuby = scanTargetSuppressesRuby(target.parent, target.suppressRuby);
-    const passiveInteraction = target.passiveInteraction || suppressRuby;
+    const passiveInteraction = target.passiveInteraction || suppressRuby && !target.suppressRubyDoesNotImplyPassive;
     const renderSettings = furiganaSettingsForTarget(settings, target.parent);
     let offset = 0;
     const tokenPlans = tokens.map((token) => ({
@@ -7853,9 +7854,10 @@ recommendedJiten	Jiten頻度です。
     mirror.dataset.jpdbReaderTextMirror = "true";
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
+    const hasRenderedRuby = !suppressRuby && safeTokens.some((token) => token.rubies.length > 0);
     const state2 = styleTextMirrorHost(host);
     try {
-      styleTextMirror(mirror, host);
+      styleTextMirror(mirror, host, hasRenderedRuby);
       mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
         parent: host,
         hasNativeRuby: targetHasNativeRuby(target),
@@ -7901,7 +7903,8 @@ recommendedJiten	Jiten頻度です。
     if (!host.isConnected) return;
     const text2 = target.text;
     const safeTokens = nonOverlappingTokens(tokens, text2.length);
-    const suppressRuby = scanTargetSuppressesRuby(host, target.suppressRuby);
+    const placeholderOverlay = isPlaceholderControlTextMirror(host, text2);
+    const suppressRuby = placeholderOverlay || scanTargetSuppressesRuby(host, target.suppressRuby);
     const renderSettings = furiganaSettingsForTarget(settings, host);
     const signature = nonDestructiveScanSignature(target, safeTokens, renderSettings, suppressRuby);
     const existing = currentControlTextMirror(host);
@@ -7911,42 +7914,95 @@ recommendedJiten	Jiten頻度です。
     const mirror = document.createElement("span");
     mirror.className = "jpdb-reader-control-text-mirror";
     mirror.dataset.jpdbReaderControlTextMirror = "true";
+    mirror.dataset.jpdbReaderControlMirrorKind = placeholderOverlay ? "placeholder" : "inline";
     mirror.dataset.sourceText = text2;
     mirror.dataset.renderSignature = signature;
-    styleControlTextMirror(mirror, host);
+    const state2 = styleControlTextMirror(mirror, host, placeholderOverlay);
     mirror.append(renderTokenizedScanText(text2, safeTokens, renderSettings, {
       parent: host,
       hasNativeRuby: false,
       suppressRuby,
-      passiveInteraction: false
+      passiveInteraction: false,
+      suppressRubyDoesNotImplyPassive: placeholderOverlay
     }));
-    if (!mirror.textContent?.trim()) return;
+    if (!mirror.textContent?.trim()) {
+      restoreControlTextMirrorHost(host, state2);
+      return;
+    }
     host.insertAdjacentElement("afterend", mirror);
-    observeControlTextMirrorHost(host);
+    observeControlTextMirrorHost(host, state2);
   }
   function currentControlTextMirror(host) {
     const sibling = host.nextElementSibling;
     return sibling instanceof HTMLElement && sibling.matches(READER_CONTROL_TEXT_MIRROR_SELECTOR) ? sibling : null;
   }
-  function styleControlTextMirror(mirror, host) {
+  function isPlaceholderControlTextMirror(host, text2) {
+    if (!(host instanceof HTMLInputElement || host instanceof HTMLTextAreaElement)) return false;
+    if (host.value.trim()) return false;
+    return normalizedControlText(host.getAttribute("placeholder") ?? "") === normalizedControlText(text2);
+  }
+  function styleControlTextMirror(mirror, host, placeholderOverlay) {
     const style = safeComputedStyle(host);
     mirror.style.setProperty("font", style.font);
     mirror.style.setProperty("color", style.color);
+    const state2 = {
+      onChange: () => removeControlTextMirror(host),
+      placeholderHidden: false,
+      placeholderHiddenAttribute: host.getAttribute(READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE),
+      parent: void 0,
+      parentPosition: "",
+      parentPositionPriority: "",
+      parentPositionAdjusted: false
+    };
+    if (!placeholderOverlay || !(host instanceof HTMLInputElement || host instanceof HTMLTextAreaElement)) return state2;
+    host.setAttribute(READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE, "true");
+    state2.placeholderHidden = true;
+    const parent = host.parentElement;
+    if (parent) {
+      const parentStyle = safeComputedStyle(parent);
+      state2.parent = parent;
+      state2.parentPosition = parent.style.getPropertyValue("position");
+      state2.parentPositionPriority = parent.style.getPropertyPriority("position");
+      state2.parentPositionAdjusted = parentStyle.position === "static";
+      if (state2.parentPositionAdjusted) parent.style.setProperty("position", "relative", "important");
+    }
+    const borderLeft = cssPixels(style.borderLeftWidth);
+    const borderTop = cssPixels(style.borderTopWidth);
+    const paddingLeft = cssPixels(style.paddingLeft);
+    const paddingRight = cssPixels(style.paddingRight);
+    const paddingTop = cssPixels(style.paddingTop);
+    const contentWidth = host.clientWidth ? Math.max(0, host.clientWidth - paddingLeft - paddingRight) : Math.max(0, host.getBoundingClientRect().width - borderLeft - cssPixels(style.borderRightWidth) - paddingLeft - paddingRight);
+    mirror.style.setProperty("left", `${Math.max(0, host.offsetLeft + borderLeft + paddingLeft)}px`);
+    mirror.style.setProperty("top", `${Math.max(0, host.offsetTop + borderTop + paddingTop)}px`);
+    if (contentWidth) mirror.style.setProperty("width", `${contentWidth}px`);
+    mirror.style.setProperty("line-height", style.lineHeight);
+    mirror.style.setProperty("text-align", style.textAlign);
+    mirror.style.setProperty("white-space", host instanceof HTMLTextAreaElement ? "pre-wrap" : "pre");
+    return state2;
   }
-  function observeControlTextMirrorHost(host) {
-    const onChange = () => removeControlTextMirror(host);
-    host.addEventListener("change", onChange);
-    host.addEventListener("input", onChange);
-    controlTextMirrorHosts.set(host, onChange);
+  function observeControlTextMirrorHost(host, state2) {
+    host.addEventListener("change", state2.onChange);
+    host.addEventListener("input", state2.onChange);
+    controlTextMirrorHosts.set(host, state2);
   }
   function removeControlTextMirror(host) {
-    const onChange = controlTextMirrorHosts.get(host);
-    if (onChange) {
-      host.removeEventListener("change", onChange);
-      host.removeEventListener("input", onChange);
+    const state2 = controlTextMirrorHosts.get(host);
+    if (state2) {
+      host.removeEventListener("change", state2.onChange);
+      host.removeEventListener("input", state2.onChange);
+      restoreControlTextMirrorHost(host, state2);
     }
     currentControlTextMirror(host)?.remove();
     controlTextMirrorHosts.delete(host);
+  }
+  function restoreControlTextMirrorHost(host, state2) {
+    if (state2.placeholderHidden) {
+      if (state2.placeholderHiddenAttribute === null) host.removeAttribute(READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE);
+      else host.setAttribute(READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE, state2.placeholderHiddenAttribute);
+    }
+    if (state2.parent && state2.parentPositionAdjusted) {
+      restoreStyleProperty$1(state2.parent, "position", state2.parentPosition, state2.parentPositionPriority);
+    }
   }
   function furiganaSettingsForTarget(settings, parent) {
     if (!targetForcesAllFurigana(parent)) return settings;
@@ -8074,7 +8130,7 @@ recommendedJiten	Jiten頻度です。
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
-  function styleTextMirror(mirror, host) {
+  function styleTextMirror(mirror, host, hasRuby = false) {
     const style = safeComputedStyle(host);
     mirror.style.setProperty("position", "absolute");
     mirror.style.setProperty("inset", "0 0 auto 0");
@@ -8086,11 +8142,17 @@ recommendedJiten	Jiten頻度です。
     mirror.style.setProperty("font", style.font);
     mirror.style.setProperty("font-size", style.fontSize);
     mirror.style.setProperty("font-weight", style.fontWeight);
-    mirror.style.setProperty("line-height", style.lineHeight);
+    mirror.style.setProperty("line-height", hasRuby ? rubyFriendlyMirrorLineHeight(style) : style.lineHeight);
     mirror.style.setProperty("letter-spacing", style.letterSpacing);
     mirror.style.setProperty("text-align", style.textAlign);
     mirror.style.setProperty("color", style.color);
     mirror.style.setProperty("z-index", "1");
+    if (hasRuby) mirror.dataset.jpdbReaderHasRuby = "true";
+  }
+  function rubyFriendlyMirrorLineHeight(style) {
+    const fontSize = cssPixels(style.fontSize) || 16;
+    const existingLineHeight = cssPixels(style.lineHeight) || fontSize * 1.2;
+    return `${Math.ceil(Math.max(existingLineHeight, fontSize * 1.62))}px`;
   }
   function observeTextMirrorHost(host, sourceText) {
     const state2 = textMirrorHosts.get(host);
@@ -9121,6 +9183,10 @@ recommendedJiten	Jiten頻度です。
   }
   function elementClassName(element) {
     return String(element.className || "");
+  }
+  function cssPixels(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
   }
   function ancestorClassLooksLikeUi(element) {
     let current = element;
