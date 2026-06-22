@@ -74,6 +74,17 @@ function pageCanvas(left: number, top: number, width = 420, height = 560): HTMLC
     return canvas;
 }
 
+function dispatchCanvasPointer(canvas: HTMLCanvasElement, type: 'pointerdown' | 'pointermove' | 'pointerover'): void {
+    const event = new Event(type, { bubbles: true }) as Event & Partial<PointerEvent>;
+    Object.defineProperties(event, {
+        clientX: { value: 40 },
+        clientY: { value: 48 },
+        button: { value: 0 },
+        pointerType: { value: 'mouse' },
+    });
+    canvas.dispatchEvent(event);
+}
+
 function mokuroBackgroundPage(): HTMLElement {
     const page = document.createElement('div');
     page.dataset.pageIndex = '6';
@@ -255,6 +266,58 @@ describe('reader raster OCR surfaces', () => {
                 const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
                 expect(frame).not.toBeNull();
                 expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,MIRROR');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('re-snapshots a BookWalker canvas on hover after a page turn when auto scan is off', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        const counter = Object.assign(document.createElement('span'), {
+            id: 'pageSliderCounter',
+            textContent: '1 / 12',
+        });
+        document.body.append(counter);
+        const tainted = () => { throw new Error('The operation is insecure.'); };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+        const mirrors = ['PAGE1', 'PAGE2'].map(label => {
+            const mirror = document.createElement('canvas');
+            mirror.width = 1200;
+            mirror.height = 1600;
+            mirror.toDataURL = () => `data:image/jpeg;base64,${label}`;
+            return mirror;
+        });
+        let mirrorIndex = 0;
+        const captureCanvasMirror = vi.fn(async () => mirrors[mirrorIndex]);
+        const controller = createController({ ocrAutoScanImages: false }, undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = tainted;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', {
+            configurable: true,
+            value: vi.fn(() => canvas),
+        });
+
+        try {
+            dispatchCanvasPointer(canvas, 'pointermove');
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE1');
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+
+            counter.textContent = '2 / 12';
+            mirrorIndex = 1;
+            dispatchCanvasPointer(canvas, 'pointermove');
+
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-canvas-frame')];
+                expect(frames).toHaveLength(1);
+                expect(frames[0]?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE2');
             });
         } finally {
             controller.destroy();

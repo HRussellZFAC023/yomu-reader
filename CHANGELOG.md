@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.68] - 2026-06-22
+
+### Fixed
+
+- BookWalker canvas OCR now re-snapshots the current page after page turns when image OCR is set to tap/hover instead of automatic, so hovering or tapping the reused viewer canvas triggers OCR for the new page instead of reusing the previous snapshot.
+
 ## [1.4.66] - 2026-06-22
 
 ### Fixed

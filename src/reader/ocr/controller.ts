@@ -271,6 +271,7 @@ export class ImageOcrController {
     private destroyed = false;
     private lastPointerMoveImage?: HTMLImageElement;
     private lastPointerMoveReaderSurface?: Element;
+    private lastPointerMoveReaderSurfaceKey?: string;
     private videoFrames = new Map<HTMLVideoElement, HTMLImageElement>();
     private videoFrameVideos = new Map<HTMLImageElement, HTMLVideoElement>();
     private videoFrameControls = new Map<HTMLVideoElement, HTMLElement>();
@@ -285,6 +286,7 @@ export class ImageOcrController {
     private canvasFrames = new Map<HTMLCanvasElement, HTMLImageElement>();
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
     private canvasFrameStaticRects = new Map<HTMLImageElement, DOMRect>();
+    private canvasFrameKeys = new Map<HTMLCanvasElement, string>();
     private backgroundFrames = new Map<HTMLElement, HTMLImageElement>();
     private backgroundFrameSources = new Map<HTMLImageElement, HTMLElement>();
     private backgroundFrameKeys = new Map<HTMLElement, string>();
@@ -633,14 +635,21 @@ export class ImageOcrController {
             if (event.type === 'pointermove') this.lastPointerMoveImage = image;
             else this.lastPointerMoveImage = undefined;
             this.lastPointerMoveReaderSurface = undefined;
+            this.lastPointerMoveReaderSurfaceKey = undefined;
             this.enqueue(image, true);
             return;
         }
         const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
         if (!surface) return;
-        if (event.type === 'pointermove' && surface === this.lastPointerMoveReaderSurface) return;
-        if (event.type === 'pointermove') this.lastPointerMoveReaderSurface = surface;
-        else this.lastPointerMoveReaderSurface = undefined;
+        const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
+        if (event.type === 'pointermove' && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return;
+        if (event.type === 'pointermove') {
+            this.lastPointerMoveReaderSurface = surface;
+            this.lastPointerMoveReaderSurfaceKey = surfaceKey;
+        } else {
+            this.lastPointerMoveReaderSurface = undefined;
+            this.lastPointerMoveReaderSurfaceKey = undefined;
+        }
         void this.snapshotReaderSurface(surface, settings).then(frame => {
             if (frame) this.enqueue(frame, true);
         });
@@ -1357,7 +1366,11 @@ export class ImageOcrController {
     }
 
     private async snapshotCanvasSurface(canvas: HTMLCanvasElement, settings: ReaderSettings, userRequested = false): Promise<void> {
-        if (this.canvasFrames.has(canvas)) return;
+        const key = canvasSurfaceSnapshotKey(canvas);
+        if (this.canvasFrames.has(canvas)) {
+            if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
+            this.releaseCanvasFrame(canvas);
+        }
         if (this.pendingCanvasSnapshots.has(canvas)) return;
         this.pendingCanvasSnapshots.add(canvas);
         try {
@@ -1410,6 +1423,7 @@ export class ImageOcrController {
             document.body.append(frame);
             this.canvasFrames.set(canvas, frame);
             this.canvasFrameSources.set(frame, canvas);
+            this.canvasFrameKeys.set(canvas, key);
             if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
             this.schedulePosition();
         } finally {
@@ -1453,6 +1467,7 @@ export class ImageOcrController {
         else this.forgetImageWork(frame);
         this.canvasFrameSources.delete(frame);
         this.canvasFrameStaticRects.delete(frame);
+        this.canvasFrameKeys.delete(canvas);
         frame.remove();
     }
 
@@ -3077,6 +3092,24 @@ function videoObjectFit(value: string): string {
 
 function imageCacheKey(image: HTMLImageElement): string {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+}
+
+function readerRasterSurfaceSnapshotKey(surface: HTMLCanvasElement | HTMLElement): string {
+    return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
+}
+
+function canvasSurfaceSnapshotKey(canvas: HTMLCanvasElement): string {
+    const rect = canvas.getBoundingClientRect();
+    const viewportId = canvas.closest<HTMLElement>('[id^="viewport"]')?.id ?? '';
+    return [
+        canvasReaderPageSignature(),
+        viewportId,
+        canvas.width,
+        canvas.height,
+        Math.round(rect.width),
+        Math.round(rect.height),
+        canvasRenderedContentSignature(canvas) ?? '',
+    ].join('|');
 }
 
 function backgroundSurfaceCacheKey(surface: HTMLElement): string {

@@ -6800,6 +6800,7 @@ ${candidate.depth}`;
     destroyed = false;
     lastPointerMoveImage;
     lastPointerMoveReaderSurface;
+    lastPointerMoveReaderSurfaceKey;
     videoFrames = /* @__PURE__ */ new Map();
     videoFrameVideos = /* @__PURE__ */ new Map();
     videoFrameControls = /* @__PURE__ */ new Map();
@@ -6814,6 +6815,7 @@ ${candidate.depth}`;
     canvasFrames = /* @__PURE__ */ new Map();
     canvasFrameSources = /* @__PURE__ */ new Map();
     canvasFrameStaticRects = /* @__PURE__ */ new Map();
+    canvasFrameKeys = /* @__PURE__ */ new Map();
     backgroundFrames = /* @__PURE__ */ new Map();
     backgroundFrameSources = /* @__PURE__ */ new Map();
     backgroundFrameKeys = /* @__PURE__ */ new Map();
@@ -7112,14 +7114,21 @@ ${candidate.depth}`;
         if (event.type === "pointermove") this.lastPointerMoveImage = image;
         else this.lastPointerMoveImage = void 0;
         this.lastPointerMoveReaderSurface = void 0;
+        this.lastPointerMoveReaderSurfaceKey = void 0;
         this.enqueue(image, true);
         return;
       }
       const surface = ocrReaderSurfaceFromPointerEvent(event, settings);
       if (!surface) return;
-      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface) return;
-      if (event.type === "pointermove") this.lastPointerMoveReaderSurface = surface;
-      else this.lastPointerMoveReaderSurface = void 0;
+      const surfaceKey = readerRasterSurfaceSnapshotKey(surface);
+      if (event.type === "pointermove" && surface === this.lastPointerMoveReaderSurface && surfaceKey === this.lastPointerMoveReaderSurfaceKey) return;
+      if (event.type === "pointermove") {
+        this.lastPointerMoveReaderSurface = surface;
+        this.lastPointerMoveReaderSurfaceKey = surfaceKey;
+      } else {
+        this.lastPointerMoveReaderSurface = void 0;
+        this.lastPointerMoveReaderSurfaceKey = void 0;
+      }
       void this.snapshotReaderSurface(surface, settings).then((frame) => {
         if (frame) this.enqueue(frame, true);
       });
@@ -7692,7 +7701,11 @@ ${candidate.depth}`;
       }
     }
     async snapshotCanvasSurface(canvas, settings, userRequested = false) {
-      if (this.canvasFrames.has(canvas)) return;
+      const key = canvasSurfaceSnapshotKey(canvas);
+      if (this.canvasFrames.has(canvas)) {
+        if (!userRequested || this.canvasFrameKeys.get(canvas) === key) return;
+        this.releaseCanvasFrame(canvas);
+      }
       if (this.pendingCanvasSnapshots.has(canvas)) return;
       this.pendingCanvasSnapshots.add(canvas);
       try {
@@ -7734,6 +7747,7 @@ ${candidate.depth}`;
         document.body.append(frame);
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);
+        this.canvasFrameKeys.set(canvas, key);
         if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
         this.schedulePosition();
       } finally {
@@ -7770,6 +7784,7 @@ ${candidate.depth}`;
       else this.forgetImageWork(frame);
       this.canvasFrameSources.delete(frame);
       this.canvasFrameStaticRects.delete(frame);
+      this.canvasFrameKeys.delete(canvas);
       frame.remove();
     }
     releaseAllCanvasFrames() {
@@ -9068,6 +9083,22 @@ ${spelling}`);
   }
   function imageCacheKey(image) {
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
+  }
+  function readerRasterSurfaceSnapshotKey(surface) {
+    return surface instanceof HTMLCanvasElement ? canvasSurfaceSnapshotKey(surface) : backgroundSurfaceCacheKey(surface);
+  }
+  function canvasSurfaceSnapshotKey(canvas) {
+    const rect = canvas.getBoundingClientRect();
+    const viewportId = canvas.closest('[id^="viewport"]')?.id ?? "";
+    return [
+      canvasReaderPageSignature(),
+      viewportId,
+      canvas.width,
+      canvas.height,
+      Math.round(rect.width),
+      Math.round(rect.height),
+      canvasRenderedContentSignature(canvas) ?? ""
+    ].join("|");
   }
   function backgroundSurfaceCacheKey(surface) {
     const rect = surface.getBoundingClientRect();
