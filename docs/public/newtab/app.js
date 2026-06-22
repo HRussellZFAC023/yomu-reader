@@ -7868,8 +7868,8 @@ recommendedJiten	Jiten頻度です。
         removeTextMirror(host);
         return;
       }
-      host.append(mirror);
       hideTextMirrorHost(host, state2);
+      host.append(mirror);
       observeTextMirrorHost(host, text2);
     } catch (error) {
       removeTextMirror(host);

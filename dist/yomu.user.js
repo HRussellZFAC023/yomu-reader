@@ -4581,8 +4581,8 @@
         removeTextMirror(host);
         return;
       }
-      host.append(mirror);
       hideTextMirrorHost(host, state);
+      host.append(mirror);
       observeTextMirrorHost(host, text2);
     } catch (error) {
       removeTextMirror(host);
