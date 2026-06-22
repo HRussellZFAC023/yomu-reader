@@ -98,7 +98,6 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         'run-at': 'document-start',
         license: 'MIT',
         icon: userscriptIcon,
-        icon64: userscriptIcon,
         homepageURL: repoUrl,
         supportURL: `${repoUrl}/issues`,
         ...(splitCompanions ? { require: greasyForkLibraryUrls() } : {}),

@@ -23,7 +23,7 @@ const notice = `
 const insertAt = markerIndex + USERSCRIPT_METADATA_END.length;
 const before = code.slice(0, insertAt);
 const hasNotice = code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER);
-const after = stripUserscriptBodyComments(code.slice(insertAt).replace(/^\n+/, '\n'));
+const after = stripGeneratedPureAnnotations(stripUserscriptBodyComments(code.slice(insertAt).replace(/^\n+/, '\n')));
 
 writeText(DIST_USERSCRIPT_PATH, `${before}${hasNotice ? '' : notice}${after}`);
 console.log(`Annotated ${DIST_USERSCRIPT_PATH} with Greasy Fork compliance notes.`);
@@ -32,4 +32,8 @@ function stripUserscriptBodyComments(value) {
   return value.split('\n')
     .filter(line => !/^\s*\/\//.test(line))
     .join('\n');
+}
+
+function stripGeneratedPureAnnotations(value) {
+  return value.replace(/\/\* @__PURE__ \*\/\s*/g, '');
 }

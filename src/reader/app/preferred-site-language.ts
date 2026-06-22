@@ -9,6 +9,9 @@ const JAPANESE_TIME_ZONE = 'Asia/Tokyo';
 const JAPANESE_LOCALE = 'ja-JP';
 const PREFERENCE_CACHE_KEY = 'yomu:prefer-japanese-site-language';
 const REDIRECT_CACHE_KEY = 'yomu:jps';
+// Hosts already auto-redirected to their Japanese URL in this tab session — used
+// to redirect at most once per host so SPA URL rewrites cannot cause a loop.
+const REDIRECT_HOSTS_KEY = 'yomu:jps:hosts';
 const INJECTION_RETRY_LIMIT = 12;
 const ALTERNATE_REDIRECT_RETRY_LIMIT = 80;
 const ALTERNATE_REDIRECT_RETRY_MS = 125;
@@ -233,6 +236,14 @@ function currentLocationHostname(): string {
 }
 
 function schedulePreferredJapaneseSiteRedirect(): void {
+    // Redirect at most ONCE per host per tab session. SPA sites (notably
+    // m.youtube.com) rewrite their URL on every in-app navigation without keeping
+    // hl=ja, so the alternate-redirect watcher would keep computing a "more
+    // Japanese" URL and full-reloading back to it forever ("A problem repeatedly
+    // occurred on https://m.youtube.com/?ra=m&hl=ja&gl=JP"). The language cookie
+    // set on the first redirect keeps the site Japanese afterward, so any further
+    // URL redirect is both redundant and the source of the loop.
+    if (hostAlreadyRedirectedThisSession()) return;
     if (attemptPreferredJapaneseSiteRedirect()) return;
     installAlternateRedirectWatcher();
 }
@@ -240,10 +251,45 @@ function schedulePreferredJapaneseSiteRedirect(): void {
 function attemptPreferredJapaneseSiteRedirect(): boolean {
     const href = currentLocationHref();
     const target = href ? preferredJapaneseSiteUrl(href, document) : null;
-    if (!target || recentlyAttemptedRedirect(href, target)) return false;
+    if (!target || hostAlreadyRedirectedThisSession() || recentlyAttemptedRedirect(href, target)) return false;
     rememberRedirectAttempt(href, target);
+    markHostRedirectedThisSession();
     replaceLocation(target);
     return true;
+}
+
+function currentLocationHost(): string {
+    try {
+        return new URL(currentLocationHref()).host;
+    } catch {
+        return '';
+    }
+}
+
+function hostAlreadyRedirectedThisSession(): boolean {
+    const host = currentLocationHost();
+    if (!host) return false;
+    try {
+        const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
+        return raw ? (JSON.parse(raw) as string[]).includes(host) : false;
+    } catch {
+        return false;
+    }
+}
+
+function markHostRedirectedThisSession(): void {
+    const host = currentLocationHost();
+    if (!host) return;
+    try {
+        const raw = sessionStorage.getItem(REDIRECT_HOSTS_KEY);
+        const hosts = raw ? (JSON.parse(raw) as string[]) : [];
+        if (!hosts.includes(host)) {
+            hosts.push(host);
+            sessionStorage.setItem(REDIRECT_HOSTS_KEY, JSON.stringify(hosts));
+        }
+    } catch {
+        // Loop suppression is best-effort; failure should not block the redirect.
+    }
 }
 
 function attemptPreferredDefaultSiteRedirect(): boolean {
@@ -670,10 +716,35 @@ function installGeolocationHint(
     defineGetter(state, navigatorObject, 'geolocation', () => geolocation);
 }
 
+// Site language only depends on the SITE's own (same-origin) requests. Adding a
+// header to a cross-origin request — and re-deriving it through a fresh init —
+// breaks its CORS handling in WebKit/Safari (YouTube's gstatic icon/script and
+// googlevideo fetches start failing "access control checks"), which cascades
+// into a m.youtube.com reload loop ("A problem repeatedly occurred on …"). So
+// the Accept-Language injection must never touch cross-origin requests.
+function isSameOriginRequestUrl(url: string | undefined, root: typeof globalThis): boolean {
+    if (!url) return true;
+    try {
+        return new root.URL(url, root.location.href).origin === root.location.origin;
+    } catch {
+        return true;
+    }
+}
+
+function fetchRequestUrl(input: RequestInfo | URL, root: typeof globalThis): string | undefined {
+    if (typeof input === 'string') return input;
+    if (typeof root.URL === 'function' && input instanceof root.URL) return input.href;
+    if (typeof root.Request === 'function' && input instanceof root.Request) return input.url;
+    return undefined;
+}
+
 function installFetchAcceptLanguage(root: typeof globalThis, state: JapanesePreferenceState, acceptLanguage: string): void {
     const nativeFetch = root.fetch;
     if (typeof nativeFetch !== 'function' || (nativeFetch as { __yomuWrapped?: boolean }).__yomuWrapped) return;
     const wrappedFetch: typeof fetch = function(this: unknown, input: RequestInfo | URL, init?: RequestInit) {
+        if (!isSameOriginRequestUrl(fetchRequestUrl(input, root), root)) {
+            return nativeFetch.call(this, input, init);
+        }
         const nextInit = { ...(init ?? {}) };
         try {
             const inputHeaders = typeof root.Request === 'function' && input instanceof root.Request ? input.headers : undefined;
@@ -692,6 +763,7 @@ function installFetchAcceptLanguage(root: typeof globalThis, state: JapanesePref
 function installXhrAcceptLanguage(root: typeof globalThis, state: JapanesePreferenceState, acceptLanguage: string): void {
     const xhrPrototype = root.XMLHttpRequest?.prototype as (XMLHttpRequest & {
         __yomuAcceptLanguageSet?: boolean;
+        __yomuSameOrigin?: boolean;
     }) | undefined;
     if (!xhrPrototype) return;
     const nativeOpen = xhrPrototype.open;
@@ -699,6 +771,8 @@ function installXhrAcceptLanguage(root: typeof globalThis, state: JapanesePrefer
     const nativeSetRequestHeader = xhrPrototype.setRequestHeader;
     defineValue(state, xhrPrototype, 'open', function open(this: typeof xhrPrototype, ...args: Parameters<XMLHttpRequest['open']>) {
         this.__yomuAcceptLanguageSet = false;
+        const rawUrl = args[1];
+        this.__yomuSameOrigin = isSameOriginRequestUrl(typeof rawUrl === 'string' ? rawUrl : rawUrl?.href, root);
         return nativeOpen.apply(this, args);
     });
     defineValue(state, xhrPrototype, 'setRequestHeader', function setRequestHeader(this: typeof xhrPrototype, name: string, value: string) {
@@ -706,7 +780,7 @@ function installXhrAcceptLanguage(root: typeof globalThis, state: JapanesePrefer
         return nativeSetRequestHeader.call(this, name, value);
     });
     defineValue(state, xhrPrototype, 'send', function send(this: typeof xhrPrototype, ...args: Parameters<XMLHttpRequest['send']>) {
-        if (!this.__yomuAcceptLanguageSet) {
+        if (this.__yomuSameOrigin && !this.__yomuAcceptLanguageSet) {
             try {
                 nativeSetRequestHeader.call(this, 'Accept-Language', acceptLanguage);
             } catch {

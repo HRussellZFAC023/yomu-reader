@@ -8,7 +8,9 @@
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
   --jpdb-reader-word-underline-offset: 0.04em;
   --jpdb-reader-word-underline-style: solid;
-  --jpdb-reader-word-underline-thickness: 1px;
+  /* Scales with the word like the subtitle underline, with a 2px floor so it is
+     clearly visible (was a too-thin flat 1px). */
+  --jpdb-reader-word-underline-thickness: max(2px, 0.08em);
   --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, currentColor));
   --jpdb-reader-source-status-decoration: var(--jpdb-reader-status-color, transparent);
   --jpdb-reader-source-status-soft: var(--jpdb-reader-status-soft, transparent);
@@ -65,17 +67,13 @@
   word-break: normal;
   overflow-wrap: anywhere !important;
   line-break: auto;
-  /* The visible underline is normally an absolutely-positioned ::after, which
-     is a single box and cannot fragment across a line break — so a word that
-     wraps mid-token (e.g. the hero's 読んで splitting as 読 | んで) loses its
-     underline on the wrapped half. Where words are allowed to wrap, paint the
-     underline with the native text-decoration instead: it clones across line
-     boxes via box-decoration-break: clone. The small inter-word inline gap is
-     traded away only in these wrapping contexts. */
-  text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;
-}
-.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word)::after {
-  content: none;
+  /* Scan words keep the absolutely-positioned ::after underline like every other
+     reader word, so the pitch underline sits exactly on the highlight box's
+     bottom edge and stays within its inline bounds (requested look; matches the
+     subtitle treatment) rather than floating full-width above the baseline.
+     Trade-off: a single token that wraps mid-word underlines only its first line
+     box — rare for Japanese tokens and preferable to the previous floating
+     native underline. */
 }
 
 .jpdb-reader-word.jpdb-reader-scan-word ruby,
@@ -160,8 +158,9 @@
    dense words that are hard to tap with a fingertip. On coarse pointers, grow
    each word's tap target with a transparent, layout-neutral hit expander so a
    tap near the word still resolves to it. Scoped to mokuro-style reader boxes
-   to avoid disturbing normal prose. */
-@media (pointer: coarse) {
+   to avoid disturbing normal prose. any-pointer:coarse so an iPad with an Apple
+   Pencil (pointer:fine + hover:hover) still gets the larger tap targets. */
+@media (any-pointer: coarse) {
   .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
     content: "";
     position: absolute;
@@ -186,10 +185,11 @@
   background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
 }
 
-.jpdb-reader-word:is(.jpdb-deck-member, .jiten-deck-member, .anki-deck-member) {
-  --jpdb-reader-word-underline-style: double;
-  text-decoration-style: double !important;
-}
+/* Deck members previously used a CSS double underline (two parallel lines) as a
+   "this word is in your deck" cue. It read as a rendering glitch (and competed
+   with the pitch-accent meaning the underline already carries), so the underline
+   stays a single solid line; deck state remains conveyed by the word's state
+   color/highlight. */
 
 .jpdb-reader-word:hover,
 .jpdb-reader-word:focus {
@@ -844,6 +844,15 @@
 .jpdb-ocr-video-frame-pending {
   opacity: 0.001;
   pointer-events: none !important;
+}
+
+/* The status dot sets its own opacity:1, which (equal specificity, later in
+   source) would otherwise beat the pending gate above; this compound selector
+   raises specificity so a gated status spinner stays hidden during OCR. The
+   image and resume controls have no competing opacity, so the plain rule gates
+   them. */
+.jpdb-ocr-video-frame-status.jpdb-ocr-video-frame-pending {
+  opacity: 0.001;
 }
 
 /* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the

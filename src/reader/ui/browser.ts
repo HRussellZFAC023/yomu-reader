@@ -107,6 +107,23 @@ export function isEditableTarget(target: EventTarget | null): boolean {
     return Boolean(editable && editable.getAttribute('contenteditable')?.toLowerCase() !== 'false');
 }
 
+function isEditableElement(element: Element): boolean {
+    if (element.matches?.('input, textarea, select')) return true;
+    const editable = element.closest?.('[contenteditable]');
+    return Boolean(editable && editable.getAttribute('contenteditable')?.toLowerCase() !== 'false');
+}
+
+// Keyboard-shortcut gate. The event's target is retargeted to the shadow HOST
+// when typing in an input inside an (open) shadow root — YouTube's search box and
+// many web-component sites — so isEditableTarget(target) misses it and the
+// userscript's shortcuts swallow normal typing (e.g. Shift+H). The composed path
+// includes the real focused input, so check that too.
+export function isEditableEventContext(event: Event): boolean {
+    if (isEditableTarget(event.target)) return true;
+    const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+    return path.some(node => node instanceof Element && isEditableElement(node));
+}
+
 export async function copyText(text: string): Promise<void> {
     if (navigator.clipboard?.writeText) {
         try {

@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ReaderApp } from '../../src/reader/app/main';
 import type { ReaderSettings } from '../../src/reader/app/types';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
-import { isEditableTarget } from '../../src/reader/ui/browser';
+import { isEditableEventContext, isEditableTarget } from '../../src/reader/ui/browser';
 
 interface ReaderShortcutInternals {
     settings: ReaderSettings;
@@ -23,6 +23,41 @@ describe('reader shortcuts', () => {
         comment.setAttribute('contenteditable', 'false');
 
         expect(isEditableTarget(comment.querySelector('span'))).toBe(false);
+    });
+
+    it('treats typing in a shadow-DOM input as an editable context so shortcuts do not swallow keys', () => {
+        // YouTube's search box (and many web-component sites) put the <input>
+        // inside an open shadow root, so a keydown there retargets to the shadow
+        // HOST — isEditableTarget(target) misses it and shortcuts ate normal typing
+        // (e.g. Shift+H). The event's composed path still contains the real input.
+        const host = document.createElement('div');
+        const shadow = host.attachShadow({ mode: 'open' });
+        const input = document.createElement('input');
+        shadow.append(input);
+        document.body.append(host);
+        try {
+            let editableInsideShadow: boolean | undefined;
+            const onKeydown = (event: Event) => { editableInsideShadow = isEditableEventContext(event); };
+            document.addEventListener('keydown', onKeydown);
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'H', shiftKey: true, bubbles: true, composed: true }));
+            document.removeEventListener('keydown', onKeydown);
+            // At the document the target is the shadow host, which closest() cannot
+            // resolve to the inner input — the legacy check called it "not editable".
+            expect(isEditableTarget(host)).toBe(false);
+            expect(editableInsideShadow).toBe(true);
+
+            let editableOnPlainDiv: boolean | undefined;
+            const plain = document.createElement('div');
+            document.body.append(plain);
+            const onKeydown2 = (event: Event) => { editableOnPlainDiv = isEditableEventContext(event); };
+            document.addEventListener('keydown', onKeydown2);
+            plain.dispatchEvent(new KeyboardEvent('keydown', { key: 'H', shiftKey: true, bubbles: true, composed: true }));
+            document.removeEventListener('keydown', onKeydown2);
+            expect(editableOnPlainDiv).toBe(false);
+            plain.remove();
+        } finally {
+            host.remove();
+        }
     });
 
     it('toggles the subtitle overlay with the configured shortcut', () => {

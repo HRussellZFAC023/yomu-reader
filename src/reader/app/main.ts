@@ -3,7 +3,7 @@ import { isYomuHostedAppUrl, isYomuHostedPassivePage } from './pages';
 import { AnkiConnectClient, ankiLookupWithUnavailableDetails, captureActiveVideoFrame, untrustedAnkiLookupResult, type AnkiLookupResult } from '../anki/index';
 import { renderReviewButtons } from '../anki/render';
 import { runLimited } from '../core/async-utils';
-import { copyText, isEditableTarget, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
+import { copyText, isEditableEventContext, normalizePressedKey, pauseActiveVideo, positionPopover } from '../ui/browser';
 import { CardActionController } from '../cards/action-controller';
 import { CardPopoverRenderer, togglePopoverReviewTargetSelection, updatePopoverReviewTargetSelection } from '../cards/popover-renderer';
 import { CardRenderDataLoader, loadingCardRenderData, type CardRenderData, type CardRenderDataLoad } from '../cards/render-data';
@@ -141,6 +141,7 @@ import {
     BACKGROUND_PITCH_ENRICHMENT_CONCURRENCY,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE,
     DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS,
+    DEFERRED_PUBLIC_PITCH_PER_URL_CAP,
     LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
     FALLBACK_LOOKUP_INITIAL_WAIT_MS,
     FIVE_BUTTON_REVIEW_SHORTCUTS,
@@ -704,6 +705,7 @@ export class ReaderApp {
     private pitchEnrichmentDrain?: Promise<void>;
     private deferredPublicPitchQueue: JPDBToken[] = [];
     private deferredPublicPitchQueuedKeys = new Set<string>();
+    private deferredPublicPitchEnqueuedForUrl = 0;
     private deferredPublicPitchDrain?: Promise<void>;
     private backgroundPublicPitchLookupBudgetHref = location.href;
     private backgroundPublicPitchLookupBudgetUsed = 0;
@@ -720,7 +722,7 @@ export class ReaderApp {
     private pageHasJapaneseText = false;
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
-    private tapLookup?: { id: number; x: number; y: number; word: HTMLElement };
+    private tapLookup?: { id: number; x: number; y: number; word?: HTMLElement };
     private suppressMiddleAuxClickUntil = 0;
 
     constructor() {
@@ -1972,10 +1974,17 @@ export class ReaderApp {
             || event.isPrimary === false
             || (event.pointerType !== 'touch' && event.pointerType !== 'pen')
             || this.isInsideActivePopover(event.target as Node | null)) return;
+        // Seed the tap even when NO word resolves at pointerdown. A near-miss on a
+        // small target (or the gap between two kana) often resolves cleanly at
+        // pointerup, whose geometry is authoritative. Without this the only
+        // fallback opener was the browser's ~300ms synthetic click — by which
+        // point the cue had advanced (the reported "press twice, opens late").
+        // Only bail if a word DID resolve but is not lookupable (e.g. a native
+        // link we must not hijack).
         const word = this.readerWordForPointerEvent(event, { clickLookup: true });
-        if (!word || !this.readerWordClickSurfaces(event, word)) return;
-        this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word };
-        this.primeLookupAudioFromGesture();
+        if (word && !this.readerWordClickSurfaces(event, word)) return;
+        this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word: word ?? undefined };
+        if (word) this.primeLookupAudioFromGesture();
     }
 
     private updateTapLookup(event: PointerEvent): void {
@@ -1992,8 +2001,11 @@ export class ReaderApp {
         if (!word?.isConnected) return;
         const surfaces = this.readerWordClickSurfaces(event, word);
         if (!surfaces) return;
-        this.openReaderWordFromPointer(event, word, surfaces);
+        // Suppress the trailing synthetic click BEFORE opening so the ~300ms
+        // click can neither double-open nor late-fire onto a cue that moved on.
         this.suppressWordClickUntil = Date.now() + 700;
+        if (word) this.primeLookupAudioFromGesture();
+        this.openReaderWordFromPointer(event, word, surfaces);
     }
 
     private cancelTapLookup(event: PointerEvent): void {
@@ -2011,7 +2023,7 @@ export class ReaderApp {
         this.prepareModalLookupFromPointer(event);
         this.suppressSelectionLookupUntil = Date.now() + 350;
         this.ocr.pinLineForElement(word);
-        if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
+        if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
         const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event);
         void this.showWord(word, surfaces.insideReaderPopup
             ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
@@ -2081,25 +2093,79 @@ export class ReaderApp {
         return event.type.startsWith('pointer') && (pointerType === 'touch' || pointerType === 'pen');
     }
 
-    // Clicking a subtitle word enters the pinned lookup state; pause the video so
-    // the user can read the entry, and remember which video we paused so closing
-    // the popover resumes it. Only tracks a video that was actually playing.
+    // The subtitle controller's bound <video>, when present and still attached.
+    // Preferred over the document-wide largest-video heuristic so the mining
+    // pause targets the exact player the overlay tracks (not an ad/preview/
+    // miniplayer). The companion may be a lifecycle stub, hence the optional call.
+    private boundSubtitleVideo(): HTMLVideoElement | undefined {
+        // Single `as {...}` cast (the same pattern as refreshParsedCueTexts) so
+        // the optional getBoundVideo stays statically visible to dead-code
+        // analysis: the companion is either the real controller (has it) or a
+        // lifecycle stub (does not).
+        const subtitles = this.subtitles as { getBoundVideo?: () => HTMLVideoElement | undefined };
+        return subtitles.getBoundVideo?.();
+    }
+
+    // Pause the bound video on ANY lookup over page text while it is playing —
+    // subtitle words, comments, titles, OCR lines — so the entry can be read.
+    // Reader-popup-internal lookups never pause (you are already reading). Gated
+    // by the subtitleMiningPause setting.
+    private shouldPauseForLookupAnchor(anchor: Element | null): boolean {
+        if (!this.settings.subtitleMiningPause || !anchor) return false;
+        if (anchor.closest('.jpdb-reader-popover')) return false;
+        if (anchor.closest(SUBTITLE_SURFACE_SELECTOR)) return true;
+        const bound = this.boundSubtitleVideo();
+        return Boolean(bound && !bound.paused);
+    }
+
+    // Opening a pinned lookup pauses the video so the entry can be read, and
+    // remembers which video we paused so closing the popover resumes it. Prefer
+    // the bound player; only fall back to the largest-video heuristic when the
+    // controller has not bound one. A short-lived dataset marker tells the OCR
+    // controller this pause was mining-initiated so it does not spawn a
+    // paused-frame overlay over the player.
     private pauseVideoForSubtitleMining(): void {
         if (!this.settings.subtitleMiningPause) return;
-        const paused = pauseActiveVideo();
-        if (paused) this.subtitleMiningPausedVideo = paused;
+        const bound = this.boundSubtitleVideo();
+        let paused: HTMLVideoElement | undefined;
+        if (bound) {
+            if (!bound.paused) {
+                bound.pause();
+                paused = bound;
+            }
+        } else {
+            paused = pauseActiveVideo();
+        }
+        if (!paused) return;
+        this.subtitleMiningPausedVideo = paused;
+        this.markMiningPause(paused);
     }
 
     private resumeSubtitleMiningVideo(): void {
-        const video = this.subtitleMiningPausedVideo;
+        const stored = this.subtitleMiningPausedVideo;
         this.subtitleMiningPausedVideo = undefined;
-        if (video?.isConnected && video.paused) void video.play().catch(() => undefined);
+        if (!stored) return;
+        this.clearMiningPause(stored);
+        // Resume ONLY the element we paused. After a player swap (ad-roll /
+        // autoplay-next / SPA nav) the stored element is detached; we deliberately
+        // do NOT force-play the swapped-in element — we never paused it, and
+        // forcing play could override an ad or a deliberate user pause. YouTube's
+        // own autoplay manages the new player.
+        if (stored.isConnected && stored.paused) void stored.play().catch(() => undefined);
+    }
+
+    private markMiningPause(video: HTMLVideoElement): void {
+        video.dataset.jpdbReaderMiningPause = String(Date.now());
+    }
+
+    private clearMiningPause(video: HTMLVideoElement): void {
+        delete video.dataset.jpdbReaderMiningPause;
     }
 
     private handleDocumentKeydown(event: KeyboardEvent): void {
         if (this.isDestroyed) return;
         this.pressedKeys.add(normalizePressedKey(event.key));
-        if (isEditableTarget(event.target)) return;
+        if (isEditableEventContext(event)) return;
         if (this.handleClosePopupShortcut(event)) return;
         if (this.hasHoverLookupShortcut() && this.shouldLookupOnHover(event)) this.scheduleHoverLookupAtPointer(event);
         if (this.handleLookupNavigationShortcut(event)) return;
@@ -6545,25 +6611,33 @@ export class ReaderApp {
             const publicTokens = publicLookupCandidates.slice(0, publicLookupLimit);
             const deferredPublicTokens = publicLookupCandidates.slice(publicLookupLimit);
             const shouldDeferPublicLookup = options.deferPublicLookup !== false;
+            // Tokens that only got a local-only pass: the deferred public-pitch
+            // candidates AND the budget-denied tail. Keyless users (no local
+            // dictionary) resolve nothing locally, so these must ALL be retried
+            // via the paced deferred public lane — otherwise budget-denied page
+            // text (notably YouTube comments, while captions bypass the budget)
+            // is abandoned at jpdb-pitch-unknown forever, with no underline. The
+            // deferredPublicPitchQueuedKeys dedup + per-URL budget keep it bounded.
+            const localOnlyRetryTokens = [...deferredPublicTokens, ...localOnlyTokens];
             const localOnly = runLimited(
-                [...deferredPublicTokens, ...localOnlyTokens],
+                localOnlyRetryTokens,
                 LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
                 token => this.enrichPitchToken(token, { publicLookup: false }),
             );
             if (!publicTokens.length) {
                 await localOnly;
-                if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+                if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(localOnlyRetryTokens);
                 return;
             }
             const queuedPublicTokens = await this.resolvePublicFallbackPitchTokens(publicTokens, options);
             if (!queuedPublicTokens.length) {
                 await localOnly;
-                if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+                if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(localOnlyRetryTokens);
                 return;
             }
             this.queuePitchEnrichmentTokens(queuedPublicTokens, options);
             await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
-            if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+            if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(localOnlyRetryTokens);
             return;
         }
 
@@ -6667,15 +6741,23 @@ export class ReaderApp {
         if (this.backgroundPublicPitchLookupBudgetHref === location.href) return;
         this.backgroundPublicPitchLookupBudgetHref = location.href;
         this.backgroundPublicPitchLookupBudgetUsed = 0;
+        this.deferredPublicPitchEnqueuedForUrl = 0;
     }
 
     private queueDeferredPublicPitchTokens(tokens: JPDBToken[]): void {
+        this.resetBackgroundPublicPitchLookupBudgetIfNeeded();
         for (const token of tokens) {
+            // Cap the paced deferred lane per URL so budget-denied tokens (incl.
+            // comment words) cannot trickle unbounded public lookups; once the cap
+            // is hit the remainder stay local-only, exactly like the immediate
+            // per-URL budget. Reset alongside that budget on URL change.
+            if (this.deferredPublicPitchEnqueuedForUrl >= DEFERRED_PUBLIC_PITCH_PER_URL_CAP) break;
             const key = cardKey(token.card);
             if (this.deferredPublicPitchQueuedKeys.has(key)) continue;
             if (this.pitchEnrichmentQueuedKeys.has(key)) continue;
             this.deferredPublicPitchQueuedKeys.add(key);
             this.deferredPublicPitchQueue.push(token);
+            this.deferredPublicPitchEnqueuedForUrl++;
         }
     }
 
@@ -6866,6 +6948,7 @@ export class ReaderApp {
         this.pitchEnrichmentQueuedOptions.clear();
         this.deferredPublicPitchQueue = [];
         this.deferredPublicPitchQueuedKeys.clear();
+        this.deferredPublicPitchEnqueuedForUrl = 0;
         this.backgroundPublicPitchLookupBudgetHref = location.href;
         this.backgroundPublicPitchLookupBudgetUsed = 0;
     }
@@ -7462,7 +7545,7 @@ export class ReaderApp {
         // video so the entry can be read; closing the popover resumes it. Hover
         // previews keep playing. Anchored here so every path that opens a modal
         // lookup over a subtitle word pauses, not just the direct word-click.
-        if (state.mode === 'modal' && state.resolvedAnchor?.closest(SUBTITLE_SURFACE_SELECTOR)) {
+        if (state.mode === 'modal' && this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null)) {
             this.pauseVideoForSubtitleMining();
         }
     }
@@ -7701,7 +7784,11 @@ export class ReaderApp {
 
     private prepareActivePopoverDismiss(options: DismissOptions): void {
         if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
-        this.resumeSubtitleMiningVideo();
+        // Re-mounts during nested navigation (push-current) dismiss with
+        // preserveNavigation:true — keep the video paused across them; only a
+        // real close resumes. Without this gate, drilling into a sub-lookup
+        // resumed playback mid-read.
+        if (!options.preserveNavigation) this.resumeSubtitleMiningVideo();
         this.clearHoverDismissState(options);
         this.audio.stop();
         this.immersionPopover.stopAudio();

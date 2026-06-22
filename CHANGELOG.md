@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.61] - 2026-06-22
+
+### Fixed
+
+- Mobile YouTube reload loop ("A problem repeatedly occurred on https://m.youtube.com/?ra=m&hl=ja&gl=JP"). Root cause was the **preferred Japanese site language** feature (pre-existing, unrelated to the 1.4.58 work): (1) its `Accept-Language` `fetch`/`XHR` wrapper added the header to — and re-derived — *cross-origin* requests, breaking YouTube's gstatic icon/script loads in WebKit/Safari ("access control checks"); and (2) its alternate-URL redirect watcher re-fired on every m.youtube SPA navigation, full-reloading back to the Japanese URL forever. The header is now only added to same-origin requests, and the redirect runs at most once per host per tab session (the language cookie keeps the site Japanese afterward). Reproduced and verified in WebKit + a Japanese locale.
+- Keyboard shortcuts no longer swallow normal typing (e.g. Shift+H) in inputs that live inside a shadow root, such as YouTube's search box — the keydown gate now checks the event's composed path, not just the retargeted shadow host.
+
+### Changed
+
+- Re-introduced the 1.4.58 YouTube/mobile UX improvements (they were not the cause of the reload loop): portrait/Shorts subtitle sizing + position, frame-synced subtitle timing, paused-frame OCR overlay gating, reliable pause-on-lookup, snappier taps with fewer mispresses, iPad/Apple-Pencil touch targets, bounded comment pitch retry, and broader in-player YouTube text coverage.
+
 ## [1.4.60] - 2026-06-22
 
 ### Fixed

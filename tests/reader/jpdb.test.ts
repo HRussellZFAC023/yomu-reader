@@ -37,6 +37,7 @@ import { buildNewTabPalette, isYomuNewTabUrl, resolveNewTabBrandAssets } from '.
 import { ObjectUrlCache } from '../../src/reader/core/object-url-cache';
 import { createPageMediaUrl } from '../../src/reader/app/page-media-url';
 import { ImageOcrController, normalizeOcrResult, parseGoogleLensUploadHtml, readFallbackOcrResult } from '../../src/reader/ocr/controller';
+import { normalizeOcrRenderedText } from '../../src/reader/ocr/rendered-text';
 import { createReaderBackdrop, createReaderPopover, installMiningDrawerHandle, installSettingsDrawerHandle, installSheetCloseButton, installSheetHandle, shouldUseSheet } from '../../src/reader/popup/shell';
 import { jpdbPointerLookupCandidates, pointerTextLookupFromTextNode } from '../../src/reader/lookup/pointer-text-lookup';
 import { formatPartOfSpeech } from '../../src/reader/lookup/pos';
@@ -99,7 +100,7 @@ import { yomitanZipBlob } from './zip-fixture';
 import PublicProxyWorker, { isAllowedPublicProxyTarget } from '../../workers/jpdb-public-proxy/src/index';
 import { registerYomuCompanion } from '../../src/reader/companions/registry';
 
-registerYomuCompanion('ocr', { ImageOcrController });
+registerYomuCompanion('ocr', { ImageOcrController, normalizeOcrRenderedText });
 
 const card: JPDBCard = {
     vid: 1,
@@ -3603,7 +3604,8 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('inset: -0.36em -0.06em;');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) {');
         expect(normalizedCss).toContain('white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto;');
-        expect(normalizedCss).toContain('text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;');
+        expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: 0; border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
+        expect(normalizedCss).not.toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word)::after { content: none; }');
         expect(normalizedCss).toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background-color: transparent !important; background-image: linear-gradient(var(--jpdb-reader-hover), var(--jpdb-reader-hover)), linear-gradient( var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)), var(--jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent)) ) !important; background-position: center, center !important; background-repeat: no-repeat, no-repeat !important; background-size: var(--jpdb-reader-word-highlight-size) 100%, var(--jpdb-reader-word-highlight-size) 100% !important; box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none); outline: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:hover, .jpdb-reader-word:focus { background: var(--jpdb-reader-hover) !important;');
         expect(normalizedDocsCss).not.toContain('.yomu-try-me .jpdb-reader-word');
@@ -19979,6 +19981,46 @@ describe('reader helpers', () => {
 
             expect(up.defaultPrevented).toBe(false);
             expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('recovers a near-miss tap by resolving the word at pointerup, not the late synthetic click', () => {
+        // The reported "press twice, nothing happens, then it opens late": a
+        // pointerdown that just misses the word recorded nothing, so the only
+        // opener was the browser's ~300ms synthetic click — by then the cue had
+        // moved on. Seeding the tap on pointerdown (word may be undefined) and
+        // resolving at pointerup recovers it instantly with the fast-render path.
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <p><span class="jpdb-reader-word" data-vid="601" data-sid="601" data-sentence="日本語">日本語</span></p>
+        `;
+        const para = document.querySelector<HTMLElement>('p')!;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const pinLineForElement = vi.fn();
+        const destroyOcr = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.ocr = { pinLineForElement, destroy: destroyOcr };
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            // pointerdown misses (lands on the paragraph gap, no word resolved) ...
+            para.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 51, clientX: 10, clientY: 10, button: 0 }));
+            // ... but pointerup lands on the word — its geometry is authoritative.
+            word.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 51, clientX: 12, clientY: 12, button: 0 }));
+
+            expect(showWord).toHaveBeenCalledTimes(1);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'click', userGesture: true, fastInitialRender: true }));
         } finally {
             app.destroy();
             document.body.replaceChildren();

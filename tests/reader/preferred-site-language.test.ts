@@ -37,6 +37,29 @@ describe('preferred Japanese site language', () => {
         expect(new Date().getTimezoneOffset()).toBe(-540);
     });
 
+    it('adds Accept-Language only to same-origin requests, leaving cross-origin loads untouched', () => {
+        // Regression: adding the header to (and re-deriving) cross-origin requests
+        // broke YouTube's gstatic icon/script loads in WebKit ("access control
+        // checks"), cascading into an m.youtube.com reload loop. Cross-origin
+        // requests must pass through unchanged.
+        const seen: Array<{ url: string; acceptLanguage: string | null }> = [];
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            seen.push({ url: String(input), acceptLanguage: new Headers(init?.headers).get('Accept-Language') });
+            return new Response('ok');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('unsafeWindow', window);
+        applyPreferredJapaneseSiteLanguage(true);
+
+        void window.fetch('/youtubei/v1/next');
+        void window.fetch('https://fonts.gstatic.com/s/i/icon.svg');
+
+        const sameOrigin = seen.find(entry => entry.url.includes('/youtubei/'));
+        const crossOrigin = seen.find(entry => entry.url.includes('gstatic'));
+        expect(sameOrigin?.acceptLanguage).toContain('ja');
+        expect(crossOrigin?.acceptLanguage).toBeNull();
+    });
+
     it('builds Japanese URLs for common locale-based sites', () => {
         expect(preferredJapaneseSiteUrl('https://www.youtube.com/watch?v=abc123')).toBe('https://www.youtube.com/watch?v=abc123&hl=ja&gl=JP');
         expect(preferredJapaneseSiteUrl('https://youtu.be/abc123?t=14')).toBe('https://www.youtube.com/watch?v=abc123&t=14&hl=ja&gl=JP');

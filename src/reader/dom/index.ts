@@ -119,10 +119,29 @@ const HARD_FRAGMENT_SKIP_SELECTOR = [
     ...PLAYER_CHROME_SKIP_ENTRIES,
     '[data-jpdb-reader-root]',
 ].join(',');
+// ISS-11: YouTube wants ALL on-page Japanese parsed, including text inside the
+// ytp-*/player/control/toggle wrappers (Shorts overlay text, tooltips,
+// end-screen titles). These variants drop ONLY the PLAYER_CHROME_SKIP_ENTRIES
+// class globs ([class*="control"|"toggle"|"player"]) and keep every other
+// guard (reader-own-DOM mirrors, [aria-hidden], script/style, rt/rp, etc.).
+// They are selected solely via includePlayerChrome, so non-YouTube sites keep
+// the original HARD_/TAB_CHROME_ behaviour. The native caption window is NOT
+// re-ingested here: it stays out via each YouTube profile's `exclude`
+// (YT_PLAYER_CHROME_EXCLUDE_ENTRIES), not via these element-skip selectors.
+const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES,
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
+    '[data-jpdb-reader-root]',
+].join(',');
 const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES.filter(entry => entry !== '[role="tab"]'),
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     ...PLAYER_CHROME_SKIP_ENTRIES,
+    '[data-jpdb-reader-root]',
+].join(',');
+const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES.filter(entry => entry !== '[role="tab"]'),
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
     '[data-jpdb-reader-root]',
 ].join(',');
 const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
@@ -375,6 +394,9 @@ interface FragmentTextTargetCollectionOptions {
     includeUiChrome?: boolean;
     includeFormChrome?: boolean;
     includeTabChrome?: boolean;
+    // ISS-11: when set, the resolved skip selector omits PLAYER_CHROME_SKIP_ENTRIES
+    // so YouTube player/control/toggle wrappers are parsed. All other guards stay.
+    includePlayerChrome?: boolean;
     includePassiveInteractions?: boolean;
     heading?: boolean;
     allowShortCenteredHeadings?: boolean;
@@ -1005,10 +1027,24 @@ function shouldSkipFragmentElement(
     element: HTMLElement,
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
+    // PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR never carried PLAYER_CHROME_SKIP_ENTRIES,
+    // so the passive path already lets player chrome through; includePlayerChrome
+    // only needs to relax the hard/tab-chrome branches below.
     if (options.includePassiveInteractions) return safeElementMatches(element, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
     if (options.includeFormChrome) return safeElementMatches(element, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
-    if (options.includeTabChrome) return safeElementMatches(element, TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
-    return safeElementMatches(element, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
+    if (options.includeTabChrome) {
+        // ISS-11: YouTube parses player/control/toggle wrappers — drop only the
+        // PLAYER_CHROME_SKIP_ENTRIES globs, keep every other tab-chrome guard.
+        return safeElementMatches(element, options.includePlayerChrome
+            ? PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR
+            : TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
+    }
+    if (options.includeUiChrome) {
+        return safeElementMatches(element, options.includePlayerChrome
+            ? PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR
+            : HARD_FRAGMENT_SKIP_SELECTOR);
+    }
+    return safeElementMatches(element, FRAGMENT_SKIP_SELECTOR);
 }
 
 function isFragmentParagraphBoundary(
@@ -1478,7 +1514,7 @@ function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
     return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
 }
 
-function isYouTubeHost(): boolean {
+export function isYouTubeHost(): boolean {
     const hostname = location.hostname.toLowerCase();
     return hostname === 'youtube.com'
         || hostname.endsWith('.youtube.com')

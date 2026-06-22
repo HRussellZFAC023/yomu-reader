@@ -2,6 +2,7 @@ import {
     collectFormControlTextTargetsIn,
     collectFragmentTextTargetsIn,
     collectVisibleTextTargets,
+    isYouTubeHost,
     type FragmentTextTarget,
     type ScanTextTarget,
 } from '../dom/index';
@@ -738,6 +739,13 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-slim-video-metadata-section-renderer #title',
             'ytm-expandable-video-description-body-renderer',
             'ytm-structured-description-content-renderer',
+            // ISS-11: end-screen and pause-overlay titles had zero coverage. These
+            // live inside .ytp-* player chrome, so Edit A's player-chrome narrowing
+            // lets them through. Kept at high watch-text priority (before comments).
+            '.ytp-ce-element .ytp-ce-video-title',
+            '.ytp-ce-element .ytp-ce-playlist-title',
+            '.ytp-pause-overlay .ytp-videowall-still-info-title',
+            '.ytp-cards-teaser-text',
             YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS,
             'ytd-watch-next-secondary-results-renderer #video-title',
             '#secondary ytd-compact-video-renderer #video-title',
@@ -1060,6 +1068,11 @@ function collectRootScanTargets(profile: SiteParserProfile, root: Element, conte
         includeUiChrome: true,
         includeFormChrome: true,
         includeTabChrome: true,
+        // ISS-11: YouTube profiles parse every player/control/toggle wrapper
+        // (Shorts overlay text, tooltips, end-screen titles). The native caption
+        // window stays excluded via the profile's `exclude`
+        // (YT_PLAYER_CHROME_EXCLUDE_ENTRIES), so this does not re-render captions.
+        includePlayerChrome: isYouTubeSiteParserProfile(profile),
         includePassiveInteractions: true,
         mergeBlockFragments: profile.mergeBlockFragments,
         heading: profile.heading,
@@ -1267,6 +1280,11 @@ function collectResidualVisibleJapaneseTargets(
         includeUiChrome: true,
         includeFormChrome: true,
         includeTabChrome: true,
+        // ISS-11: this residual pass scans the whole document.body, so only relax
+        // player chrome on YouTube hosts — other sites keep the original guards.
+        // The caption window is still excluded here via
+        // residualVisibleJapaneseExcludeSelector (YT_PLAYER_CHROME_EXCLUDE_ENTRIES).
+        includePlayerChrome: isYouTubeHost(),
         includePassiveInteractions: true,
         heading: true,
         minLength: 1,

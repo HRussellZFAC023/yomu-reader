@@ -1,5 +1,6 @@
 import { installCanvasMirrorRecorder } from '../ocr/canvas-mirror';
 import { ImageOcrController } from '../ocr/controller';
+import { normalizeOcrRenderedText } from '../ocr/rendered-text';
 import { SubtitlePlayerController } from '../subtitles/controller';
 import { YoutubeImmersionFilter } from '../subtitles/youtube';
 import { registerYomuCompanion } from './registry';
@@ -16,4 +17,5 @@ registerYomuCompanion('video', {
 
 registerYomuCompanion('ocr', {
     ImageOcrController,
+    normalizeOcrRenderedText,
 });

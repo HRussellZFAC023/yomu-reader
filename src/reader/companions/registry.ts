@@ -5,6 +5,7 @@ export type SubtitlePlayerControllerInstance = InstanceType<SubtitlePlayerContro
 export type YoutubeImmersionFilterClass = typeof import('../subtitles/youtube').YoutubeImmersionFilter;
 export type YoutubeImmersionFilterInstance = InstanceType<YoutubeImmersionFilterClass>;
 export type ImageOcrControllerClass = typeof import('../ocr/controller').ImageOcrController;
+export type NormalizeOcrRenderedTextFn = typeof import('../ocr/rendered-text').normalizeOcrRenderedText;
 export type RenderAnkiActionRowFn = typeof import('../anki/render-impl').renderAnkiActionRow;
 export type RenderAnkiExistingSectionFn = typeof import('../anki/render-impl').renderAnkiExistingSection;
 export type RenderAnkiNewCardPreviewFn = typeof import('../anki/render-impl').renderAnkiNewCardPreview;
@@ -62,6 +63,7 @@ interface YomuCompanionRegistry {
     };
     ocr?: {
         ImageOcrController: ImageOcrControllerClass;
+        normalizeOcrRenderedText?: NormalizeOcrRenderedTextFn;
     };
     // ADR-0003 Kanji/Study extraction (scaffolding shipped 0.6.112; core
     // import-severing remains a follow-up lane).
@@ -119,6 +121,10 @@ export function yomuYoutubeImmersionFilter(): YoutubeImmersionFilterClass | unde
 
 export function yomuImageOcrController(): ImageOcrControllerClass | undefined {
     return yomuCompanions().ocr?.ImageOcrController;
+}
+
+export function yomuNormalizeOcrRenderedText(): NormalizeOcrRenderedTextFn | undefined {
+    return yomuCompanions().ocr?.normalizeOcrRenderedText;
 }
 
 export function yomuKanjiStudyCompanion(): NonNullable<YomuCompanionRegistry['kanjiStudy']> | undefined {
