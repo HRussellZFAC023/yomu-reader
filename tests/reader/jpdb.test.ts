@@ -35747,6 +35747,24 @@ describe('reader helpers', () => {
         expect(result?.lines.map(line => line.text)).toEqual(['鏡のない村']);
     });
 
+    it('keeps a short full-size kana column beside a kanji column (not furigana)', () => {
+        // Reported manga panel: それにしても is a real dialogue column, just shorter
+        // (fewer glyphs) than its neighbour. It must survive — the old height/glyph
+        // -count clause wrongly deleted it as a furigana strip for こんなに若くて可愛い.
+        // Both columns share the same glyph width (~70px), so neither is a thin
+        // half-size reading strip.
+        const result = normalizeOcrResult({
+            width: 1000,
+            height: 1200,
+            lines: [
+                { text: 'それにしても', vertical: true, box: { left: 720, top: 120, width: 70, height: 360 } },
+                { text: 'こんなに若くて可愛い', vertical: true, box: { left: 640, top: 110, width: 70, height: 600 } },
+            ],
+        }, 1000, 1200);
+
+        expect(result?.lines.map(line => line.text)).toEqual(['それにしても', 'こんなに若くて可愛い']);
+    });
+
     it('normalizes YomiNinja scalable OCR regions from native engines', () => {
         const result = normalizeOcrResult({
             context_resolution: { width: 1000, height: 1200 },

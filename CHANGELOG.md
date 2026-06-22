@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.74] - 2026-06-22
+
+### Fixed
+
+- Image OCR overlays no longer widen a vertical column's highlight box to wrap its furigana reading. The reading sits in a strip beside the column and overflows the box as designed, so the highlight now matches the size of the scanned text instead of ballooning when furigana is shown.
+- Image OCR no longer drops a short all-kana column that sits next to a longer kanji column (for example それにしても beside こんなに若くて可愛い). It was being misread as a standalone furigana reading strip and removed, so it could not be hovered or looked up; the furigana-strip test now keys off the reading's thinness rather than its length.
+- Pitch-accent marks now appear on vertical OCR columns. The colored rule renders down the side of the highlighted column on hover or tap; it previously relied on a native underline that cannot paint through the overlay's inline-flex text layout, so nothing showed.
+
 ## [1.4.73] - 2026-06-22
 
 ### Fixed

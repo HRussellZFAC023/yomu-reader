@@ -166,7 +166,11 @@ function ocrLineLooksLikeFuriganaFor(furi: OcrLine, base: OcrLine): boolean {
     if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
     const overlap = horizontalOverlap(furi.box, base.box);
     const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-    const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
+    // Furigana is set in a roughly half-size font, so the real tell is a much
+    // thinner reading strip — height for a horizontal row. Compare only that
+    // perpendicular dimension; the reading-axis length just tracks glyph count,
+    // so a short full-size kana line beside a kanji line must NOT be flagged.
+    const smaller = furi.box.height <= base.box.height * 0.75;
     const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5
         && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
     return overlapRatio >= 0.32 && smaller && nearTop;
@@ -180,7 +184,11 @@ function ocrLineLooksLikeVerticalFuriganaFor(furi: OcrLine, base: OcrLine): bool
     if (!furi.vertical || !base.vertical) return false;
     const overlap = verticalOverlap(furi.box, base.box);
     const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-    const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
+    // Vertical furigana runs in a thin half-width strip beside the column, so
+    // width (the perpendicular dimension) is the font-size tell. Do NOT also
+    // accept a shorter height: a brief full-size kana column (e.g. それにしても
+    // next to こんなに若くて可愛い) is shorter only because it has fewer glyphs.
+    const smaller = furi.box.width <= base.box.width * 0.75;
     const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
     return overlapRatio >= 0.32 && smaller && nearSide;
 }

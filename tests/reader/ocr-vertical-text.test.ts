@@ -56,9 +56,12 @@ describe('vertical OCR text styling', () => {
         expect(css).toContain('.jpdb-ocr-furi { position: absolute; top: -1.18em; left: 50%;');
     });
 
-    it('keeps the vertical word pitch mark on one side only', () => {
-        expect(css).toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word::after { display: none;');
-        expect(css).toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word { text-underline-position: left;');
+    it('draws the vertical word pitch mark via the side border, not the dead native underline', () => {
+        // text-decoration cannot paint through the inline-flex word children, so the
+        // side rule is the base ::after (border-block-end = physical-left edge in
+        // vertical-rl); the native underline is suppressed so only one side shows.
+        expect(css).toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word { text-decoration-line: none !important;');
+        expect(css).not.toContain('.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word::after { display: none;');
     });
 });
 

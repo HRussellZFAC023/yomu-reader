@@ -706,6 +706,38 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it('does not widen a vertical OCR frame when the column has furigana', () => {
+        // Regression: a vertical furigana reading sits in a right-side strip and the
+        // line is overflow:visible, so it spills past the box harmlessly instead of
+        // forcing the highlight wider. A furigana column must size to the same width
+        // as the equivalent plain column (46px above), not balloon by a symmetric
+        // furi gutter.
+        const controller = createLocalServiceOcrController();
+        const line = measuredOcrLine({
+            fontSize: 24,
+            contentWidth: 24,
+            contentHeight: 48,
+            hasFurigana: true,
+        });
+
+        try {
+            (controller as unknown as ImageOcrControllerFrameInternals).fitLineFrame(
+                line,
+                50,
+                20,
+                10,
+                48,
+                { imageLeft: 0, imageTop: 0, imageWidth: 180, imageHeight: 120 },
+                true,
+            );
+
+            expect(line.style.width).toBe('46px');
+        } finally {
+            controller.destroy();
+            line.remove();
+        }
+    });
+
     it('normalizes late-added OCR furigana so OCR lines can show it immediately', () => {
         const word = document.createElement('span');
         word.className = 'jpdb-reader-word jpdb-reader-has-furi';

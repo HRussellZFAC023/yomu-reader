@@ -1663,18 +1663,22 @@ export class ImageOcrController {
         const contentWidth = Math.max(1, contentRect.width);
         const contentHeight = Math.max(1, contentRect.height);
         const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
-        // Vertical furigana sits in a strip to the RIGHT of the column (real
-        // vertical ruby). Reserve a symmetric gutter so the centered column plus
-        // its reading both stay inside the frame — otherwise the rightmost
-        // column (the first one read in vertical Japanese) projects its reading
-        // past the image edge, where .jpdb-ocr-layer{overflow:hidden} clips it.
+        // A vertical furigana reading sits in a strip to the RIGHT of its column
+        // (real vertical ruby). The .jpdb-ocr-line is overflow:visible, so the
+        // reading can spill past the highlight box harmlessly; reserving a
+        // symmetric gutter to wrap it only made furigana columns look wider than
+        // the OCR text (user feedback). Keep the frame the same width as a plain
+        // column and instead reserve the reading's width in the horizontal
+        // position clamp, so only the rightmost column (the first one read, whose
+        // reading would otherwise run past the image edge into
+        // .jpdb-ocr-layer{overflow:hidden}) is nudged inward.
         const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
         const underlineGutter = vertical ? underlineBleed : 0;
-        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2 + underlineGutter * 2));
+        const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
         const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
         const minLeft = frame.imageLeft;
         const minTop = frame.imageTop;
-        const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth);
+        const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
         const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
         const left = clampNumber(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
         const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;
