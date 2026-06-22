@@ -115,6 +115,30 @@ describe('repaint-loop mirror fallback', () => {
         expect(host.style.getPropertyValue('display')).toBe('');
     });
 
+    it('re-hides the host when a re-render strips our inline style (no duplicate/missing title)', async () => {
+        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost" style="display:inline">${TEXT}</span>`;
+        const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;
+        applyTokensToScanTarget({ ...target, nonDestructive: true }, [token()], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        const host = document.getElementById('title')!;
+        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+
+        // A YouTube polymer re-render rewrites the host style attribute without
+        // changing its text, wiping our visibility:hidden / position:relative.
+        host.setAttribute('style', 'display:inline-block');
+        expect(host.style.getPropertyValue('visibility')).toBe('');
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        // The mirror survives and the host is re-hidden, so the native title cannot
+        // re-appear beside the mirror (the duplication/"missing title" symptom).
+        // (position:relative is also re-asserted in real browsers for mirror
+        // anchoring; jsdom's getComputedStyle does not report position:static so
+        // state.positioned is false here and only visibility is exercised.)
+        expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
+        expect(host.style.getPropertyValue('visibility')).toBe('hidden');
+        expect(host.style.getPropertyPriority('visibility')).toBe('important');
+    });
+
     it('does not replace an unchanged non-destructive mirror on repeated scans', () => {
         document.body.innerHTML = `<span id="title" class="ytAttributedStringHost">${TEXT}</span>`;
         const target = collectTextTargetsIn(document.body, 40, false).find(t => t.text.trim() === TEXT)!;

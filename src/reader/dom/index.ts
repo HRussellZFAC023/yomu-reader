@@ -1625,6 +1625,17 @@ function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
             removeTextMirror(host);
             return;
         }
+        // A YouTube re-render can rewrite the host's own style/class attribute
+        // without touching its text, stripping the inline visibility:hidden /
+        // position:relative we set. That made the native title re-appear
+        // (duplication) or the absolute mirror anchor to the wrong ancestor (the
+        // title looking missing/misaligned). Re-assert on host attribute changes;
+        // reassertTextMirrorHostStyles only writes a property that was actually
+        // stripped, so it cannot loop on the style mutation it makes.
+        if (mutations.some(mutation => mutation.type === 'attributes' && mutation.target === host)) {
+            reassertTextMirrorHostStyles(host, state);
+        }
+        if (!mutations.some(mutation => mutation.type === 'childList' || mutation.type === 'characterData')) return;
         const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
         if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
             removeTextMirror(host);
@@ -1635,7 +1646,7 @@ function observeTextMirrorHost(host: HTMLElement, sourceText: string): void {
             dispatchTextMirrorStale(host);
         }
     });
-    state.observer.observe(host, { childList: true, characterData: true, subtree: true });
+    state.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
 }
 
 function dispatchTextMirrorStale(host: HTMLElement): void {
