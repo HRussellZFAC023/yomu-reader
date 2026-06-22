@@ -5534,4 +5534,19 @@ describe('SubtitlePlayerController frame-synced sampler lifecycle', () => {
             window.cancelAnimationFrame = realCancel;
         }
     });
+
+    it('exposes the bound video via getBoundVideo only while it is connected', () => {
+        const { controller, video } = setupInstalledVideoController(new DOMRect(0, 0, 390, 693));
+        try {
+            // The mining-pause path resolves the player to pause through this
+            // accessor, so it must return the bound video while attached and
+            // nothing once it is detached (e.g. a YouTube element swap).
+            document.body.append(video);
+            expect(controller.getBoundVideo()).toBe(video);
+            video.remove();
+            expect(controller.getBoundVideo()).toBeUndefined();
+        } finally {
+            controller.destroy();
+        }
+    });
 });

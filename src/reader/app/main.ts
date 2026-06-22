@@ -2098,7 +2098,11 @@ export class ReaderApp {
     // pause targets the exact player the overlay tracks (not an ad/preview/
     // miniplayer). The companion may be a lifecycle stub, hence the optional call.
     private boundSubtitleVideo(): HTMLVideoElement | undefined {
-        const subtitles = this.subtitles as unknown as { getBoundVideo?: () => HTMLVideoElement | undefined };
+        // Single `as {...}` cast (the same pattern as refreshParsedCueTexts) so
+        // the optional getBoundVideo stays statically visible to dead-code
+        // analysis: the companion is either the real controller (has it) or a
+        // lifecycle stub (does not).
+        const subtitles = this.subtitles as { getBoundVideo?: () => HTMLVideoElement | undefined };
         return subtitles.getBoundVideo?.();
     }
 
