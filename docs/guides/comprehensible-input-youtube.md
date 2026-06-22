@@ -8,33 +8,28 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is comprehensible input for Japanese?","acceptedAnswer":{"@type":"Answer","text":"Comprehensible input is Japanese you can mostly understand — roughly your current level plus a little new (i+1). You follow the gist from context, pictures and known words, and pick up the rest by exposure rather than by studying grammar tables. On YouTube that means channels pitched at or just above your level, like Comprehensible Japanese for beginners."}},{"@type":"Question","name":"How do I turn YouTube into a Japanese feed?","acceptedAnswer":{"@type":"Answer","text":"Install よむ and its YouTube immersion filter is on by default. It checks each video's original Japanese title via oEmbed and keeps Japanese-learning and comprehensible-input videos (even ones with English titles) while hiding cards that do not look Japanese across recommendations, search and sidebars. Press Alt+Y to toggle it on or off. Playback itself is never affected."}},{"@type":"Question","name":"What are the best Japanese YouTube channels for beginners?","acceptedAnswer":{"@type":"Answer","text":"For N5 beginners, Comprehensible Japanese (@cijapanese) is the canonical comprehensible-input channel, with Nihongo con Teppei, WAKU WAKU JAPANESE and Japanese with Shun close behind. よむ ships a curated starter guide of about 100 Japanese channels with one-tap subscribe links and a JLPT-level filter so you can find input at your level."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is comprehensible input for Japanese?","acceptedAnswer":{"@type":"Answer","text":"Japanese you can mostly understand — your current level plus a little new (i+1). On YouTube it means channels pitched at or just above your level, like Comprehensible Japanese for beginners."}},{"@type":"Question","name":"How do I turn YouTube into a Japanese feed?","acceptedAnswer":{"@type":"Answer","text":"Install よむ — the YouTube immersion filter is on by default, then toggles with Alt+Y."}},{"@type":"Question","name":"What are the best Japanese YouTube channels for beginners?","acceptedAnswer":{"@type":"Answer","text":"For N5, start with Comprehensible Japanese (@cijapanese), then Nihongo con Teppei, WAKU WAKU JAPANESE and Japanese with Shun — see the full N5→N1 list above."}}]}
 ---
 
 # Comprehensible input Japanese on YouTube: best channels and how to filter your feed
 
-If you want to learn Japanese by listening, YouTube is one of the best free resources there is — once you can find the right videos. This guide explains what *comprehensible input* actually means, shows how to retune your YouTube feed into a Japanese one, and gives a levelled list of channels from N5 to N1 you can subscribe to today.
+YouTube is one of the best free Japanese listening resources — once you can find the right videos. This guide explains what *comprehensible input* means, how to retune your feed into a Japanese one, and gives a levelled list of channels from N5 to N1 to subscribe to today.
 
 ## What comprehensible input means (and why i+1 matters)
 
-Comprehensible input is Japanese you can **mostly** understand. The idea, often written as **i+1**, is that you learn best from material that is roughly at your current level (*i*) plus a little bit new (*+1*). You follow the meaning from context, pictures, gesture and the words you already know, and you absorb the new pieces by exposure rather than by memorising rules in isolation.
+Comprehensible input is Japanese you can **mostly** understand. The idea, often written **i+1**, is that you learn best from material roughly at your current level (*i*) plus a little new (*+1*): you follow the meaning from context, pictures, gesture and known words, and absorb the new pieces by exposure rather than by memorising rules in isolation.
 
-The practical takeaway: pick videos where you understand most of what is happening. If you are lost the whole time, the video is too hard — drop down a level. If every word is obvious, nudge up. The list further down is grouped by JLPT level so you can do exactly that.
+The practical takeaway: pick videos where you understand most of what is happening. Lost the whole time? Too hard — drop a level. Every word obvious? Nudge up. The list below is grouped by JLPT level so you can do exactly that.
 
 ## Turn YouTube into a Japanese feed
 
-The hard part of YouTube immersion is that the homepage keeps serving you whatever you usually watch. よむ fixes this with a **YouTube immersion filter** that reshapes the feed instead of fighting it.
+YouTube's homepage keeps serving whatever you usually watch. よむ's **YouTube immersion filter** reshapes the feed: it's on by default, checks each video's original Japanese title via oEmbed (keeping Japanese-learning videos even with English titles), hides non-Japanese cards across the homepage, search and sidebar, and toggles with **Alt+Y** — all without touching playback. Full details on the [features](/features) page.
 
 <figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-filter.png'" alt="YouTube homepage with non-Japanese video cards filtered out by よむ"><figcaption>The immersion filter keeps Japanese and comprehensible-input videos and hides the rest.</figcaption></figure>
 
-- **On by default.** Once installed, it works straight away on the homepage, search results and the sidebar recommendations.
-- **Smart, not blunt.** It checks each video's original Japanese title via oEmbed, so it keeps Japanese-learning and comprehensible-input videos **even when they have English titles**, and hides cards that do not look Japanese.
-- **Alt+Y to toggle.** Flip it off for a moment, then back on — handy when you want to look something up in your own language.
-- **Playback is untouched.** The filter only affects which cards you see. It never breaks the player, captions or controls.
-
 <figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-cij.png'" alt="A Comprehensible Japanese video playing with the よむ subtitle overlay"><figcaption>A beginner CI video with the tappable subtitle overlay running.</figcaption></figure>
 
-It also ships a dismissible **starter guide of about 100 curated Japanese channels** with one-tap subscribe links and a **JLPT-level filter**, so you can build a feed at your level in a couple of minutes. The list below is a representative subset of that guide.
+It also ships a dismissible **starter guide of about 100 curated Japanese channels** with one-tap subscribe links and a **JLPT-level filter**. The list below is a representative subset.
 
 ## A levelled channel list (N5 → N1)
 
@@ -82,12 +77,12 @@ Subscribe to a handful at your level, then let the filter and recommendations do
 
 ## How to actually study with these channels
 
-Watching is the foundation, but you learn faster when you can look words up without leaving the video.
+Watching is the foundation, and looking words up in place makes it stick faster.
 
-1. **Watch for the gist first.** Pick a video where you follow most of it. Do not pause on every word the first time through.
-2. **Turn on the subtitle overlay.** よむ turns each Japanese subtitle line into tappable words, shows a second native-language line, and gives you a transcript panel with the active line highlighted — so a lookup is one tap.
-3. **Tap to look up.** Reading, meaning, pitch accent, frequency and example sentences appear in the popup; no need to copy text out.
-4. **Mine the keepers.** When a sentence is *almost* fully known except one new word, send it to Jiten, JPDB, or Anki straight from the popup. That is i+1 turned into a flashcard.
+1. **Watch for the gist first.** Pick a video you follow most of, and don't pause on every word the first time through.
+2. **Turn on the subtitle overlay.** よむ turns each Japanese subtitle line into tappable words, shows a second native-language line, and gives a transcript panel with the active line highlighted.
+3. **Tap to look up.** Reading, meaning, pitch accent, frequency and example sentences appear in the popup.
+4. **Mine the keepers.** When a sentence is *almost* fully known except one new word, send it to Jiten, JPDB, or Anki from the popup — i+1 turned into a flashcard.
 
 <div class="yomu-callout"><strong>Tip:</strong> Re-watch favourites. The second pass of a slightly-hard video is often where it tips from "mostly understood" into "comfortable" — and that is exactly where comprehensible input does its work.</div>
 
@@ -95,15 +90,15 @@ Watching is the foundation, but you learn faster when you can look words up with
 
 ### What is comprehensible input for Japanese?
 
-Comprehensible input is Japanese you can mostly understand — roughly your current level plus a little new (i+1). You follow the gist from context, pictures and known words, and pick up the rest by exposure rather than by studying grammar tables. On YouTube that means channels pitched at or just above your level, like Comprehensible Japanese for beginners.
+Japanese you can mostly understand — your current level plus a little new (i+1). See [the section above](#what-comprehensible-input-means-and-why-i-1-matters); on YouTube it means channels pitched at or just above your level, like Comprehensible Japanese for beginners.
 
 ### How do I turn YouTube into a Japanese feed?
 
-Install よむ and its YouTube immersion filter is on by default. It checks each video's original Japanese title via oEmbed and keeps Japanese-learning and comprehensible-input videos (even ones with English titles) while hiding cards that do not look Japanese across recommendations, search and sidebars. Press Alt+Y to toggle it on or off. Playback itself is never affected.
+Install よむ — the YouTube immersion filter is on by default, then toggles with Alt+Y. See [Turn YouTube into a Japanese feed](#turn-youtube-into-a-japanese-feed) above and the [features](/features) page.
 
 ### What are the best Japanese YouTube channels for beginners?
 
-For N5 beginners, Comprehensible Japanese (@cijapanese) is the canonical comprehensible-input channel, with Nihongo con Teppei, WAKU WAKU JAPANESE and Japanese with Shun close behind. よむ ships a curated starter guide of about 100 Japanese channels with one-tap subscribe links and a JLPT-level filter so you can find input at your level.
+For N5, start with Comprehensible Japanese (@cijapanese), then Nihongo con Teppei, WAKU WAKU JAPANESE and Japanese with Shun — see the full N5→N1 list above.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>

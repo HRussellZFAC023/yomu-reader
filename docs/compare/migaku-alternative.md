@@ -8,26 +8,25 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is よむ really a free alternative to Migaku?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ is free and runs as a browser userscript. It covers the core immersion loop — popup lookup, furigana, subtitle mining on video, manga OCR, imported Yomitan dictionaries, Jiten/JPDB support and Anki mining — with no subscription and no account needed to start. Migaku is a separate paid, integrated suite; see migaku.com for its features and pricing."}},{"@type":"Question","name":"Does よむ do everything Migaku does?","acceptedAnswer":{"@type":"Answer","text":"No, and it does not try to. よむ focuses on reading and mining in the browser and asks you to bring your own Jiten, JPDB, Anki and Yomitan dictionaries. Migaku is a polished, integrated product some people prefer for an all-in-one experience. If you want a free option for the core loop, よむ is a good place to start."}},{"@type":"Question","name":"Can I mine to Jiten, JPDB and Anki with よむ?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ creates Anki cards through AnkiConnect (word, reading, meaning, source sentence, audio and an optional image), supports Jiten review actions, and can send Jiten/JPDB actions such as add word, never-forget, blacklist and review grades. These integrations are optional — you can use よむ without them."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Is よむ really a free alternative to Migaku?","acceptedAnswer":{"@type":"Answer","text":"Yes — it covers the core loop above free, no account. Migaku is a separate paid, integrated suite; see migaku.com for its features and pricing."}},{"@type":"Question","name":"Does よむ do everything Migaku does?","acceptedAnswer":{"@type":"Answer","text":"No, and it does not try to. It focuses on browser reading and mining with your own Jiten, JPDB, Anki and Yomitan dictionaries; Migaku is the all-in-one suite some people prefer."}},{"@type":"Question","name":"Can I mine to Jiten, JPDB and Anki with よむ?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ creates Anki cards through AnkiConnect (word, reading, meaning, source sentence, audio and an optional image), supports Jiten review actions, and sends Jiten/JPDB actions such as add word, never-forget, blacklist and review grades. These integrations are optional."}}]}
 ---
 
 # A free alternative to Migaku for Japanese immersion
 
-If you have been looking at [Migaku](https://migaku.com) and want a **free option** that covers
-the day-to-day immersion loop, よむ is worth a look. It runs as a browser userscript
-(Tampermonkey on desktop, the Userscripts app on iPhone and iPad), it is free, and you do not
-need an account to start reading.
+Looking at [Migaku](https://migaku.com) and want a **free option** for the day-to-day immersion
+loop? よむ runs as a browser userscript (Tampermonkey on desktop, the Userscripts app on iPhone
+and iPad), is free, and needs no account to start reading.
 
-This page is an honest comparison. Migaku is a polished, paid, integrated suite, and plenty of
-people happily pay for it. よむ takes a different shape: it is **read-first and free**, and it
-expects you to bring your own Jiten, JPDB, Anki and Yomitan dictionaries rather than bundling everything
-into one subscription. If that trade suits you, read on.
+This is an honest comparison. Migaku is a polished, paid, integrated suite that plenty of people
+happily pay for. よむ takes a different shape: it is **read-first and free**, and expects you to
+bring your own Jiten, JPDB, Anki and Yomitan dictionaries rather than bundling everything into one
+subscription.
 
 ## What "the core immersion loop" means
 
-Most immersion tools, paid or free, revolve around the same cycle: encounter Japanese, look a
-word up instantly, understand it in context, and save the ones worth remembering into a spaced
-repetition system. よむ covers each step of that loop in the browser:
+Most immersion tools revolve around the same cycle: encounter Japanese, look a word up instantly,
+understand it in context, and save the ones worth remembering into a spaced repetition system. よむ
+covers each step in the browser:
 
 - **Popup lookup** — tap, select or hover Japanese text to see reading, meaning, pitch accent,
   frequency, Jiten definitions, optional JPDB data, your imported Yomitan entries, audio and example sentences.
@@ -63,8 +62,7 @@ features and pricing rather than trusting a third-party summary.
 
 ## "Bring your own" — what that means in practice
 
-よむ is deliberately not a closed ecosystem. The pieces it connects to are tools many learners
-already run:
+よむ is deliberately not a closed ecosystem. It connects to tools many learners already run:
 
 - **Yomitan dictionaries** — import the same Yomitan ZIPs and JMdict files you would use
   elsewhere. They stay in your browser; nothing is uploaded.
@@ -73,22 +71,20 @@ already run:
 - **Jiten/JPDB** — if you use either source, add words, mark never-forget or blacklist, and send review grades
   from the popup.
 
-Because these are optional, you can also just install よむ and start reading with the built-in
-lookup, then add Jiten, JPDB, or Anki later when you are ready to mine.
+Because these are optional, you can install よむ and start reading with the built-in lookup, then
+add Jiten, JPDB, or Anki later when you mine.
 
 ## Where Migaku may suit you better
 
-To be fair: if you want one tightly integrated app that bundles dictionaries, an SRS, browser
-extensions and media tooling under a single account and support channel, that integrated
-experience is exactly what a paid suite like Migaku offers. よむ does not try to replicate every
-part of that. It aims to be the free, capable reader at the centre of the loop, not a full
-ecosystem replacement.
+A paid suite like Migaku bundles dictionaries, an SRS, browser extensions and media tooling under
+a single account and support channel. よむ does not replicate that integrated experience — it aims
+to be the free, capable reader at the centre of the loop.
 
 ## How to try よむ free
 
 1. Install a userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad).
-2. Install よむ from the link below — no account, no subscription.
-3. Open a Japanese page and tap a word to see the popup. That is the whole loop, running free.
+2. Install よむ from the link below.
+3. Open a Japanese page and tap a word to see the popup.
 
 From there, explore [subtitle mining on video](/tools/japanese-subtitle-reader),
 [manga and image OCR](/tools/japanese-ocr), or jump into a guide to set up mining.
@@ -97,23 +93,19 @@ From there, explore [subtitle mining on video](/tools/japanese-subtitle-reader),
 
 ### Is よむ really a free alternative to Migaku?
 
-Yes. よむ is free and runs as a browser userscript. It covers the core immersion loop — popup
-lookup, furigana, subtitle mining on video, manga OCR, imported Yomitan dictionaries and
-Jiten/JPDB support and Anki mining — with no subscription and no account needed to start. Migaku is a separate paid,
-integrated suite; see migaku.com for its features and pricing.
+Yes — it covers the [core loop above](#what-the-core-immersion-loop-means) free, no account.
+Migaku is a separate paid, integrated suite; see migaku.com for its features and pricing.
 
 ### Does よむ do everything Migaku does?
 
-No, and it does not try to. よむ focuses on reading and mining in the browser and asks you to
-bring your own Jiten, JPDB, Anki and Yomitan dictionaries. Migaku is a polished, integrated product some
-people prefer for an all-in-one experience. If you want a free option for the core loop, よむ is a
-good place to start.
+No, and it does not try to. It focuses on browser reading and mining with your own Jiten, JPDB,
+Anki and Yomitan dictionaries; Migaku is the all-in-one suite some people prefer.
 
 ### Can I mine to Jiten, JPDB and Anki with よむ?
 
 Yes. よむ creates Anki cards through AnkiConnect (word, reading, meaning, source sentence, audio
 and an optional image), supports Jiten review actions, and sends Jiten/JPDB actions such as add word,
-never-forget, blacklist and review grades. These integrations are optional — you can use よむ without them.
+never-forget, blacklist and review grades. These integrations are optional.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>

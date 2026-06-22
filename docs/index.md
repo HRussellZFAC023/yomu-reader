@@ -60,7 +60,7 @@ features:
   <div class="yomu-demo-copy">
     <p class="yomu-eyebrow">See it in action</p>
     <h2 id="yomu-demo-title">On the go or at home,<br>read what you love in Japanese</h2>
-    <p>Tap a word while you read. よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences — then lets you save it and keep going, without leaving the page.</p>
+    <p>Tap a word while you read. よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences, then saves it and lets you keep going.</p>
     <p class="yomu-demo-actions">
       <a class="yomu-cta" href="https://yomureader.com/yomu.user.js">Install よむ — free</a>
       <a class="yomu-cta-ghost" href="/getting-started">Setup guide</a>
@@ -84,9 +84,9 @@ features:
 
 ## What It Does
 
-よむ runs inside your browser. Tap or hover Japanese text, subtitle lines, or text inside manga images and PDFs to open a clean popup with readings, meanings, kanji, pitch, audio, examples, and save actions.
+Tap or hover Japanese on web pages, manga images, PDFs, and video subtitles to open one popup with readings, meanings, kanji, pitch, audio, examples, and save actions.
 
-Start with lookup. Add local dictionaries, Anki, OCR, subtitles, and the study page only when they help you keep reading. On mobile, the floating よむ button stays reachable so settings and tools are never far away.
+Add local dictionaries, Anki, OCR, subtitles, and the study page when you need them. On mobile, the floating よむ button keeps settings and tools reachable.
 
 <div class="yomu-try-me">
   <strong>Try me</strong>
@@ -101,7 +101,7 @@ Start with lookup. Add local dictionaries, Anki, OCR, subtitles, and the study p
   <div class="yomu-try-manga-head">
     <p class="yomu-eyebrow">OCR · manga &amp; images</p>
     <strong>Tap the text inside a manga page</strong>
-    <p>よむ reads the Japanese inside images with OCR, adds furigana, and makes every word tappable — the same popup dictionary you get on any page. Try it: tap a word in the panel.</p>
+    <p>よむ reads the Japanese inside images with OCR, adds furigana, and makes every word tappable — the same popup as any page. Tap a word in the panel.</p>
   </div>
   <div class="yomu-manga" data-yomu-furigana-mode="all" role="group" aria-label="Sample manga panel — tap any Japanese word to look it up">
     <span class="yomu-manga-scan" aria-hidden="true"></span>

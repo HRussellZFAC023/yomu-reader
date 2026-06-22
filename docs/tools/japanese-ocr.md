@@ -13,19 +13,15 @@ head:
 
 # Japanese OCR & Manga Text Reader
 
-Most Japanese OCR tools make you upload an image, wait, and copy text into a separate dictionary. よむ skips all of that: it reads the Japanese **in place**, so you tap a word right where you see it and the dictionary opens over the image.
-
-That makes it a practical way to read **manga**, **screenshots**, **game captures**, and **image-only pages** where normal text selection does nothing.
+Most Japanese OCR tools make you upload an image, wait, and copy text into a separate dictionary. よむ reads the Japanese **in place** for free: tap a word right where you see it and the dictionary opens over the image. That makes it a practical way to read **manga**, **screenshots**, **game captures**, and **image-only pages** where normal text selection does nothing.
 
 <div class="yomu-callout">
-  <strong>In one line:</strong> point よむ at an image with Japanese in it, and every word becomes tappable — readings, meanings, kanji, audio, and mining, without leaving the page.
+  <strong>In one line:</strong> point よむ at an image with Japanese in it and every word becomes tappable — readings, meanings, kanji, audio, and mining.
 </div>
 
 ## How it works
 
-When you open an image, よむ finds the Japanese text and lays invisible touch targets over it. The picture stays exactly as it was; nothing is drawn on top until you tap or hover. Tap a word and the normal よむ popup opens with the reading, meaning, kanji breakdown, audio, and mining buttons.
-
-There are two ways よむ gets the text:
+When you open an image, よむ finds the Japanese text and lays invisible touch targets over it. The picture stays exactly as it was; nothing is drawn on top until you tap or hover. Tap a word and the normal よむ popup opens with the reading, meaning, kanji breakdown, audio, and mining buttons. Two ways よむ gets the text:
 
 - **Embedded OCR metadata.** Some sites and tools (for example Mokuro-processed manga) ship the recognized text alongside the image. よむ uses it directly — instant, accurate, and nothing leaves your device.
 - **A local OCR engine.** Point よむ at a local OCR app or server and it can recognize text on demand. It understands engines such as **MangaOCR**, **PaddleOCR**, Apple Vision–style results, and **YomiNinja**-shaped responses.
@@ -53,9 +49,7 @@ The image itself is **not** uploaded anywhere unless you turn on a local OCR end
 
 ## Questions
 
-**Can I look up Japanese inside manga images?** Yes — tap any word in the panel and the dictionary opens over it.
-
-**Is it free?** Yes. よむ is a free userscript; the local OCR engines it talks to are also free, open-source projects.
+**Do I need a paid OCR service?** No — the local OCR engines よむ talks to (MangaOCR, PaddleOCR, YomiNinja) are free, open-source projects you run yourself.
 
 **Does my image get uploaded?** Only if you enable a local OCR endpoint you control. Otherwise nothing leaves your device.
 

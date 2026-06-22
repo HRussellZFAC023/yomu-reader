@@ -6,7 +6,7 @@ Amended 2026-06-06.
 
 ## Context
 
-Yomu runs as a Tampermonkey/Greasemonkey userscript. Users should be able to install one script and get the default reader, lookup, subtitle, dictionary, and study behavior without a backend service. Greasy Fork also requires readable source, so size pressure must not be solved with minification, packing, or obfuscation.
+Yomu runs as a Tampermonkey/Greasemonkey userscript. Installing one script must give the default reader, lookup, subtitle, dictionary, and study behavior without a backend service. Greasy Fork requires readable source, so size pressure must not be solved with minification, packing, or obfuscation.
 
 ## Decision
 

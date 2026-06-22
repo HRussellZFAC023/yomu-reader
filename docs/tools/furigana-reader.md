@@ -8,12 +8,12 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I add furigana to any Japanese web page?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ parses Japanese text on the page and renders furigana above kanji. You can show furigana for every word, only for harder kanji, or hide it for words you already know."}},{"@type":"Question","name":"Does furigana work on manga and video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes. Because manga read through OCR and video subtitles become the same tappable text as a normal page, furigana settings apply to them too."}},{"@type":"Question","name":"Is the furigana reader free?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ is a free userscript and adds furigana without an account."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I add furigana to any Japanese web page?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ adds furigana to any Japanese web page for free, and you choose how much shows: all words, hard kanji only, or hide it for words you already know."}},{"@type":"Question","name":"Does furigana work on manga and video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes — manga read through OCR and video subtitles become the same tappable text, so furigana settings apply there as well."}},{"@type":"Question","name":"Is the furigana reader free?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ is a free userscript and adds furigana with no account."}}]}
 ---
 
 # Furigana Reader for Any Japanese Page
 
-Furigana — the small kana printed above kanji — is the fastest way to keep reading when a word's pronunciation is the only thing slowing you down. よむ adds furigana to **any** Japanese web page, and you control exactly how much help shows.
+Furigana — the small kana above kanji — keeps you reading when pronunciation is all that's slowing you down. よむ adds furigana to **any** Japanese web page for free, with no account, and you control exactly how much shows.
 
 <div class="yomu-callout">
   <strong>Try it:</strong> the text below has furigana rendered by よむ. Install the userscript and the same thing happens on real pages, manga, and subtitles.
@@ -32,19 +32,15 @@ Furigana — the small kana printed above kanji — is the fastest way to keep r
 Furigana and word coloring are separate controls, so you can dial reading support to your exact level:
 
 - **All words** — furigana above everything. Good for absolute beginners and read-alouds.
-- **Hard kanji only** — show readings only for less common kanji, so the easy words stay clean.
-- **Hide for known words** — once you've learned a word (via Jiten, JPDB, or Anki), its furigana disappears, nudging you toward recall.
-- **Off** — turn furigana off entirely and rely on tap-to-look-up instead.
+- **Hard kanji only** — readings only for less common kanji, so easy words stay clean.
+- **Hide for known words** — once you've learned a word (via Jiten, JPDB, or Anki), its furigana disappears, nudging recall.
+- **Off** — rely on tap-to-look-up instead.
 
-Because furigana is generated from the same parser that powers lookup, every word stays **tappable**: see the reading above it, and tap for the full meaning, kanji breakdown, pitch, audio, and mining.
+Furigana comes from the same parser that powers lookup, so every word stays **tappable**: tap for the full meaning, kanji breakdown, pitch, audio, and mining.
 
 ## Works everywhere you read
 
-The same furigana settings apply across all of よむ's reading surfaces:
-
-- Normal **web pages** and articles
-- **Manga** read through [OCR](/tools/japanese-ocr)
-- **Video subtitles** on YouTube and your own [video files](/tools/japanese-subtitle-reader)
+The same furigana settings apply across every [reading surface](/tools/): web pages, **manga** read through [OCR](/tools/japanese-ocr), and **video subtitles** on YouTube and your own [video files](/tools/japanese-subtitle-reader).
 
 ## Set it up
 
@@ -54,11 +50,9 @@ The same furigana settings apply across all of よむ's reading surfaces:
 
 ## Questions
 
-**Can I add furigana to any web page?** Yes — よむ parses the Japanese on the page and renders readings above kanji.
+**Does furigana work on manga and subtitles too?** Yes — manga read through [OCR](/tools/japanese-ocr) and video subtitles become the same tappable text, so furigana settings apply there as well.
 
-**Will it show furigana only for hard words?** Yes — pick "hard kanji only," or hide furigana for words you've already learned.
-
-**Is it free?** Yes. よむ is a free userscript and needs no account for furigana.
+**Will it show furigana only for hard words?** Yes — pick "hard kanji only," or hide furigana for words you've already learned in Jiten, JPDB, or Anki.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>

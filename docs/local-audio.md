@@ -12,13 +12,11 @@ description: Add Japanese word audio to よむ. Use a hosted Yomitan-compatible 
 | The easiest setup | Use the hosted Ultimate Yomitan Audio URL |
 | Audio files stored on your own computer | Download and run the local audio server |
 
-<div class="yomu-callout">
-  <strong>Short version:</strong> use the hosted option if you want the least fuss. Use the local server only if you are okay keeping a small helper app running on your computer.
-</div>
+The hosted option is the least fuss. Use the local server only if you're okay keeping a small helper app running on your computer.
 
 ## Easiest: Hosted Audio
 
-[Ultimate Yomitan Audio Source](https://animecards.site/yomitan_audio/) gives you a personal audio URL after you subscribe through Patreon and authenticate. That URL already works with よむ, so you do not need to download audio files or run anything on your computer.
+[Ultimate Yomitan Audio Source](https://animecards.site/yomitan_audio/) gives you a personal audio URL after you subscribe through Patreon and authenticate. That URL works with よむ directly — no audio files to download and nothing to run on your computer.
 
 Add it to よむ:
 
@@ -43,7 +41,7 @@ The server download is here:
 
 [Yomichan/Yomitan Audio Server releases](https://github.com/HRussellZFAC023/yomichan_audio_server/releases/latest)
 
-Do not use the green Code button on GitHub. That downloads developer source code. Normal users want the latest file from the Releases page.
+Don't use the green Code button on GitHub — that downloads developer source code. Take the latest file from the Releases page.
 
 ## Step 1: Download the Server
 
@@ -164,14 +162,7 @@ Jiten/JPDB and browser text-to-speech rows are fallback-only by default, so **Sh
 
 ## Using an iPad or Another Device
 
-`localhost` means "this device."
-
-That means:
-
-- On your computer, `localhost:9393` means the computer running the audio server.
-- On your iPad, `localhost:9393` means the iPad, not your computer.
-
-To use your computer's audio server from an iPad, phone, or second computer, use [Tailscale](https://tailscale.com/downloads).
+On a phone or iPad, `localhost:9393` means *that device*, not the computer running the server (see [desktop helpers on mobile](/getting-started)). To reach your computer's audio server from another device, use [Tailscale](https://tailscale.com/downloads).
 
 Basic setup:
 
@@ -210,4 +201,4 @@ Tailscale Serve keeps the server private to your own Tailscale account. You do n
 - Make sure the audio folder names were not changed.
 - If the browser test does not load, start the server again.
 - If iPad playback fails, use the Tailscale URL, not `localhost`.
-- If this setup feels like too much, use the hosted audio option at the top of this page. It is much easier.
+- If this setup feels like too much, use the [hosted audio option](#easiest-hosted-audio) at the top of this page.

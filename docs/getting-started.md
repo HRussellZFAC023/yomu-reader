@@ -5,19 +5,11 @@ description: Install よむ in three steps — add a free userscript manager (Ta
 
 # Getting Started
 
-New to userscripts? You're in the right place — this guide assumes you've never installed one.
-
-A **userscript** is a small add-on that runs inside your browser. You install a free manager once, add よむ to it, and from then on よむ appears on Japanese pages: tap a word for a popup dictionary, save words for review, read manga with OCR, and look up subtitles on video.
-
-<div class="yomu-callout">
-  <strong>The whole setup, in one line:</strong> install a userscript manager → install よむ → open a Japanese page → tap a word. It's free, and you don't need an account to start.
-</div>
+A **userscript** is a small add-on that runs inside your browser. Install a free manager once, add よむ to it, and よむ appears on Japanese pages: tap a word for a popup dictionary, save words for review, read manga with OCR, and look up subtitles on video. It's free and needs no account to start.
 
 ## Three words to know
 
-You'll meet more later, but these three get you reading:
-
-- **Userscript manager** — the browser add-on that runs よむ. You'll install Tampermonkey (computer) or Userscripts (iPhone/iPad).
+- **Userscript manager** — the browser add-on that runs よむ: Tampermonkey (computer) or Userscripts (iPhone/iPad).
 - **Lookup** — tapping or hovering a word to open よむ's popup.
 - **Mining** — saving a word, with its sentence, for later review.
 
@@ -51,15 +43,13 @@ Use **Userscripts**, a free and open-source app. (Tampermonkey for Safari also w
 
 ### On a computer
 
-Click the link above. Tampermonkey opens an install screen for a script called よむ. Click **Install**. That's it — open a Japanese page and skip to [your first lookup](#step-3-your-first-lookup).
+Click the link above. Tampermonkey opens an install screen for よむ. Click **Install**, then open a Japanese page and skip to [your first lookup](#step-3-your-first-lookup).
 
 To update later, open the same link again and let Tampermonkey replace the old version.
 
 ### On iPhone or iPad
 
-This is the part people get stuck on, so here's exactly what happens.
-
-1. Tap the install link. **Safari shows a page full of code** — lines like the ones below. **This is normal. Don't close it.** This page is what Userscripts reads to install よむ.
+1. Tap the install link. **Safari shows a page full of code** — lines like the ones below. **This is normal. Don't close it.** Userscripts reads this page to install よむ.
 
    ```text
    // ==UserScript==
@@ -102,7 +92,7 @@ Choose **Use without API key**, then try a lookup:
   </div>
 </div>
 
-That's the whole loop: see a word, understand it, keep reading. Everything below is optional.
+That's the whole loop. Everything below is optional.
 
 ## Add an API source (optional)
 
@@ -176,13 +166,13 @@ For more, skim these community threads: [Tadoku graded readers](https://www.redd
 
 Most of よむ works the same on mobile: lookup, local dictionaries, Jiten/JPDB, OCR, subtitle taps, the [video player](/video-player/index.html), and the [study page](/newtab/index.html). Tapping is the main gesture, since touch screens have no hover. The floating よむ button stays reachable so you can always open settings.
 
-The one thing that's different is **desktop helpers**. Anything that runs on your computer — AnkiConnect, a self-hosted audio server, a local OCR app — has to be reachable over the network. On a phone, `localhost` means *the phone*, not your computer, so you point よむ at your computer's LAN or Tailscale address instead. The easy mobile paths (public lookup, imported dictionaries, hosted audio, the study page) don't need any of that.
+The difference is **desktop helpers**. Anything that runs on your computer — AnkiConnect, a self-hosted audio server, a local OCR app — has to be reachable over the network. On a phone, `localhost` means *the phone*, not your computer, so you point よむ at your computer's LAN or Tailscale address instead. The easy mobile paths (public lookup, imported dictionaries, hosted audio, the study page) don't need any of that.
 
 ### Use desktop Anki from a phone, iPad, or Android
 
-You don't need AnkiMobile or AnkiDroid for full Anki status on mobile. The full setup keeps Anki open on your computer and lets your phone talk to it. Your phone is just the reading screen; desktop AnkiConnect still handles existing-card status, note updates, media, deck scans, and review queues.
+You don't need AnkiMobile or AnkiDroid for full Anki status on mobile. Keep Anki open on your computer and let your phone talk to it; your phone is just the reading screen, while desktop AnkiConnect handles existing-card status, note updates, media, deck scans, and review queues.
 
-The easiest private route is [Tailscale](https://tailscale.com/): it gives your own devices a private address so they can see each other, even away from home. You do not need router setup, port forwarding, or a command line. Install it on the computer that runs Anki and on the phone or tablet that runs よむ.
+The easiest private route is [Tailscale](https://tailscale.com/): it gives your own devices a private address so they can see each other, even away from home — no router setup, port forwarding, or command line. Install it on the computer that runs Anki and on the phone or tablet that runs よむ.
 
 Below, replace every `100.x.y.z` with your computer's Tailscale address. It usually starts with `100.`. You can also use the Tailscale device name if MagicDNS is enabled, such as `desktop-name.tailnet-name.ts.net`.
 
@@ -211,7 +201,7 @@ Don't put AnkiConnect on the public internet or forward port `8765` on your rout
 
 ### Mobile handoff (new notes only)
 
-If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. Mobile Anki handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. Leave **Mobile Anki add-note fallback** on or off as you like; it only controls this fallback path.
+If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. This handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. **Mobile Anki add-note fallback** controls this path; leave it on or off as you like.
 
 ## Back up your settings
 

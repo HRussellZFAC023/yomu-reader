@@ -9,9 +9,7 @@ head:
 
 # Free Japanese Learning Tools
 
-よむ bundles a set of free Japanese reading tools into one browser add-on. Each one is built for a real moment of immersion — a word you can't read, a manga panel with no selectable text, a video line going by too fast, a kanji you want to break down. They all share the same popup, so you stay inside whatever you're reading.
-
-Everything here is **free**, runs **in your browser**, and needs **no account** to start. Pick the tool that matches what you're trying to do:
+よむ bundles a set of Japanese reading tools into one browser add-on, each built for a real moment of immersion: a word you can't read, a manga panel with no selectable text, a fast subtitle line, a kanji to break down. They share one popup, so you stay inside whatever you're reading. Everything here is **free**, runs **in your browser**, and needs **no account**. Pick the tool that matches your goal:
 
 <div class="yomu-link-grid">
   <a class="yomu-link-card" href="/tools/japanese-ocr">
@@ -42,9 +40,9 @@ Everything here is **free**, runs **in your browser**, and needs **no account** 
 
 ## How the tools fit together
 
-The workflow is always the same loop: **find Japanese → understand it in context → save the useful words.** A normal web page, a manga page read through OCR, and a video subtitle line all become the same kind of tappable text, so the dictionary, audio, kanji breakdown, and mining buttons work everywhere without you learning a different interface for each one.
+The loop is always the same: **find Japanese → understand it in context → save the useful words.** A web page, a manga page read through OCR, and a video subtitle line all become the same tappable text, so the dictionary, audio, kanji breakdown, and mining buttons work everywhere — one interface, not six.
 
-You can use a single tool and ignore the rest. Read manga with just OCR, or watch YouTube with just the immersion filter, or look words up with just the dictionary. They only connect when you want them to.
+Use a single tool and ignore the rest: just OCR for manga, just the immersion filter for YouTube, just the dictionary for lookups. They connect only when you want them to.
 
 ## What you need
 

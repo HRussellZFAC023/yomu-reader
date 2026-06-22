@@ -6,9 +6,9 @@ Amended 2026-06-03.
 
 ## Context
 
-Greasy Fork limits scripts to 2 MB. The build verification already warns as the bundle approaches that ceiling.
+Greasy Fork limits scripts to 2 MB, and build verification already warns as the bundle approaches that ceiling.
 
-Current release state: the readable hosted build can exceed Greasy Fork's 2 MB upload limit while staying non-minified. `npm run verify` warns loudly near the cap and fails while Greasy Fork upload would be over budget.
+The readable hosted build can exceed Greasy Fork's 2 MB upload limit while staying non-minified. `npm run verify` warns loudly near the cap and fails while Greasy Fork upload would be over budget.
 
 ## Decision
 

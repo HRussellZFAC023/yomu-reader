@@ -9,9 +9,8 @@ head:
 
 # Japanese Immersion Guides
 
-Tools are only half the story — these guides show the **workflows**. Each one walks a real
-immersion task end to end, using free software and no account to start, and points you at the
-よむ tool that does the heavy lifting.
+These guides show the **workflows**: each walks a real immersion task end to end with free
+software and no account, and points you at the よむ tool that does the heavy lifting.
 
 New here? Start with the [setup guide](/getting-started), then pick a workflow:
 
@@ -40,9 +39,8 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
 
 ## How to use these
 
-The guides assume the same loop everywhere: **find Japanese you mostly understand, look up only
-what blocks you, and save the words worth keeping.** You don't need to read them in order — jump
-to the one that matches what you're trying to do today.
+Every guide assumes the same loop: **find Japanese you mostly understand, look up only what
+blocks you, and save the words worth keeping.** Read them in any order — jump to today's task.
 
 If you haven't installed よむ yet, that's step zero for all of them:
 

@@ -14,9 +14,9 @@ Yomu must remain reviewable and offline-capable while fitting multiple distribut
 - Firefox AMO continues to require reviewable source and reviewable dependency provenance for add-on submissions.
 - Safari extensions are distributed as packaged, reviewable extensions through Xcode/App Store Connect workflows.
 
-The `v0.6.25` Greasy Fork-ready build was 1,997,697 bytes, leaving only 3,003 bytes under the 2,000,000 byte cap. The measured size pressure is overwhelmingly first-party Yomu feature code rather than third-party libraries. The largest buckets are subtitles/YouTube, settings UI, DOM/popup/i18n, main/bootstrap, Anki, local dictionaries/Yomitan, kanji/origin graph, JPDB/parser/API, immersion/study, OCR, and audio. Third-party dependencies were roughly 13 KB rendered, mostly `fflate`.
+The `v0.6.25` Greasy Fork-ready build was 1,997,697 bytes, leaving only 3,003 bytes under the 2,000,000 byte cap. Size pressure is overwhelmingly first-party Yomu feature code, not third-party libraries. The largest buckets are subtitles/YouTube, settings UI, DOM/popup/i18n, main/bootstrap, Anki, local dictionaries/Yomitan, kanji/origin graph, JPDB/parser/API, immersion/study, OCR, and audio. Third-party dependencies were roughly 13 KB rendered, mostly `fflate`.
 
-The current single userscript has therefore reached the point where normal maintenance can consume the remaining Greasy Fork headroom. A post-build whitespace/syntax compactor could squeeze the `v0.6.27` artifact to roughly 1,999 KB, but the policy-readable Vite output is now 2,499,442 bytes. Identifier minification, obfuscation, executable-code compression, whitespace/syntax compaction, or turning the userscript into a loader would violate the project constraints or leave too little durable headroom. This is evidence for splitting the architecture rather than treating the build step as a size workaround.
+The single userscript has therefore reached the point where normal maintenance can consume the remaining Greasy Fork headroom. A post-build whitespace/syntax compactor could squeeze the `v0.6.27` artifact to roughly 1,999 KB, but the policy-readable Vite output is now 2,499,442 bytes. Identifier minification, obfuscation, executable-code compression, whitespace/syntax compaction, or turning the userscript into a loader would violate the project constraints or leave too little durable headroom. This argues for splitting the architecture rather than treating the build step as a size workaround.
 
 ## Decision
 
@@ -37,7 +37,7 @@ Adopt a multi-surface, multi-script architecture:
 
 ## Consequences
 
-- Greasy Fork users get real byte headroom without sacrificing reviewability because first-party libraries remain visible Greasy Fork code and are cached by userscript managers.
+- Greasy Fork users get real byte headroom without sacrificing reviewability, because first-party libraries remain visible Greasy Fork code cached by userscript managers.
 - Extension users keep the full offline-capable product as one packaged install.
 - Feature boundaries become release boundaries. Cross-feature imports must be replaced with explicit contracts before a feature can become a library script.
 - Shared code must stay small and stable. If a helper grows large, prefer duplicating a tiny stable adapter over forcing every companion script to include a large shared module.

@@ -8,12 +8,12 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the よむ new-tab study page?","acceptedAnswer":{"@type":"Answer","text":"It is an optional study screen you can open as your browser new-tab or home page. It reviews Anki words when AnkiConnect is reachable, then Jiten and JPDB, then local dictionary words, so you study a little every time you open a tab."}},{"@type":"Question","name":"Do I need an account to use it?","acceptedAnswer":{"@type":"Answer","text":"No. With a Yomitan dictionary or JMdict imported into local browser storage, the page works without API keys or Anki. Connect Jiten, JPDB, or Anki for richer review and status."}},{"@type":"Question","name":"Does it work on iPad and phones?","acceptedAnswer":{"@type":"Answer","text":"Yes. It is often the easiest daily-review surface on iPhone, iPad, and Android. For full Anki status you keep desktop AnkiConnect reachable over your LAN or Tailscale."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is the よむ new-tab study page?","acceptedAnswer":{"@type":"Answer","text":"A clean study screen that reviews your Jiten, JPDB, Anki, or imported-dictionary cards, designed to live on your new-tab page or iPad Home Screen."}},{"@type":"Question","name":"Do I need an account to use it?","acceptedAnswer":{"@type":"Answer","text":"No — it works with a local Yomitan dictionary or JMdict. Connect Jiten, JPDB, or Anki for richer review and status."}},{"@type":"Question","name":"Does it work on iPad and phones?","acceptedAnswer":{"@type":"Answer","text":"Yes — on iPhone, iPad, and Android it is often the easiest place to do daily reviews. To study Anki on a phone, keep desktop AnkiConnect reachable over a LAN or Tailscale URL."}}]}
 ---
 
 # Study & Review New-Tab Page
 
-Most review apps you have to remember to open. The よむ study page flips that: set it as your **new-tab or home page** and a Japanese review card greets you every time you open a tab — no app to launch, no streak to babysit.
+Most review apps you have to remember to open. The よむ study page flips that: set it as your **new-tab or home page** and a Japanese review card greets you every time you open a tab — no app to launch, no streak to babysit. Free, no account.
 
 <div class="yomu-callout">
   <strong>In one line:</strong> a clean study screen that reviews your Jiten, JPDB, Anki, or imported-dictionary cards, designed to live on your new-tab page or iPad Home Screen.
@@ -38,9 +38,9 @@ A fresh install starts by sending you to **Settings → Dictionaries** so JMdict
 
 ## Best daily-review surface on mobile
 
-On iPhone, iPad, and Android this is often the easiest place to do daily reviews. Add the hosted page as a Home Screen shortcut and study from the lock-to-tab habit you already have.
+On iPhone, iPad, and Android this is often the easiest place to do daily reviews. Add the hosted page as a Home Screen shortcut and study from the habit you already have.
 
-For full Anki status, note updates, deck scanning, and review queues, keep desktop Anki running with AnkiConnect and point よむ at a reachable LAN or [Tailscale](https://tailscale.com/downloads) URL — see the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android). The hosted page can also bridge local AnkiConnect through the installed userscript on the same computer.
+For full Anki status, note updates, deck scanning, and review queues, keep desktop Anki with AnkiConnect reachable over a LAN or [Tailscale](https://tailscale.com/downloads) URL — see the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android). The hosted page can also bridge local AnkiConnect through the installed userscript on the same computer.
 
 ## Set it up
 
@@ -50,11 +50,9 @@ For full Anki status, note updates, deck scanning, and review queues, keep deskt
 
 ## Questions
 
-**What is the new-tab study page?** A study screen that reviews your Jiten, JPDB, Anki, or imported-dictionary cards, meant to live on your new-tab page.
+**Do I need an account?** No — it works with a local Yomitan dictionary or JMdict. Connect Jiten, JPDB, or Anki for richer review and status.
 
-**Do I need an account?** No — it works with a local dictionary. Connect Jiten, JPDB, or Anki for more.
-
-**Does it work on iPad?** Yes — it's often the easiest daily-review surface on mobile.
+**How does it study Anki on a phone?** Keep desktop AnkiConnect reachable over a LAN or Tailscale URL — see the [mobile Anki steps](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="/newtab/index.html" target="_self">Open study page</a>

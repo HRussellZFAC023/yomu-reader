@@ -13,7 +13,7 @@ head:
 
 # YouTube Immersion Filter for Japanese
 
-YouTube is a goldmine of Japanese listening practice buried under an algorithm that keeps serving you content in your native language. よむ's immersion filter retunes the feed: it keeps Japanese and comprehensible-input videos and quietly hides the rest, so the recommendations actually help you immerse.
+YouTube is full of Japanese listening practice buried under an algorithm that keeps serving your native language. よむ's immersion filter retunes the feed: it keeps Japanese and comprehensible-input videos and quietly hides the rest. Free, no account.
 
 <div class="yomu-callout">
   <strong>In one line:</strong> recommendations, search, and sidebars get filtered down to Japanese and comprehensible-input videos — and the subtitles become tappable for lookup.
@@ -21,13 +21,7 @@ YouTube is a goldmine of Japanese listening practice buried under an algorithm t
 
 ## How the filter works
 
-The filter is on by default. For each video, よむ checks the original YouTube title through oEmbed when a video id is available, then:
-
-- **Keeps** Japanese-learning and comprehensible-input titles — even when they're written in English (so channels like Comprehensible Japanese stay visible).
-- **Hides** cards that don't look Japanese across recommendations, search results, and sidebars.
-- **Never breaks playback** — YouTube video, subtitles, and よむ controls keep working.
-
-A temporary notice shows how many cards were hidden. Use **Show hidden videos** to reveal them, **Hide notice** to keep the filter without the banner, or `Alt+Y` to toggle the filter itself.
+On by default, the filter checks each video's original title through oEmbed and keeps Japanese-learning and comprehensible-input content — even English-titled channels like Comprehensible Japanese — while hiding non-Japanese cards across recommendations, search, and sidebars. Playback, subtitles, and よむ controls keep working. A temporary notice shows how many cards were hidden; use **Show hidden videos** to reveal them, **Hide notice** to keep the filter without the banner, or `Alt+Y` to toggle it. See [all features](/features#youtube-immersion-filter) for the full breakdown.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-youtube-filter.png'" alt="A real YouTube page with よむ hiding non-Japanese-looking recommendation cards and showing the filter notice.">
@@ -45,7 +39,7 @@ On the YouTube home feed, once よむ hides enough English-heavy recommendations
 
 ## Read while you watch
 
-The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader): Japanese subtitle lines become tappable words, with a transcript panel and one-tap sentence mining to Jiten, JPDB, or Anki. Filtering finds the right videos; the subtitle reader makes them comprehensible.
+The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader): Japanese lines become tappable words with a transcript panel and one-tap mining to Jiten, JPDB, or Anki. Filtering finds the videos; the subtitle reader makes them comprehensible.
 
 ## Set it up
 
@@ -55,11 +49,11 @@ The filter pairs with よむ's [subtitle tools](/tools/japanese-subtitle-reader)
 
 ## Questions
 
-**Can I make YouTube show mostly Japanese?** Yes — the filter hides non-Japanese cards across the feed, search, and sidebars.
+**Does it keep English-titled learner channels?** Yes — comprehensible-input channels like Comprehensible Japanese stay visible even with English titles, because the filter checks the original title via oEmbed.
 
 **Does it break YouTube?** No — playback and subtitles keep working; toggle the filter with `Alt+Y`.
 
-**Can I look up the subtitles?** Yes — Japanese subtitle lines become tappable words you can look up and mine.
+**Can I look up the subtitles?** Yes — pair it with the [subtitle reader](/tools/japanese-subtitle-reader) to make Japanese lines tappable and minable.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>

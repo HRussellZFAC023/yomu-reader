@@ -5,15 +5,13 @@ description: Everything よむ does — popup dictionary lookup and mining, Yomi
 
 # Features
 
-よむ is designed around one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.
-
-New to the words? **Lookup** is opening the popup. **Mining** is saving a word for later study. **OCR** reads text out of images. **Subtitles** turns Japanese video lines into tappable text, just like a normal page.
+よむ runs one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.
 
 ## Popup Lookup And Mining
 
 Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: Jiten definitions, optional JPDB data, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
-If you prefer the official jpdb reader, Jiten Reader, or Yomitan to own popups, turn off **Reader -> Show Yomu lookup popup** in Settings. Yomu will keep annotations, media tools, mining, and study features available without opening a second popup.
+To let the official jpdb reader, Jiten Reader, or Yomitan own popups, turn off **Reader -> Show Yomu lookup popup** in Settings. よむ keeps annotations, media tools, mining, and study features without opening a second popup.
 
 Keyboard shortcuts can move lookup to the previous or next parsed word, and if you have selected a piece of text, navigation stays inside that selection. Popup Japanese font family and weight are configurable, and the default stack matches jpdb.io for kanji, readings, example sentences, grammar snippets, and dictionary terms.
 
@@ -21,7 +19,7 @@ API mining actions can add a word, mark it Never Forget, blacklist it, or send r
 
 Furigana and word colors are separate controls. You can show furigana only for harder kanji, show all parsed readings, hide furigana for known words, color words by Jiten, JPDB, or Anki state, color them by pitch accent, or turn highlight coloring off.
 
-The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links. These tools are meant to help you keep reading, not to replace a dictionary or grammar textbook.
+The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing Jiten/JPDB state, pitch, definitions, translation, grammar, and mining controls.">
@@ -32,7 +30,7 @@ The popup also has optional study helpers for the current sentence. The translat
 
 よむ can import Yomitan dictionary ZIP files, Yomitan settings exports, and dictionary backups. Imported dictionaries stay local in your browser. If you do not have an API source or Anki connected, よむ can still use public lookup and local dictionary words for the study page after you download JMdict or import a Yomitan ZIP in Settings.
 
-This is useful if you want native-language dictionaries, monolingual Japanese definitions, frequency dictionaries, kanji dictionaries, or pitch dictionaries without depending on a remote service for every lookup.
+This gives you native-language dictionaries, monolingual Japanese definitions, frequency, kanji, or pitch dictionaries without depending on a remote service for every lookup.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-dictionaries.png'" alt="The よむ Dictionaries settings panel showing imported dictionary controls and definition source ordering.">
@@ -45,7 +43,7 @@ The speaker button tries your configured audio sources in order. The default set
 
 Example sentences can come from Jiten/JPDB public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 
-Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. If you want to practice without seeing English immediately, turn on blurred example translations and reveal them by tapping or clicking the translation.
+Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. To practice without seeing English immediately, turn on blurred example translations and reveal them by tapping the translation.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-immersion-popover.png'" alt="A よむ popup scrolled to the Immersion Kit section after a live Japanese lookup.">
@@ -69,7 +67,7 @@ OCR lets you tap Japanese text inside images. よむ can use embedded OCR metada
 
 Recognized text stays lightweight: touch targets sit over the image without covering it until you tap or hover.
 
-Use this for manga panels, screenshots, and image-heavy pages where normal text selection does not work. The image itself is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings.
+Use this for manga panels, screenshots, and image-heavy pages where normal text selection does not work. The image is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
@@ -80,7 +78,7 @@ Use this for manga panels, screenshots, and image-heavy pages where normal text 
 
 よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into tappable words, native-language subtitle tracks can be shown as a secondary line, and the transcript panel can sit left, right, or below the video with the active line highlighted while you read.
 
-The transcript is meant to work as a reading surface too: visible Japanese lines are hydrated into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup without leaving the video.
+The transcript is a reading surface too: visible Japanese lines hydrate into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup.
 
 For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
@@ -93,7 +91,7 @@ You can use shortcuts for previous subtitle, next subtitle, copy subtitle, and m
 
 ## YouTube Immersion Filter
 
-The YouTube filter is on by default so recommendations stay focused on Japanese. よむ checks the original YouTube title through oEmbed when a video id is available, keeps Japanese-learning and comprehensible-input titles visible even when they are written in English, then hides cards that do not look Japanese across recommendations, search results, and sidebars. YouTube playback, subtitles, and よむ controls keep working.
+The YouTube filter is on by default so recommendations stay focused on Japanese. When a video id is available, よむ checks the original title via oEmbed, keeps Japanese-learning and comprehensible-input titles even when written in English, and hides non-Japanese-looking cards across recommendations, search results, and sidebars. Playback, subtitles, and よむ controls keep working.
 
 The temporary notice shows how many cards were hidden and disappears after a few seconds. Use **Show hidden videos** to reveal them, **Hide hidden videos** to filter them again, **Hide notice** to stop showing that notice while keeping the filter enabled, or `Alt+Y` to toggle the filter itself.
 
@@ -115,9 +113,7 @@ On the YouTube home feed, when よむ hides enough English-heavy recommendations
 
 Anki support is optional. With [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ can create cards from popup lookups, subtitles, and OCR; detect existing cards; update matching notes; adapt to existing decks and note types; and power Anki-backed review/status features in the new-tab page.
 
-On a phone or tablet, the full Anki setup still uses desktop AnkiConnect. Keep Anki open on your computer, connect the phone to that computer over trusted Wi-Fi or [Tailscale](https://tailscale.com/downloads), then put the computer's AnkiConnect URL into よむ. The phone does the reading; the computer does the Anki work.
-
-For a step-by-step phone, iPad, or Android setup, use [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
+On a phone or tablet, the full Anki setup still uses desktop AnkiConnect: the phone does the reading, the computer does the Anki work. See the step-by-step phone, iPad, or Android setup in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
 Mobile handoff is deliberately narrower. On iPhone, iPad, and Android, よむ can open AnkiMobile or AnkiDroid when AnkiConnect is not available, but that path creates new-note drafts only. Existing-card status, note updates, automatic deck scans, media writes, full field mappings, and review queues still need desktop AnkiConnect.
 
@@ -131,7 +127,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
-On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and use a reachable LAN or Tailscale URL in よむ, such as `http://desktop-name.tailnet-name.ts.net:8765`. If AnkiConnect still uses its default `127.0.0.1` address, mobile devices cannot reach it because `127.0.0.1` means "this device." If AnkiConnect or an API source is not available, dictionary-backed words keep the page useful once a dictionary is installed. The step-by-step mobile Anki setup is in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
+On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and point よむ at a reachable LAN or Tailscale URL such as `http://desktop-name.tailnet-name.ts.net:8765` — AnkiConnect's default `127.0.0.1` means "this device" and is unreachable from a phone. Without AnkiConnect or an API source, dictionary-backed words keep the page useful once a dictionary is installed. Step-by-step mobile Anki setup is in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
 
 The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](/getting-started#if-something-does-not-work) cover the heavier reset path.
 

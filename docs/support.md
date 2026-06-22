@@ -24,9 +24,9 @@ description: Get help with よむ — report a bug, join the Discord, view the s
 
 ## Support
 
-よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable study suites such as [Migaku](https://migaku.com/pricing) currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.
+よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable suites such as [Migaku](https://migaku.com/pricing) currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free ([full comparison](/compare/migaku-alternative)).
 
-Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.
+Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support brings that closer and keeps me maintaining よむ, fixing bugs, and adding the features learners ask for.
 
 ## Quick Actions
 
