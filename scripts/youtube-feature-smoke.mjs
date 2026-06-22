@@ -276,7 +276,13 @@ function youtubeMobileHomeHtml() {
     window.__yomuLoadedMobileBatch = false;
     const grid = document.querySelector('#mobile-grid');
     const continuation = document.querySelector('#continuation');
-    continuation.scrollIntoView = () => {
+    // Native YouTube loads the next page when its own IntersectionObserver sees
+    // the continuation loader scroll into view. Yomu deliberately no longer
+    // force-scrolls the loader (that jumped the mobile feed to Shorts and stuck
+    // desktop on skeleton placeholders), so the smoke drives the next batch the
+    // same way the browser does: observe the loader and refill once the user's
+    // scroll brings it into the viewport.
+    const loadMobileBatch = () => {
       window.__yomuContinuationNudges += 1;
       if (window.__yomuLoadedMobileBatch) return;
       window.__yomuLoadedMobileBatch = true;
@@ -287,6 +293,16 @@ function youtubeMobileHomeHtml() {
         ${JSON.stringify(mobileVideoCard('loaded-video-en', 'loaded-video-en', 'Productivity desk tour', 'en'))}
       ].join(''));
     };
+    if (typeof IntersectionObserver === 'function') {
+      const observer = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) loadMobileBatch();
+      });
+      observer.observe(continuation);
+    } else {
+      window.addEventListener('scroll', () => {
+        if (continuation.getBoundingClientRect().top <= window.innerHeight) loadMobileBatch();
+      }, { passive: true });
+    }
   </script>
 </body>
 </html>`;
