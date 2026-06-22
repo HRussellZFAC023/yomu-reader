@@ -7132,20 +7132,10 @@ recommendedJiten	Jiten頻度です。
     ...PLAYER_CHROME_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
-  const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
   const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     ...PLAYER_CHROME_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
   const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
@@ -7605,13 +7595,8 @@ recommendedJiten	Jiten頻度です。
   function shouldSkipFragmentElement(element, options) {
     if (options.includePassiveInteractions) return safeElementMatches(element, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
     if (options.includeFormChrome) return safeElementMatches(element, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
-    if (options.includeTabChrome) {
-      return safeElementMatches(element, options.includePlayerChrome ? PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR : TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
-    }
-    if (options.includeUiChrome) {
-      return safeElementMatches(element, options.includePlayerChrome ? PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR : HARD_FRAGMENT_SKIP_SELECTOR);
-    }
-    return safeElementMatches(element, FRAGMENT_SKIP_SELECTOR);
+    if (options.includeTabChrome) return safeElementMatches(element, TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
+    return safeElementMatches(element, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
   }
   function isFragmentParagraphBoundary(element, options) {
     return isPassiveInteractionBoundaryElement(element, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element.tagName) || isParagraphBoundary(element);

@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.59] - 2026-06-22
+
+### Fixed
+
+- Hotfix: revert the 1.4.58 change that parsed Japanese inside YouTube's player/overlay wrappers (and added end-screen/pause-overlay scan roots). On real mobile YouTube (`m.youtube.com`) the broadened whole-page scan over the large, continuously-hydrating player subtree could freeze the page so it never finished loading. The page-scan/parsing behavior is restored to the known-good pre-1.4.58 state (the native-caption exclusion was always kept). Broader in-player text coverage will return only after on-device mobile validation.
+- All other 1.4.58 fixes are unaffected and remain: mobile subtitle sizing/position, frame-synced subtitle timing, paused-frame OCR overlay gating, reliable pause-on-lookup, snappier taps with fewer mispresses, iPad/Apple-Pencil touch targets, and the bounded comment pitch-accent retry.
+
 ## [1.4.58] - 2026-06-22
 
 ### Fixed

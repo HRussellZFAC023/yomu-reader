@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.58
+// @version      1.4.59
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.58#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.58#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.58#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.58#sha256-zx0G/c/Cw7Sr2TCrcy2P6Lne7bbUeYQA4qeiZLpK3jI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.59#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.59#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.59#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.59#sha256-zx0G/c/Cw7Sr2TCrcy2P6Lne7bbUeYQA4qeiZLpK3jI=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -3712,20 +3712,10 @@
     ...PLAYER_CHROME_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
-  const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
   const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     ...PLAYER_CHROME_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
   const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
@@ -4319,13 +4309,8 @@
   function shouldSkipFragmentElement(element2, options) {
     if (options.includePassiveInteractions) return safeElementMatches$1(element2, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
     if (options.includeFormChrome) return safeElementMatches$1(element2, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
-    if (options.includeTabChrome) {
-      return safeElementMatches$1(element2, options.includePlayerChrome ? PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR : TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
-    }
-    if (options.includeUiChrome) {
-      return safeElementMatches$1(element2, options.includePlayerChrome ? PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR : HARD_FRAGMENT_SKIP_SELECTOR);
-    }
-    return safeElementMatches$1(element2, FRAGMENT_SKIP_SELECTOR);
+    if (options.includeTabChrome) return safeElementMatches$1(element2, TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
+    return safeElementMatches$1(element2, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
   }
   function isFragmentParagraphBoundary(element2, options) {
     return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element2.tagName) || isParagraphBoundary(element2);
@@ -31334,10 +31319,6 @@ ${normalizedReading}`;
         "ytm-slim-video-metadata-section-renderer #title",
         "ytm-expandable-video-description-body-renderer",
         "ytm-structured-description-content-renderer",
-        ".ytp-ce-element .ytp-ce-video-title",
-        ".ytp-ce-element .ytp-ce-playlist-title",
-        ".ytp-pause-overlay .ytp-videowall-still-info-title",
-        ".ytp-cards-teaser-text",
         YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS,
         "ytd-watch-next-secondary-results-renderer #video-title",
         "#secondary ytd-compact-video-renderer #video-title",
@@ -31605,7 +31586,6 @@ ${normalizedReading}`;
       includeUiChrome: true,
       includeFormChrome: true,
       includeTabChrome: true,
-      includePlayerChrome: isYouTubeSiteParserProfile(profile),
       includePassiveInteractions: true,
       mergeBlockFragments: profile.mergeBlockFragments,
       heading: profile.heading,
@@ -31764,7 +31744,6 @@ ${normalizedReading}`;
       includeUiChrome: true,
       includeFormChrome: true,
       includeTabChrome: true,
-      includePlayerChrome: isYouTubeHost(),
       includePassiveInteractions: true,
       heading: true,
       minLength: 1
