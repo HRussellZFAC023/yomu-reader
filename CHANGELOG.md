@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.65] - 2026-06-22
+
+### Fixed
+
+- Compact image/navigation labels now keep their original inline layout and suppress furigana, preventing sites with icon menu links such as Travel Donkey from stacking labels or stretching header/sidebar rows.
+
 ## [1.4.64] - 2026-06-22
 
 ### Fixed

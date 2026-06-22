@@ -3598,7 +3598,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('.jpdb-reader-word {');
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('text-decoration-color: transparent !important;');
-        expect(normalizedCss).toContain('display: inline;');
+        expect(normalizedCss).toContain('display: inline !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-underline-offset: 0.04em;');
         expect(normalizedCss).toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::before {');
         expect(normalizedCss).toContain('inset: -0.36em -0.06em;');
@@ -35074,6 +35074,68 @@ describe('reader helpers', () => {
         expect(word.dataset.jpdbReaderPassive).toBe('true');
         expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
         expectRenderedPitchWord(word, 'heiban');
+    });
+
+    it('keeps compact image navigation labels inline against page span display rules', () => {
+        document.head.innerHTML = `
+            <style>${READER_WORD_CSS}</style>
+            <style>
+                #globalnav a div span {
+                    display: block;
+                }
+            </style>
+        `;
+        const rectSpy = mockElementBoundingClientRect({ width: 96, height: 132 });
+        document.body.innerHTML = `
+            <header>
+                <nav id="globalnav">
+                    <ul>
+                        <li>
+                            <a href="/optional_tour/">
+                                <div>現地ツアー</div>
+                                <span class="mobile-none"><img src="/tour.png" alt="現地ツアー・オプショナルツアー"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </header>
+        `;
+
+        const targets = collectScanTargets(10, 'https://www.traveldonkey.jp/blog/australia/26220/');
+        rectSpy.mockRestore();
+        const target = targets.find(candidate => candidate.text === '現地ツアー')!;
+
+        expect(target).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+
+        applyTokensToScanTarget(target, [
+            {
+                card: { ...card, cardState: ['known'], spelling: '現地', reading: 'げんち', source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'げんち', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '現地ツアー',
+            },
+            {
+                card: { ...card, cardState: ['known'], spelling: 'ツアー', reading: 'ツアー', source: 'jpdb' },
+                start: 2,
+                end: 5,
+                length: 3,
+                rubies: [],
+                pitchClass: 'heiban',
+                sentence: '現地ツアー',
+            },
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const words = Array.from(document.querySelectorAll<HTMLElement>('#globalnav .jpdb-reader-word'));
+        expect(words).toHaveLength(2);
+        expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(words.map(readerWordSurfaceText)).toEqual(['現地', 'ツアー']);
+        expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
+        expect(words.map(word => getComputedStyle(word).display)).toEqual(['inline', 'inline']);
+        expect(words.map(word => getComputedStyle(word).whiteSpace)).toEqual(['nowrap', 'nowrap']);
+        expectRenderedPitchWord(words[0]!, 'heiban');
     });
 
     it('ignores aria-hidden feedback chrome while wrapping YouTube feed titles', () => {

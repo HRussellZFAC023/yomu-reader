@@ -342,6 +342,67 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('keeps compact image navigation labels inline without adding ruby height', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.traveldonkey.jp/blog/australia/26220/') as unknown as Location,
+        });
+        document.head.innerHTML = `
+            <style>
+                #globalnav a div span {
+                    display: block !important;
+                }
+            </style>
+        `;
+        document.body.innerHTML = `
+            <header>
+                <nav id="globalnav">
+                    <ul>
+                        <li>
+                            <a href="/optional_tour/">
+                                <div>現地ツアー</div>
+                                <span class="mobile-none"><img src="/tour.png" alt="現地ツアー・オプショナルツアー"></span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </header>
+            <main><p>オーストラリアの首都について読みます。</p></main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForTravelDonkeyNavText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts).toContain('現地ツアー');
+
+            const words = Array.from(document.querySelectorAll<HTMLElement>('#globalnav .jpdb-reader-word'));
+            expect(words).toHaveLength(2);
+            expect(words.map(word => word.dataset.expression)).toEqual(['現地', 'ツアー']);
+            expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+            expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
+            expect(words.map(word => word.style.getPropertyValue('display'))).toEqual(['inline', 'inline']);
+            expect(words.map(word => word.style.getPropertyPriority('display'))).toEqual(['important', 'important']);
+            expect(words.map(word => getComputedStyle(word).display)).toEqual(['inline', 'inline']);
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            restoreRects();
+            document.head.innerHTML = '';
+            document.body.innerHTML = '';
+        }
+    });
+
     it('enhances mobile YouTube comment text on narrow no-key viewports', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
@@ -1968,6 +2029,23 @@ function tokensForCompactMediaGridText(text: string): JPDBToken[] {
         ['人妻', 'ひとづま'],
         ['温泉', 'おんせん'],
         ['旅行', 'りょこう'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForTravelDonkeyNavText(text: string): JPDBToken[] {
+    const targets = [
+        ['現地', 'げんち'],
+        ['ツアー', 'ツアー'],
+        ['首都', 'しゅと'],
     ] as const;
     const tokens: JPDBToken[] = [];
     for (const [surface, reading] of targets) {

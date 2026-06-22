@@ -272,6 +272,7 @@ const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
 ].join(',');
 const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
 const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
+const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
 const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
@@ -1586,7 +1587,7 @@ function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
         return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
     }
-    return isCompactMediaCardLinkText(parent) || isLayoutFragileMediaTileText(parent);
+    return isCompactMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isLayoutFragileMediaTileText(parent);
 }
 
 export function isYouTubeHost(): boolean {
@@ -1605,6 +1606,29 @@ function isCompactMediaCardLinkText(parent: HTMLElement): boolean {
     const textLength = compactLength(parent.textContent ?? '');
     if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
     return compactLength(link.textContent ?? '') <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
+}
+
+function isCompactMediaChromeLinkText(parent: HTMLElement): boolean {
+    const link = parent.closest<HTMLElement>('a[href],button,[role="link"],[role="button"]');
+    if (!link || isLikelyProseLink(link, parent)) return false;
+    if (!safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
+
+    const textLength = compactLength(parent.textContent ?? '');
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
+    if (compactLength(link.textContent ?? '') > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
+    return isNavigationChromeContext(link) || hasCompactCenteredMediaChrome(parent, link);
+}
+
+function isNavigationChromeContext(element: HTMLElement): boolean {
+    return Boolean(element.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
+}
+
+function hasCompactCenteredMediaChrome(parent: HTMLElement, link: HTMLElement): boolean {
+    const parentStyle = safeComputedStyle(parent);
+    const linkStyle = safeComputedStyle(link);
+    if (parentStyle.textAlign !== 'center' && linkStyle.textAlign !== 'center') return false;
+    const rect = link.getBoundingClientRect();
+    return rect.width === 0 || rect.width <= 180;
 }
 
 function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
@@ -2778,7 +2802,10 @@ function applyDeckMembershipDataset(span: HTMLElement, card: JPDBCard): void {
 }
 
 function applyTokenRenderOptions(span: HTMLElement, token: JPDBToken, options: TokenRenderOptions): void {
-    if (options.scanWord) span.classList.add('jpdb-reader-scan-word');
+    if (options.scanWord) {
+        span.classList.add('jpdb-reader-scan-word');
+        span.style.setProperty('display', 'inline', 'important');
+    }
     if (options.miningInsightKeys?.has(miningInsightTokenKey(token))) {
         span.classList.add('jpdb-reader-i-plus-one');
         span.dataset.miningInsight = 'i-plus-one';

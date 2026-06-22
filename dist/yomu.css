@@ -378,7 +378,7 @@
   --jpdb-reader-source-pitch-highlight: var(--jpdb-reader-pitch-highlight, var(--jpdb-reader-source-pitch-soft, transparent));
   --jpdb-reader-source-pitch-highlight-shadow: var(--jpdb-reader-pitch-highlight-shadow, none);
   position: relative;
-  display: inline;
+  display: inline !important;
   white-space: nowrap;
   word-break: keep-all;
   overflow-wrap: normal !important;
