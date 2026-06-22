@@ -1218,23 +1218,25 @@ html[lang="ja"] .VPHomeHero .tagline {
   border-radius: 999px;
   font-weight: 700;
   font-size: 15px;
-  text-decoration: none;
+  text-decoration: none !important;
   transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
 
 .yomu-cta {
-  color: #fff;
-  background: var(--yomu-accent, var(--vp-c-brand-1));
-  box-shadow: 0 10px 26px color-mix(in srgb, var(--vp-c-brand-1) 32%, transparent);
+  /* override VitePress's .vp-doc a link color (higher specificity) */
+  color: #fff !important;
+  background: #25573d;
+  box-shadow: 0 10px 26px rgba(37, 87, 61, 0.36);
 }
 
 .yomu-cta:hover {
   transform: translateY(-1px);
-  box-shadow: 0 14px 32px color-mix(in srgb, var(--vp-c-brand-1) 40%, transparent);
+  background: #2f6b4a;
+  box-shadow: 0 14px 32px rgba(37, 87, 61, 0.46);
 }
 
 .yomu-cta-ghost {
-  color: var(--vp-c-text-1);
+  color: var(--vp-c-text-1) !important;
   background: var(--vp-c-bg-soft);
   border: 1px solid var(--vp-c-divider);
 }
