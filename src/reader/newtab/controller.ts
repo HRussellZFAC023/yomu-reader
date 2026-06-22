@@ -195,6 +195,7 @@ import {
 import { liveJpdbCardFromBridgeCard, liveJpdbCardIdentity } from './jpdb-live-card';
 import { KanjiDetailSource, type KanjiDetailBundle } from './kanji-detail-source';
 import { NewTabGradeQueue, type QueuedNewTabGrade } from './grade-queue';
+import { NewTabImmersionAudioPlayer } from './immersion-audio';
 import {
     ankiCardKindLabel,
     isJitenSrsCard,
@@ -657,9 +658,7 @@ export class NewTabController {
     private wordPitchCache = new Map<string, Promise<string[]>>();
     private doodlePreviewCache = new Map<string, string>();
     private immersionPrefetchGeneration = 0;
-    private immersionAudio?: HTMLAudioElement;
-    private immersionAudioKey = '';
-    private immersionAudioRequestId = 0;
+    private readonly immersionAudioPlayer: NewTabImmersionAudioPlayer;
     private reviewCountMode = false;
     private reviewHistoryCards: JPDBCard[] = [];
     private readonly sessionProgress = new NewTabSessionProgressTracker();
@@ -760,6 +759,10 @@ export class NewTabController {
             offlineEnabled: () => this.dependencies.getSettings().newTabOfflineEnabled,
             submit: item => this.submitQueuedGrade(item),
             onSubmitted: card => this.invalidateReviewSourceCache(card),
+        });
+        this.immersionAudioPlayer = new NewTabImmersionAudioPlayer({
+            getSettings: () => this.dependencies.getSettings(),
+            immersionKit: this.dependencies.immersionKit,
         });
     }
 
@@ -936,10 +939,7 @@ export class NewTabController {
         this.frontSentenceCache.clear();
         this.parsedSentenceCache.clear();
         this.doodlePreviewCache.clear();
-        this.immersionAudio?.pause();
-        this.immersionAudio = undefined;
-        this.immersionAudioKey = '';
-        this.immersionAudioRequestId++;
+        this.immersionAudioPlayer.reset();
         this.statsSnapshot = emptyStatsDashboardSnapshot();
         this.statsLoaded = false;
         this.statsSelectedDate = '';
@@ -5091,7 +5091,7 @@ export class NewTabController {
         if (!this.dependencies.getSettings().audioEnabled) return;
         const source = this.renderedNewTabImmersionAudioSource(surface);
         if (source) {
-            await this.playNewTabImmersionAudioSource(source, isCurrent);
+            await this.immersionAudioPlayer.playSource(source, isCurrent);
             return;
         }
         await this.playNewTabImmersionAudio(card, key, isCurrent);
@@ -5104,39 +5104,8 @@ export class NewTabController {
         const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
         if (!example) return;
         const source = this.newTabImmersionAudioSource(example);
-        if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
-        await this.playNewTabImmersionAudioSource(source, isCurrent);
-    }
-
-    private async playNewTabImmersionAudioSource(source: { urls: string[]; key: string }, isCurrent: () => boolean): Promise<void> {
-        if (this.isCurrentImmersionAudioPlaying(source.key)) return;
-        const requestId = this.beginNewTabImmersionAudio(source.key);
-        if (await this.playNewTabImmersionAudioCandidates(source.urls, requestId, source.key, isCurrent)) return;
-        const blobSrc = await this.fetchNewTabImmersionAudio(source.urls);
-        if (blobSrc) await this.playNewTabImmersionAudioCandidates([blobSrc], requestId, source.key, isCurrent);
-        if (this.isCurrentImmersionAudioRequest(requestId, source.key)) this.clearNewTabImmersionAudioRequest();
-    }
-
-    private async playNewTabImmersionAudioCandidates(
-        urls: string[],
-        requestId: number,
-        key: string,
-        isCurrent: () => boolean,
-    ): Promise<boolean> {
-        for (const src of uniqueNewTabImmersionAudioCandidates(urls)) {
-            if (!this.isCurrentImmersionAudioRequest(requestId, key) || !isCurrent()) return false;
-            const audio = this.attachNewTabImmersionAudio(src);
-            const cleanup = () => this.clearNewTabImmersionAudio(audio);
-            audio.addEventListener('ended', cleanup, { once: true });
-            audio.addEventListener('error', cleanup, { once: true });
-            try {
-                await audio.play();
-                return true;
-            } catch {
-                this.detachFailedNewTabImmersionAudio(audio);
-            }
-        }
-        return false;
+        if (!source || this.immersionAudioPlayer.isPlaying(source.key)) return;
+        await this.immersionAudioPlayer.playSource(source, isCurrent);
     }
 
     private isCurrentRevealedWordCard(key: string): boolean {
@@ -5151,7 +5120,7 @@ export class NewTabController {
     }
 
     private newTabImmersionAudioSourceFromUrls(urls: string[]): { urls: string[]; key: string } | null {
-        const candidates = uniqueNewTabImmersionAudioCandidates(urls);
+        const candidates = uniqueStrings(urls);
         const key = candidates[0] ?? '';
         return key ? { urls: candidates, key } : null;
     }
@@ -5169,50 +5138,6 @@ export class NewTabController {
         } catch {
             return null;
         }
-    }
-
-    private isCurrentImmersionAudioPlaying(key: string): boolean {
-        return Boolean(this.immersionAudioKey === key && this.immersionAudio && !this.immersionAudio.ended);
-    }
-
-    private beginNewTabImmersionAudio(key: string): number {
-        const requestId = ++this.immersionAudioRequestId;
-        this.immersionAudio?.pause();
-        this.immersionAudio = undefined;
-        this.immersionAudioKey = key;
-        return requestId;
-    }
-
-    private fetchNewTabImmersionAudio(urls: string[]): Promise<string> {
-        const settings = this.dependencies.getSettings();
-        return this.dependencies.immersionKit
-            .fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage)
-            .catch(() => '');
-    }
-
-    private isCurrentImmersionAudioRequest(requestId: number, key: string): boolean {
-        return requestId === this.immersionAudioRequestId && this.immersionAudioKey === key;
-    }
-
-    private attachNewTabImmersionAudio(src: string): HTMLAudioElement {
-        const audio = new Audio(src);
-        audio.playbackRate = this.dependencies.getSettings().immersionKitPlaybackRate;
-        this.immersionAudio = audio;
-        return audio;
-    }
-
-    private clearNewTabImmersionAudio(audio: HTMLAudioElement): void {
-        if (this.immersionAudio !== audio) return;
-        this.clearNewTabImmersionAudioRequest();
-    }
-
-    private detachFailedNewTabImmersionAudio(audio: HTMLAudioElement): void {
-        if (this.immersionAudio === audio) this.immersionAudio = undefined;
-    }
-
-    private clearNewTabImmersionAudioRequest(): void {
-        this.immersionAudio = undefined;
-        this.immersionAudioKey = '';
     }
 
     private loadImmersionExamples(card: JPDBCard): Promise<ImmersionKitExample[]> {
@@ -8856,14 +8781,3 @@ function isJitenBulkAction(action: string): boolean {
     return action === 'jiten-mining' || action === 'jiten-suspend' || action === 'jiten-forget';
 }
 
-function uniqueNewTabImmersionAudioCandidates(values: string[]): string[] {
-    const seen = new Set<string>();
-    const candidates: string[] = [];
-    for (const value of values) {
-        const url = value.trim();
-        if (!url || seen.has(url)) continue;
-        seen.add(url);
-        candidates.push(url);
-    }
-    return candidates;
-}

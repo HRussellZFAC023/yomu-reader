@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.55] - 2026-06-22
+
+### Changed
+
+- Internal: extracted the new-tab immersion-example audio playback engine into a dedicated, unit-tested `NewTabImmersionAudioPlayer` module (request-id invalidation so a slow load never plays over a newer card), and converged a duplicated URL-dedupe helper onto the shared `uniqueTrimmedStrings` util. No change to behavior.
+
 ## [1.4.54] - 2026-06-22
 
 ### Fixed

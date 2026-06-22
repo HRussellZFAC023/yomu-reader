@@ -61121,6 +61121,78 @@ ${entry.url}`),
   function isJpdbGrade(value) {
     return value === "nothing" || value === "something" || value === "hard" || value === "okay" || value === "easy" || value === "fail" || value === "pass";
   }
+  class NewTabImmersionAudioPlayer {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    audio;
+    key = "";
+    requestId = 0;
+    isPlaying(key) {
+      return Boolean(this.key === key && this.audio && !this.audio.ended);
+    }
+    async playSource(source, isCurrent) {
+      if (this.isPlaying(source.key)) return;
+      const requestId = this.begin(source.key);
+      if (await this.playCandidates(source.urls, requestId, source.key, isCurrent)) return;
+      const blobSrc = await this.fetchBlob(source.urls);
+      if (blobSrc) await this.playCandidates([blobSrc], requestId, source.key, isCurrent);
+      if (this.isCurrentRequest(requestId, source.key)) this.clearRequest();
+    }
+    reset() {
+      this.audio?.pause();
+      this.audio = void 0;
+      this.key = "";
+      this.requestId++;
+    }
+    async playCandidates(urls, requestId, key, isCurrent) {
+      for (const src of uniqueTrimmedStrings(urls)) {
+        if (!this.isCurrentRequest(requestId, key) || !isCurrent()) return false;
+        const audio = this.attach(src);
+        const cleanup = () => this.clearIfCurrent(audio);
+        audio.addEventListener("ended", cleanup, { once: true });
+        audio.addEventListener("error", cleanup, { once: true });
+        try {
+          await audio.play();
+          return true;
+        } catch {
+          this.detachFailed(audio);
+        }
+      }
+      return false;
+    }
+    begin(key) {
+      const requestId = ++this.requestId;
+      this.audio?.pause();
+      this.audio = void 0;
+      this.key = key;
+      return requestId;
+    }
+    fetchBlob(urls) {
+      const settings = this.deps.getSettings();
+      return this.deps.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
+    }
+    isCurrentRequest(requestId, key) {
+      return requestId === this.requestId && this.key === key;
+    }
+    attach(src) {
+      const audio = new Audio(src);
+      audio.playbackRate = this.deps.getSettings().immersionKitPlaybackRate;
+      this.audio = audio;
+      return audio;
+    }
+    clearIfCurrent(audio) {
+      if (this.audio !== audio) return;
+      this.clearRequest();
+    }
+    detachFailed(audio) {
+      if (this.audio === audio) this.audio = void 0;
+    }
+    clearRequest() {
+      this.audio = void 0;
+      this.key = "";
+    }
+  }
   const SESSION_PROGRESS_SOURCES = ["jiten", "jpdb", "anki"];
   const DUE_SESSION_STATES = /* @__PURE__ */ new Set(["due", "failed", "learning"]);
   const DEFAULT_SESSION_PROGRESS_LABELS = {
@@ -62385,6 +62457,10 @@ ${entry.url}`),
         submit: (item) => this.submitQueuedGrade(item),
         onSubmitted: (card) => this.invalidateReviewSourceCache(card)
       });
+      this.immersionAudioPlayer = new NewTabImmersionAudioPlayer({
+        getSettings: () => this.dependencies.getSettings(),
+        immersionKit: this.dependencies.immersionKit
+      });
     }
     allWords = [];
     visibleWords = [];
@@ -62410,9 +62486,7 @@ ${entry.url}`),
     wordPitchCache = /* @__PURE__ */ new Map();
     doodlePreviewCache = /* @__PURE__ */ new Map();
     immersionPrefetchGeneration = 0;
-    immersionAudio;
-    immersionAudioKey = "";
-    immersionAudioRequestId = 0;
+    immersionAudioPlayer;
     reviewCountMode = false;
     reviewHistoryCards = [];
     sessionProgress = new NewTabSessionProgressTracker();
@@ -62642,10 +62716,7 @@ ${entry.url}`),
       this.frontSentenceCache.clear();
       this.parsedSentenceCache.clear();
       this.doodlePreviewCache.clear();
-      this.immersionAudio?.pause();
-      this.immersionAudio = void 0;
-      this.immersionAudioKey = "";
-      this.immersionAudioRequestId++;
+      this.immersionAudioPlayer.reset();
       this.statsSnapshot = emptyStatsDashboardSnapshot();
       this.statsLoaded = false;
       this.statsSelectedDate = "";
@@ -66133,7 +66204,7 @@ ${entry.url}`),
       if (!this.dependencies.getSettings().audioEnabled) return;
       const source = this.renderedNewTabImmersionAudioSource(surface);
       if (source) {
-        await this.playNewTabImmersionAudioSource(source, isCurrent);
+        await this.immersionAudioPlayer.playSource(source, isCurrent);
         return;
       }
       await this.playNewTabImmersionAudio(card, key, isCurrent);
@@ -66145,32 +66216,8 @@ ${entry.url}`),
       const example = examples[this.normalizedImmersionExampleIndex(key, examples)];
       if (!example) return;
       const source = this.newTabImmersionAudioSource(example);
-      if (!source || this.isCurrentImmersionAudioPlaying(source.key)) return;
-      await this.playNewTabImmersionAudioSource(source, isCurrent);
-    }
-    async playNewTabImmersionAudioSource(source, isCurrent) {
-      if (this.isCurrentImmersionAudioPlaying(source.key)) return;
-      const requestId = this.beginNewTabImmersionAudio(source.key);
-      if (await this.playNewTabImmersionAudioCandidates(source.urls, requestId, source.key, isCurrent)) return;
-      const blobSrc = await this.fetchNewTabImmersionAudio(source.urls);
-      if (blobSrc) await this.playNewTabImmersionAudioCandidates([blobSrc], requestId, source.key, isCurrent);
-      if (this.isCurrentImmersionAudioRequest(requestId, source.key)) this.clearNewTabImmersionAudioRequest();
-    }
-    async playNewTabImmersionAudioCandidates(urls, requestId, key, isCurrent) {
-      for (const src of uniqueNewTabImmersionAudioCandidates(urls)) {
-        if (!this.isCurrentImmersionAudioRequest(requestId, key) || !isCurrent()) return false;
-        const audio = this.attachNewTabImmersionAudio(src);
-        const cleanup = () => this.clearNewTabImmersionAudio(audio);
-        audio.addEventListener("ended", cleanup, { once: true });
-        audio.addEventListener("error", cleanup, { once: true });
-        try {
-          await audio.play();
-          return true;
-        } catch {
-          this.detachFailedNewTabImmersionAudio(audio);
-        }
-      }
-      return false;
+      if (!source || this.immersionAudioPlayer.isPlaying(source.key)) return;
+      await this.immersionAudioPlayer.playSource(source, isCurrent);
     }
     isCurrentRevealedWordCard(key) {
       return this.state.mode === "word" && this.state.revealAnswer && cardKey(this.visibleWords[this.index]) === key;
@@ -66180,7 +66227,7 @@ ${entry.url}`),
       return this.newTabImmersionAudioSourceFromUrls(urls);
     }
     newTabImmersionAudioSourceFromUrls(urls) {
-      const candidates = uniqueNewTabImmersionAudioCandidates(urls);
+      const candidates = uniqueTrimmedStrings(urls);
       const key = candidates[0] ?? "";
       return key ? { urls: candidates, key } : null;
     }
@@ -66195,40 +66242,6 @@ ${entry.url}`),
       } catch {
         return null;
       }
-    }
-    isCurrentImmersionAudioPlaying(key) {
-      return Boolean(this.immersionAudioKey === key && this.immersionAudio && !this.immersionAudio.ended);
-    }
-    beginNewTabImmersionAudio(key) {
-      const requestId = ++this.immersionAudioRequestId;
-      this.immersionAudio?.pause();
-      this.immersionAudio = void 0;
-      this.immersionAudioKey = key;
-      return requestId;
-    }
-    fetchNewTabImmersionAudio(urls) {
-      const settings = this.dependencies.getSettings();
-      return this.dependencies.immersionKit.fetchBlobUrl(urls, settings.audioTimeoutMs, settings.corsProxyUrl, settings.interfaceLanguage).catch(() => "");
-    }
-    isCurrentImmersionAudioRequest(requestId, key) {
-      return requestId === this.immersionAudioRequestId && this.immersionAudioKey === key;
-    }
-    attachNewTabImmersionAudio(src) {
-      const audio = new Audio(src);
-      audio.playbackRate = this.dependencies.getSettings().immersionKitPlaybackRate;
-      this.immersionAudio = audio;
-      return audio;
-    }
-    clearNewTabImmersionAudio(audio) {
-      if (this.immersionAudio !== audio) return;
-      this.clearNewTabImmersionAudioRequest();
-    }
-    detachFailedNewTabImmersionAudio(audio) {
-      if (this.immersionAudio === audio) this.immersionAudio = void 0;
-    }
-    clearNewTabImmersionAudioRequest() {
-      this.immersionAudio = void 0;
-      this.immersionAudioKey = "";
     }
     loadImmersionExamples(card) {
       const key = this.immersionCacheKey(card);
@@ -69377,17 +69390,6 @@ ${entry.url}`),
   }
   function isJitenBulkAction(action) {
     return action === "jiten-mining" || action === "jiten-suspend" || action === "jiten-forget";
-  }
-  function uniqueNewTabImmersionAudioCandidates(values) {
-    const seen = /* @__PURE__ */ new Set();
-    const candidates = [];
-    for (const value of values) {
-      const url = value.trim();
-      if (!url || seen.has(url)) continue;
-      seen.add(url);
-      candidates.push(url);
-    }
-    return candidates;
   }
   class PopupNavigationController {
     constructor(hasActiveKanjiPopover) {
