@@ -20,10 +20,6 @@ description: Get help with よむ — report a bug, join the Discord, view the s
     <strong>New Tab</strong>
     <span>Use the よむ study screen for Jiten, JPDB, Anki, or imported dictionary cards.</span>
   </a>
-  <a class="yomu-link-card" href="./">
-    <strong>Docs</strong>
-    <span>Return to the main documentation hub for setup, features, and changelog pages.</span>
-  </a>
 </div>
 
 ## Support
