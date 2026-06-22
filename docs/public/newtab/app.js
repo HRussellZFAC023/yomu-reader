@@ -8079,6 +8079,10 @@ recommendedJiten	Jiten頻度です。
         removeTextMirror(host);
         return;
       }
+      if (mutations.some((mutation) => mutation.type === "attributes" && mutation.target === host)) {
+        reassertTextMirrorHostStyles(host, state2);
+      }
+      if (!mutations.some((mutation) => mutation.type === "childList" || mutation.type === "characterData")) return;
       const currentText = normalizedMirrorHostText(nativeTextMirrorHostText(host));
       if (!host.isConnected || !HAS_JAPANESE.test(currentText)) {
         removeTextMirror(host);
@@ -8089,7 +8093,7 @@ recommendedJiten	Jiten頻度です。
         dispatchTextMirrorStale(host);
       }
     });
-    state2.observer.observe(host, { childList: true, characterData: true, subtree: true });
+    state2.observer.observe(host, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ["style", "class"] });
   }
   function dispatchTextMirrorStale(host) {
     host.dispatchEvent(new CustomEvent(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, {
