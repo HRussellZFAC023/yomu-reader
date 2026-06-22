@@ -60,6 +60,39 @@ describe('VisiblePageScanner', () => {
         }
     }, 15000);
 
+    it('refreshes page-word contrast before yielding between apply chunks', async () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = Array.from({ length: 50 }, (_, index) => `<p>日本語の文${index}</p>`).join('');
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(text => [testToken(text, '日本語', 0, 3)]));
+        const refreshWordContrast = vi.fn();
+        let applyChunks = 0;
+        const pauseMutationObserver = <T>(callback: () => T): T => {
+            const result = callback();
+            applyChunks += 1;
+            if (applyChunks === 1) {
+                expect(document.querySelectorAll('.jpdb-reader-word')).toHaveLength(48);
+                expect(refreshWordContrast).toHaveBeenCalled();
+            }
+            return result;
+        };
+        const scanner = createVisiblePageScanner({
+            parseJapanese,
+            pauseMutationObserver,
+            refreshWordContrast,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            expect(applyChunks).toBe(2);
+            expect(refreshWordContrast).toHaveBeenCalledWith(document.querySelector('p'));
+        } finally {
+            scanner.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('enhances YouTube comment text without dropping the native text', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {

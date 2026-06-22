@@ -369,13 +369,11 @@ export class VisiblePageScanner {
                 changedRoots.forEach(root => {
                     allChangedRoots.add(root);
                     makeRoomForRubyInCroppedRows(root);
+                    this.dependencies.refreshWordContrast?.(root);
                 });
             });
             if (index + applyBatchSize < targets.length) await waitForVisibleScanTurn();
         }
-        // One contrast pass per unique root after all chunks — running it per
-        // chunk forced repeated style recalcs on the same containers.
-        allChangedRoots.forEach(root => this.dependencies.refreshWordContrast?.(root));
         return [...allChangedRoots];
     }
 
