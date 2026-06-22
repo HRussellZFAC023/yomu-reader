@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.53] - 2026-06-22
+
+### Changed
+
+- Internal: extracted the new-tab offline grade write-behind queue (persist failed grades, dedupe, retry on reconnect) into a dedicated, unit-tested `NewTabGradeQueue` module, further shrinking the new-tab controller. No change to behavior.
+
 ## [1.4.52] - 2026-06-22
 
 ### Fixed

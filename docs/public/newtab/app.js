@@ -61019,6 +61019,78 @@ ${entry.url}`),
       return settings.localDictionariesEnabled && settings.localDictionaryShowKanji;
     }
   }
+  class NewTabGradeQueue {
+    constructor(deps) {
+      this.deps = deps;
+    }
+    async enqueue(card, grade, targets) {
+      const queueTargets = queueableNewTabReviewTargets(targets);
+      if (!queueTargets.length || !this.deps.offlineEnabled()) return false;
+      const queue = await this.read();
+      const entries = queueTargets.map((target) => ({
+        id: `${target}:${cardKey(card)}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
+        at: Date.now(),
+        target,
+        card,
+        grade,
+        attempts: 0
+      }));
+      const entryKeys = new Set(entries.map((entry) => this.key(entry)));
+      const deduped = queue.filter((item) => !entryKeys.has(this.key(item)));
+      deduped.push(...entries);
+      await this.write(deduped.slice(-200));
+      return true;
+    }
+    async flush() {
+      const queue = await this.read();
+      if (!queue.length) return;
+      const pending = [];
+      for (const item of queue) {
+        if (!item) continue;
+        try {
+          const submitted = await this.deps.submit(item);
+          if (submitted) this.deps.onSubmitted(item.card);
+        } catch (error) {
+          pending.push({
+            ...item,
+            attempts: item.attempts + 1,
+            lastError: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      await this.write(pending);
+    }
+    key(item) {
+      return `${item.target}:${cardKey(item.card)}`;
+    }
+    async read() {
+      const queue = await gmStorageGet(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
+      return Array.isArray(queue) ? queue.filter(isQueuedNewTabGrade).slice(-200) : [];
+    }
+    write(queue) {
+      return queue.length ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
+    }
+  }
+  function isQueuedNewTabGrade(value) {
+    if (!isObjectRecord(value)) return false;
+    const record = value;
+    return hasQueuedGradeIdentity(record) && hasQueuedGradeTarget(record) && isJpdbGrade(record.grade) && hasQueuedGradePayload(record);
+  }
+  function isObjectRecord(value) {
+    return Boolean(value && typeof value === "object");
+  }
+  function hasQueuedGradeIdentity(record) {
+    return typeof record.id === "string" && typeof record.at === "number";
+  }
+  function hasQueuedGradeTarget(record) {
+    return record.target === "anki" || record.target === "jpdb-api" || record.target === "jiten-api";
+  }
+  function hasQueuedGradePayload(record) {
+    return isObjectRecord(record.card) && typeof record.attempts === "number";
+  }
+  function isJpdbGrade(value) {
+    return value === "nothing" || value === "something" || value === "hard" || value === "okay" || value === "easy" || value === "fail" || value === "pass";
+  }
   const SESSION_PROGRESS_SOURCES = ["jiten", "jpdb", "anki"];
   const DUE_SESSION_STATES = /* @__PURE__ */ new Set(["due", "failed", "learning"]);
   const DEFAULT_SESSION_PROGRESS_LABELS = {
@@ -62278,6 +62350,11 @@ ${entry.url}`),
         dictionaries: this.dependencies.dictionaries,
         localSearchWithTimeout: (promise, fallback) => this.localSearchWithTimeout(promise, fallback)
       });
+      this.gradeQueue = new NewTabGradeQueue({
+        offlineEnabled: () => this.dependencies.getSettings().newTabOfflineEnabled,
+        submit: (item) => this.submitQueuedGrade(item),
+        onSubmitted: (card) => this.invalidateReviewSourceCache(card)
+      });
     }
     allWords = [];
     visibleWords = [];
@@ -62294,6 +62371,7 @@ ${entry.url}`),
     pendingLiveJpdbGrade = null;
     keywordCache = /* @__PURE__ */ new Map();
     kanjiDetailSource;
+    gradeQueue;
     uchisenDataCache = /* @__PURE__ */ new Map();
     immersionCache = /* @__PURE__ */ new Map();
     immersionExampleIndex = /* @__PURE__ */ new Map();
@@ -68196,7 +68274,7 @@ ${entry.url}`),
       if (!this.canReviewCard(target.card)) return false;
       const isCorrection = this.isReviewHistoryCard(target.card);
       if (this.isOfflineSourceLabel(this.sourceLabel)) {
-        if (await this.queueOfflineGrade(target.card, grade)) {
+        if (await this.gradeQueue.enqueue(target.card, grade, this.offlineGradeTargets(target.card))) {
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
           this.advanceAfterGrade(target.root, target.card, grade);
@@ -68222,7 +68300,7 @@ ${entry.url}`),
         return true;
       } catch (error) {
         log$3.warn("New tab grade failed", { term: target.card.spelling, source: target.card.source, grade }, error);
-        if (!selectedTarget && await this.queueOfflineGrade(target.card, grade, this.queueableFailedGradeTargets(error))) {
+        if (!selectedTarget && await this.gradeQueue.enqueue(target.card, grade, this.queueableFailedGradeTargets(error) ?? this.offlineGradeTargets(target.card))) {
           this.setStatus(target.root, this.text("offlineGradeReconnect"));
           if (!isCorrection) this.sessionProgress.recordReviewCompleted();
           this.advanceAfterGrade(target.root, target.card, grade);
@@ -68502,45 +68580,11 @@ ${entry.url}`),
       const cardId = card.ankiCardId ?? (card.source === "anki" || card.reviewSource === "anki" ? card.rid : void 0);
       return Number.isFinite(Number(cardId)) && Number(cardId) > 0 ? Number(cardId) : null;
     }
-    async queueOfflineGrade(card, grade, targets = this.offlineGradeTargets(card)) {
-      const queueTargets = queueableNewTabReviewTargets(targets);
-      if (!queueTargets.length || !this.dependencies.getSettings().newTabOfflineEnabled) return false;
-      const queue = await this.readQueuedGrades();
-      const entries = queueTargets.map((target) => ({
-        id: `${target}:${cardKey(card)}:${Date.now()}:${Math.random().toString(36).slice(2)}`,
-        at: Date.now(),
-        target,
-        card,
-        grade,
-        attempts: 0
-      }));
-      const entryKeys = new Set(entries.map((entry) => this.queuedGradeKey(entry)));
-      const deduped = queue.filter((item) => !entryKeys.has(this.queuedGradeKey(item)));
-      deduped.push(...entries);
-      await this.writeQueuedGrades(deduped.slice(-200));
-      return true;
-    }
     offlineGradeTarget(card) {
       return this.offlineGradeTargets(card)[0] ?? null;
     }
-    async flushQueuedGrades() {
-      const queue = await this.readQueuedGrades();
-      if (!queue.length) return;
-      const pending = [];
-      for (const item of queue) {
-        if (!item) continue;
-        try {
-          const submitted = await this.submitQueuedGrade(item);
-          if (submitted) this.invalidateReviewSourceCache(item.card);
-        } catch (error) {
-          pending.push({
-            ...item,
-            attempts: item.attempts + 1,
-            lastError: error instanceof Error ? error.message : String(error)
-          });
-        }
-      }
-      await this.writeQueuedGrades(pending);
+    flushQueuedGrades() {
+      return this.gradeQueue.flush();
     }
     async submitQueuedGrade(item) {
       if (item.target === "anki") {
@@ -68553,16 +68597,6 @@ ${entry.url}`),
       }
       await this.submitJpdbApiGrade(item.card, item.grade);
       return true;
-    }
-    queuedGradeKey(item) {
-      return `${item.target}:${cardKey(item.card)}`;
-    }
-    async readQueuedGrades() {
-      const queue = await gmStorageGet(NEW_TAB_GRADE_QUEUE_KEY, null).catch(() => null);
-      return Array.isArray(queue) ? queue.filter(isQueuedNewTabGrade).slice(-200) : [];
-    }
-    writeQueuedGrades(queue) {
-      return queue.length ? gmStorageSet(NEW_TAB_GRADE_QUEUE_KEY, queue.slice(-200)) : gmStorageDelete(NEW_TAB_GRADE_QUEUE_KEY);
     }
     advanceAfterGrade(root, card, grade) {
       const key = cardKey(card);
@@ -69199,26 +69233,6 @@ ${entry.url}`),
   }
   function setOptionalText(element, text2) {
     if (element) element.textContent = text2;
-  }
-  function isQueuedNewTabGrade(value) {
-    if (!isObjectRecord(value)) return false;
-    const record = value;
-    return hasQueuedGradeIdentity(record) && hasQueuedGradeTarget(record) && isJpdbGrade(record.grade) && hasQueuedGradePayload(record);
-  }
-  function isObjectRecord(value) {
-    return Boolean(value && typeof value === "object");
-  }
-  function hasQueuedGradeIdentity(record) {
-    return typeof record.id === "string" && typeof record.at === "number";
-  }
-  function hasQueuedGradeTarget(record) {
-    return record.target === "anki" || record.target === "jpdb-api" || record.target === "jiten-api";
-  }
-  function hasQueuedGradePayload(record) {
-    return isObjectRecord(record.card) && typeof record.attempts === "number";
-  }
-  function isJpdbGrade(value) {
-    return value === "nothing" || value === "something" || value === "hard" || value === "okay" || value === "easy" || value === "fail" || value === "pass";
   }
   function isNewTabStudyInteractiveTarget(target) {
     return Boolean(target.closest(NEW_TAB_STUDY_INTERACTIVE_SELECTOR));
