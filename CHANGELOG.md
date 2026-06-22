@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.70] - 2026-06-22
+
+### Changed
+
+- Default settings now open in English again, the homepage next-steps grid no longer includes the support card, and the docs header includes a Discord link beside GitHub.
+
 ## [1.4.69] - 2026-06-22
 
 ### Fixed

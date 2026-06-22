@@ -98,8 +98,4 @@ Start with lookup. Add local dictionaries, Anki, OCR, subtitles, and the study p
     <strong>Open PDF reader</strong>
     <span>Open any PDF and read it with よむ lookup, mining, and OCR.</span>
   </a>
-  <a class="yomu-link-card" href="/support">
-    <strong>Get support</strong>
-    <span>Report a bug, join Discord, donate, or reinstall the userscript.</span>
-  </a>
 </div>

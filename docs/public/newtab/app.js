@@ -6037,7 +6037,7 @@ recommendedJiten	Jiten頻度です。
     apiKey: "",
     jitenApiKey: "",
     onboardingSeen: false,
-    interfaceLanguage: "ja",
+    interfaceLanguage: "en",
     accentColor: DEFAULT_ACCENT_COLOR,
     wordColorNew: DEFAULT_WORD_COLORS.new,
     wordColorLearning: DEFAULT_WORD_COLORS.learning,
