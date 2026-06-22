@@ -160,9 +160,8 @@
    dense words that are hard to tap with a fingertip. On coarse pointers, grow
    each word's tap target with a transparent, layout-neutral hit expander so a
    tap near the word still resolves to it. Scoped to mokuro-style reader boxes
-   to avoid disturbing normal prose. any-pointer:coarse so an iPad with an Apple
-   Pencil (pointer:fine + hover:hover) still gets the larger tap targets. */
-@media (any-pointer: coarse) {
+   to avoid disturbing normal prose. */
+@media (pointer: coarse) {
   .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
     content: "";
     position: absolute;
@@ -845,15 +844,6 @@
 .jpdb-ocr-video-frame-pending {
   opacity: 0.001;
   pointer-events: none !important;
-}
-
-/* The status dot sets its own opacity:1, which (equal specificity, later in
-   source) would otherwise beat the pending gate above; this compound selector
-   raises specificity so a gated status spinner stays hidden during OCR. The
-   image and resume controls have no competing opacity, so the plain rule gates
-   them. */
-.jpdb-ocr-video-frame-status.jpdb-ocr-video-frame-pending {
-  opacity: 0.001;
 }
 
 /* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the

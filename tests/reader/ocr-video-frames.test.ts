@@ -115,70 +115,6 @@ describe('paused-video OCR frames', () => {
         });
     });
 
-    it('keeps the status and resume controls gated until OCR resolves so the native player stays reachable', () => {
-        createController();
-        const video = pausedVideo();
-
-        video.dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
-        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
-        const resume = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-resume')!;
-        // While OCR runs, all three overlay artifacts are gated (hidden, not
-        // tappable) so the player's own comment/like/scrubber controls stay
-        // reachable — the user can open the comments before text covers them.
-        expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-        expect(status.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-        expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-    });
-
-    it('skips the paused-frame snapshot when the pause was a dictionary/mining pause', () => {
-        createController();
-        const video = pausedVideo();
-        // The reader marks the video right before pausing it for a lookup; the OCR
-        // snapshot must be suppressed so opening a dictionary entry never spawns an
-        // overlay over the player's comment/like controls.
-        video.dataset.jpdbReaderMiningPause = String(Date.now());
-
-        video.dispatchEvent(new Event('pause'));
-
-        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
-        expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
-        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
-    });
-
-    it('keeps the gate intact through the loading status update (status class must not clobber pending)', async () => {
-        // parseJapanese never resolves, so renderResult hangs in parseOcrLines and
-        // the status stays 'loading'. The 'loading' status update must NOT strip
-        // the gating class — regression guard for the className-clobber that would
-        // expose the spinner over the player mid-scan.
-        controller = new ImageOcrController({
-            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en' }),
-            parseJapanese: () => new Promise<JPDBToken[]>(() => undefined),
-            onToast: vi.fn(),
-            captureVideoFrame: () => 'data:image/jpeg;base64,Zm9v',
-        });
-        controller.init();
-        const video = pausedVideo();
-        video.dispatchEvent(new Event('pause'));
-        const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
-        const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
-        const resume = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-resume')!;
-        Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
-        Object.defineProperty(frame, 'naturalHeight', { value: 360, configurable: true });
-        frame.dataset.ocrLines = JSON.stringify([
-            { text: '日本語', box: { left: 0.1, top: 0.2, width: 0.3, height: 0.12 } },
-        ]);
-        frame.dispatchEvent(new Event('load'));
-
-        await waitForExpect(() => {
-            expect(status.dataset.status).toBe('loading');
-        });
-        // Gate survives the loading status update: all three stay hidden.
-        expect(status.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-        expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-        expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-    });
-
     it('prepares paused-frame OCR words with ruby and pitch so focus can reveal them instantly', async () => {
         const token: JPDBToken = {
             card: {
@@ -265,11 +201,6 @@ describe('paused-video OCR frames', () => {
             expect(status.dataset.status).toBe('empty');
             expect(status.textContent).toBe('');
             expect(status.getAttribute('aria-label')).toBe('No text found');
-            // On a no-text frame the status + resume un-gate (feedback + a play
-            // control), but the captured frame image stays hidden so it never
-            // covers the player when there is nothing to read.
-            expect(status.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
-            expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
         });
     });
 

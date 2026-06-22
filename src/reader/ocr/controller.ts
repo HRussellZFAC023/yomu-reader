@@ -235,21 +235,6 @@ function logOcrFailure(state: ImageState, provider: string, manualRequested: boo
 // fires popstate. Any of them means the current OCR overlays are stale.
 const OCR_NAVIGATION_EVENTS = ['yt-navigate-start', 'yt-navigate-finish', 'popstate'] as const;
 
-// Viewport changes the paused-frame overlay must re-align to. Mirrors the
-// subtitle controller's set so OCR and subtitles never visibly disagree after a
-// rotate or entering native fullscreen (which often emit no window 'resize').
-const OCR_FULLSCREEN_CHANGE_EVENTS = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'] as const;
-
-// A lookup/mining pause stamps this dataset marker on the video; within the
-// window the paused-frame OCR snapshot is suppressed so opening a dictionary
-// entry never covers the player's comment/like controls.
-const MINING_PAUSE_MARKER_TTL_MS = 1500;
-
-function isFreshMiningPause(video: HTMLVideoElement): boolean {
-    const marked = Number(video.dataset.jpdbReaderMiningPause);
-    return Number.isFinite(marked) && Date.now() - marked < MINING_PAUSE_MARKER_TTL_MS;
-}
-
 export class ImageOcrController {
     private states = new Map<HTMLImageElement, ImageState>();
     private cache = new Map<string, OcrResult | null>();
@@ -335,15 +320,6 @@ export class ImageOcrController {
         document.addEventListener('scroll', this.handleDocumentScroll, { capture: true, passive: true });
         window.addEventListener('scroll', this.handleWindowScroll, { passive: true });
         window.addEventListener('resize', this.handleWindowResize, { passive: true });
-        // Rotate / fullscreen / pinch-zoom move the paused-frame overlay's
-        // reference box without always firing a plain window 'resize'; mirror the
-        // subtitle controller's listener set so the frame snaps with it.
-        window.addEventListener('orientationchange', this.handleWindowResize, { passive: true });
-        for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
-            document.addEventListener(eventName, this.handleWindowResize, true);
-        }
-        window.visualViewport?.addEventListener('resize', this.handleDocumentScroll, { passive: true });
-        window.visualViewport?.addEventListener('scroll', this.handleDocumentScroll, { passive: true });
         // UT-77c: YouTube reuses its shared player <video> across SPA route
         // changes, so a hover-preview's paused-frame OCR overlay, its rail
         // resume control, and image overlays survive the navigation and pile
@@ -377,12 +353,6 @@ export class ImageOcrController {
         document.removeEventListener('scroll', this.handleDocumentScroll, true);
         window.removeEventListener('scroll', this.handleWindowScroll);
         window.removeEventListener('resize', this.handleWindowResize);
-        window.removeEventListener('orientationchange', this.handleWindowResize);
-        for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
-            document.removeEventListener(eventName, this.handleWindowResize, true);
-        }
-        window.visualViewport?.removeEventListener('resize', this.handleDocumentScroll);
-        window.visualViewport?.removeEventListener('scroll', this.handleDocumentScroll);
         for (const eventName of OCR_NAVIGATION_EVENTS) {
             window.removeEventListener(eventName, this.handleSpaNavigation);
         }
@@ -692,7 +662,7 @@ export class ImageOcrController {
         // the entire point, so skip the 900ms batching idle that only earns its
         // keep on incidental page images — the page is already on screen and waiting.
         const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
-        const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
+        const delay = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
         void waitForIdle(delay, delay)
             .then(() => this.scanImage(image))
             .finally(() => {
@@ -1081,11 +1051,9 @@ export class ImageOcrController {
     // --- Paused-video frames (UT-27) ---
 
     private snapshotPausedVideo(target: EventTarget | null): void {
-        if (this.destroyed) return;
         if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
         const settings = this.options.getSettings();
         if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === 'off') return;
-        if (isFreshMiningPause(target)) return;
         if (isLikelyPausedVideoThumbnail(target)) return;
         const rect = target.getBoundingClientRect();
         if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -1107,11 +1075,6 @@ export class ImageOcrController {
         this.videoFrames.set(target, frame);
         this.videoFrameVideos.set(frame, target);
         const status = this.createVideoFrameStatus('loading');
-        // Keep the native player fully visible/usable until OCR actually has text
-        // to show: the status spinner and resume control stay gated (hidden, not
-        // tappable) alongside the already-gated frame image, so the viewer can
-        // reach the player's comment/like/scrubber controls while OCR runs.
-        status.classList.add('jpdb-ocr-video-frame-pending');
         this.videoFrameStatuses.set(target, status);
         positionVideoFrameStatus(status, rect, target);
         // Paused-frame escape hatch: recognized text areas swallow clicks for
@@ -1119,31 +1082,15 @@ export class ImageOcrController {
         // reach. Keep playback control in the existing video rail when it is
         // available, with a compact fallback for pages without that rail.
         const resume = this.createVideoFrameResumeControl(target);
-        resume.classList.add('jpdb-ocr-video-frame-pending');
         this.videoFrameControls.set(target, resume);
         positionVideoFrameResumeControl(resume, rect, target);
         this.schedulePosition();
     }
 
-    // Reveal the whole overlay once OCR has produced text: image, status dot, and
-    // the resume control all un-gate together so the readable text + its escape
-    // hatch appear at the same time.
     private revealVideoFrameOverlay(image: HTMLImageElement): void {
         if (!this.videoFrameVideos.has(image)) return;
         image.classList.remove('jpdb-ocr-video-frame-pending');
         delete image.dataset.ocrPending;
-        this.revealVideoFrameStatusAndResume(image);
-    }
-
-    // Reveal only the status dot + resume control, leaving the captured frame
-    // image gated. Used on empty/failed terminal states: the viewer gets
-    // feedback and a play control without the (text-less) frame covering the
-    // player. During loading both stay gated so the native player is reachable.
-    private revealVideoFrameStatusAndResume(image: HTMLImageElement): void {
-        const video = this.videoFrameVideos.get(image);
-        if (!video) return;
-        this.videoFrameStatuses.get(video)?.classList.remove('jpdb-ocr-video-frame-pending');
-        this.videoFrameControls.get(video)?.classList.remove('jpdb-ocr-video-frame-pending');
     }
 
     private createVideoFrameResumeControl(video: HTMLVideoElement): HTMLElement {
@@ -1186,18 +1133,7 @@ export class ImageOcrController {
         const language = this.options.getSettings().interfaceLanguage;
         const label = uiText(language, videoFrameStatusTextKey(status));
         element.dataset.status = status;
-        // Toggle status classes individually instead of reassigning className, so
-        // the gating class (jpdb-ocr-video-frame-pending) survives a 'loading'
-        // status update — otherwise the spinner would un-gate over the player
-        // mid-scan, defeating the keep-native-player-reachable behavior.
-        element.classList.remove(
-            'jpdb-ocr-video-frame-status-loading',
-            'jpdb-ocr-video-frame-status-ready',
-            'jpdb-ocr-video-frame-status-empty',
-            'jpdb-ocr-video-frame-status-failed',
-            'jpdb-ocr-video-frame-status-fade-out',
-        );
-        element.classList.add('jpdb-ocr-video-frame-status', `jpdb-ocr-video-frame-status-${status}`);
+        element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
         element.setAttribute('aria-label', label);
     }
 
@@ -1211,24 +1147,8 @@ export class ImageOcrController {
     // Drive both status surfaces: paused-video frames keep their card over the
     // player; every other OCR'd image gets its own card over the image.
     private updateOcrStatus(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
-        if (this.videoFrameVideos.has(image)) {
-            this.applyVideoFrameStatusTransition(image, status);
-            return;
-        }
-        this.updateImageStatusCard(image, status);
-    }
-
-    // Paused-frame overlays stay gated (image + status + resume hidden) while OCR
-    // runs, so the native player and its comment/like/scrubber controls stay
-    // reachable. On 'ready' the whole overlay un-gates; on empty/failed only the
-    // status + resume un-gate (the text-less frame image stays hidden) so the
-    // viewer still gets feedback and a play control without the frame covering
-    // the player. A lookup/mining pause never reaches here — it is skipped at
-    // snapshot time via the mining marker.
-    private applyVideoFrameStatusTransition(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
-        if (status === 'ready') this.revealVideoFrameOverlay(image);
-        else if (status === 'empty' || status === 'failed') this.revealVideoFrameStatusAndResume(image);
         this.updateVideoFrameStatusForImage(image, status);
+        this.updateImageStatusCard(image, status);
     }
 
     private updateImageStatusCard(image: HTMLImageElement, status: OcrVideoFrameStatus): void {

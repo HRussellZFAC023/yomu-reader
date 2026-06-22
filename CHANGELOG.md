@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.60] - 2026-06-22
+
+### Fixed
+
+- Full rollback of the 1.4.58/1.4.59 YouTube-mobile-UX changes: they broke mobile YouTube page loading and the 1.4.59 partial revert did not fix it. This release restores the exact known-good 1.4.57 reader/page-scan/subtitle/OCR behavior. The reverted work (mobile subtitle sizing/sync, paused-frame OCR gating, pause-on-lookup, tap reliability, iPad touch targets, comment pitch, broader YouTube text coverage) will be re-introduced one change at a time only after on-device mobile validation, since the regression could not be reproduced in the headless test harness.
+
 ## [1.4.59] - 2026-06-22
 
 ### Fixed

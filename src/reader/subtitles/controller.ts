@@ -305,10 +305,7 @@ function isYouTubeMobileFullscreenHost(element: HTMLElement | null | undefined):
 
 function subtitleMinimumFontSize(root: HTMLElement): number {
     const rootRect = root.getBoundingClientRect();
-    // Narrow/portrait frames (phones, Shorts) keep a higher absolute floor so a
-    // long line never shrinks into illegibly small text against the chrome;
-    // desktop stays at 14.
-    return rootRect.width < 700 || rootRect.height < 360 ? 16 : 14;
+    return rootRect.width < 700 || rootRect.height < 360 ? 12 : 14;
 }
 
 function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings): number {
@@ -316,38 +313,9 @@ function subtitleFrameTargetFontSize(root: HTMLElement, settings: ReaderSettings
     const width = Math.max(1, rootRect.width);
     const height = Math.max(1, rootRect.height);
     const baseline = Math.max(16, Math.min(64, settings.subtitleFontSize));
-    // Desktop landscape references 1280x720. A portrait/Shorts frame has ample
-    // vertical room, so scale off width against a 720 reference instead of being
-    // penalized by the tall-but-narrow box (which previously slammed the scale
-    // into the 0.62 floor and rendered ~17px on a phone). Narrow or portrait
-    // frames also get a higher scale floor so the default stays readable; the
-    // user's explicit setting still wins upward via the baseline.
-    const portrait = height > width;
-    const frameScale = portrait
-        ? Math.sqrt(width / 720)
-        : Math.sqrt(Math.min(width / 1280, height / 720));
-    const minScale = portrait || width < 700 ? 0.82 : 0.62;
-    const scaled = Math.round(baseline * Math.max(minScale, Math.min(1.45, frameScale)));
+    const frameScale = Math.sqrt(Math.min(width / 1280, height / 720));
+    const scaled = Math.round(baseline * Math.max(0.62, Math.min(1.45, frameScale)));
     return Math.max(subtitleMinimumFontSize(root), Math.min(64, scaled));
-}
-
-// The flat bottom offset (default 16%) is measured against the video-frame box.
-// On a portrait/Shorts frame the lower quarter is YouTube's action rail +
-// scrubber, so the default line lands inside the chrome. Lift an UNCONFIGURED
-// default clear of it on narrow/portrait frames while letting an explicit larger
-// user value win — the setting stays authoritative; we only raise a default.
-// Mirrors settings/index.ts default subtitleBottomOffset; keep in sync.
-const DEFAULT_SUBTITLE_BOTTOM_OFFSET = 16;
-function effectiveSubtitleBottomPercent(settings: ReaderSettings, root: HTMLElement): number {
-    // Only lift the UNCONFIGURED default — any explicit user value (higher OR
-    // lower) stays authoritative, so a viewer who deliberately set a low offset
-    // keeps it. We only raise the untouched default clear of portrait/Shorts chrome.
-    if (settings.subtitleBottomOffset !== DEFAULT_SUBTITLE_BOTTOM_OFFSET) return settings.subtitleBottomOffset;
-    const rect = root.getBoundingClientRect();
-    const portrait = rect.height > rect.width;
-    const narrow = rect.width < 700;
-    const floor = portrait ? 28 : narrow ? 22 : 0;
-    return Math.max(settings.subtitleBottomOffset, floor);
 }
 
 function subtitleElementOverflows(element: HTMLElement): boolean {
@@ -413,21 +381,6 @@ function clearWindowAnimationFrame(id: number | undefined): undefined {
     return undefined;
 }
 
-// requestVideoFrameCallback gives a sample on every presented video frame
-// (iOS Safari 15.4+, Chrome). Feature-detected so the cue/karaoke sampler can
-// fall back to requestAnimationFrame where it is missing.
-interface RequestVideoFrameCallbackHost {
-    requestVideoFrameCallback(callback: (now: number, metadata: unknown) => void): number;
-    cancelVideoFrameCallback(handle: number): void;
-}
-function videoFrameCallbackHost(video: HTMLVideoElement): RequestVideoFrameCallbackHost | null {
-    const candidate = video as unknown as Partial<RequestVideoFrameCallbackHost>;
-    return typeof candidate.requestVideoFrameCallback === 'function'
-        && typeof candidate.cancelVideoFrameCallback === 'function'
-        ? (candidate as RequestVideoFrameCallbackHost)
-        : null;
-}
-
 function frameHasPlayerControls(frame: HTMLElement): boolean {
     return Boolean(frame.querySelector([
         'button',
@@ -482,10 +435,7 @@ const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
 const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
 const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
 const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
-// Housekeeping cadence while playing (track discovery, realign backstop, chrome
-// idle). Cue + karaoke precision is owned by the per-frame sampler
-// (startFrameSync), so this no longer needs to run at 250ms.
-const SUBTITLE_TICK_ACTIVE_MS = 500;
+const SUBTITLE_TICK_ACTIVE_MS = 250;
 const SUBTITLE_TICK_PAUSED_MS = 600;
 const SUBTITLE_TICK_IDLE_MS = 1500;
 const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
@@ -683,14 +633,6 @@ export class SubtitlePlayerController {
     private lastPlayerChromeHidden = false;
     private discoverTimer?: number;
     private tickTimer?: number;
-    // Per-frame cue/karaoke sampler (rVFC, rAF fallback). Armed only while the
-    // bound video plays; cancelled on pause/seek-away/destroy/hidden.
-    private frameSyncHandle?: number;
-    private frameSyncVideo?: HTMLVideoElement;
-    // Dirty-check for the per-frame karaoke pass: classes only flip at integer
-    // character boundaries, so skip the class churn between crossings.
-    private lastKaraokeProgressKey?: number;
-    private lastKaraokePrimaryWord?: HTMLElement | null;
     private alignFrame?: number;
     private alignAfterTranscriptResize = false;
     private lastAlignedVideoRectKey = '';
@@ -873,7 +815,6 @@ export class SubtitlePlayerController {
         this.videoResizeObserver = undefined;
         this.discoverTimer = clearWindowTimeout(this.discoverTimer);
         this.tickTimer = clearWindowTimeout(this.tickTimer);
-        this.stopFrameSync();
         this.clearControlsIdleTimer();
         this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
         this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
@@ -937,7 +878,7 @@ export class SubtitlePlayerController {
         if (!this.root) return;
         setStylePropertyIfChanged(this.root, '--subtitle-font-size-target', `${settings.subtitleFontSize}px`);
         setStylePropertyIfChanged(this.root, '--subtitle-font-size', `${settings.subtitleFontSize}px`);
-        this.applyEffectiveSubtitleBottom();
+        this.root.style.setProperty('--subtitle-bottom', `${settings.subtitleBottomOffset}%`);
         this.syncSubtitleDragOffsetStyle();
         this.root.style.setProperty('--subtitle-color', settings.subtitleTextColor);
         this.root.style.setProperty('--subtitle-outline', settings.subtitleOutlineColor);
@@ -1178,22 +1119,12 @@ export class SubtitlePlayerController {
         video.addEventListener('seeking', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
         video.addEventListener('seeked', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
         video.addEventListener('ratechange', handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
-        video.addEventListener('pause', () => {
-            // Only the BOUND video's pause tears down the sampler. After a player
-            // element swap (miniplayer/ad), a stale element's listener stays armed
-            // (its closure captured the old `video`); without this guard its pause
-            // would cancel the sampler that is actively tracking the new, playing
-            // element. syncPauseTranscriptPanel is self-guarding (it no-ops when
-            // this.video is not paused), so it stays unconditional.
-            if (video === this.video) this.stopFrameSync();
-            this.syncPauseTranscriptPanel({ deferRender: true });
-        }, this.eventOptions({ passive: true }));
+        video.addEventListener('pause', () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
         const handlePlaybackStarted = () => {
             this.pausePanelDismissed = false;
             // Same deferred path as pause: syncPauseTranscriptPanel sees the
             // playing video and closes the auto-opened panel after the paint.
             if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
-            if (video === this.video) this.startFrameSync(video);
             this.scheduleAlignToVideo();
         };
         video.addEventListener('play', handlePlaybackStarted, this.eventOptions({ passive: true }));
@@ -1422,7 +1353,7 @@ export class SubtitlePlayerController {
         }, this.tickDelayMs(settings));
     }
 
-    // The active cadence is only needed while a video is actually playing;
+    // The 250ms cadence is only needed while a video is actually playing;
     // hidden tabs and videoless pages ticking that fast just drains battery.
     private tickDelayMs(settings: ReaderSettings): number {
         if (document.hidden || !settings.subtitlePlayerEnabled || !this.video) return SUBTITLE_TICK_IDLE_MS;
@@ -1431,81 +1362,10 @@ export class SubtitlePlayerController {
     }
 
     private restartTickAfterVisibilityChange(): void {
-        if (this.destroyed) return;
-        if (document.hidden) {
-            // A hidden tab must not hold a per-frame sampler: rVFC/rAF are
-            // paused while hidden, but cancel explicitly so nothing re-arms.
-            this.stopFrameSync();
-            return;
-        }
-        if (this.video && !this.video.paused) this.startFrameSync(this.video);
-        if (this.tickTimer === undefined) return;
+        if (this.destroyed || document.hidden || this.tickTimer === undefined) return;
         window.clearTimeout(this.tickTimer);
         this.tickTimer = undefined;
         this.tick();
-    }
-
-    // Frame-synced cue + karaoke sampler. The housekeeping tick (500ms) is too
-    // coarse for cue boundaries — a line could flip up to a tick late, worse at
-    // 1.5-2x playback — so sample once per presented frame while the bound video
-    // plays. Cancelled on pause/seek-away/destroy/hidden so a paused or
-    // backgrounded tab never spins. updateFromLoadedCues no-ops when the active
-    // cue is unchanged, so the steady-state per-frame cost is two bounded cue
-    // searches.
-    private startFrameSync(video: HTMLVideoElement): void {
-        if (this.destroyed || document.hidden) return;
-        this.stopFrameSync();
-        this.frameSyncVideo = video;
-        this.scheduleFrameSync();
-    }
-
-    private scheduleFrameSync(): void {
-        const video = this.frameSyncVideo;
-        if (!video || this.frameSyncHandle !== undefined) return;
-        const host = videoFrameCallbackHost(video);
-        const run = () => {
-            this.frameSyncHandle = undefined;
-            if (this.destroyed || document.hidden) {
-                this.frameSyncVideo = undefined;
-                return;
-            }
-            const current = this.frameSyncVideo;
-            if (!current || current.paused || !current.isConnected) {
-                this.frameSyncVideo = undefined;
-                return;
-            }
-            this.sampleSubtitleFrame(current);
-            this.scheduleFrameSync();
-        };
-        this.frameSyncHandle = host ? host.requestVideoFrameCallback(run) : window.requestAnimationFrame(run);
-    }
-
-    private stopFrameSync(): void {
-        const handle = this.frameSyncHandle;
-        if (handle !== undefined) {
-            const host = this.frameSyncVideo ? videoFrameCallbackHost(this.frameSyncVideo) : null;
-            if (host) host.cancelVideoFrameCallback(handle);
-            else window.cancelAnimationFrame(handle);
-            this.frameSyncHandle = undefined;
-        }
-        this.frameSyncVideo = undefined;
-    }
-
-    private sampleSubtitleFrame(video: HTMLVideoElement): void {
-        const settings = this.options.getSettings();
-        if (!settings.subtitlePlayerEnabled) return;
-        this.updateFromLoadedCues();
-        if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
-            this.applyKaraokeStateToPrimary(this.currentCue, video.currentTime);
-        }
-    }
-
-    // The video the subtitle controller is currently bound to, when it is still
-    // in the DOM. Consumed by the mining-pause path so it pauses the exact
-    // player the overlay is tracking instead of a document-wide largest-video
-    // heuristic (which mis-fires with ads/previews/miniplayers).
-    getBoundVideo(): HTMLVideoElement | undefined {
-        return this.video && this.video.isConnected ? this.video : undefined;
     }
 
     private tickSubtitlePlayer(settings: ReaderSettings): void {
@@ -2578,16 +2438,8 @@ export class SubtitlePlayerController {
         return tier === 'provisional' ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
     }
 
-    private applyEffectiveSubtitleBottom(): void {
-        if (!this.root) return;
-        this.root.style.setProperty('--subtitle-bottom', `${effectiveSubtitleBottomPercent(this.options.getSettings(), this.root)}%`);
-    }
-
     private fitSubtitleTextToVideo(): void {
         if (!this.root || !this.subtitleEl) return;
-        // The frame just changed size/orientation (reel swipe, rotate, inset):
-        // recompute the default bottom clearance for portrait/Shorts here too.
-        this.applyEffectiveSubtitleBottom();
         const settings = this.options.getSettings();
         const target = subtitleFrameTargetFontSize(this.root, settings);
         let fitted = target;
@@ -2609,23 +2461,9 @@ export class SubtitlePlayerController {
 
     private applyKaraokeStateToPrimary(cue: SubtitleCue, time: number): void {
         const state = this.primaryKaraokeState(cue);
-        if (!state) {
-            this.lastKaraokeProgressKey = undefined;
-            this.lastKaraokePrimaryWord = undefined;
-            return;
-        }
+        if (!state) return;
 
         const progress = karaokeCharacterProgress(cue, state.words, time);
-        const progressKey = Math.floor(progress);
-        const primaryWord = state.wordElements[0] ?? null;
-        // The sampler runs this every presented frame, but karaoke classes only
-        // flip when the integer character progress crosses a word boundary. Skip
-        // the per-word classList churn while neither the progress bucket nor the
-        // rendered primary (a re-render makes new word elements) has changed.
-        if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
-        this.lastKaraokeProgressKey = progressKey;
-        this.lastKaraokePrimaryWord = primaryWord;
-
         let cursor = 0;
         for (const element of state.wordElements) {
             cursor = applyKaraokeClassToWordElement(element, cursor, progress);
