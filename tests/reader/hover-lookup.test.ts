@@ -65,6 +65,7 @@ interface HoverLookupInternals {
     preloadHoverWordAudio(word: HTMLElement): void;
     preloadParsedTokens(tokens: JPDBToken[]): void;
     preloadTermAudioForTokens(tokens: JPDBToken[]): void;
+    audio: { primeUserGesture(): boolean };
     audioActions: { playTermAudio(card: JPDBCard, options?: Record<string, unknown>): Promise<void> | void };
     shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean;
     showAlternativeRenderedWordCandidate(word: HTMLElement, card: JPDBCard, context: unknown, options: unknown, stackOverSettings: boolean): Promise<boolean>;
@@ -116,6 +117,7 @@ function hoverPointerEvent(
         relatedTarget: { value: relatedTarget },
         clientX: { value: 40 },
         clientY: { value: 24 },
+        button: { value: 0 },
         pointerType: { value: pointerType },
         altKey: { value: modifiers.altKey ?? false },
         ctrlKey: { value: modifiers.ctrlKey ?? false },
@@ -383,6 +385,30 @@ describe('hover lookup', () => {
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 1)).toBe(true);
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 1)).toBe(false);
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 2)).toBe(true);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('primes gesture audio on pointerdown when autoplay is hover-only', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const primeUserGesture = vi.fn(() => true);
+        const word = readerWordFixture('今日は読む', '読む');
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover',
+            lookupOnHover: true,
+        };
+        internals.audio = { primeUserGesture };
+        internals.bindEvents();
+
+        try {
+            word.dispatchEvent(hoverPointerEvent(word, 'mouse', 'pointerdown'));
+
+            expect(primeUserGesture).toHaveBeenCalledTimes(1);
         } finally {
             cleanupReaderApp(app);
         }

@@ -720,6 +720,7 @@ export class ReaderApp {
     private pageHasJapaneseText = false;
     private embeddedFrame = false;
     private pressLookup?: PressLookupState;
+    private tapLookup?: { id: number; x: number; y: number; word: HTMLElement };
     private suppressMiddleAuxClickUntil = 0;
 
     constructor() {
@@ -1837,20 +1838,24 @@ export class ReaderApp {
             if (this.isMiningDrawerHandlePointerEvent(event)) return;
             this.suppressHoverAfterPenContact(event);
             if (this.handleOcrReaderWordPointerDown(event)) return;
+            this.beginTapLookup(event);
             this.dismissModalPopoverForOutsidePointer(event);
             this.dismissHoverPopoverForOutsidePointer(event);
             this.beginPressLookup(event);
         }, { capture: true, passive: false });
 
         document.addEventListener('pointermove', event => {
+            this.updateTapLookup(event);
             this.updatePressLookup(event);
         }, { capture: true, passive: false });
 
         document.addEventListener('pointerup', event => {
+            this.finishTapLookup(event);
             this.endPressLookup(event);
         }, { capture: true });
 
         document.addEventListener('pointercancel', event => {
+            this.cancelTapLookup(event);
             this.endPressLookup(event);
         }, { capture: true });
 
@@ -1957,6 +1962,50 @@ export class ReaderApp {
     private handleReaderWordClick(event: MouseEvent, word: HTMLElement): void {
         const surfaces = this.readerWordClickSurfaces(event, word);
         if (!surfaces) return;
+        this.openReaderWordFromPointer(event, word, surfaces);
+    }
+
+    private beginTapLookup(event: PointerEvent): void {
+        this.tapLookup = undefined;
+        if (this.isDestroyed
+            || event.button !== 0
+            || event.isPrimary === false
+            || (event.pointerType !== 'touch' && event.pointerType !== 'pen')
+            || this.isInsideActivePopover(event.target as Node | null)) return;
+        const word = this.readerWordForPointerEvent(event, { clickLookup: true });
+        if (!word || !this.readerWordClickSurfaces(event, word)) return;
+        this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word };
+        this.primeLookupAudioFromGesture();
+    }
+
+    private updateTapLookup(event: PointerEvent): void {
+        const tap = this.tapLookup;
+        if (!tap || tap.id !== event.pointerId) return;
+        if (Math.hypot(event.clientX - tap.x, event.clientY - tap.y) > 12) this.tapLookup = undefined;
+    }
+
+    private finishTapLookup(event: PointerEvent): void {
+        const tap = this.tapLookup;
+        if (!tap || tap.id !== event.pointerId) return;
+        this.tapLookup = undefined;
+        const word = this.readerWordForPointerEvent(event, { clickLookup: true }) ?? tap.word;
+        if (!word?.isConnected) return;
+        const surfaces = this.readerWordClickSurfaces(event, word);
+        if (!surfaces) return;
+        this.openReaderWordFromPointer(event, word, surfaces);
+        this.suppressWordClickUntil = Date.now() + 700;
+    }
+
+    private cancelTapLookup(event: PointerEvent): void {
+        const tap = this.tapLookup;
+        if (tap && tap.id === event.pointerId) this.tapLookup = undefined;
+    }
+
+    private openReaderWordFromPointer(
+        event: MouseEvent,
+        word: HTMLElement,
+        surfaces: { insideReaderPopup: boolean; insideSubtitlePlayer: boolean },
+    ): void {
         event.preventDefault();
         event.stopPropagation();
         this.prepareModalLookupFromPointer(event);
@@ -2254,6 +2303,7 @@ export class ReaderApp {
     private beginPressLookup(event: PointerEvent): void {
         const request = this.pressLookupRequest(event);
         if (!request) return;
+        this.primeLookupAudioFromGesture();
         if (request.isMiddleScan) this.captureMiddleMouseLookup(event);
         this.pressLookup = this.createPressLookup(event, request.isMiddleScan);
         if (request.isMiddleScan) this.updatePressLookup(event);
@@ -2301,7 +2351,6 @@ export class ReaderApp {
 
     private primeLookupAudioFromGesture(): void {
         if (!this.settings.audioEnabled || !this.settings.autoPlayAudio) return;
-        if (this.settings.audioAutoPlayMode === 'hover') return;
         this.audio.primeUserGesture();
     }
 

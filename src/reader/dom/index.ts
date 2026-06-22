@@ -928,7 +928,12 @@ function matchesSkippedFragmentElement(
 }
 
 function shouldSkipInvisibleFragmentElement(element: HTMLElement, visibleOnly: boolean): boolean {
+    if (!hasVisibleTextStyle(element) && !hasVisibleTextMirror(element)) return true;
     return visibleOnly && !isVisible(element) && !hasVisibleTextMirror(element);
+}
+
+function hasVisibleTextStyle(element: HTMLElement): boolean {
+    return isVisibleStyle(safeComputedStyle(element));
 }
 
 function hasVisibleTextMirror(element: HTMLElement): boolean {
@@ -3326,12 +3331,8 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
 // collapsed/hidden (sizing them un-collapses the filter into giant gaps) and
 // any aria-hidden subtree. Scanned words can live inside a collapsed card; room
 // must skip them.
-const RUBY_ROOM_SKIP_SELECTOR = [
-    '[data-yomu-youtube-filtered]',
-    '[data-yomu-youtube-pending]',
-    '[data-yomu-youtube-aria-hidden]',
-    '.jpdb-youtube-filter-collapsed',
-    '.jpdb-youtube-pending',
+const RUBY_ROOM_HARD_SKIP_SELECTOR = '[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending';
+const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = [
     // YouTube's Polymer/view-model hosts own their measured height. Reserving
     // ruby room on them writes inline height/max-height that YouTube treats as
     // authoritative, causing watch descriptions to balloon and compact metadata
@@ -3347,7 +3348,27 @@ const RUBY_ROOM_SKIP_SELECTOR = [
     'yt-button-view-model',
     'button',
     '[role="button"]',
+    'ytd-app',
+    'ytm-app',
+    'ytd-rich-grid-renderer',
+    'ytd-rich-item-renderer',
+    'ytd-video-renderer',
+    'yt-lockup-view-model',
+    'ytm-rich-grid-renderer',
+    'ytm-video-with-context-renderer',
+    'ytm-shorts-lockup-view-model',
+    'ytm-shorts-lockup-view-model-v2',
+    'ytm-item-section-renderer',
 ].join(',');
+const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
+    'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text',
+    'ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow',
+    'ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer',
+    'ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer',
+    'ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title',
+    'yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3',
+].join(',');
+const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,[data-attrid]) :is(a,button,[role="button"])';
 // A clamped/ellipsis text row's furigana never needs more than a few lines of
 // extra height. A room far larger than this means we measured a container (a
 // collapsed card, a virtualized list) rather than a text row — refuse it so a
@@ -3359,8 +3380,9 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
     const words = root.querySelectorAll<HTMLElement>('.jpdb-reader-word');
     for (const word of words) {
         if (!word.querySelector('rt')) continue;
-        if (word.closest(RUBY_ROOM_SKIP_SELECTOR)) continue;
+        if (word.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) continue;
         for (const box of cropCapableBoxes(word.parentElement)) {
+            if (rubyRoomBoxIsSkipped(box)) continue;
             if (!boxActuallyCrops(box)) continue;
             const roomHeight = rubyRoomHeight(box);
             if (roomHeight > RUBY_ROOM_MAX_PX) continue;
@@ -3373,6 +3395,32 @@ export function makeRoomForRubyInCroppedRows(root: ParentNode = document): numbe
         }
     }
     return adjusted;
+}
+
+function rubyRoomBoxIsSkipped(box: HTMLElement): boolean {
+    if (box.closest(RUBY_ROOM_HARD_SKIP_SELECTOR)) return true;
+    if (!safeElementMatches(box, RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR)) return false;
+    if (isGoogleSearchRubyRoomTextBox(box)) return false;
+    return !isYouTubeRubyRoomTextBox(box);
+}
+
+function isYouTubeRubyRoomTextBox(box: HTMLElement): boolean {
+    if (safeElementMatches(box, 'yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string')) {
+        return safeElementMatches(box, 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text');
+    }
+    return safeElementMatches(box, RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR)
+        || Boolean(box.closest(RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR));
+}
+
+function isGoogleSearchRubyRoomTextBox(box: HTMLElement): boolean {
+    return isGoogleSearchHost()
+        && (safeElementMatches(box, RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)
+            || Boolean(box.closest(RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR)));
+}
+
+function isGoogleSearchHost(): boolean {
+    const hostname = location.hostname.toLowerCase();
+    return /(^|\.)google\./i.test(hostname) && location.pathname === '/search';
 }
 
 function makeRoomForRubyInBox(box: HTMLElement, style: CSSStyleDeclaration, roomHeight: number): void {

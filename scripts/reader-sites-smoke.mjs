@@ -18,7 +18,7 @@ assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT);
 const SITES = [
     { name: 'ttsu', url: 'https://reader.ttsu.app/', expectRail: false },
     { name: 'yatsu', url: 'https://yatsu-reader.web.app/', optional: true, expectRail: false },
-    { name: 'youtube', url: 'https://www.youtube.com/watch?v=f2Q5tPfiSAE', expectRail: true },
+    { name: 'youtube', url: 'https://www.youtube.com/watch?v=f2Q5tPfiSAE&hl=ja&gl=JP', expectRail: true },
 ];
 
 const settings = {
@@ -28,6 +28,8 @@ const settings = {
     jitenApiKey: '',
     ankiEnabled: false,
     audioEnabled: false,
+    preferJapaneseSiteLanguage: false,
+    showFloatingButton: true,
     enableLogging: false,
 };
 
@@ -44,6 +46,10 @@ for (const site of SITES) {
     try {
         await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
         await page.goto(site.url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+        if (site.name === 'youtube') {
+            await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
+            await page.waitForTimeout(1500);
+        }
         await installUserscriptCssResource(page, CSS_PATH).catch(() => page.addStyleTag({ path: CSS_PATH }));
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
         await page.waitForTimeout(6000);

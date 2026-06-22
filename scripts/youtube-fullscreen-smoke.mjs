@@ -237,7 +237,7 @@ async function forceYoutubeControlsVisible(page) {
 }
 
 async function installDiagnosticCaption(page) {
-    await page.evaluate(() => {
+    await evaluateWithNavigationRetry(page, () => {
         const player = document.querySelector('#movie_player, .html5-video-player') ?? document.querySelector('video')?.parentElement;
         if (!player || player.querySelector('[data-yomu-fullscreen-smoke-caption]')) return;
         const container = document.createElement('div');
@@ -257,7 +257,7 @@ async function installDiagnosticCaption(page) {
 }
 
 async function installDiagnosticTrack(page) {
-    await page.evaluate(url => {
+    await evaluateWithNavigationRetry(page, url => {
         const video = document.querySelector('video');
         if (!video || video.querySelector('track[data-yomu-fullscreen-smoke-track]')) return;
         const track = document.createElement('track');
@@ -268,6 +268,25 @@ async function installDiagnosticTrack(page) {
         track.dataset.yomuFullscreenSmokeTrack = 'true';
         video.append(track);
     }, SMOKE_VTT_URL);
+}
+
+async function evaluateWithNavigationRetry(page, pageFunction, arg) {
+    let lastError;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+            return await page.evaluate(pageFunction, arg);
+        } catch (error) {
+            lastError = error;
+            if (!isNavigationRace(error) || attempt === 2) break;
+            await page.waitForLoadState('domcontentloaded', { timeout: 10000 }).catch(() => undefined);
+            await page.waitForTimeout(500).catch(() => undefined);
+        }
+    }
+    throw lastError;
+}
+
+function isNavigationRace(error) {
+    return /Execution context was destroyed|Cannot find context with specified id|navigation/i.test(String(error?.message ?? error));
 }
 
 async function waitForYomuSubtitle(page, errors = []) {

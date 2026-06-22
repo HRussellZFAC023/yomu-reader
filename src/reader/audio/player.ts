@@ -47,6 +47,7 @@ import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard,
 interface AudioPlaybackOptions {
     isCurrent?: () => boolean;
     userGesture?: boolean;
+    reservedGesture?: boolean;
 }
 
 interface AudioSourcePlayResult {
@@ -82,6 +83,7 @@ interface AudioPlaybackRequest {
     settings: ReaderSettings;
     sources: AudioSourceSetting[];
     userGesture: boolean;
+    reservedGesture: boolean;
 }
 
 interface SoftChimeNote {
@@ -185,6 +187,7 @@ export class AudioPlayer {
             settings,
             sources: getOrderedAudioSources(settings),
             userGesture: options.userGesture ?? false,
+            reservedGesture: options.reservedGesture ?? false,
         };
     }
 
@@ -214,7 +217,7 @@ export class AudioPlayer {
     }
 
     private takeGestureAudioElement(request: AudioPlaybackRequest): HTMLAudioElement | undefined {
-        if (!shouldReserveGestureAudioElement(request)) return undefined;
+        if (!shouldUseGestureAudioReservation(request)) return undefined;
         const reservation = this.gestureReservation;
         if (!reservation) return undefined;
         this.gestureReservation = undefined;
@@ -1047,7 +1050,16 @@ function waitForSoftChime(): Promise<void> {
 
 function shouldReserveGestureAudioElement(request: AudioPlaybackRequest): boolean {
     return request.userGesture
-        && request.sources.some(source => !isBrowserTextToSpeechSource(source));
+        && hasGestureReservableAudioSource(request);
+}
+
+function shouldUseGestureAudioReservation(request: AudioPlaybackRequest): boolean {
+    return (request.userGesture || request.reservedGesture)
+        && hasGestureReservableAudioSource(request);
+}
+
+function hasGestureReservableAudioSource(request: AudioPlaybackRequest): boolean {
+    return request.sources.some(source => !isBrowserTextToSpeechSource(source));
 }
 
 function audioErrorMessage(error: unknown): string {

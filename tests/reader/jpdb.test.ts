@@ -3598,6 +3598,9 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('text-decoration-line: underline !important;');
         expect(normalizedCss).toContain('text-decoration-color: transparent !important;');
         expect(normalizedCss).toContain('display: inline;');
+        expect(normalizedCss).toContain('--jpdb-reader-word-underline-offset: 0.04em;');
+        expect(normalizedCss).toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::before {');
+        expect(normalizedCss).toContain('inset: -0.36em -0.06em;');
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) {');
         expect(normalizedCss).toContain('white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto;');
         expect(normalizedCss).toContain('text-decoration-color: var(--jpdb-reader-word-underline, transparent) !important;');
@@ -19794,6 +19797,87 @@ describe('reader helpers', () => {
         }
     });
 
+    it('opens page words on touch pointerup and consumes the synthetic click', () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <p><span class="jpdb-reader-word" data-vid="501" data-sid="501" data-sentence="日本語">日本語</span></p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const pinLineForElement = vi.fn();
+        const destroyOcr = vi.fn();
+        const prepareModalLookupFromPointer = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
+            prepareModalLookupFromPointer: typeof prepareModalLookupFromPointer;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.ocr = { pinLineForElement, destroy: destroyOcr };
+        internals.prepareModalLookupFromPointer = prepareModalLookupFromPointer;
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            const down = createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 });
+            const up = createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 41, clientX: 25, clientY: 25, button: 0 });
+            word.dispatchEvent(down);
+            word.dispatchEvent(up);
+
+            expect(down.defaultPrevented).toBe(false);
+            expect(up.defaultPrevented).toBe(true);
+            expect(pinLineForElement).toHaveBeenCalledWith(word);
+            expect(prepareModalLookupFromPointer).toHaveBeenCalledWith(up);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+            }));
+
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 25, clientY: 25 });
+            word.dispatchEvent(click);
+
+            expect(click.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenCalledTimes(1);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not open the touch fast path after a scroll-distance drag', () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <p><span class="jpdb-reader-word" data-vid="501" data-sid="501" data-sentence="日本語">日本語</span></p>
+        `;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            const down = createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 42, clientX: 24, clientY: 24, button: 0 });
+            const move = createPointerEvent('pointermove', { pointerType: 'touch', pointerId: 42, clientX: 24, clientY: 48, button: 0 });
+            const up = createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 42, clientX: 24, clientY: 48, button: 0 });
+            word.dispatchEvent(down);
+            document.dispatchEvent(move);
+            document.dispatchEvent(up);
+
+            expect(up.defaultPrevented).toBe(false);
+            expect(showWord).not.toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('opens OCR words on touch pointerdown and consumes the synthetic click', () => {
         const app = new ReaderApp();
         document.body.innerHTML = `
@@ -34292,56 +34376,122 @@ describe('reader helpers', () => {
     });
 
     it('scans YouTube homepage, Shorts gallery, and suggested video titles without losing base text', () => {
-        const targets = collectYouTubeTargets(`
-            <ytd-app>
-                <ytd-rich-grid-renderer>
-                    <ytd-rich-item-renderer>
-                        <a id="video-title-link" href="/watch?v=jp">服代が月1万から20万円！？東京の春コーデ</a>
-                        <ytd-channel-name><a href="/@tokyo">東京散歩チャンネル</a></ytd-channel-name>
-                        <div id="metadata-line"><span>3日前</span></div>
-                    </ytd-rich-item-renderer>
-                    <ytd-rich-item-renderer>
-                        <a id="video-title-link" href="/watch?v=podcast">弱いままの自分で大丈夫。Japanese Podcast</a>
-                    </ytd-rich-item-renderer>
-                </ytd-rich-grid-renderer>
-            </ytd-app>
-            <ytm-app>
-                <ytm-rich-grid-renderer>
-                    <ytm-video-with-context-renderer>
-                        <a href="/watch?v=mobile-jp"><h3 class="media-item-headline">東京散歩</h3></a>
-                    </ytm-video-with-context-renderer>
-                </ytm-rich-grid-renderer>
-            </ytm-app>
-            <ytd-watch-next-secondary-results-renderer>
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+        });
+        try {
+            const targets = collectYouTubeTargets(`
+                <ytd-app>
+                    <ytd-rich-grid-renderer>
+                        <ytd-rich-item-renderer>
+                            <a id="video-title-link" href="/watch?v=jp">服代が月1万から20万円！？東京の春コーデ</a>
+                            <ytd-channel-name><a href="/@tokyo">東京散歩チャンネル</a></ytd-channel-name>
+                            <div id="metadata-line"><span>3日前</span></div>
+                        </ytd-rich-item-renderer>
+                        <ytd-rich-item-renderer>
+                            <a id="video-title-link" href="/watch?v=podcast">弱いままの自分で大丈夫。Japanese Podcast</a>
+                        </ytd-rich-item-renderer>
+                    </ytd-rich-grid-renderer>
+                </ytd-app>
+                <ytm-app>
+                    <ytm-rich-grid-renderer>
+                        <ytm-video-with-context-renderer>
+                            <a href="/watch?v=mobile-jp"><h3 class="media-item-headline">東京散歩</h3></a>
+                        </ytm-video-with-context-renderer>
+                    </ytm-rich-grid-renderer>
+                </ytm-app>
+                <ytd-watch-next-secondary-results-renderer>
+                    <ytd-compact-video-renderer>
+                        <a id="video-title" href="/watch?v=side">関連動画の発行ニュース</a>
+                    </ytd-compact-video-renderer>
+                </ytd-watch-next-secondary-results-renderer>
+            `, 'https://www.youtube.com/', 10);
+
+            expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+                '服代が月1万から20万円！？東京の春コーデ',
+                '弱いままの自分で大丈夫。Japanese Podcast',
+                '東京散歩',
+                '関連動画の発行ニュース',
+                '東京散歩チャンネル',
+                '3日前',
+            ]));
+
+            const title = targets.find(target => target.text === '服代が月1万から20万円！？東京の春コーデ')!;
+            applyTokensToScanTarget(title, [{
+                card: { ...card, cardState: ['known'], spelling: '東京', reading: 'とうきょう', source: 'jpdb' },
+                start: 14,
+                end: 16,
+                length: 2,
+                rubies: [{ text: 'とうきょう', start: 14, end: 16, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '服代が月1万から20万円！？東京の春コーデ',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+            const word = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
+            expect(readerWordSurfaceText(word)).toBe('東京');
+            expect(word.querySelector('rt')?.textContent).toBe('とうきょう');
+            expectRenderedPitchWord(word, 'heiban');
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('prioritizes YouTube watch sidebar recommendations before busy live chat at low limits', () => {
+        vi.stubGlobal('location', {
+            href: YOUTUBE_WATCH_TEST_URL,
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            pathname: '/watch',
+        });
+        try {
+            const targets = collectYouTubeWatchTargets(`
+                <ytd-watch-metadata>
+                    <h1>日本の習慣｜おばあちゃんが今も大切にしていること</h1>
+                    <div id="description-inline-expander">説明では日本語で詳しく紹介しています。</div>
+                </ytd-watch-metadata>
+                <section id="comments">
+                    <ytd-comment-view-model><yt-attributed-string id="content-text">先生いつもありがとうございました。</yt-attributed-string></ytd-comment-view-model>
+                    <ytd-comment-view-model><yt-attributed-string id="content-text">今日も本を読みます。</yt-attributed-string></ytd-comment-view-model>
+                </section>
+                <yt-live-chat-app>
+                    <yt-live-chat-text-message-renderer>
+                        <span id="author-name">先生</span>
+                        <yt-formatted-string id="message">今日はライブで日本語を聞いています。</yt-formatted-string>
+                    </yt-live-chat-text-message-renderer>
+                    <yt-live-chat-text-message-renderer>
+                        <span id="author-name">生徒</span>
+                        <yt-formatted-string id="message">復習用の会話を続けています。</yt-formatted-string>
+                </yt-live-chat-text-message-renderer>
+            </yt-live-chat-app>
+            <aside id="secondary">
                 <ytd-compact-video-renderer>
-                    <a id="video-title" href="/watch?v=side">関連動画の発行ニュース</a>
+                    <a id="video-title" href="/watch?v=side-jp">東京で見る関連動画ニュース</a>
                 </ytd-compact-video-renderer>
-            </ytd-watch-next-secondary-results-renderer>
-        `, 'https://www.youtube.com/', 10);
+            </aside>
+        `, 8);
 
-        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
-            '服代が月1万から20万円！？東京の春コーデ',
-            '弱いままの自分で大丈夫。Japanese Podcast',
-            '東京散歩',
-            '関連動画の発行ニュース',
-            '東京散歩チャンネル',
-            '3日前',
-        ]));
+            expect(targets.map(target => target.text)).toContain('東京で見る関連動画ニュース');
 
-        const title = targets.find(target => target.text === '服代が月1万から20万円！？東京の春コーデ')!;
-        applyTokensToScanTarget(title, [{
-            card: { ...card, cardState: ['known'], spelling: '東京', reading: 'とうきょう', source: 'jpdb' },
-            start: 14,
-            end: 16,
-            length: 2,
-            rubies: [{ text: 'とうきょう', start: 14, end: 16, length: 2 }],
-            pitchClass: 'heiban',
-            sentence: '服代が月1万から20万円！？東京の春コーデ',
-        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+            const sidebar = targets.find(target => target.text === '東京で見る関連動画ニュース')!;
+            applyTokensToScanTarget(sidebar, [{
+                card: { ...card, cardState: ['known'], spelling: '東京', reading: 'とうきょう', source: 'jpdb' },
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [{ text: 'とうきょう', start: 0, end: 2, length: 2 }],
+                pitchClass: 'heiban',
+                sentence: '東京で見る関連動画ニュース',
+            }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
-        const word = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
-        expect(readerWordSurfaceText(word)).toBe('東京');
-        expect(word.querySelector('rt')).toBeNull();
+            const word = document.querySelector<HTMLElement>('ytd-compact-video-renderer .jpdb-reader-word')!;
+            expect(readerWordSurfaceText(word)).toBe('東京');
+            expect(word.querySelector('rt')?.textContent).toBe('とうきょう');
+            expectRenderedPitchWord(word, 'heiban');
+        } finally {
+            vi.unstubAllGlobals();
+        }
     });
 
     it('scans YouTube transcript rows while leaving native caption overlays untouched', () => {
@@ -34827,6 +34977,24 @@ describe('reader helpers', () => {
         expect(document.querySelector('ytd-watch-metadata button .jpdb-reader-word')).toBeNull();
     });
 
+    it('ignores CSS-hidden YouTube controls even on non-visible-only parser roots', () => {
+        const targets = collectYouTubeWatchTargets(`
+            <ytd-watch-metadata>
+                <button type="button" style="display:none">字幕を表示</button>
+                <button type="button" style="visibility:hidden">文字起こしを表示</button>
+                <button type="button" style="opacity:0">共有</button>
+                <button type="button">質問する</button>
+            </ytd-watch-metadata>
+        `);
+
+        expect(targets.map(target => target.text)).toContain('質問する');
+        expect(targets.map(target => target.text)).not.toEqual(expect.arrayContaining([
+            '字幕を表示',
+            '文字起こしを表示',
+            '共有',
+        ]));
+    });
+
     it('falls back to generic scanning for parser sites that opt into page text', () => {
         const rectSpy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
             left: 0,
@@ -34855,6 +35023,91 @@ describe('reader helpers', () => {
         document.body.innerHTML += '<div class="asbplayer-offscreen">今日は読む</div>';
         expect(getMatchingSiteParsers('http://127.0.0.1:5174/article/').map(profile => profile.id))
             .toContain('asbplayer-parser');
+    });
+
+    it('scans Google search AI cards and related-search chips outside the main results list', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 900, height: 260 });
+        document.body.innerHTML = `
+            <div id="rcnt">
+                <div id="search">
+                    <div class="g">
+                        <h3 class="LC20lb">英語での test の意味</h3>
+                        <div class="VwiC3b">このページを訳す</div>
+                    </div>
+                </div>
+                <div id="bres">
+                    <div role="heading">AI による概要</div>
+                    <div>テストを受信しました。正常に応答が可能です。</div>
+                    <a href="/aclk">プライム上場企業からベンチャー企業まで</a>
+                </div>
+                <div id="botstuff">
+                    <a href="/search?q=test+plural">Test 複数形</a>
+                    <a href="/search?q=test+company">Test 会社</a>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(12, 'https://www.google.com/search?q=test');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '英語での test の意味',
+            'このページを訳す',
+            'AI による概要',
+            'テストを受信しました。正常に応答が可能です。',
+            'プライム上場企業からベンチャー企業まで',
+            'Test 複数形',
+            'Test 会社',
+        ]));
+
+        const chip = targets.find(target => target.text === 'Test 複数形')!;
+        expect(chip).toBeTruthy();
+        applyTokensToScanTarget(chip, [{
+            card: { ...card, cardState: ['known'], spelling: '複数形', reading: 'ふくすうけい', source: 'jpdb' },
+            start: 5,
+            end: 8,
+            length: 3,
+            rubies: [{ text: 'ふくすうけい', start: 5, end: 8, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: 'Test 複数形',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('#botstuff .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('複数形');
+        expect(word.querySelector('rt')?.textContent).toBe('ふくすうけい');
+        expectRenderedPitchWord(word, 'heiban');
+    });
+
+    it('prioritizes Google AI cards and bottom chips before busy result lists at low limits', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 900, height: 260 });
+        document.body.innerHTML = `
+            <div id="rcnt">
+                <div id="search">
+                    ${Array.from({ length: 12 }, (_, index) => `
+                        <div class="g">
+                            <h3 class="LC20lb">検索結果${index}の日本語タイトル</h3>
+                            <div class="VwiC3b">検索結果${index}の説明文です。</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div id="bres">
+                    <div data-attrid="ai-overview">AI による概要 テストを受信しました。</div>
+                </div>
+                <div id="botstuff">
+                    <a href="/search?q=test+plural">Test 複数形</a>
+                    <a href="/search?q=test+company">Test 会社</a>
+                </div>
+            </div>
+        `;
+
+        const targets = collectScanTargets(4, 'https://www.google.com/search?q=test');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            'Test 複数形',
+            'Test 会社',
+            'AI による概要 テストを受信しました。',
+        ]));
     });
 
     it('uses Jisho-specific fragment parsing for result text split across furigana spans', () => {

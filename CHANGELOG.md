@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.57] - 2026-06-22
+
+### Fixed
+
+- YouTube and Google search Japanese text coverage is stricter: comments, metadata, action labels, AI/result cards, related chips, and compact video rows keep base text visible while receiving furigana, pitch coloring, and pitch underlines instead of being clipped or skipped.
+- Touch lookup on mobile is more reliable: normal page/subtitle reader words now open on a tap-only pointer release, cancel cleanly during scroll drags, and have a slightly larger coarse-pointer hit target without moving page layout.
+- Hover lookup audio now reuses a fresh tap/click-time media reservation for automatic playback, so iPad/Safari hover flows can play term audio after a recent reader gesture instead of being blocked as delayed non-gesture media.
+
 ## [1.4.56] - 2026-06-22
 
 ### Fixed

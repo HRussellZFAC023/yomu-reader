@@ -1,5 +1,251 @@
 (function() {
   "use strict";
+  const ID_ATTR = "data-yomu-mid";
+  const MAX_OPS_PER_CANVAS = 6e3;
+  const PRUNE_KEEP = 3e3;
+  const MAX_REBUILD_DEPTH = 6;
+  function pageWindow() {
+    const uw = globalThis.unsafeWindow;
+    return uw || globalThis;
+  }
+  function state() {
+    const win = pageWindow();
+    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: /* @__PURE__ */ Object.create(null) };
+  }
+  function isBookwalkerHost(hostname) {
+    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function canvasId(canvas, create) {
+    const el = canvas;
+    if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
+      let id = el.getAttribute(ID_ATTR);
+      return id;
+    }
+    if (el && el.__yomuMid) return el.__yomuMid;
+    return null;
+  }
+  const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
+  function selectLatestContentOps(ops, beforeSeq) {
+    const byDest = /* @__PURE__ */ new Map();
+    for (const op of ops) {
+      if (op.clear || op.seq >= beforeSeq) continue;
+      byDest.set(destKey(op), op);
+    }
+    return [...byDest.values()].sort((a, b) => a.seq - b.seq);
+  }
+  function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
+    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
+    const record = lookup(id);
+    if (!record) return out;
+    const next = new Set(seen).add(id);
+    for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
+      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
+      else if (op.url) out.add(op.url);
+    }
+    return out;
+  }
+  function markSkip(context) {
+    if (context) context.__yomuMirrorSkip = true;
+    return context;
+  }
+  function isReadable(canvas) {
+    try {
+      markSkip(canvas.getContext("2d", { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function rebuildById(id, beforeSeq, images, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
+    const record = state().records[id];
+    if (!record || !record.w || !record.h) return null;
+    const ops = selectLatestContentOps(record.ops, beforeSeq);
+    if (!ops.length) return null;
+    const out = document.createElement("canvas");
+    out.width = record.w;
+    out.height = record.h;
+    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
+    if (!ctx) return null;
+    seen.add(id);
+    let drew = 0;
+    for (const op of ops) {
+      let source = null;
+      if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
+      else if (op.url) source = images.get(op.url) ?? null;
+      if (!source) continue;
+      try {
+        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
+        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
+        else ctx.drawImage(source, op.dx, op.dy);
+        drew++;
+      } catch {
+      }
+    }
+    return drew ? out : null;
+  }
+  async function captureCanvasMirror(canvas, loadCleanImage) {
+    installCanvasMirrorRecorder();
+    const s = state();
+    const id = canvasId(canvas);
+    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
+    const images = /* @__PURE__ */ new Map();
+    if (urls.size) {
+      await Promise.all([...urls].map(async (url) => {
+        try {
+          const image = await loadCleanImage(url);
+          if (image) images.set(url, image);
+        } catch {
+        }
+      }));
+    }
+    const rebuilt = id && images.size ? rebuildById(id, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
+    return rebuilt && isReadable(rebuilt) ? rebuilt : void 0;
+  }
+  function recorderBootstrap(win, opts) {
+    if (win.__yomuCanvasMirrorRecorder) return;
+    win.__yomuCanvasMirrorRecorder = true;
+    const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
+    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: /* @__PURE__ */ Object.create(null) };
+    S.installed = true;
+    const HC = win.HTMLCanvasElement;
+    const OC = win.OffscreenCanvas;
+    const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
+    const srcUrl = (o) => {
+      const m = o;
+      return m ? typeof m.currentSrc === "string" && m.currentSrc || typeof m.src === "string" && m.src || "" : "";
+    };
+    const idOf = (c, create) => {
+      const el = c;
+      if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
+        let i = el.getAttribute(ATTR);
+        if (!i && create) {
+          i = "m" + S.nextId++;
+          try {
+            el.setAttribute(ATTR, i);
+          } catch {
+            return null;
+          }
+        }
+        return i;
+      }
+      if (el && el.__yomuMid) return el.__yomuMid;
+      if (el && create) {
+        try {
+          return el.__yomuMid = "m" + S.nextId++;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+    const rec = (id, w, h) => {
+      let r = S.records[id];
+      if (!r) {
+        r = { w, h, ops: [] };
+        S.records[id] = r;
+      }
+      if (w) r.w = w;
+      if (h) r.h = h;
+      if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP);
+      return r;
+    };
+    const patch = (p) => {
+      if (!p || p.__yomuMirrorPatched) return;
+      p.__yomuMirrorPatched = true;
+      const draw = p.drawImage;
+      p.drawImage = function(src) {
+        if (!this.__yomuMirrorSkip) {
+          try {
+            const cid = idOf(this.canvas, true);
+            if (cid) {
+              const r = rec(cid, this.canvas.width, this.canvas.height);
+              const a = arguments;
+              const o = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+              if (a.length === 9) {
+                o.sx = a[1];
+                o.sy = a[2];
+                o.sw = a[3];
+                o.sh = a[4];
+                o.dx = a[5];
+                o.dy = a[6];
+                o.dw = a[7];
+                o.dh = a[8];
+              } else if (a.length === 5) {
+                o.dx = a[1];
+                o.dy = a[2];
+                o.dw = a[3];
+                o.dh = a[4];
+              } else if (a.length === 3) {
+                o.dx = a[1];
+                o.dy = a[2];
+              }
+              r.ops.push(o);
+            }
+          } catch {
+          }
+        }
+        return draw.apply(this, arguments);
+      };
+      const clr = p.clearRect;
+      p.clearRect = function(x, y, w, h) {
+        if (!this.__yomuMirrorSkip) {
+          try {
+            if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
+              const cid = idOf(this.canvas, true);
+              if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+            }
+          } catch {
+          }
+        }
+        return clr.apply(this, arguments);
+      };
+    };
+    const w2 = win;
+    patch(w2.CanvasRenderingContext2D?.prototype);
+    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+  }
+  function injectRecorderIntoPage(opts) {
+    const parent = document.head || document.documentElement;
+    if (!parent) return false;
+    const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
+    try {
+      const script = document.createElement("script");
+      const nonce = [...document.querySelectorAll("script[nonce]")].map((el) => el.getAttribute("nonce")).find(Boolean);
+      if (nonce) script.setAttribute("nonce", nonce);
+      const trusted = createTrustedMirrorScript(source);
+      if (trusted) script.textContent = trusted;
+      else script.textContent = source;
+      parent.append(script);
+      script.remove();
+    } catch {
+      return false;
+    }
+    return Boolean(pageWindow().__yomuCanvasMirror);
+  }
+  function createTrustedMirrorScript(code) {
+    try {
+      const factory = globalThis.trustedTypes;
+      if (!factory?.createPolicy) return null;
+      const policy = factory.createPolicy("yomu-canvas-mirror", { createScript: (s) => s });
+      return policy?.createScript ? policy.createScript(code) : null;
+    } catch {
+      return null;
+    }
+  }
+  function installCanvasMirrorRecorder(hostname = location.hostname) {
+    if (!isBookwalkerHost(hostname)) return;
+    const uw = globalThis.unsafeWindow;
+    const differentRealm = Boolean(uw) && uw !== globalThis;
+    if (differentRealm) {
+      const existing = uw.__yomuCanvasMirror;
+      if (existing?.installed) return;
+      if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
+    }
+    const s = state();
+    if (s.installed) return;
+    recorderBootstrap(pageWindow(), { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
+  }
   const CARD_STATES = /* @__PURE__ */ new Set([
     "new",
     "learning",
@@ -2127,252 +2373,6 @@
   }
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
-  }
-  const ID_ATTR = "data-yomu-mid";
-  const MAX_OPS_PER_CANVAS = 6e3;
-  const PRUNE_KEEP = 3e3;
-  const MAX_REBUILD_DEPTH = 6;
-  function pageWindow() {
-    const uw = globalThis.unsafeWindow;
-    return uw || globalThis;
-  }
-  function state() {
-    const win = pageWindow();
-    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: /* @__PURE__ */ Object.create(null) };
-  }
-  function isBookwalkerHost(hostname) {
-    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
-  }
-  function canvasId(canvas, create) {
-    const el = canvas;
-    if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
-      let id = el.getAttribute(ID_ATTR);
-      return id;
-    }
-    if (el && el.__yomuMid) return el.__yomuMid;
-    return null;
-  }
-  const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
-  function selectLatestContentOps(ops, beforeSeq) {
-    const byDest = /* @__PURE__ */ new Map();
-    for (const op of ops) {
-      if (op.clear || op.seq >= beforeSeq) continue;
-      byDest.set(destKey(op), op);
-    }
-    return [...byDest.values()].sort((a, b) => a.seq - b.seq);
-  }
-  function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
-    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
-    const record = lookup(id);
-    if (!record) return out;
-    const next = new Set(seen).add(id);
-    for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
-      else if (op.url) out.add(op.url);
-    }
-    return out;
-  }
-  function markSkip(context) {
-    if (context) context.__yomuMirrorSkip = true;
-    return context;
-  }
-  function isReadable(canvas) {
-    try {
-      markSkip(canvas.getContext("2d", { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function rebuildById(id, beforeSeq, images, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
-    const record = state().records[id];
-    if (!record || !record.w || !record.h) return null;
-    const ops = selectLatestContentOps(record.ops, beforeSeq);
-    if (!ops.length) return null;
-    const out = document.createElement("canvas");
-    out.width = record.w;
-    out.height = record.h;
-    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
-    if (!ctx) return null;
-    seen.add(id);
-    let drew = 0;
-    for (const op of ops) {
-      let source = null;
-      if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
-      else if (op.url) source = images.get(op.url) ?? null;
-      if (!source) continue;
-      try {
-        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
-        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
-        else ctx.drawImage(source, op.dx, op.dy);
-        drew++;
-      } catch {
-      }
-    }
-    return drew ? out : null;
-  }
-  async function captureCanvasMirror(canvas, loadCleanImage) {
-    installCanvasMirrorRecorder();
-    const s = state();
-    const id = canvasId(canvas);
-    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
-    const images = /* @__PURE__ */ new Map();
-    if (urls.size) {
-      await Promise.all([...urls].map(async (url) => {
-        try {
-          const image = await loadCleanImage(url);
-          if (image) images.set(url, image);
-        } catch {
-        }
-      }));
-    }
-    const rebuilt = id && images.size ? rebuildById(id, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
-    return rebuilt && isReadable(rebuilt) ? rebuilt : void 0;
-  }
-  function recorderBootstrap(win, opts) {
-    if (win.__yomuCanvasMirrorRecorder) return;
-    win.__yomuCanvasMirrorRecorder = true;
-    const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
-    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: /* @__PURE__ */ Object.create(null) };
-    S.installed = true;
-    const HC = win.HTMLCanvasElement;
-    const OC = win.OffscreenCanvas;
-    const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
-    const srcUrl = (o) => {
-      const m = o;
-      return m ? typeof m.currentSrc === "string" && m.currentSrc || typeof m.src === "string" && m.src || "" : "";
-    };
-    const idOf = (c, create) => {
-      const el = c;
-      if (el && typeof el.getAttribute === "function" && typeof el.setAttribute === "function") {
-        let i = el.getAttribute(ATTR);
-        if (!i && create) {
-          i = "m" + S.nextId++;
-          try {
-            el.setAttribute(ATTR, i);
-          } catch {
-            return null;
-          }
-        }
-        return i;
-      }
-      if (el && el.__yomuMid) return el.__yomuMid;
-      if (el && create) {
-        try {
-          return el.__yomuMid = "m" + S.nextId++;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    };
-    const rec = (id, w, h) => {
-      let r = S.records[id];
-      if (!r) {
-        r = { w, h, ops: [] };
-        S.records[id] = r;
-      }
-      if (w) r.w = w;
-      if (h) r.h = h;
-      if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP);
-      return r;
-    };
-    const patch = (p) => {
-      if (!p || p.__yomuMirrorPatched) return;
-      p.__yomuMirrorPatched = true;
-      const draw = p.drawImage;
-      p.drawImage = function(src) {
-        if (!this.__yomuMirrorSkip) {
-          try {
-            const cid = idOf(this.canvas, true);
-            if (cid) {
-              const r = rec(cid, this.canvas.width, this.canvas.height);
-              const a = arguments;
-              const o = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
-              if (a.length === 9) {
-                o.sx = a[1];
-                o.sy = a[2];
-                o.sw = a[3];
-                o.sh = a[4];
-                o.dx = a[5];
-                o.dy = a[6];
-                o.dw = a[7];
-                o.dh = a[8];
-              } else if (a.length === 5) {
-                o.dx = a[1];
-                o.dy = a[2];
-                o.dw = a[3];
-                o.dh = a[4];
-              } else if (a.length === 3) {
-                o.dx = a[1];
-                o.dy = a[2];
-              }
-              r.ops.push(o);
-            }
-          } catch {
-          }
-        }
-        return draw.apply(this, arguments);
-      };
-      const clr = p.clearRect;
-      p.clearRect = function(x, y, w, h) {
-        if (!this.__yomuMirrorSkip) {
-          try {
-            if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
-              const cid = idOf(this.canvas, true);
-              if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
-            }
-          } catch {
-          }
-        }
-        return clr.apply(this, arguments);
-      };
-    };
-    const w2 = win;
-    patch(w2.CanvasRenderingContext2D?.prototype);
-    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
-  }
-  function injectRecorderIntoPage(opts) {
-    const parent = document.head || document.documentElement;
-    if (!parent) return false;
-    const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
-    try {
-      const script = document.createElement("script");
-      const nonce = [...document.querySelectorAll("script[nonce]")].map((el) => el.getAttribute("nonce")).find(Boolean);
-      if (nonce) script.setAttribute("nonce", nonce);
-      const trusted = createTrustedMirrorScript(source);
-      if (trusted) script.textContent = trusted;
-      else script.textContent = source;
-      parent.append(script);
-      script.remove();
-    } catch {
-      return false;
-    }
-    return Boolean(pageWindow().__yomuCanvasMirror);
-  }
-  function createTrustedMirrorScript(code) {
-    try {
-      const factory = globalThis.trustedTypes;
-      if (!factory?.createPolicy) return null;
-      const policy = factory.createPolicy("yomu-canvas-mirror", { createScript: (s) => s });
-      return policy?.createScript ? policy.createScript(code) : null;
-    } catch {
-      return null;
-    }
-  }
-  function installCanvasMirrorRecorder(hostname = location.hostname) {
-    if (!isBookwalkerHost(hostname)) return;
-    const uw = globalThis.unsafeWindow;
-    const differentRealm = Boolean(uw) && uw !== globalThis;
-    if (differentRealm) {
-      const existing = uw.__yomuCanvasMirror;
-      if (existing?.installed) return;
-      if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
-    }
-    const s = state();
-    if (s.installed) return;
-    recorderBootstrap(pageWindow(), { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
   }
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
@@ -19833,6 +19833,7 @@ ${spelling}`);
       return void 0;
     }
   }
+  installCanvasMirrorRecorder();
   registerYomuCompanion("video", {
     SubtitlePlayerController,
     YoutubeImmersionFilter

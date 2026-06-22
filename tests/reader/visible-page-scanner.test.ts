@@ -403,7 +403,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube mini-guide labels native while preserving link dispatch', async () => {
+    it('enhances YouTube mini-guide labels while preserving link dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -452,8 +452,12 @@ describe('VisiblePageScanner', () => {
             await scanner.scanVisiblePage({ silent: true });
 
             const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(guide.querySelector('.jpdb-reader-word')).toBeNull();
+            expect(parseJapanese).toHaveBeenCalledWith(['ホーム', '登録チャンネル', 'マイページ'], expect.objectContaining({
+                allowSegmentedFallback: true,
+                includeLocalPitch: false,
+            }));
+            expect(guide.querySelector('.jpdb-reader-word[data-expression="登録"]')).not.toBeNull();
+            expect(guide.querySelector('.jpdb-reader-word[data-expression="チャンネル"]')).not.toBeNull();
             expect(guide.textContent).toContain('登録');
             expect(guide.textContent).toContain('チャンネル');
             expect(guide.querySelector('tp-yt-paper-tooltip .jpdb-reader-word')).toBeNull();
@@ -731,7 +735,7 @@ describe('VisiblePageScanner', () => {
         }
     });
 
-    it('leaves YouTube mini-guide labels native while preserving native link dispatch', async () => {
+    it('enhances YouTube mini-guide labels while preserving native link dispatch', async () => {
         const restoreRects = mockVisibleElementRects();
         vi.stubGlobal('location', {
             href: 'https://www.youtube.com/',
@@ -781,8 +785,13 @@ describe('VisiblePageScanner', () => {
 
             const guide = document.querySelector<HTMLElement>('ytd-mini-guide-renderer')!;
             const words = [...guide.querySelectorAll<HTMLElement>('.jpdb-reader-word')];
-            expect(parseJapanese).not.toHaveBeenCalled();
-            expect(words).toHaveLength(0);
+            expect(parseJapanese).toHaveBeenCalledWith(['ホーム', '登録チャンネル', 'マイページ'], expect.objectContaining({
+                allowSegmentedFallback: true,
+                includeLocalPitch: false,
+            }));
+            expect(words.length).toBeGreaterThan(0);
+            expect(words.some(word => word.dataset.expression === '登録')).toBe(true);
+            expect(words.some(word => word.dataset.expression === 'チャンネル')).toBe(true);
             expect(guide.textContent).toContain('ホーム');
             expect(guide.textContent).toContain('登録チャンネル');
             expect(guide.textContent).toContain('マイページ');

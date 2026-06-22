@@ -4,7 +4,8 @@ import { AnkiConnectClient, buildYomuAnkiPreviewFields, canDirectFetchAnkiConnec
 import { ankiExistingNoteFromInfo } from '../../src/reader/anki/card-details';
 import { applyComputedAnkiNextReviews, reviewGradeIntervalsFromAnkiCards } from '../../src/reader/anki/card-details';
 import { applyNewCardStepPreviews } from '../../src/reader/anki/new-tab';
-import { renderAnkiExistingSection, renderReviewButtons } from '../../src/reader/anki/render';
+import { renderAnkiExistingSection } from '../../src/reader/anki/render';
+import { renderReviewButtons } from '../../src/reader/anki/render-impl';
 import { ANKI_STATUS_INDEX_STORAGE_KEY, claimAnkiStatusIndexRebuildLease, shouldReplaceAnkiStatusIndexEntry } from '../../src/reader/anki/status-index';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 

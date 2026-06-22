@@ -17,23 +17,9 @@ const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${pkg.name}/`;
 const rawReaderCssUrl = `${docsUrl}yomu.css`;
 const userscriptIcon = `${docsUrl}yomu-icon.svg`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
-const userscriptConnect = [
-    'jpdb.io',
-    'apiv2express.immersionkit.com',
-    'apiv2.immersionkit.com',
-    'api.nadeshiko.co',
-    'cdn.nadeshiko.co',
-    'us-southeast-1.linodeobjects.com',
-    'raw.githubusercontent.com',
-    'en.wiktionary.org',
-    'media.kanjialive.com',
-    'localhost',
-    '127.0.0.1',
-    '*.ts.net',
-    // Required for user-configured audio, OCR, proxy, dictionary,
-    // AnkiConnect-compatible, Tailnet, and local service URLs.
-    '*',
-];
+// Required for user-configured audio, OCR, proxy, dictionary,
+// AnkiConnect-compatible, Tailnet, and local service URLs.
+const userscriptConnect = ['*'];
 const userscriptGrant: NonNullable<MonkeyUserScript['grant']> = [
     'GM.xmlHttpRequest',
     'GM.setValue',

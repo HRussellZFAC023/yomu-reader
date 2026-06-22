@@ -77,7 +77,11 @@ export class ReaderAudioActions {
         if (!loading) return false;
         try {
             this.dependencies.stopImmersionAudio();
-            const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
+            const played = await this.dependencies.audio.play(card, {
+                isCurrent,
+                userGesture: options.userGesture,
+                reservedGesture: options.autoPlay,
+            });
             return played;
         } catch (error) {
             log.warn('Term audio playback failed', { term: card.spelling }, error);

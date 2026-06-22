@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 describe('BookWalker site scan boundaries', () => {
-    it('does not collect storefront carousel or commerce chrome DOM text', () => {
+    it('collects storefront carousel and commerce chrome DOM text as passive residual targets', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
             <header>
@@ -41,8 +41,13 @@ describe('BookWalker site scan boundaries', () => {
                 .toEqual(['bookwalker-storefront-no-dom-parser']);
             expect(getMatchingSiteParsers(BOOKWALKER_WWW_HOME_URL).map(profile => profile.id))
                 .toEqual(['bookwalker-storefront-no-dom-parser']);
-            expect(collectScanTargets(20, BOOKWALKER_HOME_URL)).toEqual([]);
-            expect(collectScanTargets(20, BOOKWALKER_WWW_HOME_URL)).toEqual([]);
+            const expected = ['ストアトップ', 'ランキング', 'ログイン', '異世界漫画フェア', '今すぐ読む', '次へ', 'ジャンルで探す'];
+            for (const url of [BOOKWALKER_HOME_URL, BOOKWALKER_WWW_HOME_URL]) {
+                const targets = collectScanTargets(20, url);
+                expect(targets.map(target => target.text)).toEqual(expected);
+                expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
+                expect(targets.every(target => target.passiveInteraction)).toBe(true);
+            }
         } finally {
             restoreRects();
         }

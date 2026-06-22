@@ -583,13 +583,13 @@ function tokenForEntry(entry, start, sentence) {
 }
 
 function visibleProofTargets() {
-    return Array.from(document.querySelectorAll('[data-proof-target]')).filter(isVisibleElement);
+    return Array.from(document.querySelectorAll('[data-proof-target]')).filter(isVisibleProofTarget);
 }
 
 function auditProofTarget(element, vocabulary) {
     const label = element.getAttribute('data-proof-text') || compactText(element.textContent || '');
     const expectedSurfaces = tokensForText(label, vocabulary).map(token => token.card.spelling);
-    const words = renderedWordDetails(element);
+    const words = renderedWordDetails(proofTargetWordRoot(element));
     const failures = [];
     const missingSurfaces = missingExpectedSurfaces(expectedSurfaces, words.map(word => word.surface));
     const clipped = isBoxClipped(element);
@@ -626,6 +626,18 @@ function auditProofTarget(element, vocabulary) {
         words,
         failures,
     };
+}
+
+function isVisibleProofTarget(element) {
+    return isVisibleElement(element) || Boolean(visibleTextMirror(element));
+}
+
+function proofTargetWordRoot(element) {
+    return visibleTextMirror(element) ?? element;
+}
+
+function visibleTextMirror(element) {
+    return Array.from(element.querySelectorAll('.jpdb-reader-text-mirror')).find(isVisibleElement) ?? null;
 }
 
 function renderedWordDetails(root) {

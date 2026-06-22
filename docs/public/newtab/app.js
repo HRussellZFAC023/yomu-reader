@@ -7553,7 +7553,11 @@ recommendedJiten	Jiten頻度です。
     return !isRoot && shouldSkipFragmentElement(element, state2.options);
   }
   function shouldSkipInvisibleFragmentElement(element, visibleOnly) {
+    if (!hasVisibleTextStyle(element) && !hasVisibleTextMirror(element)) return true;
     return visibleOnly && !isVisible(element) && !hasVisibleTextMirror(element);
+  }
+  function hasVisibleTextStyle(element) {
+    return isVisibleStyle(safeComputedStyle(element));
   }
   function hasVisibleTextMirror(element) {
     return Array.from(element.children).some((child) => child instanceof HTMLElement && child.matches(READER_TEXT_MIRROR_SELECTOR) && isVisible(child));
@@ -17677,7 +17681,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         isCurrent: options.isCurrent ?? (() => true),
         settings,
         sources: getOrderedAudioSources(settings),
-        userGesture: options.userGesture ?? false
+        userGesture: options.userGesture ?? false,
+        reservedGesture: options.reservedGesture ?? false
       };
     }
     reserveGestureAudioElement(request) {
@@ -17703,7 +17708,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return true;
     }
     takeGestureAudioElement(request) {
-      if (!shouldReserveGestureAudioElement(request)) return void 0;
+      if (!shouldUseGestureAudioReservation(request)) return void 0;
       const reservation = this.gestureReservation;
       if (!reservation) return void 0;
       this.gestureReservation = void 0;
@@ -18334,7 +18339,13 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return new Promise((resolve) => window.setTimeout(resolve, 460));
   }
   function shouldReserveGestureAudioElement(request) {
-    return request.userGesture && request.sources.some((source) => !isBrowserTextToSpeechSource(source));
+    return request.userGesture && hasGestureReservableAudioSource(request);
+  }
+  function shouldUseGestureAudioReservation(request) {
+    return (request.userGesture || request.reservedGesture) && hasGestureReservableAudioSource(request);
+  }
+  function hasGestureReservableAudioSource(request) {
+    return request.sources.some((source) => !isBrowserTextToSpeechSource(source));
   }
   function audioErrorMessage(error) {
     return error instanceof Error ? error.message : String(error);
@@ -18450,73 +18461,35 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   class DisabledAnkiConnectClient {
     destroy() {
     }
-    isConnected() {
-      return Promise.resolve(false);
-    }
-    isAvailableForBackground() {
-      return Promise.resolve(false);
-    }
-    deckNames() {
-      return Promise.resolve([]);
-    }
-    modelNames() {
-      return Promise.resolve([]);
-    }
-    noteFieldTargetPlan() {
-      return Promise.resolve(null);
-    }
-    scanLibrary() {
-      return Promise.resolve({ deckNames: [], models: [], suggestedModel: null });
-    }
-    warmStatusIndex() {
-      return Promise.resolve(null);
-    }
-    findExistingCards(_card) {
-      return Promise.resolve(untrustedAnkiLookupResult());
-    }
-    findCachedStatusBatch(cards) {
-      return Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
-    }
-    findExistingCardsBatch(cards) {
-      return Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
-    }
-    rebuildStatusIndex() {
-      return Promise.resolve(null);
-    }
-    answerCard() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    setCardsSuspended() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    setNotesTag() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    browseNote() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    mediaFileDataUrl() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    mergeYomuData() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    addCard() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    addCardViaMobileHandoff() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    ensureDeckAndModel() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
-    invoke() {
-      return Promise.reject(ankiCompanionUnavailableError());
-    }
+    isConnected = ankiFalse;
+    isAvailableForBackground = ankiFalse;
+    deckNames = ankiEmptyStrings;
+    modelNames = ankiEmptyStrings;
+    noteFieldTargetPlan = ankiNull;
+    scanLibrary = ankiEmptyLibrary;
+    warmStatusIndex = ankiNull;
+    findExistingCards = ankiUntrustedLookup;
+    findCachedStatusBatch = ankiUntrustedLookupBatch;
+    findExistingCardsBatch = ankiUntrustedLookupBatch;
+    rebuildStatusIndex = ankiNull;
+    answerCard = ankiUnavailable;
+    setCardsSuspended = ankiUnavailable;
+    setNotesTag = ankiUnavailable;
+    browseNote = ankiUnavailable;
+    mediaFileDataUrl = ankiUnavailable;
+    mergeYomuData = ankiUnavailable;
+    addCard = ankiUnavailable;
+    addCardViaMobileHandoff = ankiUnavailable;
+    ensureDeckAndModel = ankiUnavailable;
+    invoke = ankiUnavailable;
   }
-  function ankiCompanionUnavailableError() {
-    return new Error("Yomu Anki companion is unavailable.");
-  }
+  const ankiFalse = () => Promise.resolve(false);
+  const ankiNull = () => Promise.resolve(null);
+  const ankiEmptyStrings = () => Promise.resolve([]);
+  const ankiEmptyLibrary = () => Promise.resolve({ deckNames: [], models: [], suggestedModel: null });
+  const ankiUntrustedLookup = () => Promise.resolve(untrustedAnkiLookupResult());
+  const ankiUntrustedLookupBatch = (cards) => Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
+  const ankiUnavailable = () => Promise.reject(new Error("Yomu Anki companion is unavailable."));
   class AnkiDuplicateNoteError extends Error {
     constructor(message) {
       super(message);
@@ -19203,11 +19176,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
         ${target}
         <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs$1(options, label, settings.interfaceLanguage)}>${label}${intervalSpan(grade)}</button>`).join("")}
+            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}${intervalSpan(grade)}</button>`).join("")}
         </div>
     `;
   }
-  function reviewButtonAttrs$1(options, buttonLabel, language) {
+  function reviewButtonAttrs(options, buttonLabel, language) {
     const title = options.title || options.targetLabel || "";
     const disabled = options.disabled ? ` disabled` : "";
     const titleAttr = options.disabled || title ? ` title="${escapeHtml$1(options.disabled ? title || uiText(language, "unavailable") : title)}"` : "";
@@ -30244,6 +30217,252 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     });
   }
   registerYomuCompanion("settings", { SettingsDialogController });
+  const ID_ATTR = "data-yomu-mid";
+  const MAX_OPS_PER_CANVAS = 6e3;
+  const PRUNE_KEEP = 3e3;
+  const MAX_REBUILD_DEPTH = 6;
+  function pageWindow() {
+    const uw = globalThis.unsafeWindow;
+    return uw || globalThis;
+  }
+  function state() {
+    const win = pageWindow();
+    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: /* @__PURE__ */ Object.create(null) };
+  }
+  function isBookwalkerHost(hostname) {
+    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
+  }
+  function canvasId(canvas, create) {
+    const el2 = canvas;
+    if (el2 && typeof el2.getAttribute === "function" && typeof el2.setAttribute === "function") {
+      let id = el2.getAttribute(ID_ATTR);
+      return id;
+    }
+    if (el2 && el2.__yomuMid) return el2.__yomuMid;
+    return null;
+  }
+  const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
+  function selectLatestContentOps(ops, beforeSeq) {
+    const byDest = /* @__PURE__ */ new Map();
+    for (const op of ops) {
+      if (op.clear || op.seq >= beforeSeq) continue;
+      byDest.set(destKey(op), op);
+    }
+    return [...byDest.values()].sort((a, b) => a.seq - b.seq);
+  }
+  function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
+    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
+    const record = lookup(id);
+    if (!record) return out;
+    const next = new Set(seen).add(id);
+    for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
+      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
+      else if (op.url) out.add(op.url);
+    }
+    return out;
+  }
+  function markSkip(context) {
+    if (context) context.__yomuMirrorSkip = true;
+    return context;
+  }
+  function isReadable(canvas) {
+    try {
+      markSkip(canvas.getContext("2d", { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function rebuildById(id, beforeSeq, images, seen, depth) {
+    if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
+    const record = state().records[id];
+    if (!record || !record.w || !record.h) return null;
+    const ops = selectLatestContentOps(record.ops, beforeSeq);
+    if (!ops.length) return null;
+    const out = document.createElement("canvas");
+    out.width = record.w;
+    out.height = record.h;
+    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
+    if (!ctx) return null;
+    seen.add(id);
+    let drew = 0;
+    for (const op of ops) {
+      let source = null;
+      if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
+      else if (op.url) source = images.get(op.url) ?? null;
+      if (!source) continue;
+      try {
+        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
+        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
+        else ctx.drawImage(source, op.dx, op.dy);
+        drew++;
+      } catch {
+      }
+    }
+    return drew ? out : null;
+  }
+  async function captureCanvasMirror(canvas, loadCleanImage) {
+    installCanvasMirrorRecorder();
+    const s = state();
+    const id = canvasId(canvas);
+    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
+    const images = /* @__PURE__ */ new Map();
+    if (urls.size) {
+      await Promise.all([...urls].map(async (url) => {
+        try {
+          const image = await loadCleanImage(url);
+          if (image) images.set(url, image);
+        } catch {
+        }
+      }));
+    }
+    const rebuilt = id && images.size ? rebuildById(id, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
+    return rebuilt && isReadable(rebuilt) ? rebuilt : void 0;
+  }
+  function recorderBootstrap(win, opts) {
+    if (win.__yomuCanvasMirrorRecorder) return;
+    win.__yomuCanvasMirrorRecorder = true;
+    const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
+    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: /* @__PURE__ */ Object.create(null) };
+    S.installed = true;
+    const HC = win.HTMLCanvasElement;
+    const OC = win.OffscreenCanvas;
+    const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
+    const srcUrl = (o) => {
+      const m = o;
+      return m ? typeof m.currentSrc === "string" && m.currentSrc || typeof m.src === "string" && m.src || "" : "";
+    };
+    const idOf = (c, create) => {
+      const el2 = c;
+      if (el2 && typeof el2.getAttribute === "function" && typeof el2.setAttribute === "function") {
+        let i2 = el2.getAttribute(ATTR);
+        if (!i2 && create) {
+          i2 = "m" + S.nextId++;
+          try {
+            el2.setAttribute(ATTR, i2);
+          } catch {
+            return null;
+          }
+        }
+        return i2;
+      }
+      if (el2 && el2.__yomuMid) return el2.__yomuMid;
+      if (el2 && create) {
+        try {
+          return el2.__yomuMid = "m" + S.nextId++;
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    };
+    const rec = (id, w, h) => {
+      let r = S.records[id];
+      if (!r) {
+        r = { w, h, ops: [] };
+        S.records[id] = r;
+      }
+      if (w) r.w = w;
+      if (h) r.h = h;
+      if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP);
+      return r;
+    };
+    const patch = (p) => {
+      if (!p || p.__yomuMirrorPatched) return;
+      p.__yomuMirrorPatched = true;
+      const draw = p.drawImage;
+      p.drawImage = function(src) {
+        if (!this.__yomuMirrorSkip) {
+          try {
+            const cid = idOf(this.canvas, true);
+            if (cid) {
+              const r = rec(cid, this.canvas.width, this.canvas.height);
+              const a = arguments;
+              const o = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
+              if (a.length === 9) {
+                o.sx = a[1];
+                o.sy = a[2];
+                o.sw = a[3];
+                o.sh = a[4];
+                o.dx = a[5];
+                o.dy = a[6];
+                o.dw = a[7];
+                o.dh = a[8];
+              } else if (a.length === 5) {
+                o.dx = a[1];
+                o.dy = a[2];
+                o.dw = a[3];
+                o.dh = a[4];
+              } else if (a.length === 3) {
+                o.dx = a[1];
+                o.dy = a[2];
+              }
+              r.ops.push(o);
+            }
+          } catch {
+          }
+        }
+        return draw.apply(this, arguments);
+      };
+      const clr = p.clearRect;
+      p.clearRect = function(x2, y, w, h) {
+        if (!this.__yomuMirrorSkip) {
+          try {
+            if (x2 <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
+              const cid = idOf(this.canvas, true);
+              if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+            }
+          } catch {
+          }
+        }
+        return clr.apply(this, arguments);
+      };
+    };
+    const w2 = win;
+    patch(w2.CanvasRenderingContext2D?.prototype);
+    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+  }
+  function injectRecorderIntoPage(opts) {
+    const parent = document.head || document.documentElement;
+    if (!parent) return false;
+    const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
+    try {
+      const script = document.createElement("script");
+      const nonce = [...document.querySelectorAll("script[nonce]")].map((el2) => el2.getAttribute("nonce")).find(Boolean);
+      if (nonce) script.setAttribute("nonce", nonce);
+      const trusted = createTrustedMirrorScript(source);
+      if (trusted) script.textContent = trusted;
+      else script.textContent = source;
+      parent.append(script);
+      script.remove();
+    } catch {
+      return false;
+    }
+    return Boolean(pageWindow().__yomuCanvasMirror);
+  }
+  function createTrustedMirrorScript(code) {
+    try {
+      const factory = globalThis.trustedTypes;
+      if (!factory?.createPolicy) return null;
+      const policy = factory.createPolicy("yomu-canvas-mirror", { createScript: (s) => s });
+      return policy?.createScript ? policy.createScript(code) : null;
+    } catch {
+      return null;
+    }
+  }
+  function installCanvasMirrorRecorder(hostname = location.hostname) {
+    if (!isBookwalkerHost(hostname)) return;
+    const uw = globalThis.unsafeWindow;
+    const differentRealm = Boolean(uw) && uw !== globalThis;
+    if (differentRealm) {
+      const existing = uw.__yomuCanvasMirror;
+      if (existing?.installed) return;
+      if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
+    }
+    const s = state();
+    if (s.installed) return;
+    recorderBootstrap(pageWindow(), { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
+  }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
     normalizeOcrPlainText(root);
@@ -30741,252 +30960,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function isPromiseLike(value) {
     return Boolean(value && typeof value.then === "function");
-  }
-  const ID_ATTR = "data-yomu-mid";
-  const MAX_OPS_PER_CANVAS = 6e3;
-  const PRUNE_KEEP = 3e3;
-  const MAX_REBUILD_DEPTH = 6;
-  function pageWindow() {
-    const uw = globalThis.unsafeWindow;
-    return uw || globalThis;
-  }
-  function state() {
-    const win = pageWindow();
-    return win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: /* @__PURE__ */ Object.create(null) };
-  }
-  function isBookwalkerHost(hostname) {
-    return hostname === "viewer.bookwalker.jp" || hostname === "viewer-trial.bookwalker.jp" || hostname.endsWith(".bookwalker.jp");
-  }
-  function canvasId(canvas, create) {
-    const el2 = canvas;
-    if (el2 && typeof el2.getAttribute === "function" && typeof el2.setAttribute === "function") {
-      let id = el2.getAttribute(ID_ATTR);
-      return id;
-    }
-    if (el2 && el2.__yomuMid) return el2.__yomuMid;
-    return null;
-  }
-  const destKey = (op) => `${op.dx},${op.dy},${op.dw},${op.dh}`;
-  function selectLatestContentOps(ops, beforeSeq) {
-    const byDest = /* @__PURE__ */ new Map();
-    for (const op of ops) {
-      if (op.clear || op.seq >= beforeSeq) continue;
-      byDest.set(destKey(op), op);
-    }
-    return [...byDest.values()].sort((a, b) => a.seq - b.seq);
-  }
-  function collectLeafUrls(id, beforeSeq, lookup, out = /* @__PURE__ */ new Set(), seen = /* @__PURE__ */ new Set(), depth = 0) {
-    if (!id || depth > MAX_REBUILD_DEPTH || seen.has(id)) return out;
-    const record = lookup(id);
-    if (!record) return out;
-    const next = new Set(seen).add(id);
-    for (const op of selectLatestContentOps(record.ops, beforeSeq)) {
-      if (op.srcId) collectLeafUrls(op.srcId, op.seq, lookup, out, next, depth + 1);
-      else if (op.url) out.add(op.url);
-    }
-    return out;
-  }
-  function markSkip(context) {
-    if (context) context.__yomuMirrorSkip = true;
-    return context;
-  }
-  function isReadable(canvas) {
-    try {
-      markSkip(canvas.getContext("2d", { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  function rebuildById(id, beforeSeq, images, seen, depth) {
-    if (depth > MAX_REBUILD_DEPTH || seen.has(id)) return null;
-    const record = state().records[id];
-    if (!record || !record.w || !record.h) return null;
-    const ops = selectLatestContentOps(record.ops, beforeSeq);
-    if (!ops.length) return null;
-    const out = document.createElement("canvas");
-    out.width = record.w;
-    out.height = record.h;
-    const ctx = markSkip(out.getContext("2d", { willReadFrequently: true }));
-    if (!ctx) return null;
-    seen.add(id);
-    let drew = 0;
-    for (const op of ops) {
-      let source = null;
-      if (op.srcId) source = rebuildById(op.srcId, op.seq, images, new Set(seen), depth + 1);
-      else if (op.url) source = images.get(op.url) ?? null;
-      if (!source) continue;
-      try {
-        if (op.sw >= 0) ctx.drawImage(source, op.sx, op.sy, op.sw, op.sh, op.dx, op.dy, op.dw, op.dh);
-        else if (op.dw >= 0) ctx.drawImage(source, op.dx, op.dy, op.dw, op.dh);
-        else ctx.drawImage(source, op.dx, op.dy);
-        drew++;
-      } catch {
-      }
-    }
-    return drew ? out : null;
-  }
-  async function captureCanvasMirror(canvas, loadCleanImage) {
-    installCanvasMirrorRecorder();
-    const s = state();
-    const id = canvasId(canvas);
-    const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
-    const images = /* @__PURE__ */ new Map();
-    if (urls.size) {
-      await Promise.all([...urls].map(async (url) => {
-        try {
-          const image = await loadCleanImage(url);
-          if (image) images.set(url, image);
-        } catch {
-        }
-      }));
-    }
-    const rebuilt = id && images.size ? rebuildById(id, Number.POSITIVE_INFINITY, images, /* @__PURE__ */ new Set(), 0) : null;
-    return rebuilt && isReadable(rebuilt) ? rebuilt : void 0;
-  }
-  function recorderBootstrap(win, opts) {
-    if (win.__yomuCanvasMirrorRecorder) return;
-    win.__yomuCanvasMirrorRecorder = true;
-    const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
-    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: /* @__PURE__ */ Object.create(null) };
-    S.installed = true;
-    const HC = win.HTMLCanvasElement;
-    const OC = win.OffscreenCanvas;
-    const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
-    const srcUrl = (o) => {
-      const m = o;
-      return m ? typeof m.currentSrc === "string" && m.currentSrc || typeof m.src === "string" && m.src || "" : "";
-    };
-    const idOf = (c, create) => {
-      const el2 = c;
-      if (el2 && typeof el2.getAttribute === "function" && typeof el2.setAttribute === "function") {
-        let i2 = el2.getAttribute(ATTR);
-        if (!i2 && create) {
-          i2 = "m" + S.nextId++;
-          try {
-            el2.setAttribute(ATTR, i2);
-          } catch {
-            return null;
-          }
-        }
-        return i2;
-      }
-      if (el2 && el2.__yomuMid) return el2.__yomuMid;
-      if (el2 && create) {
-        try {
-          return el2.__yomuMid = "m" + S.nextId++;
-        } catch {
-          return null;
-        }
-      }
-      return null;
-    };
-    const rec = (id, w, h) => {
-      let r = S.records[id];
-      if (!r) {
-        r = { w, h, ops: [] };
-        S.records[id] = r;
-      }
-      if (w) r.w = w;
-      if (h) r.h = h;
-      if (r.ops.length >= MAX) r.ops.splice(0, r.ops.length - KEEP);
-      return r;
-    };
-    const patch = (p) => {
-      if (!p || p.__yomuMirrorPatched) return;
-      p.__yomuMirrorPatched = true;
-      const draw = p.drawImage;
-      p.drawImage = function(src) {
-        if (!this.__yomuMirrorSkip) {
-          try {
-            const cid = idOf(this.canvas, true);
-            if (cid) {
-              const r = rec(cid, this.canvas.width, this.canvas.height);
-              const a = arguments;
-              const o = { seq: S.seq++, srcId: isCanvas(src) ? idOf(src, true) : null, url: isCanvas(src) ? "" : srcUrl(src), sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: false };
-              if (a.length === 9) {
-                o.sx = a[1];
-                o.sy = a[2];
-                o.sw = a[3];
-                o.sh = a[4];
-                o.dx = a[5];
-                o.dy = a[6];
-                o.dw = a[7];
-                o.dh = a[8];
-              } else if (a.length === 5) {
-                o.dx = a[1];
-                o.dy = a[2];
-                o.dw = a[3];
-                o.dh = a[4];
-              } else if (a.length === 3) {
-                o.dx = a[1];
-                o.dy = a[2];
-              }
-              r.ops.push(o);
-            }
-          } catch {
-          }
-        }
-        return draw.apply(this, arguments);
-      };
-      const clr = p.clearRect;
-      p.clearRect = function(x2, y, w, h) {
-        if (!this.__yomuMirrorSkip) {
-          try {
-            if (x2 <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
-              const cid = idOf(this.canvas, true);
-              if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
-            }
-          } catch {
-          }
-        }
-        return clr.apply(this, arguments);
-      };
-    };
-    const w2 = win;
-    patch(w2.CanvasRenderingContext2D?.prototype);
-    patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
-  }
-  function injectRecorderIntoPage(opts) {
-    const parent = document.head || document.documentElement;
-    if (!parent) return false;
-    const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
-    try {
-      const script = document.createElement("script");
-      const nonce = [...document.querySelectorAll("script[nonce]")].map((el2) => el2.getAttribute("nonce")).find(Boolean);
-      if (nonce) script.setAttribute("nonce", nonce);
-      const trusted = createTrustedMirrorScript(source);
-      if (trusted) script.textContent = trusted;
-      else script.textContent = source;
-      parent.append(script);
-      script.remove();
-    } catch {
-      return false;
-    }
-    return Boolean(pageWindow().__yomuCanvasMirror);
-  }
-  function createTrustedMirrorScript(code) {
-    try {
-      const factory = globalThis.trustedTypes;
-      if (!factory?.createPolicy) return null;
-      const policy = factory.createPolicy("yomu-canvas-mirror", { createScript: (s) => s });
-      return policy?.createScript ? policy.createScript(code) : null;
-    } catch {
-      return null;
-    }
-  }
-  function installCanvasMirrorRecorder(hostname = location.hostname) {
-    if (!isBookwalkerHost(hostname)) return;
-    const uw = globalThis.unsafeWindow;
-    const differentRealm = Boolean(uw) && uw !== globalThis;
-    if (differentRealm) {
-      const existing = uw.__yomuCanvasMirror;
-      if (existing?.installed) return;
-      if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
-    }
-    const s = state();
-    if (s.installed) return;
-    recorderBootstrap(pageWindow(), { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
   }
   function waitForIdle(timeoutMs = 75, fallbackDelayMs = 0) {
     if (timeoutMs <= 0 && fallbackDelayMs <= 0) return Promise.resolve();
@@ -46275,6 +46248,7 @@ ${spelling}`);
     if (element.matches(YOUTUBE_FEED_CONTAINER_SELECTOR)) return true;
     return Boolean(element.closest(VIDEO_CARD_SELECTOR));
   }
+  installCanvasMirrorRecorder();
   registerYomuCompanion("video", {
     SubtitlePlayerController,
     YoutubeImmersionFilter
@@ -48493,38 +48467,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     return yomuAnkiCompanion()?.renderAnkiRenderedCardStudyBody(...args) ?? "";
   }
   function renderReviewButtons(...args) {
-    return yomuAnkiCompanion()?.renderReviewButtons(...args) ?? renderReviewButtonsFallback(...args);
+    return yomuAnkiCompanion()?.renderReviewButtons(...args) ?? "";
   }
   function reviewButtonGrades(...args) {
-    return yomuAnkiCompanion()?.reviewButtonGrades(...args) ?? reviewButtonGradesFallback(...args);
-  }
-  function renderReviewButtonsFallback(settings, ankiNote = null, options = {}) {
-    const ankiAttrs = ankiNote?.primaryCardId ? ` data-anki-card-id="${ankiNote.primaryCardId}"` : "";
-    const grades = reviewButtonGradesFallback(settings);
-    const target = options.targetLabel ? `<div class="jpdb-reader-review-target">${escapeHtml$1(options.targetLabel)}</div>` : "";
-    const intervals = options.intervals ?? ankiNote?.reviewGradeIntervals;
-    const intervalSpan = (grade) => {
-      const interval = intervals?.[grade];
-      const label = interval?.buttonLabel || interval?.intervalLabel || "";
-      return label ? `<span class="jpdb-reader-grade-interval">${escapeHtml$1(label)}</span>` : "";
-    };
-    return `
-        ${target}
-        <div class="jpdb-reader-row${grades.length === 5 ? " jpdb-reader-grades" : ""}" style="--cols: ${grades.length}">
-            ${grades.map(([grade, label]) => `<button class="jpdb-reader-btn ${grade}" data-action="grade" data-grade="${grade}"${ankiAttrs}${reviewButtonAttrs(options, label, settings.interfaceLanguage)}>${label}${intervalSpan(grade)}</button>`).join("")}
-        </div>
-    `;
-  }
-  function reviewButtonAttrs(options, buttonLabel, language) {
-    const title = options.title || options.targetLabel || "";
-    const disabled = options.disabled ? ` disabled` : "";
-    const titleAttr = options.disabled || title ? ` title="${escapeHtml$1(options.disabled ? title || uiText(language, "unavailable") : title)}"` : "";
-    const aria = title ? ` aria-label="${escapeHtml$1(`${buttonLabel}: ${title}`)}"` : "";
-    return `${disabled}${titleAttr}${aria}`;
-  }
-  function reviewButtonGradesFallback(settings) {
-    const language = settings.interfaceLanguage;
-    return settings.twoButtonReviews ? [["fail", uiText(language, "gradeFailLabel")], ["pass", uiText(language, "gradePassLabel")]] : [["nothing", uiText(language, "gradeNothingLabel")], ["something", uiText(language, "gradeSomethingLabel")], ["hard", uiText(language, "gradeHardLabel")], ["okay", uiText(language, "gradeOkayLabel")], ["easy", uiText(language, "gradeEasyLabel")]];
+    return yomuAnkiCompanion()?.reviewButtonGrades(...args) ?? [];
   }
   const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff々〆]/u;
   function cardHighlightTargets(card) {
@@ -70156,7 +70102,11 @@ ${entry.url}`),
       if (!loading) return false;
       try {
         this.dependencies.stopImmersionAudio();
-        const played = await this.dependencies.audio.play(card, { isCurrent, userGesture: options.userGesture });
+        const played = await this.dependencies.audio.play(card, {
+          isCurrent,
+          userGesture: options.userGesture,
+          reservedGesture: options.autoPlay
+        });
         return played;
       } catch (error) {
         log$2.warn("Term audio playback failed", { term: card.spelling }, error);

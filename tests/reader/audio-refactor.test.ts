@@ -133,6 +133,10 @@ describe('audio module boundaries', () => {
         await actions.playTermAudio(card('猫', 'ねこ'), { hoverLookupGeneration: 2, autoPlay: true });
 
         expect(play).toHaveBeenCalledTimes(2);
+        expect(play).toHaveBeenNthCalledWith(1, expect.any(Object), expect.objectContaining({
+            reservedGesture: true,
+            isCurrent: expect.any(Function),
+        }));
     });
 
     it('keeps Anki opt-in on fresh installs and factory resets', () => {
@@ -391,6 +395,41 @@ describe('audio module boundaries', () => {
         expect(audio.loop).toBe(true);
         expect(audio.src).toContain('data:audio/wav;base64,');
         expect(play).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets autoplay consume a recent gesture audio reservation', async () => {
+        const plays: Array<{ element: HTMLMediaElement; loop: boolean; src: string }> = [];
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function play(this: HTMLMediaElement) {
+            plays.push({ element: this, loop: this.loop, src: this.src });
+            return Promise.resolve();
+        });
+        const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+        const load = vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => undefined);
+
+        try {
+            const player = new AudioPlayer(() => ({
+                ...DEFAULT_SETTINGS,
+                audioEnableDefaultSources: false,
+                audioSelectionMode: 'first',
+                audioViaBlob: false,
+                audioFallbackChimeEnabled: false,
+                audioSources: [{ type: 'custom', url: 'http://x.test/hover-word.mp3', voice: '', enabled: true }],
+            }));
+
+            expect(player.primeUserGesture()).toBe(true);
+            await expect(player.play(card('読む', 'よむ'), { reservedGesture: true })).resolves.toBe(true);
+
+            expect(plays).toHaveLength(2);
+            expect(plays[0]?.loop).toBe(true);
+            expect(plays[0]?.src).toContain('data:audio/wav;base64,');
+            expect(plays[1]?.element).toBe(plays[0]?.element);
+            expect(plays[1]?.loop).toBe(false);
+            expect(plays[1]?.src).toBe('http://x.test/hover-word.mp3');
+        } finally {
+            play.mockRestore();
+            pause.mockRestore();
+            load.mockRestore();
+        }
     });
 
     it('does not wait on Web Audio fallback when hover autoplay has no browser activation', async () => {

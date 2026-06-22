@@ -217,7 +217,26 @@ describe('makeRoomForRubyInCroppedRows', () => {
         document.body.innerHTML = '';
     });
 
-    it('does not reserve ruby room on YouTube attributed metadata mirrors', () => {
+    it('reserves ruby room on YouTube comment text so the base line does not disappear', () => {
+        document.body.innerHTML = `
+            <ytd-comment-view-model>
+                <yt-attributed-string id="content-text" style="display:block;overflow:hidden;height:18px;max-height:18px;line-height:18px">
+                    いい${annotatedWord('むすめ', '娘')}さんだなあ
+                </yt-attributed-string>
+            </ytd-comment-view-model>
+        `;
+        const comment = document.querySelector<HTMLElement>('#content-text')!;
+        mockOverflow(comment, 36, 18);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(comment.style.height).toBe('36px');
+        expect(comment.style.maxHeight).toBe('36px');
+        expect(comment.dataset.yomuRubyRoom).toBe('true');
+        expect(comment.querySelector('rt')?.textContent).toBe('むすめ');
+        document.body.innerHTML = '';
+    });
+
+    it('reserves ruby room on YouTube attributed metadata mirrors', () => {
         document.body.innerHTML = `
             <div class="ytContentMetadataViewModelMetadataRow" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">
                 <span class="yt-core-attributed-string ytAttributedStringHost" style="visibility:hidden;position:relative">
@@ -233,10 +252,68 @@ describe('makeRoomForRubyInCroppedRows', () => {
         mockOverflow(row, 57, 22);
         mockOverflow(host, 57, 22);
 
-        expect(makeRoomForRubyInCroppedRows(document)).toBe(0);
-        expect(row.style.height).toBe('22px');
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(row.style.height).toBe('57px');
+        expect(row.style.maxHeight).toBe('57px');
+        expect(row.dataset.yomuRubyRoom).toBe('true');
         expect(host.dataset.yomuRubyRoom).toBeUndefined();
         expect(row.querySelector('rt')?.textContent).toBe('にち');
         document.body.innerHTML = '';
+    });
+
+    it('reserves room on compact YouTube lockup title rows without sizing the attributed host', () => {
+        document.body.innerHTML = `
+            <yt-lockup-view-model>
+                <h3 id="title-row" class="ytLockupMetadataViewModelHeadingReset" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">
+                    <a href="/watch?v=jp">
+                        <span class="yt-core-attributed-string ytAttributedStringHost" style="position:relative;visibility:hidden;overflow:hidden;height:22px;max-height:22px;line-height:22px">
+                            革命道
+                            <span class="jpdb-reader-text-mirror" data-jpdb-reader-text-mirror="true" style="visibility:visible">
+                                ${annotatedWord('かくめい', '革命')}道
+                            </span>
+                        </span>
+                    </a>
+                </h3>
+            </yt-lockup-view-model>
+        `;
+        const row = document.querySelector<HTMLElement>('#title-row')!;
+        const host = document.querySelector<HTMLElement>('.ytAttributedStringHost')!;
+        mockOverflow(row, 42, 22);
+        mockOverflow(host, 42, 22);
+
+        expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+        expect(row.style.height).toBe('42px');
+        expect(row.style.maxHeight).toBe('42px');
+        expect(host.dataset.yomuRubyRoom).toBeUndefined();
+        expect(row.querySelector('rt')?.textContent).toBe('かくめい');
+        document.body.innerHTML = '';
+    });
+
+    it('reserves ruby room on clipped Google related-search buttons', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.google.com/search?q=test',
+            origin: 'https://www.google.com',
+            hostname: 'www.google.com',
+            pathname: '/search',
+        });
+        try {
+            document.body.innerHTML = `
+                <div id="botstuff">
+                    <button id="chip" style="overflow:hidden;height:22px;max-height:22px;line-height:22px">
+                        Test ${annotatedWord('ふくすうけい', '複数形')}
+                    </button>
+                </div>
+            `;
+            const chip = document.querySelector<HTMLElement>('#chip')!;
+            mockOverflow(chip, 38, 22);
+
+            expect(makeRoomForRubyInCroppedRows(document)).toBe(1);
+            expect(chip.style.height).toBe('38px');
+            expect(chip.style.maxHeight).toBe('38px');
+            expect(chip.querySelector('rt')?.textContent).toBe('ふくすうけい');
+        } finally {
+            vi.unstubAllGlobals();
+            document.body.innerHTML = '';
+        }
     });
 });

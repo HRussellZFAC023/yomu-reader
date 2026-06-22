@@ -270,7 +270,7 @@ describe('nested text parse plans', () => {
         expect(details.open).toBe(false);
     });
 
-    it('collects Japanese settings labels, headings, help prose, hidden panels, and select metadata without parsing status lines or unrelated hidden controls', () => {
+    it('collects Japanese settings labels, headings, help prose, and select metadata without parsing status lines or hidden controls', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <h2>よむ 設定</h2>
@@ -324,9 +324,8 @@ describe('nested text parse plans', () => {
         expect(texts).toContain('学習');
         expect(texts).toContain('日本語');
         expect(texts).not.toContain('API');
-        expect(texts).toContain('隠れた設定');
-        expect(texts).toContain('隠れた説明');
-        expect(texts.filter(text => text === '隠れた説明')).toHaveLength(1);
+        expect(texts).not.toContain('隠れた設定');
+        expect(texts).not.toContain('隠れた説明');
         expect(texts).not.toContain('保存');
         expect(texts).not.toContain('詳細');
     });
@@ -377,7 +376,7 @@ describe('nested text parse plans', () => {
         expect(inputWord ? canLookupReaderWordElement(inputWord) : false).toBe(true);
     });
 
-    it('prioritizes visible settings panels before inactive panel text', () => {
+    it('skips inactive settings panel text', () => {
         document.body.innerHTML = `
             <form class="jpdb-reader-settings" data-jpdb-reader-root="true">
                 <h2>よむ 設定</h2>
@@ -396,7 +395,6 @@ describe('nested text parse plans', () => {
         expect(plan.targets.map(target => target.text)).toEqual([
             'よむ 設定',
             '設定の表示言語',
-            'APIアクセス',
         ]);
     });
 

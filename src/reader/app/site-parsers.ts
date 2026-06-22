@@ -420,14 +420,20 @@ const YOUTUBE_WATCH_INFO_ARIA_PARTS = [
     '#date-text[aria-label]',
 ].join(',');
 const GOOGLE_SEARCH_ROOTS = [
-    '#search',
-    '#rso',
+    '#botstuff',
+    '#bres',
+    '[data-attrid]',
+    '[data-sokoban-container]',
     '.MjjYud',
     '.g',
     '.VwiC3b',
     '.LC20lb',
-    '[data-sokoban-container]',
-].join(',');
+    '#search',
+    '#rso',
+    '#main',
+    '#rcnt',
+    '[role="main"]',
+];
 const GOOGLE_SEARCH_EXCLUDE = [
     COMMON_EXCLUDE,
     'g-img',
@@ -492,11 +498,12 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
     },
     {
         id: 'google-search-parser',
-        roots: [GOOGLE_SEARCH_ROOTS],
+        roots: GOOGLE_SEARCH_ROOTS,
         exclude: GOOGLE_SEARCH_EXCLUDE,
         allowUiText: true,
         minLength: 1,
         includeUiChrome: true,
+        includeGenericPageText: true,
         plainScan: true,
         matches: url => /(^|\.)google\./i.test(url.hostname) && url.pathname === '/search',
     },
@@ -732,6 +739,11 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             'ytm-expandable-video-description-body-renderer',
             'ytm-structured-description-content-renderer',
             YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS,
+            'ytd-watch-next-secondary-results-renderer #video-title',
+            '#secondary ytd-compact-video-renderer #video-title',
+            '#secondary ytd-compact-video-renderer',
+            'ytd-compact-video-renderer #video-title',
+            'ytd-compact-video-renderer',
             'yt-live-chat-text-message-renderer #author-name',
             'yt-live-chat-text-message-renderer #message',
             'yt-live-chat-paid-message-renderer #author-name',
@@ -755,7 +767,6 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
             YOUTUBE_MOBILE_CHROME_ROOTS,
             ...YOUTUBE_CHROME_ROOTS,
             'ytd-watch-next-secondary-results-renderer',
-            'ytd-compact-video-renderer',
             // General feed/search grids are useful, but lower priority because
             // YouTube can hydrate hundreds of them.
             'ytd-rich-grid-renderer',

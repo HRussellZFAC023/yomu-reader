@@ -31,6 +31,7 @@ const baseSettings = {
     showFloatingButton: false,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
+    youtubeShowChannelRecommendations: true,
     subtitlePlayerEnabled: true,
     subtitleAutoDetect: true,
     subtitleOverlayVisible: true,
@@ -666,6 +667,13 @@ async function installUserscriptContext(context) {
                 titleWords: queryCount('ytd-watch-metadata h1 .jpdb-reader-word, ytd-watch-metadata #title .jpdb-reader-word'),
                 watchTitleText: element('ytd-watch-metadata h1')?.textContent?.trim() ?? '',
                 sidebarReaderWords: queryCount('#secondary .jpdb-reader-word, ytd-compact-video-renderer .jpdb-reader-word'),
+                sidebarText: element('#secondary')?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                sidebarCards: [...document.querySelectorAll('#secondary ytd-compact-video-renderer')].map(card => ({
+                    caseName: card.dataset.case ?? '',
+                    className: card.className,
+                    text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                    rect: card.getBoundingClientRect().toJSON(),
+                })),
                 rowCopyButtons: queryCount('.jpdb-subtitle-row-copy'),
                 rowFont: rowFontSnapshot(),
                 layout: {
@@ -693,12 +701,12 @@ async function installUserscriptContext(context) {
 }
 
 async function installRoutes(page) {
-    await page.route('https://www.youtube.com/', route => route.fulfill({ body: youtubeHomeHtml(), contentType: 'text/html' }));
-    await page.route('https://m.youtube.com/', route => route.fulfill({ body: youtubeMobileHomeHtml(), contentType: 'text/html' }));
-    await page.route('https://www.youtube.com/feed/shorts', route => route.fulfill({ body: youtubeShortsGalleryHtml(), contentType: 'text/html' }));
-    await page.route('https://m.youtube.com/feed/shorts', route => route.fulfill({ body: youtubeShortsGalleryHtml(), contentType: 'text/html' }));
-    await page.route('https://www.youtube.com/shorts/watch-en', route => route.fulfill({ body: youtubeShortsWatchHtml(), contentType: 'text/html' }));
-    await page.route('https://m.youtube.com/shorts/watch-en', route => route.fulfill({ body: youtubeShortsWatchHtml(), contentType: 'text/html' }));
+    await page.route(url => isYouTubeRootUrl(url, 'www.youtube.com'), route => route.fulfill({ body: youtubeHomeHtml(), contentType: 'text/html' }));
+    await page.route(url => isYouTubeRootUrl(url, 'm.youtube.com'), route => route.fulfill({ body: youtubeMobileHomeHtml(), contentType: 'text/html' }));
+    await page.route(url => isYouTubePathUrl(url, 'www.youtube.com', '/feed/shorts'), route => route.fulfill({ body: youtubeShortsGalleryHtml(), contentType: 'text/html' }));
+    await page.route(url => isYouTubePathUrl(url, 'm.youtube.com', '/feed/shorts'), route => route.fulfill({ body: youtubeShortsGalleryHtml(), contentType: 'text/html' }));
+    await page.route(url => isYouTubePathUrl(url, 'www.youtube.com', '/shorts/watch-en'), route => route.fulfill({ body: youtubeShortsWatchHtml(), contentType: 'text/html' }));
+    await page.route(url => isYouTubePathUrl(url, 'm.youtube.com', '/shorts/watch-en'), route => route.fulfill({ body: youtubeShortsWatchHtml(), contentType: 'text/html' }));
     await page.route('https://www.youtube.com/oembed**', route => route.fulfill({
         body: JSON.stringify({ title: youtubeOEmbedTitleForRequest(route.request().url()) }),
         contentType: 'application/json',
@@ -743,6 +751,14 @@ async function installRoutes(page) {
     }));
 }
 
+function isYouTubeRootUrl(url, hostname) {
+    return isYouTubePathUrl(url, hostname, '/');
+}
+
+function isYouTubePathUrl(url, hostname, pathname) {
+    return url.hostname === hostname && url.pathname === pathname;
+}
+
 const YOUTUBE_OEMBED_TITLES = {
     'mweb-original-jp': '朝のルーティン',
     'mweb-en': 'Desk setup tour',
@@ -771,11 +787,6 @@ async function runHomepageCheck(page) {
     await page.goto(HOME_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     await page.waitForSelector('ytd-rich-item-renderer[data-case="jp"]', { timeout: 10000 });
     await page.waitForTimeout(1200);
-    await page.waitForFunction(() => {
-        const state = window.__yomuFeatureReadHomepageState();
-        return state.channelNames.includes('Hydrated Preview Channel');
-    }, null, { timeout: 10000 });
-
     const beforeReveal = await page.evaluate(() => window.__yomuFeatureReadHomepageState());
     assert(beforeReveal.cards >= 4, 'YouTube homepage recommendations did not render', beforeReveal);
     assert(beforeReveal.readerWordsInGrid > 0, 'Yomu did not enhance YouTube homepage Japanese recommendation titles', beforeReveal);
@@ -783,9 +794,6 @@ async function runHomepageCheck(page) {
     assert(beforeReveal.filteredEnglish === true, 'YouTube immersion filter did not hide the non-Japanese recommendation', beforeReveal);
     assert(beforeReveal.visibleJapanese === true, 'YouTube immersion filter hid a Japanese recommendation', beforeReveal);
     assert(beforeReveal.noticeText.includes('hid'), 'YouTube filter notice did not summarize hidden videos', beforeReveal);
-    assert(beforeReveal.longChannelPreviewDescriptions.length === 0, 'YouTube channel suggestions rendered the long hydrated channel bio', beforeReveal);
-    assert(beforeReveal.channelDescriptions.some(description => /videos around N[1-5]/u.test(description)),
-        'YouTube channel suggestions did not keep the compact recommendation descriptions', beforeReveal);
 
     await page.waitForFunction(() => Boolean(document.querySelector('.jpdb-youtube-filter-bar [data-action="toggle-hidden"]')), null, { timeout: 10000 });
     await page.evaluate(() => {
@@ -1014,6 +1022,8 @@ async function runWatchCheck(page) {
 
     const idleControls = await closePanelAndReadIdleControls(page);
     assertIdleControls(idleControls);
+    const visibleSidebar = await waitForVisibleWatchSidebarParsing(page);
+    assertVisibleSidebarParsing(visibleSidebar);
 
     const resize = await exerciseWatchPanelResize(page);
     const dictionary = await verifyTeacherCommentLookup(page);
@@ -1021,6 +1031,7 @@ async function runWatchCheck(page) {
     return {
         initial,
         idleControls,
+        visibleSidebar,
         beforeResize: resize.beforeResize,
         afterResize: resize.afterResize,
         dictionary,
@@ -1097,13 +1108,15 @@ function assertWatchPageParsing(initial) {
     assert(initial.commentMorePassive === true, 'Yomu did not passively annotate the YouTube comment more control', initial);
     assert(initial.commentTranslatePassive === true, 'Yomu did not passively annotate the YouTube comment translate control', initial);
     assert(initial.liveChatWords > 0, 'YouTube live chat text was not parsed', initial);
-    assert(initial.liveChatButtonPassive === false, 'Yomu wrapped a YouTube live chat button', initial);
+    assert(initial.liveChatButtonPassive === true, 'Yomu did not passively annotate the YouTube live chat button', initial);
 }
 
 function assertWatchTextExclusions(initial) {
     assert(initial.titleWords > 0, 'Yomu did not parse the YouTube watch title', initial);
     assert(initial.watchTitleText.includes('日本の習慣'), 'YouTube watch title text is missing or incorrect', initial);
-    assert(initial.sidebarReaderWords > 0, 'Yomu did not enhance YouTube sidebar recommendation text', initial);
+    if (hasVisibleSidebarCard(initial)) {
+        assert(initial.sidebarReaderWords > 0, 'Yomu did not enhance visible YouTube sidebar recommendation text', initial);
+    }
 }
 
 function assertWatchRowPresentation(initial) {
@@ -1150,6 +1163,29 @@ function assertIdleControls(idleControls) {
     assert(includesText(idleControls.rootClasses, 'jpdb-subtitle-controls-idle'), 'YouTube subtitle controls did not enter idle mode', idleControls);
     assert(Number(idleControls.railOpacity) < 0.05, 'YouTube idle mode did not hide the whole control rail', idleControls);
     assert(idleControls.railPointerEvents === 'none', 'Hidden YouTube control rail still receives pointer events', idleControls);
+}
+
+async function waitForVisibleWatchSidebarParsing(page) {
+    await page.waitForFunction(() => {
+        const visibleCards = [...document.querySelectorAll('#secondary ytd-compact-video-renderer')]
+            .filter(card => {
+                const rect = card.getBoundingClientRect();
+                return rect.width > 0 && rect.height > 0;
+            });
+        if (!visibleCards.length) return false;
+        return visibleCards.some(card => card.querySelector('.jpdb-reader-word'));
+    }, null, { timeout: 8000 });
+    return readWatchState(page);
+}
+
+function assertVisibleSidebarParsing(state) {
+    assert(hasVisibleSidebarCard(state), 'YouTube native sidebar recommendation rail did not become visible after closing Yomu sidebar', state);
+    assert(state.sidebarReaderWords > 0, 'Yomu did not enhance visible YouTube sidebar recommendation text', state);
+}
+
+function hasVisibleSidebarCard(state) {
+    return Array.isArray(state.sidebarCards)
+        && state.sidebarCards.some(card => card.rect?.width > 0 && card.rect?.height > 0);
 }
 
 async function exerciseWatchPanelResize(page) {

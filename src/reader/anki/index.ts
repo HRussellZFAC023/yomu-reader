@@ -79,32 +79,36 @@ export class AnkiConnectClient {
 
 class DisabledAnkiConnectClient implements AnkiConnectClient {
     destroy(): void {}
-    isConnected(): Promise<boolean> { return Promise.resolve(false); }
-    isAvailableForBackground(): Promise<boolean> { return Promise.resolve(false); }
-    deckNames(): Promise<string[]> { return Promise.resolve([]); }
-    modelNames(): Promise<string[]> { return Promise.resolve([]); }
-    noteFieldTargetPlan(): Promise<import('./field-render').AnkiNoteFieldTargetPlan | null> { return Promise.resolve(null); }
-    scanLibrary(): Promise<AnkiLibraryScanResult> { return Promise.resolve({ deckNames: [], models: [], suggestedModel: null }); }
-    warmStatusIndex(): Promise<AnkiStatusIndex | null> { return Promise.resolve(null); }
-    findExistingCards(_card: JPDBCard): Promise<AnkiLookupResult> { return Promise.resolve(untrustedAnkiLookupResult()); }
-    findCachedStatusBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> { return Promise.resolve(cards.map(() => untrustedAnkiLookupResult())); }
-    findExistingCardsBatch(cards: JPDBCard[]): Promise<AnkiLookupResult[]> { return Promise.resolve(cards.map(() => untrustedAnkiLookupResult())); }
-    rebuildStatusIndex(): Promise<AnkiStatusIndex | null> { return Promise.resolve(null); }
-    answerCard(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
-    setCardsSuspended(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
-    setNotesTag(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
-    browseNote(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
-    mediaFileDataUrl(): Promise<string> { return Promise.reject(ankiCompanionUnavailableError()); }
-    mergeYomuData(): Promise<AnkiMergeYomuResult> { return Promise.reject(ankiCompanionUnavailableError()); }
-    addCard(): Promise<number | null> { return Promise.reject(ankiCompanionUnavailableError()); }
-    addCardViaMobileHandoff(): Promise<null> { return Promise.reject(ankiCompanionUnavailableError()); }
-    ensureDeckAndModel(): Promise<void> { return Promise.reject(ankiCompanionUnavailableError()); }
-    invoke<T>(): Promise<T> { return Promise.reject(ankiCompanionUnavailableError()); }
+    isConnected = ankiFalse;
+    isAvailableForBackground = ankiFalse;
+    deckNames = ankiEmptyStrings;
+    modelNames = ankiEmptyStrings;
+    noteFieldTargetPlan = ankiNull as AnkiConnectClient['noteFieldTargetPlan'];
+    scanLibrary = ankiEmptyLibrary;
+    warmStatusIndex = ankiNull as AnkiConnectClient['warmStatusIndex'];
+    findExistingCards = ankiUntrustedLookup;
+    findCachedStatusBatch = ankiUntrustedLookupBatch;
+    findExistingCardsBatch = ankiUntrustedLookupBatch;
+    rebuildStatusIndex = ankiNull as AnkiConnectClient['rebuildStatusIndex'];
+    answerCard = ankiUnavailable as AnkiConnectClient['answerCard'];
+    setCardsSuspended = ankiUnavailable as AnkiConnectClient['setCardsSuspended'];
+    setNotesTag = ankiUnavailable as AnkiConnectClient['setNotesTag'];
+    browseNote = ankiUnavailable as AnkiConnectClient['browseNote'];
+    mediaFileDataUrl = ankiUnavailable as AnkiConnectClient['mediaFileDataUrl'];
+    mergeYomuData = ankiUnavailable as AnkiConnectClient['mergeYomuData'];
+    addCard = ankiUnavailable as AnkiConnectClient['addCard'];
+    addCardViaMobileHandoff = ankiUnavailable as AnkiConnectClient['addCardViaMobileHandoff'];
+    ensureDeckAndModel = ankiUnavailable as AnkiConnectClient['ensureDeckAndModel'];
+    invoke = ankiUnavailable as AnkiConnectClient['invoke'];
 }
 
-function ankiCompanionUnavailableError(): Error {
-    return new Error('Yomu Anki companion is unavailable.');
-}
+const ankiFalse = () => Promise.resolve(false);
+const ankiNull = () => Promise.resolve(null);
+const ankiEmptyStrings = () => Promise.resolve([]);
+const ankiEmptyLibrary = () => Promise.resolve({ deckNames: [], models: [], suggestedModel: null });
+const ankiUntrustedLookup = () => Promise.resolve(untrustedAnkiLookupResult());
+const ankiUntrustedLookupBatch = (cards: JPDBCard[]) => Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
+const ankiUnavailable = () => Promise.reject(new Error('Yomu Anki companion is unavailable.'));
 
 export class AnkiDuplicateNoteError extends Error {
     constructor(message: string) {

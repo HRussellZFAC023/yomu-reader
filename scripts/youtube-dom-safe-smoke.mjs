@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -10,7 +10,6 @@ import {
     launchSmokeBrowser,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { scriptPath, cssPath, root, artifacts } = createSmokePaths(import.meta.dirname);
 const companionPaths = [
@@ -52,6 +51,14 @@ context.setDefaultNavigationTimeout(15_000);
 
 try {
     console.error('[youtube-dom-safe] installing routes');
+    await addGmStorageBridgeInitScript(context, {
+        key: YOMU_SETTINGS_KEY,
+        value: settings,
+        css: readFileSync(cssPath, 'utf8'),
+    });
+    await context.addInitScript({
+        content: [...companionPaths, scriptPath].map(path => readFileSync(path, 'utf8')).join('\n;\n'),
+    });
     await context.route('https://www.youtube.com/oembed**', route => route.fulfill({
         status: 404,
         contentType: 'application/json',
@@ -68,11 +75,7 @@ try {
     const homePage = await context.newPage();
     const homeLogs = capturePageDiagnostics(homePage, 'home');
     console.error('[youtube-dom-safe] loading home fixture');
-    await addGmStorageBridgeInitScript(homePage, { key: YOMU_SETTINGS_KEY, value: settings });
     await homePage.goto('https://www.youtube.com/', { waitUntil: 'domcontentloaded' });
-    await installUserscriptCssResource(homePage, cssPath);
-    for (const companionPath of companionPaths) await addScriptTagWithCspFallback(homePage, companionPath);
-    await addScriptTagWithCspFallback(homePage, scriptPath);
     await waitForYomuYoutubeFilter(homePage, homeLogs);
     await homePage.screenshot({ path: join(outputDir, 'home-after.png'), fullPage: false });
     const home = await homePage.evaluate(homeEvidence);
@@ -80,11 +83,7 @@ try {
     const watchPage = await context.newPage();
     const watchLogs = capturePageDiagnostics(watchPage, 'watch');
     console.error('[youtube-dom-safe] loading watch fixture');
-    await addGmStorageBridgeInitScript(watchPage, { key: YOMU_SETTINGS_KEY, value: settings });
     await watchPage.goto('https://www.youtube.com/watch?v=watch123', { waitUntil: 'domcontentloaded' });
-    await installUserscriptCssResource(watchPage, cssPath);
-    for (const companionPath of companionPaths) await addScriptTagWithCspFallback(watchPage, companionPath);
-    await addScriptTagWithCspFallback(watchPage, scriptPath);
     await waitForYomuYoutubeFilter(watchPage, watchLogs);
     await watchPage.screenshot({ path: join(outputDir, 'watch-after.png'), fullPage: false });
     const watch = await watchPage.evaluate(watchEvidence);

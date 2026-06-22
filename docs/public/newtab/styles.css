@@ -5162,7 +5162,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-word-inline-gap: 0.08em;
   --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap));
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
-  --jpdb-reader-word-underline-offset: 0.12em;
+  --jpdb-reader-word-underline-offset: 0.04em;
   --jpdb-reader-word-underline-style: solid;
   --jpdb-reader-word-underline-thickness: 1px;
   --jpdb-reader-source-status-color: var(--jpdb-reader-status-readable, var(--jpdb-reader-status-color, currentColor));
@@ -5318,14 +5318,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
    tap near the word still resolves to it. Scoped to mokuro-style reader boxes
    to avoid disturbing normal prose. */
 @media (pointer: coarse) {
+  .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
+    content: "";
+    position: absolute;
+    inset: -0.36em -0.06em;
+    z-index: 0;
+    pointer-events: auto;
+  }
+
   .textBox .jpdb-reader-word::before,
   #pagesContainer .jpdb-reader-word::before,
   #manga-panel .jpdb-reader-word::before {
-    content: "";
-    position: absolute;
     inset: -0.4em -0.18em;
-    z-index: 0;
-    pointer-events: auto;
   }
 }
 
