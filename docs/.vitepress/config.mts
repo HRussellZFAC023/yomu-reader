@@ -13,7 +13,7 @@ const pdfReaderLink = '/pdf-reader/';
 
 const siteTitle = 'よむ - Free Japanese popup reader';
 const siteDescription =
-    'よむ is a free Japanese immersion reader. Tap a word on any web page, manga image, PDF, or subtitle to see readings, meanings, kanji, audio, examples, and study actions.';
+    'よむ is a free Japanese reader for web pages, manga, PDFs, and video subtitles. Tap any word for readings, meanings, kanji, audio, and study actions.';
 const siteVerificationHead = siteVerificationMetaHead([
     { name: 'google-site-verification', value: process.env.YOMU_GOOGLE_SITE_VERIFICATION },
     { name: 'msvalidate.01', value: process.env.YOMU_BING_SITE_VERIFICATION },
@@ -216,7 +216,7 @@ export default defineConfig({
         return head;
     },
     themeConfig: {
-        logo: '/yomu-icon.svg',
+        logo: { src: '/yomu-icon.svg', alt: 'よむ app icon' },
         siteTitle: 'yomu',
         nav: [
             { text: 'Install', link: '/getting-started' },
