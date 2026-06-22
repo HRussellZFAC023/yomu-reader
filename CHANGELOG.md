@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.56] - 2026-06-22
+
+### Fixed
+
+- YouTube watch titles and channel metadata no longer go missing, duplicate, or misalign after the page re-renders. The non-destructive furigana mirror hides the host text and overlays an annotated copy; a YouTube re-render that rewrote the host's `style`/`class` without changing its text used to strip the mirror's `visibility:hidden`/`position:relative` (so the native title reappeared beside the mirror, or the overlay drifted out of place). The mirror now watches the host's own attribute changes and re-pins those styles.
+
 ## [1.4.55] - 2026-06-22
 
 ### Changed
