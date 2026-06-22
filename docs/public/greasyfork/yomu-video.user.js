@@ -5646,7 +5646,7 @@ recommendedJiten	Jiten頻度です。
     if (furi.vertical || base.vertical) return ocrLineLooksLikeVerticalFuriganaFor(furi, base);
     const overlap = horizontalOverlap(furi.box, base.box);
     const overlapRatio = overlap / Math.max(1, Math.min(furi.box.width, base.box.width));
-    const smaller = furi.box.height <= base.box.height * 0.75 || furi.box.width <= base.box.width * 0.65;
+    const smaller = furi.box.height <= base.box.height * 0.75;
     const nearTop = furi.box.top <= base.box.top + base.box.height * 0.5 && furi.box.top + furi.box.height >= base.box.top - Math.max(base.box.height * 0.45, furi.box.height * 3);
     return overlapRatio >= 0.32 && smaller && nearTop;
   }
@@ -5657,7 +5657,7 @@ recommendedJiten	Jiten頻度です。
     if (!furi.vertical || !base.vertical) return false;
     const overlap = verticalOverlap(furi.box, base.box);
     const overlapRatio = overlap / Math.max(1, Math.min(furi.box.height, base.box.height));
-    const smaller = furi.box.width <= base.box.width * 0.75 || furi.box.height <= base.box.height * 0.65;
+    const smaller = furi.box.width <= base.box.width * 0.75;
     const nearSide = horizontalGap(furi.box, base.box) <= Math.max(base.box.width * 0.75, furi.box.width * 2);
     return overlapRatio >= 0.32 && smaller && nearSide;
   }
@@ -7961,11 +7961,11 @@ ${candidate.depth}`;
       const minHitSize = Math.max(24, Math.round(fontSize * 1.25));
       const furiGutter = vertical && hasFurigana ? Math.round(fontSize * 0.55) : 0;
       const underlineGutter = vertical ? underlineBleed : 0;
-      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + furiGutter * 2 + underlineGutter * 2));
+      const frameWidth = Math.min(frame.imageWidth, Math.max(boxWidth, minHitSize, contentWidth + padX * 2 + underlineGutter * 2));
       const frameHeight = Math.min(frame.imageHeight, Math.max(boxHeight, minHitSize, contentHeight + padTop + padBottom));
       const minLeft = frame.imageLeft;
       const minTop = frame.imageTop;
-      const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth);
+      const maxLeft = Math.max(minLeft, frame.imageLeft + frame.imageWidth - frameWidth - furiGutter);
       const maxTop = Math.max(minTop, frame.imageTop + frame.imageHeight - frameHeight);
       const left = clampNumber$1(boxLeft + boxWidth / 2 - frameWidth / 2, minLeft, maxLeft);
       const centeredTop = boxTop + boxHeight / 2 - frameHeight / 2;

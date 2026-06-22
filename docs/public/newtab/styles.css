@@ -6433,19 +6433,20 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   transform: translate(0.06em, -50%);
 }
 
-/* In a vertical column the word's pitch/decoration must stay on ONE side.
-   .jpdb-reader-word::after draws its rule on the block-end edge (physical left
-   in vertical-rl) while the text-decoration underline lands on the opposite
-   physical edge, so an activated vertical word gets marked on BOTH sides of the
-   column (user feedback: "pitch accent is appearing confusingly on both
-   sides"). With the reading now on the right, drop the duplicate pseudo-rule
-   and pin the single remaining underline to the left. Vertical OCR lines only —
-   horizontal words keep both. */
-.jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word::after {
-  display: none;
-}
+/* In a vertical column the word's pitch/decoration must stay on ONE side. The
+   native text-decoration underline can NOT paint here: after
+   normalizeOcrRenderedText the glyphs live inside inline-flex children
+   (.jpdb-ocr-plain / .jpdb-ocr-ruby), and text-decoration does not propagate
+   into atomic inline-level boxes — so the old text-underline-position:left
+   underline never showed at all. The pitch rule is drawn instead by the base
+   .jpdb-reader-word::after, whose border-block-end falls on the column's
+   physical-left edge in vertical-rl (a single vertical rule down the side of the
+   highlight, the same bordered box the horizontal underline uses). So keep that
+   ::after (do NOT display:none it) and suppress only the dead native underline,
+   leaving exactly ONE marked side (user feedback: "pitch accent is appearing
+   confusingly on both sides"). Vertical OCR lines only — horizontal unaffected. */
 .jpdb-ocr-line[data-vertical="true"] .jpdb-reader-word {
-  text-underline-position: left;
+  text-decoration-line: none !important;
 }
 
 .asbplayer-subtitles-container-bottom {
