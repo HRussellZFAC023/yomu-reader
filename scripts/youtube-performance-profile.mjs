@@ -322,6 +322,7 @@ async function runMobileHoverStress(context, scenario, scenarioArtifactsDir) {
     const interaction = await exerciseYoutubeHoverStress(page, {
         durationMs: HOVER_STRESS_DURATION_MS,
         label: 'mobile',
+        activation: 'touch',
     });
     await waitForYoutubeCommentParse(page, scenario);
     const step = await finishStep(page, client, started, 'mobileYoutubeHoverStress');
@@ -1038,6 +1039,7 @@ async function exerciseOcrOverlay(page) {
 async function exerciseYoutubeHoverStress(page, options = {}) {
     const durationMs = Number(options.durationMs ?? HOVER_STRESS_DURATION_MS);
     const label = options.label ?? 'desktop';
+    const activation = options.activation ?? 'hover';
     await ensureSubtitlePanelOpen(page).catch(() => undefined);
     await page.evaluate(() => {
         window.__yomuProfileExpandDescription?.();
@@ -1064,12 +1066,12 @@ async function exerciseYoutubeHoverStress(page, options = {}) {
             const top = comments ? comments.getBoundingClientRect().top + window.scrollY - 120 : 0;
             window.scrollTo({ top: Math.max(0, top + (index % 5) * 180), behavior: 'instant' });
         }, iteration);
-        samples.push(await hoverStressSample(page, iteration, label));
+        samples.push(await hoverStressSample(page, iteration, label, activation));
         iteration += 1;
         await page.waitForTimeout(90);
     }
     await page.evaluate(() => window.__yomuProfileStopHostRehydrate?.());
-    await page.mouse.move(8, 8).catch(() => undefined);
+    if (activation === 'hover') await page.mouse.move(8, 8).catch(() => undefined);
     return {
         label,
         durationMs: Date.now() - startedAt,
@@ -1087,7 +1089,9 @@ async function waitForYoutubeCommentParse(page, scenario) {
     }, Boolean(scenario.apiKey), { timeout: 20_000 }).catch(() => undefined);
 }
 
-async function hoverStressSample(page, index, label) {
+async function hoverStressSample(page, index, label, activation = 'hover') {
+    await closeStressPopover(page);
+    if (activation === 'touch') return await touchStressSample(page, index, label);
     const target = await page.evaluate(sampleIndex => {
         const selector = [
             'ytd-watch-metadata .jpdb-reader-word',
@@ -1100,12 +1104,14 @@ async function hoverStressSample(page, index, label) {
         const words = [...document.querySelectorAll(selector)]
             .filter(word => {
                 const rect = word.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
                 return rect.width > 2
                     && rect.height > 2
-                    && rect.bottom > 0
-                    && rect.right > 0
-                    && rect.top < window.innerHeight
-                    && rect.left < window.innerWidth;
+                    && centerX >= 10
+                    && centerY >= 10
+                    && centerX <= window.innerWidth - 10
+                    && centerY <= window.innerHeight - 10;
             });
         const word = words[sampleIndex % Math.max(1, words.length)];
         if (!(word instanceof HTMLElement)) return null;
@@ -1127,6 +1133,7 @@ async function hoverStressSample(page, index, label) {
             startedAt: performance.now(),
             expected,
             seenAt: null,
+            expectedAt: null,
             text: '',
         };
         return window.__yomuProfileHoverProbe.startedAt;
@@ -1137,29 +1144,142 @@ async function hoverStressSample(page, index, label) {
         const popover = document.querySelector('.jpdb-reader-popover');
         const text = popover?.textContent?.replace(/\s+/g, '') ?? '';
         const hasExpectedText = expected ? text.includes(expected) : Boolean(text);
-        if (popover && hasExpectedText && probe && probe.seenAt === null) {
+        if (popover && probe && probe.seenAt === null) {
             probe.seenAt = performance.now();
             probe.text = text.slice(0, 120);
         }
-        return Boolean(probe?.seenAt);
+        if (popover && hasExpectedText && probe && probe.expectedAt === null) {
+            probe.expectedAt = performance.now();
+            probe.text = text.slice(0, 120);
+        }
+        return expected ? Boolean(probe?.expectedAt) : Boolean(probe?.seenAt);
     }, target.expected, { timeout: 3200 }).then(() => true).catch(() => false);
     const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
     return {
         label,
         index,
+        activation,
         target,
         opened: seen,
+        popoverVisible: Boolean(probe?.seenAt),
         ms: probe?.seenAt ? Math.round((probe.seenAt - started) * 10) / 10 : null,
+        expectedMs: probe?.expectedAt ? Math.round((probe.expectedAt - started) * 10) / 10 : null,
+        popoverText: probe?.text ?? '',
+    };
+}
+
+async function closeStressPopover(page) {
+    const hasPopover = await page.locator('.jpdb-reader-popover').count().then(count => count > 0).catch(() => false);
+    if (!hasPopover) return;
+    await page.keyboard.press('Escape').catch(() => undefined);
+    await page.waitForFunction(() => !document.querySelector('.jpdb-reader-popover'), null, { timeout: 500 }).catch(() => undefined);
+}
+
+async function touchStressSample(page, index, label) {
+    const result = await page.evaluate(sampleIndex => {
+        const selector = [
+            'ytd-watch-metadata .jpdb-reader-word',
+            'ytm-expandable-video-description-body-renderer .jpdb-reader-word',
+            'ytd-comment-view-model .jpdb-reader-word',
+            'ytm-comment-renderer .jpdb-reader-word',
+            '#secondary .jpdb-reader-word',
+            '.jpdb-subtitle-list .jpdb-reader-word',
+        ].join(',');
+        const words = [...document.querySelectorAll(selector)]
+            .filter(word => {
+                const rect = word.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                return word instanceof HTMLElement
+                    && rect.width > 2
+                    && rect.height > 2
+                    && centerX >= 10
+                    && centerY >= 10
+                    && centerX <= window.innerWidth - 10
+                    && centerY <= window.innerHeight - 10;
+            });
+        const word = words[sampleIndex % Math.max(1, words.length)];
+        if (!(word instanceof HTMLElement)) return null;
+        const rect = word.getBoundingClientRect();
+        const x = Math.round(rect.left + rect.width / 2);
+        const y = Math.round(rect.top + rect.height / 2);
+        const expected = word.dataset.expression || word.dataset.surface || word.textContent?.replace(/\s+/g, '').slice(0, 6) || '';
+        window.__yomuProfileHoverProbe = {
+            startedAt: performance.now(),
+            expected,
+            seenAt: null,
+            expectedAt: null,
+            text: '',
+        };
+        const base = {
+            bubbles: true,
+            cancelable: true,
+            composed: true,
+            pointerId: 817,
+            pointerType: 'touch',
+            isPrimary: true,
+            clientX: x,
+            clientY: y,
+            screenX: x,
+            screenY: y,
+            width: 18,
+            height: 18,
+            pressure: 0.5,
+            button: 0,
+        };
+        word.dispatchEvent(new PointerEvent('pointerdown', { ...base, buttons: 1 }));
+        word.dispatchEvent(new PointerEvent('pointerup', { ...base, buttons: 0, pressure: 0 }));
+        return {
+            started: window.__yomuProfileHoverProbe.startedAt,
+            target: {
+                x,
+                y,
+                expected,
+                text: word.textContent?.replace(/\s+/g, '').slice(0, 24) ?? '',
+                surface: word.dataset.surface ?? '',
+                expression: word.dataset.expression ?? '',
+            },
+        };
+    }, index);
+    if (!result) return { label, skipped: true, reason: 'no-visible-word' };
+    const seen = await page.waitForFunction(expected => {
+        const probe = window.__yomuProfileHoverProbe;
+        const popover = document.querySelector('.jpdb-reader-popover');
+        const text = popover?.textContent?.replace(/\s+/g, '') ?? '';
+        const hasExpectedText = expected ? text.includes(expected) : Boolean(text);
+        if (popover && probe && probe.seenAt === null) {
+            probe.seenAt = performance.now();
+            probe.text = text.slice(0, 120);
+        }
+        if (popover && hasExpectedText && probe && probe.expectedAt === null) {
+            probe.expectedAt = performance.now();
+            probe.text = text.slice(0, 120);
+        }
+        return expected ? Boolean(probe?.expectedAt) : Boolean(probe?.seenAt);
+    }, result.target.expected, { timeout: 3200 }).then(() => true).catch(() => false);
+    const probe = await page.evaluate(() => window.__yomuProfileHoverProbe ?? null);
+    return {
+        label,
+        index,
+        activation: 'touch',
+        target: result.target,
+        opened: seen,
+        popoverVisible: Boolean(probe?.seenAt),
+        ms: probe?.seenAt ? Math.round((probe.seenAt - result.started) * 10) / 10 : null,
+        expectedMs: probe?.expectedAt ? Math.round((probe.expectedAt - result.started) * 10) / 10 : null,
         popoverText: probe?.text ?? '',
     };
 }
 
 function hoverStressSummary(samples) {
-    const opened = samples.filter(sample => typeof sample.ms === 'number').map(sample => sample.ms).sort((a, b) => a - b);
+    const opened = samples.filter(sample => sample.opened && typeof sample.expectedMs === 'number')
+        .map(sample => sample.expectedMs)
+        .sort((a, b) => a - b);
     return {
         count: samples.length,
         opened: opened.length,
         timedOut: samples.filter(sample => sample.opened === false).length,
+        visibleWrongPopover: samples.filter(sample => sample.opened === false && sample.popoverVisible).length,
         p50Ms: percentile(opened, 0.5),
         p95Ms: percentile(opened, 0.95),
         maxMs: opened.at(-1) ?? null,

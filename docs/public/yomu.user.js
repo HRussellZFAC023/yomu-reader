@@ -39077,7 +39077,8 @@ ${criticalWordCss()}
       this.suppressSelectionLookupUntil = Date.now() + 350;
       this.ocr.pinLineForElement(word);
       if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
-      void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
+      const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event);
+      void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
     }
     handleOcrReaderWordPointerDown(event) {
       const word = this.ocrPointerDownReaderWord(event);
@@ -39090,7 +39091,7 @@ ${criticalWordCss()}
       this.suppressSelectionLookupUntil = now + 350;
       this.suppressWordClickUntil = now + 700;
       this.ocr.pinLineForElement(word);
-      void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current" } : { trigger: "click", userGesture: true });
+      void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender: true } : { trigger: "click", userGesture: true, fastInitialRender: true });
       return true;
     }
     ocrPointerDownReaderWord(event) {
@@ -39117,10 +39118,16 @@ ${criticalWordCss()}
       return canClickLookupPassiveReaderWordElement(word) && Boolean(word.closest(".jpdb-reader-text-mirror")) && nativeClickable instanceof HTMLAnchorElement;
     }
     consumeSuppressedReaderWordClick(event, word) {
+      const pointerType = event.pointerType;
+      if (event.type.startsWith("pointer") && (pointerType === "touch" || pointerType === "pen")) return false;
       if (Date.now() >= this.suppressWordClickUntil && !this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) return false;
       event.preventDefault();
       event.stopPropagation();
       return true;
+    }
+    shouldFastRenderReaderWordPointerLookup(event) {
+      const pointerType = event.pointerType;
+      return event.type.startsWith("pointer") && (pointerType === "touch" || pointerType === "pen");
     }
     pauseVideoForSubtitleMining() {
       if (!this.settings.subtitleMiningPause) return;
@@ -40790,7 +40797,7 @@ ${criticalWordCss()}
       const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
       if (this.refreshActiveRenderedWordHover(word, context)) return;
       if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
-      if (context.trigger === "hover") {
+      if (this.shouldShowRenderedWordCardImmediately(context, options)) {
         this.preloadHoverWordAudio(word);
         await this.showRenderedWordCard(card, context, options, stackOverSettings);
         return;
@@ -40807,6 +40814,9 @@ ${criticalWordCss()}
     }
     shouldIgnoreRenderedWordLookup(word, options) {
       return options.trigger === "click" && this.shouldIgnoreCurrentImmersionExampleTargetClick(word);
+    }
+    shouldShowRenderedWordCardImmediately(context, options) {
+      return context.trigger === "hover" || context.trigger === "modal" && options.fastInitialRender === true;
     }
     refreshActiveRenderedWordHover(word, context) {
       if (!context.hoverLookupKey || !this.isActiveHoverLookup(context.hoverLookupKey)) return false;
@@ -40836,7 +40846,7 @@ ${criticalWordCss()}
         insideReaderPopup: context.insideReaderPopup,
         userGesture: options.userGesture,
         stackOverSettings,
-        skipInitialCardResolution: context.trigger === "hover"
+        skipInitialCardResolution: this.shouldShowRenderedWordCardImmediately(context, options)
       });
     }
     cardForRenderedWord(word) {
@@ -40939,6 +40949,10 @@ ${criticalWordCss()}
       const trigger = this.renderedWordTrigger(options.trigger, false);
       const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
       const expansionLookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
+      if (options.fastInitialRender) {
+        await this.showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation);
+        return true;
+      }
       if (expansionLookup && await this.lookupUncachedPageWordViaParsedJpdb(word, expansionLookup, expression, options, trigger, navigation)) return true;
       if (expansionLookup && await this.lookupUncachedPageWordViaPublicJpdb(word, expansionLookup, options, trigger, navigation)) return true;
       await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
@@ -40952,6 +40966,21 @@ ${criticalWordCss()}
         stackOverSettings: options.stackOverSettings
       });
       return true;
+    }
+    async showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation) {
+      const sentence = this.renderedWordSentence(word) ?? expression;
+      const card = this.parser.fallbackCardFromText(expression);
+      await this.showCard(card, sentence, renderedWordAnchor(word, false, this.activePopoverAnchor), {
+        trigger,
+        navigation,
+        preservePosition: trigger === "hover",
+        previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
+        userGesture: options.userGesture,
+        hoverLookupGeneration: options.hoverLookupGeneration,
+        stackOverSettings: options.stackOverSettings,
+        skipInitialCardResolution: true
+      });
+      this.scheduleVisiblePageReparse();
     }
     async lookupUncachedPageWordViaParsedJpdb(word, lookup, expression, options, trigger, navigation) {
       try {

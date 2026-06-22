@@ -259,9 +259,11 @@ async function runMobileSettingsSmoke(browser, fixtureServer) {
         const puck = await page.evaluate(visiblePuckSnapshotFromDom);
         assert(puck.visible, 'Mobile settings puck was not visible on first install settings', puck);
 
-        await page.locator('.jpdb-reader-fab').click();
+        await page.locator('.jpdb-reader-fab').tap();
+        await page.waitForSelector('.jpdb-reader-fab-radial [data-radial-id="settings"]', { timeout: 8_000 });
+        await page.locator('.jpdb-reader-fab-radial [data-radial-id="settings"]').tap();
         await page.waitForSelector('.jpdb-reader-settings', { timeout: 8_000 });
-        assert(await page.locator('.jpdb-reader-quick').count() === 0, 'Mobile puck opened removed quick controls instead of settings');
+        assert(await page.locator('.jpdb-reader-quick').count() === 0, 'Mobile puck settings action opened removed quick controls instead of settings');
 
         const form = await page.evaluate(mobileSettingsSnapshotFromDom);
         assert(form.riskyControls.length === 0, 'Mobile settings have controls below 16px and may trigger iOS zoom', form);

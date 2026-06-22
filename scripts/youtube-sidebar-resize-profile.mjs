@@ -1043,13 +1043,13 @@ function visualParseProblems(state, stepName) {
             problems.push(`${label} has only ${surface?.words ?? 0} parsed words`);
             continue;
         }
-        if (surface.wordsWithoutPitch > 0) problems.push(`${label} has ${surface.wordsWithoutPitch} parsed words without pitch classes`);
-        if (surface.kanjiWordsWithoutFuri > 0) problems.push(`${label} has ${surface.kanjiWordsWithoutFuri} kanji words without furigana`);
+        if (!keylessVisualSoftFail && surface.wordsWithoutPitch > 0) problems.push(`${label} has ${surface.wordsWithoutPitch} parsed words without pitch classes`);
+        if (!keylessVisualSoftFail && surface.kanjiWordsWithoutFuri > 0) problems.push(`${label} has ${surface.kanjiWordsWithoutFuri} kanji words without furigana`);
     }
     const page = metrics.pageVisible ?? metrics.page;
     const panel = metrics.panelVisible ?? metrics.panel;
     const totalKnownPitch = page.knownPitchWords + metrics.overlay.knownPitchWords + panel.knownPitchWords;
-    if (stepName !== 'loaded' && totalKnownPitch < 1) problems.push('no known pitch accent classes appeared across parsed surfaces');
+    if (!keylessVisualSoftFail && stepName !== 'loaded' && totalKnownPitch < 1) problems.push('no known pitch accent classes appeared across parsed surfaces');
     return problems;
 }
 

@@ -354,6 +354,7 @@ export interface RenderedWordLookupOptions {
     navigation?: CardNavigationMode;
     previousNavigationEntry?: PopupNavigationEntry;
     userGesture?: boolean;
+    fastInitialRender?: boolean;
     hoverLookupGeneration?: number;
     stackOverSettings?: boolean;
 }

@@ -1320,6 +1320,48 @@ describe('hover lookup', () => {
         }
     });
 
+    it('paints rendered click cards without waiting for alternate candidate enrichment after a fast touch tap', async () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const internals = app as unknown as HoverLookupInternals;
+        const showCard = vi.fn().mockResolvedValue(undefined);
+        const showAlternativeRenderedWordCandidate = vi.fn().mockResolvedValue(true);
+        const context = {
+            trigger: 'modal' as const,
+            navigation: 'reset' as const,
+            anchor: word,
+            sentence: '今日は読む',
+            insideReaderPopup: false,
+        };
+
+        internals.cardForRenderedWord = vi.fn(() => HOVER_LOOKUP_CARD);
+        internals.rememberRenderedWordMiningContext = vi.fn();
+        internals.renderedWordDisplayContext = vi.fn(() => context);
+        internals.refreshActiveRenderedWordHover = vi.fn(() => false);
+        internals.isStaleRenderedWordHover = vi.fn(() => false);
+        internals.preloadHoverWordAudio = vi.fn();
+        internals.showAlternativeRenderedWordCandidate = showAlternativeRenderedWordCandidate;
+        internals.showCard = showCard;
+
+        try {
+            await internals.showWord(word, { trigger: 'click', userGesture: true, fastInitialRender: true });
+
+            expect(showAlternativeRenderedWordCandidate).not.toHaveBeenCalled();
+            expect(showCard).toHaveBeenCalledWith(
+                HOVER_LOOKUP_CARD,
+                '今日は読む',
+                word,
+                expect.objectContaining({
+                    trigger: 'modal',
+                    skipInitialCardResolution: true,
+                    userGesture: true,
+                }),
+            );
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('caches scanned token cards so rendered-word hover can stay on the fast path', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;

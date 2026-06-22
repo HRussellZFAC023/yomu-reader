@@ -310,7 +310,7 @@ type TestPointerTextInternals = {
         options: TestPointerTextOptions,
     ): Promise<void>;
 };
-type TestRenderedWordOptions = { trigger?: 'click'; userGesture?: boolean };
+type TestRenderedWordOptions = { trigger?: 'click'; userGesture?: boolean; fastInitialRender?: boolean };
 type TestRenderedWordInternals = {
     settings: ReaderSettings;
     parser: { cacheCards(cards: JPDBCard[]): void };
@@ -18390,6 +18390,70 @@ describe('reader helpers', () => {
         }
     });
 
+    it('shows an uncached fast tap word immediately with a fallback card', async () => {
+        const app = new ReaderApp();
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word jpdb-pitch-unknown';
+        word.dataset.vid = '-101';
+        word.dataset.sid = '-101';
+        word.dataset.expression = 'で';
+        word.dataset.sentence = 'ここで読む';
+        word.textContent = 'で';
+        document.body.append(word);
+        const fallbackCard = testFallbackCard({ vid: -101, sid: -101, spelling: 'で' });
+        const showCard = vi.fn(async () => undefined);
+        const fallbackCardFromText = vi.fn(() => fallbackCard);
+        const parseJapanese = vi.fn(async () => []);
+        const publicLookupCard = vi.fn(async () => undefined);
+        const scheduleVisiblePageReparse = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            parser: {
+                getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+                fallbackCardFromText(text: string): JPDBCard;
+            };
+            parseJapanese: typeof parseJapanese;
+            publicLookupCard: typeof publicLookupCard;
+            jitenPublicVocabulary: { lookupMany(terms: readonly string[]): Promise<Map<string, JPDBCard>> };
+            showCard: typeof showCard;
+            scheduleVisiblePageReparse: typeof scheduleVisiblePageReparse;
+            showWord(word: HTMLElement, options?: TestRenderedWordOptions): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: 'jpdb-key' };
+        internals.parser = {
+            getCachedCard: vi.fn(() => undefined),
+            fallbackCardFromText,
+        };
+        internals.parseJapanese = parseJapanese;
+        internals.publicLookupCard = publicLookupCard;
+        internals.jitenPublicVocabulary = { lookupMany: vi.fn(async () => new Map<string, JPDBCard>()) };
+        internals.showCard = showCard;
+        internals.scheduleVisiblePageReparse = scheduleVisiblePageReparse;
+
+        try {
+            await internals.showWord(word, { trigger: 'click', userGesture: true, fastInitialRender: true });
+
+            expect(parseJapanese).not.toHaveBeenCalled();
+            expect(publicLookupCard).not.toHaveBeenCalled();
+            expect(fallbackCardFromText).toHaveBeenCalledWith('で');
+            expect(showCard).toHaveBeenCalledWith(
+                fallbackCard,
+                'ここで読む',
+                word,
+                expect.objectContaining({
+                    trigger: 'modal',
+                    navigation: 'reset',
+                    userGesture: true,
+                    skipInitialCardResolution: true,
+                }),
+            );
+            expect(scheduleVisiblePageReparse).toHaveBeenCalled();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('renders token offsets onto reader words for contextual fragment lookup', () => {
         const text = '先ににほんごのじかん';
         const token: JPDBToken = {
@@ -19840,6 +19904,49 @@ describe('reader helpers', () => {
 
             expect(click.defaultPrevented).toBe(true);
             expect(showWord).toHaveBeenCalledTimes(1);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not suppress a second real touch tap while consuming the previous synthetic click', () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <p>
+                <span class="jpdb-reader-word" data-vid="501" data-sid="501" data-sentence="日本語">日本語</span>
+                <span class="jpdb-reader-word" data-vid="502" data-sid="502" data-sentence="読む">読む</span>
+            </p>
+        `;
+        const [first, second] = Array.from(document.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const pinLineForElement = vi.fn();
+        const destroyOcr = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.ocr = { pinLineForElement, destroy: destroyOcr };
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            first.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 }));
+            first.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 41, clientX: 24, clientY: 24, button: 0 }));
+            const syntheticClick = new MouseEvent('click', { bubbles: true, cancelable: true, clientX: 24, clientY: 24 });
+            first.dispatchEvent(syntheticClick);
+
+            second.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 42, clientX: 72, clientY: 24, button: 0 }));
+            const secondUp = createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 42, clientX: 72, clientY: 24, button: 0 });
+            second.dispatchEvent(secondUp);
+
+            expect(syntheticClick.defaultPrevented).toBe(true);
+            expect(secondUp.defaultPrevented).toBe(true);
+            expect(showWord).toHaveBeenNthCalledWith(1, first, expect.objectContaining({ trigger: 'click', userGesture: true }));
+            expect(showWord).toHaveBeenNthCalledWith(2, second, expect.objectContaining({ trigger: 'click', userGesture: true }));
         } finally {
             app.destroy();
             document.body.replaceChildren();

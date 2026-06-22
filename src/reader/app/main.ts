@@ -2012,9 +2012,10 @@ export class ReaderApp {
         this.suppressSelectionLookupUntil = Date.now() + 350;
         this.ocr.pinLineForElement(word);
         if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
+        const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event);
         void this.showWord(word, surfaces.insideReaderPopup
-            ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
-            : { trigger: 'click', userGesture: true });
+            ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
+            : { trigger: 'click', userGesture: true, fastInitialRender });
     }
 
     private handleOcrReaderWordPointerDown(event: PointerEvent): boolean {
@@ -2029,8 +2030,8 @@ export class ReaderApp {
         this.suppressWordClickUntil = now + 700;
         this.ocr.pinLineForElement(word);
         void this.showWord(word, surfaces.insideReaderPopup
-            ? { trigger: 'click', userGesture: true, navigation: 'push-current' }
-            : { trigger: 'click', userGesture: true });
+            ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender: true }
+            : { trigger: 'click', userGesture: true, fastInitialRender: true });
         return true;
     }
 
@@ -2067,10 +2068,17 @@ export class ReaderApp {
     }
 
     private consumeSuppressedReaderWordClick(event: MouseEvent, word: HTMLElement): boolean {
+        const pointerType = (event as PointerEvent).pointerType;
+        if (event.type.startsWith('pointer') && (pointerType === 'touch' || pointerType === 'pen')) return false;
         if (Date.now() >= this.suppressWordClickUntil && !this.shouldIgnoreCurrentImmersionExampleTargetClick(word)) return false;
         event.preventDefault();
         event.stopPropagation();
         return true;
+    }
+
+    private shouldFastRenderReaderWordPointerLookup(event: MouseEvent): boolean {
+        const pointerType = (event as PointerEvent).pointerType;
+        return event.type.startsWith('pointer') && (pointerType === 'touch' || pointerType === 'pen');
     }
 
     // Clicking a subtitle word enters the pinned lookup state; pause the video so
@@ -4229,7 +4237,7 @@ export class ReaderApp {
         const context = this.renderedWordDisplayContext(word, options, insideReaderPopup);
         if (this.refreshActiveRenderedWordHover(word, context)) return;
         if (this.isStaleRenderedWordHover(word, context, options.hoverLookupGeneration)) return;
-        if (context.trigger === 'hover') {
+        if (this.shouldShowRenderedWordCardImmediately(context, options)) {
             this.preloadHoverWordAudio(word);
             await this.showRenderedWordCard(card, context, options, stackOverSettings);
             return;
@@ -4254,6 +4262,14 @@ export class ReaderApp {
 
     private shouldIgnoreRenderedWordLookup(word: HTMLElement, options: RenderedWordLookupOptions): boolean {
         return options.trigger === 'click' && this.shouldIgnoreCurrentImmersionExampleTargetClick(word);
+    }
+
+    private shouldShowRenderedWordCardImmediately(
+        context: RenderedWordDisplayContext,
+        options: RenderedWordLookupOptions,
+    ): boolean {
+        return context.trigger === 'hover'
+            || (context.trigger === 'modal' && options.fastInitialRender === true);
     }
 
     private refreshActiveRenderedWordHover(word: HTMLElement, context: RenderedWordDisplayContext): boolean {
@@ -4292,7 +4308,7 @@ export class ReaderApp {
             insideReaderPopup: context.insideReaderPopup,
             userGesture: options.userGesture,
             stackOverSettings,
-            skipInitialCardResolution: context.trigger === 'hover',
+            skipInitialCardResolution: this.shouldShowRenderedWordCardImmediately(context, options),
         });
     }
 
@@ -4446,6 +4462,10 @@ export class ReaderApp {
         const trigger = this.renderedWordTrigger(options.trigger, false);
         const navigation = options.navigation ?? renderedWordNavigationMode(false, trigger);
         const expansionLookup = renderedWordExpansionLookup(word, expression, this.renderedWordSentence(word));
+        if (options.fastInitialRender) {
+            await this.showFastFallbackUncachedPageWord(word, expression, options, trigger, navigation);
+            return true;
+        }
         if (expansionLookup && await this.lookupUncachedPageWordViaParsedJpdb(word, expansionLookup, expression, options, trigger, navigation)) return true;
         if (expansionLookup && await this.lookupUncachedPageWordViaPublicJpdb(word, expansionLookup, options, trigger, navigation)) return true;
         await this.lookupText(expression, this.renderedWordSentence(word) ?? expression, {
@@ -4459,6 +4479,28 @@ export class ReaderApp {
             stackOverSettings: options.stackOverSettings,
         });
         return true;
+    }
+
+    private async showFastFallbackUncachedPageWord(
+        word: HTMLElement,
+        expression: string,
+        options: RenderedWordLookupOptions,
+        trigger: 'modal' | 'hover',
+        navigation: CardNavigationMode,
+    ): Promise<void> {
+        const sentence = this.renderedWordSentence(word) ?? expression;
+        const card = this.parser.fallbackCardFromText(expression);
+        await this.showCard(card, sentence, renderedWordAnchor(word, false, this.activePopoverAnchor), {
+            trigger,
+            navigation,
+            preservePosition: trigger === 'hover',
+            previousNavigationEntry: this.renderedWordPreviousNavigationEntryForOptions(options, false, trigger, navigation),
+            userGesture: options.userGesture,
+            hoverLookupGeneration: options.hoverLookupGeneration,
+            stackOverSettings: options.stackOverSettings,
+            skipInitialCardResolution: true,
+        });
+        this.scheduleVisiblePageReparse();
     }
 
     private async lookupUncachedPageWordViaParsedJpdb(
