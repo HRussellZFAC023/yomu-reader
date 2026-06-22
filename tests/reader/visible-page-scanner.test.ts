@@ -342,6 +342,60 @@ describe('VisiblePageScanner', () => {
         }
     });
 
+    it('keeps compact carousel titles with sibling cover links from adding ruby height', async () => {
+        const restoreRects = mockVisibleElementRects();
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://bookwalker.jp/') as unknown as Location,
+        });
+        document.body.innerHTML = `
+            <main>
+                <section class="book-carousel">
+                    <article class="book-card">
+                        <div class="book-tile" style="display:flex;width:149px">
+                            <a class="book-cover" href="/books/nihongo-manga">
+                                <img alt="日本語の漫画タイトル" src="/cover.jpg">
+                            </a>
+                            <h3 class="book-title">
+                                <a data-book-title class="book-title-link" href="/books/nihongo-manga" style="display:flow-root;overflow:hidden;line-height:18px;height:36px">
+                                    日本語の漫画タイトル
+                                </a>
+                            </h3>
+                        </div>
+                    </article>
+                </section>
+            </main>
+        `;
+        const parseJapanese = vi.fn(async (paragraphs: string[]) => paragraphs.map(tokensForCompactBookCarouselText));
+        const scanner = createVisiblePageScanner({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, furiganaMode: 'all' }),
+            parseJapanese,
+        });
+
+        try {
+            await scanner.scanVisiblePage({ silent: true });
+
+            const parsedTexts = parseJapanese.mock.calls.flatMap(call => call[0]);
+            expect(parsedTexts.some(text => text.includes('日本語の漫画タイトル'))).toBe(true);
+
+            const title = document.querySelector<HTMLElement>('[data-book-title]')!;
+            const word = title.querySelector<HTMLElement>('.jpdb-reader-word[data-expression="日本語"]')!;
+            expect(word).not.toBeNull();
+            expect(word.dataset.jpdbReaderPassive).toBe('true');
+            expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+            expect(title.textContent).toContain('日本語の漫画タイトル');
+        } finally {
+            scanner.destroy();
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('keeps compact image navigation labels inline without adding ruby height', async () => {
         const restoreRects = mockVisibleElementRects();
         const originalLocation = window.location;
@@ -2029,6 +2083,22 @@ function tokensForCompactMediaGridText(text: string): JPDBToken[] {
         ['人妻', 'ひとづま'],
         ['温泉', 'おんせん'],
         ['旅行', 'りょこう'],
+    ] as const;
+    const tokens: JPDBToken[] = [];
+    for (const [surface, reading] of targets) {
+        let index = text.indexOf(surface);
+        while (index >= 0) {
+            tokens.push(rubyToken(text, surface, reading, index, index + surface.length));
+            index = text.indexOf(surface, index + surface.length);
+        }
+    }
+    return tokens.sort((first, second) => first.start - second.start);
+}
+
+function tokensForCompactBookCarouselText(text: string): JPDBToken[] {
+    const targets = [
+        ['日本語', 'にほんご'],
+        ['漫画', 'まんが'],
     ] as const;
     const tokens: JPDBToken[] = [];
     for (const [surface, reading] of targets) {

@@ -1333,12 +1333,13 @@ export function applyTokensToTextNode(target: TextTarget, tokens: JPDBToken[], s
 }
 
 function renderTokenizedTextFragment(target: TextTarget, tokens: JPDBToken[], settings: ReaderSettings): DocumentFragment {
-    return renderTokenizedScanText(target.text, tokens, settings, {
+    const fragment = renderTokenizedScanText(target.text, tokens, settings, {
         parent: target.parent,
         hasNativeRuby: target.hasNativeRuby,
         suppressRuby: target.suppressRuby,
         passiveInteraction: target.passiveInteraction,
     });
+    return wrapDirectFlexGridTextRun(fragment, target.parent);
 }
 
 function renderTokenizedScanText(
@@ -1587,7 +1588,10 @@ function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
         return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
     }
-    return isCompactMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isLayoutFragileMediaTileText(parent);
+    return isCompactMediaCardLinkText(parent)
+        || isCompactPeerMediaCardLinkText(parent)
+        || isCompactMediaChromeLinkText(parent)
+        || isLayoutFragileMediaTileText(parent);
 }
 
 export function isYouTubeHost(): boolean {
@@ -1606,6 +1610,21 @@ function isCompactMediaCardLinkText(parent: HTMLElement): boolean {
     const textLength = compactLength(parent.textContent ?? '');
     if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
     return compactLength(link.textContent ?? '') <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
+}
+
+function isCompactPeerMediaCardLinkText(parent: HTMLElement): boolean {
+    const link = parent.closest<HTMLElement>('a[href]');
+    if (!link || isLikelyProseLink(link, parent)) return false;
+    if (safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
+
+    const textLength = compactLength(parent.textContent ?? '');
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    if (compactLength(link.textContent ?? '') > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
+
+    const context = closestCompactMediaContext(parent);
+    if (!context || !context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
+    const linkWidth = link.getBoundingClientRect().width;
+    return linkWidth === 0 || linkWidth <= 260;
 }
 
 function isCompactMediaChromeLinkText(parent: HTMLElement): boolean {
@@ -1628,7 +1647,7 @@ function hasCompactCenteredMediaChrome(parent: HTMLElement, link: HTMLElement): 
     const linkStyle = safeComputedStyle(link);
     if (parentStyle.textAlign !== 'center' && linkStyle.textAlign !== 'center') return false;
     const rect = link.getBoundingClientRect();
-    return rect.width === 0 || rect.width <= 180;
+    return rect.width === 0 || rect.width <= 240;
 }
 
 function isLayoutFragileMediaTileText(parent: HTMLElement): boolean {
@@ -2146,7 +2165,17 @@ function replaceSingleFragmentTokenNode(
         offset = plan.localEnd;
     }
     appendPlainTextBeforeToken(replacement, text, offset, fragment.end);
-    replaceTextNodeRange(fragment.node, fragment.start, fragment.end, replacement);
+    replaceTextNodeRange(fragment.node, fragment.start, fragment.end, wrapDirectFlexGridTextRun(replacement, fragment.node.parentElement));
+}
+
+function wrapDirectFlexGridTextRun(replacement: DocumentFragment, parent: HTMLElement | null): DocumentFragment {
+    const display = parent ? safeComputedStyle(parent).display : '';
+    if (!display.includes('flex') && !display.includes('grid')) return replacement;
+    const fragment = document.createDocumentFragment();
+    const run = document.createElement('span');
+    run.append(replacement);
+    fragment.append(run);
+    return fragment;
 }
 
 function renderSingleFragmentToken(

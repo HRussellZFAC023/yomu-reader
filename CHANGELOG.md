@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.69] - 2026-06-22
+
+### Fixed
+
+- Compact carousel and storefront media-card labels now suppress furigana when a narrow title link sits beside a sibling cover link, and direct text inside flex/grid controls is wrapped as one inline run. This keeps book shelves, icon menus, and product carousels from expanding, stacking, or overlapping after page annotation.
+
 ## [1.4.68] - 2026-06-22
 
 ### Fixed

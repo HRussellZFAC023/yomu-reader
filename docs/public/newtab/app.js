@@ -7800,12 +7800,13 @@ recommendedJiten	Jiten頻度です。
     markRenderedScanTarget(target);
   }
   function renderTokenizedTextFragment(target, tokens, settings) {
-    return renderTokenizedScanText(target.text, tokens, settings, {
+    const fragment2 = renderTokenizedScanText(target.text, tokens, settings, {
       parent: target.parent,
       hasNativeRuby: target.hasNativeRuby,
       suppressRuby: target.suppressRuby,
       passiveInteraction: target.passiveInteraction
     });
+    return wrapDirectFlexGridTextRun(fragment2, target.parent);
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment2 = document.createDocumentFragment();
@@ -8022,7 +8023,7 @@ recommendedJiten	Jiten頻度です。
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
       return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
     }
-    return isCompactMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isLayoutFragileMediaTileText(parent);
+    return isCompactMediaCardLinkText(parent) || isCompactPeerMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isLayoutFragileMediaTileText(parent);
   }
   function isYouTubeHost$1() {
     const hostname = location.hostname.toLowerCase();
@@ -8036,6 +8037,18 @@ recommendedJiten	Jiten頻度です。
     const textLength = compactLength(parent.textContent ?? "");
     if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
     return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
+  }
+  function isCompactPeerMediaCardLinkText(parent) {
+    const link = parent.closest("a[href]");
+    if (!link || isLikelyProseLink(link, parent)) return false;
+    if (safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    if (compactLength(link.textContent ?? "") > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
+    const context = closestCompactMediaContext(parent);
+    if (!context || !context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
+    const linkWidth = link.getBoundingClientRect().width;
+    return linkWidth === 0 || linkWidth <= 260;
   }
   function isCompactMediaChromeLinkText(parent) {
     const link = parent.closest('a[href],button,[role="link"],[role="button"]');
@@ -8054,7 +8067,7 @@ recommendedJiten	Jiten頻度です。
     const linkStyle = safeComputedStyle(link);
     if (parentStyle.textAlign !== "center" && linkStyle.textAlign !== "center") return false;
     const rect = link.getBoundingClientRect();
-    return rect.width === 0 || rect.width <= 180;
+    return rect.width === 0 || rect.width <= 240;
   }
   function isLayoutFragileMediaTileText(parent) {
     if (isReadableProseContext(parent)) return false;
@@ -8348,7 +8361,16 @@ recommendedJiten	Jiten頻度です。
       offset = plan.localEnd;
     }
     appendPlainTextBeforeToken(replacement, text2, offset, fragment2.end);
-    replaceTextNodeRange(fragment2.node, fragment2.start, fragment2.end, replacement);
+    replaceTextNodeRange(fragment2.node, fragment2.start, fragment2.end, wrapDirectFlexGridTextRun(replacement, fragment2.node.parentElement));
+  }
+  function wrapDirectFlexGridTextRun(replacement, parent) {
+    const display = parent ? safeComputedStyle(parent).display : "";
+    if (!display.includes("flex") && !display.includes("grid")) return replacement;
+    const fragment2 = document.createDocumentFragment();
+    const run = document.createElement("span");
+    run.append(replacement);
+    fragment2.append(run);
+    return fragment2;
   }
   function renderSingleFragmentToken(target, fragment2, plan, settings, miningInsightKeys) {
     const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment2.hasNativeRuby);

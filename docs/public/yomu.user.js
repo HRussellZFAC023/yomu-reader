@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.68
+// @version      1.4.69
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -12,10 +12,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.68#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.68#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.68#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.68#sha256-i0uxsaEjPv1dFajsn3A4PYN2/helB0Z6r+LLQ2ScqVI=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.69#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.69#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.69#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.69#sha256-i0uxsaEjPv1dFajsn3A4PYN2/helB0Z6r+LLQ2ScqVI=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -4513,12 +4513,13 @@
     markRenderedScanTarget(target);
   }
   function renderTokenizedTextFragment(target, tokens, settings) {
-    return renderTokenizedScanText(target.text, tokens, settings, {
+    const fragment = renderTokenizedScanText(target.text, tokens, settings, {
       parent: target.parent,
       hasNativeRuby: target.hasNativeRuby,
       suppressRuby: target.suppressRuby,
       passiveInteraction: target.passiveInteraction
     });
+    return wrapDirectFlexGridTextRun(fragment, target.parent);
   }
   function renderTokenizedScanText(text2, tokens, settings, target) {
     const fragment = document.createDocumentFragment();
@@ -4735,7 +4736,7 @@
     if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
       return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
     }
-    return isCompactMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isLayoutFragileMediaTileText(parent);
+    return isCompactMediaCardLinkText(parent) || isCompactPeerMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isLayoutFragileMediaTileText(parent);
   }
   function isYouTubeHost() {
     const hostname = location.hostname.toLowerCase();
@@ -4749,6 +4750,18 @@
     const textLength = compactLength(parent.textContent ?? "");
     if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
     return compactLength(link.textContent ?? "") <= COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT;
+  }
+  function isCompactPeerMediaCardLinkText(parent) {
+    const link = parent.closest("a[href]");
+    if (!link || isLikelyProseLink(link, parent)) return false;
+    if (safeQuerySelector(link, COMPACT_MEDIA_CARD_MEDIA_SELECTOR)) return false;
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_TEXT_LIMIT) return false;
+    if (compactLength(link.textContent ?? "") > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
+    const context = closestCompactMediaContext(parent);
+    if (!context || !context.matches(COMPACT_MEDIA_CARD_CONTEXT_SELECTOR)) return false;
+    const linkWidth = link.getBoundingClientRect().width;
+    return linkWidth === 0 || linkWidth <= 260;
   }
   function isCompactMediaChromeLinkText(parent) {
     const link = parent.closest('a[href],button,[role="link"],[role="button"]');
@@ -4767,7 +4780,7 @@
     const linkStyle = safeComputedStyle(link);
     if (parentStyle.textAlign !== "center" && linkStyle.textAlign !== "center") return false;
     const rect = link.getBoundingClientRect();
-    return rect.width === 0 || rect.width <= 180;
+    return rect.width === 0 || rect.width <= 240;
   }
   function isLayoutFragileMediaTileText(parent) {
     if (isReadableProseContext(parent)) return false;
@@ -5177,7 +5190,16 @@
       offset = plan.localEnd;
     }
     appendPlainTextBeforeToken(replacement, text2, offset, fragment.end);
-    replaceTextNodeRange(fragment.node, fragment.start, fragment.end, replacement);
+    replaceTextNodeRange(fragment.node, fragment.start, fragment.end, wrapDirectFlexGridTextRun(replacement, fragment.node.parentElement));
+  }
+  function wrapDirectFlexGridTextRun(replacement, parent) {
+    const display = parent ? safeComputedStyle(parent).display : "";
+    if (!display.includes("flex") && !display.includes("grid")) return replacement;
+    const fragment = document.createDocumentFragment();
+    const run = document.createElement("span");
+    run.append(replacement);
+    fragment.append(run);
+    return fragment;
   }
   function renderSingleFragmentToken(target, fragment, plan, settings, miningInsightKeys) {
     const allowRuby = !target.suppressRuby && scanFragmentAllowsRuby(fragment.hasNativeRuby);

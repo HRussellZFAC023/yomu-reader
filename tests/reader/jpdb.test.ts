@@ -35076,6 +35076,101 @@ describe('reader helpers', () => {
         expectRenderedPitchWord(word, 'heiban');
     });
 
+    it('suppresses ruby in compact media tile titles when the cover is a sibling link', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 149, height: 36 });
+        document.body.innerHTML = `
+            <main>
+                <section class="book-carousel" style="display:flex">
+                    <article class="book-card">
+                        <div class="book-tile" style="display:flex;width:149px">
+                            <a class="book-cover" href="/books/nihongo-manga">
+                                <img alt="日本語の漫画タイトル" src="/cover.jpg">
+                            </a>
+                            <h3 class="book-title">
+                                <a data-book-title class="book-title-link" href="/books/nihongo-manga" style="display:flow-root;overflow:hidden;line-height:18px;height:36px">
+                                    日本語の漫画タイトル
+                                </a>
+                            </h3>
+                        </div>
+                    </article>
+                </section>
+                <article><p>今日は新しい本を読みました。</p></article>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://books.example.jp/');
+        rectSpy.mockRestore();
+        const target = targets.find(candidate => candidate.text === '日本語の漫画タイトル')!;
+
+        expect(target).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+
+        applyTokensToScanTarget(target, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語の漫画タイトル',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const word = document.querySelector<HTMLElement>('[data-book-title] .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(word)).toBe('日本語');
+        expect(word.dataset.jpdbReaderPassive).toBe('true');
+        expect(word.querySelector('rt,.jpdb-reader-furi')).toBeNull();
+        expectRenderedPitchWord(word, 'heiban');
+    });
+
+    it('suppresses ruby in compact centered media menu labels up to product-carousel widths', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 210, height: 80 });
+        document.body.innerHTML = `
+            <main>
+                <div class="center-menu" style="display:flex">
+                    <a class="center-menu-icon-button" href="/media-mix/" style="display:flex;text-align:center;width:210px">
+                        <img alt="" src="/media.png">
+                        メディア化
+                    </a>
+                </div>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://store.example.jp/');
+        rectSpy.mockRestore();
+        const target = targets.find(candidate => candidate.text === 'メディア化')!;
+
+        expect(target).toMatchObject({ suppressRuby: true, passiveInteraction: true });
+
+        applyTokensToScanTarget(target, [
+            {
+                card: { ...card, cardState: ['known'], spelling: 'メディア', reading: 'メディア', source: 'jpdb' },
+                start: 0,
+                end: 4,
+                length: 4,
+                rubies: [],
+                pitchClass: 'heiban',
+                sentence: 'メディア化',
+            },
+            {
+                card: { ...card, cardState: ['known'], spelling: '化', reading: 'か', source: 'jpdb' },
+                start: 4,
+                end: 5,
+                length: 1,
+                rubies: [{ text: 'か', start: 4, end: 5, length: 1 }],
+                pitchClass: 'heiban',
+                sentence: 'メディア化',
+            },
+        ], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const link = document.querySelector<HTMLElement>('.center-menu-icon-button')!;
+        expect(Array.from(link.children).filter(child => child.classList.contains('jpdb-reader-word'))).toHaveLength(0);
+        const words = Array.from(link.querySelectorAll<HTMLElement>('.jpdb-reader-word'));
+        expect(words[0]?.parentElement).not.toBe(link);
+        expect(words[0]?.parentElement?.tagName).toBe('SPAN');
+        expect(words.map(readerWordSurfaceText)).toEqual(['メディア', '化']);
+        expect(words.every(word => word.dataset.jpdbReaderPassive === 'true')).toBe(true);
+        expect(words.every(word => word.querySelector('rt,.jpdb-reader-furi') === null)).toBe(true);
+    });
+
     it('keeps compact image navigation labels inline against page span display rules', () => {
         document.head.innerHTML = `
             <style>${READER_WORD_CSS}</style>

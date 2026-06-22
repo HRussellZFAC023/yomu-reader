@@ -53,6 +53,48 @@ describe('BookWalker site scan boundaries', () => {
         }
     });
 
+    it('marks narrow storefront shelf titles beside cover links as passive ruby-suppressed targets', () => {
+        const restoreRects = mockVisibleElementRects();
+        document.body.innerHTML = `
+            <main>
+                <section class="t-c-main-section">
+                    <div class="t-c-grid-shelf --pc">
+                        <div class="t-c-grid-shelf__item">
+                            <article class="t-c-tile-card --free">
+                                <div class="t-c-tile-card__main" style="display:flex;width:149px">
+                                    <div class="t-c-book-cover-general">
+                                        <a class="t-o-thumbnail" href="/dea4e6ab95/">
+                                            <img alt="あなた達それでも先生ですかっ！【期間限定無料】 1" src="/cover.jpg">
+                                        </a>
+                                    </div>
+                                    <h3 class="t-o-heading-book-title --heading3">
+                                        <a class="t-o-heading-book-title__link --12" href="/dea4e6ab95/" style="display:flow-root;overflow:hidden;line-height:18px;height:36px">
+                                            あなた達それでも先生ですかっ！【期間限定無料】 1
+                                        </a>
+                                    </h3>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+            </main>
+        `;
+
+        try {
+            const targets = collectScanTargets(20, BOOKWALKER_HOME_URL);
+            const title = targets.find(target => target.text.includes('あなた達それでも先生ですかっ'));
+
+            expect(title).toBeTruthy();
+            expect(title).toMatchObject({
+                parserId: 'residual-visible-japanese-parser',
+                suppressRuby: true,
+                passiveInteraction: true,
+            });
+        } finally {
+            restoreRects();
+        }
+    });
+
     it('keeps the same generic DOM scan available away from BookWalker storefronts', () => {
         const restoreRects = mockVisibleElementRects();
         document.body.innerHTML = `
