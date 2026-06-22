@@ -1108,26 +1108,28 @@ export class ImageOcrController {
         this.videoFrameVideos.set(frame, target);
         const status = this.createVideoFrameStatus('loading');
         // Keep the native player fully visible/usable until OCR actually has text
-        // to show: the status spinner and resume control stay gated (hidden, not
-        // tappable) alongside the already-gated frame image, so the viewer can
-        // reach the player's comment/like/scrubber controls while OCR runs.
+        // to show: the status spinner and the captured frame image stay gated
+        // (hidden, not tappable), so the viewer can reach the player's
+        // comment/like/scrubber controls while OCR runs.
         status.classList.add('jpdb-ocr-video-frame-pending');
         this.videoFrameStatuses.set(target, status);
         positionVideoFrameStatus(status, rect, target);
         // Paused-frame escape hatch: recognized text areas swallow clicks for
         // lookups, so on text-dense frames the player itself becomes hard to
-        // reach. Keep playback control in the existing video rail when it is
-        // available, with a compact fallback for pages without that rail.
+        // reach. The resume/play control therefore appears IMMEDIATELY on pause
+        // — never gated behind OCR — so the user can always unpause right away.
+        // It is a single compact button (placed in the existing video rail when
+        // available, with a fallback for pages without that rail), so it does
+        // not cover the player chrome the way the full frame image would.
         const resume = this.createVideoFrameResumeControl(target);
-        resume.classList.add('jpdb-ocr-video-frame-pending');
         this.videoFrameControls.set(target, resume);
         positionVideoFrameResumeControl(resume, rect, target);
         this.schedulePosition();
     }
 
-    // Reveal the whole overlay once OCR has produced text: image, status dot, and
-    // the resume control all un-gate together so the readable text + its escape
-    // hatch appear at the same time.
+    // Reveal the rest of the overlay once OCR has produced text: the frame image
+    // and status dot un-gate (the resume/play control is already visible from the
+    // moment the video paused), so the readable text appears with its status.
     private revealVideoFrameOverlay(image: HTMLImageElement): void {
         if (!this.videoFrameVideos.has(image)) return;
         image.classList.remove('jpdb-ocr-video-frame-pending');
@@ -1135,10 +1137,11 @@ export class ImageOcrController {
         this.revealVideoFrameStatusAndResume(image);
     }
 
-    // Reveal only the status dot + resume control, leaving the captured frame
-    // image gated. Used on empty/failed terminal states: the viewer gets
-    // feedback and a play control without the (text-less) frame covering the
-    // player. During loading both stay gated so the native player is reachable.
+    // Reveal the status dot (the resume/play control is already visible from the
+    // moment of pause), leaving the captured frame image gated. Used on
+    // empty/failed terminal states: the viewer gets feedback without the
+    // (text-less) frame covering the player. During loading the status stays
+    // gated so the native player is reachable.
     private revealVideoFrameStatusAndResume(image: HTMLImageElement): void {
         const video = this.videoFrameVideos.get(image);
         if (!video) return;
@@ -1218,13 +1221,13 @@ export class ImageOcrController {
         this.updateImageStatusCard(image, status);
     }
 
-    // Paused-frame overlays stay gated (image + status + resume hidden) while OCR
-    // runs, so the native player and its comment/like/scrubber controls stay
-    // reachable. On 'ready' the whole overlay un-gates; on empty/failed only the
-    // status + resume un-gate (the text-less frame image stays hidden) so the
-    // viewer still gets feedback and a play control without the frame covering
-    // the player. A lookup/mining pause never reaches here — it is skipped at
-    // snapshot time via the mining marker.
+    // Paused-frame overlays keep the image + status gated while OCR runs (the
+    // resume/play control is visible from the moment of pause), so the native
+    // player and its comment/like/scrubber controls stay reachable. On 'ready'
+    // the image + status un-gate; on empty/failed only the status un-gates (the
+    // text-less frame image stays hidden) so the viewer still gets feedback
+    // without the frame covering the player. A lookup/mining pause never reaches
+    // here — it is skipped at snapshot time via the mining marker.
     private applyVideoFrameStatusTransition(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
         if (status === 'ready') this.revealVideoFrameOverlay(image);
         else if (status === 'empty' || status === 'failed') this.revealVideoFrameStatusAndResume(image);

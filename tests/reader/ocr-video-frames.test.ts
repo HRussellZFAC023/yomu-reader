@@ -115,7 +115,7 @@ describe('paused-video OCR frames', () => {
         });
     });
 
-    it('keeps the status and resume controls gated until OCR resolves so the native player stays reachable', () => {
+    it('shows the resume/play control immediately on pause while keeping the frame image and status gated', () => {
         createController();
         const video = pausedVideo();
 
@@ -123,12 +123,14 @@ describe('paused-video OCR frames', () => {
         const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-video-frame')!;
         const status = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-status')!;
         const resume = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-resume')!;
-        // While OCR runs, all three overlay artifacts are gated (hidden, not
-        // tappable) so the player's own comment/like/scrubber controls stay
-        // reachable — the user can open the comments before text covers them.
+        // While OCR runs, the big captured frame image and the scanning status
+        // dot stay gated (hidden, not tappable) so the player's own
+        // comment/like/scrubber controls stay reachable. The compact resume/play
+        // control, however, is visible from the moment of pause so the user can
+        // always unpause right away — never waiting for OCR to finish.
         expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
         expect(status.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-        expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
+        expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
     });
 
     it('skips the paused-frame snapshot when the pause was a dictionary/mining pause', () => {
@@ -173,9 +175,10 @@ describe('paused-video OCR frames', () => {
         await waitForExpect(() => {
             expect(status.dataset.status).toBe('loading');
         });
-        // Gate survives the loading status update: all three stay hidden.
+        // Gate survives the loading status update: the image + status stay
+        // hidden, while the resume/play control remains visible from pause.
         expect(status.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
-        expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
+        expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
         expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
     });
 
@@ -265,10 +268,13 @@ describe('paused-video OCR frames', () => {
             expect(status.dataset.status).toBe('empty');
             expect(status.textContent).toBe('');
             expect(status.getAttribute('aria-label')).toBe('No text found');
-            // On a no-text frame the status + resume un-gate (feedback + a play
-            // control), but the captured frame image stays hidden so it never
-            // covers the player when there is nothing to read.
+            // On a no-text frame the status un-gates (feedback), the resume/play
+            // control was already visible from pause, but the captured frame
+            // image stays hidden so it never covers the player when there is
+            // nothing to read.
+            const resume = document.querySelector<HTMLElement>('.jpdb-ocr-video-frame-resume')!;
             expect(status.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
+            expect(resume.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
             expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(true);
         });
     });

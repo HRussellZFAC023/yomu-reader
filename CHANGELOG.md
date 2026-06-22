@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.66] - 2026-06-22
+
+### Fixed
+
+- The play/resume control on a paused video now appears immediately instead of waiting for OCR to finish, so you can always unpause right away. The captured frame snapshot and scanning indicator still stay hidden until OCR has text, keeping the player's own comment/like/scrubber controls reachable while it runs.
+
 ## [1.4.65] - 2026-06-22
 
 ### Fixed
