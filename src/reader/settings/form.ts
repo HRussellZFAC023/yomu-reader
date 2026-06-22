@@ -615,10 +615,10 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     <div class="grid">
                         ${checkbox('popupLookupEnabled', 'Show Yomu lookup popup', popupLookupEnabledSetting(settings))}
                     </div>
-                    <div class="jpdb-reader-help" data-help-key="popupLookupHelp">Turn this off when you want jpdb reader, Jiten Reader, or Yomitan to own popups while Yomu keeps annotations, media, mining, and study tools available.</div>
+                    <div class="jpdb-reader-help" data-help-key="popupLookupHelp">Off for another reader's popups. Yomu tools stay on.</div>
                 </div>
                 <div class="grid">
-                    ${checkbox('parseSelection', 'Look up selected text', settings.parseSelection)}
+                    ${checkbox('parseSelection', 'Selection popups', settings.parseSelection)}
                     ${checkbox('lookupOnClick', 'Look up on tap or click', settings.lookupOnClick)}
                     ${checkbox('lookupOnHover', 'Look up on hover', settings.lookupOnHover)}
                     ${checkbox('lookupOnMiddleMouse', 'Look up with middle-mouse hold', settings.lookupOnMiddleMouse)}
@@ -629,8 +629,8 @@ function renderReaderSettingsPanel(settings: ReaderSettings): string {
                     ${renderFuriganaHiddenStateGroupControls(settings)}
                     ${select('wordColorStates', 'Color words', settings.wordColorStates, WORD_COLOR_STATE_OPTIONS)}
                     ${checkbox('showPitchAccent', 'Show pitch accent', settings.showPitchAccent)}
-                    ${checkbox('suppressRedundantWordUi', 'Hide styling on JPDB-redundant words', settings.suppressRedundantWordUi)}
-                    ${checkbox('sheetCloseButtonOnLeft', 'Mobile sheet: close button on the left', settings.sheetCloseButtonOnLeft)}
+                    ${checkbox('suppressRedundantWordUi', 'Hide JPDB-redundant styling', settings.suppressRedundantWordUi)}
+                    ${checkbox('sheetCloseButtonOnLeft', 'Sheet close button on left', settings.sheetCloseButtonOnLeft)}
                 </div>
                 ${renderPitchColorSettingsSubsection(settings)}
                 ${renderHoverLookupSettingsSubsection(settings)}

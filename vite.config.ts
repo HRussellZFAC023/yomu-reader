@@ -88,7 +88,6 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         namespace: repoUrl,
         version: pkg.version,
         description: 'Japanese popup reader.',
-        author: 'Henry',
         // See docs/store-review-notes.md before narrowing these; broad page
         // access is Yomu's core "read Japanese anywhere" behavior.
         match: userscriptMatchForCommand(command),
@@ -98,7 +97,6 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         'run-at': 'document-start',
         license: 'MIT',
         icon: userscriptIcon,
-        homepageURL: repoUrl,
         supportURL: `${repoUrl}/issues`,
         ...(splitCompanions ? { require: greasyForkLibraryUrls() } : {}),
         resource: {

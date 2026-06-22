@@ -5,7 +5,7 @@ import 'fake-indexeddb/auto';
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { ReaderApp } from '../../src/reader/app/main';
 import { contrastRatio } from '../../src/reader/theme/color-utils';
-import { applyReaderTheme } from '../../src/reader/theme/reader-theme';
+import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings/index';
 import type { ReaderSettings } from '../../src/reader/app/types';
@@ -97,9 +97,53 @@ function expectLoadedColorChannels(settings: ReaderSettings, expected: LoadedCol
 describe('reader theme', () => {
     afterEach(() => {
         vi.useRealTimers();
+        // Stop the root-class guard before clearing className so it does not
+        // re-assert the prior test's reader classes onto the next test.
+        resetReaderRootClassGuardForTests();
         document.documentElement.className = '';
         document.documentElement.removeAttribute('style');
         localStorage.removeItem(SETTINGS_STORAGE_KEY);
+    });
+
+    it('re-asserts reader root classes after a host SPA rewrites <html class>', async () => {
+        const root = document.documentElement;
+        applyReaderTheme({
+            ...DEFAULT_SETTINGS,
+            apiKey: 'test-api-key',
+            theme: 'dark',
+            wordHighlightColorSource: 'jpdb',
+            wordUnderlineColorSource: 'pitch',
+            wordTextColorSource: 'anki',
+        }, root);
+        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+
+        // Discord/ChatGPT and similar SPA shells overwrite the whole className
+        // during hydration, stripping every reader class. Inline style survives.
+        root.className = 'platform-web theme-dark visual-refresh';
+        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(false);
+
+        // The guard restores the reader classes (MutationObserver microtask).
+        await vi.waitFor(() => {
+            expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+            expect(root.classList.contains('jpdb-reader-word-highlight-jpdb')).toBe(true);
+            expect(root.classList.contains('jpdb-reader-theme-dark')).toBe(true);
+        });
+        // Host classes are preserved — the guard only adds, never strips.
+        expect(root.classList.contains('theme-dark')).toBe(true);
+        expect(root.classList.contains('visual-refresh')).toBe(true);
+    });
+
+    it('does not resurrect a reader class that was intentionally toggled off', async () => {
+        const root = document.documentElement;
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key', wordColorStates: 'new-only' }, root);
+        expect(root.classList.contains('yomu-word-color-new-only')).toBe(true);
+        // Re-apply with the option off: the snapshot must drop the stale class.
+        applyReaderTheme({ ...DEFAULT_SETTINGS, apiKey: 'test-api-key', wordColorStates: 'all' }, root);
+        expect(root.classList.contains('yomu-word-color-new-only')).toBe(false);
+        root.className = 'host-shell';
+        await new Promise(resolve => setTimeout(resolve, 20));
+        expect(root.classList.contains('jpdb-reader-word-underline-pitch')).toBe(true);
+        expect(root.classList.contains('yomu-word-color-new-only')).toBe(false);
     });
 
     it('applies concrete default color channels', () => {

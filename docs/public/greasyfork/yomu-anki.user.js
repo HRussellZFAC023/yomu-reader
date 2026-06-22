@@ -1086,18 +1086,18 @@
       featureControl: "Control",
       featureControlBody: "Tune features, shortcuts, and color.",
       featureStudy: "Study",
-      featureStudyBody: "Review Jiten, JPDB, Anki, and optional kanji cards in order on the built-in study page.",
+      featureStudyBody: "Review words and kanji on the study page.",
       scanPage: "Scan page",
       noUnscannedJapaneseText: "No unscanned Japanese text found.",
       jpdbScanFailed: "Page scan failed.",
-      pageCoverageSummary: "Coverage {percent}% known · {known}/{total} words · {unknown} new · {iPlusOne} i+1",
+      pageCoverageSummary: "{percent}% known · {known}/{total} · {unknown} new · {iPlusOne} i+1",
       settings: "Settings",
       settingsSaved: "Settings saved.",
       settingsSaveFailed: "Settings save failed.",
       settingsSections: "Settings sections",
       settingsSearch: "Search settings",
       settingsSearchPlaceholder: "Search settings",
-      settingsSearchNoResults: "No settings match your search.",
+      settingsSearchNoResults: "No matches.",
       selectOptions: "Options",
       save: "Save",
       cancel: "Cancel",
@@ -1261,13 +1261,13 @@
       interfaceHelp: "",
       popupLookup: "Popup lookup",
       popupLookupEnabled: "Show Yomu lookup popup",
-      popupLookupHelp: "Turn this off when you want jpdb reader, Jiten Reader, or Yomitan to own popups while Yomu keeps annotations, media, mining, and study tools available.",
-      parseSelection: "Look up selected text",
+      popupLookupHelp: "Off for another reader's popups. Yomu tools stay on.",
+      parseSelection: "Selection popups",
       lookupOnClick: "Look up on tap or click",
       lookupOnHover: "Look up on hover",
       lookupOnMiddleMouse: "Look up with middle-mouse hold",
       showFloatingButton: "Show settings puck",
-      manualScanEnabled: "Manual scan only (use the scan shortcut)",
+      manualScanEnabled: "Manual scan only",
       puckMenuLabel: `${APP_NAME} menu`,
       puckStudyPage: "Study page",
       puckPauseAnnotations: "Pause annotations",
@@ -1296,8 +1296,8 @@
       furiganaHoverOnly: "Show on hover",
       furiganaAllParsed: "Show on every parsed word",
       showPitchAccent: "Show pitch accent",
-      suppressRedundantWordUi: "Hide styling on JPDB-redundant words",
-      sheetCloseButtonOnLeft: "Mobile sheet: close button on the left",
+      suppressRedundantWordUi: "Hide JPDB-redundant styling",
+      sheetCloseButtonOnLeft: "Sheet close button on left",
       hideKnownFurigana: "Hide furigana for known cards only",
       readerHelp: "Set a hover key. Blank means plain hover.",
       hoverLookupSettings: "Hover lookup",
@@ -1311,7 +1311,7 @@
       kanjiHelp: "",
       audioEnabled: "Enable term audio",
       autoPlayAudio: "Auto-play term audio",
-      suppressAutoAudioOnVideo: "Disable lookup audio auto-play on video pages",
+      suppressAutoAudioOnVideo: "Disable lookup audio on video pages",
       audioAutoPlayMode: "Auto-play trigger",
       audioEnableDefaultSources: "Enable built-in audio sources",
       audioFallbackChimeEnabled: "Enable fallback chime",
@@ -1580,8 +1580,8 @@
       exportDictionaries: "Export dictionaries",
       dictionaryImportHelp: "Import settings or ZIPs.",
       lookupPills: "Lookup pills",
-      lookupPillsHelp: "External links and imported frequency badges. Tokens: {query}, {word}, {reading}.",
-      frequencyLookupPillsHelp: "Imported frequency dictionaries show as badge pills when a lookup has matching data.",
+      lookupPillsHelp: "Links and frequency badges. Tokens: {query}, {word}, {reading}.",
+      frequencyLookupPillsHelp: "Show imported frequency dictionaries as badges.",
       copiesCurrentWord: "Copies the current word",
       lookupPillLabel: "Lookup pill label",
       lookupPillLabelNumber: "Lookup pill {number} label",
@@ -1966,7 +1966,7 @@
       ankiAudioUnavailablePreview: "Audio not available in preview",
       ankiAudioFilenameLabel: "Anki audio {filename}",
       ankiStoredFields: "Stored fields",
-      ankiCardDetailsPending: "Matched in Anki. Loading card details from AnkiConnect...",
+      ankiCardDetailsPending: "Matched in Anki. Loading details...",
       ankiCardDetailsUnavailable: "Matched in Anki. showing cached status.",
       ankiNewCard: "New card",
       ankiMatches: "Anki matches",
@@ -2218,7 +2218,7 @@ featureVideoBody	字幕内の語もタップできます。
 featureControl	調整
 featureControlBody	機能、キー、色を調整できます。
 featureStudy	学習
-featureStudyBody	内蔵の学習ページでJiten・JPDB・Anki・漢字を復習できます。
+featureStudyBody	学習ページで単語と漢字を復習。
 automatic	自動
 english	英語
 japanese	日本語
@@ -2315,7 +2315,7 @@ dict	辞書
 scanPage	ページをスキャン
 noUnscannedJapaneseText	未スキャンの日本語テキストはありません。
 jpdbScanFailed	ページスキャンに失敗しました。
-pageCoverageSummary	{percent}%・{known}/{total}・新規{unknown}・i+1 {iPlusOne}
+pageCoverageSummary	{percent}%・{known}/{total}・新{unknown}・i+1 {iPlusOne}
 noImmersionExamples	イマージョンキットの例文が見つかりません。
 noImmersionExamplesCompact	例文なし
 noLocalDictionaries	JMdictかYomitan ZIPを追加してください。
@@ -2864,13 +2864,13 @@ colorChannelsHelp
 interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
-popupLookupHelp	JPDB Reader、Jiten Reader、Yomitan側のポップアップを使う場合はオフにします。よむの注釈、メディア、採掘、学習ツールはそのまま使えます。
-parseSelection	選択テキストを検索
+popupLookupHelp	他リーダーのポップアップ用。オフでも他機能は有効。
+parseSelection	選択ポップアップを表示
 lookupOnClick	タップまたはクリックで検索
 lookupOnHover	ホバーで検索
 lookupOnMiddleMouse	中央ボタン長押しで検索
 showFloatingButton	設定ボタンを表示
-manualScanEnabled	手動スキャンのみ（スキャンのショートカットを使用）
+manualScanEnabled	手動スキャンのみ
 puckMenuLabel	よむ メニュー
 puckStudyPage	学習ページ
 puckPauseAnnotations	注釈を一時停止
@@ -2900,7 +2900,7 @@ furiganaHoverOnly	ホバー時に表示
 furiganaAllParsed	解析済みの全単語に表示
 showPitchAccent	ピッチアクセントを表示
 suppressRedundantWordUi	JPDBの冗長語のスタイルを非表示
-sheetCloseButtonOnLeft	閉じるボタンを左側に
+sheetCloseButtonOnLeft	閉じるボタンを左に
 hideKnownFurigana	既知カードのふりがなを非表示
 readerHelp	ホバーキーを設定。空欄なら通常ホバー。
 hoverLookupSettings	ホバー検索
@@ -2911,7 +2911,7 @@ similarKanjiWordLimit	類似語の上限
 kanjiHelp	
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
-suppressAutoAudioOnVideo	動画ページでは自動再生を無効
+suppressAutoAudioOnVideo	動画では検索音声オフ
 audioAutoPlayMode	自動再生のきっかけ
 audioEnableDefaultSources	内蔵音声ソースを有効
 audioFallbackChimeEnabled	フォールバック音を有効
@@ -3155,8 +3155,8 @@ importDictionaries	辞書をインポート
 exportDictionaries	辞書をエクスポート
 dictionaryImportHelp	設定やZIPを読み込みます。
 lookupPills	検索ピル
-lookupPillsHelp	外部リンクとインポート済み頻度バッジ。トークン: {query}、{word}、{reading}。
-frequencyLookupPillsHelp	インポート済み頻度辞書は、検索語に一致するデータがあるとバッジ型ピルとして表示されます。
+lookupPillsHelp	リンクと頻度バッジ。トークン: {query}、{word}、{reading}。
+frequencyLookupPillsHelp	頻度辞書を検索バッジに表示。
 copiesCurrentWord	現在の単語をコピーします
 lookupPillLabel	検索ピルのラベル
 lookupPillLabelNumber	検索ピル{number}のラベル

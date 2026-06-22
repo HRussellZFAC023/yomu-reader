@@ -108,7 +108,7 @@ const ankiEmptyStrings = () => Promise.resolve([]);
 const ankiEmptyLibrary = () => Promise.resolve({ deckNames: [], models: [], suggestedModel: null });
 const ankiUntrustedLookup = () => Promise.resolve(untrustedAnkiLookupResult());
 const ankiUntrustedLookupBatch = (cards: JPDBCard[]) => Promise.resolve(cards.map(() => untrustedAnkiLookupResult()));
-const ankiUnavailable = () => Promise.reject(new Error('Yomu Anki companion is unavailable.'));
+const ankiUnavailable = () => Promise.reject(new Error('Yomu Anki unavailable.'));
 
 export class AnkiDuplicateNoteError extends Error {
     constructor(message: string) {

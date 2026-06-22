@@ -1194,3 +1194,453 @@ html[lang="ja"] .VPHomeHero .tagline {
     border-radius: 8px;
   }
 }
+
+/* ============================================================
+   Homepage: demo video, manga OCR try-me, reveals, language nudge
+   ============================================================ */
+
+.yomu-eyebrow {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vp-c-brand-1);
+}
+
+.yomu-cta,
+.yomu-cta-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 44px;
+  padding: 0 22px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 15px;
+  text-decoration: none;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.yomu-cta {
+  color: #fff;
+  background: var(--yomu-accent, var(--vp-c-brand-1));
+  box-shadow: 0 10px 26px color-mix(in srgb, var(--vp-c-brand-1) 32%, transparent);
+}
+
+.yomu-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--vp-c-brand-1) 40%, transparent);
+}
+
+.yomu-cta-ghost {
+  color: var(--vp-c-text-1);
+  background: var(--vp-c-bg-soft);
+  border: 1px solid var(--vp-c-divider);
+}
+
+.yomu-cta-ghost:hover {
+  transform: translateY(-1px);
+  border-color: var(--vp-c-brand-1);
+}
+
+/* --- Demo video section (Apple-style, click-to-play) --- */
+.yomu-demo {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: clamp(28px, 5vw, 72px);
+  margin: clamp(36px, 7vw, 80px) 0;
+  padding: clamp(24px, 4vw, 44px);
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 28px;
+  background:
+    radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--vp-c-brand-3) 12%, transparent), transparent 55%),
+    var(--vp-c-bg-alt);
+}
+
+.yomu-demo-copy h2 {
+  margin: 0 0 14px;
+  border: 0;
+  padding: 0;
+  font-size: clamp(26px, 3.4vw, 40px);
+  line-height: 1.12;
+  font-weight: 840;
+  letter-spacing: -0.02em;
+}
+
+.yomu-demo-copy p {
+  margin: 0 0 14px;
+  max-width: 46ch;
+  color: var(--vp-c-text-2);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.yomu-demo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.yomu-demo-note {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--vp-c-text-2);
+}
+
+/* iPhone-style device frame */
+.yomu-device {
+  display: flex;
+  justify-content: center;
+}
+
+.yomu-device-frame {
+  position: relative;
+  width: clamp(230px, 30vw, 300px);
+  aspect-ratio: 720 / 1558;
+  padding: 11px;
+  border-radius: 46px;
+  background: linear-gradient(160deg, #2a2d33, #0a0b0d 60%);
+  box-shadow:
+    0 2px 2px rgba(255, 255, 255, 0.18) inset,
+    0 0 0 2px #000,
+    0 30px 70px rgba(10, 18, 28, 0.4);
+}
+
+.yomu-device-island {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 33%;
+  height: 22px;
+  border-radius: 999px;
+  background: #000;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.yomu-demo-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 36px;
+  object-fit: cover;
+  background: #000;
+}
+
+.yomu-demo-play {
+  position: absolute;
+  inset: 11px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 36px;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(8, 14, 20, 0.18), rgba(8, 14, 20, 0.42));
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  transition: opacity 0.25s ease;
+}
+
+.yomu-demo-play svg {
+  width: 34px;
+  height: 34px;
+  padding: 16px;
+  border-radius: 999px;
+  fill: var(--vp-c-brand-1);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  transition: transform 0.16s ease;
+}
+
+.yomu-demo-play:hover svg {
+  transform: scale(1.06);
+}
+
+.yomu-device-frame.is-playing .yomu-demo-play {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --- Manga OCR try-me --- */
+.yomu-try-manga {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: clamp(22px, 4vw, 48px);
+  margin: clamp(28px, 5vw, 56px) 0;
+}
+
+.yomu-try-manga-head strong {
+  display: block;
+  font-size: clamp(20px, 2.6vw, 27px);
+  font-weight: 820;
+  letter-spacing: -0.01em;
+  margin-bottom: 10px;
+}
+
+.yomu-try-manga-head p {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--vp-c-text-2);
+  line-height: 1.6;
+}
+
+/* The "manga page": always light paper, monochrome, screentone */
+.yomu-manga {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(20, 24, 30, 0.16) 1px, transparent 1.4px) 0 0 / 7px 7px,
+    #f3efe6;
+  border: 2px solid #15181c;
+  box-shadow: 0 22px 50px rgba(20, 30, 45, 0.22);
+}
+
+.yomu-manga-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 10px;
+  min-height: 120px;
+  padding: 14px;
+  background: linear-gradient(180deg, #fbfaf6, #efeadd);
+  border: 2px solid #15181c;
+  border-radius: 4px;
+}
+
+.yomu-manga-cell-wide {
+  grid-column: 1 / -1;
+  min-height: 86px;
+}
+
+.yomu-manga-narration {
+  align-self: flex-start;
+  margin: 0;
+  padding: 5px 9px;
+  background: #fff;
+  border: 1.5px solid #15181c;
+  font-size: 14px;
+  color: #15181c;
+}
+
+.yomu-manga-bubble {
+  position: relative;
+  margin: 0;
+  max-width: 86%;
+  padding: 11px 15px;
+  background: #fff;
+  border: 2px solid #15181c;
+  border-radius: 22px / 30px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: #15181c;
+}
+
+.yomu-manga-bubble-right {
+  align-self: flex-end;
+}
+
+.yomu-manga-bubble-left {
+  align-self: flex-start;
+}
+
+.yomu-manga-bubble::after {
+  content: "";
+  position: absolute;
+  bottom: -11px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-right: 2px solid #15181c;
+  border-bottom: 2px solid #15181c;
+  transform: rotate(35deg) skewX(-10deg);
+}
+
+.yomu-manga-bubble-right::after {
+  right: 22px;
+}
+
+.yomu-manga-bubble-left::after {
+  left: 22px;
+  transform: rotate(55deg) skewX(10deg);
+}
+
+.yomu-manga-sfx {
+  position: absolute;
+  right: 10px;
+  bottom: 8px;
+  font-size: 22px;
+  font-weight: 900;
+  color: #15181c;
+  opacity: 0.7;
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+
+/* OCR badge + scan line imply OCR reading the image */
+.yomu-manga-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #fff;
+  background: var(--vp-c-brand-1);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--vp-c-brand-1) 40%, transparent);
+}
+
+.yomu-manga-badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #aef0c8;
+  box-shadow: 0 0 0 0 rgba(174, 240, 200, 0.7);
+  animation: yomu-ocr-pulse 1.8s ease-out infinite;
+}
+
+.yomu-manga-scan {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 2;
+  height: 28%;
+  pointer-events: none;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--vp-c-brand-3) 38%, transparent) 70%, color-mix(in srgb, var(--vp-c-brand-3) 70%, transparent));
+  border-bottom: 2px solid color-mix(in srgb, var(--vp-c-brand-3) 85%, transparent);
+  animation: yomu-ocr-scan 3.4s ease-in-out infinite;
+}
+
+@keyframes yomu-ocr-scan {
+  0% { transform: translateY(-30%); opacity: 0; }
+  12% { opacity: 1; }
+  60% { transform: translateY(330%); opacity: 1; }
+  72%, 100% { transform: translateY(330%); opacity: 0; }
+}
+
+@keyframes yomu-ocr-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(174, 240, 200, 0.7); }
+  70% { box-shadow: 0 0 0 7px rgba(174, 240, 200, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(174, 240, 200, 0); }
+}
+
+/* --- Scroll reveal --- */
+.yomu-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  will-change: opacity, transform;
+}
+
+.yomu-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* --- "Try me" nudge for the top-right language toggle --- */
+.yomu-language-nudge {
+  position: fixed;
+  z-index: 60;
+  max-width: 230px;
+  padding: 11px 13px 11px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #fff;
+  background: var(--vp-c-brand-1);
+  box-shadow: 0 16px 36px rgba(20, 30, 45, 0.32);
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.yomu-language-nudge.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+.yomu-language-nudge::after {
+  content: "";
+  position: absolute;
+  top: -6px;
+  right: 22px;
+  width: 12px;
+  height: 12px;
+  background: var(--vp-c-brand-1);
+  transform: rotate(45deg);
+}
+
+.yomu-language-nudge b {
+  display: block;
+  font-weight: 800;
+}
+
+.yomu-language-nudge button {
+  margin-top: 7px;
+  padding: 3px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dark .yomu-manga {
+  background:
+    radial-gradient(circle at center, rgba(20, 24, 30, 0.13) 1px, transparent 1.4px) 0 0 / 7px 7px,
+    #ece7dc;
+}
+
+@media (max-width: 860px) {
+  .yomu-demo,
+  .yomu-try-manga {
+    grid-template-columns: 1fr;
+  }
+
+  .yomu-try-manga-head {
+    order: -1;
+  }
+
+  .yomu-device-frame {
+    width: min(74vw, 290px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .yomu-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .yomu-manga-scan,
+  .yomu-manga-badge::before {
+    animation: none;
+  }
+
+  .yomu-manga-scan {
+    opacity: 0;
+  }
+}

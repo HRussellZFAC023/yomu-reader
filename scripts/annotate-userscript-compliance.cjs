@@ -21,7 +21,7 @@ const notice = `
 /* Bundled dependency source information: fflate*/
 `;
 const insertAt = markerIndex + USERSCRIPT_METADATA_END.length;
-const before = code.slice(0, insertAt);
+const before = stripRedundantMetadata(code.slice(0, insertAt));
 const hasNotice = code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER);
 const after = stripGeneratedPureAnnotations(stripUserscriptBodyComments(code.slice(insertAt).replace(/^\n+/, '\n')));
 
@@ -36,4 +36,10 @@ function stripUserscriptBodyComments(value) {
 
 function stripGeneratedPureAnnotations(value) {
   return value.replace(/\/\* @__PURE__ \*\/\s*/g, '');
+}
+
+function stripRedundantMetadata(value) {
+  return value.split('\n')
+    .filter(line => !/^\/\/ @(?:author|homepageURL|source)\b/.test(line))
+    .join('\n');
 }

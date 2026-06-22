@@ -1735,6 +1735,7 @@ function installHostedDocsEnhancements(): void {
     localizeHostedDocsCopy();
     scheduleHostedDocsLocalization();
     prepareHostedYomuRuntime();
+    installHostedHomepageInteractions();
     if (routeSyncBound) return;
     routeSyncBound = true;
     window.addEventListener(LANGUAGE_EVENT, () => {
@@ -1750,6 +1751,7 @@ function installHostedDocsEnhancements(): void {
         syncHostedMobileNavSettings();
         scheduleHostedDocsLocalization();
         prepareHostedYomuRuntime();
+        installHostedHomepageInteractions();
         syncHostedAccent();
     }));
     window.addEventListener('popstate', () => window.requestAnimationFrame(() => {
@@ -1759,8 +1761,115 @@ function installHostedDocsEnhancements(): void {
         syncHostedMobileNavSettings();
         scheduleHostedDocsLocalization();
         prepareHostedYomuRuntime();
+        installHostedHomepageInteractions();
         syncHostedAccent();
     }));
+}
+
+const LANGUAGE_NUDGE_KEY = 'yomu:lang-nudge-dismissed';
+
+// Homepage-only progressive enhancements: scroll reveals, the click-to-play
+// demo video, and a one-time "try me" nudge pointing at the language toggle.
+// All are idempotent (guarded by data flags) so they survive route re-runs.
+function installHostedHomepageInteractions(): void {
+    armHostedRevealElements();
+    bindHostedDemoVideo();
+    maybeShowHostedLanguageNudge();
+}
+
+function armHostedRevealElements(): void {
+    const elements = Array.from(document.querySelectorAll<HTMLElement>('.yomu-reveal:not([data-yomu-revealed])'));
+    if (!elements.length) return;
+    const reveal = (element: HTMLElement): void => {
+        element.dataset.yomuRevealed = 'true';
+        element.classList.add('is-in');
+    };
+    if (typeof IntersectionObserver !== 'function') {
+        elements.forEach(reveal);
+        return;
+    }
+    const observer = new IntersectionObserver((entries, obs) => {
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return;
+            reveal(entry.target as HTMLElement);
+            obs.unobserve(entry.target);
+        });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+    elements.forEach(element => observer.observe(element));
+    // Failsafe: never leave a section permanently hidden if the observer never fires.
+    window.setTimeout(() => elements.forEach(element => {
+        if (!element.dataset.yomuRevealed) reveal(element);
+    }), 2200);
+}
+
+function bindHostedDemoVideo(): void {
+    const button = document.querySelector<HTMLButtonElement>('.yomu-demo-play:not([data-yomu-bound])');
+    if (!button) return;
+    button.dataset.yomuBound = 'true';
+    const frame = button.closest<HTMLElement>('.yomu-device-frame');
+    const video = frame?.querySelector<HTMLVideoElement>('.yomu-demo-video');
+    if (!frame || !video) return;
+    button.addEventListener('click', () => {
+        frame.classList.add('is-playing');
+        video.controls = true;
+        void video.play()?.catch(() => undefined);
+    });
+    video.addEventListener('play', () => frame.classList.add('is-playing'));
+    video.addEventListener('pause', () => frame.classList.remove('is-playing'));
+}
+
+function maybeShowHostedLanguageNudge(): void {
+    if (document.querySelector('.yomu-language-nudge')) return;
+    try {
+        if (localStorage.getItem(LANGUAGE_NUDGE_KEY) === '1') return;
+    } catch {
+        // Private mode / storage disabled — still show it for the session.
+    }
+    const toggle = document.getElementById(LANGUAGE_TOGGLE_ID);
+    if (!toggle) return;
+
+    const nudge = document.createElement('div');
+    nudge.className = 'yomu-language-nudge';
+    nudge.setAttribute('role', 'note');
+    const title = document.createElement('b');
+    title.textContent = 'Prefer 日本語?';
+    const body = document.createElement('span');
+    body.textContent = 'Tap あ / A here to switch this site between Japanese and English anytime.';
+    const dismiss = document.createElement('button');
+    dismiss.type = 'button';
+    dismiss.textContent = 'Got it';
+    nudge.append(title, body, dismiss);
+    document.body.appendChild(nudge);
+
+    const position = (): void => {
+        const rect = toggle.getBoundingClientRect();
+        const width = nudge.offsetWidth || 230;
+        const left = Math.max(10, Math.min(rect.right - width, window.innerWidth - width - 10));
+        nudge.style.top = `${Math.round(rect.bottom + 10)}px`;
+        nudge.style.left = `${Math.round(left)}px`;
+    };
+    const close = (): void => {
+        try {
+            localStorage.setItem(LANGUAGE_NUDGE_KEY, '1');
+        } catch {
+            // ignore
+        }
+        nudge.classList.remove('is-in');
+        window.removeEventListener('resize', position);
+        window.removeEventListener('scroll', position);
+        window.setTimeout(() => nudge.remove(), 320);
+    };
+
+    dismiss.addEventListener('click', close);
+    toggle.addEventListener('click', close, { once: true });
+    window.addEventListener('resize', position);
+    window.addEventListener('scroll', position, { passive: true });
+    position();
+    window.requestAnimationFrame(() => {
+        position();
+        nudge.classList.add('is-in');
+    });
+    window.setTimeout(close, 12000);
 }
 
 function prepareHostedYomuRuntime(): void {

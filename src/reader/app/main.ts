@@ -3117,6 +3117,8 @@ export class ReaderApp {
         if (this.isDestroyed || this.activePopoverMode !== 'modal' || !this.activePopover) return;
         if (this.isInsideActivePopover(event.target as Node | null)) return;
         if (this.shouldKeepModalPopoverForOutsidePointer(event.target as Node | null)) return;
+        if (window.getSelection()?.isCollapsed === false) event.preventDefault();
+        this.rememberDismissedSelection();
         this.dismiss({ suppressHoverTarget: true });
     }
 
@@ -3540,6 +3542,7 @@ export class ReaderApp {
     private async lookupSelection(): Promise<void> {
         if (this.isDestroyed) return;
         if (this.settings.popupActivationMode === 'off') return;
+        if (!this.settings.parseSelection) return;
         if (Date.now() < this.suppressSelectionLookupUntil) return;
         const selected = this.selectionLookupText();
         if (!selected) {

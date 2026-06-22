@@ -49,7 +49,7 @@ describe('OnboardingController', () => {
         expect(defaultAccentSwatch?.getAttribute('aria-pressed')).toBe('true');
         expect(featureItems).toHaveLength(5);
         expect(featureText()).toContain('Read any image by tapping it.');
-        expect(featureText()).toContain('Review Jiten, JPDB, Anki, and optional kanji cards in order on the built-in study page.');
+        expect(featureText()).toContain('Review words and kanji on the study page.');
         expect(document.querySelector('.jpdb-reader-onboarding-grid > div')).toBeNull();
 
         youtubeFilter!.checked = false;

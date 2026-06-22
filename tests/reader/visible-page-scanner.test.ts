@@ -1334,7 +1334,7 @@ describe('VisiblePageScanner', () => {
         try {
             await scanner.scanVisiblePage({ silent: false });
 
-            expect(toast).toHaveBeenCalledWith('Coverage 67% known · 2/3 words · 1 new · 1 i+1');
+            expect(toast).toHaveBeenCalledWith('67% known · 2/3 · 1 new · 1 i+1');
             const insight = document.querySelector<HTMLElement>('[data-mining-insight="i-plus-one"]')!;
             expect(insight.textContent).toBe('本');
             expect(insight.dataset.cardSource).toBe('jiten');

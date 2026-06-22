@@ -1,10 +1,12 @@
 # Changelog
 
-## [1.4.72] - 2026-06-22
+## [1.4.73] - 2026-06-22
 
 ### Fixed
 
 - The preferred Japanese site-language feature now waits for page locale metadata before making generic `/en` to `/ja` URL guesses, and skips the guess when a page declares supported alternates without Japanese. Japanese locale/cookie/browser hints and explicit `hreflang="ja"` or known-site redirects still apply, but multilingual sites without Japanese pages no longer get sent to broken guessed routes such as `/en/ja`.
+- Selection popovers now close on outside click without clearing the native page text selection, and the same selected text stays dismissed instead of immediately reopening the modal.
+- The selected-text lookup feature is now exposed clearly as **Selection popups** in Reader settings, so users can turn it off while keeping click, hover, annotations, and study tools enabled.
 
 ## [1.4.71] - 2026-06-22
 

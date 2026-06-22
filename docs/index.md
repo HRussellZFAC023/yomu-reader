@@ -5,8 +5,8 @@ titleTemplate: false
 description: よむ is a free Japanese reader for web pages, manga, PDFs, and video subtitles. Tap any word for readings, meanings, kanji, audio, and study actions.
 hero:
   name: よむ
-  text: Learn Japanese by reading what you actually like
-  tagline: Tap a word anywhere, understand it in context, save it for review, and keep reading. よむ turns real Japanese pages, manga, subtitles, and study sites into one connected immersion system.
+  text: Read real Japanese, anywhere
+  tagline: On your iPhone, on the go or at home — tap any word on a page, manga, subtitle, or PDF to see its reading, meaning, pitch, and audio, then keep reading. Free, and no account needed.
   image:
     src: /yomu-icon.svg
     alt: よむ app icon
@@ -56,6 +56,32 @@ features:
   </div>
 </div>
 
+<section class="yomu-demo yomu-reveal" aria-labelledby="yomu-demo-title">
+  <div class="yomu-demo-copy">
+    <p class="yomu-eyebrow">See it in action</p>
+    <h2 id="yomu-demo-title">On the go or at home,<br>read what you love in Japanese</h2>
+    <p>Tap a word while you read. よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences — then lets you save it and keep going, without leaving the page.</p>
+    <p class="yomu-demo-actions">
+      <a class="yomu-cta" href="https://yomureader.com/yomu.user.js">Install よむ — free</a>
+      <a class="yomu-cta-ghost" href="/getting-started">Setup guide</a>
+    </p>
+    <p class="yomu-demo-note">Real screen recording on iPhone · tap to play with sound</p>
+  </div>
+  <div class="yomu-device">
+    <div class="yomu-device-frame">
+      <span class="yomu-device-island" aria-hidden="true"></span>
+      <video class="yomu-demo-video" playsinline preload="none" controls poster="/media/yomu-demo-poster.jpg" aria-label="よむ demo: reading a Japanese novel on an iPhone and tapping a word to open the dictionary popup">
+        <source src="/media/yomu-demo.webm" type="video/webm" />
+        <source src="/media/yomu-demo.mp4" type="video/mp4" />
+      </video>
+      <button class="yomu-demo-play" type="button" aria-label="Play the よむ demo with sound">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+        <span>Watch the demo</span>
+      </button>
+    </div>
+  </div>
+</section>
+
 ## What It Does
 
 よむ runs inside your browser. Tap or hover Japanese text, subtitle lines, or text inside manga images and PDFs to open a clean popup with readings, meanings, kanji, pitch, audio, examples, and save actions.
@@ -69,6 +95,29 @@ Start with lookup. Add local dictionaries, Anki, OCR, subtitles, and the study p
     <p>今日は静かな喫茶店で新しい本を読みました。</p>
   </div>
 
+</div>
+
+<div class="yomu-try-manga yomu-reveal">
+  <div class="yomu-try-manga-head">
+    <p class="yomu-eyebrow">OCR · manga &amp; images</p>
+    <strong>Tap the text inside a manga page</strong>
+    <p>よむ reads the Japanese inside images with OCR, adds furigana, and makes every word tappable — the same popup dictionary you get on any page. Try it: tap a word in the panel.</p>
+  </div>
+  <div class="yomu-manga" data-yomu-furigana-mode="all" role="group" aria-label="Sample manga panel — tap any Japanese word to look it up">
+    <span class="yomu-manga-scan" aria-hidden="true"></span>
+    <span class="yomu-manga-badge" aria-hidden="true">OCR</span>
+    <div class="yomu-manga-cell yomu-manga-cell-wide">
+      <p class="yomu-manga-narration">放課後の図書室。</p>
+      <p class="yomu-manga-bubble yomu-manga-bubble-right">この本、もう読んだ？</p>
+    </div>
+    <div class="yomu-manga-cell">
+      <p class="yomu-manga-bubble yomu-manga-bubble-left">うん、昨日の夜に全部読んだよ。</p>
+    </div>
+    <div class="yomu-manga-cell">
+      <p class="yomu-manga-bubble yomu-manga-bubble-right">すごい！どんな話だったの？</p>
+      <span class="yomu-manga-sfx" aria-hidden="true">ドキ…</span>
+    </div>
+  </div>
 </div>
 
 ## Next Steps

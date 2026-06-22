@@ -256,7 +256,7 @@ describe('frequency dictionary preferences', () => {
         localizeSettingsForm(form, 'ja');
 
         expect(settingsText(form, '[data-frequency-lookup-pills] .jpdb-reader-dictionary-head span:nth-child(2)')).toBe('検索ピル');
-        expect(settingsText(form, '[data-help-key="frequencyLookupPillsHelp"]')).toContain('バッジ型ピル');
+        expect(settingsText(form, '[data-help-key="frequencyLookupPillsHelp"]')).toContain('検索バッジ');
     });
 });
 
@@ -375,17 +375,22 @@ describe('settings form localization', () => {
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');
 
         expect(checkboxValue(form, 'popupLookupEnabled')).toBe(true);
-        expect(settingsText(form, '[data-help-key="popupLookupHelp"]')).toContain('Yomitan');
+        expect(checkboxValue(form, 'parseSelection')).toBe(true);
+        expect(labelForControl(form, 'parseSelection')).toContain('Selection popups');
+        expect(settingsText(form, '[data-help-key="popupLookupHelp"]')).toContain('another reader');
 
+        form.querySelector<HTMLInputElement>('input[name="parseSelection"]')!.checked = false;
         form.querySelector<HTMLInputElement>('input[name="popupLookupEnabled"]')!.checked = false;
         const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
 
         expect(saved.popupActivationMode).toBe('off');
+        expect(saved.parseSelection).toBe(false);
         expect(saved.lookupOnClick).toBe(true);
         expect(saved.lookupOnHover).toBe(true);
 
         localizeSettingsForm(form, 'ja');
         expect(labelForControl(form, 'popupLookupEnabled')).toContain('よむの検索ポップアップを表示');
+        expect(labelForControl(form, 'parseSelection')).toContain('選択ポップアップを表示');
         expect(settingsText(form, '[data-popup-lookup-title]')).toBe('ポップアップ検索');
     });
 

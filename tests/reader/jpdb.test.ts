@@ -13821,7 +13821,7 @@ describe('reader helpers', () => {
         expect(document.querySelector('.jpdb-reader-meta')?.textContent).toContain('Anki Due');
         expect(document.querySelector('.jpdb-reader-meta .jpdb-reader-state-dot.anki-due')).not.toBeNull();
         expect(document.querySelector('.jpdb-reader-anki-existing summary small')?.textContent).toBe('Due · Anime::Mining · 9 reviews, 1 lapse');
-        expect(document.querySelector('.jpdb-reader-anki-details-pending')?.textContent).toContain('Loading card details from AnkiConnect');
+        expect(document.querySelector('.jpdb-reader-anki-details-pending')?.textContent).toContain('Loading details');
         expect(document.querySelector('[data-action="anki"]')).toBeNull();
     });
 
@@ -19468,6 +19468,41 @@ describe('reader helpers', () => {
             expect(lookupRenderedSelection).toHaveBeenCalledTimes(2);
         } finally {
             window.getSelection()?.removeAllRanges();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('does not open selection popovers when selection lookup is disabled', async () => {
+        const app = new ReaderApp();
+        document.body.innerHTML = '<p><span class="jpdb-reader-word" data-vid="501" data-sid="501">今日</span>は静かです。</p>';
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const range = document.createRange();
+        range.selectNode(word);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        const lookupRenderedSelection = vi.fn(async () => true);
+        const lookupText = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            lookupRenderedSelection: typeof lookupRenderedSelection;
+            lookupText: typeof lookupText;
+            lookupSelection(): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, parseSelection: false };
+        internals.lookupRenderedSelection = lookupRenderedSelection;
+        internals.lookupText = lookupText;
+
+        try {
+            await internals.lookupSelection();
+
+            expect(lookupRenderedSelection).not.toHaveBeenCalled();
+            expect(lookupText).not.toHaveBeenCalled();
+            expect(selection.toString()).toBe('今日');
+        } finally {
+            selection.removeAllRanges();
             app.destroy();
             document.body.replaceChildren();
         }

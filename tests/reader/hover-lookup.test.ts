@@ -571,26 +571,36 @@ describe('hover lookup', () => {
         }
     });
 
-    it('dismisses a modal popover on outside pointerdown', () => {
+    it('dismisses a modal popover on outside pointerdown while preserving page selection', () => {
         const app = new ReaderApp();
         const popover = document.createElement('div');
         popover.className = 'jpdb-reader-popover';
         popover.dataset.jpdbReaderRoot = 'true';
         popover.textContent = '辞書';
         const outside = document.createElement('button');
-        outside.textContent = 'outside';
-        document.body.append(popover, outside);
+        outside.textContent = '外';
+        const selected = document.createElement('p');
+        selected.textContent = 'ママがサンタにキッスした';
+        document.body.append(popover, outside, selected);
+        const range = document.createRange();
+        range.selectNodeContents(selected);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
         const internals = app as unknown as HoverLookupInternals;
         internals.activePopover = popover;
         internals.activePopoverMode = 'modal';
 
         try {
-            internals.dismissModalPopoverForOutsidePointer(hoverPointerEvent(outside, 'mouse', 'pointerdown'));
+            const event = hoverPointerEvent(outside, 'mouse', 'pointerdown');
+            internals.dismissModalPopoverForOutsidePointer(event);
 
+            expect(event.defaultPrevented).toBe(true);
+            expect(window.getSelection()?.toString()).toBe('ママがサンタにキッスした');
             expect(popover.isConnected).toBe(false);
             expect(internals.activePopover).toBeUndefined();
             expect(internals.activePopoverMode).toBeUndefined();
         } finally {
+            window.getSelection()?.removeAllRanges();
             cleanupReaderApp(app);
         }
     });

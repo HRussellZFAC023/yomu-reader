@@ -51,7 +51,39 @@ export function applyReaderTheme(settings: ReaderSettings, root = document.docum
     root.classList.remove('jpdb-reader-highlight-status', 'jpdb-reader-highlight-pitch', 'jpdb-reader-highlight-off');
     applyReaderColorSourceClasses(root, 'word', theme.wordColorSources);
     applyReaderColorSourceClasses(root, 'subtitle', theme.subtitleColorSources);
+    guardReaderRootClasses(root);
     return theme;
+}
+
+// SPA shells (Discord, ChatGPT, and others) rewrite document.documentElement's
+// entire className during hydration — after Yomu has applied its classes — which
+// silently strips every reader root class. Inline style (the theme colour vars)
+// survives, so words keep their state and furigana renders, but the colour /
+// underline / highlight CHANNELS die: those rules key off ancestor classes such
+// as `.jpdb-reader-word-text-anki`. Re-assert the reader root classes whenever
+// the host clobbers them so decoration survives the rewrite. Scoped to the real
+// document root (never the settings-preview container) and a no-op everywhere a
+// host never touches <html class>.
+let guardedRootClasses: string[] = [];
+let readerRootClassObserver: MutationObserver | null = null;
+
+function guardReaderRootClasses(root: HTMLElement): void {
+    if (typeof MutationObserver !== 'function' || root !== document.documentElement) return;
+    // Snapshot exactly the reader-owned classes that are live after this apply,
+    // so a channel intentionally toggled off is never resurrected.
+    guardedRootClasses = root.className.match(/\b(?:jpdb-reader-|yomu-)\S+/g) ?? [];
+    if (readerRootClassObserver) return;
+    readerRootClassObserver = new MutationObserver(() => {
+        const missing = guardedRootClasses.filter(className => !root.classList.contains(className));
+        if (missing.length) root.classList.add(...missing);
+    });
+    readerRootClassObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
+}
+
+export function resetReaderRootClassGuardForTests(): void {
+    readerRootClassObserver?.disconnect();
+    readerRootClassObserver = null;
+    guardedRootClasses = [];
 }
 
 function applyReaderFontSettings(settings: ReaderSettings, root: HTMLElement): void {
