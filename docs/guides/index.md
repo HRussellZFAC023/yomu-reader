@@ -1,10 +1,10 @@
 ---
 title: Japanese Immersion Guides
-description: Free, practical guides to learning Japanese by reading and watching what you like — read raw manga, mine sentences from anime and YouTube to Anki, find comprehensible-input channels, and choose between Jiten, Yomitan, Anki, and JPDB.
+description: Free, practical guides to learning Japanese by reading and watching what you like — read raw manga, mine sentences from anime and YouTube to Anki, find comprehensible-input channels, and choose between Yomitan, Jiten, JPDB, and Anki.
 head:
   - - meta
     - name: keywords
-      content: learn japanese by immersion, japanese immersion guide, read manga in japanese, sentence mining, comprehensible input japanese, yomitan jpdb anki
+      content: learn japanese by immersion, japanese immersion guide, read manga in japanese, sentence mining, comprehensible input japanese, yomitan jiten jpdb anki
 ---
 
 # Japanese Immersion Guides
@@ -29,7 +29,7 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
     <span>Filter YouTube into a Japanese feed, plus a levelled list of channels from N5 to N1.</span>
   </a>
   <a class="yomu-link-card" href="/guides/study-setup">
-    <strong>Yomitan vs JPDB vs Anki</strong>
+    <strong>Yomitan vs Jiten vs JPDB vs Anki</strong>
     <span>What each one is for, and how to use any or all of them from one popup.</span>
   </a>
   <a class="yomu-link-card" href="/compare/migaku-alternative">

@@ -87,7 +87,7 @@ Watching is the foundation, but you learn faster when you can look words up with
 1. **Watch for the gist first.** Pick a video where you follow most of it. Do not pause on every word the first time through.
 2. **Turn on the subtitle overlay.** よむ turns each Japanese subtitle line into tappable words, shows a second native-language line, and gives you a transcript panel with the active line highlighted — so a lookup is one tap.
 3. **Tap to look up.** Reading, meaning, pitch accent, frequency and example sentences appear in the popup; no need to copy text out.
-4. **Mine the keepers.** When a sentence is *almost* fully known except one new word, send it to Jiten, Anki, or JPDB straight from the popup. That is i+1 turned into a flashcard.
+4. **Mine the keepers.** When a sentence is *almost* fully known except one new word, send it to Jiten, JPDB, or Anki straight from the popup. That is i+1 turned into a flashcard.
 
 <div class="yomu-callout"><strong>Tip:</strong> Re-watch favourites. The second pass of a slightly-hard video is often where it tips from "mostly understood" into "comfortable" — and that is exactly where comprehensible input does its work.</div>
 

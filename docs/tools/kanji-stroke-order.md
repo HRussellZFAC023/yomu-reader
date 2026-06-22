@@ -33,7 +33,7 @@ Click a kanji inside the popup headword and the drilldown opens. Depending on yo
 Kanji origin sources are modular and license-aware: you can turn optional public sources on or off independently.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, and RTK facts with a rendered KanjiVG stroke diagram.">
   <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
 </figure>
 

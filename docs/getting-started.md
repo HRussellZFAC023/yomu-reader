@@ -142,7 +142,7 @@ These are reliable starting points, ordered roughly from easiest to hardest:
   </a>
   <a class="yomu-link-card" href="https://www.satorireader.com/" target="_blank" rel="noopener">
     <strong>Satori Reader</strong>
-    <span>Polished learner stories with notes and audio. よむ adds your usual Jiten, Yomitan, Anki, and JPDB flow on top.</span>
+    <span>Polished learner stories with notes and audio. よむ adds your usual Jiten, JPDB, Anki, and Yomitan flow on top.</span>
   </a>
   <a class="yomu-link-card" href="https://watanoc.com/" target="_blank" rel="noopener">
     <strong>Watanoc</strong>
@@ -223,7 +223,7 @@ The usual fixes:
 
 - **Nothing appears on a page** — make sure your userscript manager is enabled for that site, then refresh.
 - **Settings changes don't take effect** — refresh the page after saving.
-- **JPDB features are missing** — recheck that the API key was pasted correctly, with no extra spaces.
+- **Jiten/JPDB features are missing** — recheck that the API key was pasted correctly, with no extra spaces.
 - **AnkiConnect is unreachable on mobile** — keep Anki open on the computer, keep Tailscale connected on both devices, and use your computer's Tailscale URL in よむ. `localhost` and `127.0.0.1` on a phone mean the phone itself, not your computer.
 - **Hosted AnkiConnect checks fail** — if you are using the hosted study page, use the Tailscale URL, not `localhost`. Also make sure the AnkiConnect allowed-origins list includes `https://yomureader.com`.
 

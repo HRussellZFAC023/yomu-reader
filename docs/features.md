@@ -24,7 +24,7 @@ Furigana and word colors are separate controls. You can show furigana only for h
 The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links. These tools are meant to help you keep reading, not to replace a dictionary or grammar textbook.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing JPDB state, pitch, definitions, translation, grammar, and mining controls.">
+  <img :src="'/screenshots/real-popup-lookup.png'" alt="A よむ popup on a Japanese Wikipedia article, showing Jiten/JPDB state, pitch, definitions, translation, grammar, and mining controls.">
   <figcaption>Popup lookup with live study data and mining controls.</figcaption>
 </figure>
 
@@ -43,7 +43,7 @@ This is useful if you want native-language dictionaries, monolingual Japanese de
 
 The speaker button tries your configured audio sources in order. The default setup uses public Japanese audio sources, Jiten and optional JPDB word audio, and browser text-to-speech as fallbacks. If you already use a Yomitan-style audio source, you can add it as a custom URL.
 
-Example sentences can come from JPDB's public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
+Example sentences can come from Jiten/JPDB public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 
 Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. If you want to practice without seeing English immediately, turn on blurred example translations and reveal them by tapping or clicking the translation.
 
@@ -59,7 +59,7 @@ Click a kanji inside the popup headword to open a focused kanji panel. Depending
 Kanji origin sources are modular and license-aware. You can turn off optional public sources independently.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing JPDB and RTK facts with a rendered KanjiVG stroke diagram.">
+  <img :src="'/screenshots/real-kanji-drilldown.png'" alt="A よむ kanji drilldown panel showing Jiten, JPDB, and RTK facts with a rendered KanjiVG stroke diagram.">
   <figcaption>Kanji drilldown with live KanjiVG stroke data.</figcaption>
 </figure>
 

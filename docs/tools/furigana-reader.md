@@ -33,7 +33,7 @@ Furigana and word coloring are separate controls, so you can dial reading suppor
 
 - **All words** — furigana above everything. Good for absolute beginners and read-alouds.
 - **Hard kanji only** — show readings only for less common kanji, so the easy words stay clean.
-- **Hide for known words** — once you've learned a word (via JPDB or Anki), its furigana disappears, nudging you toward recall.
+- **Hide for known words** — once you've learned a word (via Jiten, JPDB, or Anki), its furigana disappears, nudging you toward recall.
 - **Off** — turn furigana off entirely and rely on tap-to-look-up instead.
 
 Because furigana is generated from the same parser that powers lookup, every word stays **tappable**: see the reading above it, and tap for the full meaning, kanji breakdown, pitch, audio, and mining.

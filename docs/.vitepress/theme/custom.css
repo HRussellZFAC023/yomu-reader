@@ -87,6 +87,19 @@
   color: var(--vp-c-brand-1);
 }
 
+.VPNavBarMenuLink[href$="/support"],
+.VPNavBarMenuLink[href$="/support.html"],
+.VPMenuLink .VPLink[href$="/support"],
+.VPMenuLink .VPLink[href$="/support.html"],
+.VPNavScreenMenuLink[href$="/support"],
+.VPNavScreenMenuLink[href$="/support.html"],
+.VPNavScreenMenuGroupLink[href$="/support"],
+.VPNavScreenMenuGroupLink[href$="/support.html"],
+.yomu-hosted-overflow-link[href$="/support"],
+.yomu-hosted-overflow-link[href$="/support.html"] {
+  color: var(--vp-c-brand-1);
+}
+
 .VPImage.logo {
   width: 36px;
   height: 36px;

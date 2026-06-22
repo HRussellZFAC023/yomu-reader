@@ -4,11 +4,11 @@ description: A free sentence mining workflow for Japanese — tap an unknown wor
 head:
   - - meta
     - name: keywords
-      content: sentence mining, mine sentences to anki, anki sentence mining japanese, mine anime subtitles, japanese immersion, ankiconnect, jpdb mining
+      content: sentence mining, mine sentences to anki, anki sentence mining japanese, mine anime subtitles, japanese immersion, ankiconnect, jiten mining, jpdb mining
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is sentence mining?","acceptedAnswer":{"@type":"Answer","text":"Sentence mining is the practice of taking real sentences you encounter while watching or reading Japanese, and turning the ones with a single unknown word into flashcards. Because you already understand the rest of the sentence, the new word is learned in context rather than from a bare word list."}},{"@type":"Question","name":"Do I need a paid app to mine sentences?","acceptedAnswer":{"@type":"Answer","text":"No. Yomu is free and runs in your browser. Paired with Anki and the free AnkiConnect add-on, it gives you a complete subtitle-to-card workflow on YouTube and on your own video files. JPDB is an optional free target if you prefer it to Anki."}},{"@type":"Question","name":"Can I mine sentences to Anki on my phone or iPad?","acceptedAnswer":{"@type":"Answer","text":"Yes. AnkiConnect runs on a desktop copy of Anki, and Yomu on your phone or iPad sends cards to it over your local network. Pointing the AnkiConnect address at your computer (directly on the LAN, or through a tool like Tailscale) lets mobile mining write to the same deck."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"What is sentence mining?","acceptedAnswer":{"@type":"Answer","text":"Sentence mining is the practice of taking real sentences you encounter while watching or reading Japanese, and turning the ones with a single unknown word into flashcards. Because you already understand the rest of the sentence, the new word is learned in context rather than from a bare word list."}},{"@type":"Question","name":"Do I need a paid app to mine sentences?","acceptedAnswer":{"@type":"Answer","text":"No. Yomu is free and runs in your browser. Paired with Anki and the free AnkiConnect add-on, it gives you a complete subtitle-to-card workflow on YouTube and on your own video files. Jiten and JPDB are optional targets if you prefer either one to Anki."}},{"@type":"Question","name":"Can I mine sentences to Anki on my phone or iPad?","acceptedAnswer":{"@type":"Answer","text":"Yes. AnkiConnect runs on a desktop copy of Anki, and Yomu on your phone or iPad sends cards to it over your local network. Pointing the AnkiConnect address at your computer (directly on the LAN, or through a tool like Tailscale) lets mobile mining write to the same deck."}}]}
 ---
 
 # How to mine sentences from anime & YouTube to Anki
@@ -29,7 +29,7 @@ You need three free pieces:
 - **Anki** — the spaced-repetition app, free on desktop.
 - **AnkiConnect** — a free Anki add-on that lets Yomu push cards into your deck automatically.
 
-If you would rather review inside [JPDB](/tools/study-page) than Anki, Yomu can mine to JPDB instead — the same tap-to-card flow, a different destination. Pick whichever you already review in daily; the worst card is the one you never see again.
+If you would rather review inside [Jiten or JPDB](/tools/study-page) than Anki, Yomu can mine there instead — the same tap-to-card flow, a different destination. Pick whichever you already review in daily; the worst card is the one you never see again.
 
 ## Workflow on YouTube
 
@@ -52,7 +52,7 @@ For anime episodes, drama or anything with a local subtitle file, use the free h
 A mined card carries the pieces you need to recall the word in context:
 
 - **Word** and **reading** (with furigana).
-- **Meaning** — from JPDB and any [Yomitan dictionaries](/guides/study-setup) you've imported.
+- **Meaning** — from Jiten, JPDB, and any [Yomitan dictionaries](/guides/study-setup) you've imported.
 - **Source sentence** — the full subtitle line it came from.
 - **Audio** — pronunciation of the word, and where available the sentence audio.
 - **Image** — an optional screenshot of the video frame for a visual cue.
@@ -66,7 +66,7 @@ You can trim fields to taste in your Anki note type; Yomu just fills what your c
 - **Review daily.** Mining without review just makes a backlog. Even ten minutes a day keeps the queue honest — the [new-tab study page](/newtab/index.html) is a low-friction place to do it.
 - **Keep cards short.** Long sentences with multiple clauses are harder to recall than the single line that taught you the word.
 
-This is a free alternative to the paid mining suites many learners start with — same core loop of subtitle to card, running entirely in your browser, with Anki and JPDB as optional targets.
+This is a free alternative to the paid mining suites many learners start with — same core loop of subtitle to card, running entirely in your browser, with Jiten, JPDB, and Anki as optional targets.
 
 ## Mining from phone or iPad
 
@@ -78,7 +78,7 @@ AnkiConnect lives on a desktop copy of Anki, so mobile mining sends cards to you
 Sentence mining is the practice of taking real sentences you encounter while watching or reading Japanese, and turning the ones with a single unknown word into flashcards. Because you already understand the rest of the sentence, the new word is learned in context rather than from a bare word list.
 
 **Do I need a paid app to mine sentences?**
-No. Yomu is free and runs in your browser. Paired with Anki and the free AnkiConnect add-on, it gives you a complete subtitle-to-card workflow on YouTube and on your own video files. JPDB is an optional free target if you prefer it to Anki.
+No. Yomu is free and runs in your browser. Paired with Anki and the free AnkiConnect add-on, it gives you a complete subtitle-to-card workflow on YouTube and on your own video files. Jiten and JPDB are optional targets if you prefer either one to Anki.
 
 **Can I mine sentences to Anki on my phone or iPad?**
 Yes. AnkiConnect runs on a desktop copy of Anki, and Yomu on your phone or iPad sends cards to it over your local network. Pointing the AnkiConnect address at your computer (directly on the LAN, or through a tool like Tailscale) lets mobile mining write to the same deck.
@@ -87,5 +87,5 @@ Yes. AnkiConnect runs on a desktop copy of Anki, and Yomu on your phone or iPad 
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>
   <a class="yomu-cta-button" href="/tools/japanese-subtitle-reader">Subtitle reader</a>
   <a class="yomu-cta-button" href="/guides/comprehensible-input-youtube">Comprehensible input on YouTube</a>
-  <a class="yomu-cta-button" href="/guides/study-setup">Yomitan + JPDB + Anki</a>
+  <a class="yomu-cta-button" href="/guides/study-setup">Yomitan + Jiten + JPDB + Anki</a>
 </div>
