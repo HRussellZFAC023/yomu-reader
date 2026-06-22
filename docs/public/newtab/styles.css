@@ -5316,8 +5316,9 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
    dense words that are hard to tap with a fingertip. On coarse pointers, grow
    each word's tap target with a transparent, layout-neutral hit expander so a
    tap near the word still resolves to it. Scoped to mokuro-style reader boxes
-   to avoid disturbing normal prose. */
-@media (pointer: coarse) {
+   to avoid disturbing normal prose. any-pointer:coarse so an iPad with an Apple
+   Pencil (pointer:fine + hover:hover) still gets the larger tap targets. */
+@media (any-pointer: coarse) {
   .jpdb-reader-word:not(.jpdb-reader-passive-word)::before {
     content: "";
     position: absolute;
@@ -6000,6 +6001,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-ocr-video-frame-pending {
   opacity: 0.001;
   pointer-events: none !important;
+}
+
+/* The status dot sets its own opacity:1, which (equal specificity, later in
+   source) would otherwise beat the pending gate above; this compound selector
+   raises specificity so a gated status spinner stays hidden during OCR. The
+   image and resume controls have no competing opacity, so the plain rule gates
+   them. */
+.jpdb-ocr-video-frame-status.jpdb-ocr-video-frame-pending {
+  opacity: 0.001;
 }
 
 /* Canvas-reader snapshot (e.g. BookWalker). The real <canvas> already shows the
@@ -14492,12 +14502,21 @@ html.jpdb-reader-doodle-active * {
   text-shadow: none !important;
 }
 
-@media (pointer: coarse) {
+/* Touch/pen tap targets for subtitle words. any-pointer:coarse (not the primary
+   pointer) so an iPad with an Apple Pencil — which reports pointer:fine +
+   hover:hover yet still has a coarse touchscreen — gets them too. The expander
+   grows the target vertically into the line-height gap but is clamped so two
+   stacked words on a 2-line cue do NOT overlap (the old -0.5em insets overlapped
+   by ~1em, causing wrong-row mis-taps); horizontal slop is tiny because
+   contiguous Japanese has ~no inter-word gap, so growing it overlaps the
+   neighbour and mis-resolves the tap. Precise single-kana taps come from the
+   pointerup-geometry recovery in the tap handler, not from oversized hitboxes. */
+@media (any-pointer: coarse) {
   .jpdb-subtitle-primary .jpdb-reader-word::before,
   .jpdb-subtitle-row-text .jpdb-reader-word::before {
     content: "";
     position: absolute;
-    inset: -0.5em -0.24em;
+    inset: -0.28em -0.06em;
     z-index: 0;
     pointer-events: auto;
   }
@@ -15672,7 +15691,10 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
 .jpdb-subtitle-hidden .jpdb-subtitle-text,
 .jpdb-subtitle-hidden .jpdb-subtitle-drag-handle { display: none; }
 
-@media (max-width: 768px), (pointer: coarse) {
+/* any-pointer:coarse so an iPad-with-Pencil (pointer:fine, width > 768px) still
+   gets the 44px touch targets, drag handle, rail hit-slop and font clamp. A pure
+   desktop mouse (any-pointer:fine only, width > 768px) is unaffected. */
+@media (max-width: 768px), (any-pointer: coarse) {
   .jpdb-reader-btn { min-height: 44px; font-size: 13px; }
   .jpdb-subtitle-track-offset {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -15699,7 +15721,11 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   .jpdb-reader-onboarding-features { grid-template-columns: 1fr; }
   .jpdb-reader-onboarding-actions { display: grid; grid-template-columns: 1fr; }
   .jpdb-ocr-line { min-width: 0; min-height: 0; border-radius: 8px; }
-  .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 8vw); }
+  /* Cap relative to viewport width so a long line cannot overflow a phone, but
+     at 12vw (was 8vw, which capped ~31px on a 390px phone and undercut a large
+     user font setting). The JS frame-scale already keeps the default readable;
+     this only bounds extreme settings. */
+  .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 12vw); }
   .jpdb-subtitle-drag-handle {
     top: -32px;
     width: 42px;

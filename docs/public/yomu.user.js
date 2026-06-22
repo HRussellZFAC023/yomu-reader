@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.57
+// @version      1.4.58
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.57#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.57#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.57#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.57#sha256-PAIiwChj2aCVHIqigD7zhE879IMEyyImQ+0ai7hCdEU=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.58#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.58#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.58#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.58#sha256-zx0G/c/Cw7Sr2TCrcy2P6Lne7bbUeYQA4qeiZLpK3jI=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -3712,10 +3712,20 @@
     ...PLAYER_CHROME_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
+  const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES,
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
+    "[data-jpdb-reader-root]"
+  ].join(",");
   const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     ...PLAYER_CHROME_SKIP_ENTRIES,
+    "[data-jpdb-reader-root]"
+  ].join(",");
+  const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
   const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
@@ -4309,8 +4319,13 @@
   function shouldSkipFragmentElement(element2, options) {
     if (options.includePassiveInteractions) return safeElementMatches$1(element2, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
     if (options.includeFormChrome) return safeElementMatches$1(element2, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
-    if (options.includeTabChrome) return safeElementMatches$1(element2, TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
-    return safeElementMatches$1(element2, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
+    if (options.includeTabChrome) {
+      return safeElementMatches$1(element2, options.includePlayerChrome ? PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR : TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
+    }
+    if (options.includeUiChrome) {
+      return safeElementMatches$1(element2, options.includePlayerChrome ? PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR : HARD_FRAGMENT_SKIP_SELECTOR);
+    }
+    return safeElementMatches$1(element2, FRAGMENT_SKIP_SELECTOR);
   }
   function isFragmentParagraphBoundary(element2, options) {
     return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element2.tagName) || isParagraphBoundary(element2);
@@ -31319,6 +31334,10 @@ ${normalizedReading}`;
         "ytm-slim-video-metadata-section-renderer #title",
         "ytm-expandable-video-description-body-renderer",
         "ytm-structured-description-content-renderer",
+        ".ytp-ce-element .ytp-ce-video-title",
+        ".ytp-ce-element .ytp-ce-playlist-title",
+        ".ytp-pause-overlay .ytp-videowall-still-info-title",
+        ".ytp-cards-teaser-text",
         YOUTUBE_COMMENT_TEXT_AND_ACTION_ROOTS,
         "ytd-watch-next-secondary-results-renderer #video-title",
         "#secondary ytd-compact-video-renderer #video-title",
@@ -31586,6 +31605,7 @@ ${normalizedReading}`;
       includeUiChrome: true,
       includeFormChrome: true,
       includeTabChrome: true,
+      includePlayerChrome: isYouTubeSiteParserProfile(profile),
       includePassiveInteractions: true,
       mergeBlockFragments: profile.mergeBlockFragments,
       heading: profile.heading,
@@ -31744,6 +31764,7 @@ ${normalizedReading}`;
       includeUiChrome: true,
       includeFormChrome: true,
       includeTabChrome: true,
+      includePlayerChrome: isYouTubeHost(),
       includePassiveInteractions: true,
       heading: true,
       minLength: 1
@@ -32070,6 +32091,7 @@ ${normalizedReading}`;
   const YOUTUBE_MOBILE_PUBLIC_PITCH_ENRICHMENT_PAGE_BUDGET = 24;
   const DEFERRED_PUBLIC_PITCH_ENRICHMENT_CHUNK_SIZE = 4;
   const DEFERRED_PUBLIC_PITCH_ENRICHMENT_IDLE_TIMEOUT_MS = 350;
+  const DEFERRED_PUBLIC_PITCH_PER_URL_CAP = 128;
   const NESTED_PUBLIC_PITCH_ENRICHMENT_LIMIT = 3;
   const NESTED_PARSE_CONTENT_CACHE_TTL_MS = 3e4;
   const NESTED_PARSE_CONTENT_CACHE_LIMIT = 160;
@@ -37985,6 +38007,7 @@ ${criticalWordCss()}
     pitchEnrichmentDrain;
     deferredPublicPitchQueue = [];
     deferredPublicPitchQueuedKeys = /* @__PURE__ */ new Set();
+    deferredPublicPitchEnqueuedForUrl = 0;
     deferredPublicPitchDrain;
     backgroundPublicPitchLookupBudgetHref = location.href;
     backgroundPublicPitchLookupBudgetUsed = 0;
@@ -39046,9 +39069,9 @@ ${criticalWordCss()}
       this.tapLookup = void 0;
       if (this.isDestroyed || event.button !== 0 || event.isPrimary === false || event.pointerType !== "touch" && event.pointerType !== "pen" || this.isInsideActivePopover(event.target)) return;
       const word = this.readerWordForPointerEvent(event, { clickLookup: true });
-      if (!word || !this.readerWordClickSurfaces(event, word)) return;
-      this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word };
-      this.primeLookupAudioFromGesture();
+      if (word && !this.readerWordClickSurfaces(event, word)) return;
+      this.tapLookup = { id: event.pointerId, x: event.clientX, y: event.clientY, word: word ?? void 0 };
+      if (word) this.primeLookupAudioFromGesture();
     }
     updateTapLookup(event) {
       const tap = this.tapLookup;
@@ -39063,8 +39086,9 @@ ${criticalWordCss()}
       if (!word?.isConnected) return;
       const surfaces = this.readerWordClickSurfaces(event, word);
       if (!surfaces) return;
-      this.openReaderWordFromPointer(event, word, surfaces);
       this.suppressWordClickUntil = Date.now() + 700;
+      if (word) this.primeLookupAudioFromGesture();
+      this.openReaderWordFromPointer(event, word, surfaces);
     }
     cancelTapLookup(event) {
       const tap = this.tapLookup;
@@ -39076,7 +39100,7 @@ ${criticalWordCss()}
       this.prepareModalLookupFromPointer(event);
       this.suppressSelectionLookupUntil = Date.now() + 350;
       this.ocr.pinLineForElement(word);
-      if (surfaces.insideSubtitlePlayer) this.pauseVideoForSubtitleMining();
+      if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
       const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event);
       void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
     }
@@ -39129,15 +39153,45 @@ ${criticalWordCss()}
       const pointerType = event.pointerType;
       return event.type.startsWith("pointer") && (pointerType === "touch" || pointerType === "pen");
     }
+    boundSubtitleVideo() {
+      const subtitles = this.subtitles;
+      return subtitles.getBoundVideo?.();
+    }
+    shouldPauseForLookupAnchor(anchor) {
+      if (!this.settings.subtitleMiningPause || !anchor) return false;
+      if (anchor.closest(".jpdb-reader-popover")) return false;
+      if (anchor.closest(SUBTITLE_SURFACE_SELECTOR)) return true;
+      const bound = this.boundSubtitleVideo();
+      return Boolean(bound && !bound.paused);
+    }
     pauseVideoForSubtitleMining() {
       if (!this.settings.subtitleMiningPause) return;
-      const paused = pauseActiveVideo();
-      if (paused) this.subtitleMiningPausedVideo = paused;
+      const bound = this.boundSubtitleVideo();
+      let paused;
+      if (bound) {
+        if (!bound.paused) {
+          bound.pause();
+          paused = bound;
+        }
+      } else {
+        paused = pauseActiveVideo();
+      }
+      if (!paused) return;
+      this.subtitleMiningPausedVideo = paused;
+      this.markMiningPause(paused);
     }
     resumeSubtitleMiningVideo() {
-      const video = this.subtitleMiningPausedVideo;
+      const stored = this.subtitleMiningPausedVideo;
       this.subtitleMiningPausedVideo = void 0;
-      if (video?.isConnected && video.paused) void video.play().catch(() => void 0);
+      if (!stored) return;
+      this.clearMiningPause(stored);
+      if (stored.isConnected && stored.paused) void stored.play().catch(() => void 0);
+    }
+    markMiningPause(video) {
+      video.dataset.jpdbReaderMiningPause = String(Date.now());
+    }
+    clearMiningPause(video) {
+      delete video.dataset.jpdbReaderMiningPause;
     }
     handleDocumentKeydown(event) {
       if (this.isDestroyed) return;
@@ -42579,25 +42633,26 @@ ${criticalWordCss()}
         const publicTokens = publicLookupCandidates.slice(0, publicLookupLimit);
         const deferredPublicTokens = publicLookupCandidates.slice(publicLookupLimit);
         const shouldDeferPublicLookup = options.deferPublicLookup !== false;
+        const localOnlyRetryTokens = [...deferredPublicTokens, ...localOnlyTokens];
         const localOnly = runLimited(
-          [...deferredPublicTokens, ...localOnlyTokens],
+          localOnlyRetryTokens,
           LOCAL_PITCH_ENRICHMENT_CONCURRENCY,
           (token) => this.enrichPitchToken(token, { publicLookup: false })
         );
         if (!publicTokens.length) {
           await localOnly;
-          if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+          if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(localOnlyRetryTokens);
           return;
         }
         const queuedPublicTokens = await this.resolvePublicFallbackPitchTokens(publicTokens, options);
         if (!queuedPublicTokens.length) {
           await localOnly;
-          if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+          if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(localOnlyRetryTokens);
           return;
         }
         this.queuePitchEnrichmentTokens(queuedPublicTokens, options);
         await Promise.all([localOnly, this.drainPitchEnrichmentQueue()]);
-        if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(deferredPublicTokens);
+        if (shouldDeferPublicLookup) this.scheduleDeferredPublicPitchEnrichment(localOnlyRetryTokens);
         return;
       }
       this.queuePitchEnrichmentTokens(uniqueTokens, options);
@@ -42688,14 +42743,18 @@ ${criticalWordCss()}
       if (this.backgroundPublicPitchLookupBudgetHref === location.href) return;
       this.backgroundPublicPitchLookupBudgetHref = location.href;
       this.backgroundPublicPitchLookupBudgetUsed = 0;
+      this.deferredPublicPitchEnqueuedForUrl = 0;
     }
     queueDeferredPublicPitchTokens(tokens) {
+      this.resetBackgroundPublicPitchLookupBudgetIfNeeded();
       for (const token of tokens) {
+        if (this.deferredPublicPitchEnqueuedForUrl >= DEFERRED_PUBLIC_PITCH_PER_URL_CAP) break;
         const key = cardKey(token.card);
         if (this.deferredPublicPitchQueuedKeys.has(key)) continue;
         if (this.pitchEnrichmentQueuedKeys.has(key)) continue;
         this.deferredPublicPitchQueuedKeys.add(key);
         this.deferredPublicPitchQueue.push(token);
+        this.deferredPublicPitchEnqueuedForUrl++;
       }
     }
     async drainDeferredPublicPitchQueue() {
@@ -42855,6 +42914,7 @@ ${criticalWordCss()}
       this.pitchEnrichmentQueuedOptions.clear();
       this.deferredPublicPitchQueue = [];
       this.deferredPublicPitchQueuedKeys.clear();
+      this.deferredPublicPitchEnqueuedForUrl = 0;
       this.backgroundPublicPitchLookupBudgetHref = location.href;
       this.backgroundPublicPitchLookupBudgetUsed = 0;
     }
@@ -43358,7 +43418,7 @@ ${criticalWordCss()}
       this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
       popover.classList.toggle("jpdb-reader-sheet-sticky", this.isStickyMountedSheet(popover, state));
       this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
-      if (state.mode === "modal" && state.resolvedAnchor?.closest(SUBTITLE_SURFACE_SELECTOR)) {
+      if (state.mode === "modal" && this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null)) {
         this.pauseVideoForSubtitleMining();
       }
     }
@@ -43555,7 +43615,7 @@ ${criticalWordCss()}
     }
     prepareActivePopoverDismiss(options) {
       if (this.activePopover) this.immersionPopover.abortPendingRequests(this.activePopover);
-      this.resumeSubtitleMiningVideo();
+      if (!options.preserveNavigation) this.resumeSubtitleMiningVideo();
       this.clearHoverDismissState(options);
       this.audio.stop();
       this.immersionPopover.stopAudio();

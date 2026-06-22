@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.4.58] - 2026-06-22
+
+### Fixed
+
+- Mobile/Shorts subtitles are larger and sit higher by default so they clear the Shorts action rail and scrubber. Font scaling is now portrait-aware (it no longer collapses to ~17px on a phone), and the size/position settings stay authoritative — an explicit value always wins.
+- Subtitle timing follows the video frame-by-frame (via `requestVideoFrameCallback`, with a `requestAnimationFrame` fallback) instead of a ~250 ms sampler, so cue changes and karaoke highlighting stay in sync, including at 1.5–2× speed. The per-frame sampler runs only while playing and is cancelled on pause, tab-hide, and teardown to protect battery.
+- Paused-frame OCR no longer covers the player before it finishes: the captured frame, scan status, and resume button stay hidden until OCR produces text, so the native player and its comment/like/scrubber controls remain reachable while scanning. A dictionary lookup that pauses the video no longer spawns an OCR overlay over the player, and the overlay re-aligns on rotate/fullscreen/pinch-zoom.
+- Opening the dictionary reliably pauses the exact video the subtitles track (instead of guessing the largest video on the page), keeps it paused while drilling into nested lookups, and resumes it on close.
+- Tapping a word is snappier with fewer mispresses: a tap that lands just off a word is now resolved at finger-up instead of waiting for the delayed synthetic click, and word hit targets no longer overlap their neighbours.
+- iPad with an Apple Pencil now gets the touch-sized tap targets, hit-slop, and 44 px controls (touch ergonomics key off `any-pointer: coarse` instead of the primary pointer, which a Pencil reports as fine).
+- YouTube comments receive pitch-accent underlines more reliably on keyless setups: budget-denied words are retried through a bounded, paced public-pitch lane instead of being abandoned, without exceeding a per-page lookup cap.
+
+### Changed
+
+- More YouTube text is parsed: Japanese inside the player/overlay wrappers, end-screen cards, and pause-overlay titles now receives furigana and pitch coloring. The native caption overlay stays excluded so it is never double-rendered, and the reader never re-ingests its own annotations.
+
 ## [1.4.57] - 2026-06-22
 
 ### Fixed

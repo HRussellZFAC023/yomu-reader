@@ -7132,10 +7132,20 @@ recommendedJiten	Jiten頻度です。
     ...PLAYER_CHROME_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
+  const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES,
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
+    "[data-jpdb-reader-root]"
+  ].join(",");
   const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
     ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
     ...FORM_BOUNDARY_SKIP_ENTRIES,
     ...PLAYER_CHROME_SKIP_ENTRIES,
+    "[data-jpdb-reader-root]"
+  ].join(",");
+  const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
+    ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
+    ...FORM_BOUNDARY_SKIP_ENTRIES,
     "[data-jpdb-reader-root]"
   ].join(",");
   const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
@@ -7595,8 +7605,13 @@ recommendedJiten	Jiten頻度です。
   function shouldSkipFragmentElement(element, options) {
     if (options.includePassiveInteractions) return safeElementMatches(element, PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR);
     if (options.includeFormChrome) return safeElementMatches(element, FORM_CHROME_FRAGMENT_SKIP_SELECTOR);
-    if (options.includeTabChrome) return safeElementMatches(element, TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
-    return safeElementMatches(element, options.includeUiChrome ? HARD_FRAGMENT_SKIP_SELECTOR : FRAGMENT_SKIP_SELECTOR);
+    if (options.includeTabChrome) {
+      return safeElementMatches(element, options.includePlayerChrome ? PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR : TAB_CHROME_FRAGMENT_SKIP_SELECTOR);
+    }
+    if (options.includeUiChrome) {
+      return safeElementMatches(element, options.includePlayerChrome ? PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR : HARD_FRAGMENT_SKIP_SELECTOR);
+    }
+    return safeElementMatches(element, FRAGMENT_SKIP_SELECTOR);
   }
   function isFragmentParagraphBoundary(element, options) {
     return isPassiveInteractionBoundaryElement(element, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element.tagName) || isParagraphBoundary(element);
@@ -33061,6 +33076,12 @@ ${spelling}`);
     log$l.warn("OCR scan failed", { provider, manualRequested }, error);
   }
   const OCR_NAVIGATION_EVENTS = ["yt-navigate-start", "yt-navigate-finish", "popstate"];
+  const OCR_FULLSCREEN_CHANGE_EVENTS = ["fullscreenchange", "webkitfullscreenchange", "mozfullscreenchange"];
+  const MINING_PAUSE_MARKER_TTL_MS = 1500;
+  function isFreshMiningPause(video) {
+    const marked = Number(video.dataset.jpdbReaderMiningPause);
+    return Number.isFinite(marked) && Date.now() - marked < MINING_PAUSE_MARKER_TTL_MS;
+  }
   class ImageOcrController {
     constructor(options) {
       this.options = options;
@@ -33140,6 +33161,12 @@ ${spelling}`);
       document.addEventListener("scroll", this.handleDocumentScroll, { capture: true, passive: true });
       window.addEventListener("scroll", this.handleWindowScroll, { passive: true });
       window.addEventListener("resize", this.handleWindowResize, { passive: true });
+      window.addEventListener("orientationchange", this.handleWindowResize, { passive: true });
+      for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
+        document.addEventListener(eventName, this.handleWindowResize, true);
+      }
+      window.visualViewport?.addEventListener("resize", this.handleDocumentScroll, { passive: true });
+      window.visualViewport?.addEventListener("scroll", this.handleDocumentScroll, { passive: true });
       for (const eventName of OCR_NAVIGATION_EVENTS) {
         window.addEventListener(eventName, this.handleSpaNavigation);
       }
@@ -33165,6 +33192,12 @@ ${spelling}`);
       document.removeEventListener("scroll", this.handleDocumentScroll, true);
       window.removeEventListener("scroll", this.handleWindowScroll);
       window.removeEventListener("resize", this.handleWindowResize);
+      window.removeEventListener("orientationchange", this.handleWindowResize);
+      for (const eventName of OCR_FULLSCREEN_CHANGE_EVENTS) {
+        document.removeEventListener(eventName, this.handleWindowResize, true);
+      }
+      window.visualViewport?.removeEventListener("resize", this.handleDocumentScroll);
+      window.visualViewport?.removeEventListener("scroll", this.handleDocumentScroll);
       for (const eventName of OCR_NAVIGATION_EVENTS) {
         window.removeEventListener(eventName, this.handleSpaNavigation);
       }
@@ -33437,7 +33470,7 @@ ${spelling}`);
       this.inFlightKeys.add(key);
       const hasFastText = Boolean(readFallbackOcrResult(image, false));
       const isReaderRasterFrame = this.canvasFrameSources.has(image) || this.backgroundFrameSources.has(image);
-      const delay2 = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame ? 0 : 900;
+      const delay2 = this.cache.has(key) || this.states.get(image)?.overlayRequested || hasFastText || isReaderRasterFrame || this.videoFrameVideos.has(image) ? 0 : 900;
       void waitForIdle(delay2, delay2).then(() => this.scanImage(image)).finally(() => {
         this.activeScans = Math.max(0, this.activeScans - 1);
         this.inFlightKeys.delete(key);
@@ -33733,9 +33766,11 @@ ${spelling}`);
     }
     // --- Paused-video frames (UT-27) ---
     snapshotPausedVideo(target) {
+      if (this.destroyed) return;
       if (!(target instanceof HTMLVideoElement) || this.videoFrames.has(target)) return;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === "off") return;
+      if (isFreshMiningPause(target)) return;
       if (isLikelyPausedVideoThumbnail(target)) return;
       const rect = target.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;
@@ -33757,17 +33792,33 @@ ${spelling}`);
       this.videoFrames.set(target, frame);
       this.videoFrameVideos.set(frame, target);
       const status = this.createVideoFrameStatus("loading");
+      status.classList.add("jpdb-ocr-video-frame-pending");
       this.videoFrameStatuses.set(target, status);
       positionVideoFrameStatus(status, rect, target);
       const resume = this.createVideoFrameResumeControl(target);
+      resume.classList.add("jpdb-ocr-video-frame-pending");
       this.videoFrameControls.set(target, resume);
       positionVideoFrameResumeControl(resume, rect, target);
       this.schedulePosition();
     }
+    // Reveal the whole overlay once OCR has produced text: image, status dot, and
+    // the resume control all un-gate together so the readable text + its escape
+    // hatch appear at the same time.
     revealVideoFrameOverlay(image) {
       if (!this.videoFrameVideos.has(image)) return;
       image.classList.remove("jpdb-ocr-video-frame-pending");
       delete image.dataset.ocrPending;
+      this.revealVideoFrameStatusAndResume(image);
+    }
+    // Reveal only the status dot + resume control, leaving the captured frame
+    // image gated. Used on empty/failed terminal states: the viewer gets
+    // feedback and a play control without the (text-less) frame covering the
+    // player. During loading both stay gated so the native player is reachable.
+    revealVideoFrameStatusAndResume(image) {
+      const video = this.videoFrameVideos.get(image);
+      if (!video) return;
+      this.videoFrameStatuses.get(video)?.classList.remove("jpdb-ocr-video-frame-pending");
+      this.videoFrameControls.get(video)?.classList.remove("jpdb-ocr-video-frame-pending");
     }
     createVideoFrameResumeControl(video) {
       const language = this.options.getSettings().interfaceLanguage;
@@ -33804,7 +33855,14 @@ ${spelling}`);
       const language = this.options.getSettings().interfaceLanguage;
       const label = uiText(language, videoFrameStatusTextKey(status));
       element.dataset.status = status;
-      element.className = `jpdb-ocr-video-frame-status jpdb-ocr-video-frame-status-${status}`;
+      element.classList.remove(
+        "jpdb-ocr-video-frame-status-loading",
+        "jpdb-ocr-video-frame-status-ready",
+        "jpdb-ocr-video-frame-status-empty",
+        "jpdb-ocr-video-frame-status-failed",
+        "jpdb-ocr-video-frame-status-fade-out"
+      );
+      element.classList.add("jpdb-ocr-video-frame-status", `jpdb-ocr-video-frame-status-${status}`);
       element.setAttribute("aria-label", label);
     }
     updateVideoFrameStatusForImage(image, status) {
@@ -33816,8 +33874,23 @@ ${spelling}`);
     // Drive both status surfaces: paused-video frames keep their card over the
     // player; every other OCR'd image gets its own card over the image.
     updateOcrStatus(image, status) {
-      this.updateVideoFrameStatusForImage(image, status);
+      if (this.videoFrameVideos.has(image)) {
+        this.applyVideoFrameStatusTransition(image, status);
+        return;
+      }
       this.updateImageStatusCard(image, status);
+    }
+    // Paused-frame overlays stay gated (image + status + resume hidden) while OCR
+    // runs, so the native player and its comment/like/scrubber controls stay
+    // reachable. On 'ready' the whole overlay un-gates; on empty/failed only the
+    // status + resume un-gate (the text-less frame image stays hidden) so the
+    // viewer still gets feedback and a play control without the frame covering
+    // the player. A lookup/mining pause never reaches here — it is skipped at
+    // snapshot time via the mining marker.
+    applyVideoFrameStatusTransition(image, status) {
+      if (status === "ready") this.revealVideoFrameOverlay(image);
+      else if (status === "empty" || status === "failed") this.revealVideoFrameStatusAndResume(image);
+      this.updateVideoFrameStatusForImage(image, status);
     }
     updateImageStatusCard(image, status) {
       if (this.videoFrameVideos.has(image)) return;
@@ -39775,16 +39848,27 @@ ${spelling}`);
   }
   function subtitleMinimumFontSize(root) {
     const rootRect = root.getBoundingClientRect();
-    return rootRect.width < 700 || rootRect.height < 360 ? 12 : 14;
+    return rootRect.width < 700 || rootRect.height < 360 ? 16 : 14;
   }
   function subtitleFrameTargetFontSize(root, settings) {
     const rootRect = root.getBoundingClientRect();
     const width = Math.max(1, rootRect.width);
     const height = Math.max(1, rootRect.height);
     const baseline = Math.max(16, Math.min(64, settings.subtitleFontSize));
-    const frameScale = Math.sqrt(Math.min(width / 1280, height / 720));
-    const scaled = Math.round(baseline * Math.max(0.62, Math.min(1.45, frameScale)));
+    const portrait = height > width;
+    const frameScale = portrait ? Math.sqrt(width / 720) : Math.sqrt(Math.min(width / 1280, height / 720));
+    const minScale = portrait || width < 700 ? 0.82 : 0.62;
+    const scaled = Math.round(baseline * Math.max(minScale, Math.min(1.45, frameScale)));
     return Math.max(subtitleMinimumFontSize(root), Math.min(64, scaled));
+  }
+  const DEFAULT_SUBTITLE_BOTTOM_OFFSET = 16;
+  function effectiveSubtitleBottomPercent(settings, root) {
+    if (settings.subtitleBottomOffset !== DEFAULT_SUBTITLE_BOTTOM_OFFSET) return settings.subtitleBottomOffset;
+    const rect = root.getBoundingClientRect();
+    const portrait = rect.height > rect.width;
+    const narrow = rect.width < 700;
+    const floor = portrait ? 28 : narrow ? 22 : 0;
+    return Math.max(settings.subtitleBottomOffset, floor);
   }
   function subtitleElementOverflows(element) {
     return element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1;
@@ -39824,6 +39908,10 @@ ${spelling}`);
   function clearWindowAnimationFrame(id) {
     if (id !== void 0) window.cancelAnimationFrame(id);
     return void 0;
+  }
+  function videoFrameCallbackHost(video) {
+    const candidate = video;
+    return typeof candidate.requestVideoFrameCallback === "function" && typeof candidate.cancelVideoFrameCallback === "function" ? candidate : null;
   }
   function frameHasPlayerControls(frame) {
     return Boolean(frame.querySelector([
@@ -39865,7 +39953,7 @@ ${spelling}`);
   const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
   const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
   const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
-  const SUBTITLE_TICK_ACTIVE_MS = 250;
+  const SUBTITLE_TICK_ACTIVE_MS = 500;
   const SUBTITLE_TICK_PAUSED_MS = 600;
   const SUBTITLE_TICK_IDLE_MS = 1500;
   const TRANSCRIPT_DEFERRED_RENDER_DELAY_MS = 500;
@@ -40005,6 +40093,14 @@ ${spelling}`);
     lastPlayerChromeHidden = false;
     discoverTimer;
     tickTimer;
+    // Per-frame cue/karaoke sampler (rVFC, rAF fallback). Armed only while the
+    // bound video plays; cancelled on pause/seek-away/destroy/hidden.
+    frameSyncHandle;
+    frameSyncVideo;
+    // Dirty-check for the per-frame karaoke pass: classes only flip at integer
+    // character boundaries, so skip the class churn between crossings.
+    lastKaraokeProgressKey;
+    lastKaraokePrimaryWord;
     alignFrame;
     alignAfterTranscriptResize = false;
     lastAlignedVideoRectKey = "";
@@ -40187,6 +40283,7 @@ ${spelling}`);
       this.videoResizeObserver = void 0;
       this.discoverTimer = clearWindowTimeout(this.discoverTimer);
       this.tickTimer = clearWindowTimeout(this.tickTimer);
+      this.stopFrameSync();
       this.clearControlsIdleTimer();
       this.alignFrame = clearWindowAnimationFrame(this.alignFrame);
       this.transcriptScrollFrame = clearWindowAnimationFrame(this.transcriptScrollFrame);
@@ -40246,7 +40343,7 @@ ${spelling}`);
       if (!this.root) return;
       setStylePropertyIfChanged(this.root, "--subtitle-font-size-target", `${settings.subtitleFontSize}px`);
       setStylePropertyIfChanged(this.root, "--subtitle-font-size", `${settings.subtitleFontSize}px`);
-      this.root.style.setProperty("--subtitle-bottom", `${settings.subtitleBottomOffset}%`);
+      this.applyEffectiveSubtitleBottom();
       this.syncSubtitleDragOffsetStyle();
       this.root.style.setProperty("--subtitle-color", settings.subtitleTextColor);
       this.root.style.setProperty("--subtitle-outline", settings.subtitleOutlineColor);
@@ -40456,10 +40553,14 @@ ${spelling}`);
       video.addEventListener("seeking", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
       video.addEventListener("seeked", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
       video.addEventListener("ratechange", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
-      video.addEventListener("pause", () => this.syncPauseTranscriptPanel({ deferRender: true }), this.eventOptions({ passive: true }));
+      video.addEventListener("pause", () => {
+        if (video === this.video) this.stopFrameSync();
+        this.syncPauseTranscriptPanel({ deferRender: true });
+      }, this.eventOptions({ passive: true }));
       const handlePlaybackStarted = () => {
         this.pausePanelDismissed = false;
         if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
+        if (video === this.video) this.startFrameSync(video);
         this.scheduleAlignToVideo();
       };
       video.addEventListener("play", handlePlaybackStarted, this.eventOptions({ passive: true }));
@@ -40657,7 +40758,7 @@ ${spelling}`);
         this.tick();
       }, this.tickDelayMs(settings));
     }
-    // The 250ms cadence is only needed while a video is actually playing;
+    // The active cadence is only needed while a video is actually playing;
     // hidden tabs and videoless pages ticking that fast just drains battery.
     tickDelayMs(settings) {
       if (document.hidden || !settings.subtitlePlayerEnabled || !this.video) return SUBTITLE_TICK_IDLE_MS;
@@ -40665,10 +40766,74 @@ ${spelling}`);
       return SUBTITLE_TICK_ACTIVE_MS;
     }
     restartTickAfterVisibilityChange() {
-      if (this.destroyed || document.hidden || this.tickTimer === void 0) return;
+      if (this.destroyed) return;
+      if (document.hidden) {
+        this.stopFrameSync();
+        return;
+      }
+      if (this.video && !this.video.paused) this.startFrameSync(this.video);
+      if (this.tickTimer === void 0) return;
       window.clearTimeout(this.tickTimer);
       this.tickTimer = void 0;
       this.tick();
+    }
+    // Frame-synced cue + karaoke sampler. The housekeeping tick (500ms) is too
+    // coarse for cue boundaries — a line could flip up to a tick late, worse at
+    // 1.5-2x playback — so sample once per presented frame while the bound video
+    // plays. Cancelled on pause/seek-away/destroy/hidden so a paused or
+    // backgrounded tab never spins. updateFromLoadedCues no-ops when the active
+    // cue is unchanged, so the steady-state per-frame cost is two bounded cue
+    // searches.
+    startFrameSync(video) {
+      if (this.destroyed || document.hidden) return;
+      this.stopFrameSync();
+      this.frameSyncVideo = video;
+      this.scheduleFrameSync();
+    }
+    scheduleFrameSync() {
+      const video = this.frameSyncVideo;
+      if (!video || this.frameSyncHandle !== void 0) return;
+      const host = videoFrameCallbackHost(video);
+      const run = () => {
+        this.frameSyncHandle = void 0;
+        if (this.destroyed || document.hidden) {
+          this.frameSyncVideo = void 0;
+          return;
+        }
+        const current = this.frameSyncVideo;
+        if (!current || current.paused || !current.isConnected) {
+          this.frameSyncVideo = void 0;
+          return;
+        }
+        this.sampleSubtitleFrame(current);
+        this.scheduleFrameSync();
+      };
+      this.frameSyncHandle = host ? host.requestVideoFrameCallback(run) : window.requestAnimationFrame(run);
+    }
+    stopFrameSync() {
+      const handle = this.frameSyncHandle;
+      if (handle !== void 0) {
+        const host = this.frameSyncVideo ? videoFrameCallbackHost(this.frameSyncVideo) : null;
+        if (host) host.cancelVideoFrameCallback(handle);
+        else window.cancelAnimationFrame(handle);
+        this.frameSyncHandle = void 0;
+      }
+      this.frameSyncVideo = void 0;
+    }
+    sampleSubtitleFrame(video) {
+      const settings = this.options.getSettings();
+      if (!settings.subtitlePlayerEnabled) return;
+      this.updateFromLoadedCues();
+      if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) {
+        this.applyKaraokeStateToPrimary(this.currentCue, video.currentTime);
+      }
+    }
+    // The video the subtitle controller is currently bound to, when it is still
+    // in the DOM. Consumed by the mining-pause path so it pauses the exact
+    // player the overlay is tracking instead of a document-wide largest-video
+    // heuristic (which mis-fires with ads/previews/miniplayers).
+    getBoundVideo() {
+      return this.video && this.video.isConnected ? this.video : void 0;
     }
     tickSubtitlePlayer(settings) {
       this.refreshSubtitleSourcesForTick();
@@ -41550,8 +41715,13 @@ ${spelling}`);
       if (own || this.hasAuthoritativeParseTier()) return own;
       return tier === "provisional" ? this.pendingParsedHtml.get(key) : this.pendingProvisionalParsedHtml.get(key);
     }
+    applyEffectiveSubtitleBottom() {
+      if (!this.root) return;
+      this.root.style.setProperty("--subtitle-bottom", `${effectiveSubtitleBottomPercent(this.options.getSettings(), this.root)}%`);
+    }
     fitSubtitleTextToVideo() {
       if (!this.root || !this.subtitleEl) return;
+      this.applyEffectiveSubtitleBottom();
       const settings = this.options.getSettings();
       const target = subtitleFrameTargetFontSize(this.root, settings);
       let fitted = target;
@@ -41571,8 +41741,17 @@ ${spelling}`);
     }
     applyKaraokeStateToPrimary(cue, time) {
       const state2 = this.primaryKaraokeState(cue);
-      if (!state2) return;
+      if (!state2) {
+        this.lastKaraokeProgressKey = void 0;
+        this.lastKaraokePrimaryWord = void 0;
+        return;
+      }
       const progress = karaokeCharacterProgress(cue, state2.words, time);
+      const progressKey = Math.floor(progress);
+      const primaryWord = state2.wordElements[0] ?? null;
+      if (progressKey === this.lastKaraokeProgressKey && primaryWord === this.lastKaraokePrimaryWord) return;
+      this.lastKaraokeProgressKey = progressKey;
+      this.lastKaraokePrimaryWord = primaryWord;
       let cursor = 0;
       for (const element of state2.wordElements) {
         cursor = applyKaraokeClassToWordElement(element, cursor, progress);

@@ -19985,6 +19985,46 @@ describe('reader helpers', () => {
         }
     });
 
+    it('recovers a near-miss tap by resolving the word at pointerup, not the late synthetic click', () => {
+        // The reported "press twice, nothing happens, then it opens late": a
+        // pointerdown that just misses the word recorded nothing, so the only
+        // opener was the browser's ~300ms synthetic click — by then the cue had
+        // moved on. Seeding the tap on pointerdown (word may be undefined) and
+        // resolving at pointerup recovers it instantly with the fast-render path.
+        const app = new ReaderApp();
+        document.body.innerHTML = `
+            <p><span class="jpdb-reader-word" data-vid="601" data-sid="601" data-sentence="日本語">日本語</span></p>
+        `;
+        const para = document.querySelector<HTMLElement>('p')!;
+        const word = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const pinLineForElement = vi.fn();
+        const destroyOcr = vi.fn();
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            ocr: { pinLineForElement: typeof pinLineForElement; destroy: typeof destroyOcr };
+            showWord: typeof showWord;
+            bindEvents(): void;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, lookupOnClick: true };
+        internals.ocr = { pinLineForElement, destroy: destroyOcr };
+        internals.showWord = showWord;
+        internals.bindEvents();
+
+        try {
+            // pointerdown misses (lands on the paragraph gap, no word resolved) ...
+            para.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 51, clientX: 10, clientY: 10, button: 0 }));
+            // ... but pointerup lands on the word — its geometry is authoritative.
+            word.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 51, clientX: 12, clientY: 12, button: 0 }));
+
+            expect(showWord).toHaveBeenCalledTimes(1);
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'click', userGesture: true, fastInitialRender: true }));
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('opens OCR words on touch pointerdown and consumes the synthetic click', () => {
         const app = new ReaderApp();
         document.body.innerHTML = `
