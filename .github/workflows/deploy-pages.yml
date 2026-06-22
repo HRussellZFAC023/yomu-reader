@@ -54,6 +54,9 @@ jobs:
       - run: npm run docs:build
         env:
           YOMU_GOOGLE_SITE_VERIFICATION: ${{ secrets.YOMU_GOOGLE_SITE_VERIFICATION }}
+          YOMU_BING_SITE_VERIFICATION: ${{ secrets.YOMU_BING_SITE_VERIFICATION }}
+          YOMU_YANDEX_SITE_VERIFICATION: ${{ secrets.YOMU_YANDEX_SITE_VERIFICATION }}
+          YOMU_BAIDU_SITE_VERIFICATION: ${{ secrets.YOMU_BAIDU_SITE_VERIFICATION }}
       - run: npm run verify
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v5

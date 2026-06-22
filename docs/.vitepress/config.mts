@@ -14,12 +14,24 @@ const pdfReaderLink = '/pdf-reader/';
 const siteTitle = 'よむ - Free Japanese popup reader';
 const siteDescription =
     'よむ is a free Japanese immersion reader. Tap a word on any web page, manga image, PDF, or subtitle to see readings, meanings, kanji, audio, examples, and study actions.';
-const googleSiteVerification = googleSiteVerificationContent(process.env.YOMU_GOOGLE_SITE_VERIFICATION);
-const googleSiteVerificationHead: HeadConfig[] = googleSiteVerification
-    ? [['meta', { name: 'google-site-verification', content: googleSiteVerification }]]
-    : [];
+const siteVerificationHead = siteVerificationMetaHead([
+    { name: 'google-site-verification', value: process.env.YOMU_GOOGLE_SITE_VERIFICATION },
+    { name: 'msvalidate.01', value: process.env.YOMU_BING_SITE_VERIFICATION },
+    { name: 'yandex-verification', value: process.env.YOMU_YANDEX_SITE_VERIFICATION },
+    { name: 'baidu-site-verification', value: process.env.YOMU_BAIDU_SITE_VERIFICATION },
+]);
 
-function googleSiteVerificationContent(value: string | undefined): string {
+function siteVerificationMetaHead(items: { name: string; value: string | undefined }[]): HeadConfig[] {
+    return items.flatMap(({ name, value }) => {
+        const content = siteVerificationContent(value);
+        return content ? [[
+            'meta',
+            { name, content },
+        ] as HeadConfig] : [];
+    });
+}
+
+function siteVerificationContent(value: string | undefined): string {
     const trimmed = value?.trim() ?? '';
     const content = trimmed.match(/content=["']([^"']+)["']/i)?.[1]?.trim();
     return content || trimmed;
@@ -178,7 +190,7 @@ export default defineConfig({
         ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
         ['meta', { name: 'twitter:image', content: socialImage }],
         ['meta', { name: 'twitter:image:alt', content: 'よむ app icon and Japanese reader preview card' }],
-        ...googleSiteVerificationHead,
+        ...siteVerificationHead,
     ],
     transformHead({ pageData }) {
         const pageUrl = canonicalUrl(pageData.relativePath);
