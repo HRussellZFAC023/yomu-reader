@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.71
+// @version      1.4.72
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -12,10 +12,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.71#sha256-zeGzhFrcb2BH9BXJ5Cz/bRA1G5qVRcpvHADwzuzCXcw=
-// @require      https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.71#sha256-XtJXsoGN0so6+T8qVz8GtNHqKx26Ayatlc4hMucjSwQ=
-// @require      https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.71#sha256-ftIl8U36SxoY8FzYncaVUSWAOM65xckIlK/os95fB84=
-// @require      https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.71#sha256-DYJkceaRo3zvD5Vwbty7ClR9njG9ZONc3lNOXWbUPtc=
+// @require      https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.72#sha256-zeGzhFrcb2BH9BXJ5Cz/bRA1G5qVRcpvHADwzuzCXcw=
+// @require      https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.72#sha256-XtJXsoGN0so6+T8qVz8GtNHqKx26Ayatlc4hMucjSwQ=
+// @require      https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.72#sha256-ftIl8U36SxoY8FzYncaVUSWAOM65xckIlK/os95fB84=
+// @require      https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.72#sha256-DYJkceaRo3zvD5Vwbty7ClR9njG9ZONc3lNOXWbUPtc=
 // @resource     yomuCss  https://yomureader.com/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -34837,7 +34837,7 @@ ${reading}`);
     const current = parseHttpUrl(sourceHref);
     if (!current) return null;
     const alternate = japaneseAlternateLinkUrl(current, root);
-    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current);
+    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current, root);
     if (!target || target.href === current.href) return null;
     return target.href;
   }
@@ -35129,9 +35129,8 @@ ${reading}`);
   function japaneseAlternateLinkUrl(current, root) {
     if (!root) return null;
     try {
-      for (const element2 of Array.from(root.querySelectorAll('link[rel~="alternate"][hreflang][href],a[hreflang][href]'))) {
-        const hreflang = element2.getAttribute("hreflang")?.toLowerCase().replace(/_/g, "-");
-        if (hreflang !== JAPANESE_LANGUAGE && hreflang !== JAPANESE_LOCALE.toLowerCase()) continue;
+      for (const element2 of alts(root)) {
+        if (!/^ja(?:[-_]|$)/i.test(element2.getAttribute("hreflang") ?? "")) continue;
         const href = element2.getAttribute("href");
         const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
         if (candidate && candidate.href !== current.href) return candidate;
@@ -35140,6 +35139,9 @@ ${reading}`);
       return null;
     }
     return null;
+  }
+  function alts(root) {
+    return root.querySelectorAll("link[rel~=alternate][hreflang][href],a[hreflang][href]");
   }
   function siteRuleJapaneseUrl(current) {
     const hostname = current.hostname.toLowerCase();
@@ -35215,7 +35217,11 @@ ${reading}`);
     next.pathname = parts.join("/") || "/";
     return next;
   }
-  function genericJapaneseUrl(current) {
+  function genericJapaneseUrl(current, root) {
+    if (root) {
+      if (alts(root).length) return null;
+      if (root.readyState === "loading") return null;
+    }
     const next = new URL(current.href);
     let changed = false;
     if (/^en\./i.test(next.hostname)) {

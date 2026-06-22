@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { APP_NAME, INTERFACE_LANGUAGE_CHANGE_EVENT, OPEN_SETTINGS_EVENT, SETTINGS_CHANGE_EVENT, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
+import { APP_NAME, INTERFACE_LANGUAGE_CHANGE_EVENT, NEW_TAB_PAGE_URL, OPEN_SETTINGS_EVENT, SETTINGS_CHANGE_EVENT, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
 import { canAttemptReaderAutoAudio } from '../../src/reader/audio/activation';
 import { registerReaderMenuCommands } from '../../src/reader/app/menu-commands';
 import { bindReaderRuntimeEvents } from '../../src/reader/app/runtime-events';
@@ -144,7 +144,7 @@ describe('reader runtime helpers', () => {
 
         commands.get(`${APP_NAME} open new tab`)?.();
 
-        expect(open).toHaveBeenCalledWith('https://hrussellzfac023.github.io/yomu-reader/newtab/', '_blank');
+        expect(open).toHaveBeenCalledWith(NEW_TAB_PAGE_URL, '_blank');
         expect(opened.opener).toBeNull();
     });
 

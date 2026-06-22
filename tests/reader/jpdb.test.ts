@@ -10,7 +10,7 @@ import { CardActionController } from '../../src/reader/cards/action-controller';
 import { CardPopoverRenderer, updatePopoverReviewTargetSelection } from '../../src/reader/cards/popover-renderer';
 import { CardRenderDataLoader, type CardRenderData } from '../../src/reader/cards/render-data';
 import { createAudioPreviewCard } from '../../src/reader/cards/utils';
-import { IMMERSION_KIT_SOURCE_ID, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
+import { IMMERSION_KIT_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../../src/reader/app/constants';
 import { deinflectJapaneseTerm, termRulesMatch } from '../../src/reader/lookup/deinflect';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from '../../src/reader/sources/definition-render';
 import { renderDefinitionSourcesStack } from '../../src/reader/sources/definition-stack';
@@ -5485,7 +5485,7 @@ describe('reader helpers', () => {
         expect(html).not.toContain('>Jisho ');
         expect(html).toContain('>Copy ');
         expect(html).toContain('https://jiten.moe/parse?text=');
-        expect(html).toContain('https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=');
+        expect(html).toContain(`${NEW_TAB_PAGE_URL}index.html?q=`);
         expect(html).toContain('--chip-bg:#b83280');
         expect(html).toContain('--chip-bg:#13845f');
         expect(html).not.toContain('>Immersion Kit ');
@@ -5552,7 +5552,7 @@ describe('reader helpers', () => {
         expect(html).toContain('>Copy ');
         expect(html).toContain('<a ');
         expect(html).toContain('href="https://jiten.moe/parse?text=');
-        expect(html).toContain('href="https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q=');
+        expect(html).toContain(`href="${NEW_TAB_PAGE_URL}index.html?q=`);
         expect(html).toContain('data-action="copy-word"');
         expect(html).not.toContain('aria-disabled="true"');
     });
@@ -11321,7 +11321,7 @@ describe('reader helpers', () => {
         expect(defaultDictionaryLookupLinks('local').map(link => [link.id, link.label, link.urlTemplate])).toEqual([
             ['jiten', 'Jiten', 'https://jiten.moe/parse?text={query}'],
             ['jpdb', 'JPDB', 'https://jpdb.io/search?q={query}'],
-            ['yomu-search', 'Yomu', 'https://hrussellzfac023.github.io/yomu-reader/newtab/index.html?q={query}'],
+            ['yomu-search', 'Yomu', `${NEW_TAB_PAGE_URL}index.html?q={query}`],
             ['jisho', 'Jisho', 'https://jisho.org/search/{query}'],
             ['weblio', 'Weblio', 'https://www.weblio.jp/content/{query}'],
             ['kotobank', 'Kotobank', 'https://kotobank.jp/search?q={query}'],

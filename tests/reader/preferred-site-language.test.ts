@@ -102,6 +102,32 @@ describe('preferred Japanese site language', () => {
         expect(preferredJapaneseSiteUrl('https://example.com/en-US/products?language=en-US&region=US')).toBe('https://example.com/ja-jp/products?language=en-US&region=US');
     });
 
+    it('waits for page metadata before applying generic locale URL guesses', () => {
+        const readyState = vi.spyOn(document, 'readyState', 'get');
+        readyState.mockReturnValue('loading');
+
+        expect(preferredJapaneseSiteUrl('https://example.com/en/docs', document)).toBeNull();
+
+        readyState.mockReturnValue('complete');
+
+        expect(preferredJapaneseSiteUrl('https://example.com/en/docs', document)).toBe('https://example.com/ja/docs');
+    });
+
+    it('does not guess a Japanese URL when the page declares alternates without Japanese', () => {
+        const readyState = vi.spyOn(document, 'readyState', 'get');
+        readyState.mockReturnValue('complete');
+        for (const language of ['en', 'es', 'fr', 'pt', 'ru', 'zh']) {
+            const link = document.createElement('link');
+            link.dataset.testJapaneseAlternate = 'true';
+            link.rel = 'alternate';
+            link.hreflang = language;
+            link.href = `https://handbook.example/${language}`;
+            document.head.append(link);
+        }
+
+        expect(preferredJapaneseSiteUrl('https://handbook.example/en', document)).toBeNull();
+    });
+
     it('rewrites Google consent continuations to the Japanese destination', () => {
         const target = preferredJapaneseSiteUrl('https://consent.google.com/m?continue=https%3A%2F%2Fnews.google.com%2Fhome%3Fhl%3Den-US%26gl%3DUS%26ceid%3DUS%253Aen&gl=GB&hl=en-US');
         const consent = new URL(target!);

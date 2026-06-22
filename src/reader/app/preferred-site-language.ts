@@ -20,7 +20,7 @@ const JAPANESE_SEARCH_PARAMS: Record<string, string> = { hl: 'ja', gl: 'JP' };
 const JAPANESE_NEWS_SEARCH_PARAMS: Record<string, string> = { hl: 'ja', gl: 'JP', ceid: 'JP:ja' };
 
 type StoredSettings = Partial<Pick<ReaderSettings, 'preferJapaneseSiteLanguage'>> | null;
-type QueryRoot = Pick<ParentNode, 'querySelectorAll'>;
+type QueryRoot = Pick<ParentNode, 'querySelectorAll'> & Partial<Pick<Document, 'readyState'>>;
 
 let alternateRedirectCleanup: (() => void) | undefined;
 
@@ -51,7 +51,7 @@ export function preferredJapaneseSiteUrl(sourceHref: string, root?: QueryRoot): 
     const current = parseHttpUrl(sourceHref);
     if (!current) return null;
     const alternate = japaneseAlternateLinkUrl(current, root);
-    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current);
+    const target = alternate ?? siteRuleJapaneseUrl(current) ?? genericJapaneseUrl(current, root);
     if (!target || target.href === current.href) return null;
     return target.href;
 }
@@ -400,9 +400,8 @@ function parseHttpUrl(sourceHref: string): URL | null {
 function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): URL | null {
     if (!root) return null;
     try {
-        for (const element of Array.from(root.querySelectorAll<HTMLLinkElement | HTMLAnchorElement>('link[rel~="alternate"][hreflang][href],a[hreflang][href]'))) {
-            const hreflang = element.getAttribute('hreflang')?.toLowerCase().replace(/_/g, '-');
-            if (hreflang !== JAPANESE_LANGUAGE && hreflang !== JAPANESE_LOCALE.toLowerCase()) continue;
+        for (const element of alts(root)) {
+            if (!/^ja(?:[-_]|$)/i.test(element.getAttribute('hreflang') ?? '')) continue;
             const href = element.getAttribute('href');
             const candidate = href ? parseHttpUrl(new URL(href, current.href).href) : null;
             if (candidate && candidate.href !== current.href) return candidate;
@@ -411,6 +410,10 @@ function japaneseAlternateLinkUrl(current: URL, root: QueryRoot | undefined): UR
         return null;
     }
     return null;
+}
+
+function alts(root: QueryRoot): NodeListOf<HTMLLinkElement | HTMLAnchorElement> {
+    return root.querySelectorAll<HTMLLinkElement | HTMLAnchorElement>('link[rel~=alternate][hreflang][href],a[hreflang][href]');
 }
 
 function siteRuleJapaneseUrl(current: URL): URL | null {
@@ -497,7 +500,15 @@ function withLeadingLocaleSegment(current: URL, locale: string): URL | null {
     return next;
 }
 
-function genericJapaneseUrl(current: URL): URL | null {
+function genericJapaneseUrl(current: URL, root?: QueryRoot): URL | null {
+    if (root) {
+        // Generic `/en` -> `/ja` guesses are deliberately weaker than explicit
+        // site rules and `hreflang` links. At document-start the page may not
+        // have published its supported locales yet; once it does, the absence of
+        // Japanese is evidence that a guessed `/ja` URL is likely invalid.
+        if (alts(root).length) return null;
+        if (root.readyState === 'loading') return null;
+    }
     const next = new URL(current.href);
     let changed = false;
     if (/^en\./i.test(next.hostname)) {

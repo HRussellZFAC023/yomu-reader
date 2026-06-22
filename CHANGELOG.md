@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.72] - 2026-06-22
+
+### Fixed
+
+- The preferred Japanese site-language feature now waits for page locale metadata before making generic `/en` to `/ja` URL guesses, and skips the guess when a page declares supported alternates without Japanese. Japanese locale/cookie/browser hints and explicit `hreflang="ja"` or known-site redirects still apply, but multilingual sites without Japanese pages no longer get sent to broken guessed routes such as `/en/ja`.
+
 ## [1.4.71] - 2026-06-22
 
 ### Changed

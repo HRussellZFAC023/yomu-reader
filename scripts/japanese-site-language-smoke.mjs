@@ -55,6 +55,13 @@ const SITES = [
         url: 'https://en.wikipedia.org/wiki/Japanese_language',
         expects: url => url.hostname === 'ja.wikipedia.org',
     },
+    {
+        name: 'unsupported-japanese-alternate',
+        url: 'https://handbook.lengualytics.com',
+        expects: url => url.hostname === 'handbook.lengualytics.com'
+            && (url.pathname === '/en' || url.pathname === '/en/'),
+        settleMs: 2500,
+    },
 ];
 
 const settings = {
@@ -83,7 +90,7 @@ for (const site of SITES) {
         await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings });
         await page.goto(site.url, { waitUntil: 'domcontentloaded', timeout: 45_000 });
         await addScriptTagWithCspFallback(page, SCRIPT_PATH);
-        const finalUrl = await waitForExpectedUrl(page, site.expects);
+        const finalUrl = await waitForExpectedUrl(page, site.expects, site.settleMs);
         const problems = errors.length ? [`console errors: ${errors.slice(0, 3).join(' | ')}`] : [];
         console.log(JSON.stringify({ site: site.name, startUrl: site.url, finalUrl, problems }, null, 2));
         if (problems.length) failures.push(`${site.name}: ${problems.join('; ')}`);
@@ -103,13 +110,20 @@ if (failures.length) {
 
 console.log('japanese-site-language smoke passed');
 
-async function waitForExpectedUrl(page, expects) {
+async function waitForExpectedUrl(page, expects, settleMs = 0) {
     const deadline = Date.now() + 12_000;
     let lastUrl = page.url();
+    let matchingSince = 0;
     while (Date.now() < deadline) {
         lastUrl = page.url();
         const parsed = new URL(lastUrl);
-        if (expects(parsed)) return parsed.href;
+        if (expects(parsed)) {
+            if (!settleMs) return parsed.href;
+            matchingSince ||= Date.now();
+            if (Date.now() - matchingSince >= settleMs) return parsed.href;
+        } else {
+            matchingSince = 0;
+        }
         await page.waitForTimeout(250);
     }
     assert(false, 'site did not redirect to its Japanese URL', { lastUrl });
