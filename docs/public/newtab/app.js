@@ -27153,18 +27153,20 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function localizeSettingsForm(form, language) {
     unwrapReaderWords(form, { includeReaderRoot: true, excludeSelector: "[data-settings-preview-lookup], [data-settings-preview-lookup] .jpdb-reader-word" });
     const text2 = (key) => uiText(language, key);
-    localizeSettingsShell(form, language, text2);
-    localizeSettingsLabels(form, text2);
-    localizeSettingsSectionTitles(form, text2);
-    localizeSettingsSelects(form, text2);
-    localizeSettingsShortcuts(form, text2);
-    localizeSettingsHelpText(form, text2);
-    localizeSettingsActions(form, text2);
-    localizeSettingsEditorChrome(form, text2);
-    localizeHelpLinksPanel(form, language);
-    removeSettingsSelectOptionMeta(form);
-    normalizeSettingsLabelTextContainers(form);
-    syncDisabledSettingsControlDescriptions(form, language);
+    withNamedControlIndex(form, () => {
+      localizeSettingsShell(form, language, text2);
+      localizeSettingsLabels(form, text2);
+      localizeSettingsSectionTitles(form, text2);
+      localizeSettingsSelects(form, text2);
+      localizeSettingsShortcuts(form, text2);
+      localizeSettingsHelpText(form, text2);
+      localizeSettingsActions(form, text2);
+      localizeSettingsEditorChrome(form, text2);
+      localizeHelpLinksPanel(form, language);
+      removeSettingsSelectOptionMeta(form);
+      normalizeSettingsLabelTextContainers(form);
+      syncDisabledSettingsControlDescriptions(form, language);
+    });
   }
   function syncDisabledSettingsControlDescriptions(form, language) {
     const description = ensureDisabledControlDescription(form);
@@ -27977,15 +27979,36 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ...DIRECT_SETTINGS_CONTROL_LABEL_KEYS.map((key) => [key, key]),
     ...SETTINGS_CONTROL_LABEL_ALIASES
   ];
+  let activeNamedControls = null;
+  function withNamedControlIndex(form, run) {
+    const previous = activeNamedControls;
+    activeNamedControls = { form, byName: indexNamedControls(form) };
+    try {
+      return run();
+    } finally {
+      activeNamedControls = previous;
+    }
+  }
+  function indexNamedControls(form) {
+    const byName = /* @__PURE__ */ new Map();
+    form.querySelectorAll("input, select, textarea").forEach((control) => {
+      const existing = byName.get(control.name);
+      if (existing) existing.push(control);
+      else byName.set(control.name, [control]);
+    });
+    return byName;
+  }
+  function namedFormControls(form, name) {
+    if (activeNamedControls?.form === form) return activeNamedControls.byName.get(name) ?? [];
+    return Array.from(form.querySelectorAll("input, select, textarea")).filter((control) => control.name === name);
+  }
   function getNamedControl(form, name) {
     const item = form.elements.namedItem(name);
     if (item instanceof HTMLInputElement || item instanceof HTMLSelectElement || item instanceof HTMLTextAreaElement) {
       return item;
     }
     if (item instanceof RadioNodeList) {
-      return Array.from(form.elements).find(
-        (element) => element instanceof HTMLInputElement && element.name === name
-      ) ?? null;
+      return namedFormControls(form, name).find((element) => element instanceof HTMLInputElement) ?? null;
     }
     return null;
   }
@@ -27997,11 +28020,6 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (labelElement.classList.contains("inline")) setInlineLabelText(labelElement, label);
       else setBlockLabelText(labelElement, label);
     });
-  }
-  function namedFormControls(form, name) {
-    return Array.from(form.elements).filter(
-      (element) => (element instanceof HTMLInputElement || element instanceof HTMLSelectElement || element instanceof HTMLTextAreaElement) && element.name === name
-    );
   }
   function setBlockLabelText(label, text2) {
     const container = directSettingsLabelTextContainer(label);
@@ -28060,15 +28078,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return node instanceof HTMLAnchorElement;
   }
   function setRadioLabel(form, name, value, label) {
-    const radio = Array.from(form.elements).find(
-      (element) => element instanceof HTMLInputElement && element.type === "radio" && element.name === name && element.value === value
+    const radio = namedFormControls(form, name).find(
+      (element) => element instanceof HTMLInputElement && element.type === "radio" && element.value === value
     );
     const labelElement = radio?.closest("label");
     if (labelElement) setInlineLabelText(labelElement, label);
   }
   function setSelectOptionLabels(form, name, options) {
-    const selectElement = Array.from(form.elements).find(
-      (element) => element instanceof HTMLSelectElement && element.name === name
+    const selectElement = namedFormControls(form, name).find(
+      (element) => element instanceof HTMLSelectElement
     ) ?? null;
     if (!selectElement) return;
     options.forEach(([value, label]) => {
