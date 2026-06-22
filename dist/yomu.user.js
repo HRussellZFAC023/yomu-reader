@@ -35,6 +35,7 @@
 // @inject-into  content
 // @run-at       document-start
 // ==/UserScript==
+
 /* Bundled dependency source information: fflate*/
 
 (function () {
