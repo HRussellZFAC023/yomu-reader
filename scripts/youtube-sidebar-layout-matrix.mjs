@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { chromium, devices } from 'playwright';
 import {
@@ -7,13 +7,16 @@ import {
     assert,
     assertBuiltArtifacts,
     createSmokePaths,
+    gmRequestFetchBody,
     launchSmokeBrowser,
     mockJpdbParseFromVocabulary,
     YOMU_SETTINGS_KEY,
 } from './lib/smoke-harness.mjs';
-import { addScriptTagWithCspFallback, installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
+import { installUserscriptCssResource } from './lib/smoke-test-helpers.mjs';
 
 const { scriptPath, cssPath, root, artifacts } = createSmokePaths(import.meta.dirname);
+const REQUEST_BRIDGE_NAME = '__yomuYoutubeSidebarLayoutRequest';
+const JPDB_PARSE_URL = 'https://jpdb.io/api/v1/parse';
 const companionDir = resolve(process.env.YOMU_YOUTUBE_SIDEBAR_COMPANION_DIR ?? join(root, 'dist/greasyfork'));
 const companionPaths = ['yomu-anki.user.js', 'yomu-kanji-study.user.js', 'yomu-settings-surface.user.js', 'yomu-video.user.js']
     .map(name => join(companionDir, name))
@@ -28,7 +31,7 @@ const viewports = [
     { name: 'desktop-1440', viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
 ];
 
-assertBuiltArtifacts([scriptPath, cssPath], root);
+assertBuiltArtifacts([scriptPath, cssPath, ...companionPaths], root);
 rmSync(outputDir, { recursive: true, force: true });
 mkdirSync(outputDir, { recursive: true });
 
@@ -56,6 +59,10 @@ async function runScenario(browser, viewport, placement) {
         bypassCSP: true,
         locale: 'ja-JP',
     });
+    await context.exposeFunction(REQUEST_BRIDGE_NAME, request => bridgeResponse(request));
+    await context.addInitScript({
+        content: [...companionPaths, scriptPath].map(filePath => readFileSync(filePath, 'utf8')).join('\n;\n'),
+    });
     const page = await context.newPage();
     const label = `${viewport.name}-${placement}`;
     const errors = [];
@@ -68,12 +75,12 @@ async function runScenario(browser, viewport, placement) {
         await addGmStorageBridgeInitScript(page, {
             key: YOMU_SETTINGS_KEY,
             value: smokeSettings(placement),
+            css: readFileSync(cssPath, 'utf8'),
+            requestBridgeName: REQUEST_BRIDGE_NAME,
         });
         await page.goto('https://www.youtube.com/watch?v=p044fixture', { waitUntil: 'domcontentloaded', timeout: 30000 });
         await installUserscriptCssResource(page, cssPath);
-        for (const companion of companionPaths) await addScriptTagWithCspFallback(page, companion);
-        await addScriptTagWithCspFallback(page, scriptPath);
-        await page.waitForSelector('.jpdb-subtitle-player', { timeout: 10000 });
+        await page.waitForSelector('.jpdb-subtitle-player', { state: 'attached', timeout: 10000 });
         await waitForPanelButton(page);
         await page.screenshot({ path: join(outputDir, `${label}-before.png`), fullPage: false });
 
@@ -218,6 +225,48 @@ async function installFixtureRoutes(page) {
             body: JSON.stringify(mockJpdbParseFromVocabulary(body, vocabulary)),
         });
     });
+}
+
+function bridgeResponse(request) {
+    const parsed = new URL(request.url);
+    const target = proxiedTargetUrl(parsed) ?? parsed;
+    if ((request.method || 'GET').toUpperCase() === 'OPTIONS') {
+        return { status: 204, responseText: '', contentType: 'text/plain' };
+    }
+    if (isYoutubeTimedTextUrl(target)) {
+        return { status: 200, responseText: youtubeTimedText(), contentType: 'text/xml; charset=utf-8' };
+    }
+    if (target.href.startsWith(JPDB_PARSE_URL)) {
+        const body = parseJsonBody(gmRequestFetchBody(request));
+        return {
+            status: 200,
+            responseText: JSON.stringify(mockJpdbParseFromVocabulary(body, vocabulary)),
+            contentType: 'application/json; charset=utf-8',
+        };
+    }
+    return { status: 204, responseText: '', contentType: 'text/plain' };
+}
+
+function isYoutubeTimedTextUrl(url) {
+    return /(^|\.)youtube\.com$/.test(url.hostname) && url.pathname === '/api/timedtext';
+}
+
+function proxiedTargetUrl(url) {
+    const target = url.searchParams.get('url');
+    if (!target) return null;
+    try {
+        return new URL(target);
+    } catch {
+        return null;
+    }
+}
+
+function parseJsonBody(rawBody) {
+    if (!rawBody) return {};
+    if (Buffer.isBuffer(rawBody)) return JSON.parse(rawBody.toString('utf8'));
+    if (typeof rawBody === 'string') return JSON.parse(rawBody || '{}');
+    if (typeof rawBody === 'object') return rawBody;
+    return {};
 }
 
 function smokeSettings(placement) {

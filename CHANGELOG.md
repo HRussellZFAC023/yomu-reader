@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.54] - 2026-06-22
+
+### Fixed
+
+- Parser-disabled/native site profiles now still run the final visible-Japanese sweep, so storefront chrome, buttons, nav, comments, and other visible Japanese text remain readable instead of silently opting out.
+- YouTube guide and mini-guide labels are no longer excluded from the residual scan path; visible Japanese YouTube chrome keeps ruby, source coloring, and pitch underlines unless it is an actual native player control.
+- YouTube desktop and mobile comments now stay in the inline parser path even after host re-renders, avoiding text mirrors, unwanted "詳細" expansion buttons, and missing furigana/pitch on comment text.
+- The YouTube subtitle transcript resize interaction now clears cleanly on pointer cancellation, lost capture, and mouseup fallbacks, fixing stuck resize states, manual-scroll glitches, and highlight jumps during live playback.
+- The YouTube mobile/fullscreen smoke harness now retries transient navigation races while installing userscript CSS, making the fullscreen sidebar regression check stable against YouTube page refreshes.
+
 ## [1.4.53] - 2026-06-22
 
 ### Changed

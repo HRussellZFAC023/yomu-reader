@@ -2861,6 +2861,81 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
+    it('clears transcript resize state when the pointer drag is cancelled', () => {
+        withViewport(640, 820, () => {
+            const { controller } = createInstalledSubtitleController({
+                subtitleTranscriptPlacement: 'bottom',
+            });
+
+            try {
+                const internals = controllerInternals<{ openTracksPanel: () => void; transcriptResizeActive: boolean }>(controller);
+                internals.openTracksPanel();
+
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                Object.defineProperty(panel, 'getBoundingClientRect', {
+                    configurable: true,
+                    value: () => new DOMRect(
+                        Number.parseFloat(panel.style.left) || 0,
+                        Number.parseFloat(panel.style.top) || 443,
+                        Number.parseFloat(panel.style.width) || 640,
+                        Number.parseFloat(panel.style.height) || 377,
+                    ),
+                });
+                const handle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+
+                handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 640, pointerId: 22 }));
+                window.dispatchEvent(pointerEvent('pointermove', { clientY: 520, pointerId: 22 }));
+
+                expect(internals.transcriptResizeActive).toBe(true);
+                expect(document.documentElement.classList.contains('jpdb-subtitle-transcript-resizing')).toBe(true);
+
+                window.dispatchEvent(pointerEvent('pointercancel', { clientY: 520, pointerId: 22 }));
+
+                expect(internals.transcriptResizeActive).toBe(false);
+                expect(panel.classList.contains('jpdb-subtitle-resizing')).toBe(false);
+                expect(document.documentElement.classList.contains('jpdb-subtitle-transcript-resizing')).toBe(false);
+                expect(panel.hidden).toBe(false);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('settles transcript resize when pointer capture is lost without closing the panel', () => {
+        withViewport(1440, 900, () => {
+            const { controller } = createInstalledSubtitleController({
+                subtitleTranscriptPlacement: 'right',
+            });
+
+            try {
+                const internals = controllerInternals<{ openTracksPanel: () => void; transcriptResizeActive: boolean }>(controller);
+                internals.openTracksPanel();
+
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                Object.defineProperty(panel, 'getBoundingClientRect', {
+                    configurable: true,
+                    value: () => new DOMRect(
+                        Number.parseFloat(panel.style.left) || 970,
+                        Number.parseFloat(panel.style.top) || 72,
+                        Number.parseFloat(panel.style.width) || 460,
+                        Number.parseFloat(panel.style.height) || 818,
+                    ),
+                });
+                const handle = panel.querySelector<HTMLElement>('[data-resize-transcript]')!;
+
+                handle.dispatchEvent(pointerEvent('pointerdown', { clientX: 970, pointerId: 23 }));
+                window.dispatchEvent(pointerEvent('pointermove', { clientX: 790, pointerId: 23 }));
+                handle.dispatchEvent(new Event('lostpointercapture', { bubbles: true }));
+
+                expect(internals.transcriptResizeActive).toBe(false);
+                expect(document.documentElement.classList.contains('jpdb-subtitle-transcript-resizing')).toBe(false);
+                expect(panel.hidden).toBe(false);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
     it('requests YouTube timedtext through the userscript bridge before page fetch', async () => {
         const originalLocation = window.location;
         const originalFetch = globalThis.fetch;

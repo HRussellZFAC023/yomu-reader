@@ -293,6 +293,7 @@ async function runScenario(browser, scenario) {
 
         profile.mobileStress = await runMobileHoverStress(context, scenario, scenarioArtifactsDir);
         validateYoutubeCommentState(profile.mobileStress.page, scenario, 'mobile');
+        await waitForYoutubeCommentParse(page, scenario);
         profile.finalState = await readPageState(page);
         validateYoutubeCommentState(profile.finalState, scenario, 'desktop');
         profile.parseRequests = parseRequestSummary(0);
@@ -322,6 +323,7 @@ async function runMobileHoverStress(context, scenario, scenarioArtifactsDir) {
         durationMs: HOVER_STRESS_DURATION_MS,
         label: 'mobile',
     });
+    await waitForYoutubeCommentParse(page, scenario);
     const step = await finishStep(page, client, started, 'mobileYoutubeHoverStress');
     step.interaction = interaction;
     step.viewport = { width: 390, height: 844, cpuThrottleRate: MOBILE_CPU_THROTTLE_RATE };
@@ -1074,6 +1076,15 @@ async function exerciseYoutubeHoverStress(page, options = {}) {
         samples,
         summary: hoverStressSummary(samples),
     };
+}
+
+async function waitForYoutubeCommentParse(page, scenario) {
+    await page.waitForFunction(requireRuby => {
+        const words = [...document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-word, ytm-comment-renderer #content-text .jpdb-reader-word')];
+        const mirrors = document.querySelectorAll('ytd-comment-view-model #content-text .jpdb-reader-text-mirror, ytm-comment-renderer #content-text .jpdb-reader-text-mirror').length;
+        if (!words.length || mirrors > 0) return false;
+        return !requireRuby || words.some(word => word.querySelector('rt'));
+    }, Boolean(scenario.apiKey), { timeout: 20_000 }).catch(() => undefined);
 }
 
 async function hoverStressSample(page, index, label) {

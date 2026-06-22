@@ -43110,12 +43110,18 @@ ${spelling}`);
       this.transcriptPanel.classList.add("jpdb-subtitle-resizing");
       this.root?.classList.add("jpdb-subtitle-resizing");
       document.documentElement.classList.add("jpdb-subtitle-transcript-resizing");
+      const handle = event.currentTarget instanceof HTMLElement ? event.currentTarget : void 0;
       try {
-        event.currentTarget.setPointerCapture?.(event.pointerId);
+        handle?.setPointerCapture?.(event.pointerId);
       } catch {
       }
       let resizeFrame;
+      let finished = false;
+      let lastClientX = startX;
+      let lastClientY = startY;
       const onMove = (moveEvent) => {
+        lastClientX = moveEvent.clientX;
+        lastClientY = moveEvent.clientY;
         Object.assign(this.transcriptPanelSize, transcriptResizePatchForPointerDrag({
           bounds: resizeBounds,
           currentX: moveEvent.clientX,
@@ -43133,18 +43139,35 @@ ${spelling}`);
           this.positionTranscriptPanel({ skipInset: true, skipControlSync: true, skipResizeHandle: true });
         });
       };
-      const onUp = (upEvent) => {
+      const finish = (mode, clientX = lastClientX, clientY = lastClientY) => {
+        if (finished) return;
+        finished = true;
         window.removeEventListener("pointermove", onMove);
-        window.removeEventListener("pointerup", onUp);
+        window.removeEventListener("pointerup", onPointerUp);
+        window.removeEventListener("pointercancel", onPointerCancel);
+        window.removeEventListener("mouseup", onMouseUp);
+        handle?.removeEventListener("lostpointercapture", onLostPointerCapture);
         if (resizeFrame !== void 0) {
           cancelAnimationFrame(resizeFrame);
           resizeFrame = void 0;
         }
-        const distance = Math.hypot(upEvent.clientX - startX, upEvent.clientY - startY);
+        try {
+          if (handle?.hasPointerCapture?.(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+        } catch {
+        }
+        if (mode === "cancel") {
+          Object.assign(this.transcriptPanelSize, originalSize);
+          this.positionTranscriptPanel({ skipInset: true, skipControlSync: true, skipResizeHandle: true });
+          this.finishTranscriptResize();
+          this.scheduleAlignToVideo();
+          return;
+        }
+        const distance = Math.hypot(clientX - startX, clientY - startY);
         if (distance <= 8) {
           Object.assign(this.transcriptPanelSize, originalSize);
           this.finishTranscriptResize();
-          this.closeTranscriptPanel();
+          if (mode === "commit") this.closeTranscriptPanel();
+          else this.scheduleAlignToVideo();
           return;
         }
         saveTranscriptPanelSize(this.transcriptPanelSize);
@@ -43152,8 +43175,15 @@ ${spelling}`);
         const shouldAlignAfterResize = this.finishTranscriptResize();
         if (shouldAlignAfterResize) this.scheduleAlignToVideo();
       };
+      const onPointerUp = (upEvent) => finish("commit", upEvent.clientX, upEvent.clientY);
+      const onPointerCancel = () => finish("cancel");
+      const onMouseUp = (upEvent) => finish("commit", upEvent.clientX, upEvent.clientY);
+      const onLostPointerCapture = () => finish("settle");
       window.addEventListener("pointermove", onMove, this.eventOptions());
-      window.addEventListener("pointerup", onUp, this.eventOptions({ once: true }));
+      window.addEventListener("pointerup", onPointerUp, this.eventOptions());
+      window.addEventListener("pointercancel", onPointerCancel, this.eventOptions());
+      window.addEventListener("mouseup", onMouseUp, this.eventOptions());
+      handle?.addEventListener("lostpointercapture", onLostPointerCapture, this.eventOptions());
     }
     finishTranscriptResize() {
       const shouldAlignAfterResize = this.alignAfterTranscriptResize;

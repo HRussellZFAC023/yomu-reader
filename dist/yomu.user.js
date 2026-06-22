@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.53
+// @version      1.4.54
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -13,10 +13,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.53#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.53#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.53#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.53#sha256-Ek/hjvUScS2GImrRHlUJ7q/wEaUeEb4ANfowFYC/y8A=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.54#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.54#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.54#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.54#sha256-qdOjEFrCWrRJzZkoq2FZsPTeEfcWlX40hBEy/pe/CC0=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      jpdb.io
 // @connect      apiv2express.immersionkit.com
@@ -30985,14 +30985,9 @@ ${normalizedReading}`;
     "ytd-masthead ~ ytd-mini-guide-renderer ytd-mini-guide-entry-renderer",
     "ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer"
   ];
-  const YOUTUBE_GUIDE_EXCLUDE_ENTRIES = [
-    "ytd-mini-guide-renderer",
-    "ytd-guide-renderer"
-  ];
   const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
-    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-    ...YOUTUBE_GUIDE_EXCLUDE_ENTRIES
+    ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES
   ].join(",");
   const YOUTUBE_WATCH_GUIDE_ROOTS = [
     "ytd-mini-guide-renderer",
@@ -31381,6 +31376,7 @@ ${normalizedReading}`;
       ],
       exclude: YOUTUBE_TEXT_EXCLUDE,
       allowUiText: true,
+      visibleOnly: false,
       includeUiChrome: true,
       singlePassScan: true,
       nonDestructive: true,
@@ -31726,7 +31722,7 @@ ${normalizedReading}`;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
     if (matchingProfiles.some((profile) => profile.disableGenericDomScan)) {
-      return shouldCollectResidualForDisabledProfiles(matchingProfiles) ? withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles) : baseTargets;
+      return withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
     }
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
@@ -31750,23 +31746,6 @@ ${normalizedReading}`;
     if (remaining <= 0) return targets;
     const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles);
     return residual.length ? [...targets, ...residual] : targets;
-  }
-  function shouldCollectResidualForDisabledProfiles(profiles) {
-    if (profiles.some((profile) => profile.id === BOOKWALKER_STOREFRONT_PARSER_ID)) {
-      return !hasBookWalkerStorefrontChrome();
-    }
-    return true;
-  }
-  function hasBookWalkerStorefrontChrome() {
-    return Boolean(document.querySelector([
-      "header nav",
-      ".top-carousel",
-      ".sidebar",
-      '[class*="carousel" i]',
-      'a[href="/ranking/"]',
-      'a[href="/genre/"]',
-      'button[aria-label*="おすすめ"]'
-    ].join(",")));
   }
   function collectResidualVisibleJapaneseTargets(limit, existingTargets, profiles, _href = window.location.href) {
     if (limit <= 0 || !document.body) return [];
@@ -31802,7 +31781,6 @@ ${normalizedReading}`;
     const entries = [COMMON_EXCLUDE];
     if (profiles.some(isYouTubeSiteParserProfile)) {
       entries.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
-      entries.push(...YOUTUBE_GUIDE_EXCLUDE_ENTRIES);
     }
     if (profiles.some((profile) => profile.id === JPDB_PARSER_ID)) {
       entries.push(".subsection-spelling.with-furigana > :not(.primary-spelling)");

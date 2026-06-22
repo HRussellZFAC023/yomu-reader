@@ -365,14 +365,9 @@ const YOUTUBE_CHROME_ROOTS = [
     'ytd-masthead ~ ytd-mini-guide-renderer ytd-mini-guide-entry-renderer',
     'ytd-masthead ~ ytd-mini-guide-renderer yt-mini-guide-entry-renderer',
 ];
-const YOUTUBE_GUIDE_EXCLUDE_ENTRIES = [
-    'ytd-mini-guide-renderer',
-    'ytd-guide-renderer',
-];
 const YOUTUBE_TEXT_EXCLUDE = [
     COMMON_EXCLUDE,
     ...YT_PLAYER_CHROME_EXCLUDE_ENTRIES,
-    ...YOUTUBE_GUIDE_EXCLUDE_ENTRIES,
 ].join(',');
 const YOUTUBE_WATCH_GUIDE_ROOTS = [
     'ytd-mini-guide-renderer',
@@ -775,6 +770,7 @@ export const SITE_PARSER_PROFILES: SiteParserProfile[] = [
         ],
         exclude: YOUTUBE_TEXT_EXCLUDE,
         allowUiText: true,
+        visibleOnly: false,
         includeUiChrome: true,
         singlePassScan: true,
         nonDestructive: true,
@@ -1210,9 +1206,7 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
     if (matchingProfiles.some(profile => profile.disableGenericDomScan)) {
-        return shouldCollectResidualForDisabledProfiles(matchingProfiles)
-            ? withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles)
-            : baseTargets;
+        return withResidualVisibleJapaneseTargets(baseTargets, effectiveLimit, matchingProfiles);
     }
     const profileUiChromeTargets = collectProfileSafeUiChromeTargets(effectiveLimit - baseTargets.length, baseTargets, matchingProfiles.length > 0, matchingProfiles);
     if (siteTargets && !hasGenericPageTextFallback(matchingProfiles)) {
@@ -1242,25 +1236,6 @@ function withResidualVisibleJapaneseTargets(
     if (remaining <= 0) return targets;
     const residual = collectResidualVisibleJapaneseTargets(remaining, targets, profiles);
     return residual.length ? [...targets, ...residual] : targets;
-}
-
-function shouldCollectResidualForDisabledProfiles(profiles: SiteParserProfile[]): boolean {
-    if (profiles.some(profile => profile.id === BOOKWALKER_STOREFRONT_PARSER_ID)) {
-        return !hasBookWalkerStorefrontChrome();
-    }
-    return true;
-}
-
-function hasBookWalkerStorefrontChrome(): boolean {
-    return Boolean(document.querySelector([
-        'header nav',
-        '.top-carousel',
-        '.sidebar',
-        '[class*="carousel" i]',
-        'a[href="/ranking/"]',
-        'a[href="/genre/"]',
-        'button[aria-label*="おすすめ"]',
-    ].join(',')));
 }
 
 function collectResidualVisibleJapaneseTargets(
@@ -1304,7 +1279,6 @@ function residualVisibleJapaneseExcludeSelector(profiles: SiteParserProfile[]): 
     const entries = [COMMON_EXCLUDE];
     if (profiles.some(isYouTubeSiteParserProfile)) {
         entries.push(...YT_PLAYER_CHROME_EXCLUDE_ENTRIES);
-        entries.push(...YOUTUBE_GUIDE_EXCLUDE_ENTRIES);
     }
     if (profiles.some(profile => profile.id === JPDB_PARSER_ID)) {
         entries.push('.subsection-spelling.with-furigana > :not(.primary-spelling)');

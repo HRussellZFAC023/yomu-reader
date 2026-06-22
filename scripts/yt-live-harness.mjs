@@ -279,4 +279,8 @@ await page.screenshot({ path: shot, fullPage: false }).catch(() => {});
 
 console.log(JSON.stringify({ diag: diagName, url, viewport: `${width}x${height}`, jpdbKey: jpdbKey ? 'set' : 'none', result, consoleErrors: consoleErrors.slice(0, 8), shot }, null, 2));
 
-await ctx.close();
+await Promise.race([
+    ctx.close(),
+    new Promise(resolve => setTimeout(resolve, 3000)),
+]).catch(() => undefined);
+process.exit(0);

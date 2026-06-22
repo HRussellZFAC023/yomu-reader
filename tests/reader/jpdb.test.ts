@@ -32255,19 +32255,25 @@ describe('reader helpers', () => {
     it('still parses visible Japanese on parser-disabled storefront pages', () => {
         const rectSpy = mockElementBoundingClientRect();
         document.body.innerHTML = `
+            <header>
+                <nav><a href="/ranking/">ランキング</a></nav>
+            </header>
             <main>
                 <button type="button">購入する</button>
                 <p>セール情報を読む</p>
             </main>
+            <aside class="sidebar">おすすめ</aside>
         `;
 
         const targets = collectScanTargets(10, 'https://bookwalker.jp/');
         rectSpy.mockRestore();
 
-        expect(targets.map(target => target.text)).toEqual([
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            'ランキング',
             '購入する',
             'セール情報を読む',
-        ]);
+            'おすすめ',
+        ]));
         expect(targets.every(target => 'parserId' in target && target.parserId === 'residual-visible-japanese-parser')).toBe(true);
     });
 
@@ -33776,6 +33782,10 @@ describe('reader helpers', () => {
             <ytm-pivot-bar-renderer>
                 <ytm-pivot-bar-item-renderer><span>登録</span></ytm-pivot-bar-item-renderer>
             </ytm-pivot-bar-renderer>
+            <ytm-comment-renderer>
+                <yt-attributed-string id="content-text">先生いつも配信ありがとうございました。</yt-attributed-string>
+                <span class="more-button" slot="more-button">続きを読む</span>
+            </ytm-comment-renderer>
         `, 'https://m.youtube.com/watch?v=TAorfFcb8_g', undefined);
 
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
@@ -33784,15 +33794,23 @@ describe('reader helpers', () => {
             '質問する',
             '文字起こしを表示',
             '登録',
+            '先生いつも配信ありがとうございました。',
+            '続きを読む',
         ]));
 
         const title = targets.find(target => target.text === '日本語タイトル')!;
         const ask = targets.find(target => target.text === '質問する')!;
         const transcript = targets.find(target => target.text === '文字起こしを表示')!;
         const nav = targets.find(target => target.text === '登録')!;
+        const comment = targets.find(target => target.text === '先生いつも配信ありがとうございました。')!;
+        const more = targets.find(target => target.text === '続きを読む')!;
         expect(ask).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(transcript).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         expect(nav).toMatchObject({ passiveInteraction: true, nonDestructive: true });
+        expect(comment).toMatchObject({ forceInlineRender: true });
+        expect('passiveInteraction' in comment && comment.passiveInteraction).not.toBe(true);
+        expect('nonDestructive' in comment && comment.nonDestructive).not.toBe(true);
+        expect(more).toMatchObject({ passiveInteraction: true, nonDestructive: true });
         applyTokensToScanTarget(title, [{
             card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご', source: 'jpdb' },
             start: 0,
@@ -33829,6 +33847,15 @@ describe('reader helpers', () => {
             pitchClass: 'heiban',
             sentence: '登録',
         }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+        applyTokensToScanTarget(comment, [{
+            card: { ...card, cardState: ['known'], spelling: '配信', reading: 'はいしん', source: 'jpdb' },
+            start: 5,
+            end: 7,
+            length: 2,
+            rubies: [{ text: 'はいしん', start: 5, end: 7, length: 2 }],
+            pitchClass: 'heiban',
+            sentence: '先生いつも配信ありがとうございました。',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
 
         const titleWord = document.querySelector<HTMLElement>('ytm-slim-video-metadata-section-renderer h1 .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('日本語');
@@ -33838,6 +33865,11 @@ describe('reader helpers', () => {
         expect(document.querySelector('ytm-button-renderer .jpdb-reader-word rt')?.textContent).toBe('しつもん');
         expect(document.querySelector('ytm-video-description-transcript-section-renderer .jpdb-reader-word rt')?.textContent).toBe('もじ');
         expect(document.querySelector('ytm-pivot-bar-renderer .jpdb-reader-word rt')?.textContent).toBe('とうろく');
+        const commentWord = document.querySelector<HTMLElement>('ytm-comment-renderer #content-text .jpdb-reader-word')!;
+        expect(readerWordSurfaceText(commentWord)).toBe('配信');
+        expect(commentWord.querySelector('rt')?.textContent).toBe('はいしん');
+        expectRenderedPitchWord(commentWord, 'heiban');
+        expect(document.querySelector('ytm-comment-renderer #content-text .jpdb-reader-text-mirror')).toBeNull();
         expect(document.querySelector('.slim-video-metadata-info .jpdb-reader-word')).toBeNull();
     });
 
