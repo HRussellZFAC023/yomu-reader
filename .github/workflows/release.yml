@@ -57,7 +57,7 @@ jobs:
       - name: Package Safari Web Extension
         run: |
           cd dist/extension/release/safari
-          zip -qr yomu-reader-safari-web-extension.zip yomu-reader-safari-web-extension
+          zip -qr yomureader.com-safari-web-extension.zip yomureader.com-safari-web-extension
       - name: Restore split userscript release artifact
         run: cp "${RUNNER_TEMP:-/tmp}/yomu.user.js" dist/yomu.user.js
       - name: Prepare release notes
@@ -81,9 +81,9 @@ jobs:
           TAG="${{ github.event.inputs.tag || github.ref_name }}"
           gh release create "$TAG" \
             dist/yomu.user.js \
-            dist/extension/release/chrome/yomu-reader-chrome.zip \
-            dist/extension/release/firefox/yomu-reader-firefox.xpi \
-            dist/extension/release/safari/yomu-reader-safari-web-extension.zip \
-            dist/extension/yomu-reader-extension-project.zip \
+            dist/extension/release/chrome/yomureader.com-chrome.zip \
+            dist/extension/release/firefox/yomureader.com-firefox.xpi \
+            dist/extension/release/safari/yomureader.com-safari-web-extension.zip \
+            dist/extension/yomureader.com-extension-project.zip \
             dist/extension/review/submission-guide.md \
             --title "$TAG" --notes-file release-notes.md --latest --verify-tag

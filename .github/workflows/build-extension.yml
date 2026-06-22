@@ -64,7 +64,7 @@ jobs:
         working-directory: yomu-reader
         run: |
           cd dist/extension/release/safari
-          zip -qr yomu-reader-safari-web-extension.zip yomu-reader-safari-web-extension
+          zip -qr yomureader.com-safari-web-extension.zip yomureader.com-safari-web-extension
 
       - name: Upload extension packages
         uses: actions/upload-artifact@v5

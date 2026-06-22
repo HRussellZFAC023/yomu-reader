@@ -171,9 +171,9 @@ async function verifyReleaseArtifacts() {
         'newtab/icons/icon48.png',
         'newtab/icons/icon128.png',
     ];
-    await verifyZipArtifact(path.join(out, 'release', 'chrome', 'yomu-reader-chrome.zip'), requiredFiles);
-    await verifyZipArtifact(path.join(out, 'release', 'firefox', 'yomu-reader-firefox.xpi'), requiredFiles);
-    verifyDirectoryArtifact(path.join(out, 'release', 'safari', 'yomu-reader-safari-web-extension'), requiredFiles);
+    await verifyZipArtifact(path.join(out, 'release', 'chrome', 'yomureader.com-chrome.zip'), requiredFiles);
+    await verifyZipArtifact(path.join(out, 'release', 'firefox', 'yomureader.com-firefox.xpi'), requiredFiles);
+    verifyDirectoryArtifact(path.join(out, 'release', 'safari', 'yomureader.com-safari-web-extension'), requiredFiles);
 }
 
 async function verifyZipArtifact(artifact, requiredFiles) {
