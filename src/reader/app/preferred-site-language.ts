@@ -200,8 +200,6 @@ function injectedPagePreferenceSource(enabled: boolean): string {
         `const installIntlDefaults = ${installIntlDefaults.toString()};`,
         `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
         `const installGeolocationHint = ${installGeolocationHint.toString()};`,
-        `const installFetchAcceptLanguage = ${installFetchAcceptLanguage.toString()};`,
-        `const installXhrAcceptLanguage = ${installXhrAcceptLanguage.toString()};`,
         `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
         `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
         '})();',
@@ -584,7 +582,6 @@ function applyJapanesePreferencesInPage(scope: typeof globalThis, enabled: boole
     const locale = JAPANESE_LOCALE;
     const languages = ['ja-JP', 'ja', 'en-US', 'en'];
     const timeZone = 'Asia/Tokyo';
-    const acceptLanguage = 'ja-JP,ja;q=0.9,en-US;q=0.5,en;q=0.3';
     const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
 
     const navigatorObject = root.navigator;
@@ -599,8 +596,6 @@ function applyJapanesePreferencesInPage(scope: typeof globalThis, enabled: boole
     installIntlDefaults(root, state, locale, timeZone);
     installDateTimezoneHint(root, state, timeZone);
     installGeolocationHint(root, state, navigatorObject, navigatorPrototype, tokyo);
-    installFetchAcceptLanguage(root, state, acceptLanguage);
-    installXhrAcceptLanguage(root, state, acceptLanguage);
 }
 
 function preferenceState(root: typeof globalThis & { __yomuJapaneseSiteLanguagePreference?: JapanesePreferenceState }): JapanesePreferenceState {
@@ -714,81 +709,6 @@ function installGeolocationHint(
     });
     defineGetter(state, navigatorPrototype, 'geolocation', () => geolocation);
     defineGetter(state, navigatorObject, 'geolocation', () => geolocation);
-}
-
-// Site language only depends on the SITE's own (same-origin) requests. Adding a
-// header to a cross-origin request — and re-deriving it through a fresh init —
-// breaks its CORS handling in WebKit/Safari (YouTube's gstatic icon/script and
-// googlevideo fetches start failing "access control checks"), which cascades
-// into a m.youtube.com reload loop ("A problem repeatedly occurred on …"). So
-// the Accept-Language injection must never touch cross-origin requests.
-function isSameOriginRequestUrl(url: string | undefined, root: typeof globalThis): boolean {
-    if (!url) return true;
-    try {
-        return new root.URL(url, root.location.href).origin === root.location.origin;
-    } catch {
-        return true;
-    }
-}
-
-function fetchRequestUrl(input: RequestInfo | URL, root: typeof globalThis): string | undefined {
-    if (typeof input === 'string') return input;
-    if (typeof root.URL === 'function' && input instanceof root.URL) return input.href;
-    if (typeof root.Request === 'function' && input instanceof root.Request) return input.url;
-    return undefined;
-}
-
-function installFetchAcceptLanguage(root: typeof globalThis, state: JapanesePreferenceState, acceptLanguage: string): void {
-    const nativeFetch = root.fetch;
-    if (typeof nativeFetch !== 'function' || (nativeFetch as { __yomuWrapped?: boolean }).__yomuWrapped) return;
-    const wrappedFetch: typeof fetch = function(this: unknown, input: RequestInfo | URL, init?: RequestInit) {
-        if (!isSameOriginRequestUrl(fetchRequestUrl(input, root), root)) {
-            return nativeFetch.call(this, input, init);
-        }
-        const nextInit = { ...(init ?? {}) };
-        try {
-            const inputHeaders = typeof root.Request === 'function' && input instanceof root.Request ? input.headers : undefined;
-            const headers = new root.Headers(init?.headers ?? inputHeaders);
-            if (!headers.has('Accept-Language')) headers.set('Accept-Language', acceptLanguage);
-            nextInit.headers = headers;
-        } catch {
-            // Keep the original fetch behavior if headers cannot be cloned.
-        }
-        return nativeFetch.call(this, input, nextInit);
-    };
-    defineUntrackedValue(wrappedFetch, '__yomuWrapped', true);
-    defineValue(state, root, 'fetch', wrappedFetch);
-}
-
-function installXhrAcceptLanguage(root: typeof globalThis, state: JapanesePreferenceState, acceptLanguage: string): void {
-    const xhrPrototype = root.XMLHttpRequest?.prototype as (XMLHttpRequest & {
-        __yomuAcceptLanguageSet?: boolean;
-        __yomuSameOrigin?: boolean;
-    }) | undefined;
-    if (!xhrPrototype) return;
-    const nativeOpen = xhrPrototype.open;
-    const nativeSend = xhrPrototype.send;
-    const nativeSetRequestHeader = xhrPrototype.setRequestHeader;
-    defineValue(state, xhrPrototype, 'open', function open(this: typeof xhrPrototype, ...args: Parameters<XMLHttpRequest['open']>) {
-        this.__yomuAcceptLanguageSet = false;
-        const rawUrl = args[1];
-        this.__yomuSameOrigin = isSameOriginRequestUrl(typeof rawUrl === 'string' ? rawUrl : rawUrl?.href, root);
-        return nativeOpen.apply(this, args);
-    });
-    defineValue(state, xhrPrototype, 'setRequestHeader', function setRequestHeader(this: typeof xhrPrototype, name: string, value: string) {
-        if (name.toLowerCase() === 'accept-language') this.__yomuAcceptLanguageSet = true;
-        return nativeSetRequestHeader.call(this, name, value);
-    });
-    defineValue(state, xhrPrototype, 'send', function send(this: typeof xhrPrototype, ...args: Parameters<XMLHttpRequest['send']>) {
-        if (this.__yomuSameOrigin && !this.__yomuAcceptLanguageSet) {
-            try {
-                nativeSetRequestHeader.call(this, 'Accept-Language', acceptLanguage);
-            } catch {
-                // Some request states disallow setting headers; send normally.
-            }
-        }
-        return nativeSend.apply(this, args);
-    });
 }
 
 function rememberDescriptor(state: JapanesePreferenceState, target: object | null | undefined, key: PropertyKey): void {

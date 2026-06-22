@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.62] - 2026-06-22
+
+### Fixed
+
+- Furigana-bearing reader words now reserve more vertical line-height on tight mobile Safari layouts such as the hosted よむ homepage, and page-word highlights stay bounded to the text glyph height instead of expanding into chunky blocks across the taller ruby line.
+- Text mirrors now keep their host overflow visible while annotations are active, preventing mirrored ruby from being clipped by compact page chrome.
+- YouTube feed continuations now load under YouTube's own scroll observer instead of being programmatically pulled into view by Yomu, fixing homepage jumps to the Shorts/continuation area on iPhone and avoiding stuck desktop/mobile skeleton rows while scrolling.
+- The "Prefer Japanese site language and location" feature no longer wraps page `fetch` or `XMLHttpRequest` calls. Sites still receive Japanese URL/cookie/locale hints, but fragile app request pipelines such as YouTube continuations and Reddit Shreddit APIs are left untouched, fixing `ReferenceError: isSameOriginRequestUrl is not defined`, "Request failed" banners, and stuck infinite-scroll hydration.
+
 ## [1.4.61] - 2026-06-22
 
 ### Fixed

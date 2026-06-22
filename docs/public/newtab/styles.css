@@ -5161,6 +5161,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   --jpdb-reader-word-highlight-shadow-source: none;
   --jpdb-reader-word-inline-gap: 0.08em;
   --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap));
+  --jpdb-reader-word-highlight-block-size: 1.16em;
   --jpdb-reader-word-underline: var(--jpdb-reader-word-decoration-source, transparent);
   --jpdb-reader-word-underline-offset: 0.04em;
   --jpdb-reader-word-underline-style: solid;
@@ -5338,7 +5339,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background-image: linear-gradient(transparent 58%, var(--jpdb-reader-mining-insight-color) 58%) !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
-  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
+  background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
 }
 
 /* Deck members previously used a CSS double underline (two parallel lines) as a
@@ -5359,8 +5360,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background-position: center, center !important;
   background-repeat: no-repeat, no-repeat !important;
   background-size:
-    var(--jpdb-reader-word-highlight-size) 100%,
-    var(--jpdb-reader-word-highlight-size) 100% !important;
+    var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size),
+    var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
 }
@@ -5370,7 +5371,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background-image: linear-gradient(var(--jpdb-reader-accent-soft), var(--jpdb-reader-accent-soft)) !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
-  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
+  background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   outline: 2px solid var(--jpdb-reader-accent);
   outline-offset: 2px;
 }
@@ -5794,7 +5795,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
-  background-size: var(--jpdb-reader-word-highlight-size) 100% !important;
+  background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   color: var(
     --jpdb-reader-word-accessible-color,
@@ -5877,7 +5878,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   label
 ):has(> .jpdb-reader-word.jpdb-reader-has-furi)
   > .jpdb-reader-word {
-  line-height: 1.85;
+  line-height: 2.05;
 }
 .jpdb-reader-furi {
   font-size: 0.52em;

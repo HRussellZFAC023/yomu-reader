@@ -179,6 +179,15 @@ html[lang="ja"] .VPHomeHero .tagline {
   padding-top: 28px;
 }
 
+.VPHomeHero .actions .VPButton:has(.jpdb-reader-word.jpdb-reader-has-furi) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 52px;
+  padding-block: 10px 8px;
+  line-height: 1.35;
+  overflow: visible;
+}
+
 .VPHomeHero .image {
   display: flex;
   justify-content: center;

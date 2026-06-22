@@ -432,6 +432,8 @@ interface TextMirrorHostState {
     sourceText: string;
     visibility: string;
     visibilityPriority: string;
+    overflow: string;
+    overflowPriority: string;
     position: string;
     positionPriority: string;
     positioned: boolean;
@@ -1617,6 +1619,8 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
         sourceText: '',
         visibility: host.style.getPropertyValue('visibility'),
         visibilityPriority: host.style.getPropertyPriority('visibility'),
+        overflow: host.style.getPropertyValue('overflow'),
+        overflowPriority: host.style.getPropertyPriority('overflow'),
         position: host.style.getPropertyValue('position'),
         positionPriority: host.style.getPropertyPriority('position'),
         positioned: computed.position === 'static',
@@ -1625,6 +1629,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
         displayAdjusted: computed.display === 'inline',
     };
     textMirrorHosts.set(host, state);
+    host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
     return state;
@@ -1633,6 +1638,7 @@ function styleTextMirrorHost(host: HTMLElement): TextMirrorHostState {
 function hideTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     textMirrorHosts.set(host, state);
     host.style.setProperty('visibility', 'hidden', 'important');
+    host.style.setProperty('overflow', 'visible', 'important');
     if (state.positioned) host.style.setProperty('position', 'relative', 'important');
     if (state.displayAdjusted) host.style.setProperty('display', 'inline-block', 'important');
 }
@@ -1748,6 +1754,9 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
     if (host.style.getPropertyValue('visibility') !== 'hidden') {
         host.style.setProperty('visibility', 'hidden', 'important');
     }
+    if (host.style.getPropertyValue('overflow') !== 'visible') {
+        host.style.setProperty('overflow', 'visible', 'important');
+    }
     if (state.positioned && host.style.getPropertyValue('position') !== 'relative') {
         host.style.setProperty('position', 'relative', 'important');
     }
@@ -1758,6 +1767,7 @@ function reassertTextMirrorHostStyles(host: HTMLElement, state: TextMirrorHostSt
 
 function restoreTextMirrorHost(host: HTMLElement, state: TextMirrorHostState): void {
     restoreStyleProperty(host, 'visibility', state.visibility, state.visibilityPriority);
+    restoreStyleProperty(host, 'overflow', state.overflow, state.overflowPriority);
     if (state.positioned) restoreStyleProperty(host, 'position', state.position, state.positionPriority);
     if (state.displayAdjusted) restoreStyleProperty(host, 'display', state.display, state.displayPriority);
 }

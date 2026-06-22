@@ -2532,20 +2532,15 @@ function findYouTubeContinuationItem(): HTMLElement | null {
 }
 
 function nudgeYouTubeContinuationItem(continuation: HTMLElement): boolean {
-    // Filtering collapses cards, which can leave the continuation loader a
-    // couple of screens below while the visible feed looks empty. Trigger it
-    // early; when that means scrolling, bounce there and restore the user's
-    // position once YouTube's intersection observer has seen it.
+    // Let YouTube's own intersection observer load continuations when the user
+    // scrolls them into view. Older builds used scrollIntoView() here as an
+    // eager backfill nudge, but on mobile it could jump the home feed to the
+    // Shorts/continuation area, and on desktop it could leave YouTube stuck on
+    // skeleton placeholders while we repeatedly poked and restored scroll.
+    // Return true only to throttle this no-op path while the loader is already
+    // close enough that native YouTube should see it naturally.
     const rect = continuation.getBoundingClientRect();
-    if (rect.top >= window.innerHeight * 2.5 && !isNearPageBottom()) return false;
-    if (rect.top <= window.innerHeight) {
-        continuation.scrollIntoView({ block: 'nearest' });
-        return true;
-    }
-    const previousY = window.scrollY;
-    continuation.scrollIntoView({ block: 'end' });
-    if (!isNearPageBottom()) window.setTimeout(() => window.scrollTo({ top: previousY }), 80);
-    return true;
+    return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
 }
 
 function isYouTubeWatchPage(): boolean {

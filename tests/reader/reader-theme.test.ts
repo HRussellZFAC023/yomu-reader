@@ -747,11 +747,12 @@ describe('reader theme', () => {
 
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
-        expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) 100% !important;');
+        expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');
+        expect(normalizedCss).toContain('--jpdb-reader-word-highlight-block-size: 1.16em;');
         expect(normalizedCss).toContain('color: var(--jpdb-reader-furi-accessible-color, var(--jpdb-reader-muted)) !important;');
         expect(normalizedCss).toContain('touch-action: manipulation;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1;');
-        expect(normalizedCss).toContain(':has(> .jpdb-reader-word.jpdb-reader-has-furi) > .jpdb-reader-word { line-height: 1.85; }');
+        expect(normalizedCss).toContain(':has(> .jpdb-reader-word.jpdb-reader-has-furi) > .jpdb-reader-word { line-height: 2.05; }');
         expect(normalizedCss).toContain('pointer-events: none; }');
         expect(normalizedCss).not.toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word)::after');
         expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');

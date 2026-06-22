@@ -417,6 +417,8 @@ function docsTryMeSnapshotFromDom() {
                 pitchCount: words.filter(word => wordClass(word, /^jpdb-pitch-/)).length,
                 statusCount: words.filter(word => wordClass(word, /^(?:jpdb-(?:known|learning|due|new|never-forget|failed|locked|not-in-deck)|anki-)/)).length,
                 sourceMode: sourceModeClasses(),
+                rubyClearance: rubyClearanceSnapshot(words),
+                highlightBlock: highlightBlockSnapshot(words),
             },
             words: words.map(word => ({
                 text: compactText(word),
@@ -427,6 +429,52 @@ function docsTryMeSnapshotFromDom() {
                 display: getComputedStyle(word).display,
                 whiteSpace: getComputedStyle(word).whiteSpace,
             })).slice(0, 12),
+        };
+    }
+
+    function rubyClearanceSnapshot(words) {
+        const measures = words
+            .filter(word => word.classList.contains('jpdb-reader-has-furi'))
+            .map(word => {
+                const style = getComputedStyle(word);
+                const fontSize = Number.parseFloat(style.fontSize) || 0;
+                const lineHeight = Number.parseFloat(style.lineHeight) || 0;
+                return {
+                    text: compactText(word),
+                    fontSize: rounded(fontSize),
+                    lineHeight: rounded(lineHeight),
+                    ratio: fontSize > 0 ? rounded(lineHeight / fontSize) : 0,
+                };
+            });
+        const ratios = measures.map(measure => measure.ratio).filter(Boolean);
+        return {
+            minRatio: ratios.length ? Math.min(...ratios) : 0,
+            measures: measures.slice(0, 8),
+        };
+    }
+
+    function highlightBlockSnapshot(words) {
+        const measures = words
+            .map(word => {
+                const style = getComputedStyle(word);
+                const fontSize = Number.parseFloat(style.fontSize) || 0;
+                const lineHeight = Number.parseFloat(style.lineHeight) || 0;
+                const blockSize = cssLengthPx(style.getPropertyValue('--jpdb-reader-word-highlight-block-size'), fontSize);
+                return {
+                    text: compactText(word),
+                    fontSize: rounded(fontSize),
+                    lineHeight: rounded(lineHeight),
+                    blockSize: rounded(blockSize),
+                    blockToFontRatio: fontSize > 0 ? rounded(blockSize / fontSize) : 0,
+                    blockToLineRatio: lineHeight > 0 ? rounded(blockSize / lineHeight) : 0,
+                    backgroundSize: style.backgroundSize,
+                };
+            })
+            .filter(measure => measure.blockSize > 0);
+        const blockToFontRatios = measures.map(measure => measure.blockToFontRatio).filter(Boolean);
+        return {
+            maxBlockToFontRatio: blockToFontRatios.length ? Math.max(...blockToFontRatios) : 0,
+            measures: measures.slice(0, 8),
         };
     }
 
@@ -470,12 +518,23 @@ function docsTryMeSnapshotFromDom() {
         return [...document.documentElement.classList].filter(className => /^jpdb-reader-word-(?:text|highlight|underline)-/.test(className));
     }
 
+    function cssLengthPx(value, fontSize) {
+        const trimmed = value.trim();
+        if (!trimmed) return 0;
+        if (trimmed.endsWith('em')) return (Number.parseFloat(trimmed) || 0) * fontSize;
+        return Number.parseFloat(trimmed) || 0;
+    }
+
     function wordClass(word, pattern) {
         return [...word.classList].some(className => pattern.test(className));
     }
 
     function compactText(node) {
         return node.textContent?.replace(/\s+/g, '').trim() ?? '';
+    }
+
+    function rounded(value) {
+        return Math.round(value * 100) / 100;
     }
 }
 
@@ -485,6 +544,8 @@ function assertParsedSurface(surface, label) {
     assert(surface.summary.pitchCount >= 1, `${label} did not render pitch classes`, surface);
     assert(surface.summary.statusCount >= 1, `${label} did not render status classes`, surface);
     assert(surface.summary.sourceMode.length >= 2, `${label} did not enable color/source mode classes`, surface);
+    assert(surface.summary.rubyClearance.minRatio >= 2, `${label} furigana line-height is too tight and can clip on mobile Safari`, surface.summary.rubyClearance);
+    assert(surface.summary.highlightBlock.maxBlockToFontRatio <= 1.2, `${label} reader-word highlight block grew with ruby line-height`, surface.summary.highlightBlock);
 }
 
 function assertTryMeDownSnapshot(snapshot) {

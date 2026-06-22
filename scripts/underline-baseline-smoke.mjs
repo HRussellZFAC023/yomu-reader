@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // R: "fix the underlines not being at the same level". The colored word
 // underline is an ::after pinned to the word's box bottom (inset-block-end).
-// Furigana words carry line-height 1.85 for clearance; if a plain neighbour
+// Furigana words carry a taller line-height for clearance; if a plain neighbour
 // keeps a shorter line-height its box bottom resolves higher and its underline
 // floats above. This smoke renders a mixed furigana/plain reading line against
 // the built CSS and asserts every word shares one line-height (so every

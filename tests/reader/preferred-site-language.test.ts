@@ -37,11 +37,11 @@ describe('preferred Japanese site language', () => {
         expect(new Date().getTimezoneOffset()).toBe(-540);
     });
 
-    it('adds Accept-Language only to same-origin requests, leaving cross-origin loads untouched', () => {
-        // Regression: adding the header to (and re-deriving) cross-origin requests
-        // broke YouTube's gstatic icon/script loads in WebKit ("access control
-        // checks"), cascading into an m.youtube.com reload loop. Cross-origin
-        // requests must pass through unchanged.
+    it('does not wrap page fetch requests while applying locale hints', () => {
+        // The language preference used to wrap page fetch/XHR to add
+        // Accept-Language. A missing injected helper broke YouTube and Reddit
+        // request pipelines with ReferenceError/Request failed. Locale hints now
+        // stay in navigator/Intl/time-zone/geolocation/cookies/URLs only.
         const seen: Array<{ url: string; acceptLanguage: string | null }> = [];
         const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
             seen.push({ url: String(input), acceptLanguage: new Headers(init?.headers).get('Accept-Language') });
@@ -51,13 +51,39 @@ describe('preferred Japanese site language', () => {
         vi.stubGlobal('unsafeWindow', window);
         applyPreferredJapaneseSiteLanguage(true);
 
-        void window.fetch('/youtubei/v1/next');
+        void window.fetch('/api/feed');
         void window.fetch('https://fonts.gstatic.com/s/i/icon.svg');
 
-        const sameOrigin = seen.find(entry => entry.url.includes('/youtubei/'));
+        const sameOrigin = seen.find(entry => entry.url.includes('/api/feed'));
         const crossOrigin = seen.find(entry => entry.url.includes('gstatic'));
-        expect(sameOrigin?.acceptLanguage).toContain('ja');
+        expect(globalThis.fetch).toBe(fetchMock);
+        expect(sameOrigin?.acceptLanguage).toBeNull();
         expect(crossOrigin?.acceptLanguage).toBeNull();
+    });
+
+    it('leaves fragile app feed requests untouched on YouTube and Reddit', () => {
+        const seen: Array<{ url: string; acceptLanguage: string | null }> = [];
+        const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+            seen.push({ url: String(input), acceptLanguage: new Headers(init?.headers).get('Accept-Language') });
+            return new Response('ok');
+        });
+        vi.stubGlobal('fetch', fetchMock);
+        vi.stubGlobal('unsafeWindow', window);
+        vi.stubGlobal('location', {
+            href: 'https://www.youtube.com/?hl=ja&gl=JP',
+            origin: 'https://www.youtube.com',
+            hostname: 'www.youtube.com',
+            protocol: 'https:',
+            replace: vi.fn(),
+        });
+
+        applyPreferredJapaneseSiteLanguage(true);
+
+        void window.fetch('/youtubei/v1/browse?prettyPrint=false');
+        void window.fetch('https://www.reddit.com/svc/shreddit/comments');
+
+        expect(seen[0]?.acceptLanguage).toBeNull();
+        expect(seen[1]?.acceptLanguage).toBeNull();
     });
 
     it('builds Japanese URLs for common locale-based sites', () => {
@@ -237,6 +263,8 @@ describe('preferred Japanese site language', () => {
         expect(unsafeWindow.fetch).toBe(unsafeFetch);
         expect(appendedScripts.join('\n')).toContain('const JAPANESE_LOCALE = "ja-JP";');
         expect(appendedScripts.join('\n')).toContain('applyJapanesePreferencesInPage(globalThis, true)');
+        expect(appendedScripts.join('\n')).not.toContain('installFetchAcceptLanguage');
+        expect(appendedScripts.join('\n')).not.toContain('isSameOriginRequestUrl');
         appendSpy.mockRestore();
     });
 

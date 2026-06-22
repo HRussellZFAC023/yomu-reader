@@ -626,7 +626,7 @@ describe('YouTube immersion filter', () => {
         filter.destroy();
     });
 
-    it('nudges YouTube continuation loading when filtering leaves too few visible videos', async () => {
+    it('does not auto-scroll YouTube continuations when filtering leaves too few visible videos', async () => {
         document.body.innerHTML = `
             <main>
                 <ytd-rich-item-renderer data-case="jp">
@@ -656,12 +656,12 @@ describe('YouTube immersion filter', () => {
 
         expect(card('english-1').classList.contains('jpdb-youtube-filtered')).toBe(true);
         expect(card('english-2').classList.contains('jpdb-youtube-filtered')).toBe(true);
-        expect(scrollIntoView).toHaveBeenCalledWith({ block: 'end' });
+        expect(scrollIntoView).not.toHaveBeenCalled();
 
         filter.destroy();
     });
 
-    it('nudges visible mobile YouTube continuation loading after filtering', async () => {
+    it('does not auto-scroll visible mobile YouTube continuations after filtering', async () => {
         document.body.innerHTML = `
             <main>
                 <ytm-video-with-context-renderer data-case="mobile-jp">
@@ -685,7 +685,7 @@ describe('YouTube immersion filter', () => {
         });
 
         expect(card('mobile-english').classList.contains('jpdb-youtube-filtered')).toBe(true);
-        expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' });
+        expect(scrollIntoView).not.toHaveBeenCalled();
 
         filter.destroy();
     });

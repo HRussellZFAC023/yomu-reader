@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.61
+// @version      1.4.62
 // @author       Henry
 // @description  Japanese popup reader.
 // @license      MIT
@@ -12,10 +12,10 @@
 // @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.61#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.61#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.61#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
-// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.61#sha256-OVjOGmwrJ+kIBrJ9Pyo8bnxo0W6qEEqr1aqSoHJDre0=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-anki.user.js?v=1.4.62#sha256-z4oi8mFtHkuuccUjujwNUYJPSh7w4cyAsq67aRgIKsY=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-kanji-study.user.js?v=1.4.62#sha256-jJA64todcXEfRO3xqRAT2l035VffwyyUDMjRPCSuKPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-settings-surface.user.js?v=1.4.62#sha256-W3XC741nHDEuCjMNjkew9sJxuWbNp6nOBB97HROsiPs=
+// @require      https://hrussellzfac023.github.io/yomu-reader/greasyfork/yomu-video.user.js?v=1.4.62#sha256-cYpB8/vnJ5LO8yVBLl8V8VAjQeD3h2CCBsIM9XMcJEU=
 // @resource     yomuCss  https://hrussellzfac023.github.io/yomu-reader/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -4765,6 +4765,8 @@
       sourceText: "",
       visibility: host.style.getPropertyValue("visibility"),
       visibilityPriority: host.style.getPropertyPriority("visibility"),
+      overflow: host.style.getPropertyValue("overflow"),
+      overflowPriority: host.style.getPropertyPriority("overflow"),
       position: host.style.getPropertyValue("position"),
       positionPriority: host.style.getPropertyPriority("position"),
       positioned: computed.position === "static",
@@ -4773,6 +4775,7 @@
       displayAdjusted: computed.display === "inline"
     };
     textMirrorHosts.set(host, state);
+    host.style.setProperty("overflow", "visible", "important");
     if (state.positioned) host.style.setProperty("position", "relative", "important");
     if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
     return state;
@@ -4780,6 +4783,7 @@
   function hideTextMirrorHost(host, state) {
     textMirrorHosts.set(host, state);
     host.style.setProperty("visibility", "hidden", "important");
+    host.style.setProperty("overflow", "visible", "important");
     if (state.positioned) host.style.setProperty("position", "relative", "important");
     if (state.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
@@ -4868,6 +4872,9 @@
     if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
+    if (host.style.getPropertyValue("overflow") !== "visible") {
+      host.style.setProperty("overflow", "visible", "important");
+    }
     if (state.positioned && host.style.getPropertyValue("position") !== "relative") {
       host.style.setProperty("position", "relative", "important");
     }
@@ -4877,6 +4884,7 @@
   }
   function restoreTextMirrorHost(host, state) {
     restoreStyleProperty(host, "visibility", state.visibility, state.visibilityPriority);
+    restoreStyleProperty(host, "overflow", state.overflow, state.overflowPriority);
     if (state.positioned) restoreStyleProperty(host, "position", state.position, state.positionPriority);
     if (state.displayAdjusted) restoreStyleProperty(host, "display", state.display, state.displayPriority);
   }
@@ -34839,8 +34847,6 @@ ${reading}`);
       `const installIntlDefaults = ${installIntlDefaults.toString()};`,
       `const installDateTimezoneHint = ${installDateTimezoneHint.toString()};`,
       `const installGeolocationHint = ${installGeolocationHint.toString()};`,
-      `const installFetchAcceptLanguage = ${installFetchAcceptLanguage.toString()};`,
-      `const installXhrAcceptLanguage = ${installXhrAcceptLanguage.toString()};`,
       `const applyJapanesePreferencesInPage = ${applyJapanesePreferencesInPage.toString()};`,
       `applyJapanesePreferencesInPage(globalThis, ${JSON.stringify(enabled)});`,
       "})();"
@@ -35152,7 +35158,6 @@ ${reading}`);
     const locale = JAPANESE_LOCALE;
     const languages = ["ja-JP", "ja", "en-US", "en"];
     const timeZone = "Asia/Tokyo";
-    const acceptLanguage = "ja-JP,ja;q=0.9,en-US;q=0.5,en;q=0.3";
     const tokyo = { latitude: 35.681236, longitude: 139.767125, accuracy: 25 };
     const navigatorObject = root.navigator;
     const navigatorPrototype = root.Navigator?.prototype ?? Object.getPrototypeOf(navigatorObject);
@@ -35165,8 +35170,6 @@ ${reading}`);
     installIntlDefaults(root, state, locale, timeZone);
     installDateTimezoneHint(root, state, timeZone);
     installGeolocationHint(root, state, navigatorObject, navigatorPrototype, tokyo);
-    installFetchAcceptLanguage(root, state, acceptLanguage);
-    installXhrAcceptLanguage(root, state, acceptLanguage);
   }
   function preferenceState(root) {
     if (root.__yomuJapaneseSiteLanguagePreference) return root.__yomuJapaneseSiteLanguagePreference;
@@ -35260,66 +35263,6 @@ ${reading}`);
     });
     defineGetter(state, navigatorPrototype, "geolocation", () => geolocation);
     defineGetter(state, navigatorObject, "geolocation", () => geolocation);
-  }
-  function isSameOriginRequestUrl(url, root) {
-    if (!url) return true;
-    try {
-      return new root.URL(url, root.location.href).origin === root.location.origin;
-    } catch {
-      return true;
-    }
-  }
-  function fetchRequestUrl(input, root) {
-    if (typeof input === "string") return input;
-    if (typeof root.URL === "function" && input instanceof root.URL) return input.href;
-    if (typeof root.Request === "function" && input instanceof root.Request) return input.url;
-    return void 0;
-  }
-  function installFetchAcceptLanguage(root, state, acceptLanguage) {
-    const nativeFetch = root.fetch;
-    if (typeof nativeFetch !== "function" || nativeFetch.__yomuWrapped) return;
-    const wrappedFetch = function(input, init) {
-      if (!isSameOriginRequestUrl(fetchRequestUrl(input, root), root)) {
-        return nativeFetch.call(this, input, init);
-      }
-      const nextInit = { ...init ?? {} };
-      try {
-        const inputHeaders = typeof root.Request === "function" && input instanceof root.Request ? input.headers : void 0;
-        const headers = new root.Headers(init?.headers ?? inputHeaders);
-        if (!headers.has("Accept-Language")) headers.set("Accept-Language", acceptLanguage);
-        nextInit.headers = headers;
-      } catch {
-      }
-      return nativeFetch.call(this, input, nextInit);
-    };
-    defineUntrackedValue(wrappedFetch, "__yomuWrapped", true);
-    defineValue(state, root, "fetch", wrappedFetch);
-  }
-  function installXhrAcceptLanguage(root, state, acceptLanguage) {
-    const xhrPrototype = root.XMLHttpRequest?.prototype;
-    if (!xhrPrototype) return;
-    const nativeOpen = xhrPrototype.open;
-    const nativeSend = xhrPrototype.send;
-    const nativeSetRequestHeader = xhrPrototype.setRequestHeader;
-    defineValue(state, xhrPrototype, "open", function open(...args) {
-      this.__yomuAcceptLanguageSet = false;
-      const rawUrl = args[1];
-      this.__yomuSameOrigin = isSameOriginRequestUrl(typeof rawUrl === "string" ? rawUrl : rawUrl?.href, root);
-      return nativeOpen.apply(this, args);
-    });
-    defineValue(state, xhrPrototype, "setRequestHeader", function setRequestHeader(name, value) {
-      if (name.toLowerCase() === "accept-language") this.__yomuAcceptLanguageSet = true;
-      return nativeSetRequestHeader.call(this, name, value);
-    });
-    defineValue(state, xhrPrototype, "send", function send(...args) {
-      if (this.__yomuSameOrigin && !this.__yomuAcceptLanguageSet) {
-        try {
-          nativeSetRequestHeader.call(this, "Accept-Language", acceptLanguage);
-        } catch {
-        }
-      }
-      return nativeSend.apply(this, args);
-    });
   }
   function rememberDescriptor(state, target, key) {
     if (!target || state.properties.some((snapshot) => snapshot.target === target && snapshot.key === key)) return;

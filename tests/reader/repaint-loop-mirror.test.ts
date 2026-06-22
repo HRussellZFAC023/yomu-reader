@@ -46,8 +46,8 @@ describe('repaint-loop mirror fallback', () => {
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeNull();
     });
 
-    it('stretches text mirrors across inline attributed-string hosts without width collapse', () => {
-        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost" style="display:inline">${TEXT}</span>`;
+    it('stretches text mirrors across inline attributed-string hosts without width or ruby clipping', () => {
+        document.body.innerHTML = `<span id="title" class="ytAttributedStringHost" style="display:inline;overflow:hidden">${TEXT}</span>`;
         const host = document.getElementById('title')!;
 
         for (let i = 0; i < 6 && !host.querySelector('.jpdb-reader-text-mirror'); i++) {
@@ -59,12 +59,15 @@ describe('repaint-loop mirror fallback', () => {
         expect(mirror).toBeTruthy();
         expect(host.style.getPropertyValue('display')).toBe('inline-block');
         expect(host.style.getPropertyPriority('display')).toBe('important');
+        expect(host.style.getPropertyValue('overflow')).toBe('visible');
+        expect(host.style.getPropertyPriority('overflow')).toBe('important');
         expect(mirror.style.inset).toBe('0 0 auto 0');
         expect(mirror.style.width).toBe('');
         expect(mirror.style.minWidth).toBe('');
 
         expect(removeNonDestructiveScanMirrors(document)).toBe(1);
         expect(host.style.display).toBe('inline');
+        expect(host.style.overflow).toBe('hidden');
         expect(host.style.visibility).toBe('');
         expect(host.style.position).toBe('');
     });
@@ -125,18 +128,23 @@ describe('repaint-loop mirror fallback', () => {
 
         // A YouTube polymer re-render rewrites the host style attribute without
         // changing its text, wiping our visibility:hidden / position:relative.
-        host.setAttribute('style', 'display:inline-block');
+        host.setAttribute('style', 'display:inline-block;overflow:hidden');
         expect(host.style.getPropertyValue('visibility')).toBe('');
+        expect(host.style.getPropertyValue('overflow')).toBe('hidden');
         await new Promise(resolve => setTimeout(resolve, 0));
 
         // The mirror survives and the host is re-hidden, so the native title cannot
         // re-appear beside the mirror (the duplication/"missing title" symptom).
-        // (position:relative is also re-asserted in real browsers for mirror
-        // anchoring; jsdom's getComputedStyle does not report position:static so
-        // state.positioned is false here and only visibility is exercised.)
+        // Overflow is also re-opened so over-ruby is not clipped by YouTube's
+        // attributed-string host after a Polymer style rewrite. (position:relative
+        // is re-asserted in real browsers for mirror anchoring; jsdom's
+        // getComputedStyle does not report position:static so state.positioned is
+        // false here and only visibility/overflow are exercised.)
         expect(host.querySelector('.jpdb-reader-text-mirror')).toBeTruthy();
         expect(host.style.getPropertyValue('visibility')).toBe('hidden');
         expect(host.style.getPropertyPriority('visibility')).toBe('important');
+        expect(host.style.getPropertyValue('overflow')).toBe('visible');
+        expect(host.style.getPropertyPriority('overflow')).toBe('important');
     });
 
     it('does not replace an unchanged non-destructive mirror on repeated scans', () => {

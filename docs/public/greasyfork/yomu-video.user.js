@@ -19850,15 +19850,7 @@ ${spelling}`);
   }
   function nudgeYouTubeContinuationItem(continuation) {
     const rect = continuation.getBoundingClientRect();
-    if (rect.top >= window.innerHeight * 2.5 && !isNearPageBottom()) return false;
-    if (rect.top <= window.innerHeight) {
-      continuation.scrollIntoView({ block: "nearest" });
-      return true;
-    }
-    const previousY = window.scrollY;
-    continuation.scrollIntoView({ block: "end" });
-    if (!isNearPageBottom()) window.setTimeout(() => window.scrollTo({ top: previousY }), 80);
-    return true;
+    return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
   }
   function isYouTubeWatchPage() {
     return location.pathname === "/watch";

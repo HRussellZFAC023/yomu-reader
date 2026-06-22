@@ -8052,6 +8052,8 @@ recommendedJiten	Jiten頻度です。
       sourceText: "",
       visibility: host.style.getPropertyValue("visibility"),
       visibilityPriority: host.style.getPropertyPriority("visibility"),
+      overflow: host.style.getPropertyValue("overflow"),
+      overflowPriority: host.style.getPropertyPriority("overflow"),
       position: host.style.getPropertyValue("position"),
       positionPriority: host.style.getPropertyPriority("position"),
       positioned: computed.position === "static",
@@ -8060,6 +8062,7 @@ recommendedJiten	Jiten頻度です。
       displayAdjusted: computed.display === "inline"
     };
     textMirrorHosts.set(host, state2);
+    host.style.setProperty("overflow", "visible", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
     return state2;
@@ -8067,6 +8070,7 @@ recommendedJiten	Jiten頻度です。
   function hideTextMirrorHost(host, state2) {
     textMirrorHosts.set(host, state2);
     host.style.setProperty("visibility", "hidden", "important");
+    host.style.setProperty("overflow", "visible", "important");
     if (state2.positioned) host.style.setProperty("position", "relative", "important");
     if (state2.displayAdjusted) host.style.setProperty("display", "inline-block", "important");
   }
@@ -8155,6 +8159,9 @@ recommendedJiten	Jiten頻度です。
     if (host.style.getPropertyValue("visibility") !== "hidden") {
       host.style.setProperty("visibility", "hidden", "important");
     }
+    if (host.style.getPropertyValue("overflow") !== "visible") {
+      host.style.setProperty("overflow", "visible", "important");
+    }
     if (state2.positioned && host.style.getPropertyValue("position") !== "relative") {
       host.style.setProperty("position", "relative", "important");
     }
@@ -8164,6 +8171,7 @@ recommendedJiten	Jiten頻度です。
   }
   function restoreTextMirrorHost(host, state2) {
     restoreStyleProperty$1(host, "visibility", state2.visibility, state2.visibilityPriority);
+    restoreStyleProperty$1(host, "overflow", state2.overflow, state2.overflowPriority);
     if (state2.positioned) restoreStyleProperty$1(host, "position", state2.position, state2.positionPriority);
     if (state2.displayAdjusted) restoreStyleProperty$1(host, "display", state2.display, state2.displayPriority);
   }
@@ -46328,15 +46336,7 @@ ${spelling}`);
   }
   function nudgeYouTubeContinuationItem(continuation) {
     const rect = continuation.getBoundingClientRect();
-    if (rect.top >= window.innerHeight * 2.5 && !isNearPageBottom()) return false;
-    if (rect.top <= window.innerHeight) {
-      continuation.scrollIntoView({ block: "nearest" });
-      return true;
-    }
-    const previousY = window.scrollY;
-    continuation.scrollIntoView({ block: "end" });
-    if (!isNearPageBottom()) window.setTimeout(() => window.scrollTo({ top: previousY }), 80);
-    return true;
+    return rect.bottom >= 0 && rect.top <= window.innerHeight * 1.25;
   }
   function isYouTubeWatchPage() {
     return location.pathname === "/watch";
