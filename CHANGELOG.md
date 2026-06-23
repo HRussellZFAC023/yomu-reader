@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.75] - 2026-06-22
+
+### Fixed
+
+- Compact BookWalker-style carousel titles now suppress furigana only when a clipped media rail would overflow, while ordinary scrollable article text keeps ruby and lookup behavior.
+- The hosted homepage and docs language toggle now localize page titles, meta descriptions, navigation chrome, and the current homepage Try Me/OCR sections without stale route metadata or broken image references.
+- The hosted Yomu video player no longer creates paused-frame OCR overlays, so pausing a local video cannot put a captured frame over subtitles or the native progress bar.
+- Hosted overflow menu links now use the current `yomureader.com` root paths instead of the old GitHub Pages `/yomu-reader/` prefix.
+- The Greasy Fork userscript build is back under the 2 MB limit after compacting emitted selector scaffolding without changing reader behavior.
+
 ## [1.4.74] - 2026-06-22
 
 ### Fixed

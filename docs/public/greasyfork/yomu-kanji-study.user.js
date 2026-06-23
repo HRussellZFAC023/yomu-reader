@@ -1631,7 +1631,6 @@
       kanjiGradeFact(local, map),
       kanjiStrokeFact(kanjiVGInfo, local, map),
       kanjiFrequencyFact(jpdbInfo, local, map),
-      kanjiKankenFact(jpdbInfo),
       kanjiRadicalFact(map)
     ];
   }
@@ -1680,12 +1679,6 @@
     if (local.frequency) return local.frequencySource ?? "local dictionary";
     if (map?.frequencyRank) return "Jisho";
     return "Jisho";
-  }
-  function kanjiKankenFact(jpdbInfo) {
-    const candidate = firstFactCandidate([
-      { value: jpdbInfo?.kanken, source: "JPDB" }
-    ]);
-    return { label: "Kanken", value: candidate?.value ?? "", source: candidate?.source ?? "" };
   }
   function kanjiRadicalFact(map) {
     return { label: "Radical", value: kanjiRadicalValue(map), source: "Kanji Alive / Jisho" };
@@ -2203,19 +2196,12 @@
   ({
     dictionaryLookupLinks: DEFAULT_DICTIONARY_LOOKUP_LINKS.map((link) => ({ ...link }))
   });
+  new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const PROSE_TAGS = /* @__PURE__ */ new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
-  /* @__PURE__ */ new Set([
-    ...PROSE_TAGS,
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5",
-    "H6"
-  ]);
+  new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
+  new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const COPY = {
     en: {
       settingsTitle: `${APP_NAME} Settings`,
@@ -4364,6 +4350,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
+newTabPage	新しいタブ
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
@@ -5802,14 +5789,16 @@ recommendedJiten	Jiten頻度です。
     const factSection = renderJpdbKanjiFactSection(facts);
     const readingsSection = renderJpdbKanjiReadings(info);
     const componentSection = renderJpdbKanjiComponents(info, language);
+    const vocabularySection = renderJpdbKanjiVocabulary(info, language);
     const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
                 ${readingsSection}
                 ${componentSection}
+                ${vocabularySection}
                 ${mnemonicSection}
             </div>
         </details>
@@ -5838,6 +5827,26 @@ recommendedJiten	Jiten頻度です。
             <span>${escapeHtml(component.keyword)}</span>
         </button>`).join("")}
     </div>`;
+  }
+  function renderJpdbKanjiVocabulary(info, language) {
+    if (!info.vocabulary.length) return "";
+    return `<section data-kanji-similar-words>
+        <div class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(uiText(language, "sourceNameWordsUsingKanji"))}</div>
+        <div class="jpdb-reader-similar-grid">
+            ${info.vocabulary.slice(0, 8).map((item) => `<button
+                class="jpdb-reader-similar-word"
+                type="button"
+                data-action="similar-word"
+                data-expression="${escapeHtml(item.expression)}"
+                data-reading="${escapeHtml(item.reading)}">
+                <span class="jpdb-reader-similar-word-head">
+                    <span>${escapeHtml(item.expression)}</span>
+                    ${item.reading ? `<small>${escapeHtml(item.reading)}</small>` : ""}
+                </span>
+                ${item.meaning ? `<span class="jpdb-reader-similar-meaning">${escapeHtml(item.meaning)}</span>` : ""}
+            </button>`).join("")}
+        </div>
+    </section>`;
   }
   function renderJpdbKanjiMnemonic(info, language) {
     return info.mnemonic ? `<details><summary>${uiText(language, "jpdbMnemonic")}</summary><p>${escapeHtml(info.mnemonic)}</p></details>` : "";
@@ -6618,7 +6627,7 @@ recommendedJiten	Jiten頻度です。
     const map = sourceInfo?.kanjiMap;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-origins" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             ${renderKanjiOriginDetail(map, settings, language)}
             ${settings.kanjiOriginGraphEnabled ? renderKanjiOriginGraph(graph, language) : ""}
             ${renderKanjiFactPills(facts, language, excludeFactLabels)}
@@ -6722,7 +6731,7 @@ recommendedJiten	Jiten頻度です。
     const ghost = info?.svg || `<div class="jpdb-reader-doodle-text-ghost">${escapeHtml(kanji)}</div>`;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${initiallyExpanded ? "open" : ""}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             <div class="jpdb-reader-doodle-stage" data-kanji="${escapeHtml(kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true">${ghost}</div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml(`${uiText(language, "practiceDrawing")} ${kanji}`)}"></canvas>

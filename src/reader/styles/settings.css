@@ -291,6 +291,7 @@
   line-height: inherit;
 }
 .jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) {
+  color: var(--jpdb-reader-text) !important;
   line-height: 1;
 }
 .jpdb-reader-settings select + .jpdb-reader-control-text-mirror {
@@ -1877,28 +1878,68 @@
 
   .jpdb-reader-settings-drag-handle {
     display: block;
+    height: 24px;
+    margin: -4px auto 0;
+  }
+
+  .jpdb-reader-settings-drag-handle::before {
+    height: 4px;
+    margin-top: 10px;
   }
 
   .jpdb-reader-settings-head {
-    padding: 8px 14px 0;
+    padding: 4px 12px 0;
+  }
+
+  .jpdb-reader-settings h2 {
+    margin-bottom: 6px;
+    font-size: 18px;
+    line-height: 1.22;
   }
 
   .jpdb-reader-settings-tabs {
-    padding: 0 14px 8px;
+    gap: 4px;
+    padding: 0 12px 4px;
+  }
+
+  .jpdb-reader-settings-tab {
+    min-height: 36px !important;
+    padding-inline: 10px !important;
+    font-size: 12px !important;
+  }
+
+  .jpdb-reader-settings-search {
+    padding: 0 12px 6px;
+  }
+
+  .jpdb-reader-settings-search label {
+    gap: 3px;
+    margin: 0;
   }
 
   .jpdb-reader-settings-scroll {
-    padding: 0 14px 100px;
+    padding: 0 12px 96px;
   }
 
   .jpdb-reader-settings fieldset {
-    margin: 10px 0;
-    padding: 11px;
+    margin: 6px 0;
+    padding: 8px;
   }
 
-  /* .grid is intentionally omitted: its auto-fit track sizing already
-     collapses to a single column on narrow dialogs, based on the real
-     dialog width rather than the viewport. */
+  .jpdb-reader-settings .grid {
+    gap: 10px 12px;
+  }
+
+  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+    min-height: 1.35em;
+  }
+
+  .jpdb-reader-settings .grid > label:not(.inline) {
+    gap: 4px;
+  }
+
+  /* Auto-fit still decides column count from dialog width; this breakpoint only
+     tightens spacing so mobile setup fields appear without a long preamble. */
   .jpdb-reader-settings-actions,
   .jpdb-reader-anki-layout,
   .jpdb-reader-anki-choice-grid,

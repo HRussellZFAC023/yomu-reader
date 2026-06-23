@@ -148,6 +148,21 @@ describe('paused-video OCR frames', () => {
         expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
     });
 
+    it('skips paused-frame snapshots inside the hosted Yomu video player', () => {
+        createController();
+        const host = document.createElement('section');
+        host.dataset.yomuVideoFrame = '';
+        const video = pausedVideo();
+        host.append(video);
+        document.body.append(host);
+
+        video.dispatchEvent(new Event('pause'));
+
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+    });
+
     it('keeps the gate intact through the loading status update (status class must not clobber pending)', async () => {
         // parseJapanese never resolves, so renderResult hangs in parseOcrLines and
         // the status stays 'loading'. The 'loading' status update must NOT strip

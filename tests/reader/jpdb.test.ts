@@ -26361,7 +26361,6 @@ describe('reader helpers', () => {
             { label: 'Grade', value: 'Grade 2', source: 'KANJIDIC' },
             { label: 'Strokes', value: '14', source: 'KanjiVG' },
             { label: 'Frequency', value: 'Top 400-500', source: 'JPDB' },
-            { label: 'Kanken', value: 'Level 9', source: 'JPDB' },
         ]));
         expect(facts.some(fact => fact.label === 'RTK frame' || fact.label === 'Old forms')).toBe(false);
         expect(facts.some(fact => fact.source === 'Kanji Grid' || fact.label === 'Learning')).toBe(false);

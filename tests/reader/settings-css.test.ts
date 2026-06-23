@@ -85,7 +85,8 @@ describe('settings CSS', () => {
         expect(normalizedSubtitlesCss).toContain('.jpdb-subtitle-player { position: fixed; display: block;');
         expect(normalizedLocalDictionaryCss).toContain('.yomu-jpdb-page-addon { display: block;');
         expect(normalizedLocalDictionaryCss).toContain('width: 100%; max-width: 100%;');
-        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab { --jpdb-reader-newtab-content-width: min(760px, 100%); display: block;');
+        expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab { --jpdb-reader-bg: var(--bg, var(--jpdb-reader-theme-dark-bg));');
+        expect(normalizedNewTabCss).toContain('--jpdb-reader-newtab-content-width: min(760px, 100%); display: block;');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-search-suggestions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 148px), 1fr));');
         expect(normalizedNewTabCss).toContain('.jpdb-reader-newtab-search-suggestion-term, .jpdb-reader-newtab-search-suggestion-detail { min-width: 0; max-width: 100%; overflow: visible; overflow-wrap: anywhere; white-space: normal; }');
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-appearance-preview { min-height: 170px;');

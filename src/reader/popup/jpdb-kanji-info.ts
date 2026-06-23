@@ -17,14 +17,16 @@ export function renderJpdbKanjiInfo(info: JpdbKanjiInfo | null, language: Interf
     const factSection = renderJpdbKanjiFactSection(facts);
     const readingsSection = renderJpdbKanjiReadings(info);
     const componentSection = renderJpdbKanjiComponents(info, language);
+    const vocabularySection = renderJpdbKanjiVocabulary(info, language);
     const mnemonicSection = renderJpdbKanjiMnemonic(info, language);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)} ${expandedAttribute(initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${factSection}
                 ${readingsSection}
                 ${componentSection}
+                ${vocabularySection}
                 ${mnemonicSection}
             </div>
         </details>
@@ -57,6 +59,27 @@ function renderJpdbKanjiComponents(info: JpdbKanjiInfo, language: InterfaceLangu
             <span>${escapeHtml(component.keyword)}</span>
         </button>`).join('')}
     </div>`;
+}
+
+function renderJpdbKanjiVocabulary(info: JpdbKanjiInfo, language: InterfaceLanguage): string {
+    if (!info.vocabulary.length) return '';
+    return `<section data-kanji-similar-words>
+        <div class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(uiText(language, 'sourceNameWordsUsingKanji'))}</div>
+        <div class="jpdb-reader-similar-grid">
+            ${info.vocabulary.slice(0, 8).map(item => `<button
+                class="jpdb-reader-similar-word"
+                type="button"
+                data-action="similar-word"
+                data-expression="${escapeHtml(item.expression)}"
+                data-reading="${escapeHtml(item.reading)}">
+                <span class="jpdb-reader-similar-word-head">
+                    <span>${escapeHtml(item.expression)}</span>
+                    ${item.reading ? `<small>${escapeHtml(item.reading)}</small>` : ''}
+                </span>
+                ${item.meaning ? `<span class="jpdb-reader-similar-meaning">${escapeHtml(item.meaning)}</span>` : ''}
+            </button>`).join('')}
+        </div>
+    </section>`;
 }
 
 function renderJpdbKanjiMnemonic(info: JpdbKanjiInfo, language: InterfaceLanguage): string {

@@ -481,7 +481,7 @@ function isIgnoredSourceTextElement(element: Element): boolean {
 }
 
 function isGeneratedReaderAnnotation(element: Element): boolean {
-    return element.matches('[data-jpdb-reader-surface-ignore="true"], .jpdb-reader-furi, .jpdb-ocr-furi');
+    return element.matches('[data-jpdb-reader-surface-ignore], .jpdb-reader-furi, .jpdb-ocr-furi');
 }
 
 function generatedAwareRubyText(element: Element, base: string): string {

@@ -223,7 +223,7 @@ import {
     type TokenListOptions,
     type TokenListSource,
 } from './main-helpers';
-import { siteProvidesNativeTextLayer } from './site-parsers';
+import { isBookWalkerStorefrontPage, siteProvidesNativeTextLayer } from './site-parsers';
 import { watchMokuroOcrToggle } from './mokuro-integration';
 import {
     inferMiningSourceKind,
@@ -1705,7 +1705,7 @@ export class ReaderApp {
             else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
             else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
                 this.pageHasJapaneseText = true;
-                this.scheduleAutoScan(visibleAutoScanMutationDelay());
+                this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: isBookWalkerStorefrontPage() });
             }
             if (isJitenHost()) {
                 if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);

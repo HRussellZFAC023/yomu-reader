@@ -50,7 +50,7 @@ export class StudySourceController {
         if (!sentence || !settings.studyTranslationEnabled) return '';
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(uiText(settings.interfaceLanguage, 'translation'))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(uiText(settings.interfaceLanguage, 'translation'))}</summary>
                 ${this.renderTranslationPanel(sentence)}
             </details>
         `;
@@ -61,7 +61,7 @@ export class StudySourceController {
         if (!sentence || !settings.studyGrammarEnabled) return '';
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(uiText(settings.interfaceLanguage, 'grammar'))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(uiText(settings.interfaceLanguage, 'grammar'))}</summary>
                 ${this.renderGrammarPanel()}
             </details>
         `;

@@ -301,7 +301,7 @@ function isIgnoredReadableElement(element: Element): boolean {
 
 function isSurfaceIgnoredElement(element: Element): boolean {
     return READABLE_IGNORED_TAGS.has(element.tagName)
-        || element.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi');
+        || element.matches('[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi');
 }
 
 function cleanReadableSentence(value: string): string {

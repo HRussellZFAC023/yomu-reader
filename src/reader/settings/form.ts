@@ -116,7 +116,7 @@ function escapedUiText(language: InterfaceLanguage, key: Parameters<typeof uiTex
 
 export function renderHelpLinksPanel(): string {
     return `
-        <div class="jpdb-reader-help-links-card">
+        <div class="jpdb-reader-help-links-card" data-jpdb-reader-surface-ignore>
             <div class="jpdb-reader-settings-subsection">
                 <div class="jpdb-reader-local-title" data-help-links-title>Useful pages</div>
                 <div class="jpdb-reader-help" data-help-links-copy>Open the hosted reader tools and docs from here.</div>

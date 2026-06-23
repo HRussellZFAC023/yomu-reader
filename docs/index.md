@@ -41,18 +41,18 @@ features:
     <strong>Install よむ as a userscript</strong>
     <p>Use Tampermonkey or Userscripts, install よむ, then refresh a Japanese page and tap or hover a word.</p>
   </div>
-  <div class="yomu-install-actions">
-    <div class="yomu-store-status" aria-label="Extension store status">
-      <div class="yomu-store-status-title">Extensions</div>
-      <div class="yomu-store-status-row">Chrome <small>Coming soon</small></div>
-      <div class="yomu-store-status-row">Firefox <small>Coming soon</small></div>
-      <div class="yomu-store-status-row">Safari <small>Coming soon</small></div>
-    </div>
-  </div>
-  <div class="yomu-install-steps" aria-label="Install steps">
-    <a class="yomu-install-step-link" href="https://www.tampermonkey.net/" target="_blank" rel="noopener" aria-label="Open the Tampermonkey install page for your browser"><b>1</b> <span>Add manager</span></a>
-    <a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><b>2</b> <span>Install よむ</span></a>
-    <a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page and tap a word for your first lookup"><b>3</b> <span>Tap a word</span></a>
+  <ol class="yomu-install-steps" aria-label="Install steps">
+    <li><a class="yomu-install-step-link" href="/getting-started#step-1-install-a-userscript-manager" aria-label="Choose a userscript manager for your browser or device"><span class="yomu-install-step-number" aria-hidden="true">1</span> <span>Add manager</span></a></li>
+    <li><a class="yomu-install-step-link" href="https://yomureader.com/yomu.user.js" aria-label="Install the よむ userscript"><span class="yomu-install-step-number" aria-hidden="true">2</span> <span>Install よむ</span></a></li>
+    <li><a class="yomu-install-step-link" href="/getting-started#step-3-your-first-lookup" aria-label="Open a Japanese page and tap a word for your first lookup"><span class="yomu-install-step-number" aria-hidden="true">3</span> <span>Tap a word</span></a></li>
+  </ol>
+  <div class="yomu-store-status" role="group" aria-labelledby="yomu-store-status-title">
+    <strong id="yomu-store-status-title" class="yomu-store-status-title">Browser stores</strong>
+    <ul class="yomu-store-status-list">
+      <li class="yomu-store-status-row">Chrome <small>Preparing</small></li>
+      <li class="yomu-store-status-row">Firefox <small>Preparing</small></li>
+      <li class="yomu-store-status-row">Safari <small>Preparing</small></li>
+    </ul>
   </div>
 </div>
 
@@ -70,7 +70,7 @@ features:
   <div class="yomu-device">
     <div class="yomu-device-frame">
       <span class="yomu-device-island" aria-hidden="true"></span>
-      <video class="yomu-demo-video" playsinline preload="none" controls poster="/media/yomu-demo-poster.jpg" aria-label="よむ demo: reading a Japanese novel on an iPhone and tapping a word to open the dictionary popup">
+      <video class="yomu-demo-video" controls playsinline preload="none" poster="/media/yomu-demo-poster.jpg" aria-label="よむ demo: reading a Japanese novel on an iPhone and tapping a word to open the dictionary popup">
         <source src="/media/yomu-demo.webm" type="video/webm" />
         <source src="/media/yomu-demo.mp4" type="video/mp4" />
       </video>
@@ -101,7 +101,7 @@ Add local dictionaries, Anki, OCR, subtitles, and the study page when you need t
   <div class="yomu-try-manga-head">
     <p class="yomu-eyebrow">OCR · manga &amp; images</p>
     <strong>Tap the text inside a manga page</strong>
-    <p>よむ reads the Japanese inside images with OCR, adds furigana, and makes every word tappable — the same popup as any page. Tap a word in the panel.</p>
+    <p>よむ reads Japanese inside manga panels, screenshots, and image-only pages with OCR, adds furigana, and turns every word into the same tappable popup. Tap a word in the panel.</p>
   </div>
   <div class="yomu-manga" data-yomu-furigana-mode="all" role="group" aria-label="Sample manga panel — tap any Japanese word to look it up">
     <span class="yomu-manga-scan" aria-hidden="true"></span>

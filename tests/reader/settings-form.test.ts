@@ -886,7 +886,7 @@ describe('settings form localization', () => {
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-color-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > [data-sticky-bottom-sheet-field] { display: flex; align-items: flex-start; padding-top: 36px; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .grid > .jpdb-reader-settings-field-color > input[type="color"] { width: 100%; min-width: 0; height: 40px;');
-        expect(normalizedCss).toContain('.jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) { line-height: 1; }');
+        expect(normalizedCss).toContain('.jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) { color: var(--jpdb-reader-text) !important; line-height: 1; }');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-help-actions .jpdb-reader-help-donate { border-color: var(--jpdb-reader-accent) !important; background: var(--jpdb-reader-accent) !important;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist { display: flex; flex-wrap: wrap;');
         expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-status-checklist a { color: var(--jpdb-reader-accent-readable);');

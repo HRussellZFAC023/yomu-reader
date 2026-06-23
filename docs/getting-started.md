@@ -201,7 +201,7 @@ Don't put AnkiConnect on the public internet or forward port `8765` on your rout
 
 ### Mobile handoff (new notes only)
 
-If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. This handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. **Mobile Anki add-note fallback** controls this path; leave it on or off as you like.
+If you'd rather not run desktop Anki, よむ can hand a new note to **AnkiMobile** or **AnkiDroid**. Mobile Anki handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect. **Mobile Anki add-note fallback** controls this path; leave it on or off as you like.
 
 ## Back up your settings
 

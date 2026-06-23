@@ -97,7 +97,6 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
         'run-at': 'document-start',
         license: 'MIT',
         icon: userscriptIcon,
-        supportURL: `${repoUrl}/issues`,
         ...(splitCompanions ? { require: greasyForkLibraryUrls() } : {}),
         resource: {
             yomuCss: rawReaderCssUrl,

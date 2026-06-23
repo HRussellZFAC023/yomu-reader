@@ -325,7 +325,7 @@ export function searchWordKanjiSourceShell(card: JPDBCard, context: NewTabSearch
             data-newtab-search-inline-kanji="true"
             ${context.sourceAttributes(kanjiSourceStateKey(`search-word:${cardKey(card)}:kanji`))}
         >
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml(context.text('kanji'))}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(context.text('kanji'))}</summary>
         </details>
     `);
 }

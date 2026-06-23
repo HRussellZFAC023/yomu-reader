@@ -10,6 +10,7 @@ import './custom.css';
 
 type InterfaceLanguage = 'en' | 'ja';
 type HostedThemePreference = 'auto' | 'dark' | 'light';
+type HostedInterfaceLanguagePreference = InterfaceLanguage | 'auto';
 type HostedSettingsChangeDetail = { preview?: unknown; settings?: Record<string, unknown> };
 type HostedYomuRuntimeWindow = typeof window & {
     __yomuDevRuntime?: boolean;
@@ -28,7 +29,20 @@ const YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID = 'yomu-hosted-video-companion';
 const LEGACY_YOMU_HOSTED_RUNTIME_SCRIPT_ID = 'yomu-hosted-demo-runtime';
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 const HOSTED_DOCS_TRANSLATION_LEAF_SELECTOR = 'h1, h2, h3, h4, p, li, a, button, span, strong, small, figcaption, dt, dd, th, td, summary, label';
+const HOSTED_DOCS_HEAD_TRANSLATION_SELECTOR = [
+    'meta[name="description"]',
+    'meta[property="og:title"]',
+    'meta[property="og:description"]',
+    'meta[property="og:image:alt"]',
+    'meta[name="twitter:title"]',
+    'meta[name="twitter:description"]',
+    'meta[name="twitter:image:alt"]',
+].join(',');
 const DEFAULT_ACCENT_COLOR = '#5ea780';
+const HOSTED_DOCS_LOCALE_META: Record<InterfaceLanguage, string> = {
+    en: 'en_US',
+    ja: 'ja_JP',
+};
 const DOC_COLOR_TOKENS = {
     black: '#000000',
     white: '#ffffff',
@@ -63,17 +77,18 @@ let hostedDocsShellSyncPending = false;
 let hostedDocsLocalizationPending = false;
 let hostedDocsLocalizationResetPending = false;
 let hostedAccentSignature = '';
+let hostedDocumentTitleOriginal: string | undefined;
 let hostedRuntimeIntentController: AbortController | undefined;
 let hostedRuntimeIntentTarget: HTMLElement | undefined;
 let routeSyncBound = false;
 let localRuntimeCacheCleanupStarted = false;
 
 const HOSTED_OVERFLOW_LINKS = [
-    { text: 'Video Player', href: '/yomu-reader/video-player/index.html', target: '_self' },
-    { text: 'PDF Reader', href: '/yomu-reader/pdf-reader/', target: '_self' },
-    { text: 'Stats', href: '/yomu-reader/newtab/index.html?mode=stats', target: '_self' },
-    { text: 'Local Audio', href: '/yomu-reader/local-audio' },
-    { text: 'Changelog', href: '/yomu-reader/changelog' },
+    { text: 'Video Player', href: '/video-player/index.html', target: '_self' },
+    { text: 'PDF Reader', href: '/pdf-reader/', target: '_self' },
+    { text: 'Stats', href: '/newtab/index.html?mode=stats', target: '_self' },
+    { text: 'Local Audio', href: '/local-audio' },
+    { text: 'Changelog', href: '/changelog' },
 ] as const;
 
 const HOSTED_LANGUAGE_TOGGLE_STATES: Record<InterfaceLanguage, { lang: InterfaceLanguage; text: string }> = {
@@ -92,23 +107,52 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
     },
 };
 
+const HOSTED_LANGUAGE_NUDGE_COPY: Record<InterfaceLanguage, { title: string; body: string; dismiss: string }> = {
+    en: {
+        title: 'Prefer 日本語?',
+        body: 'Tap あ / A here to switch this site between Japanese and English anytime.',
+        dismiss: 'Got it',
+    },
+    ja: {
+        title: '日本語で読みますか？',
+        body: 'ここで「あ / A」をタップすると、このサイトをいつでも日本語と英語で切り替えられます。',
+        dismiss: '閉じる',
+    },
+};
+
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Skip to content': '本文へスキップ',
     'Search': '検索',
     'Main Navigation': 'メインナビゲーション',
+    'Return to top': 'ページ上部へ戻る',
+    'Sidebar Navigation': 'サイドバーナビゲーション',
+    'On this page': 'このページの内容',
+    'Last updated:': '最終更新:',
+    'Previous page': '前のページ',
+    'Next page': '次のページ',
+    'extra navigation': '追加ナビゲーション',
+    'mobile navigation': 'モバイルナビゲーション',
+    'Copy Code': 'コードをコピー',
     'Start': '始める',
     'Install': 'インストール',
     'Learn': '学ぶ',
     'Overview': '概要',
     'Getting Started': '使い始める',
+    'Getting Started | よむ': '使い始める | よむ',
+    'Getting Started · よむ': '使い始める · よむ',
     'Features': '機能',
     'Study': '学習',
     'New Tab': '新しいタブ',
     'More': 'その他',
     'Tools': 'ツール',
+    'All tools': 'すべてのツール',
     'Guides': 'ガイド',
+    'All guides': 'すべてのガイド',
+    'Read manga in Japanese': '日本語で漫画を読む',
+    'Comprehensible-input YouTube': '理解可能なインプット向けYouTube',
+    'Mine sentences to Anki': 'Ankiに例文をマイニング',
     'Menu': 'メニュー',
     'Settings': '設定',
     'Open settings': '設定を開く',
@@ -126,11 +170,29 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'OCR & manga': 'OCRと漫画',
     'Subtitles & video': '字幕と動画',
     'Study setup': '学習設定',
-    'Free Japanese lookup and mining for the web': 'Webで使える無料の日本語ルックアップとマイニング',
-    'Tap or hover Japanese text, read manga images, mine subtitles, import dictionaries, and save study cards without paying for a full study suite.': '日本語テキストをタップまたはホバーし、漫画画像を読み取り、字幕から採掘し、辞書をインポートし、学習カードを保存できます。',
-    'Install よむ': 'インストール',
+    'Permalink to "Next Steps"': '「次のステップ」への固定リンク',
+    'Permalink to "Getting Started"': '「使い始める」への固定リンク',
+    'Permalink to "Three words to know"': '「3つの用語」への固定リンク',
+    'Permalink to "Step 1: Install a userscript manager"': '「ステップ1: ユーザースクリプト管理拡張をインストール」への固定リンク',
+    'Permalink to "Chrome, Edge, or Firefox (computer)"': '「Chrome、Edge、Firefox (PC)」への固定リンク',
+    'Permalink to "iPhone or iPad"': '「iPhoneまたはiPad」への固定リンク',
+    'Permalink to "Step 2: Install よむ"': '「ステップ2: よむをインストール」への固定リンク',
+    'Permalink to "On a computer"': '「PCの場合」への固定リンク',
+    'Permalink to "On iPhone or iPad"': '「iPhoneまたはiPadの場合」への固定リンク',
+    'Permalink to "Step 3: Your first lookup"': '「ステップ3: 最初の検索」への固定リンク',
+    'Permalink to "Add an API source (optional)"': '「APIソースを追加する (任意)」への固定リンク',
+    'Permalink to "Turn on more tools"': '「追加ツールをオンにする」への固定リンク',
+    'Permalink to "What to read"': '「読むもの」への固定リンク',
+    'Permalink to "Using よむ on a phone or tablet"': '「スマートフォンやタブレットでよむを使う」への固定リンク',
+    'Permalink to "Use desktop Anki from a phone, iPad, or Android"': '「スマートフォン、iPad、Androidからデスクトップ版Ankiを使う」への固定リンク',
+    'Permalink to "Mobile handoff (new notes only)"': '「モバイル連携 (新規ノートのみ)」への固定リンク',
+    'Permalink to "Back up your settings"': '「設定をバックアップ」への固定リンク',
+    'Permalink to "If something does not work"': '「うまく動かない場合」への固定リンク',
+    'Free Japanese lookup and mining for the web': 'Webで使える無料の日本語検索とマイニング',
+    'Tap or hover Japanese text, read manga images, mine subtitles, import dictionaries, and save study cards in one free browser add-on.': '日本語テキストをタップまたはホバーし、漫画画像を読み取り、字幕をマイニングし、辞書をインポートし、学習カードを1つの無料ブラウザーアドオンに保存できます。',
+    'Install よむ': 'よむをインストール',
     'Setup Guide': 'セットアップガイド',
-    'Open Study App': '学習',
+    'Open Study App': '学習アプリを開く',
     'Install in minutes': '数分でインストール',
     'Add Tampermonkey or Userscripts, open the よむ install link, then refresh a Japanese page and tap a word.': 'TampermonkeyまたはUserscriptsを追加し、よむのインストールリンクを開いて、日本語ページを更新したら単語をタップします。',
     'Forever free': 'ずっと無料',
@@ -163,6 +225,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'OCR, furigana, kanji stroke order, subtitles, PDFs, and YouTube helpers.': 'OCR、ふりがな、漢字の書き順、字幕、PDF、YouTube補助ツール。',
     'Free Japanese Learning Tools': '無料の日本語学習ツール',
     "よむ bundles a set of free Japanese reading tools into one browser add-on. Each one is built for a real moment of immersion — a word you can't read, a manga panel with no selectable text, a video line going by too fast, a kanji you want to break down. They all share the same popup, so you stay inside whatever you're reading.": 'よむは無料の日本語読解ツールを1つのブラウザーアドオンにまとめます。読めない単語、選択できない漫画のコマ、速すぎる動画字幕、分解して見たい漢字など、実際の没入中の場面に合わせて作られています。すべて同じポップアップを使うので、読んでいるものから離れずに済みます。',
+    "よむ bundles a set of Japanese reading tools into one browser add-on, each built for a real moment of immersion: a word you can't read, a manga panel with no selectable text, a fast subtitle line, a kanji to break down. They share one popup, so you stay inside whatever you're reading. Everything here is free, runs in your browser, and needs no account. Pick the tool that matches your goal:": 'よむは日本語読解ツールを1つのブラウザーアドオンにまとめます。読めない単語、選択できない漫画のコマ、速い字幕の1行、分解したい漢字など、実際の没入中の場面に合わせて作られています。同じポップアップを共有するので、読んでいるものから離れずに済みます。ここにあるものはすべて無料で、ブラウザー内で動作し、アカウント不要で始められます。目的に合うツールを選んでください:',
     'Everything here is free, runs in your browser, and needs no account to start. Pick the tool that matches what you\'re trying to do:': 'ここにあるものはすべて無料で、ブラウザー内で動作し、始めるのにアカウントは不要です。やりたいことに合うツールを選んでください:',
     "Everything here is": 'ここにあるものはすべて',
     'free': '無料',
@@ -186,9 +249,11 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'How the tools fit together': 'ツールのつながり',
     'The workflow is always the same loop:': '流れはいつも同じです:',
     'The workflow is always the same loop: find Japanese → understand it in context → save the useful words. A normal web page, a manga page read through OCR, and a video subtitle line all become the same kind of tappable text, so the dictionary, audio, kanji breakdown, and mining buttons work everywhere without you learning a different interface for each one.': '流れはいつも同じです。日本語を見つけ、文脈で理解し、役に立つ単語を保存します。普通のWebページ、OCRで読んだ漫画ページ、動画字幕の1行がすべて同じ「タップできるテキスト」になります。そのため、辞書、音声、漢字分解、マイニングボタンをどこでも同じ操作で使えます。',
+    'The loop is always the same: find Japanese → understand it in context → save the useful words. A web page, a manga page read through OCR, and a video subtitle line all become the same tappable text, so the dictionary, audio, kanji breakdown, and mining buttons work everywhere — one interface, not six.': '流れはいつも同じです。日本語を見つけ、文脈で理解し、役に立つ単語を保存します。Webページ、OCRで読んだ漫画ページ、動画字幕の1行がすべて同じ「タップできるテキスト」になります。そのため、辞書、音声、漢字分解、マイニングボタンをどこでも使えます。必要なのは1つの画面だけで、6つの別々の操作を覚える必要はありません。',
     'find Japanese → understand it in context → save the useful words.': '日本語を見つける → 文脈で理解する → 役に立つ単語を保存する。',
     'A normal web page, a manga page read through OCR, and a video subtitle line all become the same kind of tappable text, so the dictionary, audio, kanji breakdown, and mining buttons work everywhere without you learning a different interface for each one.': '普通のWebページ、OCRで読んだ漫画ページ、動画字幕の1行がすべて同じ「タップできるテキスト」になります。そのため、辞書、音声、漢字分解、マイニングボタンをどこでも同じ操作で使えます。',
     'You can use a single tool and ignore the rest. Read manga with just OCR, or watch YouTube with just the immersion filter, or look words up with just the dictionary. They only connect when you want them to.': '1つのツールだけ使って、残りは無視してもかまいません。OCRだけで漫画を読む、没入フィルターだけでYouTubeを見る、辞書だけで単語を調べることもできます。必要になった時だけ連携します。',
+    'Use a single tool and ignore the rest: just OCR for manga, just the immersion filter for YouTube, just the dictionary for lookups. They connect only when you want them to.': '1つのツールだけ使って、残りは無視してもかまいません。漫画にはOCRだけ、YouTubeには没入フィルターだけ、単語検索には辞書だけでも使えます。必要な時だけ連携します。',
     'What you need': '必要なもの',
     'userscript manager': 'ユーザースクリプト管理拡張',
     '(Tampermonkey on desktop, Userscripts on iPhone/iPad) — both are free.': '（デスクトップはTampermonkey、iPhone/iPadはUserscripts）です。どちらも無料です。',
@@ -208,7 +273,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Find things to read': '読むものを探す',
     'Read manga, mine anime & YouTube to Anki, find comprehensible-input channels.': '漫画を読み、アニメやYouTubeをAnkiにマイニングし、理解可能なインプットのチャンネルを見つけられます。',
     'Manga, anime, YouTube, graded readers, and comprehensible-input ideas.': '漫画、アニメ、YouTube、レベル別読み物、理解可能なインプットのアイデア。',
-    'Open study app': '学習',
+    'Open study app': '学習アプリを開く',
     'Review study cards, Anki cards, or imported dictionary cards from the study app.': '学習アプリで学習カード、Ankiカード、インポート辞書カードを復習します。',
     'Open video player': '動画プレイヤーを開く',
     'Use local browser-supported videos and subtitle files with よむ lookup.': 'ブラウザー対応のローカル動画と字幕ファイルでよむ検索を使えます。',
@@ -861,8 +926,86 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free.': 'などは現在月額10ドルからの有料プランを宣伝していますが、よむは同様の核となる読書およびマイニングのワークフローを無料で提供します。',
     'Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough money to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support helps bring that future closer and encourages me to keep maintaining よむ, fixing bugs, and adding the features learners ask for.': '寄付は任意です。寄付は、リーダーの磨き込みを維持するための時間、テスト端末、サービス、メンテナンス、およびAIトークンの費用を賄うのに役立ちます。現実的には、よむの開発でAI/APIトークンに費やした額は、寄付で回収できる見込みの額をはるかに上回っていますが、少額の寄付でもその負担を和らげることができます。個人的には、十分なお金を貯めて日本に移住し、遠距離恋愛中の日本人彼女と結婚するのが私の夢です。皆様からのご支援のすべてが、その未来を引き寄せ、よむのメンテナンス継続、バグ修正、および学習者が求める機能の追加への励みになります。',
     'Look up a word and press the speaker button.': '単語を検索してスピーカーボタンを押します。',
+    'よむ - Free Japanese popup dictionary & immersion reader': 'よむ - 無料の日本語ポップアップ辞書・没入リーダー',
+    'よむ - Free Japanese popup reader': 'よむ - 無料の日本語ポップアップリーダー',
+    'よむ is a free Japanese reader for web pages, manga, PDFs, and video subtitles. Tap any word for readings, meanings, kanji, audio, and study actions.': 'よむはWebページ、漫画、PDF、動画字幕向けの無料日本語リーダーです。単語をタップすると、読み、意味、漢字、音声、学習操作を確認できます。',
+    'よむ app icon': 'よむのアプリアイコン',
+    'よむ app icon and Japanese reader preview card': 'よむのアプリアイコンと日本語リーダーのプレビューカード',
+    'Read real Japanese, anywhere': '本物の日本語を、どこでも読む',
+    'On your iPhone, on the go or at home — tap any word on a page, manga, subtitle, or PDF to see its reading, meaning, pitch, and audio, then keep reading. Free, and no account needed.': 'iPhoneでも、外出先でも、自宅でも。Webページ、漫画、字幕、PDFの単語をタップするだけで、読み、意味、ピッチ、音声を確認して、そのまま読み続けられます。無料で、アカウントも不要です。',
+    'See it in action': '動作を見る',
+    'On the go or at home,': '外出先でも自宅でも、',
+    'read what you love in Japanese': '好きなものを日本語で読む',
+    'Tap a word while you read. よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences, then saves it and lets you keep going.': '読んでいる途中で単語をタップします。よむは、読み、意味、ピッチアクセント、音声、例文を1つのポップアップに表示し、保存してそのまま読み続けられるようにします。',
+    'Install よむ — free': 'よむを無料でインストール',
+    'Real screen recording on iPhone · tap to play with sound': 'iPhoneでの実際の画面録画・タップすると音声付きで再生',
+    'Watch the demo': 'デモを見る',
+    'よむ demo: reading a Japanese novel on an iPhone and tapping a word to open the dictionary popup': 'よむのデモ: iPhoneで日本語小説を読み、単語をタップして辞書ポップアップを開く',
+    'Play the よむ demo with sound': 'よむのデモを音声付きで再生',
+    'Tap a word, keep reading': '単語をタップして、読み続ける',
+    'よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences, then lets you save the word and keep going — the same popup on web pages, manga, PDFs, and subtitles.': 'よむは、読み、意味、ピッチアクセント、音声、例文を1つのポップアップに表示し、その単語を保存して読み続けられるようにします。Webページ、漫画、PDF、字幕でも同じポップアップです。',
+    'Tap or hover Japanese on web pages, manga images, PDFs, and video subtitles to open one popup with readings, meanings, kanji, pitch, audio, examples, and save actions.': 'Webページ、漫画画像、PDF、動画字幕の日本語をタップまたはホバーすると、読み、意味、漢字、ピッチ、音声、例文、保存操作を1つのポップアップで開けます。',
+    'Add local dictionaries, Anki, OCR, subtitles, and the study page when you need them. On mobile, the floating よむ button keeps settings and tools reachable.': '必要なときだけ、ローカル辞書、Anki、OCR、字幕、学習ページを追加できます。モバイルではフローティングのよむボタンから設定やツールをすぐ開けます。',
+    'OCR · manga & images': 'OCR・漫画と画像',
+    'Tap the text inside a manga page': '漫画ページ内の文字をタップ',
+    'よむ reads the Japanese inside images with OCR, adds furigana, and makes every word tappable — the same popup as any page. Tap a word in the panel.': 'よむは画像内の日本語をOCRで読み取り、ふりがなを追加し、すべての単語をタップ可能にします。通常のページと同じポップアップです。パネル内の単語をタップしてみてください。',
+    'よむ reads Japanese inside manga panels, screenshots, and image-only pages with OCR, adds furigana, and turns every word into the same tappable popup. Tap a word in the panel.': 'よむは漫画のコマ、スクリーンショット、画像だけのページにある日本語をOCRで読み取り、ふりがなを追加し、すべての単語を同じタップ可能なポップアップに変えます。パネル内の単語をタップしてみてください。',
+    'Sample manga panel — tap any Japanese word to look it up': 'サンプル漫画パネル - 任意の日本語単語をタップして検索',
+    'Everything よむ does — popup dictionary lookup and mining, Yomitan dictionaries, audio and example sentences, kanji drilldown with stroke order, manga and image OCR, video subtitle mining, a YouTube immersion filter, Anki export, and a study new-tab page.': 'よむでできることの一覧です。ポップアップ辞書検索とマイニング、Yomitan辞書、音声と例文、書き順付き漢字ドリルダウン、漫画・画像OCR、動画字幕マイニング、YouTube没入フィルター、Anki書き出し、新しいタブの学習ページを含みます。',
+    'よむ runs one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.': 'よむの流れは1つだけです。実際の日本語を見つけ、すばやく理解し、役に立つ部分を学習用に保存します。',
+    'To let the official jpdb reader, Jiten Reader, or Yomitan own popups, turn off': '公式JPDBリーダー、Jiten Reader、Yomitanにポップアップを任せたい場合は、',
+    'Reader -> Show Yomu lookup popup': 'Reader -> Show Yomu lookup popup',
+    'in Settings. よむ keeps annotations, media tools, mining, and study features without opening a second popup.': 'を設定でオフにします。よむは2つ目のポップアップを開かずに、注釈、メディアツール、マイニング、学習機能を維持します。',
+    'The popup also has optional study helpers for the current sentence. The translation tool generates a plain sentence translation when you open that section, and the grammar tool highlights likely grammar patterns with short explanations and guide links.': 'ポップアップには、現在の文向けの任意の学習補助もあります。翻訳ツールはそのセクションを開いたときに自然な文訳を生成し、文法ツールは可能性の高い文法パターンを短い説明とガイドリンク付きで強調表示します。',
+    'This gives you native-language dictionaries, monolingual Japanese definitions, frequency, kanji, or pitch dictionaries without depending on a remote service for every lookup.': 'これにより、検索のたびに外部サービスへ依存せず、母語辞書、日本語単語辞書、頻度、漢字、ピッチ辞書を使えます。',
+    'Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. To practice without seeing English immediately, turn on blurred example translations and reveal them by tapping the translation.': '例文では、日本語、翻訳、サムネイル、音声、ソースフィルターを表示できます。設定では、カテゴリ、長さ制限、画像表示、翻訳表示、再生速度、デスクトップでの一度だけのホバー音声を選べます。すぐ英語を見ずに練習したい場合は、例文翻訳のぼかしをオンにし、翻訳をタップして表示します。',
+    'Use this for manga panels, screenshots, and image-heavy pages where normal text selection does not work. The image is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings.': '通常のテキスト選択が効かない漫画のコマ、スクリーンショット、画像の多いページで使います。ローカルOCRエンドポイントを有効にしない限り画像は送信されず、送信先は設定で指定したエンドポイントだけです。',
+    'The transcript is a reading surface too: visible Japanese lines hydrate into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup.': 'トランスクリプトも読書画面です。表示中の日本語行はオーバーレイと同じ検索可能な単語になり、ざっと読み、行へジャンプし、ポップアップを開けます。',
+    'The YouTube filter is on by default so recommendations stay focused on Japanese. When a video id is available, よむ checks the original title via oEmbed, keeps Japanese-learning and comprehensible-input titles even when written in English, and hides non-Japanese-looking cards across recommendations, search results, and sidebars. Playback, subtitles, and よむ controls keep working.': 'YouTubeフィルターは標準でオンになっており、おすすめを日本語中心に保ちます。動画IDがある場合、よむはoEmbedで元のタイトルを確認し、英語で書かれた日本語学習・理解可能なインプットのタイトルは残し、おすすめ、検索結果、サイドバーから日本語らしくないカードを隠します。再生、字幕、よむの操作はそのまま使えます。',
+    'The separate': '別の',
+    'Prefer Japanese site language and location': '日本語サイト言語と日本の地域を優先',
+    'setting asks multilingual pages for their Japanese version by combining browser-language hints, Japan locale/location hints, Japanese preference cookies,': '設定は、ブラウザー言語ヒント、日本のロケール・地域ヒント、日本語優先Cookie、',
+    'alternates, and common URL patterns such as': 'alternate情報、',
+    '. The よむ puck includes the same toggle so you can turn that request on or off from the page; when よむ knows the original English/default URL, turning it off returns there.': 'などの一般的なURLパターンを組み合わせて、多言語ページに日本語版を要求します。よむパックにも同じトグルがあり、ページ上で要求をオン/オフできます。よむが元の英語版または標準URLを知っている場合、オフにするとそこへ戻ります。',
+    'On a phone or tablet, the full Anki setup still uses desktop AnkiConnect: the phone does the reading, the computer does the Anki work. See the step-by-step phone, iPad, or Android setup in': 'スマートフォンやタブレットでも、完全なAnki設定にはデスクトップ版AnkiConnectを使います。読むのはスマートフォン、Anki処理はPCです。スマートフォン、iPad、Android向けの手順は',
+    'On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and point よむ at a reachable LAN or Tailscale URL such as': 'iPhone、iPad、Androidでは、これが最も簡単な日々の復習画面になることがよくあります。完全なAnkiステータス、更新、自動デッキスキャン、復習キューを使うには、デスクトップ版AnkiをAnkiConnect付きで起動したままにし、よむには到達可能なLANまたはTailscale URLを指定してください。例:',
+    '— AnkiConnect\'s default': '— AnkiConnectの標準設定である',
+    'means "this device" and is unreachable from a phone. Without AnkiConnect or an API source, dictionary-backed words keep the page useful once a dictionary is installed. Step-by-step mobile Anki setup is in': 'は「この端末」を意味するため、スマートフォンからは到達できません。AnkiConnectやAPIソースがなくても、辞書をインストールすれば辞書ベースの単語でページを活用できます。モバイルAnkiの手順は',
+    'Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and tap a word. No account needed. Optional Jiten, JPDB, Anki, OCR, and audio setup included.': 'よむは3ステップでインストールできます。無料のユーザースクリプト管理拡張（デスクトップはTampermonkey、iPhone/iPadはUserscripts）を追加し、よむをインストールし、日本語ページを開いて単語をタップします。アカウント不要。任意のJiten、JPDB、Anki、OCR、音声設定も含みます。',
+    'is a small add-on that runs inside your browser. Install a free manager once, add よむ to it, and よむ appears on Japanese pages: tap a word for a popup dictionary, save words for review, read manga with OCR, and look up subtitles on video. It\'s free and needs no account to start.': 'はブラウザー内で動く小さなアドオンです。無料の管理拡張を一度入れ、そこによむを追加すると、日本語ページによむが表示されます。単語をタップしてポップアップ辞書を開き、復習用に単語を保存し、OCRで漫画を読み、動画字幕を検索できます。無料で、始めるのにアカウントは不要です。',
+    '— the browser add-on that runs よむ: Tampermonkey (computer) or Userscripts (iPhone/iPad).': '— よむを動かすブラウザーアドオンです。PCではTampermonkey、iPhone/iPadではUserscriptsを使います。',
+    'Click the link above. Tampermonkey opens an install screen for よむ. Click': '上のリンクをクリックします。Tampermonkeyでよむのインストール画面が開きます。',
+    ', then open a Japanese page and skip to': 'をクリックし、日本語ページを開いて',
+    'Userscripts reads this page to install よむ.': 'Userscriptsはこのページを読み取って、よむをインストールします。',
+    '— connect Jiten or JPDB for word tracking and mining. Optional, and you can do it later (': '— 単語追跡とマイニングのためにJitenまたはJPDBへ接続します。任意で、あとからでも設定できます（',
+    'That\'s the whole loop. Everything below is optional.': 'これで基本の流れは完了です。以下はすべて任意です。',
+    'can give よむ word status and mining actions. Local dictionary lookup works fine without them, but connecting one makes progress tracking easier.': 'は、よむに単語ステータスとマイニング操作を提供できます。ローカル辞書検索はそれらなしでも問題なく動きますが、接続すると進捗を追いやすくなります。',
+    'The difference is': '違うのは',
+    'You don\'t need AnkiMobile or AnkiDroid for full Anki status on mobile. Keep Anki open on your computer and let your phone talk to it; your phone is just the reading screen, while desktop AnkiConnect handles existing-card status, note updates, media, deck scans, and review queues.': 'モバイルで完全なAnkiステータスを使うためにAnkiMobileやAnkiDroidは不要です。PCでAnkiを開いたままにし、スマートフォンからそこへ接続します。スマートフォンは読書画面で、デスクトップ版AnkiConnectが既存カード状態、ノート更新、メディア、デッキスキャン、復習キューを処理します。',
+    ': it gives your own devices a private address so they can see each other, even away from home — no router setup, port forwarding, or command line. Install it on the computer that runs Anki and on the phone or tablet that runs よむ.': 'です。自分の端末同士にプライベートアドレスを与え、外出先でも相互に見えるようにします。ルーター設定、ポート開放、コマンドラインは不要です。Ankiを動かすPCと、よむを動かすスマートフォンまたはタブレットにインストールします。',
+    '. Mobile Anki handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect.': 'です。モバイルAnki連携は一方向で、新規ノートを開始するだけです。既存デッキのスキャン、既存カード状態の表示、古いノートの更新、復習キューの提供はできません。それらにはデスクトップ版AnkiConnectが必要です。',
+    '. This handoff is one-way: it only starts a new note. It cannot scan existing decks, show existing-card status, update old notes, or provide review queues — those need desktop AnkiConnect.': 'に新しいノートを渡せます。この連携は一方向で、新規ノートを開始するだけです。既存デッキのスキャン、既存カード状態の表示、古いノートの更新、復習キューの提供はできません。それらにはデスクトップ版AnkiConnectが必要です。',
+    'controls this path; leave it on or off as you like.': 'がこの経路を制御します。好みに応じてオン/オフしてください。',
+    'Add Japanese word audio to よむ. Use a hosted Yomitan-compatible audio URL for the easiest setup, or run a free local audio server to play pronunciation files stored on your own computer.': 'よむに日本語単語の音声を追加します。最も簡単な設定ではホスト版のYomitan互換音声URLを使い、自分のPCに保存した発音ファイルを再生したい場合は無料のローカル音声サーバーを動かします。',
+    'The hosted option is the least fuss. Use the local server only if you\'re okay keeping a small helper app running on your computer.': 'ホスト版がいちばん手軽です。PC上で小さな補助アプリを起動したままにできる場合だけ、ローカルサーバーを使ってください。',
+    'gives you a personal audio URL after you subscribe through Patreon and authenticate. That URL works with よむ directly — no audio files to download and nothing to run on your computer.': 'は、Patreonで購読して認証した後に個人用の音声URLを発行します。そのURLはよむで直接使えます。音声ファイルのダウンロードも、PC上で動かすものも不要です。',
+    'Don\'t use the green Code button on GitHub — that downloads developer source code. Take the latest file from the Releases page.': 'GitHubの緑色のCodeボタンは使わないでください。開発者向けソースコードをダウンロードしてしまいます。Releasesページから最新ファイルを入手してください。',
+    'On a phone or iPad,': 'スマートフォンやiPadでは、',
+    'that device': 'その端末',
+    ', not the computer running the server (see': 'を指し、サーバーを動かしているPCではありません（',
+    'desktop helpers on mobile': 'モバイルでのデスクトップ補助機能',
+    '). To reach your computer\'s audio server from another device, use': 'を参照）。別の端末からPCの音声サーバーへ接続するには、',
+    'If this setup feels like too much, use the': 'この設定が大変に感じる場合は、',
+    'hosted audio option': 'ホスト版音声オプション',
+    'at the top of this page.': 'をこのページ上部から使ってください。',
+    'Get help with よむ — report a bug, join the Discord, view the source on GitHub, or donate. よむ brings popup lookup, mining, dictionaries, subtitles, OCR, and Anki export into one free userscript.': 'よむのヘルプです。バグ報告、Discord参加、GitHubでのソース確認、寄付ができます。よむはポップアップ検索、マイニング、辞書、字幕、OCR、Anki書き出しを1つの無料ユーザースクリプトにまとめます。',
+    'よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable suites such as': 'よむは、ポップアップ検索、マイニング、インポート辞書、字幕、画像読み取り、Anki書き出しを1つの無料ユーザースクリプトにまとめます。同等のスイートである',
+    'currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free (': 'は現在、月額10ドルからの有料プランを案内していますが、よむは同じ中心的な読書・マイニングの流れを無料で提供します（',
+    'full comparison': '詳しい比較',
+    'Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support brings that closer and keeps me maintaining よむ, fixing bugs, and adding the features learners ask for.': '寄付は任意です。リーダーを磨き続けるための時間、テスト端末、サービス、メンテナンス、AIトークン費用を支える助けになります。現実的には、よむの開発でAI/APIトークンに費やした額は、寄付で回収できる見込みを大きく上回っていますが、少額でもその負担を和らげてくれます。個人的には、日本へ移住して遠距離恋愛中の日本人の彼女と結婚できるだけの資金を貯めるのが夢です。どんな支援もその未来を近づけ、よむのメンテナンス、バグ修正、学習者が求める機能追加を続ける励みになります。',
     // Brand names to themselves
     'AnkiConnect': 'AnkiConnect',
+    'Jiten': 'Jiten',
     'Tailscale': 'Tailscale',
     'Migaku': 'Migaku',
     'AnkiMobile': 'AnkiMobile',
@@ -1198,12 +1341,44 @@ function saveInterfaceLanguage(language: InterfaceLanguage): void {
 
 function localizeHostedDocsCopy(options: { resetReaderWords?: boolean } = {}): void {
     const language = effectiveInterfaceLanguage();
-    document.documentElement.setAttribute('lang', language);
+    syncHostedDocumentLocale(language);
     if (options.resetReaderWords) unwrapHostedDocsReaderWords();
     localizeHostedStructuredDocsCopy(document.body, language);
     restoreHostedDocsLeafCopy(document.body, language);
     translateTextNodes(document.body, language);
     translateAttributes(document.body, language);
+}
+
+function syncHostedDocumentLocale(language: InterfaceLanguage): void {
+    document.documentElement.setAttribute('lang', language);
+    document.querySelector<HTMLMetaElement>('meta[property="og:locale"]')
+        ?.setAttribute('content', HOSTED_DOCS_LOCALE_META[language]);
+    translateHostedHeadCopy(language);
+}
+
+function translateHostedHeadCopy(language: InterfaceLanguage): void {
+    translateHostedDocumentTitle(language);
+    document.querySelectorAll<HTMLMetaElement>(HOSTED_DOCS_HEAD_TRANSLATION_SELECTOR).forEach(meta => {
+        translateHostedHeadContent(meta, language);
+    });
+}
+
+function translateHostedDocumentTitle(language: InterfaceLanguage): void {
+    const current = document.title;
+    const original = canonicalHostedDocsSourceString(current, hostedDocumentTitleOriginal);
+    hostedDocumentTitleOriginal = original;
+    const translated = translateHostedDocsString(original, language);
+    if (translated !== current) document.title = translated;
+}
+
+function translateHostedHeadContent(meta: HTMLMetaElement, language: InterfaceLanguage): void {
+    const value = meta.getAttribute('content');
+    if (!value) return;
+    const originals = hostedAttributeOriginals(meta);
+    const original = canonicalHostedDocsSourceString(value, originals.get('content'));
+    originals.set('content', original);
+    const translated = translateHostedDocsString(original, language);
+    if (translated !== value) meta.setAttribute('content', translated);
 }
 
 function scheduleHostedDocsLocalization(options: { resetReaderWords?: boolean } = {}): void {
@@ -1334,13 +1509,21 @@ function hostedAttributeOriginals(element: HTMLElement): Map<string, string> {
 }
 
 function canonicalHostedDocsSourceString(value: string, fallback?: string): string {
-    return hostedDocsSourceString(value) ?? (fallback ? hostedDocsSourceString(fallback) ?? fallback : value);
+    const source = hostedDocsSourceString(value);
+    if (source) return source;
+    if (fallback && hostedDocsTranslationEquivalent(value, fallback)) return fallback;
+    return value;
 }
 
 function hostedDocsSourceString(value: string): string | undefined {
     const parts = splitHostedDocsString(value);
     const english = HOSTED_DOCS_JA_COPY[parts.core] ? parts.core : HOSTED_DOCS_EN_COPY[parts.core];
     return english ? `${parts.leading}${english}${parts.trailing}` : undefined;
+}
+
+function hostedDocsTranslationEquivalent(value: string, source: string): boolean {
+    return value === translateHostedDocsString(source, 'en')
+        || value === translateHostedDocsString(source, 'ja');
 }
 
 function translateHostedDocsString(value: string, language: InterfaceLanguage): string {
@@ -1579,8 +1762,10 @@ function hostedSettingsPatch(settings: Record<string, unknown>): Record<string, 
     const patch: Record<string, any> = {};
     const theme = hostedThemePreferenceFromValue(settings.theme);
     const accentColor = hostedAccentFromValue(settings.accentColor);
+    const interfaceLanguage = hostedInterfaceLanguagePreferenceFromValue(settings.interfaceLanguage);
     if (theme) patch.theme = theme;
     if (accentColor) patch.accentColor = accentColor;
+    if (interfaceLanguage) patch.interfaceLanguage = interfaceLanguage;
     return patch;
 }
 
@@ -1602,6 +1787,12 @@ function normalizeHostedThemePreference(value: unknown, fallback: HostedThemePre
 function hostedThemePreferenceFromValue(value: unknown): HostedThemePreference | undefined {
     return typeof value === 'string' && HOSTED_THEME_PREFERENCES.has(value as HostedThemePreference)
         ? value as HostedThemePreference
+        : undefined;
+}
+
+function hostedInterfaceLanguagePreferenceFromValue(value: unknown): HostedInterfaceLanguagePreference | undefined {
+    return value === 'auto' || value === 'en' || value === 'ja'
+        ? value
         : undefined;
 }
 
@@ -1738,6 +1929,7 @@ function installHostedDocsEnhancements(): void {
     installHostedHomepageInteractions();
     if (routeSyncBound) return;
     routeSyncBound = true;
+    window.addEventListener(SETTINGS_CHANGE_EVENT, syncHostedLanguageFromSettingsEvent);
     window.addEventListener(LANGUAGE_EVENT, () => {
         syncHostedLanguageToggle();
         syncHostedOverflowMenu();
@@ -1764,6 +1956,17 @@ function installHostedDocsEnhancements(): void {
         installHostedHomepageInteractions();
         syncHostedAccent();
     }));
+}
+
+function syncHostedLanguageFromSettingsEvent(event: Event): void {
+    const change = settingsFromChangeEvent(event);
+    if (!change) return;
+    if (!hostedInterfaceLanguagePreferenceFromValue(change.settings.interfaceLanguage)) return;
+    rememberHostedSettingsChange(change.settings, !change.preview);
+    syncHostedLanguageToggle();
+    syncHostedOverflowMenu();
+    syncHostedMobileNavSettings();
+    scheduleHostedDocsLocalization({ resetReaderWords: true });
 }
 
 const LANGUAGE_NUDGE_KEY = 'yomu:lang-nudge-dismissed';
@@ -1809,45 +2012,25 @@ function bindHostedDemoVideo(): void {
     const frame = button.closest<HTMLElement>('.yomu-device-frame');
     const video = frame?.querySelector<HTMLVideoElement>('.yomu-demo-video');
     if (!frame || !video) return;
+    frame.classList.add('is-enhanced');
+    video.controls = false;
     button.addEventListener('click', () => {
-        frame.classList.add('is-playing');
+        frame.classList.add('is-playing', 'has-played');
         video.controls = true;
         void video.play()?.catch(() => undefined);
     });
-    video.addEventListener('play', () => frame.classList.add('is-playing'));
+    video.addEventListener('play', () => frame.classList.add('is-playing', 'has-played'));
     video.addEventListener('pause', () => frame.classList.remove('is-playing'));
 }
 
 function maybeShowHostedLanguageNudge(): void {
-    if (document.querySelector('.yomu-language-nudge')) return;
-    try {
-        if (localStorage.getItem(LANGUAGE_NUDGE_KEY) === '1') return;
-    } catch {
-        // Private mode / storage disabled — still show it for the session.
-    }
-    const toggle = document.getElementById(LANGUAGE_TOGGLE_ID);
+    const toggle = hostedLanguageNudgeToggle();
     if (!toggle) return;
 
-    const nudge = document.createElement('div');
-    nudge.className = 'yomu-language-nudge';
-    nudge.setAttribute('role', 'note');
-    const title = document.createElement('b');
-    title.textContent = 'Prefer 日本語?';
-    const body = document.createElement('span');
-    body.textContent = 'Tap あ / A here to switch this site between Japanese and English anytime.';
-    const dismiss = document.createElement('button');
-    dismiss.type = 'button';
-    dismiss.textContent = 'Got it';
-    nudge.append(title, body, dismiss);
-    document.body.appendChild(nudge);
+    const nudge = createHostedLanguageNudge();
+    (toggle.closest<HTMLElement>('header, nav, .VPNav') ?? document.body).appendChild(nudge);
 
-    const position = (): void => {
-        const rect = toggle.getBoundingClientRect();
-        const width = nudge.offsetWidth || 230;
-        const left = Math.max(10, Math.min(rect.right - width, window.innerWidth - width - 10));
-        nudge.style.top = `${Math.round(rect.bottom + 10)}px`;
-        nudge.style.left = `${Math.round(left)}px`;
-    };
+    const position = (): void => positionHostedLanguageNudge(toggle, nudge);
     const close = (): void => {
         try {
             localStorage.setItem(LANGUAGE_NUDGE_KEY, '1');
@@ -1860,7 +2043,7 @@ function maybeShowHostedLanguageNudge(): void {
         window.setTimeout(() => nudge.remove(), 320);
     };
 
-    dismiss.addEventListener('click', close);
+    nudge.querySelector('button')?.addEventListener('click', close);
     toggle.addEventListener('click', close, { once: true });
     window.addEventListener('resize', position);
     window.addEventListener('scroll', position, { passive: true });
@@ -1870,6 +2053,45 @@ function maybeShowHostedLanguageNudge(): void {
         nudge.classList.add('is-in');
     });
     window.setTimeout(close, 12000);
+}
+
+function hostedLanguageNudgeToggle(): HTMLElement | null {
+    if (document.querySelector('.yomu-language-nudge')) return null;
+    if (hostedLanguageNudgeDismissed()) return null;
+    return document.getElementById(LANGUAGE_TOGGLE_ID);
+}
+
+function hostedLanguageNudgeDismissed(): boolean {
+    try {
+        return localStorage.getItem(LANGUAGE_NUDGE_KEY) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function createHostedLanguageNudge(): HTMLDivElement {
+    const copy = HOSTED_LANGUAGE_NUDGE_COPY[effectiveInterfaceLanguage()];
+    const nudge = document.createElement('div');
+    const title = document.createElement('b');
+    const body = document.createElement('span');
+    const dismiss = document.createElement('button');
+    nudge.className = 'yomu-language-nudge';
+    nudge.setAttribute('role', 'note');
+    title.textContent = copy.title;
+    body.className = 'yomu-language-nudge-body';
+    body.textContent = copy.body;
+    dismiss.type = 'button';
+    dismiss.textContent = copy.dismiss;
+    nudge.append(title, body, dismiss);
+    return nudge;
+}
+
+function positionHostedLanguageNudge(toggle: HTMLElement, nudge: HTMLElement): void {
+    const rect = toggle.getBoundingClientRect();
+    const width = nudge.offsetWidth || 260;
+    const left = Math.max(10, Math.min(rect.right - width, window.innerWidth - width - 10));
+    nudge.style.top = `${Math.round(rect.bottom + 10)}px`;
+    nudge.style.left = `${Math.round(left)}px`;
 }
 
 function prepareHostedYomuRuntime(): void {

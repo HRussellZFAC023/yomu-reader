@@ -171,25 +171,29 @@ function serveDocsFixture(response) {
     main { max-width: 960px; margin: 0 auto; padding: 42px 20px 120px; }
     .vp-doc { display: grid; gap: 18px; }
     .vp-doc p { margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.75; }
-    .yomu-try-me { display: grid; gap: 18px; margin-top: 32px; }
-    .yomu-try-me > strong { font-size: 24px; }
+    .yomu-demo { display: grid; gap: 18px; margin-top: 32px; }
+    .yomu-demo-copy { display: grid; gap: 14px; }
+    .yomu-demo-copy h2 { margin: 0; color: var(--vp-c-text-1); font-size: 24px; }
     .yomu-try-me-text { display: grid; gap: 12px; border-radius: 8px; background: #181b20; padding: 24px; }
     .yomu-try-me-text h3 { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 22px; line-height: 1.35; overflow-wrap: anywhere; }
     .yomu-try-me-text p { min-width: 0; max-width: 100%; margin: 0; color: var(--vp-c-text-2); font-size: 17px; line-height: 1.7; overflow-wrap: anywhere; }
-    .yomu-try-me .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
+    .yomu-demo .jpdb-reader-word { display: inline; min-width: 0; min-height: 0; padding: 0; line-height: inherit; vertical-align: baseline; white-space: nowrap !important; word-break: keep-all !important; overflow-wrap: normal !important; }
   </style>
 </head>
 <body>
   <main>
     <article class="vp-doc">
       <p data-smoke-docs-text>日本語の文章を読むと音声と色が見えます。</p>
-      <div class="yomu-try-me">
-        <strong>Try me</strong>
-        <div class="yomu-try-me-text">
-          <h3>青空の下で日本語を読む</h3>
+      <section class="yomu-demo" aria-labelledby="yomu-demo-title">
+        <div class="yomu-demo-copy">
+          <h2 id="yomu-demo-title">Tap a word, keep reading</h2>
+          <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
+            <p class="yomu-try-me-label">Try me — tap a word</p>
+            <p>青空の下で日本語を読む。</p>
+          </div>
           <p>今日は静かな喫茶店で新しい本を読みました。</p>
         </div>
-      </div>
+      </section>
     </article>
   </main>
 </body>
@@ -228,7 +232,7 @@ async function runDocsTryMeSmoke(browser, fixtureServer) {
     try {
         await loadDocsPageWithYomu(page, fixtureServer);
         await page.waitForFunction(() => document.querySelectorAll('[data-smoke-docs-text] .jpdb-reader-word').length >= 3, null, { timeout: 12_000 });
-        await page.waitForFunction(() => document.querySelectorAll('.yomu-try-me .jpdb-reader-word').length >= 5, null, { timeout: 12_000 });
+        await page.waitForFunction(() => document.querySelectorAll('.yomu-demo .yomu-try-me-text .jpdb-reader-word').length >= 5, null, { timeout: 12_000 });
 
         const snapshot = await page.evaluate(docsTryMeSnapshotFromDom);
         assertParsedSurface(snapshot.docs, 'docs Japanese text');
@@ -403,7 +407,7 @@ function docsTryMeSnapshotFromDom() {
         rootClasses: document.documentElement.className,
         docs: surfaceSnapshot(document.querySelector('[data-smoke-docs-text]')),
         tryMe: {
-            ...surfaceSnapshot(document.querySelector('.yomu-try-me')),
+            ...surfaceSnapshot(document.querySelector('.yomu-demo .yomu-try-me-text')),
             down: downSnapshot(),
         },
     };
@@ -479,7 +483,7 @@ function docsTryMeSnapshotFromDom() {
     }
 
     function downSnapshot() {
-        const word = [...document.querySelectorAll('.yomu-try-me .jpdb-reader-word')]
+        const word = [...document.querySelectorAll('.yomu-demo .yomu-try-me-text .jpdb-reader-word')]
             .find(item => compactText(item).includes('下'));
         if (!word) return null;
         const rect = word.getBoundingClientRect();

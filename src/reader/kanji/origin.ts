@@ -237,7 +237,6 @@ function kanjiFactCandidates(
         kanjiGradeFact(local, map),
         kanjiStrokeFact(kanjiVGInfo, local, map),
         kanjiFrequencyFact(jpdbInfo, local, map),
-        kanjiKankenFact(jpdbInfo),
         kanjiRadicalFact(map),
     ];
 }
@@ -301,13 +300,6 @@ function kanjiFrequencySource(jpdbInfo: JpdbKanjiInfo | null, local: LocalKanjiF
     if (local.frequency) return local.frequencySource ?? 'local dictionary';
     if (map?.frequencyRank) return 'Jisho';
     return 'Jisho';
-}
-
-function kanjiKankenFact(jpdbInfo: JpdbKanjiInfo | null): KanjiFact {
-    const candidate = firstFactCandidate([
-        { value: jpdbInfo?.kanken, source: 'JPDB' },
-    ]);
-    return { label: 'Kanken', value: candidate?.value ?? '', source: candidate?.source ?? '' };
 }
 
 function kanjiRadicalFact(map: KanjiMapKanjiInfo | undefined): KanjiFact {

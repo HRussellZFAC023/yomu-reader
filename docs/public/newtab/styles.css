@@ -356,6 +356,20 @@
 }
 
 .jpdb-reader-newtab {
+  --jpdb-reader-bg: var(--bg, var(--jpdb-reader-theme-dark-bg));
+  --jpdb-reader-surface: var(--surface, var(--jpdb-reader-theme-dark-surface));
+  --jpdb-reader-surface-2: var(
+    --surface-2,
+    var(--jpdb-reader-theme-dark-surface-2)
+  );
+  --jpdb-reader-text: var(--ink, var(--jpdb-reader-theme-dark-text));
+  --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-dark-muted));
+  --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-dark-faint));
+  --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-dark-border));
+  --jpdb-reader-accent-readable: var(
+    --accent-readable,
+    var(--jpdb-reader-theme-dark-accent-readable)
+  );
   --jpdb-reader-newtab-content-width: min(760px, 100%);
   display: block;
   min-height: 100dvh;
@@ -365,6 +379,23 @@
   background: var(--jpdb-reader-bg);
   color: var(--jpdb-reader-text);
   font-family: Inter, ui-sans-serif, var(--jpdb-reader-font);
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab {
+  --jpdb-reader-bg: var(--bg, var(--jpdb-reader-theme-light-bg));
+  --jpdb-reader-surface: var(--surface, var(--jpdb-reader-theme-light-surface));
+  --jpdb-reader-surface-2: var(
+    --surface-2,
+    var(--jpdb-reader-theme-light-surface-2)
+  );
+  --jpdb-reader-text: var(--ink, var(--jpdb-reader-theme-light-text));
+  --jpdb-reader-muted: var(--muted, var(--jpdb-reader-theme-light-muted));
+  --jpdb-reader-faint: var(--faint, var(--jpdb-reader-theme-light-faint));
+  --jpdb-reader-border: var(--border, var(--jpdb-reader-theme-light-border));
+  --jpdb-reader-accent-readable: var(
+    --accent-readable,
+    var(--jpdb-reader-theme-light-accent-readable)
+  );
 }
 
 /* Swipe-grade edge glows (UT-21): hidden at rest, fade in only while a drag
@@ -1273,6 +1304,8 @@
 }
 
 .jpdb-reader-newtab-study {
+  --jpdb-reader-newtab-study-text: var(--jpdb-reader-text);
+  --jpdb-reader-newtab-study-muted: var(--jpdb-reader-muted);
   width: 100%;
   min-height: 0;
   display: grid;
@@ -1281,6 +1314,7 @@
   align-items: start;
   justify-items: center;
   gap: clamp(8px, 1.8vh, 16px);
+  color: var(--jpdb-reader-newtab-study-text);
   cursor: pointer;
   user-select: none;
   /* UT-21: keep vertical scrolling native but own horizontal pans —
@@ -1534,7 +1568,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(2.25rem, 7vw, 5.2rem);
   font-weight: 900;
   line-height: 1.06;
@@ -1544,14 +1578,25 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   text-shadow: 0 1px 2px var(--jpdb-reader-shadow-soft);
 }
 
-.jpdb-reader-newtab-prompt .jpdb-reader-word {
+.jpdb-reader-newtab-prompt .jpdb-reader-word,
+.jpdb-reader-newtab-reading .jpdb-reader-word,
+.jpdb-reader-newtab-sentence .jpdb-reader-word {
+  --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-accessible-color: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-paint: transparent;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
   --jpdb-reader-word-underline-offset: 0.08em;
   --jpdb-reader-word-underline-thickness: 0.08em;
   color: inherit !important;
   background: transparent !important;
+  background-image: none !important;
   box-shadow: none !important;
   border-radius: 0 !important;
   text-decoration: none !important;
+  -webkit-text-fill-color: currentColor !important;
 }
 
 .jpdb-reader-newtab-prompt .jpdb-reader-word *,
@@ -1559,10 +1604,14 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-prompt .jpdb-reader-word::after,
 .jpdb-reader-newtab-reading .jpdb-reader-word *,
 .jpdb-reader-newtab-reading .jpdb-reader-word::before,
-.jpdb-reader-newtab-reading .jpdb-reader-word::after {
+.jpdb-reader-newtab-reading .jpdb-reader-word::after,
+.jpdb-reader-newtab-sentence .jpdb-reader-word *,
+.jpdb-reader-newtab-sentence .jpdb-reader-word::before,
+.jpdb-reader-newtab-sentence .jpdb-reader-word::after {
   color: inherit !important;
   background: transparent !important;
   box-shadow: none !important;
+  border-color: transparent !important;
 }
 
 .jpdb-reader-newtab-prompt-anki-card {
@@ -1673,10 +1722,21 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-term .jpdb-reader-word {
+  --jpdb-reader-word-color-source: currentColor;
+  --jpdb-reader-word-accessible-color: currentColor;
+  --jpdb-reader-word-decoration-source: transparent;
+  --jpdb-reader-word-underline: transparent;
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-paint: transparent;
+  --jpdb-reader-word-accessible-highlight: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
   padding: 0;
   background: transparent !important;
+  background-image: none !important;
   box-shadow: none !important;
   border-radius: 0;
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
   text-shadow: none;
 }
 
@@ -1728,7 +1788,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-sentence {
   display: block;
   max-width: min(100%, 680px);
-  color: var(--jpdb-reader-muted);
+  color: var(--jpdb-reader-newtab-study-muted);
   font-size: clamp(1.05rem, 2.6vw, 1.8rem);
   font-weight: 760;
   line-height: 1.36;
@@ -1813,7 +1873,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-reading {
   max-width: 100%;
   width: 100%;
-  color: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(1.2rem, 3.2vw, 2rem);
   font-weight: 780;
   line-height: 1.12;
@@ -1834,7 +1894,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   display: grid;
   justify-items: center;
   gap: 12px;
-  color: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-newtab-study-text);
   font-size: clamp(14px, 2.1vw, 18px);
   font-weight: 650;
   line-height: 1.42;
@@ -4114,7 +4174,7 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 .jpdb-reader-newtab-composed-of-label {
-  color: var(--jpdb-reader-muted);
+  color: var(--jpdb-reader-newtab-study-muted);
   font-size: 12px;
 }
 
@@ -4127,13 +4187,13 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 999px;
   background: transparent;
-  color: var(--jpdb-reader-text);
+  color: var(--jpdb-reader-newtab-study-text);
   font-size: 15px;
   cursor: pointer;
 }
 
 .jpdb-reader-newtab-composed-of-kanji small {
-  color: var(--jpdb-reader-muted);
+  color: var(--jpdb-reader-newtab-study-muted);
   font-size: 11px;
 }
 
@@ -4144,8 +4204,8 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   padding: 1px 5px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 4px;
-  background: transparent;
-  color: var(--jpdb-reader-muted);
+  background: var(--jpdb-reader-surface);
+  color: var(--jpdb-reader-text);
   font: 600 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
@@ -4260,12 +4320,18 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-connect-cta {
   margin-top: 4px;
   padding: 6px 14px;
-  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 44%, var(--jpdb-reader-border));
+  border: 1px solid color-mix(in srgb, var(--jpdb-reader-accent) 48%, var(--jpdb-reader-border));
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-surface) 84%, var(--jpdb-reader-accent) 12%);
-  color: var(--jpdb-reader-accent-readable, var(--jpdb-reader-text));
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 92%, var(--jpdb-reader-accent) 8%);
+  color: var(--jpdb-reader-text);
   font-weight: 600;
   cursor: pointer;
+}
+
+.jpdb-reader-newtab-connect-cta:hover,
+.jpdb-reader-newtab-connect-cta:focus-visible {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 70%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-surface-2) 84%, var(--jpdb-reader-accent) 16%);
 }
 
 
@@ -12133,6 +12199,7 @@ html.jpdb-reader-doodle-active * {
   line-height: inherit;
 }
 .jpdb-reader-settings :is(ruby, rt, .jpdb-reader-furi) {
+  color: var(--jpdb-reader-text) !important;
   line-height: 1;
 }
 .jpdb-reader-settings select + .jpdb-reader-control-text-mirror {
@@ -13719,28 +13786,68 @@ html.jpdb-reader-doodle-active * {
 
   .jpdb-reader-settings-drag-handle {
     display: block;
+    height: 24px;
+    margin: -4px auto 0;
+  }
+
+  .jpdb-reader-settings-drag-handle::before {
+    height: 4px;
+    margin-top: 10px;
   }
 
   .jpdb-reader-settings-head {
-    padding: 8px 14px 0;
+    padding: 4px 12px 0;
+  }
+
+  .jpdb-reader-settings h2 {
+    margin-bottom: 6px;
+    font-size: 18px;
+    line-height: 1.22;
   }
 
   .jpdb-reader-settings-tabs {
-    padding: 0 14px 8px;
+    gap: 4px;
+    padding: 0 12px 4px;
+  }
+
+  .jpdb-reader-settings-tab {
+    min-height: 36px !important;
+    padding-inline: 10px !important;
+    font-size: 12px !important;
+  }
+
+  .jpdb-reader-settings-search {
+    padding: 0 12px 6px;
+  }
+
+  .jpdb-reader-settings-search label {
+    gap: 3px;
+    margin: 0;
   }
 
   .jpdb-reader-settings-scroll {
-    padding: 0 14px 100px;
+    padding: 0 12px 96px;
   }
 
   .jpdb-reader-settings fieldset {
-    margin: 10px 0;
-    padding: 11px;
+    margin: 6px 0;
+    padding: 8px;
   }
 
-  /* .grid is intentionally omitted: its auto-fit track sizing already
-     collapses to a single column on narrow dialogs, based on the real
-     dialog width rather than the viewport. */
+  .jpdb-reader-settings .grid {
+    gap: 10px 12px;
+  }
+
+  .jpdb-reader-settings .grid > label:not(.inline) > .jpdb-reader-settings-label-text {
+    min-height: 1.35em;
+  }
+
+  .jpdb-reader-settings .grid > label:not(.inline) {
+    gap: 4px;
+  }
+
+  /* Auto-fit still decides column count from dialog width; this breakpoint only
+     tightens spacing so mobile setup fields appear without a long preamble. */
   .jpdb-reader-settings-actions,
   .jpdb-reader-anki-layout,
   .jpdb-reader-anki-choice-grid,

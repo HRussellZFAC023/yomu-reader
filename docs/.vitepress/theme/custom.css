@@ -710,29 +710,19 @@ html[lang="ja"] .VPHomeHero .tagline {
   grid-template-areas:
     "copy status"
     "steps status";
-  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
-  gap: 14px 24px;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 16px 24px;
   align-items: start;
-  margin: 20px 0 28px;
-  padding: 20px;
-  border: 1px solid
-    color-mix(in srgb, var(--vp-c-brand-2) 28%, var(--vp-c-divider));
+  margin: 24px 0 32px;
+  padding: 20px 22px;
+  border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--vp-c-brand-2) 7%, var(--vp-c-bg-soft)),
-    color-mix(in srgb, var(--vp-c-brand-2) 2%, var(--vp-c-bg))
-  );
-  box-shadow: 0 14px 34px var(--yomu-doc-panel-shadow);
+  background: var(--vp-c-bg-soft);
+  box-shadow: 0 16px 48px var(--yomu-doc-panel-shadow);
 }
 
 .dark .yomu-install-panel {
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--vp-c-brand-2) 8%, var(--vp-c-bg-soft)),
-    color-mix(in srgb, var(--vp-c-brand-2) 3%, var(--vp-c-bg-alt))
-  );
-  box-shadow: 0 14px 34px var(--yomu-doc-panel-shadow);
+  background: var(--vp-c-bg-alt);
 }
 
 .yomu-install-copy {
@@ -765,6 +755,13 @@ html[lang="ja"] .VPHomeHero .tagline {
   grid-area: steps;
   gap: 8px;
   margin-top: 2px;
+  margin-bottom: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.yomu-install-steps li {
+  min-width: 0;
 }
 
 .yomu-install-steps a {
@@ -773,6 +770,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   justify-content: flex-start;
   gap: 9px;
   min-width: 0;
+  width: 100%;
   min-height: 40px;
   padding: 7px 10px 7px 9px;
   border: 1px solid var(--vp-c-divider);
@@ -805,7 +803,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   color: var(--vp-c-text-1) !important;
 }
 
-.yomu-install-steps b {
+.yomu-install-step-number {
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
@@ -914,21 +912,35 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 .yomu-store-status {
   display: grid;
+  grid-area: status;
   gap: 0;
   margin-top: 0;
-  padding: 10px;
+  padding: 12px 14px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--vp-c-bg) 72%, var(--vp-c-bg-soft));
+  background: var(--vp-c-bg);
+}
+
+.dark .yomu-store-status {
+  background: var(--vp-c-bg-soft);
 }
 
 .yomu-store-status-title {
+  display: block;
   margin-bottom: 2px;
   color: var(--vp-c-text-1);
   font-size: 12px;
   font-weight: 800;
   line-height: 1.2;
   text-transform: uppercase;
+}
+
+.yomu-store-status-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
 }
 
 .yomu-store-status-row {
@@ -1110,12 +1122,30 @@ html[lang="ja"] .VPHomeHero .tagline {
 .yomu-link-card {
   display: grid;
   gap: 6px;
-  min-height: 118px;
-  padding: 16px;
+  min-height: 112px;
+  padding: 16px 18px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
-  background: var(--vp-c-bg-soft);
+  background: var(--vp-c-bg);
   text-decoration: none !important;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.16s ease;
+}
+
+.dark .yomu-link-card {
+  background: var(--vp-c-bg-soft);
+}
+
+.yomu-link-card:hover {
+  border-color: color-mix(in srgb, var(--vp-c-brand-2) 50%, var(--vp-c-divider));
+  box-shadow: 0 12px 30px var(--yomu-doc-shadow-soft);
+  transform: translateY(-1px);
+}
+
+.yomu-next-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .yomu-link-card strong {
@@ -1176,13 +1206,19 @@ html[lang="ja"] .VPHomeHero .tagline {
   }
 
   .yomu-store-status {
-    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    grid-template-columns: 1fr;
     gap: 8px;
   }
 
   .yomu-store-status-title {
     grid-column: 1 / -1;
     margin-bottom: 0;
+  }
+
+  .yomu-store-status-list {
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+    gap: 8px;
   }
 
   .yomu-store-status-row {
@@ -1335,7 +1371,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 .yomu-demo-play {
   position: absolute;
   inset: 11px;
-  display: flex;
+  display: none;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -1349,6 +1385,10 @@ html[lang="ja"] .VPHomeHero .tagline {
   font-size: 14px;
   letter-spacing: 0.01em;
   transition: opacity 0.25s ease;
+}
+
+.yomu-device-frame.is-enhanced:not(.has-played) .yomu-demo-play {
+  display: flex;
 }
 
 .yomu-demo-play svg {
@@ -1546,26 +1586,16 @@ html[lang="ja"] .VPHomeHero .tagline {
   100% { box-shadow: 0 0 0 0 rgba(174, 240, 200, 0); }
 }
 
-/* --- Scroll reveal --- */
-.yomu-reveal {
-  opacity: 0;
-  transform: translateY(22px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-  will-change: opacity, transform;
-}
-
-.yomu-reveal.is-in {
-  opacity: 1;
-  transform: none;
-}
-
 /* --- "Try me" nudge for the top-right language toggle --- */
 .yomu-language-nudge {
   position: fixed;
   z-index: 60;
-  max-width: 230px;
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  max-width: min(260px, calc(100vw - 20px));
   padding: 11px 13px 11px 14px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 13px;
   line-height: 1.45;
   color: #fff;
@@ -1593,12 +1623,18 @@ html[lang="ja"] .VPHomeHero .tagline {
 }
 
 .yomu-language-nudge b {
-  display: block;
   font-weight: 800;
 }
 
+.yomu-language-nudge-body {
+  display: block;
+}
+
 .yomu-language-nudge button {
-  margin-top: 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
   padding: 3px 10px;
   border: 1px solid rgba(255, 255, 255, 0.5);
   border-radius: 999px;
@@ -1606,7 +1642,21 @@ html[lang="ja"] .VPHomeHero .tagline {
   color: #fff;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1.2;
   cursor: pointer;
+}
+
+/* --- Scroll reveal --- */
+.yomu-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+  will-change: opacity, transform;
+}
+
+.yomu-reveal.is-in {
+  opacity: 1;
+  transform: none;
 }
 
 .dark .yomu-manga {

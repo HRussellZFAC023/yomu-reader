@@ -126,12 +126,15 @@ describe('BookWalker site scan boundaries', () => {
     it('disables generic visible auto-scan scheduling on BookWalker storefront pages only', () => {
         stubLocation(BOOKWALKER_HOME_URL);
         expect(allowsGenericVisibleAutoScan()).toBe(false);
+        expect(isBookWalkerStorefrontPage()).toBe(true);
 
         stubLocation(BOOKWALKER_WWW_HOME_URL);
         expect(allowsGenericVisibleAutoScan()).toBe(false);
+        expect(isBookWalkerStorefrontPage()).toBe(true);
 
         stubLocation('https://viewer.bookwalker.jp/03/1/viewer.html');
         expect(allowsGenericVisibleAutoScan()).toBe(true);
+        expect(isBookWalkerStorefrontPage()).toBe(false);
     });
 });
 

@@ -31,12 +31,7 @@ export {
 const KANJI_RE = /[\u3400-\u9fff]/u;
 const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
 const KANA_RE = /^[\u3040-\u30ffー・]+$/u;
-const BLOCK_FLOW_TAG_NAMES = new Set([
-    'ADDRESS', 'ARTICLE', 'ASIDE', 'BLOCKQUOTE', 'DD', 'DETAILS', 'DIALOG', 'DIV', 'DL', 'DT',
-    'FIELDSET', 'FIGCAPTION', 'FIGURE', 'FOOTER', 'FORM', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
-    'HEADER', 'HR', 'LI', 'MAIN', 'NAV', 'OL', 'P', 'PRE', 'SECTION', 'TABLE', 'TBODY', 'TD',
-    'TFOOT', 'TH', 'THEAD', 'TR', 'UL',
-]);
+const BLOCK_FLOW_TAG_NAMES = new Set('ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL'.split(','));
 const EASY_FURIGANA_KANJI = new Set(
     '一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒'
         .split(''),
@@ -44,47 +39,16 @@ const EASY_FURIGANA_KANJI = new Set(
 // Shared building blocks for the four skip-selector lists below. Each list composes the common
 // BASE entries with whichever extra clusters apply; the joined string must stay set-equal to the
 // hand-written original for each list (entry order does not affect matching).
-const BASE_SKIP_SELECTOR_ENTRIES = [
-    'script',
-    'style',
-    'noscript',
-    'textarea',
-    'input',
-    'select',
-    'option',
-    'svg',
-    'use',
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
-    '[data-jpdb-reader-surface-ignore="true"]',
-    '[data-audio]',
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="voice" i]',
-    '.jpdb-reader-text-mirror',
-    '.jpdb-reader-control-text-mirror',
-    '.jpdb-reader-word',
-    // UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
-    // letter soup, but "Kanji used" spellings are real JPDB links and should
-    // keep the same ruby/color treatment as other dictionary terms.
-    '.subsection-pitch-accent .subsection',
-];
-const FORM_BOUNDARY_SKIP_ENTRIES = ['form', 'label', 'fieldset', 'legend'];
-const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
+// UT-64: jpdb.io structural widgets. The pitch diagram is per-mora
+// letter soup, but "Kanji used" spellings are real JPDB links and should
+// keep the same ruby/color treatment as other dictionary terms.
+const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(',[role=tab]', '');
+const FORM_BOUNDARY_SKIP_SELECTOR = 'form,label,fieldset,legend';
+const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
 
-const SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    'button',
-    'summary',
-    'rt',
-    'rp',
-].join(',');
-const PITCH_CLASSES = new Set(['heiban', 'atamadaka', 'nakadaka', 'odaka', 'kifuku']);
+const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
+const PITCH_CLASSES = new Set('heiban,atamadaka,nakadaka,odaka,kifuku'.split(','));
 const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
 const MINING_INSIGHT_UNKNOWN_STATES = new Set<CardState>(['new', 'not-in-deck', 'in-deck']);
 const MINING_INSIGHT_MIN_CARD_COUNT = 3;
@@ -106,19 +70,8 @@ function furiganaHiddenStates(settings: ReaderSettings): Set<CardState> {
     return states;
 }
 
-const FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    'button',
-    'summary',
-    '[data-jpdb-reader-root]',
-].join(',');
-const HARD_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    '[data-jpdb-reader-root]',
-].join(',');
+const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
+const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
 // ISS-11: YouTube wants ALL on-page Japanese parsed, including text inside the
 // ytp-*/player/control/toggle wrappers (Shorts overlay text, tooltips,
 // end-screen titles). These variants drop ONLY the PLAYER_CHROME_SKIP_ENTRIES
@@ -128,148 +81,33 @@ const HARD_FRAGMENT_SKIP_SELECTOR = [
 // the original HARD_/TAB_CHROME_ behaviour. The native caption window is NOT
 // re-ingested here: it stays out via each YouTube profile's `exclude`
 // (YT_PLAYER_CHROME_EXCLUDE_ENTRIES), not via these element-skip selectors.
-const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    '[data-jpdb-reader-root]',
-].join(',');
-const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES.filter(entry => entry !== '[role="tab"]'),
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    '[data-jpdb-reader-root]',
-].join(',');
-const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES.filter(entry => entry !== '[role="tab"]'),
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    '[data-jpdb-reader-root]',
-].join(',');
-const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    'button',
-    'summary',
-    'a[href]',
-    '[role="button"]',
-].join(',');
-const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = [
-    'script',
-    'style',
-    'noscript',
-    'textarea',
-    'input',
-    'select',
-    'option',
-    'svg',
-    'use',
-    '[hidden]',
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    // The reader's own furigana mirror must never be re-ingested by a rescan.
-    // BASE_SKIP_SELECTOR_ENTRIES already skips it, but the passive-interaction
-    // path (used for every site profile root, incl. YouTube) did not — so a
-    // rescan of a mirror host re-collected the mirror's bare gap text nodes
-    // (punctuation/ASCII like （Googleによる翻訳）) ALONGSIDE the still-hidden
-    // original host text, doubling target.text and self-perpetuating into a
-    // rebuild loop (the duplicated, flashing caption strip).
-    '.jpdb-reader-text-mirror',
-    '.jpdb-reader-control-text-mirror',
-    '.jpdb-reader-word',
-    '.subsection-pitch-accent .subsection',
-    '[data-jpdb-reader-root]',
-].join(',');
-const FORM_CHROME_BOUNDARY_TAGS = new Set(['FORM', 'LABEL', 'FIELDSET', 'LEGEND']);
+const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
+// The reader's own furigana mirror must never be re-ingested by a rescan.
+// BASE_SKIP_SELECTOR already skips it, but the passive-interaction path (used
+// for every site profile root, incl. YouTube) once did not — so a rescan of a
+// mirror host re-collected the mirror's bare gap text nodes alongside hidden
+// host text and self-perpetuated into a duplicated, flashing caption strip.
+const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+const FORM_CHROME_BOUNDARY_TAGS = ',FORM,LABEL,FIELDSET,LEGEND,';
 const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
 const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
 const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
-const READABLE_PROSE_CONTAINER_SELECTOR = 'article, main, [role="main"], [role="article"]';
+const READABLE_PROSE_CONTAINER_SELECTOR = 'article,main,[role=main],[role=article]';
 const DISPLAY_HEADING_RE = /^H[1-6]$/;
 const DISPLAY_HEADING_SELECTOR = 'h1,h2,h3,h4,h5,h6';
-const PASSIVE_INTERACTION_SELECTOR = [
-    'a[href]',
-    'button',
-    'summary',
-    'label',
-    '[role="button"]',
-    '[role="link"]',
-    '[role="menuitem"]',
-    '[role="option"]',
-    '[role="tab"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="switch"]',
-    '[aria-controls]',
-    '[aria-expanded]',
-    '[slot="more-button"]',
-    '.more-button',
-    '#more',
-    '#less',
-].join(',');
-const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
-    '[onclick]',
-    '[tabindex]:not([tabindex="-1"])',
-    '[class*="audio" i]',
-    '[class*="button" i]',
-    '[class*="control" i]',
-    '[class*="play" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="toggle" i]',
-].join(',');
-const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = [
-    PASSIVE_INTERACTION_SELECTOR,
-    COMPACT_PASSIVE_INTERACTION_SELECTOR,
-].join(',');
-const COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR = [
-    'yt-lockup-view-model',
-    'ytd-rich-grid-renderer',
-    'ytd-rich-item-renderer',
-    'ytd-video-renderer',
-    'ytd-compact-video-renderer',
-    'ytd-watch-next-secondary-results-renderer',
-    'ytm-rich-grid-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-shorts-lockup-view-model',
-    'ytm-shorts-lockup-view-model-v2',
-    'ytm-item-section-renderer',
-].join(',');
-const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = [
-    'ytd-watch-metadata',
-    'ytm-watch-metadata',
-    'ytm-slim-video-metadata-section-renderer',
-    'ytm-expandable-video-description-body-renderer',
-    'ytm-structured-description-content-renderer',
-    'ytd-comment-view-model',
-    'ytd-comments',
-    'ytd-transcript-segment-renderer',
-    'ytm-transcript-segment-renderer',
-    'yt-live-chat-renderer',
-    'yt-live-chat-text-message-renderer',
-    'yt-live-chat-paid-message-renderer',
-    'yt-live-chat-membership-item-renderer',
-].join(',');
-const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = [
-    '[class*="card" i]',
-    '[class*="grid" i]',
-    '[class*="item" i]',
-    '[class*="lockup" i]',
-    '[class*="movie" i]',
-    '[class*="poster" i]',
-    '[class*="thumb" i]',
-    '[class*="tile" i]',
-    '[class*="video" i]',
-].join(',');
-const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
-    'canvas',
-    'img',
-    'picture',
-    'svg',
-    'video',
-    '[class*="cover" i]',
-    '[class*="image" i]',
-    '[class*="poster" i]',
-    '[class*="thumb" i]',
-].join(',');
+const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less';
+const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
+const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`;
+const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
+const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
+const COMPACT_YOUTUBE_FEEDBACK_LINK_CONTEXT_SELECTOR = 'ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer,ytm-rich-grid-renderer,ytm-video-with-context-renderer';
+const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
+const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
+const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
+const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = 'canvas,img,picture,svg,video,[class*="cover" i],[class*="image" i],[class*="poster" i],[class*="thumb" i]';
 const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
 const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
 const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
@@ -277,52 +115,9 @@ const COMPACT_PASSIVE_INTERACTION_TEXT_LIMIT = 120;
 const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
 const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
 const FORM_CONTROL_TEXT_TARGET_SELECTOR = 'select,input,textarea';
-const PROSE_TAGS = new Set(['P', 'LI', 'DD', 'DT', 'TD', 'TH', 'BLOCKQUOTE', 'FIGCAPTION']);
-const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
-    ...PROSE_TAGS,
-    'H1',
-    'H2',
-    'H3',
-    'H4',
-    'H5',
-    'H6',
-]);
-const BLOCK_TAGS = new Set([
-    'ADDRESS',
-    'ARTICLE',
-    'ASIDE',
-    'BLOCKQUOTE',
-    'BR',
-    'DD',
-    'DETAILS',
-    'DIALOG',
-    'DIV',
-    'DL',
-    'DT',
-    'FIGCAPTION',
-    'FIGURE',
-    'H1',
-    'H2',
-    'H3',
-    'H4',
-    'H5',
-    'H6',
-    'HR',
-    'LI',
-    'MAIN',
-    'OL',
-    'P',
-    'PRE',
-    'SECTION',
-    'TABLE',
-    'TBODY',
-    'TD',
-    'TFOOT',
-    'TH',
-    'THEAD',
-    'TR',
-    'UL',
-]);
+const PROSE_TAGS = ',P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,';
+const READER_RENDERED_TEXT_BLOCK_TAGS = `${PROSE_TAGS}H1,H2,H3,H4,H5,H6,`;
+const BLOCK_TAGS = new Set('ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL'.split(','));
 
 export interface TextTarget {
     node: Text;
@@ -457,27 +252,9 @@ const READER_WORD_SELECTOR = '.jpdb-reader-word';
 const READER_TEXT_MIRROR_SELECTOR = '.jpdb-reader-text-mirror';
 const READER_CONTROL_TEXT_MIRROR_SELECTOR = '.jpdb-reader-control-text-mirror';
 const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = 'data-jpdb-reader-control-placeholder-hidden';
-const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
-    'yt-formatted-string',
-    'yt-attributed-string',
-    '.ytAttributedStringHost',
-    '.yt-core-attributed-string',
-    '.yt-core-attributed-string--white-space-pre-wrap',
-].join(',');
-const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
-    'script',
-    'style',
-    'noscript',
-    'template',
-    '[hidden]',
-    '[aria-hidden="true"]',
-].join(',');
-const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
-    '[hidden]',
-    '[aria-hidden="true"]',
-].join(',');
+const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = 'yt-formatted-string,yt-attributed-string,.ytAttributedStringHost,.yt-core-attributed-string,.yt-core-attributed-string--white-space-pre-wrap';
+const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},script,style,noscript,template,[hidden],[aria-hidden="true"]`;
+const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},[hidden],[aria-hidden="true"]`;
 const RENDERED_SCAN_HOST_MAX_TEXT = 1000;
 const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15000;
 const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 60000;
@@ -934,7 +711,7 @@ function isRubyAnnotationElement(element: HTMLElement): boolean {
 }
 
 function isSurfaceIgnoredElement(element: HTMLElement): boolean {
-    return element.matches('[data-jpdb-reader-surface-ignore="true"]');
+    return element.matches('[data-jpdb-reader-surface-ignore]');
 }
 
 function isExcludedReaderRootElement(
@@ -1066,7 +843,7 @@ function isFragmentParagraphBoundary(
     options: FragmentTextTargetCollectionOptions,
 ): boolean {
     return isPassiveInteractionBoundaryElement(element, options)
-        || (options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element.tagName))
+        || (options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element.tagName},`))
         || isParagraphBoundary(element);
 }
 
@@ -1098,7 +875,7 @@ function isInlineSentenceListItem(element: HTMLElement): boolean {
 }
 
 function isReaderRenderedTextBlock(element: HTMLElement): boolean {
-    return READER_RENDERED_TEXT_BLOCK_TAGS.has(element.tagName)
+    return READER_RENDERED_TEXT_BLOCK_TAGS.includes(`,${element.tagName},`)
         && Boolean(element.querySelector('.jpdb-reader-word'))
         && !hasRawJapaneseOutsideReaderWords(element);
 }
@@ -1584,13 +1361,12 @@ function targetForcesAllFurigana(parent: HTMLElement): boolean {
 }
 
 function shouldSuppressCompactMediaRuby(parent: HTMLElement): boolean {
+    if (isYouTubeFeedbackChromeLinkText(parent)) return true;
     if (isYouTubeHost()) return false;
-    if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
-        return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
-    }
     return isCompactMediaCardLinkText(parent)
         || isCompactPeerMediaCardLinkText(parent)
         || isCompactMediaChromeLinkText(parent)
+        || isMediaCarouselText(parent)
         || isLayoutFragileMediaTileText(parent);
 }
 
@@ -1599,6 +1375,13 @@ export function isYouTubeHost(): boolean {
     return hostname === 'youtube.com'
         || hostname.endsWith('.youtube.com')
         || hostname === 'youtu.be';
+}
+
+function isYouTubeFeedbackChromeLinkText(parent: HTMLElement): boolean {
+    if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
+    const link = parent.closest<HTMLElement>('a[href]');
+    if (!link || !link.closest(COMPACT_YOUTUBE_FEEDBACK_LINK_CONTEXT_SELECTOR)) return false;
+    return Boolean(safeQuerySelector(link, YOUTUBE_FEEDBACK_CHROME_SELECTOR));
 }
 
 function isCompactMediaCardLinkText(parent: HTMLElement): boolean {
@@ -1636,6 +1419,40 @@ function isCompactMediaChromeLinkText(parent: HTMLElement): boolean {
     if (textLength < 2 || textLength > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
     if (compactLength(link.textContent ?? '') > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
     return isNavigationChromeContext(link) || hasCompactCenteredMediaChrome(parent, link);
+}
+
+function isMediaCarouselText(parent: HTMLElement): boolean {
+    const textLength = compactLength(parent.textContent ?? '');
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
+    const carousel = closestMediaCarousel(parent);
+    if (!carousel) return false;
+    if (isReadableProseContext(parent) && !carousel.explicit) return false;
+    return true;
+}
+
+function closestMediaCarousel(parent: HTMLElement): { element: HTMLElement; explicit: boolean } | null {
+    let current: HTMLElement | null = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
+        const match = mediaCarouselMatch(current);
+        if (match && mediaCarouselClipsHorizontally(current) && hasMediaPeer(current, parent)) return { element: current, explicit: match === 'explicit' };
+        current = current.parentElement;
+    }
+    return null;
+}
+
+function mediaCarouselMatch(element: HTMLElement): 'explicit' | 'implicit' | null {
+    const className = elementClassName(element);
+    if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className)
+        || element.hasAttribute('data-carousel')
+        || element.hasAttribute('data-slider')) return 'explicit';
+    return MEDIA_CAROUSEL_CLASS_RE.test(className) ? 'implicit' : null;
+}
+
+function mediaCarouselClipsHorizontally(element: HTMLElement): boolean {
+    const style = safeComputedStyle(element);
+    if (style.overflowX === 'hidden' || style.overflowX === 'clip') return true;
+    if ((style.overflowX === 'auto' || style.overflowX === 'scroll') && element.clientWidth > 0) return true;
+    return element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
 }
 
 function isNavigationChromeContext(element: HTMLElement): boolean {
@@ -3368,7 +3185,7 @@ function hasInlineControlShape(display: string): boolean {
 }
 
 function isLikelyProseElement(element: HTMLElement): boolean {
-    if (PROSE_TAGS.has(element.tagName)) return true;
+    if (PROSE_TAGS.includes(`,${element.tagName},`)) return true;
     return isLikelyProseClass(element) || isConversationTextClass(element);
 }
 
@@ -3514,42 +3331,12 @@ function hasVisibleControlLinkBox(style: CSSStyleDeclaration): boolean {
 // any aria-hidden subtree. Scanned words can live inside a collapsed card; room
 // must skip them.
 const RUBY_ROOM_HARD_SKIP_SELECTOR = '[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending';
-const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = [
-    // YouTube's Polymer/view-model hosts own their measured height. Reserving
-    // ruby room on them writes inline height/max-height that YouTube treats as
-    // authoritative, causing watch descriptions to balloon and compact metadata
-    // rows/action chips to stack or flicker.
-    'ytd-text-inline-expander',
-    'yt-attributed-string',
-    'yt-formatted-string',
-    '.ytAttributedStringHost',
-    '.yt-core-attributed-string',
-    '.ytContentMetadataViewModelMetadataRow',
-    'yt-content-metadata-view-model',
-    'yt-button-shape',
-    'yt-button-view-model',
-    'button',
-    '[role="button"]',
-    'ytd-app',
-    'ytm-app',
-    'ytd-rich-grid-renderer',
-    'ytd-rich-item-renderer',
-    'ytd-video-renderer',
-    'yt-lockup-view-model',
-    'ytm-rich-grid-renderer',
-    'ytm-video-with-context-renderer',
-    'ytm-shorts-lockup-view-model',
-    'ytm-shorts-lockup-view-model-v2',
-    'ytm-item-section-renderer',
-].join(',');
-const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
-    'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text',
-    'ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow',
-    'ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer',
-    'ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer',
-    'ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title',
-    'yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3',
-].join(',');
+// YouTube's Polymer/view-model hosts own their measured height. Reserving
+// ruby room on them writes inline height/max-height that YouTube treats as
+// authoritative, causing watch descriptions to balloon and compact metadata
+// rows/action chips to stack or flicker.
+const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = 'ytd-text-inline-expander,yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string,.ytContentMetadataViewModelMetadataRow,yt-content-metadata-view-model,yt-button-shape,yt-button-view-model,button,[role="button"],ytd-app,ytm-app,ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,yt-lockup-view-model,ytm-rich-grid-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2,ytm-item-section-renderer';
+const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = 'ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3';
 const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,[data-attrid]) :is(a,button,[role="button"])';
 // A clamped/ellipsis text row's furigana never needs more than a few lines of
 // extra height. A room far larger than this means we measured a container (a

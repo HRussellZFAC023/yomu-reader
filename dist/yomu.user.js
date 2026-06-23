@@ -1,18 +1,17 @@
 // ==UserScript==
 // @name         よむ
 // @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.74
+// @version      1.4.75
 // @description  Japanese popup reader.
 // @license      MIT
 // @icon         https://yomureader.com/yomu-icon.svg
 // @homepage     https://yomureader.com/
-// @supportURL   https://github.com/HRussellZFAC023/yomu-reader/issues
 // @match        *://*/*
 // @match        file:///*
-// @require      https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.74#sha256-v1Rd/+/C1pQ7agwijeUwGhlRU9MtXQmPV+CG00GgCeQ=
-// @require      https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.74#sha256-K2XwA5AwqvrROmP6wbxxzh7dqSTk/hkDfh6x+HLpZM8=
-// @require      https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.74#sha256-vLGJGRMeCpQpb0xBnxk1H1qJgP0ovIPS+f+HRQ2aCHw=
-// @require      https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.74#sha256-QenzQ+LJ4NBk+LsWUqYkywgAX/KTfsYyza0la2SkAWM=
+// @require      https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.75#sha256-a+YO8pO2KfTqnSuBM5qh+U1XBFkRiaMzPjiV7gpkNas=
+// @require      https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.75#sha256-9rb+gY4BH+W4RdtWp7oiZejC0/dGnu+35N0H9zKBs8c=
+// @require      https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.75#sha256-i2uv6R3V4wSHoLSkCF1/UjAqv37rYHcMSafQ/BfG2lw=
+// @require      https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.75#sha256-TV7gV5GWmDJhxvmg7Nruq513LYwjNvkdVC/+jemb1+Q=
 // @resource     yomuCss  https://yomureader.com/yomu.css
 // @connect      *
 // @grant        GM.deleteValue
@@ -826,7 +825,7 @@
     return isSurfaceIgnoredElement$1(element2) || element2.matches('button,svg,use,[aria-hidden="true"],[role="button"]');
   }
   function isSurfaceIgnoredElement$1(element2) {
-    return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches('[data-jpdb-reader-surface-ignore="true"],.jpdb-reader-furi,.jpdb-ocr-furi');
+    return READABLE_IGNORED_TAGS.has(element2.tagName) || element2.matches("[data-jpdb-reader-surface-ignore],.jpdb-reader-furi,.jpdb-ocr-furi");
   }
   function cleanReadableSentence(value) {
     return value.replace(/\s+/g, " ").replace(/([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])\s+([、。！？・])/gu, "$1$2").replace(/([、。！？・])\s+([\u3040-\u30ff\u3400-\u9fff々〆ヵヶ])/gu, "$1$2").trim();
@@ -3598,86 +3597,16 @@
   const KANJI_RE$3 = /[\u3400-\u9fff]/u;
   const KANA_CHAR_RE = /[\u3040-\u30ffー・]/u;
   const KANA_RE$1 = /^[\u3040-\u30ffー・]+$/u;
-  const BLOCK_FLOW_TAG_NAMES = new Set([
-    "ADDRESS",
-    "ARTICLE",
-    "ASIDE",
-    "BLOCKQUOTE",
-    "DD",
-    "DETAILS",
-    "DIALOG",
-    "DIV",
-    "DL",
-    "DT",
-    "FIELDSET",
-    "FIGCAPTION",
-    "FIGURE",
-    "FOOTER",
-    "FORM",
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5",
-    "H6",
-    "HEADER",
-    "HR",
-    "LI",
-    "MAIN",
-    "NAV",
-    "OL",
-    "P",
-    "PRE",
-    "SECTION",
-    "TABLE",
-    "TBODY",
-    "TD",
-    "TFOOT",
-    "TH",
-    "THEAD",
-    "TR",
-    "UL"
-  ]);
+  const BLOCK_FLOW_TAG_NAMES = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,DD,DETAILS,DIALOG,DIV,DL,DT,FIELDSET,FIGCAPTION,FIGURE,FOOTER,FORM,H1,H2,H3,H4,H5,H6,HEADER,HR,LI,MAIN,NAV,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const EASY_FURIGANA_KANJI = new Set(
     "一丁七万三上下不世中主久乗九予事二五井交京人今介仏仕他付代令以休会伝住何作使例供係信借元兄先光入全公六共内円写冬出分切前力加動北十千午半南原友反取口古台同名向君告周味呼命和品員問四回国土在地坂堂場声売夏夕外多夜大天太夫央女好妹姉始子字学安家宿寒寺小少山川工左市帰年広店度庭建引弟強待後心思急息悪手持教文方旅日早明春昼時曜書有朝木本村来東林校森業楽歌止正歩母毎気水池海父物犬王生田町男白百的目知石社私秋空立竹笑答米糸紙終聞肉自花英茶草行西見言話語読買赤走足車近通週道遠里野金長門間雨青音食飲駅高魚鳥黒".split("")
   );
-  const BASE_SKIP_SELECTOR_ENTRIES = [
-    "script",
-    "style",
-    "noscript",
-    "textarea",
-    "input",
-    "select",
-    "option",
-    "svg",
-    "use",
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="tab"]',
-    '[data-jpdb-reader-surface-ignore="true"]',
-    "[data-audio]",
-    '[class*="audio" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="voice" i]',
-    ".jpdb-reader-text-mirror",
-    ".jpdb-reader-control-text-mirror",
-    ".jpdb-reader-word",
-    ".subsection-pitch-accent .subsection"
-  ];
-  const FORM_BOUNDARY_SKIP_ENTRIES = ["form", "label", "fieldset", "legend"];
-  const PLAYER_CHROME_SKIP_ENTRIES = ['[class*="control" i]', '[class*="toggle" i]', '[class*="player" i]'];
-  const SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    "button",
-    "summary",
-    "rt",
-    "rp"
-  ].join(",");
-  const PITCH_CLASSES = new Set(["heiban", "atamadaka", "nakadaka", "odaka", "kifuku"]);
+  const BASE_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[aria-hidden=true],[contenteditable=true],[role=checkbox],[role=radio],[role=tab],[data-jpdb-reader-surface-ignore],[data-audio],[class*="audio" i],[class*="sound" i],[class*="speaker" i],[class*="voice" i],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection';
+  const BASE_SKIP_SELECTOR_WITHOUT_TAB = BASE_SKIP_SELECTOR.replace(",[role=tab]", "");
+  const FORM_BOUNDARY_SKIP_SELECTOR = "form,label,fieldset,legend";
+  const PLAYER_CHROME_SKIP_SELECTOR = '[class*="control" i],[class*="toggle" i],[class*="player" i]';
+  const SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,rt,rp`;
+  const PITCH_CLASSES = new Set("heiban,atamadaka,nakadaka,odaka,kifuku".split(","));
   const PARTICLE_SURFACE_RE = /^[のはをがにでへもとやかねよな]$/u;
   const MINING_INSIGHT_UNKNOWN_STATES = new Set(["new", "not-in-deck", "in-deck"]);
   const MINING_INSIGHT_MIN_CARD_COUNT = 3;
@@ -3695,154 +3624,30 @@
     }
     return states;
   }
-  const FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    "button",
-    "summary",
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const HARD_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES.filter((entry) => entry !== '[role="tab"]'),
-    ...FORM_BOUNDARY_SKIP_ENTRIES,
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = [
-    ...BASE_SKIP_SELECTOR_ENTRIES,
-    ...PLAYER_CHROME_SKIP_ENTRIES,
-    "button",
-    "summary",
-    "a[href]",
-    '[role="button"]'
-  ].join(",");
-  const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = [
-    "script",
-    "style",
-    "noscript",
-    "textarea",
-    "input",
-    "select",
-    "option",
-    "svg",
-    "use",
-    "[hidden]",
-    '[aria-hidden="true"]',
-    '[contenteditable="true"]',
-    ".jpdb-reader-text-mirror",
-    ".jpdb-reader-control-text-mirror",
-    ".jpdb-reader-word",
-    ".subsection-pitch-accent .subsection",
-    "[data-jpdb-reader-root]"
-  ].join(",");
-  const FORM_CHROME_BOUNDARY_TAGS = new Set(["FORM", "LABEL", "FIELDSET", "LEGEND"]);
+  const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
+  const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+  const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+  const TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+  const PLAYER_CHROME_FREE_TAB_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR_WITHOUT_TAB},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
+  const FORM_CHROME_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},button,summary,a[href],[role="button"]`;
+  const PASSIVE_AWARE_FRAGMENT_SKIP_SELECTOR = 'script,style,noscript,textarea,input,select,option,svg,use,[hidden],[aria-hidden="true"],[contenteditable="true"],.jpdb-reader-text-mirror,.jpdb-reader-control-text-mirror,.jpdb-reader-word,.subsection-pitch-accent .subsection,[data-jpdb-reader-root]';
+  const FORM_CHROME_BOUNDARY_TAGS = ",FORM,LABEL,FIELDSET,LEGEND,";
   const UI_CLASS_RE = /(^|[-_\s])(audio|badge|chip|control|icon|label|play|required|sound|speaker|tab|tag)([-_\s]|$)/i;
   const PROSE_CLASS_RE = /(^|[-_\s])(body|content|copy|description|lead|paragraph|prose|text|txt)([-_\s]|$)/i;
   const CONVERSATION_TEXT_CLASS_RE = /(^|[-_\s])(chat|comment|message|post|reply)(?:[-_\s]*(body|content|copy|text|txt))?([-_\s_]|$)/i;
-  const READABLE_PROSE_CONTAINER_SELECTOR = 'article, main, [role="main"], [role="article"]';
+  const READABLE_PROSE_CONTAINER_SELECTOR = "article,main,[role=main],[role=article]";
   const DISPLAY_HEADING_RE = /^H[1-6]$/;
   const DISPLAY_HEADING_SELECTOR = "h1,h2,h3,h4,h5,h6";
-  const PASSIVE_INTERACTION_SELECTOR = [
-    "a[href]",
-    "button",
-    "summary",
-    "label",
-    '[role="button"]',
-    '[role="link"]',
-    '[role="menuitem"]',
-    '[role="option"]',
-    '[role="tab"]',
-    '[role="checkbox"]',
-    '[role="radio"]',
-    '[role="switch"]',
-    "[aria-controls]",
-    "[aria-expanded]",
-    '[slot="more-button"]',
-    ".more-button",
-    "#more",
-    "#less"
-  ].join(",");
-  const COMPACT_PASSIVE_INTERACTION_SELECTOR = [
-    "[onclick]",
-    '[tabindex]:not([tabindex="-1"])',
-    '[class*="audio" i]',
-    '[class*="button" i]',
-    '[class*="control" i]',
-    '[class*="play" i]',
-    '[class*="sound" i]',
-    '[class*="speaker" i]',
-    '[class*="toggle" i]'
-  ].join(",");
-  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = [
-    PASSIVE_INTERACTION_SELECTOR,
-    COMPACT_PASSIVE_INTERACTION_SELECTOR
-  ].join(",");
-  const COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR = [
-    "yt-lockup-view-model",
-    "ytd-rich-grid-renderer",
-    "ytd-rich-item-renderer",
-    "ytd-video-renderer",
-    "ytd-compact-video-renderer",
-    "ytd-watch-next-secondary-results-renderer",
-    "ytm-rich-grid-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2",
-    "ytm-item-section-renderer"
-  ].join(",");
-  const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = [
-    "ytd-watch-metadata",
-    "ytm-watch-metadata",
-    "ytm-slim-video-metadata-section-renderer",
-    "ytm-expandable-video-description-body-renderer",
-    "ytm-structured-description-content-renderer",
-    "ytd-comment-view-model",
-    "ytd-comments",
-    "ytd-transcript-segment-renderer",
-    "ytm-transcript-segment-renderer",
-    "yt-live-chat-renderer",
-    "yt-live-chat-text-message-renderer",
-    "yt-live-chat-paid-message-renderer",
-    "yt-live-chat-membership-item-renderer"
-  ].join(",");
-  const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = [
-    '[class*="card" i]',
-    '[class*="grid" i]',
-    '[class*="item" i]',
-    '[class*="lockup" i]',
-    '[class*="movie" i]',
-    '[class*="poster" i]',
-    '[class*="thumb" i]',
-    '[class*="tile" i]',
-    '[class*="video" i]'
-  ].join(",");
-  const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = [
-    "canvas",
-    "img",
-    "picture",
-    "svg",
-    "video",
-    '[class*="cover" i]',
-    '[class*="image" i]',
-    '[class*="poster" i]',
-    '[class*="thumb" i]'
-  ].join(",");
+  const PASSIVE_INTERACTION_SELECTOR = 'a[href],button,summary,label,[role="button"],[role="link"],[role="menuitem"],[role="option"],[role="tab"],[role="checkbox"],[role="radio"],[role="switch"],[aria-controls],[aria-expanded],[slot="more-button"],.more-button,#more,#less';
+  const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex="-1"]),[class*="audio" i],[class*="button" i],[class*="control" i],[class*="play" i],[class*="sound" i],[class*="speaker" i],[class*="toggle" i]';
+  const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`;
+  const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = "ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer";
+  const YOUTUBE_FEEDBACK_CHROME_SELECTOR = "yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]";
+  const COMPACT_YOUTUBE_FEEDBACK_LINK_CONTEXT_SELECTOR = "ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer,ytm-rich-grid-renderer,ytm-video-with-context-renderer";
+  const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
+  const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
+  const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
+  const COMPACT_MEDIA_CARD_MEDIA_SELECTOR = 'canvas,img,picture,svg,video,[class*="cover" i],[class*="image" i],[class*="poster" i],[class*="thumb" i]';
   const COMPACT_MEDIA_CARD_TEXT_LIMIT = 120;
   const COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT = 180;
   const COMPACT_MEDIA_CHROME_TEXT_LIMIT = 40;
@@ -3850,77 +3655,16 @@
   const FORM_CONTROL_TEXT_MAX_LENGTH = 120;
   const FORM_CONTROL_SELECT_OPTION_LIMIT = 8;
   const FORM_CONTROL_TEXT_TARGET_SELECTOR = "select,input,textarea";
-  const PROSE_TAGS = new Set(["P", "LI", "DD", "DT", "TD", "TH", "BLOCKQUOTE", "FIGCAPTION"]);
-  const READER_RENDERED_TEXT_BLOCK_TAGS = new Set([
-    ...PROSE_TAGS,
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5",
-    "H6"
-  ]);
-  const BLOCK_TAGS = new Set([
-    "ADDRESS",
-    "ARTICLE",
-    "ASIDE",
-    "BLOCKQUOTE",
-    "BR",
-    "DD",
-    "DETAILS",
-    "DIALOG",
-    "DIV",
-    "DL",
-    "DT",
-    "FIGCAPTION",
-    "FIGURE",
-    "H1",
-    "H2",
-    "H3",
-    "H4",
-    "H5",
-    "H6",
-    "HR",
-    "LI",
-    "MAIN",
-    "OL",
-    "P",
-    "PRE",
-    "SECTION",
-    "TABLE",
-    "TBODY",
-    "TD",
-    "TFOOT",
-    "TH",
-    "THEAD",
-    "TR",
-    "UL"
-  ]);
+  const PROSE_TAGS = ",P,LI,DD,DT,TD,TH,BLOCKQUOTE,FIGCAPTION,";
+  const READER_RENDERED_TEXT_BLOCK_TAGS = `${PROSE_TAGS}H1,H2,H3,H4,H5,H6,`;
+  const BLOCK_TAGS = new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   const READER_WORD_SELECTOR$1 = ".jpdb-reader-word";
   const READER_TEXT_MIRROR_SELECTOR = ".jpdb-reader-text-mirror";
   const READER_CONTROL_TEXT_MIRROR_SELECTOR = ".jpdb-reader-control-text-mirror";
   const READER_CONTROL_PLACEHOLDER_HIDDEN_ATTRIBUTE = "data-jpdb-reader-control-placeholder-hidden";
-  const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = [
-    "yt-formatted-string",
-    "yt-attributed-string",
-    ".ytAttributedStringHost",
-    ".yt-core-attributed-string",
-    ".yt-core-attributed-string--white-space-pre-wrap"
-  ].join(",");
-  const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
-    "script",
-    "style",
-    "noscript",
-    "template",
-    "[hidden]",
-    '[aria-hidden="true"]'
-  ].join(",");
-  const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = [
-    READER_TEXT_MIRROR_SELECTOR,
-    "[hidden]",
-    '[aria-hidden="true"]'
-  ].join(",");
+  const NON_DESTRUCTIVE_TEXT_HOST_SELECTOR = "yt-formatted-string,yt-attributed-string,.ytAttributedStringHost,.yt-core-attributed-string,.yt-core-attributed-string--white-space-pre-wrap";
+  const TEXT_MIRROR_NATIVE_TEXT_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},script,style,noscript,template,[hidden],[aria-hidden="true"]`;
+  const TEXT_MIRROR_ARIA_LABEL_SKIP_SELECTOR = `${READER_TEXT_MIRROR_SELECTOR},[hidden],[aria-hidden="true"]`;
   const RENDERED_SCAN_HOST_MAX_TEXT = 1e3;
   const RENDERED_SCAN_HOST_REJECTION_WINDOW_MS = 15e3;
   const RENDERED_SCAN_HOST_REJECTION_RESET_MS = 6e4;
@@ -4260,7 +4004,7 @@
     return element2.tagName === "RT" || element2.tagName === "RP";
   }
   function isSurfaceIgnoredElement(element2) {
-    return element2.matches('[data-jpdb-reader-surface-ignore="true"]');
+    return element2.matches("[data-jpdb-reader-surface-ignore]");
   }
   function isExcludedReaderRootElement(element2, options) {
     return !options.includeReaderRoot && Boolean(element2.closest(READER_ROOT_SELECTOR$2));
@@ -4326,7 +4070,7 @@
     return safeElementMatches$1(element2, FRAGMENT_SKIP_SELECTOR);
   }
   function isFragmentParagraphBoundary(element2, options) {
-    return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.has(element2.tagName) || isParagraphBoundary(element2);
+    return isPassiveInteractionBoundaryElement(element2, options) || options.includeFormChrome && FORM_CHROME_BOUNDARY_TAGS.includes(`,${element2.tagName},`) || isParagraphBoundary(element2);
   }
   function isPassiveInteractionBoundaryElement(element2, options) {
     if (!options.includePassiveInteractions) return false;
@@ -4346,7 +4090,7 @@
     return element2.tagName === "LI" && Boolean(element2.closest(".japanese_sentence"));
   }
   function isReaderRenderedTextBlock(element2) {
-    return READER_RENDERED_TEXT_BLOCK_TAGS.has(element2.tagName) && Boolean(element2.querySelector(".jpdb-reader-word")) && !hasRawJapaneseOutsideReaderWords(element2);
+    return READER_RENDERED_TEXT_BLOCK_TAGS.includes(`,${element2.tagName},`) && Boolean(element2.querySelector(".jpdb-reader-word")) && !hasRawJapaneseOutsideReaderWords(element2);
   }
   function hasRawJapaneseOutsideReaderWords(element2) {
     const walker = document.createTreeWalker(element2, NodeFilter.SHOW_TEXT, {
@@ -4729,15 +4473,19 @@
     return Boolean(parent.closest('[data-yomu-furigana-mode="all"]'));
   }
   function shouldSuppressCompactMediaRuby(parent) {
+    if (isYouTubeFeedbackChromeLinkText(parent)) return true;
     if (isYouTubeHost()) return false;
-    if (parent.closest(COMPACT_YOUTUBE_RUBY_SUPPRESS_SELECTOR)) {
-      return !parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR);
-    }
-    return isCompactMediaCardLinkText(parent) || isCompactPeerMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isLayoutFragileMediaTileText(parent);
+    return isCompactMediaCardLinkText(parent) || isCompactPeerMediaCardLinkText(parent) || isCompactMediaChromeLinkText(parent) || isMediaCarouselText(parent) || isLayoutFragileMediaTileText(parent);
   }
   function isYouTubeHost() {
     const hostname = location.hostname.toLowerCase();
     return hostname === "youtube.com" || hostname.endsWith(".youtube.com") || hostname === "youtu.be";
+  }
+  function isYouTubeFeedbackChromeLinkText(parent) {
+    if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
+    const link = parent.closest("a[href]");
+    if (!link || !link.closest(COMPACT_YOUTUBE_FEEDBACK_LINK_CONTEXT_SELECTOR)) return false;
+    return Boolean(safeQuerySelector(link, YOUTUBE_FEEDBACK_CHROME_SELECTOR));
   }
   function isCompactMediaCardLinkText(parent) {
     const link = parent.closest("a[href]");
@@ -4768,6 +4516,34 @@
     if (textLength < 2 || textLength > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
     if (compactLength(link.textContent ?? "") > COMPACT_MEDIA_CHROME_TEXT_LIMIT) return false;
     return isNavigationChromeContext(link) || hasCompactCenteredMediaChrome(parent, link);
+  }
+  function isMediaCarouselText(parent) {
+    const textLength = compactLength(parent.textContent ?? "");
+    if (textLength < 2 || textLength > COMPACT_MEDIA_CARD_LINK_TEXT_LIMIT) return false;
+    const carousel = closestMediaCarousel(parent);
+    if (!carousel) return false;
+    if (isReadableProseContext(parent) && !carousel.explicit) return false;
+    return true;
+  }
+  function closestMediaCarousel(parent) {
+    let current = parent;
+    for (let depth = 0; current && current !== document.body && current !== document.documentElement && depth < 8; depth++) {
+      const match = mediaCarouselMatch(current);
+      if (match && mediaCarouselClipsHorizontally(current) && hasMediaPeer(current, parent)) return { element: current, explicit: match === "explicit" };
+      current = current.parentElement;
+    }
+    return null;
+  }
+  function mediaCarouselMatch(element2) {
+    const className = elementClassName(element2);
+    if (EXPLICIT_MEDIA_CAROUSEL_CLASS_RE.test(className) || element2.hasAttribute("data-carousel") || element2.hasAttribute("data-slider")) return "explicit";
+    return MEDIA_CAROUSEL_CLASS_RE.test(className) ? "implicit" : null;
+  }
+  function mediaCarouselClipsHorizontally(element2) {
+    const style = safeComputedStyle(element2);
+    if (style.overflowX === "hidden" || style.overflowX === "clip") return true;
+    if ((style.overflowX === "auto" || style.overflowX === "scroll") && element2.clientWidth > 0) return true;
+    return element2.clientWidth > 0 && element2.scrollWidth > element2.clientWidth + 1;
   }
   function isNavigationChromeContext(element2) {
     return Boolean(element2.closest('header,nav,footer,[role="banner"],[role="navigation"],[role="contentinfo"]'));
@@ -6099,7 +5875,7 @@
     return display === "inline-flex" || display === "inline-grid" || display === "inline-block" || display === "flex";
   }
   function isLikelyProseElement(element2) {
-    if (PROSE_TAGS.has(element2.tagName)) return true;
+    if (PROSE_TAGS.includes(`,${element2.tagName},`)) return true;
     return isLikelyProseClass(element2) || isConversationTextClass(element2);
   }
   function isReadableProseContext(element2) {
@@ -6199,38 +5975,8 @@
     return style.backgroundColor !== CORE_COLOR_TOKENS.transparentBlack || style.borderTopStyle !== "none" || style.borderBottomStyle !== "none";
   }
   const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
-  const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = [
-    "ytd-text-inline-expander",
-    "yt-attributed-string",
-    "yt-formatted-string",
-    ".ytAttributedStringHost",
-    ".yt-core-attributed-string",
-    ".ytContentMetadataViewModelMetadataRow",
-    "yt-content-metadata-view-model",
-    "yt-button-shape",
-    "yt-button-view-model",
-    "button",
-    '[role="button"]',
-    "ytd-app",
-    "ytm-app",
-    "ytd-rich-grid-renderer",
-    "ytd-rich-item-renderer",
-    "ytd-video-renderer",
-    "yt-lockup-view-model",
-    "ytm-rich-grid-renderer",
-    "ytm-video-with-context-renderer",
-    "ytm-shorts-lockup-view-model",
-    "ytm-shorts-lockup-view-model-v2",
-    "ytm-item-section-renderer"
-  ].join(",");
-  const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = [
-    "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text",
-    "ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow",
-    "ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer",
-    "ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer",
-    "ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title",
-    "yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3"
-  ].join(",");
+  const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = 'ytd-text-inline-expander,yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string,.ytContentMetadataViewModelMetadataRow,yt-content-metadata-view-model,yt-button-shape,yt-button-view-model,button,[role="button"],ytd-app,ytm-app,ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,yt-lockup-view-model,ytm-rich-grid-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2,ytm-item-section-renderer';
+  const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3";
   const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,[data-attrid]) :is(a,button,[role="button"])';
   const RUBY_ROOM_MAX_PX = 400;
   function makeRoomForRubyInCroppedRows(root = document) {
@@ -9166,6 +8912,7 @@ helpSupportCopy	よむは検索、OCR、字幕、辞書、学習、Ankiをまと
 helpSupportCopyExtra	寄付は開発とサービス費用を支えます。
 videoPlayer	動画プレイヤー
 pdfReader	PDFリーダー
+newTabPage	新しいタブ
 docs	ドキュメント
 factoryReset	初期状態に戻す
 factoryResetConfirm	{appName}の全データをリセットしますか？\n\n設定、キー、キャッシュ、辞書を削除。
@@ -9620,6 +9367,7 @@ recommendedJiten	Jiten頻度です。
       headers: request.headers,
       proxyUrl: settings.corsProxyUrl,
       language: settings.interfaceLanguage,
+      allowDirectCrossOrigin: !settings.corsProxyUrl.trim(),
       credentials: "same-origin",
       withCredentials: true
     });
@@ -19420,7 +19168,7 @@ ${entry.reading || ""}`;
     const heading = title ?? uiText(language, "kanjiDictionaries");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanji" ${sourceAttributes(kanjiSourceStateKey(sourceId))}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(heading)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(heading)}</summary>
             ${entries.map((entry) => `
                 <div class="jpdb-reader-local-entry">
                     <div class="jpdb-reader-local-head">
@@ -19465,7 +19213,7 @@ ${entry.reading || ""}`;
     const entryCount = groups.length;
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-dictionary-group" data-source="local-dictionary" data-dictionary="${escapeHtml$1(dictionary)}" ${cardHighlightScopeAttributes(reference)} ${sourceAttributes(localDictionaryStateKey(dictionary))}>
-            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore="true">
+            <summary class="jpdb-reader-local-title jpdb-reader-dictionary-source-title" title="${escapeHtml$1(dictionaryLabel(dictionary))}" data-jpdb-reader-surface-ignore>
                 <span>${escapeHtml$1(dictionaryLabel(dictionary))}</span>
                 <span class="jpdb-reader-source-status">${entryCount} ${escapeHtml$1(uiText(language, entryCount === 1 ? "localWordSingular" : "localWordPlural"))}</span>
             </summary>
@@ -21664,7 +21412,7 @@ ${glossaryKey}`;
     return isRubyAnnotation(element2) || isGeneratedReaderAnnotation(element2) || element2.matches("[data-jpdb-reader-root], [data-yomu-jpdb-addon]");
   }
   function isGeneratedReaderAnnotation(element2) {
-    return element2.matches('[data-jpdb-reader-surface-ignore="true"], .jpdb-reader-furi, .jpdb-ocr-furi');
+    return element2.matches("[data-jpdb-reader-surface-ignore], .jpdb-reader-furi, .jpdb-ocr-furi");
   }
   function generatedAwareRubyText(element2, base) {
     return isGeneratedReaderAnnotation(element2) ? base : element2.textContent || base;
@@ -22209,7 +21957,7 @@ ${glossaryKey}`;
     if (!settings.immersionKitEnabled) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey$1(IMMERSION_KIT_SOURCE_ID), false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
         </details>
     `;
@@ -24763,7 +24511,7 @@ ${spelling}`);
       container.removeAttribute("open");
       container.dataset.immersionEmpty = "true";
       setInnerHtml(container, `
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>
                 <span>${uiText(settings.interfaceLanguage, "immersionKit")}</span>
                 <span class="jpdb-reader-source-status">${uiText(settings.interfaceLanguage, "noImmersionExamplesCompact")}</span>
             </summary>
@@ -28498,7 +28246,7 @@ ${key}`] = { t: now, v: value };
     if (!info) return "";
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-jpdb-kanji jpdb-reader-jiten-kanji" data-source="jiten-kanji" ${sourceStateAttribute(sourceStateKey, initiallyExpanded)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
             <div class="jpdb-reader-local-entry">
                 ${renderJitenKanjiFacts(info, language)}
                 ${renderJitenKanjiReadings(info, language)}
@@ -34131,6 +33879,7 @@ ${normalizedReading}`;
     return panel?.hasAttribute("hidden") ? 1 : 0;
   }
   function isExcludedSettingsParseRoot(parseRoot) {
+    if (parseRoot.closest("[data-jpdb-reader-surface-ignore]")) return true;
     return !isSettingsChromeParseRoot(parseRoot) && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
   }
   function settingsParseExcludeSelector(parseRoot) {
@@ -36682,7 +36431,7 @@ ${reading}`);
     const sourceStateKey = kanjiSourceStateKey(IMMERSION_KIT_SOURCE_ID);
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(sourceStateKey, false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
         </details>
     `;
@@ -36703,7 +36452,7 @@ ${reading}`);
     const sourceAttributes = options.sourceAttributes(sourceStateKey, options.isSourceOpen(sourceStateKey));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-kanjivg" ${sourceAttributes}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(title)}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
             <div class="jpdb-reader-doodle-stage trace-hidden" data-kanji="${escapeHtml$1(options.kanji)}">
                 <div class="jpdb-reader-doodle-ghost" aria-hidden="true" hidden><div class="jpdb-reader-doodle-text-ghost">${escapeHtml$1(options.kanji)}</div></div>
                 <canvas class="jpdb-reader-doodle-canvas" aria-label="${escapeHtml$1(`${uiText(options.language, "practiceDrawing")} ${options.kanji}`)}"></canvas>
@@ -37009,7 +36758,7 @@ ${criticalWordCss()}
       if (!sentence || !settings.studyTranslationEnabled) return "";
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(uiText(settings.interfaceLanguage, "translation"))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(uiText(settings.interfaceLanguage, "translation"))}</summary>
                 ${this.renderTranslationPanel(sentence)}
             </details>
         `;
@@ -37019,7 +36768,7 @@ ${criticalWordCss()}
       if (!sentence || !settings.studyGrammarEnabled) return "";
       return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore="true">${escapeHtml$1(uiText(settings.interfaceLanguage, "grammar"))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(uiText(settings.interfaceLanguage, "grammar"))}</summary>
                 ${this.renderGrammarPanel()}
             </details>
         `;
@@ -38944,7 +38693,7 @@ ${criticalWordCss()}
         else if (scanMutations.length && scanMutations.every(mutationInsideReaderRoot)) return;
         else if (canScanText && allowsFrequentVisibleAutoScan() && scanMutations.some(mutationMayContainJapaneseText)) {
           this.pageHasJapaneseText = true;
-          this.scheduleAutoScan(visibleAutoScanMutationDelay());
+          this.scheduleAutoScan(visibleAutoScanMutationDelay(), { force: isBookWalkerStorefrontPage() });
         }
         if (isJitenHost()) {
           if (this.jitenEnhancementsNeedRefresh()) this.scheduleJpdbPageEnhancements(500);

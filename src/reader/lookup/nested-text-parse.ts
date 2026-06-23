@@ -161,6 +161,7 @@ function settingsParseRootPriority(parseRoot: HTMLElement): number {
 }
 
 function isExcludedSettingsParseRoot(parseRoot: HTMLElement): boolean {
+    if (parseRoot.closest('[data-jpdb-reader-surface-ignore]')) return true;
     return !isSettingsChromeParseRoot(parseRoot)
         && Boolean(parseRoot.closest(SETTINGS_PARSE_EXCLUDE_SELECTOR));
 }

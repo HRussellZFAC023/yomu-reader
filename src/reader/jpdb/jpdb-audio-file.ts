@@ -56,6 +56,7 @@ export async function fetchJpdbAudioBlob(audioId: string, settings: ReaderSettin
         headers: request.headers,
         proxyUrl: settings.corsProxyUrl,
         language: settings.interfaceLanguage,
+        allowDirectCrossOrigin: !settings.corsProxyUrl.trim(),
         credentials: 'same-origin',
         withCredentials: true,
     });

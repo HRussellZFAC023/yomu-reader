@@ -6006,6 +6006,7 @@ export class NewTabController {
         );
     }
 
+    // fallow-ignore-next-line complexity
     private handleSearchClick(root: HTMLElement, target: HTMLElement, event: MouseEvent, action: string | undefined): boolean {
         switch (action) {
             case 'search-clear':
@@ -6028,81 +6029,20 @@ export class NewTabController {
                 event.preventDefault();
                 this.acceptSearchHandwritingCandidate(root, this.searchActionQuery(target));
                 return true;
-            case 'browse-filter': {
-                event.preventDefault();
-                const filter = (target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter ?? 'all') as BrowseFilter;
-                // Multi-select chips (user-tested): each state toggles
-                // independently; All clears the whole selection.
-                if (filter === 'all') this.browseFilters.clear();
-                else if (this.browseFilters.has(filter)) this.browseFilters.delete(filter);
-                else this.browseFilters.add(filter);
-                this.browsePage = 0;
-                const query = normalizeSearchQuery(this.searchQuery);
-                if (!this.browseScopeActive() && query) {
-                    this.performSearch(root, query);
-                    return true;
-                }
-                const mount = this.searchResultsMount(root);
-                if (mount) this.renderBrowseResults(mount);
-                return true;
-            }
-            case 'browse-source-filter': {
-                event.preventDefault();
-                const filter = (target.closest<HTMLElement>('[data-browse-source-filter]')?.dataset.browseSourceFilter ?? 'all') as BrowseSourceChip;
-                if (filter === 'all') this.browseSourceFilters.clear();
-                else if (this.browseSourceFilters.has(filter)) this.browseSourceFilters.delete(filter);
-                else this.browseSourceFilters.add(filter);
-                this.browsePage = 0;
-                const query = normalizeSearchQuery(this.searchQuery);
-                if (!this.browseScopeActive() && query) {
-                    this.performSearch(root, query);
-                    return true;
-                }
-                const mount = this.searchResultsMount(root);
-                if (mount) this.renderBrowseResults(mount);
-                return true;
-            }
-            case 'browse-sort-direction': {
-                event.preventDefault();
-                this.browseSortDescending = !this.browseSortDescending;
-                this.browsePage = 0;
-                const mount = this.searchResultsMount(root);
-                if (mount) this.renderBrowseResults(mount);
-                return true;
-            }
-            case 'browse-select-mode': {
-                event.preventDefault();
-                this.browseSelectMode = !this.browseSelectMode;
-                const mount = this.searchResultsMount(root);
-                if (mount) this.renderBrowseResults(mount);
-                return true;
-            }
-            case 'browse-page': {
-                event.preventDefault();
-                const page = Number(target.closest<HTMLElement>('[data-browse-page]')?.dataset.browsePage);
-                if (Number.isFinite(page) && page >= 0) this.browsePage = page;
-                const mount = this.searchResultsMount(root);
-                if (mount) this.renderBrowseResults(mount);
-                return true;
-            }
-            case 'browse-bulk': {
-                event.preventDefault();
-                const bulkAction = target.closest<HTMLElement>('[data-bulk-action]')?.dataset.bulkAction ?? '';
-                if (bulkAction) void this.performBrowseBulkAction(root, bulkAction);
-                return true;
-            }
-            case 'browse-card': {
-                event.preventDefault();
-                const row = target.closest<HTMLElement>('[data-expression]');
-                const card = this.browseCardForRow(row);
-                if (card && row && this.dependencies.showLookupCard) {
-                    void this.dependencies.showLookupCard(card, sentenceForCard(card), row, this.nestedLookupOptions());
-                    return true;
-                }
-                const expression = cleanNestedLookupValue(row?.dataset.expression);
-                if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(row?.dataset.reading) || expression, row ?? target);
-                return true;
-            }
+            case 'browse-filter':
+                return this.handleBrowseFilterClick(root, target, event);
+            case 'browse-source-filter':
+                return this.handleBrowseSourceFilterClick(root, target, event);
+            case 'browse-sort-direction':
+                return this.handleBrowseSortDirectionClick(root, event);
+            case 'browse-select-mode':
+                return this.handleBrowseSelectModeClick(root, event);
+            case 'browse-page':
+                return this.handleBrowsePageClick(root, target, event);
+            case 'browse-bulk':
+                return this.handleBrowseBulkClick(root, target, event);
+            case 'browse-card':
+                return this.handleBrowseCardClick(target, event);
             case 'search-result-word':
                 return this.handleSearchResultWordClick(root, target, event);
             case 'search-result-kanji':
@@ -6110,6 +6050,83 @@ export class NewTabController {
             default:
                 return false;
         }
+    }
+
+    private handleBrowseFilterClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        const filter = (target.closest<HTMLElement>('[data-browse-filter]')?.dataset.browseFilter ?? 'all') as BrowseFilter;
+        if (filter === 'all') this.browseFilters.clear();
+        else if (this.browseFilters.has(filter)) this.browseFilters.delete(filter);
+        else this.browseFilters.add(filter);
+        return this.refreshBrowseAfterChipChange(root);
+    }
+
+    private handleBrowseSourceFilterClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        const filter = (target.closest<HTMLElement>('[data-browse-source-filter]')?.dataset.browseSourceFilter ?? 'all') as BrowseSourceChip;
+        if (filter === 'all') this.browseSourceFilters.clear();
+        else if (this.browseSourceFilters.has(filter)) this.browseSourceFilters.delete(filter);
+        else this.browseSourceFilters.add(filter);
+        return this.refreshBrowseAfterChipChange(root);
+    }
+
+    private handleBrowseSortDirectionClick(root: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        this.browseSortDescending = !this.browseSortDescending;
+        this.browsePage = 0;
+        this.rerenderBrowseResults(root);
+        return true;
+    }
+
+    private handleBrowseSelectModeClick(root: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        this.browseSelectMode = !this.browseSelectMode;
+        this.rerenderBrowseResults(root);
+        return true;
+    }
+
+    private handleBrowsePageClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        const page = Number(target.closest<HTMLElement>('[data-browse-page]')?.dataset.browsePage);
+        if (Number.isFinite(page) && page >= 0) this.browsePage = page;
+        this.rerenderBrowseResults(root);
+        return true;
+    }
+
+    private handleBrowseBulkClick(root: HTMLElement, target: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        const bulkAction = target.closest<HTMLElement>('[data-bulk-action]')?.dataset.bulkAction ?? '';
+        if (bulkAction) void this.performBrowseBulkAction(root, bulkAction);
+        return true;
+    }
+
+    private handleBrowseCardClick(target: HTMLElement, event: MouseEvent): boolean {
+        event.preventDefault();
+        const row = target.closest<HTMLElement>('[data-expression]');
+        const card = this.browseCardForRow(row);
+        if (card && row && this.dependencies.showLookupCard) {
+            void this.dependencies.showLookupCard(card, sentenceForCard(card), row, this.nestedLookupOptions());
+            return true;
+        }
+        const expression = cleanNestedLookupValue(row?.dataset.expression);
+        if (expression) void this.dependencies.lookupText?.(expression, cleanNestedLookupValue(row?.dataset.reading) || expression, row ?? target);
+        return true;
+    }
+
+    private refreshBrowseAfterChipChange(root: HTMLElement): boolean {
+        this.browsePage = 0;
+        const query = normalizeSearchQuery(this.searchQuery);
+        if (!this.browseScopeActive() && query) {
+            this.performSearch(root, query);
+            return true;
+        }
+        this.rerenderBrowseResults(root);
+        return true;
+    }
+
+    private rerenderBrowseResults(root: HTMLElement): void {
+        const mount = this.searchResultsMount(root);
+        if (mount) this.renderBrowseResults(mount);
     }
 
     private browseCardForRow(row: HTMLElement | null): JPDBCard | undefined {
@@ -8780,4 +8797,3 @@ function uniqueNumbers(values: number[]): number[] {
 function isJitenBulkAction(action: string): boolean {
     return action === 'jiten-mining' || action === 'jiten-suspend' || action === 'jiten-forget';
 }
-

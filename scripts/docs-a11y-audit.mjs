@@ -49,7 +49,7 @@ async function startDocsServer(root) {
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
     return {
-        origin: `http://127.0.0.1:${address.port}/yomu-reader`,
+        origin: `http://127.0.0.1:${address.port}`,
         close: () => new Promise(resolve => server.close(resolve)),
     };
 }
@@ -120,7 +120,8 @@ async function assertDocsAccessibility(page, label) {
         ];
         const normalizedAccessibleName = value => String(value ?? '').replace(/\s+/g, ' ').trim();
         const accessibleName = element => normalizedAccessibleName(accessibleNameValues(element).find(Boolean));
-        const inlineReaderWord = element => element.matches('.jpdb-reader-word') && element.closest('.yomu-try-me');
+        const inlineReaderWord = element => element.matches('.jpdb-reader-word')
+            && element.closest('.yomu-try-me, .yomu-demo .yomu-try-me-text, .yomu-try-manga');
         const interactive = [...document.querySelectorAll('button,a[href],input,select,textarea,[role="button"],[tabindex]:not([tabindex="-1"])')]
             .filter(element => visible(element));
         const unnamedControls = interactive
@@ -180,6 +181,7 @@ async function main() {
 async function auditDocsViewport(browser, origin, viewport, results) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: 1 });
     try {
+        await installDocsAuditNetworkMocks(context);
         for (const pageDef of pages) {
             await auditDocsPage(context, origin, viewport, pageDef, results);
         }
@@ -215,26 +217,40 @@ async function auditDocsPage(context, origin, viewport, pageDef, results) {
     }
 }
 
+async function installDocsAuditNetworkMocks(context) {
+    await context.route(/^https:\/\/api\.jiten\.moe\//, route => route.fulfill({
+        status: 200,
+        contentType: 'application/json; charset=utf-8',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: '{"tokens":[],"vocabulary":[]}',
+    }));
+    await context.route(/^https:\/\/assets\.languagepod101\.com\//, route => route.fulfill({
+        status: 204,
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: '',
+    }));
+}
+
 function errorMessage(error) {
     return error instanceof Error ? error.message : String(error);
 }
 
 function blockingConsoleMessages(messages) {
-    const hasKnownVitePressOffsetMismatch = messages.some(message => isKnownVitePressOffsetMismatch(message.text));
+    const hasKnownOffsetMismatch = messages.some(message => isKnownVitePressOffsetMismatch(message.text));
     return messages
         .filter(message => message.type === 'error' || message.type === 'pageerror')
-        .filter(message => !(hasKnownVitePressOffsetMismatch && isKnownVitePressHydrationSummary(message.text)))
+        .filter(message => !(hasKnownOffsetMismatch && isKnownVitePressHydrationSummary(message.text)))
         .map(message => message.text);
+}
+
+function isKnownVitePressHydrationSummary(text) {
+    return text === 'Hydration completed but contains mismatches.';
 }
 
 function isKnownVitePressOffsetMismatch(text) {
     return text.includes('Hydration style mismatch')
         && text.includes('--vp-offset')
         && text.includes('check-only');
-}
-
-function isKnownVitePressHydrationSummary(text) {
-    return text === 'Hydration completed but contains mismatches.';
 }
 
 await main();
