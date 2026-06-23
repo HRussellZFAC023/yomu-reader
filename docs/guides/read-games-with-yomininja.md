@@ -1,58 +1,64 @@
 ---
-title: Read Japanese games with YomiNinja
-description: Use YomiNinja to OCR Japanese game and visual novel dialogue, then bring useful text into よむ when it reaches a browser page, subtitle flow, or compatible OCR bridge.
+title: Read Japanese games with YomiNinja and よむ
+description: Use YomiNinja for Japanese game OCR, then bring useful lines into a browser-readable surface where よむ can look them up, mine them, and send them to your study flow.
 ---
 
-# Read Japanese games with YomiNinja
+# Read Japanese games with YomiNinja and よむ
 
-Games and visual novels are excellent Japanese input, but the text is usually trapped in a game window. よむ is a browser reader, so it does not control a desktop game directly. The practical setup is:
+For games, split the job cleanly:
 
-1. Use [YomiNinja](https://github.com/matt-m-o/YomiNinja) to capture and OCR the game text.
-2. Look up words in YomiNinja's overlay while you play.
-3. Bring useful lines into よむ through one of the browser paths below when you want the normal popup, mining, and study flow.
+- **YomiNinja** handles the desktop game window, screen capture, and OCR overlay.
+- **よむ** handles browser reading, popup lookup, mining, Jiten/JPDB actions, and Anki cards.
 
-## What YomiNinja does
+よむ does not launch YomiNinja, choose your game window, or run YomiNinja as a built-in OCR backend. The handoff is the text: once a useful line becomes normal text in a browser-readable place, よむ can treat it like any other reading surface.
 
-YomiNinja is a desktop OCR overlay for visual content. Its README describes extracting text from games, videos, and other visual material, then placing the extracted text over the original content so browser dictionary extensions can read it.
+## 1. OCR the game with YomiNinja
 
-It supports OCR templates, Auto OCR, screen/window capture, and engines such as PaddleOCR, Manga OCR, Google Cloud Vision, Google Lens, and Apple Vision. As of June 23, 2026, GitHub marks [YomiNinja v0.9.3](https://github.com/matt-m-o/YomiNinja/releases/tag/v0.9.3) as the latest release, with Windows, macOS, and Linux builds.
+Install [YomiNinja](https://github.com/matt-m-o/YomiNinja/releases), then set it up around the game text:
 
-## The simplest game workflow
+1. Open your game or visual novel.
+2. In YomiNinja, choose the game window as the capture source.
+3. Create an OCR template around the dialogue box.
+4. Use **Auto OCR** for repeated dialogue boxes, or trigger OCR manually when a line is worth checking.
+5. Read the recognized text in YomiNinja's overlay while you play.
 
-1. Install YomiNinja from the [latest release](https://github.com/matt-m-o/YomiNinja/releases).
-2. Open your game or visual novel in windowed or borderless mode.
-3. In YomiNinja, choose the game as the capture source.
-4. Create an OCR template around the dialogue box.
-5. Turn on Auto OCR, or trigger OCR manually when a new line appears.
-6. Look up the extracted text in the overlay.
-7. Save useful words in よむ through one of the paths below.
+That gives you the game line without retyping it.
 
-YomiNinja's [v0.7.2 release notes](https://github.com/matt-m-o/YomiNinja/releases/tag/v0.7.2) are useful because they explain Auto OCR templates: select a capture source, choose a region, enable Auto OCR, and tune motion sensitivity.
+## 2. Move good lines into a browser surface
 
-## Where よむ fits
+When a line is worth studying, put it somewhere よむ can read:
 
-Use YomiNinja for the desktop capture. Use よむ when the text becomes browser-readable.
+- **A browser note or scratch page.** Copy the OCR text from YomiNinja into a browser-based note, local HTML page, or simple text page.
+- **A text-hooker log page.** Some visual novel setups mirror the current line into a web page. Keep that page beside the game and let よむ annotate the log.
+- **A study workflow.** If your setup already turns game lines into selectable browser text, open よむ there and mine from the line directly.
 
-- **Path A — play with YomiNinja, study later.** Use YomiNinja's overlay during the game. When a line is worth keeping, copy it into a browser note, a local HTML scratchpad, or a text-hooker log page; once the line is normal selectable text in the browser, よむ can read it.
-- **Path B — text-hooker page.** Some VN setups mirror dialogue into a browser-readable log, often from tools that hook game text and display it in a web page. Keep that page next to the game and let よむ annotate it like any other site.
-- **Path C — advanced OCR bridge.** If you already run a local OCR service, it can return text boxes in a よむ-compatible shape and you can point よむ's image settings at that endpoint. This is for custom setups; it is not the same as よむ controlling the YomiNinja app.
+You do not need every line in よむ. Use YomiNinja for play, and only hand off the lines that are good cards or that you want to inspect more closely.
 
-What not to expect: よむ does not currently launch YomiNinja, select your game window, or drive YomiNinja as a built-in OCR backend. Treat them as two tools in one workflow.
+## 3. Mine with よむ
 
-## Tips for cleaner OCR
+Once the line is browser-readable, use the normal よむ flow:
 
-- Keep the game window stable after you place the OCR region.
-- Prefer high-contrast dialogue boxes and readable fonts.
-- For visual novels, tune Auto OCR sensitivity so it reacts to line changes rather than character animation.
-- On macOS, grant screen recording and accessibility permissions before judging OCR quality.
-- On Linux, check the current YomiNinja release notes for X11, Wayland, and `xdotool` caveats.
+1. Hover, tap, or select the unknown word.
+2. Check the reading, meaning, pitch, frequency, dictionaries, audio, and examples.
+3. Save the word or sentence to Jiten, JPDB, or Anki.
 
-## Privacy
+This keeps the game session light: YomiNinja stays focused on OCR, and よむ only enters when a line is worth keeping.
 
-For private game text, prefer local OCR engines. Cloud OCR options can be useful, but they may send captured images to the provider you configure. If you do not want screenshots leaving your machine, use a local YomiNinja engine or keep OCR off.
+## Optional: YomiNinja extension experiments
+
+YomiNinja is built with Electron and has partial Chrome-extension support. If you are experimenting with installing dictionary tools inside YomiNinja itself, test that separately on YomiNinja's **Extensions** page before relying on it during a game.
+
+That path depends on YomiNinja's extension compatibility. The dependable よむ workflow is still: get the game text with YomiNinja, then use よむ where that text is browser-readable.
+
+## If something feels off
+
+- **よむ works on websites but not on the game:** that is expected unless the game text has been moved into a browser-readable surface.
+- **YomiNinja OCR is catching too much:** shrink the OCR template to the dialogue area you actually read.
+- **A copied line loses spacing or punctuation:** clean it in the browser note before mining; the card should read like a sentence you would want to review.
+- **You want live lookup while playing:** use YomiNinja's overlay for the play session, then mine the good lines afterward.
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://github.com/matt-m-o/YomiNinja/releases" target="_blank" rel="noopener">Download YomiNinja</a>
-  <a class="yomu-cta-button" href="/tools/japanese-ocr">OCR in よむ</a>
   <a class="yomu-cta-button" href="/getting-started">Install よむ</a>
+  <a class="yomu-cta-button" href="/guides/mine-sentences-to-anki">Mine to Anki</a>
 </div>
