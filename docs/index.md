@@ -81,11 +81,11 @@ hero:
     <h2 id="yomu-video-title">Use captions in a real player</h2>
     <p>Play the sample and switch captions on. よむ reads the subtitle track in the player here, before you install anything.</p>
   </div>
-  <div class="yomu-video-card" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Japanese sample video">
-    <video class="yomu-sample-player" controls playsinline preload="metadata" poster="/media/yomu-demo-poster.jpg" aria-label="Captioned Japanese sample video">
-      <source src="/media/yomu-demo.webm" type="video/webm" />
-      <source src="/media/yomu-demo.mp4" type="video/mp4" />
-      <track kind="subtitles" src="/media/yomu-sample-ja.vtt" srclang="ja" label="Japanese" default />
+  <div class="yomu-video-card" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Peppa Pig Japanese sample video">
+    <video class="yomu-sample-player" controls playsinline preload="metadata" poster="/media/yomu-peppa-shopping-poster.jpg" aria-label="Captioned Peppa Pig Japanese shopping sample video">
+      <source src="/media/yomu-peppa-shopping.webm" type="video/webm" />
+      <source src="/media/yomu-peppa-shopping.mp4" type="video/mp4" />
+      <track kind="subtitles" src="/media/yomu-peppa-shopping-ja.vtt" srclang="ja" label="Japanese" default />
     </video>
   </div>
 </section>
