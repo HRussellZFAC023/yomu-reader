@@ -35,10 +35,18 @@ const MIN_CONTENT_CONTRAST = 36;
 const MIN_CONTENT_BUCKETS = 3;
 const MIN_OPAQUE_FRACTION = 0.5;
 
+// Any BookWalker host that can paint the DRM canvas reader. The browser viewer is
+// served BOTH from the apex `bookwalker.jp` (per-book `/de…/` reader paths) and the
+// `viewer.`/`viewer-trial.` subdomains — and iOS Safari's address bar hides the
+// subdomain, so reports show only `bookwalker.jp`. Matching the whole registrable
+// domain keeps the tainted-canvas descramble pipeline (recorder + mirror replay,
+// not the scrambled source-image fallback) enabled wherever the reader loads. This
+// mirrors `isKnownCanvasReaderHost`'s `(^|.)bookwalker.jp$`, which already covered
+// the apex; the two predicates disagreeing on the apex is what silently disabled
+// OCR there. Storefront catalog pages share these hosts but carry no page-shaped
+// reader canvas, so canvas/OCR callers stay inert on them.
 export function isBookwalkerViewerHost(hostname: string = location.hostname): boolean {
-    return hostname === 'viewer.bookwalker.jp'
-        || hostname === 'viewer-trial.bookwalker.jp'
-        || hostname.endsWith('.bookwalker.jp');
+    return hostname === 'bookwalker.jp' || hostname.endsWith('.bookwalker.jp');
 }
 
 export function isKnownCanvasReaderHost(hostname: string = location.hostname): boolean {

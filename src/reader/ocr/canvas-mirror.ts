@@ -2,6 +2,8 @@
 // can read them. The page records drawImage/clearRect calls in the page realm; the
 // reader replays them with GM-fetched clean image sources.
 
+import { isBookwalkerViewerHost } from './canvas-readers';
+
 export interface MirrorOp {
     seq: number;
     srcId: string | null; // id of the source canvas when the draw source is a canvas (recurse)
@@ -28,12 +30,6 @@ function pageWindow(): typeof globalThis & { __yomuCanvasMirror?: MirrorGlobalSt
 function state(): MirrorGlobalState {
     const win = pageWindow();
     return (win.__yomuCanvasMirror ??= { seq: 0, nextId: 1, installed: false, records: Object.create(null) });
-}
-
-function isBookwalkerHost(hostname: string): boolean {
-    return hostname === 'viewer.bookwalker.jp'
-        || hostname === 'viewer-trial.bookwalker.jp'
-        || hostname.endsWith('.bookwalker.jp');
 }
 
 // Stable id across sandbox/main-world boundaries.
@@ -252,7 +248,7 @@ function createTrustedMirrorScript(code: string): unknown {
 // inject a page-world recorder so its state is page-compartment and the main-world
 // OCR reader can read it. Idempotent via the shared page-window state.
 export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
-    if (!isBookwalkerHost(hostname)) return;
+    if (!isBookwalkerViewerHost(hostname)) return;
     const uw = (globalThis as unknown as { unsafeWindow?: typeof globalThis }).unsafeWindow;
     const differentRealm = Boolean(uw) && uw !== (globalThis as unknown as typeof globalThis);
     if (differentRealm) {

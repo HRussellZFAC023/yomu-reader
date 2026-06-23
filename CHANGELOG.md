@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.77] - 2026-06-23
+
+### Fixed
+
+- BookWalker OCR now works on the main bookwalker.jp address, not only the viewer subdomains. The browser reader is also served there, and iOS Safari hides the subdomain in its address bar, but the tainted-canvas reader was only recognised on viewer hosts, so on iPad the comic page was detected yet no text overlay appeared and only the page title could be looked up. The reader-host check now covers the whole bookwalker.jp site, and a duplicated host check was removed.
+
 ## [1.4.76] - 2026-06-23
 
 ### Fixed
