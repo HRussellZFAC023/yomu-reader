@@ -13,6 +13,17 @@ export function isLookupableJapaneseText(text: string): boolean {
     return Boolean(text && HAS_JAPANESE.test(text));
 }
 
+// A whole-paragraph drag that crosses an embedded Japanese word should stay a
+// plain selection the user can copy. Once enough Latin prose surrounds a sliver
+// of Japanese, the auto popup is hijacking a copy gesture — and opening it
+// collapses the live selection back to the Japanese word (Chromium re-anchors
+// the range when the popover renders). 24 letters is ~4-5 English words, well
+// past any short mixed lookup like "iPhoneを買う".
+export function isProseDominantSelection(text: string): boolean {
+    const latin = (text.match(/[A-Za-z]/gu) ?? []).length;
+    return latin >= 24 && latin > (text.match(/[぀-鿿]/gu) ?? []).length;
+}
+
 export function lookupCandidateSentence(text: string, start = 0, end = text.length): string {
     const sentence = sentenceAroundRange(text, start, end) || normalizedLookupText(text);
     return isLookupableJapaneseText(sentence) ? sentence : '';

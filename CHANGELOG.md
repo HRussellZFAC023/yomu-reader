@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.81] - 2026-06-24
+
+### Fixed
+
+- Selecting a paragraph that contains a Japanese word no longer collapses the selection back onto that word. The annotated-word auto-lookup popup was hijacking ordinary copy gestures and re-anchoring the live selection, so predominantly non-Japanese passages now stay fully selectable while genuine Japanese selections still open the lookup.
+
 ## [1.4.79] - 2026-06-23
 
 ### Fixed

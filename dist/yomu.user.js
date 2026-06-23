@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.79
+// @version 1.4.81
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.79#sha256-a+YO8pO2KfTqnSuBM5qh+U1XBFkRiaMzPjiV7gpkNas=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.79#sha256-9rb+gY4BH+W4RdtWp7oiZejC0/dGnu+35N0H9zKBs8c=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.79#sha256-vJDbXXblYBh+4ZJKdMNVFwGPiNTdgHpMMWwzbpo+A+w=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.79#sha256-F2JuzVED8yTg44nWFIum+hilpl72DszrS7RmSjYiuGQ=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.81#sha256-a+YO8pO2KfTqnSuBM5qh+U1XBFkRiaMzPjiV7gpkNas=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.81#sha256-9rb+gY4BH+W4RdtWp7oiZejC0/dGnu+35N0H9zKBs8c=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.81#sha256-vJDbXXblYBh+4ZJKdMNVFwGPiNTdgHpMMWwzbpo+A+w=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.81#sha256-F2JuzVED8yTg44nWFIum+hilpl72DszrS7RmSjYiuGQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -30120,6 +30120,10 @@ ${normalizedReading}`;
   function isLookupableJapaneseText(text2) {
     return Boolean(text2 && HAS_JAPANESE$1.test(text2));
   }
+  function isProseDominantSelection(text2) {
+    const latin = (text2.match(/[A-Za-z]/gu) ?? []).length;
+    return latin >= 24 && latin > (text2.match(/[぀-鿿]/gu) ?? []).length;
+  }
   function lookupCandidateSentence(text2, start = 0, end = text2.length) {
     const sentence = sentenceAroundRange(text2, start, end) || normalizedLookupText(text2);
     return isLookupableJapaneseText(sentence) ? sentence : "";
@@ -40153,7 +40157,7 @@ ${criticalWordCss()}
     }
     selectionLookupText() {
       const selected = getSelectionText();
-      return !selected || selected.length > 500 || !HAS_JAPANESE$1.test(selected) || document.activeElement?.closest?.("[data-jpdb-reader-root]") ? "" : selected;
+      return !selected || selected.length > 500 || !HAS_JAPANESE$1.test(selected) || isProseDominantSelection(selected) || document.activeElement?.closest?.("[data-jpdb-reader-root]") ? "" : selected;
     }
     async lookupText(text2, sentence = text2, options = {}) {
       const context = this.textLookupDisplayContext(text2, options);

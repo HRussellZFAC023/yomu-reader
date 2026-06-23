@@ -89,6 +89,7 @@ import type { KanjiVGInfo } from '../kanji/vg';
 import {
     canExpandLocalPointerRange,
     isLookupableJapaneseText,
+    isProseDominantSelection,
     isLowValuePitchEnrichmentToken,
     isLowValuePointerTextToken,
     isOverbroadLocalPointerRange,
@@ -3569,6 +3570,7 @@ export class ReaderApp {
         return (!selected
             || selected.length > 500
             || !HAS_JAPANESE.test(selected)
+            || isProseDominantSelection(selected)
             || (document.activeElement as HTMLElement | null)?.closest?.('[data-jpdb-reader-root]')) ? '' : selected;
     }
 
