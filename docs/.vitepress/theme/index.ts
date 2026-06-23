@@ -107,19 +107,6 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
     },
 };
 
-const HOSTED_LANGUAGE_NUDGE_COPY: Record<InterfaceLanguage, { title: string; body: string; dismiss: string }> = {
-    en: {
-        title: 'Prefer 日本語?',
-        body: 'Tap あ / A here to switch this site between Japanese and English anytime.',
-        dismiss: 'Got it',
-    },
-    ja: {
-        title: '日本語で読みますか？',
-        body: 'ここで「あ / A」をタップすると、このサイトをいつでも日本語と英語で切り替えられます。',
-        dismiss: '閉じる',
-    },
-};
-
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
@@ -1969,15 +1956,12 @@ function syncHostedLanguageFromSettingsEvent(event: Event): void {
     scheduleHostedDocsLocalization({ resetReaderWords: true });
 }
 
-const LANGUAGE_NUDGE_KEY = 'yomu:lang-nudge-dismissed';
-
-// Homepage-only progressive enhancements: scroll reveals, the click-to-play
-// demo video, and a one-time "try me" nudge pointing at the language toggle.
+// Homepage-only progressive enhancements: scroll reveals and the click-to-play
+// demo video.
 // All are idempotent (guarded by data flags) so they survive route re-runs.
 function installHostedHomepageInteractions(): void {
     armHostedRevealElements();
     bindHostedDemoVideo();
-    maybeShowHostedLanguageNudge();
 }
 
 function armHostedRevealElements(): void {
@@ -2021,77 +2005,6 @@ function bindHostedDemoVideo(): void {
     });
     video.addEventListener('play', () => frame.classList.add('is-playing', 'has-played'));
     video.addEventListener('pause', () => frame.classList.remove('is-playing'));
-}
-
-function maybeShowHostedLanguageNudge(): void {
-    const toggle = hostedLanguageNudgeToggle();
-    if (!toggle) return;
-
-    const nudge = createHostedLanguageNudge();
-    (toggle.closest<HTMLElement>('header, nav, .VPNav') ?? document.body).appendChild(nudge);
-
-    const position = (): void => positionHostedLanguageNudge(toggle, nudge);
-    const close = (): void => {
-        try {
-            localStorage.setItem(LANGUAGE_NUDGE_KEY, '1');
-        } catch {
-            // ignore
-        }
-        nudge.classList.remove('is-in');
-        window.removeEventListener('resize', position);
-        window.removeEventListener('scroll', position);
-        window.setTimeout(() => nudge.remove(), 320);
-    };
-
-    nudge.querySelector('button')?.addEventListener('click', close);
-    toggle.addEventListener('click', close, { once: true });
-    window.addEventListener('resize', position);
-    window.addEventListener('scroll', position, { passive: true });
-    position();
-    window.requestAnimationFrame(() => {
-        position();
-        nudge.classList.add('is-in');
-    });
-    window.setTimeout(close, 12000);
-}
-
-function hostedLanguageNudgeToggle(): HTMLElement | null {
-    if (document.querySelector('.yomu-language-nudge')) return null;
-    if (hostedLanguageNudgeDismissed()) return null;
-    return document.getElementById(LANGUAGE_TOGGLE_ID);
-}
-
-function hostedLanguageNudgeDismissed(): boolean {
-    try {
-        return localStorage.getItem(LANGUAGE_NUDGE_KEY) === '1';
-    } catch {
-        return false;
-    }
-}
-
-function createHostedLanguageNudge(): HTMLDivElement {
-    const copy = HOSTED_LANGUAGE_NUDGE_COPY[effectiveInterfaceLanguage()];
-    const nudge = document.createElement('div');
-    const title = document.createElement('b');
-    const body = document.createElement('span');
-    const dismiss = document.createElement('button');
-    nudge.className = 'yomu-language-nudge';
-    nudge.setAttribute('role', 'note');
-    title.textContent = copy.title;
-    body.className = 'yomu-language-nudge-body';
-    body.textContent = copy.body;
-    dismiss.type = 'button';
-    dismiss.textContent = copy.dismiss;
-    nudge.append(title, body, dismiss);
-    return nudge;
-}
-
-function positionHostedLanguageNudge(toggle: HTMLElement, nudge: HTMLElement): void {
-    const rect = toggle.getBoundingClientRect();
-    const width = nudge.offsetWidth || 260;
-    const left = Math.max(10, Math.min(rect.right - width, window.innerWidth - width - 10));
-    nudge.style.top = `${Math.round(rect.bottom + 10)}px`;
-    nudge.style.left = `${Math.round(left)}px`;
 }
 
 function prepareHostedYomuRuntime(): void {

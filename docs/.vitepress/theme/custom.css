@@ -1586,66 +1586,6 @@ html[lang="ja"] .VPHomeHero .tagline {
   100% { box-shadow: 0 0 0 0 rgba(174, 240, 200, 0); }
 }
 
-/* --- "Try me" nudge for the top-right language toggle --- */
-.yomu-language-nudge {
-  position: fixed;
-  z-index: 60;
-  display: grid;
-  justify-items: start;
-  gap: 7px;
-  max-width: min(260px, calc(100vw - 20px));
-  padding: 11px 13px 11px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  line-height: 1.45;
-  color: #fff;
-  background: var(--vp-c-brand-1);
-  box-shadow: 0 16px 36px rgba(20, 30, 45, 0.32);
-  opacity: 0;
-  transform: translateY(-6px);
-  transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.yomu-language-nudge.is-in {
-  opacity: 1;
-  transform: none;
-}
-
-.yomu-language-nudge::after {
-  content: "";
-  position: absolute;
-  top: -6px;
-  right: 22px;
-  width: 12px;
-  height: 12px;
-  background: var(--vp-c-brand-1);
-  transform: rotate(45deg);
-}
-
-.yomu-language-nudge b {
-  font-weight: 800;
-}
-
-.yomu-language-nudge-body {
-  display: block;
-}
-
-.yomu-language-nudge button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 26px;
-  padding: 3px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 999px;
-  background: transparent;
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.2;
-  cursor: pointer;
-}
-
 /* --- Scroll reveal --- */
 .yomu-reveal {
   opacity: 0;
