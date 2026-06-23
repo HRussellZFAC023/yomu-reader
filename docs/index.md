@@ -78,7 +78,7 @@ hero:
 <section class="yomu-video-showcase yomu-reveal" aria-labelledby="yomu-video-title">
   <div class="yomu-video-copy">
     <p class="yomu-showcase-kicker">Video</p>
-    <h2 id="yomu-video-title">Use captions in a real player</h2>
+    <h2 id="yomu-video-title">Use captions in any player</h2>
     <p>Play the sample and switch captions on. よむ reads the subtitle track in the player here, before you install anything.</p>
   </div>
   <div class="yomu-video-card" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Peppa Pig Japanese sample video">
