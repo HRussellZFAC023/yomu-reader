@@ -11,9 +11,9 @@ const statsLink = '/newtab/index.html?mode=stats';
 const videoPlayerLink = '/video-player/index.html';
 const pdfReaderLink = '/pdf-reader/';
 
-const siteTitle = 'よむ - Free Japanese popup reader';
+const siteTitle = 'よむ - Japanese popup reader';
 const siteDescription =
-    'よむ is a free Japanese reader for web pages, manga, PDFs, and video subtitles. Tap any word for readings, meanings, kanji, audio, and study actions.';
+    'よむ helps you read real Japanese in the browser. Tap Japanese on pages, manga images, PDFs, and subtitles for readings, meanings, audio, kanji, and study actions.';
 const siteVerificationHead = siteVerificationMetaHead([
     { name: 'google-site-verification', value: process.env.YOMU_GOOGLE_SITE_VERIFICATION },
     { name: 'msvalidate.01', value: process.env.YOMU_BING_SITE_VERIFICATION },
@@ -215,6 +215,17 @@ export default defineConfig({
         head.push(...jsonLdFor(pageData, pageUrl));
         return head;
     },
+    transformHtml(code) {
+        // VitePress emits `rel="preload stylesheet"` for its main CSS chunks.
+        // Chromium treats those as preload-only in the built preview, leaving the
+        // homepage unstyled except for yomu.css. Emit normal stylesheet links so
+        // every static page applies the theme CSS without relying on rel-token
+        // interpretation.
+        return code.replace(
+            /<link rel="preload stylesheet" href="([^"]+)" as="style">/g,
+            '<link rel="stylesheet" href="$1">',
+        );
+    },
     themeConfig: {
         logo: { src: '/yomu-icon.svg', alt: 'よむ app icon' },
         siteTitle: 'yomu',
@@ -264,6 +275,7 @@ export default defineConfig({
                     { text: 'All guides', link: '/guides/' },
                     { text: 'Read manga in Japanese', link: '/guides/read-manga-in-japanese' },
                     { text: 'Comprehensible-input YouTube', link: '/guides/comprehensible-input-youtube' },
+                    { text: 'Read games with YomiNinja', link: '/guides/read-games-with-yomininja' },
                     { text: 'Mine sentences to Anki', link: '/guides/mine-sentences-to-anki' },
                     { text: 'Study setup', link: '/guides/study-setup' },
                 ],

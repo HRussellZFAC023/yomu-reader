@@ -31,11 +31,11 @@ function criticalPitchSelector(pattern: string): string {
 }
 
 function criticalVars(color: string, highlightAlpha = '36%'): string {
-    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,transparent) ${highlightAlpha},var(--yb))`;
+    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,#0000) ${highlightAlpha},var(--yb))`;
 }
 
 function criticalAnkiVars(color: string, highlightAlpha = '36%'): string {
-    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,transparent) ${highlightAlpha},var(--yb))`;
+    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,#0000) ${highlightAlpha},var(--yb))`;
 }
 
 function criticalWordCss(): string {
@@ -52,18 +52,18 @@ function criticalWordCss(): string {
     return [
         states,
         ankiStates,
-        '.jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb)))}',
+        '.jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,#0000) 36%,var(--yb)))}',
         pitches,
-        `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,transparent);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
+        `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
         criticalChannelCss(),
     ].join('');
 }
 
 function criticalChannelCss(): string {
     return [
-        '.jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,transparent)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,transparent)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,transparent)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,transparent)}',
-        ':is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{--yhp:var(--yh,transparent);background:linear-gradient(var(--yhp),var(--yhp)) center/var(--yz) 100% no-repeat!important}',
-        '.jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,transparent)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,transparent)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,transparent)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,transparent)}',
+        '.jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,#0000)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,#0000)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,#0000)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,#0000)}',
+        ':is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word:not(.jpdb-reader-passive-word){background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}',
+        '.jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,#0000)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}',
         '.jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}',
         ':is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}',
     ].join('');
@@ -93,7 +93,7 @@ export const CRITICAL_READER_CSS = `
 [data-jpdb-reader-root] :where(button) {
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
+  background: #0000;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -138,7 +138,7 @@ export const CRITICAL_READER_CSS = `
   transform: translateY(-0.01rem);
   -webkit-appearance: none;
   appearance: none;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: #0000;
 }
 .jpdb-reader-popover .jpdb-reader-icon-btn svg,
 .jpdb-reader-settings .jpdb-reader-icon-btn svg {
@@ -167,7 +167,7 @@ export const CRITICAL_READER_CSS = `
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: transparent;
+  background: #0000;
   color: var(--jpdb-reader-muted, #4f5968);
   cursor: pointer;
   pointer-events: auto;
@@ -176,7 +176,7 @@ export const CRITICAL_READER_CSS = `
   -webkit-user-select: none;
   -webkit-appearance: none;
   appearance: none;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: #0000;
 }
 .jpdb-reader-actions .jpdb-reader-mining-collapse::before {
   content: "";
@@ -188,8 +188,8 @@ export const CRITICAL_READER_CSS = `
   border-radius: 999px;
   background: var(--jpdb-reader-faint, #687384);
 }
-.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) transparent var(--yw)!important;text-underline-offset:var(--yo)!important}
-.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,transparent);pointer-events:none}
+.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}
+.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
 `.trim();
 

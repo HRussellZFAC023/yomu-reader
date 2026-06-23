@@ -48,7 +48,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse');
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-heiban,[data-pitch-class=heiban])');
-        expect(css).toContain('--d2:var(--pc,transparent);');
+        expect(css).toContain('--d2:var(--pc,#0000);');
         expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-text-pitch .jpdb-reader-word');
         expect(css).toContain('[data-card-state=new]');
@@ -58,15 +58,16 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word-highlight-jpdb .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-highlight-anki .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word');
+        expect(css).toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word){background:linear-gradient(var(--yh),var(--yh))');
         expect(css).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-underline-anki .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-text-anki .jpdb-reader-word');
-        expect(css).toContain('--yu:var(--d2,transparent)');
+        expect(css).toContain('--yu:var(--d2,#0000)');
         expect(css).toContain('color:var(--yt,currentColor)!important');
-        expect(css).toContain('background:linear-gradient(var(--yhp),var(--yhp)) center/var(--yz) 100% no-repeat!important');
+        expect(css).toContain('background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important');
         expect(css).toContain('--yi:.08em;');
         expect(css).toContain('inset-inline:var(--yi);');
-        expect(css).toContain('border-block-end:var(--yw) var(--ys) var(--yu,transparent);');
+        expect(css).toContain('border-block-end:var(--yw) var(--ys) var(--yu,#0000);');
     });
 
     it('uses the full reader CSS when the userscript resource is available', () => {

@@ -1,41 +1,40 @@
 // ==UserScript==
-// @name         よむ
-// @namespace    https://github.com/HRussellZFAC023/yomu-reader
-// @version      1.4.77
-// @description  Japanese popup reader.
-// @license      MIT
-// @icon         https://yomureader.com/favicon-32x32.png
-// @homepage     https://yomureader.com/
-// @match        *://*/*
-// @match        file:///*
-// @require      https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.77#sha256-a+YO8pO2KfTqnSuBM5qh+U1XBFkRiaMzPjiV7gpkNas=
-// @require      https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.77#sha256-9rb+gY4BH+W4RdtWp7oiZejC0/dGnu+35N0H9zKBs8c=
-// @require      https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.77#sha256-i2uv6R3V4wSHoLSkCF1/UjAqv37rYHcMSafQ/BfG2lw=
-// @require      https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.77#sha256-cQl/qu0wfBqa6oCSHWakAr/6hV3St4sLnYpsKLuOZ+M=
-// @resource     yomuCss  https://yomureader.com/yomu.css
-// @connect      *
-// @grant        GM.deleteValue
-// @grant        GM.getValue
-// @grant        GM.listValues
-// @grant        GM.openInTab
-// @grant        GM.registerMenuCommand
-// @grant        GM.setValue
-// @grant        GM.xmlHttpRequest
-// @grant        GM_addValueChangeListener
-// @grant        GM_deleteValue
-// @grant        GM_getResourceText
-// @grant        GM_getValue
-// @grant        GM_listValues
-// @grant        GM_openInTab
-// @grant        GM_registerMenuCommand
-// @grant        GM_removeValueChangeListener
-// @grant        GM_setValue
-// @grant        GM_xmlhttpRequest
-// @inject-into  content
-// @run-at       document-start
+// @name よむ
+// @namespace https://github.com/HRussellZFAC023/yomu-reader
+// @version 1.4.78
+// @description Japanese reader.
+// @license MIT
+// @icon https://yomureader.com/favicon-32x32.png
+// @homepage https://yomureader.com/
+// @match *://*/*
+// @match file:///*
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.78#sha256-a+YO8pO2KfTqnSuBM5qh+U1XBFkRiaMzPjiV7gpkNas=
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.78#sha256-9rb+gY4BH+W4RdtWp7oiZejC0/dGnu+35N0H9zKBs8c=
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.78#sha256-vJDbXXblYBh+4ZJKdMNVFwGPiNTdgHpMMWwzbpo+A+w=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.78#sha256-n/dPQ1DC4FFstTgvnSSZp2SFClRdPKTnwW3OHIXFwCg=
+// @resource yomuCss  https://yomureader.com/yomu.css
+// @connect *
+// @grant GM.deleteValue
+// @grant GM.getValue
+// @grant GM.listValues
+// @grant GM.openInTab
+// @grant GM.registerMenuCommand
+// @grant GM.setValue
+// @grant GM.xmlHttpRequest
+// @grant GM_addValueChangeListener
+// @grant GM_deleteValue
+// @grant GM_getResourceText
+// @grant GM_getValue
+// @grant GM_listValues
+// @grant GM_openInTab
+// @grant GM_registerMenuCommand
+// @grant GM_removeValueChangeListener
+// @grant GM_setValue
+// @grant GM_xmlhttpRequest
+// @inject-into content
+// @run-at document-start
 // ==/UserScript==
-
-/* Bundled dependency source information: fflate*/
+/*Bundled dependency:fflate*/
 
 (function () {
   'use strict';
@@ -590,7 +589,7 @@
   const READABLE_IGNORED_TAGS = new Set(["RT", "RP", "SCRIPT", "STYLE"]);
   const MAX_CONTEXT_SENTENCE_LENGTH = 180;
   function unwrapReaderWords(root = document, options = {}) {
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$2)).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+    const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$2)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
     const parents = new Set();
     for (const word of words) {
       const parent = word.parentNode;
@@ -5977,7 +5976,7 @@
   const RUBY_ROOM_HARD_SKIP_SELECTOR = "[data-yomu-youtube-filtered],[data-yomu-youtube-pending],[data-yomu-youtube-aria-hidden],.jpdb-youtube-filter-collapsed,.jpdb-youtube-pending";
   const RUBY_ROOM_LAYOUT_HOST_SKIP_SELECTOR = 'ytd-text-inline-expander,yt-attributed-string,yt-formatted-string,.ytAttributedStringHost,.yt-core-attributed-string,.ytContentMetadataViewModelMetadataRow,yt-content-metadata-view-model,yt-button-shape,yt-button-view-model,button,[role="button"],ytd-app,ytm-app,ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,yt-lockup-view-model,ytm-rich-grid-renderer,ytm-video-with-context-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2,ytm-item-section-renderer';
   const RUBY_ROOM_YOUTUBE_TEXT_BOX_SELECTOR = "ytd-comment-view-model #content-text,ytm-comment-renderer #content-text,ytd-watch-info-text,ytd-watch-metadata :is(h1,#title,#owner,#info,#info-strings,#info-container,#info-text,#metadata,#metadata-line,.ytContentMetadataViewModelMetadataRow,yt-video-metadata-carousel-view-model),.ytContentMetadataViewModelMetadataRow,ytd-transcript-segment-renderer :is(.segment-text,yt-formatted-string),ytm-transcript-segment-renderer,ytm-slim-video-metadata-section-renderer :is(h1,#title,.slim-video-metadata-info),ytm-expandable-video-description-body-renderer p,ytm-structured-description-content-renderer,ytd-rich-item-renderer :is(#video-title-link,#video-title,#metadata-line,ytd-channel-name),ytd-video-renderer :is(#video-title,#metadata-line),:is(ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer) #video-title,yt-lockup-view-model :is(.ytLockupMetadataViewModelHeadingReset,.ytLockupMetadataViewModelTitle,.ytAttributedStringHost),ytm-video-with-context-renderer .media-item-headline,:is(ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2) h3";
-  const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ':is(#botstuff,#bres,[data-attrid]) :is(a,button,[role="button"])';
+  const RUBY_ROOM_GOOGLE_TEXT_BOX_SELECTOR = ":is(#botstuff,#bres,.MjjYud,[data-attrid]) :is(a,button,[role=button])";
   const RUBY_ROOM_MAX_PX = 400;
   function makeRoomForRubyInCroppedRows(root = document) {
     let adjusted = 0;
@@ -36490,10 +36489,10 @@ ${reading}`);
     return `.jpdb-pitch-${pattern},[data-pitch-class=${pattern}]`;
   }
   function criticalVars(color, highlightAlpha = "36%") {
-    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,transparent) ${highlightAlpha},var(--yb))`;
+    return `--ysc:var(--jpdb-reader-state-${color});--ysr:var(--jpdb-reader-state-${color}-readable);--hs:color-mix(in srgb,var(--ysc,#0000) ${highlightAlpha},var(--yb))`;
   }
   function criticalAnkiVars(color, highlightAlpha = "36%") {
-    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,transparent) ${highlightAlpha},var(--yb))`;
+    return `--ac:var(--jpdb-reader-state-${color});--ar:var(--jpdb-reader-state-${color}-readable);--ah:color-mix(in srgb,var(--ac,#0000) ${highlightAlpha},var(--yb))`;
   }
   function criticalWordCss() {
     const states = CRITICAL_STATES.map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color, highlightAlpha)}}`).join("");
@@ -36503,17 +36502,17 @@ ${reading}`);
     return [
       states,
       ankiStates,
-      ".jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,transparent) 36%,var(--yb)))}",
+      ".jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,#0000) 36%,var(--yb)))}",
       pitches,
-      `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,transparent);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
+      `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
       criticalChannelCss()
     ].join("");
   }
   function criticalChannelCss() {
     return [
-      ".jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,transparent)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,transparent)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,transparent)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,transparent)}",
-      ":is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{--yhp:var(--yh,transparent);background:linear-gradient(var(--yhp),var(--yhp)) center/var(--yz) 100% no-repeat!important}",
-      ".jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,transparent)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,transparent)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,transparent)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,transparent)}",
+      ".jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,#0000)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,#0000)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,#0000)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,#0000)}",
+      ":is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word:not(.jpdb-reader-passive-word){background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}",
+      ".jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,#0000)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}",
       ".jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}",
       ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}"
     ].join("");
@@ -36542,7 +36541,7 @@ ${reading}`);
 [data-jpdb-reader-root] :where(button) {
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
+  background: #0000;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -36587,7 +36586,7 @@ ${reading}`);
   transform: translateY(-0.01rem);
   -webkit-appearance: none;
   appearance: none;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: #0000;
 }
 .jpdb-reader-popover .jpdb-reader-icon-btn svg,
 .jpdb-reader-settings .jpdb-reader-icon-btn svg {
@@ -36616,7 +36615,7 @@ ${reading}`);
   padding: 0;
   border: 0;
   border-radius: 999px;
-  background: transparent;
+  background: #0000;
   color: var(--jpdb-reader-muted, #4f5968);
   cursor: pointer;
   pointer-events: auto;
@@ -36625,7 +36624,7 @@ ${reading}`);
   -webkit-user-select: none;
   -webkit-appearance: none;
   appearance: none;
-  -webkit-tap-highlight-color: transparent;
+  -webkit-tap-highlight-color: #0000;
 }
 .jpdb-reader-actions .jpdb-reader-mining-collapse::before {
   content: "";
@@ -36637,8 +36636,8 @@ ${reading}`);
   border-radius: 999px;
   background: var(--jpdb-reader-faint, #687384);
 }
-.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) transparent var(--yw)!important;text-underline-offset:var(--yo)!important}
-.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,transparent);pointer-events:none}
+.jpdb-reader-word{--yi:.08em;--yz:calc(100% - var(--yi) - var(--yi));--yo:.12em;--ys:solid;--yw:1px;--yb:var(--jpdb-reader-highlight-backdrop);position:relative;text-decoration:underline var(--ys) #0000 var(--yw)!important;text-underline-offset:var(--yo)!important}
+.jpdb-reader-word::after{content:"";position:absolute;z-index:1;inset-inline:var(--yi);inset-block-end:0;border-block-end:var(--yw) var(--ys) var(--yu,#0000);pointer-events:none}
 ${criticalWordCss()}
 `.trim();
   function initialReaderCss(css = READER_CSS) {

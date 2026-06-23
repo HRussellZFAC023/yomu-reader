@@ -70,8 +70,8 @@ Recognized text stays lightweight: touch targets sit over the image without cove
 Use this for manga panels, screenshots, and image-heavy pages where normal text selection does not work. The image is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
-  <figcaption>Image OCR settings for manga and embedded image text.</figcaption>
+  <img :src="'/media/manga-ocr-sample.png'" alt="A Japanese manga page with text regions detected for よむ OCR lookup.">
+  <figcaption>OCR turns image text into tappable reading targets.</figcaption>
 </figure>
 
 ## Video Subtitle Mining

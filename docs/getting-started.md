@@ -54,7 +54,7 @@ To update later, open the same link again and let Tampermonkey replace the old v
    ```text
    // ==UserScript==
    // @name         よむ
-   // @version      1.4.6
+   // @version      1.4.78
    // @match        *://*/*
    // ==/UserScript==
    (function () { "use strict"; ...
@@ -111,6 +111,7 @@ Open よむ settings (floating button or `Alt+Shift+J`) to switch these on when 
 - **Dictionaries** — import any Yomitan ZIP dictionary, or download JMdict for offline definitions. Settings → Dictionaries.
 - **Images (OCR)** — tap Japanese text inside manga panels and screenshots. Settings → Images.
 - **Video subtitles** — make Japanese subtitle lines tappable, with a transcript panel. For local files, use the [video player](/video-player/index.html).
+- **PDFs** — open the [PDF reader](/pdf-reader/) when the Japanese is in a textbook, scan, or article file.
 - **Anki** — turn lookups into flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
 - **Audio** — the easiest option is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). To self-host instead, see [Local Audio](/local-audio).
 - **Study page** — open the [new-tab study app](/newtab/index.html) for daily review.
@@ -160,7 +161,7 @@ These are reliable starting points, ordered roughly from easiest to hardest:
   </a>
 </div>
 
-For more, skim these community threads: [Tadoku graded readers](https://www.reddit.com/r/LearnJapanese/comments/19bitqy/2024_updated_free_tadoku_graded_reader_pdfs_2681/), [beginner reading resources](https://www.reddit.com/r/LearnJapanese/comments/ixl8mr/what_are_some_decent_beginner_reading_resources/), and [learning Japanese by reading](https://www.reddit.com/r/LearnJapanese/comments/1i7jblt/method_learning_japanese_by_reading_books_manga/).
+For more, use [Learn Natively](https://learnnatively.com/) to find books near your level, or browse the [guides](/guides/) for manga, video, game text, and study workflows.
 
 ## Using よむ on a phone or tablet
 

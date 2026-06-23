@@ -23,6 +23,7 @@
 
 - [Read manga in Japanese](https://yomureader.com/guides/read-manga-in-japanese): Manga reading setup with OCR.
 - [Comprehensible input on YouTube](https://yomureader.com/guides/comprehensible-input-youtube): Japanese YouTube immersion setup.
+- [Read games with YomiNinja](https://yomureader.com/guides/read-games-with-yomininja): Japanese game and visual novel OCR workflow.
 - [Mine sentences to Anki](https://yomureader.com/guides/mine-sentences-to-anki): Anki mining flow and card creation.
 - [Study setup](https://yomureader.com/guides/study-setup): Recommended learner setup.
 

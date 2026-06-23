@@ -839,7 +839,7 @@
   }
   const READABLE_IGNORED_TAGS = /* @__PURE__ */ new Set(["RT", "RP", "SCRIPT", "STYLE"]);
   function unwrapReaderWords(root = document, options = {}) {
-    const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+    const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
     const parents = /* @__PURE__ */ new Set();
     for (const word of words) {
       const parent = word.parentNode;

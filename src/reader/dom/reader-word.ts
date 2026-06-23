@@ -7,6 +7,7 @@ const MAX_CONTEXT_SENTENCE_LENGTH = 180;
 export function unwrapReaderWords(root: ParentNode = document, options: { includeReaderRoot?: boolean; excludeSelector?: string } = {}): number {
     const words = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-word'))
         .filter(word => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR))
+        .filter(word => !word.closest('[data-jpdb-reader-surface-ignore]'))
         .filter(word => !options.excludeSelector || !word.matches(options.excludeSelector));
     const parents = new Set<Node>();
 

@@ -33,8 +33,8 @@ When you open an image, よむ finds the Japanese text and lays invisible touch 
 - **Image-heavy pages** — sites that render Japanese as pictures instead of selectable text.
 
 <figure class="yomu-feature-shot">
-  <img :src="'/screenshots/real-ocr-settings.png'" alt="The よむ Images settings panel showing image OCR provider, detail, color, and overlay controls.">
-  <figcaption>Image OCR settings for manga and embedded image text.</figcaption>
+  <img :src="'/media/manga-ocr-sample.png'" alt="A Japanese manga page with text regions detected for よむ OCR lookup.">
+  <figcaption>Image text becomes a tappable reading surface.</figcaption>
 </figure>
 
 ## Privacy

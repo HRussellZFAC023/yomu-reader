@@ -47,9 +47,9 @@ When the page is just pictures, よむ uses OCR to recognise the Japanese and th
 
 <div class="yomu-callout"><strong>Privacy:</strong> embedded Mokuro OCR is read locally from the page, so nothing leaves your browser. With a local OCR engine, よむ only sends the image to an endpoint that <em>you</em> run on your own machine. If you have not configured a local endpoint, no image is sent anywhere.</div>
 
-You configure all of this in the OCR settings:
+The result should feel like normal reading: the panel stays visible, and the words become targets for lookup.
 
-<figure class="yomu-feature-shot"><img :src="'/screenshots/real-ocr-settings.png'" alt="よむ OCR settings showing embedded Mokuro detection and local OCR engine endpoint configuration"><figcaption>OCR settings: embedded Mokuro detection plus your own local OCR endpoint.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/media/manga-ocr-sample.png'" alt="Japanese manga page with text detected for よむ OCR lookup"><figcaption>OCR makes panel text tappable without covering the page.</figcaption></figure>
 
 The full reference for OCR engines, endpoints and image handling lives on the [Japanese OCR](/tools/japanese-ocr) page.
 

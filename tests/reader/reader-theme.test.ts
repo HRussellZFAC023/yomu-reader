@@ -275,6 +275,7 @@ describe('reader theme', () => {
         const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
         expect(text).toBe('#ffffff');
         expect(word.style.getPropertyValue('--jpdb-reader-word-highlight-text')).toBe('#ffffff');
+        expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight')).toBe('');
         expect(contrastRatio(text, '#376c50')).toBeGreaterThanOrEqual(4.5);
     });
 
@@ -790,6 +791,9 @@ describe('reader theme', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
+        expect(normalizedCss).toContain('--jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none;');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus { background-image: none !important; box-shadow: none; }');
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-block-size: 1.16em;');

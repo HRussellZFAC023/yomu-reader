@@ -26,7 +26,7 @@ import { waitForSelectorText } from './lib/smoke-wait-helpers.mjs';
 
 const require = createRequire(import.meta.url);
 const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
-const { assertNoRemoteExecutableMetadata } = require('./lib/userscript-build-utils.cjs');
+const { assertNoRemoteExecutableMetadata, userscriptMetadataValues } = require('./lib/userscript-build-utils.cjs');
 const { appRoot: ROOT, qaArtifactsRoot: ARTIFACTS } = createYomuPaths(import.meta.dirname);
 const DIST = path.join(ROOT, 'dist');
 const LIVE_ORIGIN = (process.env.YOMU_LIVE_ORIGIN || pkg.homepage || 'https://hrussellzfac023.github.io/yomu-reader/').replace(/\/+$/, '');
@@ -212,7 +212,7 @@ function assertLiveServiceWorkerAsset(serviceWorker, version) {
 function assertLiveUserscriptAsset(userscript, deployedVersion) {
     assert(userscript.status === 200, 'Live userscript did not load', { status: userscript.status });
     assert(userscript.text.startsWith('// ==UserScript=='), 'Live userscript did not load as a raw userscript', { status: userscript.status });
-    assert(userscript.text.includes(`// @version      ${deployedVersion}`), 'Live userscript version does not match the live newtab build version', { deployedVersion });
+    assert(userscriptMetadataValues(userscript.text, 'version').includes(deployedVersion), 'Live userscript version does not match the live newtab build version', { deployedVersion });
     assertNoRemoteExecutableMetadata(userscript.text);
     assert(!assetsHasUserscriptUpdateUrl(userscript.text), 'Live userscript should not advertise alternate update/download URLs');
 }

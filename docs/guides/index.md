@@ -27,6 +27,10 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
     <strong>Comprehensible-input YouTube</strong>
     <span>Filter YouTube into a Japanese feed, plus a levelled list of channels from N5 to N1.</span>
   </a>
+  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
+    <strong>Read games with YomiNinja</strong>
+    <span>OCR Japanese game dialogue, then bring useful lines into your browser study flow.</span>
+  </a>
   <a class="yomu-link-card" href="/guides/study-setup">
     <strong>Yomitan vs Jiten vs JPDB vs Anki</strong>
     <span>What each one is for, and how to use any or all of them from one popup.</span>

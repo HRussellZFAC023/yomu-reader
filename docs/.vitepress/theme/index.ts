@@ -719,6 +719,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Stats': '統計',
     'Changelog': '変更履歴',
     'Fixed': '修正',
+    'Mobile Google Search annotations no longer hide the base text inside compact rounded result controls, and passive result snippets no longer paint pale highlight blocks on dark-mode search results before or after hover.': 'モバイル版Google検索の注釈は、コンパクトな角丸の結果コントロール内で元の文字を隠さなくなり、パッシブな検索結果スニペットもダークモードの検索結果でホバー前後に薄いハイライトの四角を描かなくなりました。',
+    'The hosted homepage now uses a tighter “Read Japanese without leaving the page” flow, a compact setup path, native demo video controls, a static pitch-accent demo fallback, and the real manga OCR sample image instead of the temporary illustrated panel.': 'ホスト版ホームページは、一時的なイラスト風パネルではなく、より引き締まった「Read Japanese without leaving the page」の流れ、コンパクトなセットアップ導線、ネイティブのデモ動画コントロール、静的なピッチアクセント付きデモのフォールバック、実際の漫画OCRサンプル画像を使うようになりました。',
+    'Hosted docs now emit normal stylesheet links and load the root-hosted userscript assets, so the deployed homepage does not fall back to an unstyled or stale-looking page.': 'ホスト版ドキュメントは通常のスタイルシートリンクを出力し、ルートで配信されるユーザースクリプト資産を読み込むようになりました。そのため、デプロイ済みホームページが未スタイルまたは古く見えるページに戻ることはありません。',
     'BookWalker OCR now works on the main bookwalker.jp address, not only the viewer subdomains. The browser reader is also served there, and iOS Safari hides the subdomain in its address bar, but the tainted-canvas reader was only recognised on viewer hosts, so on iPad the comic page was detected yet no text overlay appeared and only the page title could be looked up. The reader-host check now covers the whole bookwalker.jp site, and a duplicated host check was removed.': 'BookWalker の OCR がビューワーのサブドメインだけでなく、メインの bookwalker.jp アドレスでも動作するようになりました。ブラウザビューワーはこのアドレスでも配信されており、iOS Safari はアドレスバーでサブドメインを隠しますが、判読不能キャンバスのリーダーはビューワーのホストでしか認識されていなかったため、iPad では漫画ページが検出されてもテキストオーバーレイが表示されず、ページタイトルしか辞書引きできませんでした。リーダーのホスト判定が bookwalker.jp サイト全体を対象にするようになり、重複していたホスト判定を削除しました。',
     'Latest changelog entries are now covered by Japanese hosted-docs localization, so the language toggle does not leave fresh release notes in English.': '最新の変更履歴項目もホスト版ドキュメントの日本語ローカライズ対象になり、言語切り替え後に新しいリリースノートが英語のまま残らないようになりました。',
     'Compact BookWalker-style carousel titles now suppress furigana only when a clipped media rail would overflow, while ordinary scrollable article text keeps ruby and lookup behavior.': 'コンパクトなBookWalker風カルーセルのタイトルでは、切り詰められたメディア列がはみ出す場合だけふりがなを抑制し、通常のスクロール可能な記事本文ではルビと検索動作を維持します。',
@@ -752,7 +755,37 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Permalink to "Mobile handoff (new notes only)"': '「モバイル連携 (新規ノートのみ)」への固定リンク',
     'Permalink to "Back up your settings"': '「設定をバックアップ」への固定リンク',
     'Permalink to "If something does not work"': '「うまく動かない場合」への固定リンク',
-    'Free Japanese lookup and mining for the web': 'Webで使える無料の日本語検索とマイニング',
+    'よむ - Japanese reader for web, manga, PDFs, and subtitles': 'よむ - Web、漫画、PDF、字幕向け日本語リーダー',
+    'よむ is a browser reader for Japanese on web pages, manga images, PDFs, and subtitles. Tap text for readings, meanings, audio, kanji, and study actions.': 'よむはWebページ、漫画画像、PDF、字幕で使える日本語ブラウザーリーダーです。テキストをタップすると、読み、意味、音声、漢字、学習操作を開けます。',
+    'Read Japanese without leaving the page': 'ページを離れずに日本語を読む',
+    'Tap Japanese on web pages, subtitles, PDFs, and manga images for readings, meanings, audio, kanji, and one-tap saving.': 'Webページ、字幕、PDF、漫画画像の日本語をタップして、読み、意味、音声、漢字、ワンタップ保存を使えます。',
+    'Get よむ': 'よむを入手',
+    'Install よむ in about two minutes': '約2分でよむをインストール',
+    'よむ runs through a userscript manager such as Tampermonkey. Add the manager once, install よむ, then refresh any Japanese page.': 'よむはTampermonkeyなどのユーザースクリプト管理拡張で動きます。管理拡張を一度入れてよむをインストールし、日本語ページを更新します。',
+    'Read a page': 'ページを読む',
+    'Text': 'テキスト',
+    'Tap, check, keep reading': 'タップして、確認して、そのまま読む',
+    'Pitch, audio, examples, and save actions open beside the sentence.': 'ピッチ、音声、例文、保存操作が文のそばに開きます。',
+    'Example highlights': '表示例',
+    'よむ demo: reading Japanese on an iPhone and tapping a word to open the dictionary popup. Press Space or Enter to pause or play.': 'iPhoneで日本語を読み、単語をタップして辞書ポップアップを開くよむのデモ。スペースまたはEnterで一時停止/再生できます。',
+    'Read Japanese in images': '画像の中の日本語を読む',
+    'For manga, screenshots, and image-only pages, よむ finds the text with OCR, adds furigana, and makes words tappable.': '漫画、スクリーンショット、画像だけのページでは、よむがOCRで文字を見つけ、ふりがなを付け、単語をタップできるようにします。',
+    'Japanese manga page with text detected by よむ OCR': 'よむのOCRで文字が検出された日本語漫画ページ',
+    'Tap words in video': '動画の単語をタップ',
+    'Japanese subtitles and transcripts stay tappable while you watch.': '視聴中も日本語字幕と文字起こしをタップできます。',
+    'Japanese Comprehensible Input video': '理解可能なインプットの日本語動画',
+    'Play Japanese Comprehensible Input video': '理解可能なインプットの日本語動画を再生',
+    'Permalink to "Next"': '「次に」への固定リンク',
+    'Next': '次に',
+    'Choose desktop, iPhone, or iPad and get the userscript running.': 'デスクトップ、iPhone、iPadの手順を選んで、ユーザースクリプトを動かします。',
+    'Review saved words, stats, and Anki-backed queues.': '保存した単語、統計、Anki連携の復習キューを確認できます。',
+    'Video': '動画',
+    'Open local videos and Japanese subtitles in よむ.': 'ローカル動画と日本語字幕をよむで開けます。',
+    'PDF': 'PDF',
+    'Read PDFs with the same popup reader.': 'PDFも同じポップアップリーダーで読めます。',
+    'Manga OCR': '漫画OCR',
+    'Tap words inside manga panels and screenshots.': '漫画のコマやスクリーンショット内の単語をタップできます。',
+    'Read game dialogue with YomiNinja and よむ-compatible study flows.': 'YomiNinjaとよむ互換の学習フローで、ゲームの会話を読めます。',
     'Tap or hover Japanese text, read manga images, mine subtitles, import dictionaries, and save study cards in one free browser add-on.': '日本語テキストをタップまたはホバーし、漫画画像を読み取り、字幕をマイニングし、辞書をインポートし、学習カードを1つの無料ブラウザーアドオンに保存できます。',
     'Install よむ': 'よむをインストール',
     'Setup Guide': 'セットアップガイド',
@@ -788,6 +821,20 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Free pages for OCR, furigana, kanji stroke order, subtitles, PDFs, and YouTube.': 'OCR、ふりがな、漢字の書き順、字幕、PDF、YouTube向けの無料ページです。',
     'OCR, furigana, kanji stroke order, subtitles, PDFs, and YouTube helpers.': 'OCR、ふりがな、漢字の書き順、字幕、PDF、YouTube補助ツール。',
     'Free Japanese Learning Tools': '無料の日本語学習ツール',
+    'Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and save actions consistent across text, images, video, PDFs, and study.': '読みたい対象を選んでください。よむはテキスト、画像、動画、PDF、学習のどこでも、検索、音声、漢字、保存の操作を同じように使えるようにします。',
+    'Games': 'ゲーム',
+    'Kanji': '漢字',
+    'Tap words on web pages for readings, meanings, pitch, audio, and saves.': 'Webページ上の単語をタップして、読み、意味、ピッチ、音声、保存を使えます。',
+    'Read manga panels, screenshots, and image-only pages with OCR.': '漫画のコマ、スクリーンショット、画像だけのページをOCRで読めます。',
+    'Make Japanese subtitles and transcripts tappable on YouTube or local files.': 'YouTubeやローカルファイルの日本語字幕と文字起こしをタップ可能にします。',
+    'Use YomiNinja for desktop game OCR, then bring useful text into your study flow.': 'デスクトップゲームのOCRにはYomiNinjaを使い、役立つテキストを学習フローへ持ち込めます。',
+    'Open PDFs in the hosted reader and keep the same lookup popup.': 'ホスト版PDFリーダーでPDFを開き、同じ検索ポップアップを使えます。',
+    'Review saved words from Jiten, JPDB, Anki, or imported dictionaries.': 'Jiten、JPDB、Anki、インポートした辞書から保存語を復習できます。',
+    'The loop is always the same: find Japanese → understand it in context → save the useful words. A web page, a manga page read through OCR, and a video subtitle line all become the same tappable text, so you do not have to switch tools every time the medium changes.': '流れはいつも同じです。日本語を見つける → 文脈で理解する → 役立つ語を保存する。Webページ、OCRで読んだ漫画ページ、動画の字幕行がすべて同じタップ可能なテキストになるので、媒体が変わるたびにツールを切り替える必要はありません。',
+    'Use only the parts you need. Start with lookup, add OCR for manga, add subtitles for video, and connect study sources when you want tracking.': '必要な部分だけ使えます。まずは検索から始め、漫画にはOCRを、動画には字幕を追加し、進捗を追いたくなったら学習ソースを接続してください。',
+    'Kanji stroke order, components, readings, and related words live inside the popup; open the kanji tool from any lookup when you need to slow down on a character.': '漢字の書き順、構成要素、読み、関連語はポップアップ内にあります。文字をじっくり見たいときは、任意の検索から漢字ツールを開けます。',
+    'Read games with YomiNinja': 'YomiNinjaでゲームを読む',
+    'OCR Japanese game dialogue, then bring useful lines into your browser study flow.': '日本語ゲームの会話をOCRし、役立つ行をブラウザーの学習フローに持ち込めます。',
     "よむ bundles a set of free Japanese reading tools into one browser add-on. Each one is built for a real moment of immersion — a word you can't read, a manga panel with no selectable text, a video line going by too fast, a kanji you want to break down. They all share the same popup, so you stay inside whatever you're reading.": 'よむは無料の日本語読解ツールを1つのブラウザーアドオンにまとめます。読めない単語、選択できない漫画のコマ、速すぎる動画字幕、分解して見たい漢字など、実際の没入中の場面に合わせて作られています。すべて同じポップアップを使うので、読んでいるものから離れずに済みます。',
     "よむ bundles a set of Japanese reading tools into one browser add-on, each built for a real moment of immersion: a word you can't read, a manga panel with no selectable text, a fast subtitle line, a kanji to break down. They share one popup, so you stay inside whatever you're reading. Everything here is free, runs in your browser, and needs no account. Pick the tool that matches your goal:": 'よむは日本語読解ツールを1つのブラウザーアドオンにまとめます。読めない単語、選択できない漫画のコマ、速い字幕の1行、分解したい漢字など、実際の没入中の場面に合わせて作られています。同じポップアップを共有するので、読んでいるものから離れずに済みます。ここにあるものはすべて無料で、ブラウザー内で動作し、アカウント不要で始められます。目的に合うツールを選んでください:',
     'Everything here is free, runs in your browser, and needs no account to start. Pick the tool that matches what you\'re trying to do:': 'ここにあるものはすべて無料で、ブラウザー内で動作し、始めるのにアカウントは不要です。やりたいことに合うツールを選んでください:',
@@ -1495,26 +1542,9 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'よむ is a free Japanese reader for web pages, manga, PDFs, and video subtitles. Tap any word for readings, meanings, kanji, audio, and study actions.': 'よむはWebページ、漫画、PDF、動画字幕向けの無料日本語リーダーです。単語をタップすると、読み、意味、漢字、音声、学習操作を確認できます。',
     'よむ app icon': 'よむのアプリアイコン',
     'よむ app icon and Japanese reader preview card': 'よむのアプリアイコンと日本語リーダーのプレビューカード',
-    'Read real Japanese, anywhere': '本物の日本語を、どこでも読む',
-    'On your iPhone, on the go or at home — tap any word on a page, manga, subtitle, or PDF to see its reading, meaning, pitch, and audio, then keep reading. Free, and no account needed.': 'iPhoneでも、外出先でも、自宅でも。Webページ、漫画、字幕、PDFの単語をタップするだけで、読み、意味、ピッチ、音声を確認して、そのまま読み続けられます。無料で、アカウントも不要です。',
-    'See it in action': '動作を見る',
-    'On the go or at home,': '外出先でも自宅でも、',
-    'read what you love in Japanese': '好きなものを日本語で読む',
-    'Tap a word while you read. よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences, then saves it and lets you keep going.': '読んでいる途中で単語をタップします。よむは、読み、意味、ピッチアクセント、音声、例文を1つのポップアップに表示し、保存してそのまま読み続けられるようにします。',
-    'Install よむ — free': 'よむを無料でインストール',
-    'Real screen recording on iPhone · tap to play with sound': 'iPhoneでの実際の画面録画・タップすると音声付きで再生',
-    'Watch the demo': 'デモを見る',
     'よむ demo: reading a Japanese novel on an iPhone and tapping a word to open the dictionary popup': 'よむのデモ: iPhoneで日本語小説を読み、単語をタップして辞書ポップアップを開く',
-    'Play the よむ demo with sound': 'よむのデモを音声付きで再生',
     'Tap a word, keep reading': '単語をタップして、読み続ける',
-    'よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences, then lets you save the word and keep going — the same popup on web pages, manga, PDFs, and subtitles.': 'よむは、読み、意味、ピッチアクセント、音声、例文を1つのポップアップに表示し、その単語を保存して読み続けられるようにします。Webページ、漫画、PDF、字幕でも同じポップアップです。',
-    'Tap or hover Japanese on web pages, manga images, PDFs, and video subtitles to open one popup with readings, meanings, kanji, pitch, audio, examples, and save actions.': 'Webページ、漫画画像、PDF、動画字幕の日本語をタップまたはホバーすると、読み、意味、漢字、ピッチ、音声、例文、保存操作を1つのポップアップで開けます。',
-    'Add local dictionaries, Anki, OCR, subtitles, and the study page when you need them. On mobile, the floating よむ button keeps settings and tools reachable.': '必要なときだけ、ローカル辞書、Anki、OCR、字幕、学習ページを追加できます。モバイルではフローティングのよむボタンから設定やツールをすぐ開けます。',
-    'OCR · manga & images': 'OCR・漫画と画像',
     'Tap the text inside a manga page': '漫画ページ内の文字をタップ',
-    'よむ reads the Japanese inside images with OCR, adds furigana, and makes every word tappable — the same popup as any page. Tap a word in the panel.': 'よむは画像内の日本語をOCRで読み取り、ふりがなを追加し、すべての単語をタップ可能にします。通常のページと同じポップアップです。パネル内の単語をタップしてみてください。',
-    'よむ reads Japanese inside manga panels, screenshots, and image-only pages with OCR, adds furigana, and turns every word into the same tappable popup. Tap a word in the panel.': 'よむは漫画のコマ、スクリーンショット、画像だけのページにある日本語をOCRで読み取り、ふりがなを追加し、すべての単語を同じタップ可能なポップアップに変えます。パネル内の単語をタップしてみてください。',
-    'Sample manga panel — tap any Japanese word to look it up': 'サンプル漫画パネル - 任意の日本語単語をタップして検索',
     'Everything よむ does — popup dictionary lookup and mining, Yomitan dictionaries, audio and example sentences, kanji drilldown with stroke order, manga and image OCR, video subtitle mining, a YouTube immersion filter, Anki export, and a study new-tab page.': 'よむでできることの一覧です。ポップアップ辞書検索とマイニング、Yomitan辞書、音声と例文、書き順付き漢字ドリルダウン、漫画・画像OCR、動画字幕マイニング、YouTube没入フィルター、Anki書き出し、新しいタブの学習ページを含みます。',
     'よむ runs one loop: find Japanese in the wild, understand it quickly, and save the useful bits for study.': 'よむの流れは1つだけです。実際の日本語を見つけ、すばやく理解し、役に立つ部分を学習用に保存します。',
     'To let the official jpdb reader, Jiten Reader, or Yomitan own popups, turn off': '公式JPDBリーダー、Jiten Reader、Yomitanにポップアップを任せたい場合は、',
@@ -1647,6 +1677,8 @@ function syncLandmarks() {
 
 function installHostedLanguageToggle() {
     syncHostedLanguageToggle();
+    window.requestAnimationFrame(syncHostedLanguageToggle);
+    window.setTimeout(syncHostedLanguageToggle, 500);
     if (languageToggleObserver) return;
     languageToggleObserver = new MutationObserver(mutations => {
         localizeHostedAttributeMutations(mutations);
@@ -2161,13 +2193,14 @@ function isHostedReaderAnnotationElement(element: Element): boolean {
 
 function shouldSkipHostedDocsNode(element: Element): boolean {
     if (element.id === LANGUAGE_TOGGLE_ID) return true;
-    return Boolean(element.closest('script, style, pre, code, kbd, samp, textarea, input, [data-jpdb-reader-root], .jpdb-reader-settings, .jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-ocr-layer, .jpdb-ocr-line'));
+    return Boolean(element.closest('script, style, pre, code, kbd, samp, textarea, input, [data-yomu-localize="off"], [data-jpdb-reader-root], .jpdb-reader-settings, .jpdb-reader-word, .jpdb-reader-furigana, .jpdb-reader-ruby, .jpdb-ocr-layer, .jpdb-ocr-line'));
 }
 
 function unwrapHostedDocsReaderWords(): void {
     const parents = new Set<ParentNode>();
     document.querySelectorAll<HTMLElement>('.jpdb-reader-word').forEach(word => {
         if (word.closest('[data-jpdb-reader-root]')) return;
+        if (word.closest('[data-yomu-localize="off"]')) return;
         const parent = word.parentNode;
         if (!parent) return;
         parents.add(parent);
@@ -2534,11 +2567,82 @@ function syncHostedLanguageFromSettingsEvent(event: Event): void {
 }
 
 // Homepage-only progressive enhancements: scroll reveals and the click-to-play
-// demo video.
+// homepage reveal sections.
 // All are idempotent (guarded by data flags) so they survive route re-runs.
 function installHostedHomepageInteractions(): void {
     armHostedRevealElements();
-    bindHostedDemoVideo();
+    bindHostedYouTubeLiteEmbeds();
+    bindHostedDemoVideos();
+}
+
+function bindHostedDemoVideos(): void {
+    document.querySelectorAll<HTMLVideoElement>('.yomu-demo-video:not([data-yomu-demo-video-bound])').forEach(video => {
+        video.dataset.yomuDemoVideoBound = 'true';
+        const toggle = () => {
+            if (video.paused) {
+                video.play().catch(() => {});
+                return;
+            }
+            video.pause();
+        };
+        video.addEventListener('click', toggle);
+        video.addEventListener('keydown', event => {
+            if (event.key !== ' ' && event.key !== 'Enter') return;
+            event.preventDefault();
+            toggle();
+        });
+        const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const syncMotionPreference = () => {
+            if (!motionQuery.matches) return;
+            video.pause();
+            video.removeAttribute('autoplay');
+        };
+        syncMotionPreference();
+        motionQuery.addEventListener?.('change', syncMotionPreference);
+    });
+}
+
+function bindHostedYouTubeLiteEmbeds(): void {
+    document.querySelectorAll<HTMLButtonElement>('.yomu-youtube-lite:not([data-yomu-youtube-bound])').forEach(button => {
+        button.dataset.yomuYoutubeBound = 'true';
+        button.addEventListener('click', () => playHostedYouTubeLiteEmbed(button));
+    });
+}
+
+const HOSTED_YOUTUBE_VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
+function playHostedYouTubeLiteEmbed(button: HTMLButtonElement): void {
+    const id = readHostedYouTubeVideoId(button);
+    if (!id) return;
+    const title = readHostedYouTubeTitle(button);
+    const frame = document.createElement('iframe');
+    frame.className = 'yomu-youtube-embed';
+    frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?cc_load_policy=1&cc_lang_pref=ja&playsinline=1&rel=0&modestbranding=1&autoplay=1`;
+    frame.title = title;
+    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+
+    const card = document.createElement('div');
+    card.className = 'yomu-video-card';
+    card.append(frame);
+    button.replaceWith(card);
+    frame.focus();
+}
+
+function readHostedYouTubeVideoId(button: HTMLButtonElement): string | null {
+    const id = button.dataset.yomuYoutubeId;
+    if (!id) return null;
+    if (!HOSTED_YOUTUBE_VIDEO_ID_PATTERN.test(id)) return null;
+    return id;
+}
+
+function readHostedYouTubeTitle(button: HTMLButtonElement): string {
+    const title = button.dataset.yomuYoutubeTitle;
+    if (title) return title;
+    const label = button.getAttribute('aria-label');
+    if (label) return label;
+    return 'YouTube video';
 }
 
 function armHostedRevealElements(): void {
@@ -2546,6 +2650,7 @@ function armHostedRevealElements(): void {
     if (!elements.length) return;
     const reveal = (element: HTMLElement): void => {
         element.dataset.yomuRevealed = 'true';
+        delete element.dataset.yomuRevealReady;
         element.classList.add('is-in');
     };
     if (typeof IntersectionObserver !== 'function') {
@@ -2559,29 +2664,14 @@ function armHostedRevealElements(): void {
             obs.unobserve(entry.target);
         });
     }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
-    elements.forEach(element => observer.observe(element));
+    elements.forEach(element => {
+        element.dataset.yomuRevealReady = 'true';
+        observer.observe(element);
+    });
     // Failsafe: never leave a section permanently hidden if the observer never fires.
     window.setTimeout(() => elements.forEach(element => {
         if (!element.dataset.yomuRevealed) reveal(element);
     }), 2200);
-}
-
-function bindHostedDemoVideo(): void {
-    const button = document.querySelector<HTMLButtonElement>('.yomu-demo-play:not([data-yomu-bound])');
-    if (!button) return;
-    button.dataset.yomuBound = 'true';
-    const frame = button.closest<HTMLElement>('.yomu-device-frame');
-    const video = frame?.querySelector<HTMLVideoElement>('.yomu-demo-video');
-    if (!frame || !video) return;
-    frame.classList.add('is-enhanced');
-    video.controls = false;
-    button.addEventListener('click', () => {
-        frame.classList.add('is-playing', 'has-played');
-        video.controls = true;
-        void video.play()?.catch(() => undefined);
-    });
-    video.addEventListener('play', () => frame.classList.add('is-playing', 'has-played'));
-    video.addEventListener('pause', () => frame.classList.remove('is-playing'));
 }
 
 function prepareHostedYomuRuntime(): void {
@@ -2603,7 +2693,7 @@ function prepareHostedYomuRuntime(): void {
 
 function findHostedYomuRuntimeTarget(): HTMLElement | undefined {
     return Array.from(document.querySelectorAll<HTMLElement>(HOSTED_RUNTIME_TARGET_SELECTOR))
-        .find(element => HOSTED_JAPANESE_TEXT_RE.test(element.textContent ?? ''));
+        .find(element => !element.closest('.VPContent.is-home') && HOSTED_JAPANESE_TEXT_RE.test(element.textContent ?? ''));
 }
 
 function bindHostedYomuRuntimeIntent(target: HTMLElement): void {
@@ -2726,7 +2816,7 @@ function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: 
         hostedSettingsCompanionScript(forceLocalRuntime),
         {
             id: YOMU_HOSTED_VIDEO_COMPANION_SCRIPT_ID,
-            src: hostedRuntimeAssetSrc('/yomu-reader/greasyfork/yomu-video.user.js', forceLocalRuntime),
+            src: hostedRuntimeAssetSrc('/greasyfork/yomu-video.user.js', forceLocalRuntime),
         },
     ];
 }
@@ -2734,7 +2824,7 @@ function hostedRuntimeCompanionScripts(forceLocalRuntime: boolean): Array<{ id: 
 function hostedSettingsCompanionScript(forceLocalRuntime: boolean): { id: string; src: string } {
     return {
         id: YOMU_HOSTED_SETTINGS_COMPANION_SCRIPT_ID,
-        src: hostedRuntimeAssetSrc('/yomu-reader/greasyfork/yomu-settings-surface.user.js', forceLocalRuntime),
+        src: hostedRuntimeAssetSrc('/greasyfork/yomu-settings-surface.user.js', forceLocalRuntime),
     };
 }
 
@@ -2782,7 +2872,7 @@ function onHostedScriptsReady(scripts: HTMLScriptElement[], callback: () => void
 }
 
 function hostedRuntimeScriptSrc(forceLocalRuntime: boolean): string {
-    return hostedRuntimeAssetSrc('/yomu-reader/yomu.user.js', false);
+    return hostedRuntimeAssetSrc('/yomu.user.js', forceLocalRuntime);
 }
 
 function hostedRuntimeAssetSrc(src: string, forceLocalRuntime: boolean): string {

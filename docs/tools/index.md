@@ -9,40 +9,42 @@ head:
 
 # Free Japanese Learning Tools
 
-よむ bundles a set of Japanese reading tools into one browser add-on, each built for a real moment of immersion: a word you can't read, a manga panel with no selectable text, a fast subtitle line, a kanji to break down. They share one popup, so you stay inside whatever you're reading. Everything here is **free**, runs **in your browser**, and needs **no account**. Pick the tool that matches your goal:
+Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and save actions consistent across text, images, video, PDFs, and study.
 
 <div class="yomu-link-grid">
-  <a class="yomu-link-card" href="/tools/japanese-ocr">
-    <strong>Japanese OCR &amp; manga reader</strong>
-    <span>Tap untranslatable text inside manga panels, screenshots, and image-only pages.</span>
-  </a>
   <a class="yomu-link-card" href="/tools/furigana-reader">
-    <strong>Furigana reader</strong>
-    <span>Add furigana to any Japanese web page — all words, hard kanji only, or unknown words.</span>
+    <strong>Text</strong>
+    <span>Tap words on web pages for readings, meanings, pitch, audio, and saves.</span>
   </a>
-  <a class="yomu-link-card" href="/tools/kanji-stroke-order">
-    <strong>Kanji stroke order</strong>
-    <span>See stroke order, readings, JLPT level, RTK data, and components for any kanji.</span>
+  <a class="yomu-link-card" href="/tools/japanese-ocr">
+    <strong>Image</strong>
+    <span>Read manga panels, screenshots, and image-only pages with OCR.</span>
   </a>
   <a class="yomu-link-card" href="/tools/japanese-subtitle-reader">
-    <strong>Subtitle miner &amp; video reader</strong>
-    <span>Turn Japanese subtitles into tappable words on YouTube and your own video files.</span>
+    <strong>Video</strong>
+    <span>Make Japanese subtitles and transcripts tappable on YouTube or local files.</span>
+  </a>
+  <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
+    <strong>Games</strong>
+    <span>Use YomiNinja for desktop game OCR, then bring useful text into your study flow.</span>
+  </a>
+  <a class="yomu-link-card" href="/pdf-reader/">
+    <strong>PDF</strong>
+    <span>Open PDFs in the hosted reader and keep the same lookup popup.</span>
   </a>
   <a class="yomu-link-card" href="/tools/study-page">
-    <strong>Study &amp; review</strong>
-    <span>A new-tab study page that reviews Jiten, JPDB, Anki, or imported dictionary cards.</span>
-  </a>
-  <a class="yomu-link-card" href="/tools/youtube-japanese">
-    <strong>YouTube for Japanese</strong>
-    <span>Filter recommendations down to Japanese and comprehensible-input videos.</span>
+    <strong>Study</strong>
+    <span>Review saved words from Jiten, JPDB, Anki, or imported dictionaries.</span>
   </a>
 </div>
 
 ## How the tools fit together
 
-The loop is always the same: **find Japanese → understand it in context → save the useful words.** A web page, a manga page read through OCR, and a video subtitle line all become the same tappable text, so the dictionary, audio, kanji breakdown, and mining buttons work everywhere — one interface, not six.
+The loop is always the same: **find Japanese → understand it in context → save the useful words.** A web page, a manga page read through OCR, and a video subtitle line all become the same tappable text, so you do not have to switch tools every time the medium changes.
 
-Use a single tool and ignore the rest: just OCR for manga, just the immersion filter for YouTube, just the dictionary for lookups. They connect only when you want them to.
+Use only the parts you need. Start with lookup, add OCR for manga, add subtitles for video, and connect study sources when you want tracking.
+
+Kanji stroke order, components, readings, and related words live inside the popup; open the [kanji tool](/tools/kanji-stroke-order) from any lookup when you need to slow down on a character.
 
 ## What you need
 

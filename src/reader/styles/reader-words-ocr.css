@@ -82,6 +82,15 @@
   white-space: normal;
 }
 
+/* Google Search result snippets are passive links, not compact controls. Keep
+   their annotated Japanese wrapping on small WebKit viewports. */
+.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word {
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: anywhere !important;
+  line-break: auto;
+}
+
 /* Text mirrors preserve app-owned DOM/layout. Let surrounding mirrored text wrap
    as the host does, but keep each rendered word atomic so short YouTube metadata
    and action labels do not collapse into one-character vertical stacks. */
@@ -229,6 +238,12 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
     var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;
   box-shadow: var(--jpdb-reader-word-highlight-shadow-source, none);
   outline: none;
+}
+
+.jpdb-reader-word.jpdb-reader-passive-word:hover,
+.jpdb-reader-word.jpdb-reader-passive-word:focus {
+  background-image: none !important;
+  box-shadow: none;
 }
 
 .jpdb-reader-word.jpdb-reader-keyboard-active {
@@ -645,6 +660,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-word-highlight-pitch .jpdb-reader-word {
   --jpdb-reader-word-highlight-source: var(--jpdb-reader-source-pitch-highlight, transparent);
   --jpdb-reader-word-highlight-shadow-source: var(--jpdb-reader-source-pitch-highlight-shadow, none);
+}
+.jpdb-reader-word.jpdb-reader-passive-word {
+  --jpdb-reader-word-highlight-source: transparent;
+  --jpdb-reader-word-highlight-shadow-source: none;
 }
 :is(
   .jpdb-reader-word-highlight-status,

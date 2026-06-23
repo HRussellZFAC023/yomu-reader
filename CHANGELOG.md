@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.78] - 2026-06-23
+
+### Fixed
+
+- Mobile Google Search annotations no longer hide the base text inside compact rounded result controls, and passive result snippets no longer paint pale highlight blocks on dark-mode search results before or after hover.
+- The hosted homepage now uses a tighter “Read Japanese without leaving the page” flow, a compact setup path, native demo video controls, a static pitch-accent demo fallback, and the real manga OCR sample image instead of the temporary illustrated panel.
+- Hosted docs now emit normal stylesheet links and load the root-hosted userscript assets, so the deployed homepage does not fall back to an unstyled or stale-looking page.
+
 ## [1.4.77] - 2026-06-23
 
 ### Fixed

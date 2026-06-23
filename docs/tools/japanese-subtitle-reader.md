@@ -44,7 +44,7 @@ From a subtitle line you can:
 - **Mine to Anki** — with [AnkiConnect](https://ankiweb.net/shared/info/2055492159) reachable, よむ builds a card with the word, reading, meaning, the source sentence, audio, and an optional screenshot.
 - **Mine to Jiten or JPDB** — add the word, mark it, or send a review grade.
 
-asbplayer-style sentence mining, but in the same popup as your dictionary, kanji, and audio.
+It gives you the sentence-mining flow people like in asbplayer, but in the same popup as your dictionary, kanji, and audio.
 
 ## Set it up
 

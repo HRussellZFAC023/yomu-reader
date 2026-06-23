@@ -3729,6 +3729,7 @@ describe('reader helpers', () => {
         // Scanned prose may wrap; words inside buttons/chips/tabs must not
         // override the host nowrap or CJK labels stack one char per line.
         expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) { white-space: normal;');
+        expect(normalizedCss).toContain('.VwiC3b .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word { white-space: normal; word-break: normal; overflow-wrap: anywhere !important; line-break: auto; }');
         expect(normalizedCss).toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word rt, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word ruby, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word rt { white-space: normal; overflow-wrap: anywhere; }');
         expect(normalizedCss).not.toContain('.yomu-link-card .jpdb-reader-word.jpdb-reader-scan-word::after, .yomu-install-step-link .jpdb-reader-word.jpdb-reader-scan-word::after { border-block-end-color: transparent; }');
@@ -27697,6 +27698,18 @@ describe('reader helpers', () => {
         expect(document.querySelector('[data-jpdb-reader-root] .jpdb-reader-word')?.textContent).toBe('設定');
     });
 
+    it('does not unwrap reader words inside explicitly ignored surfaces', () => {
+        document.body.innerHTML = `
+            <p data-jpdb-reader-surface-ignore="true">青空<span class="jpdb-reader-word jpdb-known"><ruby>読む<rt class="jpdb-reader-furi">よむ</rt></ruby></span>。</p>
+            <p>今日は<span class="jpdb-reader-word jpdb-known">読む</span>。</p>
+        `;
+
+        expect(unwrapReaderWords(document)).toBe(1);
+        expect(document.querySelector('[data-jpdb-reader-surface-ignore] .jpdb-reader-word')).not.toBeNull();
+        expect(document.querySelector('[data-jpdb-reader-surface-ignore] rt')?.textContent).toBe('よむ');
+        expect(document.querySelectorAll('p')[1]?.textContent).toBe('今日は読む。');
+    });
+
     it('restores injected reader words to surface text when destroyed', () => {
         const app = new ReaderApp();
         document.body.innerHTML = `
@@ -35370,6 +35383,11 @@ describe('reader helpers', () => {
         document.body.innerHTML = `
             <div id="rcnt">
                 <div id="search">
+                    <div class="MjjYud">
+                        <div class="g">
+                            <button type="button" style="overflow:hidden;height:36px;max-height:36px">検索結果を表示</button>
+                        </div>
+                    </div>
                     <div class="g">
                         <h3 class="LC20lb">英語での test の意味</h3>
                         <div class="VwiC3b">このページを訳す</div>
@@ -35393,6 +35411,7 @@ describe('reader helpers', () => {
         expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
             '英語での test の意味',
             'このページを訳す',
+            '検索結果を表示',
             'AI による概要',
             'テストを受信しました。正常に応答が可能です。',
             'プライム上場企業からベンチャー企業まで',
@@ -35416,6 +35435,10 @@ describe('reader helpers', () => {
         expect(readerWordSurfaceText(word)).toBe('複数形');
         expect(word.querySelector('rt')?.textContent).toBe('ふくすうけい');
         expectRenderedPitchWord(word, 'heiban');
+
+        const resultControl = targets.find(target => target.text === '検索結果を表示')!;
+        expect(resultControl.passiveInteraction).toBe(true);
+        expect(resultControl.layoutSensitive).toBe(true);
     });
 
     it('prioritizes Google AI cards and bottom chips before busy result lists at low limits', () => {

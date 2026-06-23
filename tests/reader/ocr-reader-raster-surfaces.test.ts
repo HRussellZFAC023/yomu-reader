@@ -185,45 +185,47 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
-    it('can OCR a tainted BookWalker canvas through clean-source mirror replay', async () => {
-        stubLocation('viewer.bookwalker.jp');
-        document.body.append(Object.assign(document.createElement('span'), {
-            id: 'pageSliderCounter',
-            textContent: '1 / 12',
-        }));
-        const tainted = () => { throw new Error('The operation is insecure.'); };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
-        const mirrored = document.createElement('canvas');
-        mirrored.width = 1200;
-        mirrored.height = 1600;
-        mirrored.toDataURL = () => 'data:image/jpeg;base64,MIRROR';
-        const captureCanvasMirror = vi.fn(async () => mirrored);
-        const captureReaderSurface = vi.fn(async () => ({
-            dataUrl: 'data:image/jpeg;base64,SCREENSHOT',
-            rect: new DOMRect(32, 40, 400, 520),
-        }));
+    it.each(['viewer.bookwalker.jp', 'bookwalker.jp'])(
+        'can OCR a tainted BookWalker canvas through clean-source mirror replay on %s',
+        async hostname => {
+            stubLocation(hostname);
+            document.body.append(Object.assign(document.createElement('span'), {
+                id: 'pageSliderCounter',
+                textContent: '1 / 12',
+            }));
+            const tainted = () => { throw new Error('The operation is insecure.'); };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+            const mirrored = document.createElement('canvas');
+            mirrored.width = 1200;
+            mirrored.height = 1600;
+            mirrored.toDataURL = () => 'data:image/jpeg;base64,MIRROR';
+            const captureCanvasMirror = vi.fn(async () => mirrored);
+            const captureReaderSurface = vi.fn(async () => ({
+                dataUrl: 'data:image/jpeg;base64,SCREENSHOT',
+                rect: new DOMRect(32, 40, 400, 520),
+            }));
 
-        const canvas = pageCanvas(32, 40, 400, 520);
-        canvas.toDataURL = tainted;
-        document.body.append(canvas);
-        expect(isBookwalkerViewerHost()).toBe(true);
-        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toEqual([canvas]);
+            const canvas = pageCanvas(32, 40, 400, 520);
+            canvas.toDataURL = tainted;
+            document.body.append(canvas);
+            expect(isBookwalkerViewerHost()).toBe(true);
+            expect(collectCanvasReaderSurfaces(hostname)).toEqual([canvas]);
 
-        const controller = createController({}, captureReaderSurface, captureCanvasMirror);
-        try {
-            await waitForExpect(() => {
-                expect(captureCanvasMirror).toHaveBeenCalledWith(canvas, expect.any(Function));
-            });
-            expect(captureReaderSurface).not.toHaveBeenCalled();
-            await waitForExpect(() => {
-                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
-                expect(frame).not.toBeNull();
-                expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,MIRROR');
-            });
-        } finally {
-            controller.destroy();
-        }
+            const controller = createController({}, captureReaderSurface, captureCanvasMirror);
+            try {
+                await waitForExpect(() => {
+                    expect(captureCanvasMirror).toHaveBeenCalledWith(canvas, expect.any(Function));
+                });
+                expect(captureReaderSurface).not.toHaveBeenCalled();
+                await waitForExpect(() => {
+                    const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                    expect(frame).not.toBeNull();
+                    expect(frame!.getAttribute('src')).toBe('data:image/jpeg;base64,MIRROR');
+                });
+            } finally {
+                controller.destroy();
+            }
     });
 
     it('clicking a tainted BookWalker canvas waits for the async mirror frame before OCR enqueue', async () => {

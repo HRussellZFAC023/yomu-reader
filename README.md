@@ -4,10 +4,10 @@
 
 <h1>よむ <sub>· Yomu</sub></h1>
 
-<p><b>Read real Japanese. Tap a word. Understand it, hear it, and save it for study.</b></p>
+<p><b>Read Japanese without leaving the page. Understand it, hear it, and save it for study.</b></p>
 
 <p>
-  よむ is a free Japanese popup reader for websites, manga, PDFs, and subtitles.
+  よむ is a Japanese popup reader for websites, manga, PDFs, and subtitles.
   It runs as a userscript, works on desktop and mobile, and connects to the tools
   Japanese learners already use: Yomitan dictionaries, Anki, Jiten, and JPDB.
 </p>

@@ -344,4 +344,43 @@ describe('makeRoomForRubyInCroppedRows', () => {
             document.body.innerHTML = '';
         }
     });
+
+    it('reserves ruby room on nested Google result-local controls', () => {
+        vi.stubGlobal('location', {
+            href: 'https://www.google.com/search?q=test',
+            origin: 'https://www.google.com',
+            hostname: 'www.google.com',
+            pathname: '/search',
+        });
+        try {
+            document.body.innerHTML = `
+                <div id="search">
+                    <div class="MjjYud">
+                        <div class="g">
+                            <div id="chip" role="button" style="display:flex;align-items:center;overflow:hidden;height:36px;max-height:36px;line-height:18px;border-radius:18px">
+                                <span id="label" style="display:block;overflow:hidden;height:18px;max-height:18px;line-height:18px">
+                                    ${annotatedWord('けんさくけっか', '検索結果')}を表示
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const chip = document.querySelector<HTMLElement>('#chip')!;
+            const label = document.querySelector<HTMLElement>('#label')!;
+            mockOverflow(label, 38, 18);
+            mockOverflow(chip, 58, 36);
+
+            expect(makeRoomForRubyInCroppedRows(document)).toBe(2);
+            expect(label.style.height).toBe('38px');
+            expect(label.style.maxHeight).toBe('38px');
+            expect(chip.style.height).toBe('58px');
+            expect(chip.style.maxHeight).toBe('58px');
+            expect(chip.querySelector('.jpdb-reader-ruby-base')?.textContent).toBe('検索結果');
+            expect(chip.querySelector('rt')?.textContent).toBe('けんさくけっか');
+        } finally {
+            vi.unstubAllGlobals();
+            document.body.innerHTML = '';
+        }
+    });
 });

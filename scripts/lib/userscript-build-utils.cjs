@@ -10,7 +10,7 @@ const DIST_USERSCRIPT_PATH = path.join(ROOT, USERSCRIPT_RELATIVE_PATH);
 const DIST_READER_CSS_PATH = path.join(ROOT, READER_CSS_RELATIVE_PATH);
 const DOCS_USERSCRIPT_PATH = path.join(ROOT, 'docs', 'public', 'yomu.user.js');
 const USERSCRIPT_METADATA_END = '// ==/UserScript==';
-const BUNDLED_DEPENDENCY_NOTICE_MARKER = 'Bundled dependency source information';
+const BUNDLED_DEPENDENCY_NOTICE_MARKER = 'Bundled dependency';
 const GREASY_FORK_SIZE_LIMIT_BYTES = 2_000_000;
 const GREASY_FORK_SIZE_WARNING_RATIO = 0.9;
 
@@ -141,6 +141,7 @@ module.exports = {
   packageVersion,
   readBuiltUserscript,
   readText,
+  userscriptMetadataValues,
   warnIfNearGreasyForkSizeLimit,
   writeText,
 };

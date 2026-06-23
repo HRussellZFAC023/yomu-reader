@@ -186,9 +186,9 @@ function serveDocsFixture(response) {
       <p data-smoke-docs-text>日本語の文章を読むと音声と色が見えます。</p>
       <section class="yomu-demo" aria-labelledby="yomu-demo-title">
         <div class="yomu-demo-copy">
-          <h2 id="yomu-demo-title">Tap a word, keep reading</h2>
+          <h2 id="yomu-demo-title">Look up words without leaving the sentence</h2>
           <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
-            <p class="yomu-try-me-label">Try me — tap a word</p>
+            <p class="yomu-try-me-label">Example highlights</p>
             <p>青空の下で日本語を読む。</p>
           </div>
           <p>今日は静かな喫茶店で新しい本を読みました。</p>

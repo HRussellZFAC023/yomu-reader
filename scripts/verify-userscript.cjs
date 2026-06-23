@@ -18,6 +18,7 @@ const {
   packageJson,
   readBuiltUserscript,
   readText,
+  userscriptMetadataValues,
   warnIfNearGreasyForkSizeLimit,
 } = require('./lib/userscript-build-utils.cjs');
 const { GREASY_FORK_LIBRARIES, greasyForkLibraryPath } = require('./lib/greasyfork-libraries.cjs');
@@ -31,15 +32,15 @@ const lines = code.split(/\r?\n/);
 const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0);
 
 if (!code.startsWith('// ==UserScript==')) fail(`${USERSCRIPT_RELATIVE_PATH} is missing a userscript metadata block.`);
-if (!code.includes(`// @version      ${packageJson.version}`)) fail('userscript version does not match package.json.');
-if (!code.includes('// @icon         https://yomureader.com/favicon-32x32.png')) fail('userscript icon metadata must use the raster favicon for userscript manager compatibility.');
-if (!code.includes('// @match        *://*/*')) fail('userscript match metadata is missing.');
-if (code.includes('// @exclude      https://hrussellzfac023.github.io/yomu-reader/*')) fail('docs site exclude metadata should not block hosted new-tab request bridging.');
-if (!code.includes('// @grant        GM_xmlhttpRequest')) fail('GM_xmlhttpRequest grant is missing.');
-if (!code.includes('// @grant        GM.xmlHttpRequest')) fail('GM.xmlHttpRequest grant is missing.');
-if (!code.includes('// @grant        GM_getResourceText')) fail('GM_getResourceText grant is missing.');
-if (!code.includes('// @resource     yomuCss ')) fail('reader CSS resource metadata is missing.');
-if (!code.includes('// @inject-into  content')) fail('Violentmonkey content-world injection metadata is missing.');
+if (!hasMetadataValue('version', packageJson.version)) fail('userscript version does not match package.json.');
+if (!hasMetadataValue('icon', 'https://yomureader.com/favicon-32x32.png')) fail('userscript icon metadata must use the raster favicon for userscript manager compatibility.');
+if (!hasMetadataValue('match', '*://*/*')) fail('userscript match metadata is missing.');
+if (hasMetadataValue('exclude', 'https://hrussellzfac023.github.io/yomu-reader/*')) fail('docs site exclude metadata should not block hosted new-tab request bridging.');
+if (!hasMetadataValue('grant', 'GM_xmlhttpRequest')) fail('GM_xmlhttpRequest grant is missing.');
+if (!hasMetadataValue('grant', 'GM.xmlHttpRequest')) fail('GM.xmlHttpRequest grant is missing.');
+if (!hasMetadataValue('grant', 'GM_getResourceText')) fail('GM_getResourceText grant is missing.');
+if (!hasMetadataPattern('resource', /^yomuCss\s+https:\/\/yomureader\.com\/yomu\.css$/)) fail('reader CSS resource metadata is missing.');
+if (!hasMetadataValue('inject-into', 'content')) fail('Violentmonkey content-world injection metadata is missing.');
 
 assertNoRemoteExecutableMetadata(code);
 assertNoRemoteExecutableLoaders(code);
@@ -79,6 +80,14 @@ assertNewTabCacheBusting();
 assertPublishedChangelogIsReleaseOnly();
 
 console.log(`Verified ${DIST_USERSCRIPT_PATH} (${formatCount(size)} bytes, ${formatCount(lines.length)} lines)`);
+
+function hasMetadataValue(key, expectedValue) {
+  return userscriptMetadataValues(code, key).includes(expectedValue);
+}
+
+function hasMetadataPattern(key, pattern) {
+  return userscriptMetadataValues(code, key).some(value => pattern.test(value));
+}
 
 function assertZipReaderBundled() {
   for (const signature of [

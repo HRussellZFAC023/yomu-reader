@@ -17,11 +17,10 @@ if (markerIndex === -1) {
 }
 
 const notice = `
-
-/* Bundled dependency source information: fflate*/
+/*Bundled dependency:fflate*/
 `;
 const insertAt = markerIndex + USERSCRIPT_METADATA_END.length;
-const before = stripRedundantMetadata(code.slice(0, insertAt));
+const before = compactMetadataSpacing(stripRedundantMetadata(code.slice(0, insertAt)));
 const hasNotice = code.includes(BUNDLED_DEPENDENCY_NOTICE_MARKER);
 const after = stripGeneratedPureAnnotations(stripUserscriptBodyComments(code.slice(insertAt).replace(/^\n+/, '\n')));
 
@@ -42,4 +41,8 @@ function stripRedundantMetadata(value) {
   return value.split('\n')
     .filter(line => !/^\/\/ @(?:author|homepageURL|source|supportURL)\b/.test(line))
     .join('\n');
+}
+
+function compactMetadataSpacing(value) {
+  return value.replace(/^\/\/ @([^\s]+)\s+(.+)$/gm, '// @$1 $2');
 }
