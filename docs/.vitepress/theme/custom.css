@@ -1489,7 +1489,11 @@ html[lang="ja"] .VPHomeHero .tagline {
 /* --- Manga OCR section --- */
 .yomu-manga-ocr {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.85fr);
+  /* Layout A: size each column to its content (image up to 560px, caption to
+     ~34ch) and center the whole pair on the page via justify-content, rather
+     than stretching figure and caption out to opposite edges. */
+  grid-template-columns: minmax(0, 560px) minmax(0, 34ch);
+  justify-content: center;
   align-items: center;
   gap: clamp(18px, 3vw, 38px);
   margin: 0 0 56px;
@@ -1535,7 +1539,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   position: relative;
   grid-column: 1;
   grid-row: 1;
-  justify-self: start;
+  justify-self: center;
   width: 100%;
   max-width: 560px;
   margin: 0;
@@ -1562,7 +1566,10 @@ html[lang="ja"] .VPHomeHero .tagline {
 /* --- Video subtitle showcase --- */
 .yomu-video-showcase {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr);
+  /* Layout A (mirror): caption then card, each sized to content and centered
+     as a pair on the page via justify-content. */
+  grid-template-columns: minmax(0, 34ch) minmax(0, 620px);
+  justify-content: center;
   align-items: center;
   gap: clamp(18px, 3vw, 38px);
   margin: 0 0 64px;
@@ -1570,7 +1577,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 
 .yomu-video-card {
   position: relative;
-  justify-self: end;
+  justify-self: center;
   width: 100%;
   max-width: 620px;
   margin: 0;
