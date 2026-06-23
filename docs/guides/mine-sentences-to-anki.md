@@ -1,6 +1,6 @@
 ---
 title: How to Mine Sentences from Anime & YouTube to Anki
-description: A free sentence mining workflow for Japanese — tap an unknown word in YouTube or your own video subtitles and build an Anki card with audio and a screenshot.
+description: A free sentence mining workflow for Japanese — choose an unknown word in YouTube or your own video subtitles and build an Anki card with audio and a screenshot.
 head:
   - - meta
     - name: keywords
@@ -13,7 +13,7 @@ head:
 
 # How to mine sentences from anime & YouTube to Anki
 
-Sentence mining is the most reliable way to turn the Japanese you watch into long-term memory. Instead of grinding a generic word list, you collect the exact sentences you meet in shows, podcasts and YouTube videos and study the words in context. This guide walks through a free, browser-based workflow: tap an unknown word in a subtitle line and ship a finished Anki card with reading, meaning, audio and a screenshot.
+Sentence mining is the most reliable way to turn the Japanese you watch into long-term memory. Instead of grinding a generic word list, you collect the exact sentences you meet in shows, podcasts and YouTube videos and study the words in context. This guide walks through a free, browser-based workflow: choose an unknown word in a subtitle line and send a finished Anki card with reading, meaning, audio and a screenshot.
 
 ## What sentence mining is (and why i+1 works)
 
@@ -29,21 +29,21 @@ You need three free pieces:
 - **Anki** — the spaced-repetition app, free on desktop.
 - **AnkiConnect** — a free Anki add-on that lets Yomu push cards into your deck automatically.
 
-Prefer [Jiten or JPDB](/tools/study-page)? Yomu mines there instead — same tap-to-card flow, different destination. Pick whichever you review in daily.
+Prefer [Jiten or JPDB](/tools/study-page)? Yomu mines there instead — same lookup-to-card flow, different destination. Pick whichever you review in daily.
 
 ## Workflow on YouTube
 
 The fastest place to start, with nothing to download.
 
-1. Install Yomu and open a Japanese video. The [Japanese subtitle reader](/tools/japanese-subtitle-reader) overlay turns each subtitle line into tappable words, with an optional second line for your native language and a transcript panel beside the video.
-2. When a line lands at i+1, **tap the one unknown word**. The popup shows its reading, meaning, pitch accent and frequency.
+1. Install Yomu and open a Japanese video. The [Japanese subtitle reader](/tools/japanese-subtitle-reader) overlay turns each subtitle line into lookup-ready words, with an optional second line for your native language and a transcript panel beside the video.
+2. When a line lands at i+1, **choose the one unknown word**. The popup shows its reading, meaning, pitch accent and frequency.
 3. Hit **mine**. Yomu captures the whole subtitle line as the source sentence, pulls the word and reading, and — if you've enabled it — grabs the audio and a screenshot of the frame.
 
-<figure class="yomu-feature-shot"><img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="Japanese subtitle overlay on a YouTube video with tappable words"><figcaption>Tap an unknown word in the subtitle overlay, then mine the whole line.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/store-02-youtube-subtitles.png'" alt="Japanese subtitle overlay on a YouTube video with lookup-ready words"><figcaption>Choose an unknown word in the subtitle overlay, then mine the whole line.</figcaption></figure>
 
 ## Workflow on your own video files
 
-For anime episodes, drama or anything with a local subtitle file, use the free hosted **[Yomu video player](/video-player/index.html)** — no desktop app required. Open your video and its `.srt`/`.ass` subtitle file in the browser and you get the same overlay, transcript panel and mining flow. Prev/next-line and copy/mine shortcuts let you scrub to the exact line and card it without touching the mouse.
+For anime episodes, drama or anything with a local subtitle file, use the free hosted **[よむ video player](/video-player/index.html)** — no desktop app required. Open a browser-supported video and compatible `.srt`/`.ass` subtitle file in the browser and you get the same overlay, transcript panel and mining flow. Prev/next-line and copy/mine shortcuts let you scrub to the exact line and card it without touching the mouse.
 
 <figure class="yomu-feature-shot"><img :src="'/screenshots/real-immersion-popover.png'" alt="Yomu popup dictionary showing reading, meaning and pitch for a mined word"><figcaption>The lookup popover: reading, meaning, pitch and the mine button.</figcaption></figure>
 

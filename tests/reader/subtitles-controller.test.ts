@@ -2036,6 +2036,40 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
+    it('skips ignored decorative videos during subtitle discovery', () => {
+        withViewport(1000, 800, () => {
+            const settings = {
+                ...DEFAULT_SETTINGS,
+                apiKey: '',
+                localDictionariesEnabled: false,
+            };
+            document.body.innerHTML = `
+                <video id="phone-demo" data-jpdb-reader-surface-ignore="true"></video>
+                <div data-yomu-video-frame><video id="captioned-player" controls></video></div>
+            `;
+            const phoneDemo = document.querySelector<HTMLVideoElement>('#phone-demo')!;
+            const captionedPlayer = document.querySelector<HTMLVideoElement>('#captioned-player')!;
+            for (const video of [phoneDemo, captionedPlayer]) {
+                Object.defineProperty(video, 'readyState', { configurable: true, value: 4 });
+            }
+            mockElementRect(phoneDemo, new DOMRect(120, 40, 720, 680));
+            mockElementRect(captionedPlayer, new DOMRect(300, 180, 420, 260));
+            const controller = new SubtitlePlayerController({
+                getSettings: () => settings,
+                parseJapanese: async () => [],
+                onSettingsChange: () => undefined,
+            });
+
+            try {
+                const candidate = (controller as unknown as { discoverVideoCandidate: () => HTMLVideoElement | undefined }).discoverVideoCandidate();
+
+                expect(candidate).toBe(captionedPlayer);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
     it('hides the rail and subtitles while the selected video is mostly out of view', () => {
         withViewport(1000, 800, () => {
             const { controller, root, video } = setupInstalledVideoController(

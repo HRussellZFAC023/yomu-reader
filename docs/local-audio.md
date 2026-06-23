@@ -134,7 +134,7 @@ Leave the server window open. Open this test link in your browser:
 http://localhost:9393/?term=猫&reading=ねこ
 ```
 
-If it works, you will see text containing `audioSources`.
+If it works, the browser shows a plain text response that includes `audioSources`. That means the server is running and よむ can use it.
 
 If the browser says the page cannot be reached, the server is not running, the window was closed, or the command used a different port.
 

@@ -1,6 +1,6 @@
 ---
 title: Free Japanese Learning Tools
-description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, furigana, kanji stroke order, subtitle mining, study, and a YouTube immersion filter. Every tool runs in your browser, no account required.
+description: A free toolkit for reading real Japanese — popup dictionary, manga and image OCR, furigana, kanji stroke order, subtitle mining, study, and a YouTube immersion filter. Every tool runs after installing the よむ userscript; no account required.
 head:
   - - meta
     - name: keywords
@@ -14,7 +14,7 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
 <div class="yomu-link-grid">
   <a class="yomu-link-card" href="/tools/furigana-reader">
     <strong>Text</strong>
-    <span>Tap words on web pages for readings, meanings, pitch, audio, and saves.</span>
+    <span>Look up words on web pages for readings, meanings, pitch, audio, and saves.</span>
   </a>
   <a class="yomu-link-card" href="/tools/japanese-ocr">
     <strong>Image</strong>
@@ -22,7 +22,7 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
   </a>
   <a class="yomu-link-card" href="/tools/japanese-subtitle-reader">
     <strong>Video</strong>
-    <span>Make Japanese subtitles and transcripts tappable on YouTube or local files.</span>
+    <span>Parse Japanese subtitles and transcripts for lookup on YouTube or local files.</span>
   </a>
   <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
     <strong>Games</strong>
@@ -40,7 +40,7 @@ Pick the surface you want to read. よむ keeps the lookup, audio, kanji, and sa
 
 ## How the tools fit together
 
-The loop is always the same: **find Japanese → understand it in context → save the useful words.** A web page, a manga page read through OCR, and a video subtitle line all become the same tappable text, so you do not have to switch tools every time the medium changes.
+The loop is always the same: **find Japanese → understand it in context → save the useful words.** A web page, a manga page read through OCR, and a video subtitle line all become the same lookup surface, so you do not have to switch tools every time the medium changes.
 
 Use only the parts you need. Start with lookup, add OCR for manga, add subtitles for video, and connect study sources when you want tracking.
 
@@ -52,7 +52,7 @@ Kanji stroke order, components, readings, and related words live inside the popu
 - The free [よむ userscript](https://yomureader.com/yomu.user.js).
 - Optionally: a [Jiten](https://jiten.moe/) or [JPDB](https://jpdb.io) account, [Anki](https://apps.ankiweb.net/) with AnkiConnect, or a Yomitan dictionary — all optional.
 
-New here? Start with the [setup guide](/getting-started) — it takes about three minutes.
+New here? Follow the [setup guide](/getting-started).
 
 <div class="yomu-cta-grid">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install よむ (free)</a>

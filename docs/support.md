@@ -14,7 +14,7 @@ description: Get help with よむ — report a bug, join the Discord, view the s
   </a>
   <a class="yomu-link-card" href="pdf-reader/">
     <strong>PDF Reader</strong>
-    <span>Open any PDF and read it with よむ lookup, mining, and OCR.</span>
+    <span>Open PDFs in the hosted reader and use よむ lookup, mining, and OCR where supported.</span>
   </a>
   <a class="yomu-link-card" href="newtab/index.html">
     <strong>New Tab</strong>
@@ -24,15 +24,15 @@ description: Get help with よむ — report a bug, join the Discord, view the s
 
 ## Support
 
-よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable suites such as [Migaku](https://migaku.com/pricing) currently advertise paid plans from $10/month; よむ offers the same core reading-and-mining workflow for free ([full comparison](/compare/migaku-alternative)).
+よむ brings popup lookup, mining, imported dictionaries, subtitles, image reading, and Anki export into one free userscript. Comparable suites such as [Migaku](https://migaku.com/pricing) are paid; よむ covers the core reading-and-mining loop for free ([full comparison](/compare/migaku-alternative)).
 
-Donations are optional. They help cover the time, testing devices, services, maintenance, and AI tokens that keep the reader polished. Realistically, I have already spent far more on AI/API tokens building よむ than donations are ever likely to make back, but even a small donation helps soften that cost. On a personal level, my dream is to save enough to move to Japan and marry my long-distance Japanese girlfriend. Every bit of support brings that closer and keeps me maintaining よむ, fixing bugs, and adding the features learners ask for.
+Donations are optional. They help cover testing devices, hosting, API usage, maintenance, and the time needed to keep よむ free, polished, and improving.
 
 ## Quick Actions
 
 <div class="yomu-cta-grid yomu-support-actions">
   <a class="yomu-cta-button primary" href="https://yomureader.com/yomu.user.js">Install userscript</a>
-  <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/issues">Report a bug</a>
+  <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023/yomu-reader/issues">Report a bug</a>
   <a class="yomu-cta-button" href="https://discord.gg/jD6NPURewD">Join Discord</a>
   <a class="yomu-cta-button" href="https://paypal.me/HenryRussell163">Donate</a>
   <a class="yomu-cta-button" href="https://github.com/HRussellZFAC023">View source</a>

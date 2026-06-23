@@ -325,6 +325,21 @@
         transform: translateY(4px);
       }
 
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+          animation: none !important;
+          scroll-behavior: auto !important;
+        }
+
+        .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer {
+          filter: none;
+          transform: none;
+        }
+      }
+
       .jpdb-reader-newtab-reading {
         font-size: clamp(1.2rem, 3.2vw, 2.05rem);
         font-weight: 780;
@@ -444,7 +459,8 @@
 
         .jpdb-reader-newtab-mode button {
           min-width: 0;
-          white-space: nowrap;
+          overflow-wrap: anywhere;
+          white-space: normal;
         }
 
         .jpdb-reader-newtab-status {

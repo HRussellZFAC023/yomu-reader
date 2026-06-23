@@ -1040,6 +1040,7 @@ export class SubtitlePlayerController {
 
     private isSubtitleVideoCandidate(video: HTMLVideoElement): boolean {
         if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;
+        if (video.closest('[data-jpdb-reader-surface-ignore]')) return false;
         return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
     }
 

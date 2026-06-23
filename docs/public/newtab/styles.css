@@ -2777,7 +2777,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button:focus-visible {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 64%, var(--jpdb-reader-border));
   color: var(--jpdb-reader-text);
-  outline: none;
+}
+.jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button:focus-visible {
+  outline: 3px solid var(--jpdb-reader-text);
+  outline-offset: 2px;
 }
 .jpdb-reader-newtab-kanji-details .jpdb-reader-kanji-readings > button[aria-pressed="true"] {
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 72%, var(--jpdb-reader-border));
@@ -3538,11 +3541,15 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   }
 }
 
-.jpdb-reader-newtab-brand .title:hover,
-.jpdb-reader-newtab-brand .title:focus-visible {
-  outline: none;
-  box-shadow: none;
+.jpdb-reader-newtab-brand .title:hover {
   color: var(--jpdb-reader-text);
+}
+
+.jpdb-reader-newtab-brand .title:focus-visible {
+  color: var(--jpdb-reader-text);
+  outline: 3px solid var(--jpdb-reader-text);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--jpdb-reader-bg) 78%, transparent);
 }
 
 @media (pointer: coarse) and (min-width: 700px) {
@@ -3942,6 +3949,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
     height: 44px !important;
   }
 
+  .jpdb-reader-newtab-brand .title {
+    min-width: 44px;
+    min-height: 44px;
+    justify-content: center;
+  }
+
   /* Immersion Kit controls sit inline with the clip title; 36px visible
      size keeps the row compact (user-reported) while staying tappable. */
   .jpdb-reader-newtab-immersion .jpdb-reader-icon-mini {
@@ -4093,6 +4106,10 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 .jpdb-reader-newtab-browse-row:hover,
 .jpdb-reader-newtab-browse-row:focus-visible {
   background: color-mix(in srgb, var(--jpdb-reader-accent) 8%, transparent);
+}
+.jpdb-reader-newtab-browse-row:focus-visible {
+  outline: 3px solid var(--jpdb-reader-text);
+  outline-offset: -3px;
 }
 .jpdb-reader-newtab-browse-spelling {
   font-size: 17px;
@@ -4353,6 +4370,12 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .jpdb-reader-newtab::before,
+  .jpdb-reader-newtab::after,
+  .jpdb-reader-newtab-controls button[data-grade] {
+    transition: none;
+  }
+
   .jpdb-reader-newtab-card-fresh {
     animation: none;
   }

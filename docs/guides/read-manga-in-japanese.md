@@ -1,6 +1,6 @@
 ---
 title: How to read manga in Japanese — free OCR setup
-description: Read raw, untranslated Japanese manga for free in your browser. Tap words inside panels with OCR, get furigana and readings, and save unknowns to Jiten, JPDB, or Anki.
+description: Read raw, untranslated Japanese manga for free in your browser. Look up words inside panels with OCR, get furigana and readings, and save unknowns to Jiten, JPDB, or Anki.
 head:
   - - meta
     - name: keywords
@@ -8,14 +8,14 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I tap words inside manga images to look them up?","acceptedAnswer":{"@type":"Answer","text":"Yes — via embedded Mokuro metadata (instant) or a local OCR engine like MangaOCR or PaddleOCR. See Tapping words inside image-only panels above."}},{"@type":"Question","name":"Is my manga uploaded anywhere when I use OCR?","acceptedAnswer":{"@type":"Answer","text":"No. Embedded Mokuro OCR is read locally; image-only OCR sends images only to a local endpoint you run — there is no cloud service, and nothing is sent if you configure no endpoint."}},{"@type":"Question","name":"Do I need to know all the words before I start reading manga?","acceptedAnswer":{"@type":"Answer","text":"No. Pick a mostly-comprehensible manga, look up only what blocks you, and save the words that matter — rather than memorising everything in one sitting."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up words inside manga images?","acceptedAnswer":{"@type":"Answer","text":"Yes — via embedded Mokuro metadata (instant) or a local OCR engine like MangaOCR or PaddleOCR. See Looking up words inside image-only panels above."}},{"@type":"Question","name":"Is my manga uploaded anywhere when I use OCR?","acceptedAnswer":{"@type":"Answer","text":"No. Embedded Mokuro OCR is read locally; image-only OCR sends images only to a local endpoint you run — there is no cloud service, and nothing is sent if you configure no endpoint."}},{"@type":"Question","name":"Do I need to know all the words before I start reading manga?","acceptedAnswer":{"@type":"Answer","text":"No. Pick a mostly-comprehensible manga, look up only what blocks you, and save the words that matter — rather than memorising everything in one sitting."}}]}
 ---
 
 # How to read manga in Japanese (free setup)
 
 Manga is some of the best reading input you can get: short sentences, lots of repetition, pictures that carry half the meaning, and dialogue that sounds like how people actually talk. The problem is mechanical, not motivational. Raw Japanese manga is made of **images**, so you cannot select or copy the text, and furigana is not always printed — exactly the help a learner needs is missing on the page.
 
-This guide shows the free, end-to-end path: install よむ, make the words inside panels tappable, get readings and furigana on demand, and save the words worth remembering. No app to buy, no account to start.
+This guide shows the free, end-to-end path: install よむ, make the words inside panels lookup-ready, get readings and furigana on demand, and save the words worth remembering. No app to buy, no account to start.
 
 ## Why manga is great input but hard to read
 
@@ -31,33 +31,33 @@ Install a userscript manager (**Tampermonkey** on desktop, the **Userscripts** a
 
 ## Step 2 — Reading where the text is selectable
 
-Some readers and graded-reader sites publish manga as real HTML text rather than flat images. There, よむ works immediately: tap, select, or hover a word and the popup shows the reading, meaning, pitch accent, frequency, Jiten/JPDB and Yomitan dictionary entries, audio, and example sentences.
+Some readers and graded-reader sites publish manga as real HTML text rather than flat images. There, よむ works immediately: choose a word and the popup shows the reading, meaning, pitch accent, frequency, Jiten/JPDB and Yomitan dictionary entries, audio, and example sentences.
 
 <figure class="yomu-feature-shot"><img :src="'/screenshots/real-popup-lookup.png'" alt="The よむ popup dictionary showing reading, meaning, pitch and frequency for a Japanese word"><figcaption>The lookup popup: reading, meaning, pitch, frequency and dictionary entries.</figcaption></figure>
 
 Most raw manga, though, is image-only — that is where OCR comes in.
 
-## Step 3 — Tapping words inside image-only panels (OCR)
+## Step 3 — Looking up words inside image-only panels (OCR)
 
-When the page is just pictures, よむ uses OCR to recognise the Japanese and then lets you tap it like normal text. There are two free routes:
+When the page is just pictures, よむ uses OCR to recognize Japanese text and turns detected regions into lookup targets. There are two free routes:
 
-**Embedded OCR (e.g. Mokuro).** Some manga is pre-processed with [Mokuro](https://github.com/kha-white/mokuro), which generates an HTML overlay mapping recognised text to each panel. If a chapter ships this metadata, よむ reads it directly — taps are instant and nothing is processed on the fly. This is the smoothest experience when it is available.
+**Embedded OCR (e.g. Mokuro).** Some manga is pre-processed with [Mokuro](https://github.com/kha-white/mokuro), which generates an HTML overlay mapping recognised text to each panel. If a chapter ships this metadata, よむ reads it directly — lookup is instant and nothing is processed on the fly. This is the smoothest experience when it is available.
 
-**A local OCR engine.** For plain images with no embedded text, you run a local OCR engine — **MangaOCR**, **PaddleOCR**, an Apple Vision-style recogniser, or a YomiNinja-shaped setup — and point よむ at it. You tap a bubble, the panel image goes to *your* local endpoint, and the recognised text becomes tappable.
+**A local OCR engine.** For plain images with no embedded text, you run a local OCR engine — **MangaOCR**, **PaddleOCR**, Apple Vision-style results, or compatible local OCR JSON responses — and point よむ at it. When you choose a bubble, the panel image goes to *your* local endpoint, and the recognised text becomes lookup-ready.
 
 <div class="yomu-callout"><strong>Privacy:</strong> embedded Mokuro OCR is read locally from the page, so nothing leaves your browser. With a local OCR engine, よむ only sends the image to an endpoint that <em>you</em> run on your own machine. If you have not configured a local endpoint, no image is sent anywhere.</div>
 
 The result should feel like normal reading: the panel stays visible, and the words become targets for lookup.
 
-<figure class="yomu-feature-shot"><img :src="'/media/manga-ocr-sample.png'" alt="Japanese manga page with text detected for よむ OCR lookup"><figcaption>OCR makes panel text tappable without covering the page.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/media/manga-ocr-sample.png'" alt="Japanese manga page with text detected for よむ OCR lookup"><figcaption>OCR makes panel text lookup-ready without covering the page.</figcaption></figure>
 
 The full reference for OCR engines, endpoints and image handling lives on the [Japanese OCR](/tools/japanese-ocr) page.
 
 ## Step 4 — Readings, furigana and meaning on demand
 
-Once words are tappable, the popup does the heavy lifting. For a missing reading, よむ shows the reading right there; you can also turn on furigana so kanji get readings inline as you read. Choose **all words**, **hard kanji only**, or **hide-for-known** so you only see furigana on words you have not learned yet — which keeps an easier title from becoming a wall of kana.
+Once words are lookup-ready, the popup does the heavy lifting. For a missing reading, よむ shows the reading right there; you can also turn on furigana so kanji get readings inline as you read. Choose **all words**, **hard kanji only**, or **hide-for-known** so you only see furigana on words you have not learned yet — which keeps an easier title from becoming a wall of kana.
 
-Stuck on a single kanji rather than a word? Tap it to open the kanji drilldown: stroke count, grade, JLPT level, on/kun readings, RTK data, components, animated KanjiVG stroke order, and a small drawing pad. Details on the [furigana reader](/tools/furigana-reader) page.
+Stuck on a single kanji rather than a word? Choose it to open the kanji drilldown: stroke count, grade, JLPT level, on/kun readings, RTK data, components, animated KanjiVG stroke order, and a small drawing pad. Details on the [furigana reader](/tools/furigana-reader) page.
 
 ## Step 5 — Mine the words worth remembering
 
@@ -90,8 +90,8 @@ When you want more input away from the page, comprehensible video pairs well wit
 
 ## FAQ
 
-**Can I tap words inside manga images to look them up?**
-Yes — via embedded Mokuro metadata (instant) or a local OCR engine like MangaOCR or PaddleOCR. See [Tapping words inside image-only panels](#step-3-tapping-words-inside-image-only-panels-ocr) above.
+**Can I look up words inside manga images?**
+Yes — via embedded Mokuro metadata (instant) or a local OCR engine like MangaOCR or PaddleOCR. See [Looking up words inside image-only panels](#step-3-looking-up-words-inside-image-only-panels-ocr) above.
 
 **Is my manga uploaded anywhere when I use OCR?**
 No. Embedded Mokuro OCR is read locally; image-only OCR sends images only to a local endpoint *you* run — there is no cloud service, and nothing is sent if you configure no endpoint.

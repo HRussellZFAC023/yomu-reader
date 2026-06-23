@@ -23,7 +23,7 @@ Anyone around Japanese immersion has seen these names — **Yomitan**, **Jiten**
 
 ### Yomitan — the popup dictionary
 
-[Yomitan](https://github.com/yomidevs/yomitan) is a free, open-source **popup dictionary**. You import dictionary files (JMdict, frequency lists, pitch-accent data, and so on), then hover or tap Japanese text to see the reading, meaning, and other entries instantly. It is brilliant at one thing: getting a definition in front of you the moment you need it.
+[Yomitan](https://github.com/yomidevs/yomitan) is a free, open-source **popup dictionary**. You import dictionary files (JMdict, frequency lists, pitch-accent data, and so on), then use Yomitan's lookup gesture on Japanese text to see the reading, meaning, and other entries instantly. It is brilliant at one thing: getting a definition in front of you the moment you need it.
 
 What it is *not* is an SRS. Yomitan shows you a word; it does not schedule that word to come back for review. That is by design — it is a lookup tool, and a very good one.
 

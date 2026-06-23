@@ -190,7 +190,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 .VPHomeHero .actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 8px;
   padding-top: 16px;
 }
@@ -320,7 +320,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   .VPHomeHero .actions {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center !important;
+    justify-content: flex-start !important;
     width: auto;
     max-width: none;
     gap: 8px;
@@ -738,6 +738,13 @@ html[lang="ja"] .VPHomeHero .tagline {
   color: var(--vp-c-text-1);
 }
 
+.yomu-callout a {
+  color: var(--vp-c-text-1) !important;
+  font-weight: 720;
+  text-decoration: underline !important;
+  text-underline-offset: 3px;
+}
+
 .dark .yomu-callout strong {
   color: var(--vp-c-text-1);
 }
@@ -796,6 +803,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 }
 
 .yomu-install-step {
+  display: flex;
   min-width: 0;
   margin: 0;
   padding: 0;
@@ -808,7 +816,8 @@ html[lang="ja"] .VPHomeHero .tagline {
   gap: 7px;
   min-width: 0;
   width: 100%;
-  min-height: 36px;
+  height: 100%;
+  min-height: 44px;
   padding: 7px 9px;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
@@ -1065,6 +1074,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   overflow: hidden;
 }
 
+.yomu-try-me-text h2,
 .yomu-try-me-text h3 {
   min-width: 0;
   max-width: 100%;
@@ -1573,29 +1583,13 @@ html[lang="ja"] .VPHomeHero .tagline {
   background: var(--vp-c-bg-alt);
 }
 
-.yomu-youtube-embed {
+.yomu-sample-player {
   display: block;
   width: 100%;
   aspect-ratio: 16 / 9;
   border: 0;
   border-radius: 6px;
   background: color-mix(in srgb, var(--vp-c-text-1) 8%, var(--vp-c-bg-soft));
-}
-
-.yomu-youtube-fallback {
-  display: inline-flex;
-  align-items: center;
-  min-height: 28px;
-  margin-top: 8px;
-  color: var(--vp-c-brand-1) !important;
-  font-size: 13px;
-  font-weight: 720;
-  text-decoration: none !important;
-}
-
-.yomu-youtube-fallback:focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--vp-c-brand-2) 56%, #fff);
-  outline-offset: 2px;
 }
 
 /* --- Scroll reveal --- */
@@ -1616,6 +1610,35 @@ html[lang="ja"] .VPHomeHero .tagline {
   transform: none;
 }
 
+@media (min-width: 701px) and (max-width: 980px) {
+  .yomu-demo {
+    grid-template-columns: minmax(0, 1fr) minmax(164px, 216px);
+    gap: 18px;
+    margin-bottom: 4px;
+  }
+
+  .yomu-demo-copy {
+    min-width: 0;
+  }
+
+  .yomu-demo-copy h2 {
+    max-width: 18ch;
+  }
+
+  .yomu-device {
+    justify-content: flex-end;
+    margin-left: 0;
+  }
+
+  .yomu-device-frame {
+    width: min(25vw, 216px);
+  }
+
+  .yomu-manga-ocr {
+    margin-top: 12px;
+  }
+}
+
 @media (max-width: 700px) {
   .yomu-demo {
     grid-template-columns: 1fr;
@@ -1625,6 +1648,7 @@ html[lang="ja"] .VPHomeHero .tagline {
 
   .yomu-device {
     justify-content: center;
+    margin-left: 0;
   }
 
   .yomu-manga-ocr,

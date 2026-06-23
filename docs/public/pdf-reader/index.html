@@ -67,7 +67,7 @@
       --panel: #f7f8fa;
       --line: rgba(20,30,45,.16);
       --soft-line: rgba(20,30,45,.08);
-      --accent: #5ea780;
+      --accent: #3f805e;
       --accent-ink: #ffffff;
       --accent-soft: rgba(94,167,128,.16);
       --shadow: rgba(20,30,45,.12);
@@ -123,8 +123,9 @@
     button:hover,
     button:focus-visible,
     .file-button:hover,
-    .file-button:focus-visible {
-      outline: 2px solid color-mix(in srgb, var(--accent) 62%, transparent);
+    .file-button:focus-visible,
+    .file-button:has(input[type="file"]:focus-visible) {
+      outline: 3px solid var(--accent);
       outline-offset: 2px;
     }
 
@@ -156,7 +157,9 @@
       display: inline-grid;
       place-items: center;
       padding: 0 12px;
-      white-space: nowrap;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      text-align: center;
     }
 
     .top-actions {
@@ -236,7 +239,7 @@
     .overflow-summary:focus-visible {
       background: var(--accent-soft);
       color: var(--ink);
-      outline: 2px solid color-mix(in srgb, var(--accent) 46%, transparent);
+      outline: 3px solid var(--accent);
       outline-offset: 2px;
     }
 
@@ -329,6 +332,46 @@
     .VPSwitch[aria-checked="true"] .moon { opacity: 0; }
     .VPSwitch[aria-checked="true"] .sun,
     .VPSwitch[aria-checked="false"] .moon { opacity: 1; }
+
+    @media (pointer: coarse) {
+      .brand,
+      button,
+      .file-button,
+      .toolbar-button,
+      .overflow-summary,
+      .overflow-panel a,
+      .overflow-panel button,
+      .language-button,
+      .VPNavBarAppearance.appearance,
+      .page-input {
+        min-height: 44px;
+      }
+
+      .overflow-summary,
+      .language-button {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+      }
+
+      .VPSwitch.VPSwitchAppearance,
+      .toolbar-button.icon-button {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        min-height: 44px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        transition: none !important;
+        animation: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
 
     input[type="file"] {
       position: absolute;
@@ -663,12 +706,12 @@
           <summary class="overflow-summary" aria-label="Menu" data-overflow-summary>
             <span class="hamburger-icon" aria-hidden="true"></span>
           </summary>
-          <div class="overflow-panel" role="menu">
-            <button type="button" role="menuitem" data-settings-trigger>Settings</button>
-            <a href="../newtab/index.html" role="menuitem" data-menu-study>Study</a>
-            <a href="../video-player/index.html" role="menuitem" data-menu-video>Video Player</a>
-            <a href="../local-audio" role="menuitem" data-menu-local-audio>Local Audio</a>
-            <a href="../support" role="menuitem" data-menu-support>Support</a>
+          <div class="overflow-panel">
+            <button type="button" data-settings-trigger>Settings</button>
+            <a href="../newtab/index.html" data-menu-study>Study</a>
+            <a href="../video-player/index.html" data-menu-video>Video Player</a>
+            <a href="../local-audio" data-menu-local-audio>Local Audio</a>
+            <a href="../support" data-menu-support>Support</a>
           </div>
         </details>
         <label class="file-button">
@@ -1393,11 +1436,12 @@
       const target = clampPage(number);
       const entry = pages.get(target);
       if (!entry) return;
+      const scrollBehavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : behavior;
       currentPage = target;
       pageInput.value = String(target);
       requestRender(target);
       requestRender(target + 1);
-      entry.container.scrollIntoView({ behavior, block: 'start' });
+      entry.container.scrollIntoView({ behavior: scrollBehavior, block: 'start' });
       updateNavButtons();
     }
 

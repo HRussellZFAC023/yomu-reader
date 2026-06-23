@@ -49,14 +49,14 @@ hero:
     <div class="yomu-try-me-text jpdb-reader-word-highlight-jpdb jpdb-reader-word-underline-pitch" data-yomu-furigana-mode="all">
       <p class="yomu-try-me-label">Try me</p>
       <p class="yomu-try-me-sample" lang="ja" aria-label="今日は静かな喫茶店で新しい本を読みました。音声や色も見えます。" data-yomu-localize="off" data-jpdb-reader-surface-ignore="true">
-        <span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="今日" data-reading="きょう"><ruby><span class="jpdb-reader-ruby-base">今日</span><rt>きょう</rt></ruby></span>は<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="静か" data-reading="しずか"><ruby><span class="jpdb-reader-ruby-base">静かな</span><rt>しずかな</rt></ruby></span><span class="jpdb-reader-word jpdb-due jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="喫茶店" data-reading="きっさてん"><ruby><span class="jpdb-reader-ruby-base">喫茶店</span><rt>きっさてん</rt></ruby></span>で<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="新しい" data-reading="あたらしい"><ruby><span class="jpdb-reader-ruby-base">新しい</span><rt>あたらしい</rt></ruby></span><span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="本" data-reading="ほん"><ruby><span class="jpdb-reader-ruby-base">本</span><rt>ほん</rt></ruby></span>を<span class="jpdb-reader-word jpdb-known jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="読む" data-reading="よみました"><ruby><span class="jpdb-reader-ruby-base">読みました</span><rt>よみました</rt></ruby></span>。<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="音声" data-reading="おんせい"><ruby><span class="jpdb-reader-ruby-base">音声</span><rt>おんせい</rt></ruby></span>や<span class="jpdb-reader-word jpdb-due jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="色" data-reading="いろ"><ruby><span class="jpdb-reader-ruby-base">色</span><rt>いろ</rt></ruby></span>も<span class="jpdb-reader-word jpdb-due jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="見える" data-reading="みえます"><ruby><span class="jpdb-reader-ruby-base">見えます</span><rt>みえます</rt></ruby></span>。
+        <span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="今日" data-reading="きょう"><ruby><span class="jpdb-reader-ruby-base">今日</span><rt>きょう</rt></ruby></span>は<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="静か" data-reading="しずか"><ruby><span class="jpdb-reader-ruby-base">静</span><rt>しず</rt></ruby>かな</span><span class="jpdb-reader-word jpdb-due jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="喫茶店" data-reading="きっさてん"><ruby><span class="jpdb-reader-ruby-base">喫茶店</span><rt>きっさてん</rt></ruby></span>で<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="新しい" data-reading="あたらしい"><ruby><span class="jpdb-reader-ruby-base">新</span><rt>あたら</rt></ruby>しい</span><span class="jpdb-reader-word jpdb-known jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="本" data-reading="ほん"><ruby><span class="jpdb-reader-ruby-base">本</span><rt>ほん</rt></ruby></span>を<span class="jpdb-reader-word jpdb-known jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="読む" data-reading="よみました"><ruby><span class="jpdb-reader-ruby-base">読</span><rt>よ</rt></ruby>みました</span>。<span class="jpdb-reader-word jpdb-not-in-deck jpdb-pitch-heiban jpdb-reader-has-furi" data-expression="音声" data-reading="おんせい"><ruby><span class="jpdb-reader-ruby-base">音声</span><rt>おんせい</rt></ruby></span>や<span class="jpdb-reader-word jpdb-due jpdb-pitch-atamadaka jpdb-reader-has-furi" data-expression="色" data-reading="いろ"><ruby><span class="jpdb-reader-ruby-base">色</span><rt>いろ</rt></ruby></span>も<span class="jpdb-reader-word jpdb-due jpdb-pitch-nakadaka jpdb-reader-has-furi" data-expression="見える" data-reading="みえます"><ruby><span class="jpdb-reader-ruby-base">見</span><rt>み</rt></ruby>えます</span>。
       </p>
     </div>
   </div>
   <div class="yomu-device">
     <div class="yomu-device-frame">
       <span class="yomu-device-island" aria-hidden="true"></span>
-      <video class="yomu-demo-video" autoplay muted loop playsinline preload="metadata" poster="/media/yomu-demo-poster.jpg" tabindex="0" aria-label="よむ demo: reading Japanese on an iPhone and opening the dictionary popup. Press Space or Enter to pause or play.">
+      <video class="yomu-demo-video" muted loop playsinline preload="metadata" poster="/media/yomu-demo-poster.jpg" tabindex="0" data-jpdb-reader-surface-ignore="true" aria-label="よむ demo: reading Japanese on an iPhone and opening the dictionary popup. Press Space or Enter to pause or play.">
         <source src="/media/yomu-demo.webm" type="video/webm" />
         <source src="/media/yomu-demo.mp4" type="video/mp4" />
       </video>
@@ -68,36 +68,29 @@ hero:
   <div class="yomu-manga-ocr-copy">
     <p class="yomu-showcase-kicker">Image</p>
     <h2 id="yomu-manga-title">See how image text becomes readable</h2>
-    <p>This sample shows the OCR layer よむ adds to manga, screenshots, and image-only pages. The picture stays visible while recognized text regions become lookup targets for readings, meanings, furigana, and study actions.</p>
-    <p>This homepage sample is illustrative only. On real pages, installed よむ reads OCR metadata when a site provides it, or sends image regions to the local OCR endpoint you configure.</p>
+    <p>This sample uses よむ's real image reader on the manga page below. The picture stays clean while OCR prepares lookup targets for the text it finds.</p>
   </div>
-  <figure class="yomu-manga-figure">
+  <div class="yomu-manga-figure" data-yomu-runtime-surface>
     <img class="yomu-manga-image" src="/media/manga-ocr-sample.png" alt="Japanese manga page with text detected by よむ OCR" loading="eager" fetchpriority="high" decoding="sync" />
-    <figcaption>Illustrative OCR map: recognized text regions sit over the original image without covering it.</figcaption>
-  </figure>
+  </div>
 </section>
 
 <section class="yomu-video-showcase yomu-reveal" aria-labelledby="yomu-video-title">
   <div class="yomu-video-copy">
     <p class="yomu-showcase-kicker">Video</p>
-    <h2 id="yomu-video-title">Watch a captioned YouTube example</h2>
-    <p>This opens a normal YouTube player with controls and caption preference. Install よむ to use lookup and sentence-saving on Japanese captions when they're available.</p>
+    <h2 id="yomu-video-title">Use captions in a real player</h2>
+    <p>Play the sample and switch captions on. よむ reads the subtitle track in the player here, before you install anything.</p>
   </div>
-  <div class="yomu-video-card">
-    <iframe
-      class="yomu-youtube-embed"
-      src="https://www.youtube-nocookie.com/embed/riDaz7OMn74?cc_load_policy=1&cc_lang_pref=ja&playsinline=1&rel=0&modestbranding=1"
-      title="Japanese Comprehensible Input video"
-      allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-      allowfullscreen
-      loading="lazy"
-      referrerpolicy="strict-origin-when-cross-origin"
-    ></iframe>
-    <a class="yomu-youtube-fallback" href="https://www.youtube.com/watch?v=riDaz7OMn74" target="_blank" rel="noopener">Open on YouTube</a>
+  <div class="yomu-video-card" data-yomu-video-frame data-yomu-runtime-surface data-yomu-demo-player aria-label="Captioned Japanese sample video">
+    <video class="yomu-sample-player" controls playsinline preload="metadata" poster="/media/yomu-demo-poster.jpg" aria-label="Captioned Japanese sample video">
+      <source src="/media/yomu-demo.webm" type="video/webm" />
+      <source src="/media/yomu-demo.mp4" type="video/mp4" />
+      <track kind="subtitles" src="/media/yomu-sample-ja.vtt" srclang="ja" label="Japanese" default />
+    </video>
   </div>
 </section>
 
-## Choose a reading surface
+## What to do next
 
 <div class="yomu-link-grid yomu-next-grid">
   <a class="yomu-link-card" href="/getting-started">

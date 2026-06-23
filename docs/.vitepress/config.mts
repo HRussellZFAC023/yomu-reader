@@ -13,7 +13,7 @@ const pdfReaderLink = '/pdf-reader/';
 
 const siteTitle = 'よむ - Japanese popup reader';
 const siteDescription =
-    'よむ helps you read real Japanese in the browser. Tap Japanese on pages, manga images, PDFs, and subtitles for readings, meanings, audio, kanji, and study actions.';
+    'よむ helps you read real Japanese in the browser. Look up words on pages, manga images, PDFs, and subtitles for readings, meanings, audio, kanji, and study actions.';
 const siteVerificationHead = siteVerificationMetaHead([
     { name: 'google-site-verification', value: process.env.YOMU_GOOGLE_SITE_VERIFICATION },
     { name: 'msvalidate.01', value: process.env.YOMU_BING_SITE_VERIFICATION },

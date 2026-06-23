@@ -1,6 +1,6 @@
 ---
 title: Japanese Subtitle Miner & Video Reader
-description: Turn Japanese video subtitles into tappable words. よむ adds an overlay and transcript to YouTube and your own video files so you can look up lines, show a second language track, and mine sentences to Jiten, JPDB, or Anki. Free, in your browser.
+description: Turn Japanese video subtitles into lookup-ready text. よむ adds an overlay and transcript to YouTube and your own video files so you can look up lines, show a second language track, and mine sentences to Jiten, JPDB, or Anki. Free, in your browser.
 head:
   - - meta
     - name: keywords
@@ -8,22 +8,22 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up words in Japanese video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ parses Japanese subtitles into tappable words. Tap a word in the overlay or transcript to open the dictionary, and mine the sentence to Jiten, JPDB, or Anki."}},{"@type":"Question","name":"Does it work on YouTube and my own video files?","acceptedAnswer":{"@type":"Answer","text":"Yes. The subtitle overlay works on video pages like YouTube, and the free Yomu video player opens local browser-supported video and subtitle files so the same tools work without a desktop app."}},{"@type":"Question","name":"Can I mine sentences to Anki?","acceptedAnswer":{"@type":"Answer","text":"Yes. With AnkiConnect reachable, よむ can create a card from a subtitle line with the word, reading, meaning, the source sentence, audio, and an optional screenshot."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I look up words in Japanese video subtitles?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ parses Japanese subtitles into lookup-ready words. Choose a word in the overlay or transcript to open the dictionary, and mine the sentence to Jiten, JPDB, or Anki."}},{"@type":"Question","name":"Does it work on YouTube and my own video files?","acceptedAnswer":{"@type":"Answer","text":"Yes. The subtitle overlay works on video pages like YouTube, and the free Yomu video player opens local browser-supported video and subtitle files so the same tools work without a desktop app."}},{"@type":"Question","name":"Can I mine sentences to Anki?","acceptedAnswer":{"@type":"Answer","text":"Yes. With AnkiConnect reachable, よむ can create a card from a subtitle line with the word, reading, meaning, the source sentence, audio, and an optional screenshot."}}]}
 ---
 
 # Japanese Subtitle Miner & Video Reader
 
-Video is some of the best Japanese input you can get — if you can actually read the subtitles. よむ turns Japanese subtitle lines into the same tappable text as a normal page: look up a word, read the whole line, and save the sentence, with no separate app. Free, no account.
+Video is some of the best Japanese input you can get — if you can actually read the subtitles. After installing よむ, Japanese subtitle lines become the same lookup surface as a normal page: check a word, read the whole line, and save the sentence, with no separate desktop helper and no account.
 
 <div class="yomu-callout">
-  <strong>In one line:</strong> Japanese subtitles become tappable words, with a transcript panel and one-tap sentence mining — on YouTube and on your own video files.
+  <strong>In one line:</strong> よむ adds lookup-ready subtitle overlays, a transcript panel, and sentence mining for YouTube and local video files.
 </div>
 
 ## A subtitle overlay built for reading
 
 よむ adds an ASB-style subtitle overlay to video pages:
 
-- **Tappable Japanese lines** — every subtitle word opens the popup dictionary.
+- **Lookup-ready Japanese lines** — every subtitle word can open the popup dictionary.
 - **A second language track** — show a native-language subtitle line underneath for support.
 - **A transcript panel** — dock it left, right, or below the video. The active line highlights as it plays, and visible lines are hydrated into the same lookup words, so you can skim, jump to a line, and open a popup without leaving the video.
 - **Shortcuts** — previous subtitle, next subtitle, copy subtitle, and mine. The panel can be set to open only while the video is paused, and becomes a bottom sheet on phones so the video stays usable.
@@ -33,9 +33,9 @@ Video is some of the best Japanese input you can get — if you can actually rea
   <figcaption>Subtitle overlay and transcript on a live Comprehensible Japanese video.</figcaption>
 </figure>
 
-## Your own video files, no desktop app
+## Your own video files, no desktop bridge
 
-For local files, open the free [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the **Subtitles** button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work **without a desktop bridge**.
+For local files, open the free [よむ video player](/video-player/index.html), choose a browser-supported video, and use the **Subtitles** button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work **without a desktop bridge**.
 
 ## Sentence mining to Jiten, JPDB, or Anki
 
@@ -50,11 +50,11 @@ It gives you the sentence-mining flow people like in asbplayer, but in the same 
 
 1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
 2. Open a Japanese video, or open the [Yomu video player](/video-player/index.html) and load a file.
-3. Open the subtitle controls, turn on the transcript panel, and tap a word.
+3. Open the subtitle controls, turn on the transcript panel, and choose a word.
 
 ## Questions
 
-**Does it need a desktop app like asbplayer?** No — the overlay runs on YouTube, and the in-browser [video player](/video-player/index.html) handles your own files without a desktop bridge.
+**Does it need a desktop helper like asbplayer?** No — after よむ is installed, the overlay runs on YouTube, and the in-browser [video player](/video-player/index.html) handles your own files without a desktop bridge.
 
 **Can I mine sentences to Anki?** Yes — with AnkiConnect reachable, a subtitle line becomes a card with sentence, audio, and image.
 

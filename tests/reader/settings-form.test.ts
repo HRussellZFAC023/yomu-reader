@@ -974,7 +974,7 @@ describe('settings form localization', () => {
 
         expect(normalizedTheme).toContain('function warmHostedSettingsRuntime(): HTMLScriptElement[] { const forceLocalRuntime = isLocalHostedRuntime(); const settings = appendHostedSettingsCompanionScript(forceLocalRuntime); const core = loadHostedYomuRuntime(); return [settings, core].filter(isHostedRuntimeScriptElement); }');
         expect(normalizedTheme).toContain('function prepareHostedYomuRuntime(): void { const forceLocalRuntime = isLocalHostedRuntime(); if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime); if (isHostedYomuRuntimeLoadingOrReady()) return;');
-        expect(normalizedTheme).toContain('function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean { return location.pathname.includes(\'/video-player/\'); }');
+        expect(normalizedTheme).toContain('function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean { return location.pathname.includes(\'/video-player/\') || Boolean(document.querySelector(\'[data-yomu-video-frame]\')); }');
         expect(normalizedTheme).toContain('if (!companionFirst) appendHostedSettingsCompanionAfterCoreLoad(script, forceLocalRuntime);');
     });
 

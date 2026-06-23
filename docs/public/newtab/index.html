@@ -21,7 +21,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="../favicon-16x16.png">
     <link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
-    <link rel="stylesheet" href="./styles.css?v=d909aeb93271">
+    <link rel="stylesheet" href="./styles.css?v=d75029c46789">
     <meta name="apple-mobile-web-app-title" content="よむ">
     <meta name="color-scheme" content="light dark">
     <meta http-equiv="Cache-Control" content="no-cache">
@@ -325,6 +325,21 @@
         transform: translateY(4px);
       }
 
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition: none !important;
+          animation: none !important;
+          scroll-behavior: auto !important;
+        }
+
+        .jpdb-reader-newtab:not(.jpdb-reader-newtab-revealed) .jpdb-reader-newtab-answer {
+          filter: none;
+          transform: none;
+        }
+      }
+
       .jpdb-reader-newtab-reading {
         font-size: clamp(1.2rem, 3.2vw, 2.05rem);
         font-weight: 780;
@@ -444,7 +459,8 @@
 
         .jpdb-reader-newtab-mode button {
           min-width: 0;
-          white-space: nowrap;
+          overflow-wrap: anywhere;
+          white-space: normal;
         }
 
         .jpdb-reader-newtab-status {
@@ -460,8 +476,8 @@
     <main class="jpdb-reader-newtab" data-jpdb-reader-root="true"></main>
     <script>
       (() => {
-        const appHash = '2bafc20e28e1';
-        const buildId = '1.4.78-2bafc20e28e1';
+        const appHash = '060009fce541';
+        const buildId = '1.4.79-060009fce541';
         window.yomuNewTabAppHash = appHash;
         window.yomuNewTabBuildId = buildId;
         if (appHash.startsWith('__') || buildId.startsWith('__')) return;
@@ -486,7 +502,7 @@
           .catch(() => undefined);
       })();
     </script>
-    <script src="./app.js?v=2bafc20e28e1"></script>
+    <script src="./app.js?v=060009fce541"></script>
   </body>
 
 </html>

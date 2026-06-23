@@ -8,7 +8,7 @@ head:
   - - script
     - type: application/ld+json
     - |-
-      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I see kanji stroke order?","acceptedAnswer":{"@type":"Answer","text":"Yes. Click a kanji inside any よむ popup and a focused kanji panel opens with stroke order, readings, level data, and a drawing pad."}},{"@type":"Question","name":"What information does the kanji drilldown show?","acceptedAnswer":{"@type":"Answer","text":"Yes, when those sources are enabled — along with readings, components, and related words."}},{"@type":"Question","name":"Is the kanji tool free?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ is a free userscript, and the kanji data comes from open sources such as KanjiVG."}}]}
+      {"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Can I see kanji stroke order?","acceptedAnswer":{"@type":"Answer","text":"Yes. Click a kanji inside any よむ popup and a focused kanji panel opens with stroke order, readings, level data, and a drawing pad."}},{"@type":"Question","name":"What information does the kanji drilldown show?","acceptedAnswer":{"@type":"Answer","text":"It can show animated stroke order, stroke count, JLPT and grade data, readings, RTK keywords, component hints, related words, and a drawing pad when those sources are enabled."}},{"@type":"Question","name":"Is the kanji tool free?","acceptedAnswer":{"@type":"Answer","text":"Yes. よむ is a free userscript, and the kanji data comes from open sources such as KanjiVG."}}]}
 ---
 
 # Kanji Stroke Order & Drilldown
@@ -44,7 +44,7 @@ A standalone kanji dictionary makes you stop reading, switch apps, and search. �
 ## Set it up
 
 1. Install the free [よむ userscript](https://yomureader.com/yomu.user.js) (see the [setup guide](/getting-started)).
-2. Open a Japanese page and tap a word that contains kanji.
+2. Open a Japanese page and look up a word that contains kanji.
 3. Click the kanji in the popup headword to open the drilldown.
 
 ## Questions

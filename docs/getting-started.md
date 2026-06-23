@@ -1,16 +1,16 @@
 ---
 title: Getting Started
-description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and tap a word. No account needed. Optional Jiten, JPDB, Anki, OCR, and audio setup included.
+description: Install よむ in three steps — add a free userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad), install よむ, then open a Japanese page and look up a word. No account needed. Optional Jiten, JPDB, Anki, OCR, and audio setup included.
 ---
 
 # Getting Started
 
-A **userscript** is a small add-on that runs inside your browser. Install a free manager once, add よむ to it, and よむ appears on Japanese pages: tap a word for a popup dictionary, save words for review, read manga with OCR, and look up subtitles on video. It's free and needs no account to start.
+A **userscript** is a small add-on that runs inside your browser. Install a free manager once, add よむ to it, and よむ appears on Japanese pages: look up a word in the popup dictionary, save words for review, read manga with OCR, and check subtitles on video. It's free and needs no account to start.
 
 ## Three words to know
 
 - **Userscript manager** — the browser add-on that runs よむ: Tampermonkey (computer) or Userscripts (iPhone/iPad).
-- **Lookup** — tapping or hovering a word to open よむ's popup.
+- **Lookup** — opening よむ's popup on a word.
 - **Mining** — saving a word, with its sentence, for later review.
 
 Jiten, JPDB, Anki, OCR, and audio are optional. Turn them on when you want them; [Turn on more tools](#turn-on-more-tools) covers that.
@@ -49,21 +49,21 @@ To update later, open the same link again and let Tampermonkey replace the old v
 
 ### On iPhone or iPad
 
-1. Tap the install link. **Safari shows a page full of code** — lines like the ones below. **This is normal. Don't close it.** Userscripts reads this page to install よむ.
+1. Open the install link in Safari. You will see the よむ userscript source code — lines like the ones below. Leave that tab open; Userscripts reads it to install よむ.
 
    ```text
    // ==UserScript==
    // @name         よむ
-   // @version      1.4.78
+   // @version      1.4.79
    // @match        *://*/*
    // ==/UserScript==
    (function () { "use strict"; ...
    ```
 
-2. Open the Userscripts menu from the address bar:
-   - **iPhone:** tap **AA** on the left of the address bar, then tap **Userscripts**.
-   - **iPad:** tap the **extensions icon** (a puzzle piece) in the address bar, then tap **Userscripts**.
-3. Userscripts shows **"Userscript Detected — Tap to install."** Tap it, review the script, and tap **Install**.
+2. Open Safari's page menu from the address bar:
+   - **iPhone:** choose **AA** on the left of the address bar, then choose **Userscripts**.
+   - **iPad:** choose the **extensions icon** (a puzzle piece) in the address bar, then choose **Userscripts**.
+3. Userscripts shows **"Userscript Detected."** Choose it, review the script, and choose **Install**.
 4. Open a Japanese page and try [your first lookup](#step-3-your-first-lookup).
 
 <div class="yomu-callout">
@@ -82,11 +82,11 @@ The first time よむ runs, it shows a short **welcome screen** with two buttons
 Choose **Use without API key**, then try a lookup:
 
 1. Open a Japanese page. [NHK News Web Easy](https://www3.nhk.or.jp/news/easy/) is a gentle first stop — or use the sample line below, right here on this page.
-2. **Tap** a word (phone or tablet) or **hover** it (computer).
-3. The popup opens with the reading, meaning, and a speaker button. Tap a kanji to see stroke order; tap a mining button to save the word.
+2. **Select or click** a word. On phones and tablets, touch the word; on desktop, hover also works.
+3. The popup opens with the reading, meaning, and a speaker button. Choose a kanji to see stroke order; use a mining button to save the word.
 
 <div class="yomu-try-me">
-  <strong>Try me — tap a word</strong>
+  <strong>Try me — look up a word</strong>
   <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
     <p>青空の下で、静かに本を読む。</p>
   </div>
@@ -99,7 +99,7 @@ That's the whole loop. Everything below is optional.
 [Jiten](https://jiten.moe/) and [JPDB](https://jpdb.io/) can give よむ word status and mining actions. Local dictionary lookup works fine without them, but connecting one makes progress tracking easier.
 
 1. Open your Jiten or JPDB settings and copy your API key.
-2. In よむ, open settings: tap the floating よむ button, or press `Alt+Shift+J` on a computer.
+2. In よむ, open settings: use the floating よむ button, or press `Alt+Shift+J` on a computer.
 3. Paste the key into the matching **API key** field and save.
 
 You can also study from imported dictionaries instead — see Settings → Dictionaries. Source-specific mining actions still need that source's key.
@@ -109,8 +109,8 @@ You can also study from imported dictionaries instead — see Settings → Dicti
 Open よむ settings (floating button or `Alt+Shift+J`) to switch these on when you want them. Each is covered in [Features](/features).
 
 - **Dictionaries** — import any Yomitan ZIP dictionary, or download JMdict for offline definitions. Settings → Dictionaries.
-- **Images (OCR)** — tap Japanese text inside manga panels and screenshots. Settings → Images.
-- **Video subtitles** — make Japanese subtitle lines tappable, with a transcript panel. For local files, use the [video player](/video-player/index.html).
+- **Images (OCR)** — look up Japanese text inside manga panels and screenshots. Settings → Images.
+- **Video subtitles** — parse Japanese subtitle lines for lookup, with a transcript panel. For local files, use the [video player](/video-player/index.html).
 - **PDFs** — open the [PDF reader](/pdf-reader/) when the Japanese is in a textbook, scan, or article file.
 - **Anki** — turn lookups into flashcards. Desktop [AnkiConnect](https://ankiweb.net/shared/info/2055492159) is the full setup; phones and tablets can reach a desktop Anki over Wi-Fi or Tailscale, or hand off new notes to AnkiMobile/AnkiDroid.
 - **Audio** — the easiest option is [Ultimate Yomitan Audio](https://animecards.site/yomitan_audio/). To self-host instead, see [Local Audio](/local-audio).
@@ -165,9 +165,9 @@ For more, use [Learn Natively](https://learnnatively.com/) to find books near yo
 
 ## Using よむ on a phone or tablet
 
-Most of よむ works the same on mobile: lookup, local dictionaries, Jiten/JPDB, OCR, subtitle taps, the [video player](/video-player/index.html), and the [study page](/newtab/index.html). Tapping is the main gesture, since touch screens have no hover. The floating よむ button stays reachable so you can always open settings.
+On mobile, よむ can still do lookup, local dictionaries, Jiten/JPDB, OCR, subtitles, the [video player](/video-player/index.html), and the [study page](/newtab/index.html). The floating よむ button stays reachable so you can always open settings.
 
-The difference is **desktop helpers**. Anything that runs on your computer — AnkiConnect, a self-hosted audio server, a local OCR app — has to be reachable over the network. On a phone, `localhost` means *the phone*, not your computer, so you point よむ at your computer's LAN or Tailscale address instead. The easy mobile paths (public lookup, imported dictionaries, hosted audio, the study page) don't need any of that.
+The only tricky part is any helper app running on your computer: AnkiConnect, a self-hosted audio server, or a local OCR app. A phone cannot reach your computer through `localhost`; use the computer's LAN or Tailscale address in よむ settings instead. The easy mobile paths — public lookup, imported dictionaries, hosted audio, the study page — don't need any of that.
 
 ### Use desktop Anki from a phone, iPad, or Android
 

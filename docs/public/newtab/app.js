@@ -40375,6 +40375,7 @@ ${spelling}`);
     }
     isSubtitleVideoCandidate(video) {
       if (isYouTubePage() && !isYouTubeOwnedVideoElement(video)) return false;
+      if (video.closest("[data-jpdb-reader-surface-ignore]")) return false;
       return video.readyState >= 1 || video.clientWidth > 120 || video.getBoundingClientRect().width > 120;
     }
     // Our rail belongs next to a real player: if the video offers playback
@@ -62868,8 +62869,8 @@ ${entry.url}`),
                 }, "..."),
                 el(
                   "div",
-                  { class: "jpdb-reader-newtab-more-menu", role: "menu" },
-                  el("button", { class: "jpdb-reader-parseable", type: "button", role: "menuitem", dataset: { newtabAction: "settings" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "settings"))
+                  { class: "jpdb-reader-newtab-more-menu" },
+                  el("button", { class: "jpdb-reader-parseable", type: "button", dataset: { newtabAction: "settings" }, lang: resolveUiLanguage(language) === "ja" ? "ja" : "en" }, uiText(language, "settings"))
                 )
               )
             )

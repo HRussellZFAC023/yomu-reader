@@ -28,13 +28,13 @@ Most immersion tools revolve around the same cycle: encounter Japanese, look a w
 understand it in context, and save the ones worth remembering into a spaced repetition system. よむ
 covers each step in the browser:
 
-- **Popup lookup** — tap, select or hover Japanese text to see reading, meaning, pitch accent,
+- **Popup lookup** — choose Japanese text to see reading, meaning, pitch accent,
   frequency, Jiten definitions, optional JPDB data, your imported Yomitan entries, audio and example sentences.
 - **Furigana and word colouring** — show furigana for all words, hard kanji only, or hide it for
   words you already know; colour words by Jiten/JPDB/Anki state or by pitch accent.
-- **Subtitle mining on video** — an ASB-style overlay turns Japanese subtitle lines into tappable
+- **Subtitle mining on video** — an ASB-style overlay turns Japanese subtitle lines into lookup-ready
   words, with a second native-language line and a transcript panel. Works on pages like YouTube.
-- **Manga and image OCR** — tap Japanese inside images using embedded OCR metadata (e.g. Mokuro)
+- **Manga and image OCR** — look up Japanese inside images using embedded OCR metadata (e.g. Mokuro)
   or a local OCR engine you run. The image is not uploaded anywhere unless you enable a local OCR
   endpoint you control.
 - **Mining** — create Anki cards via AnkiConnect, or send Jiten/JPDB actions and review grades.
@@ -55,7 +55,7 @@ features and pricing rather than trusting a third-party summary.
 | Mining | Anki via AnkiConnect + Jiten/JPDB actions | See migaku.com |
 | Dictionaries | Import Yomitan ZIPs / JMdict locally | See migaku.com |
 | Manga / image OCR | Yes — embedded metadata or local engine | See migaku.com |
-| Video subtitle overlay | Yes — tappable lines + transcript panel | See migaku.com |
+| Video subtitle overlay | Yes — lookup-ready lines + transcript panel | See migaku.com |
 | Account to start | None required | See migaku.com |
 
 <div class="yomu-callout"><strong>The short version.</strong> Migaku is an integrated, paid product. よむ is a free, browser-based reader that covers the same core loop and leans on tools you may already use (Jiten, JPDB, Anki, Yomitan). Neither is "better" in the abstract — it depends on whether you want all-in-one convenience or a free, bring-your-own setup.</div>
@@ -84,7 +84,7 @@ to be the free, capable reader at the centre of the loop.
 
 1. Install a userscript manager (Tampermonkey on desktop, Userscripts on iPhone/iPad).
 2. Install よむ from the link below.
-3. Open a Japanese page and tap a word to see the popup.
+3. Open a Japanese page and choose a word to see the popup.
 
 From there, explore [subtitle mining on video](/tools/japanese-subtitle-reader),
 [manga and image OCR](/tools/japanese-ocr), or jump into a guide to set up mining.

@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Yomu Video Player — read Japanese subtitles in your own videos</title>
-  <meta name="description" content="A free in-browser Japanese video player. Open a local video and subtitle file, then tap Japanese subtitle words for dictionary lookups and mine sentences to Anki or JPDB. No upload, no desktop app.">
+  <meta name="description" content="A free in-browser Japanese video player. Open a local video and subtitle file, choose Japanese subtitle words for dictionary lookups, and mine sentences to Anki or JPDB. No upload, no desktop app.">
   <link rel="canonical" href="https://yomureader.com/video-player/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="よむ">
   <meta property="og:title" content="Yomu Video Player — read Japanese subtitles in your own videos">
-  <meta property="og:description" content="Open a local video and subtitle file, tap Japanese subtitle words for lookups, and mine sentences to Anki or JPDB. Free, in your browser.">
+  <meta property="og:description" content="Open a local video and subtitle file, choose Japanese subtitle words for lookups, and mine sentences to Anki or JPDB. Free, in your browser.">
   <meta property="og:url" content="https://yomureader.com/video-player/">
   <meta property="og:image" content="https://yomureader.com/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Yomu Video Player — read Japanese subtitles in your own videos">
-  <meta name="twitter:description" content="Open a local video and subtitle file, tap Japanese subtitle words for lookups, and mine sentences to Anki or JPDB. Free, in your browser.">
+  <meta name="twitter:description" content="Open a local video and subtitle file, choose Japanese subtitle words for lookups, and mine sentences to Anki or JPDB. Free, in your browser.">
   <meta name="twitter:image" content="https://yomureader.com/og-image.png">
   <link rel="icon" type="image/svg+xml" href="../yomu-icon.svg">
   <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32x32.png">
@@ -53,7 +53,7 @@
       --panel: #f7f8fa;
       --line: rgba(20,30,45,.16);
       --soft-line: rgba(20,30,45,.08);
-      --accent: #5ea780;
+      --accent: #3f805e;
       --accent-ink: #ffffff;
       --accent-soft: rgba(94,167,128,.16);
       --shadow: rgba(20,30,45,.12);
@@ -104,8 +104,9 @@
     button:hover,
     button:focus-visible,
     .file-button:hover,
-    .file-button:focus-visible {
-      outline: 2px solid color-mix(in srgb, var(--accent) 62%, transparent);
+    .file-button:focus-visible,
+    .file-button:has(input[type="file"]:focus-visible) {
+      outline: 3px solid var(--accent);
       outline-offset: 2px;
     }
 
@@ -132,7 +133,9 @@
       display: inline-grid;
       place-items: center;
       padding: 0 12px;
-      white-space: nowrap;
+      min-width: 0;
+      overflow-wrap: anywhere;
+      text-align: center;
     }
 
     a.toolbar-button {
@@ -226,7 +229,7 @@
     .overflow-summary:focus-visible {
       background: var(--accent-soft);
       color: var(--ink);
-      outline: 2px solid color-mix(in srgb, var(--accent) 46%, transparent);
+      outline: 3px solid var(--accent);
       outline-offset: 2px;
     }
 
@@ -268,8 +271,8 @@
       display: block;
       width: 40px;
       min-width: 40px;
-      height: 22px;
-      min-height: 22px;
+      height: 24px;
+      min-height: 24px;
       padding: 0;
       border: 1px solid var(--line);
       border-radius: 999px;
@@ -284,8 +287,8 @@
       left: 1px;
       display: grid;
       place-items: center;
-      width: 18px;
-      height: 18px;
+      width: 20px;
+      height: 20px;
       border-radius: 999px;
       background: var(--bg);
       box-shadow: 0 1px 3px var(--switch-shadow);
@@ -322,6 +325,44 @@
     .VPSwitch[aria-checked="true"] .sun,
     .VPSwitch[aria-checked="false"] .moon { opacity: 1; }
 
+    @media (pointer: coarse) {
+      .brand,
+      button,
+      .file-button,
+      .toolbar-button,
+      .overflow-summary,
+      .overflow-panel a,
+      .overflow-panel button,
+      .language-button,
+      .VPNavBarAppearance.appearance {
+        min-height: 44px;
+      }
+
+      .overflow-summary,
+      .language-button {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+      }
+
+      .VPSwitch.VPSwitchAppearance {
+        width: 44px;
+        min-width: 44px;
+        height: 44px;
+        min-height: 44px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        transition: none !important;
+        animation: none !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
     input[type="file"] {
       position: absolute;
       width: 1px;
@@ -339,6 +380,18 @@
       grid-template-rows: auto 1fr;
       align-content: stretch;
       gap: 0;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .topbar {
@@ -480,7 +533,7 @@
     .status {
       display: block;
       min-width: 0;
-      color: var(--muted);
+      color: var(--stage-empty-strong);
       font-size: 13px;
       line-height: 1.45;
       overflow: hidden;
@@ -526,9 +579,16 @@
         justify-self: end;
       }
 
-      .toolbar-button {
+      .toolbar-button[data-subtitle-open] {
         grid-column: 1 / 3;
         grid-row: 2;
+        width: 100%;
+        min-height: 48px;
+      }
+
+      .toolbar-button[data-jimaku-link] {
+        grid-column: 1 / -1;
+        grid-row: 3;
         width: 100%;
         min-height: 48px;
       }
@@ -553,6 +613,7 @@
 </head>
 <body>
   <main class="app" data-app>
+    <h1 class="sr-only" data-page-title>Yomu Video</h1>
     <header class="topbar">
       <a class="brand" href="../" aria-label="Open Yomu home">
         <img src="../yomu-icon.svg" alt="" width="36" height="36" data-yomu-brand-icon>
@@ -574,12 +635,12 @@
           <summary class="overflow-summary" aria-label="Menu" data-overflow-summary>
             <span class="hamburger-icon" aria-hidden="true"></span>
           </summary>
-          <div class="overflow-panel" role="menu">
-            <button type="button" role="menuitem" data-settings-trigger>Settings</button>
-            <a href="../newtab/index.html" role="menuitem" data-menu-study>Study</a>
-            <a href="../pdf-reader/" role="menuitem" data-menu-pdf-reader>PDF Reader</a>
-            <a href="../local-audio" role="menuitem" data-menu-local-audio>Local Audio</a>
-            <a href="../support" role="menuitem" data-menu-support>Support</a>
+          <div class="overflow-panel">
+            <button type="button" data-settings-trigger>Settings</button>
+            <a href="../newtab/index.html" data-menu-study>Study</a>
+            <a href="../pdf-reader/" data-menu-pdf-reader>PDF Reader</a>
+            <a href="../local-audio" data-menu-local-audio>Local Audio</a>
+            <a href="../support" data-menu-support>Support</a>
           </div>
         </details>
         <button class="toolbar-button" type="button" data-subtitle-open>Subtitles</button>
@@ -593,7 +654,7 @@
 
     <div class="stage-area">
       <section class="stage" data-stage data-yomu-video-frame aria-label="Video">
-        <video controls playsinline preload="metadata" data-video></video>
+        <video controls playsinline preload="metadata" data-video aria-label="Selected video"></video>
         <button class="empty" type="button" data-empty-open>
           <div>
             <strong>Open or drop a video</strong>

@@ -23,13 +23,13 @@ The practical takeaway: pick videos where you understand most of what is happeni
 
 ## Turn YouTube into a Japanese feed
 
-YouTube's homepage keeps serving whatever you usually watch. よむ's **YouTube immersion filter** reshapes the feed: it's on by default, checks each video's original Japanese title via oEmbed (keeping Japanese-learning videos even with English titles), hides non-Japanese cards across the homepage, search and sidebar, and toggles with **Alt+Y** — all without touching playback. Full details on the [features](/features) page.
+YouTube's homepage keeps serving whatever you usually watch. よむ's **YouTube immersion filter** reshapes the feed: it's on by default, uses available title metadata, keeps likely Japanese-learning videos even with English titles, hides likely non-Japanese cards across the homepage, search and sidebar, and toggles with **Alt+Y** — all without touching playback. Full details on the [features](/features) page.
 
 <figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-filter.png'" alt="YouTube homepage with non-Japanese video cards filtered out by よむ"><figcaption>The immersion filter keeps Japanese and comprehensible-input videos and hides the rest.</figcaption></figure>
 
-<figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-cij.png'" alt="A Comprehensible Japanese video playing with the よむ subtitle overlay"><figcaption>A beginner CI video with the tappable subtitle overlay running.</figcaption></figure>
+<figure class="yomu-feature-shot"><img :src="'/screenshots/real-youtube-cij.png'" alt="A Comprehensible Japanese video playing with the よむ subtitle overlay"><figcaption>A beginner CI video with the lookup-ready subtitle overlay running.</figcaption></figure>
 
-It also ships a dismissible **starter guide of about 100 curated Japanese channels** with one-tap subscribe links and a **JLPT-level filter**. The list below is a representative subset.
+It also ships a dismissible **starter guide of about 100 curated Japanese channels** with quick subscribe links and a **JLPT-level filter**. The list below is a representative subset.
 
 ## A levelled channel list (N5 → N1)
 
@@ -80,8 +80,8 @@ Subscribe to a handful at your level, then let the filter and recommendations do
 Watching is the foundation, and looking words up in place makes it stick faster.
 
 1. **Watch for the gist first.** Pick a video you follow most of, and don't pause on every word the first time through.
-2. **Turn on the subtitle overlay.** よむ turns each Japanese subtitle line into tappable words, shows a second native-language line, and gives a transcript panel with the active line highlighted.
-3. **Tap to look up.** Reading, meaning, pitch accent, frequency and example sentences appear in the popup.
+2. **Turn on the subtitle overlay.** よむ turns each Japanese subtitle line into lookup-ready words, shows a second native-language line, and gives a transcript panel with the active line highlighted.
+3. **Look up one word at a time.** Reading, meaning, pitch accent, frequency and example sentences appear in the popup.
 4. **Mine the keepers.** When a sentence is *almost* fully known except one new word, send it to Jiten, JPDB, or Anki from the popup — i+1 turned into a flashcard.
 
 <div class="yomu-callout"><strong>Tip:</strong> Re-watch favourites. The second pass of a slightly-hard video is often where it tips from "mostly understood" into "comfortable" — and that is exactly where comprehensible input does its work.</div>

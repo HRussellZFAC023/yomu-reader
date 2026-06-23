@@ -17,7 +17,7 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
 <div class="yomu-link-grid">
   <a class="yomu-link-card" href="/guides/read-manga-in-japanese">
     <strong>How to read manga in Japanese</strong>
-    <span>The free OCR setup for raw, image-only manga — tap words inside panels and get furigana.</span>
+    <span>The free OCR setup for raw, image-only manga — look up words inside panels and get furigana.</span>
   </a>
   <a class="yomu-link-card" href="/guides/mine-sentences-to-anki">
     <strong>Mine sentences to Anki</strong>
@@ -29,7 +29,7 @@ New here? Start with the [setup guide](/getting-started), then pick a workflow:
   </a>
   <a class="yomu-link-card" href="/guides/read-games-with-yomininja">
     <strong>Read games with YomiNinja</strong>
-    <span>OCR Japanese game dialogue, then bring useful lines into your browser study flow.</span>
+    <span>Use YomiNinja to OCR Japanese game dialogue, then bring useful lines into your browser study flow.</span>
   </a>
   <a class="yomu-link-card" href="/guides/study-setup">
     <strong>Yomitan vs Jiten vs JPDB vs Anki</strong>

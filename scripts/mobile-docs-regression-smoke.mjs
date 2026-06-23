@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { chromium, devices } from 'playwright';
 import {
     addGmStorageBridgeInitScript,
     assert,
@@ -29,7 +29,11 @@ const SETTINGS_KEY = YOMU_SETTINGS_KEY;
 const JPDB_API_ORIGIN = 'https://jpdb.io';
 const JPDB_API_PREFIX = '/api/v1/';
 const DOCS_PATH = '/docs-try-me.html';
-const MOBILE_VIEWPORT = { width: 390, height: 844 };
+const MOBILE_CONTEXT_OPTIONS = { ...devices['iPhone 13'] };
+const MOBILE_VIEWPORT = MOBILE_CONTEXT_OPTIONS.viewport;
+const TRY_ME_LABEL = 'Try me';
+const TRY_ME_SENTENCE = '今日は静かな喫茶店で新しい本を読みました。音声や色も見えます。';
+const TRY_ME_TARGET_EXPRESSION = '喫茶店';
 const SETTINGS_COMPANION_PATH = path.join(ROOT, 'dist', 'greasyfork', 'yomu-settings-surface.user.js');
 const BUILT_ARTIFACTS = [
     SCRIPT_PATH,
@@ -99,7 +103,6 @@ const noApiNewTabSettings = {
 
 const docsVocabulary = [
     ['青空', '青空', 'あおぞら', 'blue sky', ['n'], 4500, ['known'], ['LHHH']],
-    ['下', '下', 'した', 'below', ['n'], 400, ['due'], ['LH']],
     ['日本語', '日本語', 'にほんご', 'Japanese language', ['n'], 250, ['learning'], ['LHHH']],
     ['読む', '読む', 'よむ', 'read', ['v5m'], 500, ['known'], ['LH']],
     ['今日は', '今日', 'きょう', 'today', ['n'], 100, ['known'], ['LH']],
@@ -188,8 +191,8 @@ function serveDocsFixture(response) {
         <div class="yomu-demo-copy">
           <h2 id="yomu-demo-title">Look up words without leaving the sentence</h2>
           <div class="yomu-try-me-text" data-yomu-furigana-mode="all">
-            <p class="yomu-try-me-label">Example highlights</p>
-            <p>青空の下で日本語を読む。</p>
+            <p class="yomu-try-me-label">${TRY_ME_LABEL}</p>
+            <p data-smoke-try-me-sentence>${TRY_ME_SENTENCE}</p>
           </div>
           <p>今日は静かな喫茶店で新しい本を読みました。</p>
         </div>
@@ -228,16 +231,20 @@ function contentTypeForFile(filePath) {
 
 async function runDocsTryMeSmoke(browser, fixtureServer) {
     const requests = [];
-    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests);
+    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests, MOBILE_CONTEXT_OPTIONS);
     try {
         await loadDocsPageWithYomu(page, fixtureServer);
         await page.waitForFunction(() => document.querySelectorAll('[data-smoke-docs-text] .jpdb-reader-word').length >= 3, null, { timeout: 12_000 });
-        await page.waitForFunction(() => document.querySelectorAll('.yomu-demo .yomu-try-me-text .jpdb-reader-word').length >= 5, null, { timeout: 12_000 });
+        await page.waitForFunction(targetExpression => {
+            const words = [...document.querySelectorAll('.yomu-demo .yomu-try-me-text [data-smoke-try-me-sentence] .jpdb-reader-word')];
+            return words.length >= 5 && words.some(word => word.getAttribute('data-expression') === targetExpression);
+        }, TRY_ME_TARGET_EXPRESSION, { timeout: 12_000 });
 
-        const snapshot = await page.evaluate(docsTryMeSnapshotFromDom);
+        const snapshot = await page.evaluate(docsTryMeSnapshotFromDom, TRY_ME_TARGET_EXPRESSION);
+        assertMobileTouchEnvironment(snapshot.environment);
         assertParsedSurface(snapshot.docs, 'docs Japanese text');
-        assertParsedSurface(snapshot.tryMe, 'Try Me text');
-        assertTryMeDownSnapshot(snapshot);
+        assertParsedSurface(snapshot.tryMe, 'Try me text');
+        assertTryMeFixtureSnapshot(snapshot);
 
         await page.screenshot({ path: path.join(ARTIFACTS, 'mobile-docs-try-me-smoke.png'), fullPage: false });
         return {
@@ -252,11 +259,7 @@ async function runDocsTryMeSmoke(browser, fixtureServer) {
 
 async function runMobileSettingsSmoke(browser, fixtureServer) {
     const requests = [];
-    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests, {
-        isMobile: true,
-        hasTouch: true,
-        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1',
-    });
+    const { context, page } = await newSmokeContextPage(browser, docsSettings, MOBILE_VIEWPORT, requests, MOBILE_CONTEXT_OPTIONS);
     try {
         await loadDocsPageWithYomu(page, fixtureServer, '?mobile-settings=1');
         await page.waitForSelector('.jpdb-reader-fab', { timeout: 8_000 });
@@ -291,10 +294,7 @@ async function loadDocsPageWithYomu(page, fixtureServer, search = '') {
 async function runMobileNewTabFallbackSmoke(browser, fixtureServer) {
     const context = await browser.newContext({
         bypassCSP: true,
-        viewport: MOBILE_VIEWPORT,
-        deviceScaleFactor: 2,
-        isMobile: true,
-        hasTouch: true,
+        ...MOBILE_CONTEXT_OPTIONS,
     });
     const page = await context.newPage();
     const requests = [];
@@ -402,13 +402,18 @@ function readArrayBufferRequestJson(data) {
     return JSON.parse(Buffer.from(data.bytes ?? []).toString('utf8'));
 }
 
-function docsTryMeSnapshotFromDom() {
+function docsTryMeSnapshotFromDom(targetExpression) {
+    const tryMeRoot = document.querySelector('.yomu-demo .yomu-try-me-text');
+    const tryMeSentence = tryMeRoot?.querySelector('[data-smoke-try-me-sentence]');
     return {
         rootClasses: document.documentElement.className,
+        environment: mobileEnvironmentSnapshot(),
         docs: surfaceSnapshot(document.querySelector('[data-smoke-docs-text]')),
         tryMe: {
-            ...surfaceSnapshot(document.querySelector('.yomu-demo .yomu-try-me-text')),
-            down: downSnapshot(),
+            label: normalizedText(tryMeRoot?.querySelector('.yomu-try-me-label')),
+            sentence: textWithoutAnnotations(tryMeSentence),
+            ...surfaceSnapshot(tryMeRoot),
+            fixtureWord: fixtureWordSnapshot(targetExpression),
         },
     };
 
@@ -482,9 +487,9 @@ function docsTryMeSnapshotFromDom() {
         };
     }
 
-    function downSnapshot() {
-        const word = [...document.querySelectorAll('.yomu-demo .yomu-try-me-text .jpdb-reader-word')]
-            .find(item => compactText(item).includes('下'));
+    function fixtureWordSnapshot(expression) {
+        const word = [...document.querySelectorAll('.yomu-demo .yomu-try-me-text [data-smoke-try-me-sentence] .jpdb-reader-word')]
+            .find(item => item.getAttribute('data-expression') === expression);
         if (!word) return null;
         const rect = word.getBoundingClientRect();
         const hit = readerWordAtCenter(word);
@@ -537,6 +542,39 @@ function docsTryMeSnapshotFromDom() {
         return node.textContent?.replace(/\s+/g, '').trim() ?? '';
     }
 
+    function normalizedText(node) {
+        return node.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+    }
+
+    function textWithoutAnnotations(node) {
+        if (!node) return '';
+        const parts = [];
+        collectText(node);
+        return parts.join('').replace(/\s+/g, '').trim();
+
+        function collectText(current) {
+            if (current.nodeType === Node.TEXT_NODE) {
+                parts.push(current.textContent ?? '');
+                return;
+            }
+            if (current.nodeType !== Node.ELEMENT_NODE) return;
+            if (current.matches('rt,rp,.jpdb-reader-furi,.jpdb-ocr-furi')) return;
+            current.childNodes.forEach(collectText);
+        }
+    }
+
+    function mobileEnvironmentSnapshot() {
+        return {
+            maxTouchPoints: navigator.maxTouchPoints,
+            coarsePointer: matchMedia('(pointer: coarse)').matches,
+            viewport: {
+                width: innerWidth,
+                height: innerHeight,
+            },
+            userAgent: navigator.userAgent,
+        };
+    }
+
     function rounded(value) {
         return Math.round(value * 100) / 100;
     }
@@ -552,13 +590,29 @@ function assertParsedSurface(surface, label) {
     assert(surface.summary.highlightBlock.maxBlockToFontRatio <= 1.2, `${label} reader-word highlight block grew with ruby line-height`, surface.summary.highlightBlock);
 }
 
-function assertTryMeDownSnapshot(snapshot) {
-    const down = snapshot.tryMe.down;
-    assert(down, 'Try Me 下 was not a normal reader-word lookup target', snapshot);
-    assert(down.expression === '下', 'Try Me 下 was not a normal reader-word lookup target', snapshot);
-    assert(down.pointExpression === '下', 'Try Me hit target is missing the 下 reader word', down);
-    assert(down.display === 'inline', 'Try Me reader word did not keep inline docs layout', down);
-    assert(down.whiteSpace === 'nowrap', 'Try Me reader word inherited wrapping that can move the hitbox', down);
+function assertMobileTouchEnvironment(environment) {
+    assert(environment.maxTouchPoints >= 1, 'Docs Try me smoke did not run with touch input enabled', environment);
+    assert(environment.coarsePointer, 'Docs Try me smoke did not expose a coarse pointer', environment);
+    assert(environment.viewport.width === MOBILE_VIEWPORT.width, 'Docs Try me smoke did not use the expected mobile viewport width', environment);
+}
+
+function assertTryMeFixtureSnapshot(snapshot) {
+    const tryMe = snapshot.tryMe;
+    assert(compactLabel(tryMe.label) === compactLabel(TRY_ME_LABEL), `Try me label changed from ${JSON.stringify(TRY_ME_LABEL)}`, tryMe);
+    assert(tryMe.sentence === TRY_ME_SENTENCE, 'Try me sentence no longer matches the homepage fixture', tryMe);
+    assert(tryMe.sentence.includes(TRY_ME_TARGET_EXPRESSION), `Try me sentence is missing ${TRY_ME_TARGET_EXPRESSION}`, tryMe);
+
+    const fixtureWord = snapshot.tryMe.fixtureWord;
+    assert(fixtureWord, `Try me ${TRY_ME_TARGET_EXPRESSION} was not a normal reader-word lookup target`, snapshot);
+    assert(fixtureWord.expression === TRY_ME_TARGET_EXPRESSION, `Try me ${TRY_ME_TARGET_EXPRESSION} lost its expression metadata`, fixtureWord);
+    assert(fixtureWord.pointExpression === TRY_ME_TARGET_EXPRESSION, `Try me hit target is missing the ${TRY_ME_TARGET_EXPRESSION} reader word`, fixtureWord);
+    assert(fixtureWord.display === 'inline', 'Try me reader word did not keep inline docs layout', fixtureWord);
+    assert(fixtureWord.whiteSpace === 'nowrap', 'Try me reader word inherited wrapping that can move the hitbox', fixtureWord);
+    assert(fixtureWord.rect.width < 112, `Try me ${TRY_ME_TARGET_EXPRESSION} highlight is visually bloated`, fixtureWord);
+}
+
+function compactLabel(value) {
+    return String(value ?? '').replace(/\s+/g, '');
 }
 
 function visiblePuckSnapshotFromDom() {

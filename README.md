@@ -45,7 +45,7 @@
 
 ## Why よむ
 
-- **Lookup anywhere:** tap, select, or hover Japanese text on normal pages, OCR results, subtitles, and PDFs.
+- **Lookup anywhere:** choose Japanese text on normal pages, OCR results, subtitles, and PDFs.
 - **Mine while reading:** create Anki cards, add/review words in Jiten or JPDB, and keep the source sentence/context.
 - **Bring your dictionaries:** import Yomitan ZIPs, JMdict, kanji dictionaries, pitch dictionaries, and frequency dictionaries.
 - **Read media, not only text:** manga/image OCR, YouTube subtitle mining, a local video reader, and a PDF reader.
@@ -73,7 +73,7 @@ Browser-store packages for Chrome, Firefox, and Safari are in preparation. Until
 | Workflow | よむ helps with |
 | --- | --- |
 | Web reading | Popup dictionary lookup, furigana, pitch/accent color, audio, examples, and kanji drilldown |
-| Manga and images | OCR overlays that make recognized Japanese tappable without covering the page |
+| Manga and images | OCR overlays that make recognized Japanese lookup-ready without covering the page |
 | Video | ASB-style subtitle overlay, transcript lookup, mining, and a hosted local-file video reader |
 | PDFs | Browser PDF reader with selectable text, OCR fallback, and the same popup/mining flow |
 | Study | AnkiConnect cards, mobile Anki handoff, Jiten/JPDB actions, and the hosted study page |
@@ -133,7 +133,7 @@ https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.use
 <summary>Project notes</summary>
 
 - Imported dictionaries stay in IndexedDB and do not need to be imported again.
-- OCR reads likely images near the viewport, caches results, and makes recognized text tappable without covering the image.
+- OCR reads likely images near the viewport, caches results, and makes recognized text lookup-ready without covering the image.
 - YouTube subtitle detection uses caption metadata when available and visible DOM captions as a fallback.
 - Local `.srt`, `.vtt`, `.ass`, and `.ssa` subtitle files can be loaded manually.
 - On iPhone/iPad, desktop helpers such as AnkiConnect, self-hosted audio, and local OCR servers must be reachable over the network.
@@ -164,7 +164,7 @@ If よむ helps you read more Japanese, a star makes it easier for other learner
 - [JPDB Custom Dictionary Mod](https://gitlab.com/nakura/jpdb_cdm) for JPDB/Yomitan dictionary-on-JPDB UX reference only, with no code copied.
 - [JMdict for Yomitan](https://github.com/yomidevs/jmdict-yomitan) and EDRDG/JMdict for the recommended dictionary package.
 - [asbplayer](https://github.com/asbplayer/asbplayer) for subtitle mining concepts and video-reader interaction patterns.
-- [YomiNinja](https://github.com/matt-m-o/YomiNinja) for OCR response shapes and image text interaction references.
+- [YomiNinja](https://github.com/matt-m-o/YomiNinja) for compatible local OCR endpoint and image text references.
 - [KanjiVG](https://github.com/KanjiVG/kanjivg), [Kanji Canvas](https://github.com/asdfjkl/kanjicanvas), [Kanji Alive](https://github.com/kanjialive/kanji-data-media), [The Kanji Map](https://thekanjimap.com/), and [Uchisen](https://uchisen.com/) for kanji data, presentation, and study references.
 - [NihongoTube](https://www.nihongotube.app/) for the Japanese-only YouTube immersion idea as reference only.
 - [JPDB RTK Information Inserter](https://greasyfork.org/en/scripts/546314-jpdb-rtk-information-inserter), [JPDB Immersion Kit Examples](https://github.com/AwooDesu/JPDB-Immersion-Kit-Examples), and [JPDB Nadeshiko Examples](https://greasyfork.org/en/scripts/529745-jpdb-nadeshiko-examples) for optional JPDB-side behavior references.

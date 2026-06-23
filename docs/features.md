@@ -9,7 +9,7 @@ description: Everything よむ does — popup dictionary lookup and mining, Yomi
 
 ## Popup Lookup And Mining
 
-Tap, select, or hover Japanese text to open the popup. It shows the reading and meaning right away, plus whatever you've turned on: Jiten definitions, optional JPDB data, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
+Choose Japanese text to open the popup; desktop hover/click and mobile touch/select are supported. It shows the reading and meaning right away, plus whatever you've turned on: Jiten definitions, optional JPDB data, imported dictionary entries, pitch and frequency, audio, example sentences, and kanji details. Mining buttons sit at the bottom.
 
 To let the official jpdb reader, Jiten Reader, or Yomitan own popups, turn off **Reader -> Show Yomu lookup popup** in Settings. よむ keeps annotations, media tools, mining, and study features without opening a second popup.
 
@@ -43,7 +43,7 @@ The speaker button tries your configured audio sources in order. The default set
 
 Example sentences can come from Jiten/JPDB public example rows, Immersion Kit without an API key, or Nadeshiko when you add your own Nadeshiko key. You can also use Immersion Kit + Nadeshiko together; よむ blends the results in a stable order so the same word does not reshuffle every time you open it.
 
-Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. To practice without seeing English immediately, turn on blurred example translations and reveal them by tapping the translation.
+Examples can show Japanese, translations, thumbnails, audio, and source filters. Settings let you choose categories, length limits, image visibility, translation visibility, playback speed, and one-time hover audio on desktop. To practice without seeing English immediately, turn on blurred example translations and reveal them only when you choose the translation.
 
 <figure class="yomu-feature-shot">
   <img :src="'/screenshots/real-immersion-popover.png'" alt="A よむ popup scrolled to the Immersion Kit section after a live Japanese lookup.">
@@ -63,22 +63,22 @@ Kanji origin sources are modular and license-aware. You can turn off optional pu
 
 ## Image And Manga OCR
 
-OCR lets you tap Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, or a local OCR app/server for engines such as MangaOCR, PaddleOCR, Apple Vision style results, and YomiNinja-shaped responses.
+OCR lets you look up Japanese text inside images. よむ can use embedded OCR metadata when a site provides it, or a local OCR app/server for MangaOCR, PaddleOCR, Apple Vision-style results, and compatible local JSON responses, including YomiNinja-style endpoints.
 
-Recognized text stays lightweight: touch targets sit over the image without covering it until you tap or hover.
+Recognized text stays lightweight: lookup targets sit over the image without covering it until you choose or hover a word.
 
 Use this for manga panels, screenshots, and image-heavy pages where normal text selection does not work. The image is not sent anywhere unless you enable a local OCR endpoint, and that endpoint is the one you configure in settings.
 
 <figure class="yomu-feature-shot">
   <img :src="'/media/manga-ocr-sample.png'" alt="A Japanese manga page with text regions detected for よむ OCR lookup.">
-  <figcaption>OCR turns image text into tappable reading targets.</figcaption>
+  <figcaption>OCR turns image text into lookup-ready reading targets.</figcaption>
 </figure>
 
 ## Video Subtitle Mining
 
-よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into tappable words, native-language subtitle tracks can be shown as a secondary line, and the transcript panel can sit left, right, or below the video with the active line highlighted while you read.
+よむ can add an ASB-style subtitle overlay for video pages. Japanese subtitles can be parsed into lookup-ready words, native-language subtitle tracks can be shown as a secondary line, and the transcript panel can sit left, right, or below the video with the active line highlighted while you read.
 
-The transcript is a reading surface too: visible Japanese lines hydrate into the same lookup words as the overlay, so you can skim, jump to a line, and open a popup.
+The transcript works like the overlay: visible Japanese lines are parsed for lookup, so you can skim, jump to a line, and open the popup from the transcript.
 
 For local files, open the [Yomu video player](/video-player/index.html), drop in a browser-supported video, and use the Subtitles button to add Japanese or native subtitle files. The page creates normal browser video and text tracks, so the same overlay and transcript tools work without a desktop bridge.
 
@@ -127,7 +127,7 @@ If you do not use Anki, leave it off. Jiten or JPDB mining and local dictionary 
 
 On the hosted page, the installed よむ userscript can bridge local AnkiConnect requests on the same computer. For phone and tablet setup, follow the Tailscale steps in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) instead of pointing mobile よむ at `localhost`.
 
-On iPhone, iPad, and Android, this is often the easiest daily-review surface. For full Anki status, updates, automatic deck scanning, and review queues, keep desktop Anki running with AnkiConnect and point よむ at a reachable LAN or Tailscale URL such as `http://desktop-name.tailnet-name.ts.net:8765` — AnkiConnect's default `127.0.0.1` means "this device" and is unreachable from a phone. Without AnkiConnect or an API source, dictionary-backed words keep the page useful once a dictionary is installed. Step-by-step mobile Anki setup is in [Getting Started](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android).
+On iPhone, iPad, and Android, the study page works well for quick daily review. Full Anki status on mobile still needs desktop AnkiConnect reachable over LAN or Tailscale; the [setup guide](/getting-started#use-desktop-anki-from-a-phone-ipad-or-android) covers the steps.
 
 The hosted new-tab page carries a build id and checks for a fresh `version.json` on load. If a mobile shortcut keeps showing an older settings screen after a release, open the full new-tab URL in the browser, refresh, then close and reopen the shortcut. The troubleshooting steps in [Getting Started](/getting-started#if-something-does-not-work) cover the heavier reset path.
 
