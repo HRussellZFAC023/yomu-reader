@@ -1374,9 +1374,9 @@ html[lang="ja"] .VPHomeHero .tagline {
 .yomu-demo {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(244px, 296px);
-  align-items: start;
+  align-items: center;
   gap: clamp(18px, 3vw, 36px);
-  margin: 18px 0 30px;
+  margin: 32px 0 56px;
   padding: 0;
   border: 0;
   background: none;
@@ -1492,7 +1492,10 @@ html[lang="ja"] .VPHomeHero .tagline {
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.85fr);
   align-items: center;
   gap: clamp(18px, 3vw, 38px);
-  margin: 24px 0;
+  margin: 0 0 56px;
+  /* Reclaim the empty band beside the phone without overlapping the demo copy;
+     lower breakpoints reset this for single-column layouts. */
+  margin-top: clamp(-110px, calc(195px - 25.7vw), -40px);
 }
 
 .yomu-manga-ocr-copy {
@@ -1562,7 +1565,7 @@ html[lang="ja"] .VPHomeHero .tagline {
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.1fr);
   align-items: center;
   gap: clamp(18px, 3vw, 38px);
-  margin: 24px 0;
+  margin: 0 0 64px;
 }
 
 .yomu-video-card {

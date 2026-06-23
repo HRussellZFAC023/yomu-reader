@@ -11,7 +11,7 @@
 // @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.79#sha256-a+YO8pO2KfTqnSuBM5qh+U1XBFkRiaMzPjiV7gpkNas=
 // @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.79#sha256-9rb+gY4BH+W4RdtWp7oiZejC0/dGnu+35N0H9zKBs8c=
 // @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.79#sha256-vJDbXXblYBh+4ZJKdMNVFwGPiNTdgHpMMWwzbpo+A+w=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.79#sha256-NUnPo1roQelcIXhuoa2YJpQ4uFn+C4oI5YP1zgm/4E0=
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.79#sha256-F2JuzVED8yTg44nWFIum+hilpl72DszrS7RmSjYiuGQ=
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue

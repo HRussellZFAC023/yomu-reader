@@ -612,6 +612,44 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
+    it('does not climb past an explicit video frame when positioning homepage subtitles', () => {
+        withViewport(1180, 900, () => {
+            const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+            try {
+                document.body.insertAdjacentHTML('beforeend', `
+                    <section class="homepage-demo-row">
+                        <div class="homepage-demo-copy">Video copy</div>
+                        <div class="homepage-demo-player" data-yomu-video-frame>
+                            <video controls></video>
+                        </div>
+                    </section>
+                `);
+                const row = document.querySelector<HTMLElement>('.homepage-demo-row')!;
+                const frame = document.querySelector<HTMLElement>('[data-yomu-video-frame]')!;
+                const video = document.querySelector<HTMLVideoElement>('[data-yomu-video-frame] video')!;
+                mockElementRect(row, new DOMRect(64, 284, 1052, 330));
+                mockElementRect(frame, new DOMRect(542, 284, 574, 330));
+                mockElementRect(video, new DOMRect(551, 293, 556, 312));
+                attachVideo(controller, { video });
+                const internals = controllerInternals<{ alignToVideo: () => void }>(controller);
+
+                controller.refresh();
+                internals.alignToVideo();
+
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                expect(subtitleVideoLayoutTarget(video)).toBe(frame);
+                expect(root.style.left).toBe('542px');
+                expect(root.style.top).toBe('284px');
+                expect(root.style.width).toBe('574px');
+                expect(root.style.height).toBe('330px');
+                expect(root.style.left).not.toBe('64px');
+                expect(row.getBoundingClientRect().width).toBeGreaterThan(frame.getBoundingClientRect().width);
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
     it('mounts the subtitle overlay inside the active fullscreen player frame', () => {
         withViewport(1280, 720, () => {
             const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });

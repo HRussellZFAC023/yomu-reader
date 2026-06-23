@@ -36967,6 +36967,7 @@ ${spelling}`);
     const videoRect = video.getBoundingClientRect();
     let best = genericVideoLayoutTarget(video);
     for (let ancestor = video.parentElement; ancestor && ancestor !== document.body && ancestor !== document.documentElement; ancestor = ancestor.parentElement) {
+      if (ancestor.matches("[data-yomu-video-frame]")) return ancestor;
       if (isUsefulTranscriptAvoidanceTarget(ancestor, video, videoRect)) best = ancestor;
     }
     return best;
@@ -37399,7 +37400,9 @@ ${spelling}`);
     let target = video;
     for (let parent = video.parentElement; isGenericVideoLayoutParent(parent); parent = parent.parentElement) {
       const parentRect = parent.getBoundingClientRect();
-      if (shouldUseGenericVideoParent(parent, parentRect, video, videoRect)) target = parent;
+      if (!shouldUseGenericVideoParent(parent, parentRect, video, videoRect)) continue;
+      target = parent;
+      if (parent.matches("[data-yomu-video-frame]")) break;
     }
     if (side === "bottom" && !target.matches("[data-yomu-video-frame]")) return video;
     return target;
