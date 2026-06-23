@@ -98,6 +98,18 @@ describe('interface language resolution', () => {
         expect(themeSource).not.toContain('母国語의');
         expect(themeSource).not.toContain("Wait, let's fix");
     });
+
+    it('keeps latest changelog entries covered by Japanese docs copy', () => {
+        const themeSource = readFileSync('docs/.vitepress/theme/index.ts', 'utf8');
+        const changelogSource = readFileSync('CHANGELOG.md', 'utf8');
+        const latestRelease = latestChangelogRelease(changelogSource);
+        const latestCopy = [
+            ...markdownHeadings(latestRelease).filter(heading => !isChangelogVersionHeading(heading)),
+            ...markdownListTextNodes(latestRelease),
+        ];
+
+        expect(latestCopy.filter(copy => !hasHostedDocsJaCopy(themeSource, copy))).toEqual([]);
+    });
 });
 
 function between(source: string, startMarker: string, endMarker: string): string {
@@ -143,6 +155,32 @@ function markdownParagraphs(source: string): string[] {
         .filter(block => block && !block.startsWith('---') && !block.startsWith('#') && !block.startsWith('<') && !block.startsWith('- '))
         .map(block => decodeMarkdownLinks(block).replace(/\*\*(.*?)\*\*/g, '$1'))
         .filter(Boolean);
+}
+
+function markdownListTextNodes(source: string): string[] {
+    return [...source.matchAll(/^-\s+(.+)$/gm)]
+        .flatMap(match => markdownTextNodeSegments(match[1]))
+        .filter(Boolean);
+}
+
+function markdownTextNodeSegments(value: string): string[] {
+    return value
+        .split(/`[^`]*`/g)
+        .map(segment => decodeMarkdownLinks(segment).replace(/\*\*(.*?)\*\*/g, '$1').trim())
+        .filter(Boolean);
+}
+
+function latestChangelogRelease(source: string): string {
+    const firstRelease = source.search(/^##\s+/m);
+    expect(firstRelease).toBeGreaterThanOrEqual(0);
+    const nextRelease = source.slice(firstRelease + 1).search(/^##\s+/m);
+    return nextRelease < 0
+        ? source.slice(firstRelease)
+        : source.slice(firstRelease, firstRelease + 1 + nextRelease);
+}
+
+function isChangelogVersionHeading(heading: string): boolean {
+    return /^\[[0-9.]+\]\s+-\s+\d{4}-\d{2}-\d{2}$/.test(heading);
 }
 
 function htmlCardCopy(source: string): string[] {

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.76] - 2026-06-23
+
+### Fixed
+
+- Latest changelog entries are now covered by Japanese hosted-docs localization, so the language toggle does not leave fresh release notes in English.
+
 ## [1.4.75] - 2026-06-22
 
 ### Fixed
