@@ -1,16 +1,20 @@
 import { APP_NAME, NEW_TAB_PAGE_URL, VIDEO_PLAYER_PAGE_URL } from './constants';
 import type { ReaderSettings } from './types';
 
-type UserscriptMenuCommandRegister = (name: string, fn: () => void) => void;
+type UserscriptMenuCommandRegister = (name: string, fn: () => unknown) => void;
 
 export interface ReaderMenuCommandHandlers {
+    cycleOcr: () => void | Promise<void>;
     factoryReset: () => void;
     getSettings: () => ReaderSettings;
     installFloatingButton: () => void;
     logInfo: (message: string, details?: Record<string, unknown>) => void;
     saveSettings: (settings: ReaderSettings) => Promise<unknown>;
     showSettings: () => void;
-    toggleYoutubeImmersion: () => void | Promise<void>;
+    toggleAnnotations: () => void | Promise<void>;
+    toggleAudio: () => void | Promise<void>;
+    toggleSiteLanguage: () => void | Promise<void>;
+    toggleYoutube: () => void | Promise<void>;
 }
 
 export function registerReaderMenuCommands(handlers: ReaderMenuCommandHandlers): void {
@@ -19,7 +23,11 @@ export function registerReaderMenuCommands(handlers: ReaderMenuCommandHandlers):
     register(`${APP_NAME} settings`, () => handlers.showSettings());
     register(`${APP_NAME} open new tab`, () => openReaderNewTabPage(handlers.logInfo));
     register(`${APP_NAME} open video player`, () => openReaderVideoPlayer(handlers.logInfo));
-    register(`${APP_NAME} toggle YouTube filter`, () => void handlers.toggleYoutubeImmersion());
+    register(`${APP_NAME} annotations`, handlers.toggleAnnotations);
+    register(`${APP_NAME} audio`, handlers.toggleAudio);
+    register(`${APP_NAME} OCR`, handlers.cycleOcr);
+    register(`${APP_NAME} language`, handlers.toggleSiteLanguage);
+    register(`${APP_NAME} YouTube`, handlers.toggleYoutube);
     register(`${APP_NAME} toggle puck`, () => {
         const settings = handlers.getSettings();
         settings.showFloatingButton = !settings.showFloatingButton;

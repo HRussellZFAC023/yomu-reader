@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.82] - 2026-06-24
+
+### Fixed
+
+- Added the radial-menu quick actions for pausing annotations, muting term audio, cycling OCR mode, and toggling Japanese site language to the userscript browser icon/context-menu shortcuts.
+
 ## [1.4.81] - 2026-06-24
 
 ### Fixed

@@ -2287,8 +2287,9 @@ describe('SubtitlePlayerController', () => {
         expect(normalizedCss).toContain('.jpdb-subtitle-list-row { display: grid;');
         expect(normalizedCss).toContain('transition: background-color 160ms ease, box-shadow 160ms ease, border-color 160ms ease;');
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
+        expect(normalizedCss).toContain('position: relative; display: inline !important;');
         expect(normalizedCss).toContain('display: inline !important;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word::after { content: none; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word::after { content: ""; inset-inline: 1px; inset-block-end: .04em; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) { max-width: 100%; white-space: normal !important; overflow-wrap: anywhere; word-break: break-word; }');
     });
 

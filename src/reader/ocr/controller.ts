@@ -21,6 +21,8 @@ import { uiText, type UiCopyKey } from '../app/i18n';
 import { waitForIdle } from '../platform/idle';
 import { readBlobAsDataUrl } from '../core/blob-data-url';
 import { Logger } from '../app/logger';
+import { getPitchClass } from '../jpdb/jpdb-parser-pitch';
+import { pitchPatternFromPosition } from '../lookup/pitch-accent';
 import {
     cleanOcrLookupLines,
     normalizeOcrResult,
@@ -103,6 +105,7 @@ const STALE_OCR_STATE = Symbol('stale-ocr-state');
 const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
 const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
 const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
+const ocrVocabularyCache = new WeakMap<HTMLImageElement, Map<string, JPDBCard> | null>();
 let ocrLayerCounter = 0;
 const OCR_RECOGNIZERS: Partial<Record<ReaderSettings['ocrProvider'], OcrRecognizer>> = {
     'google-lens': recognizeViaGoogleLens,
@@ -917,10 +920,15 @@ export class ImageOcrController {
             : initialParsed;
         this.requireCurrentState(state);
         const sentence = lines.map(line => line.text).join('\n');
+        const vocabulary = ocrVocabularyCards(state.image);
+        const fallbackCardFromText = ocrFallbackCardFromImage(
+            state.image,
+            this.options.fallbackCardFromText ?? ocrFallbackCardFromText,
+        );
         const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
             line.text,
-            parsed[index] ?? [],
-            this.options.fallbackCardFromText ?? ocrFallbackCardFromText,
+            ocrTokensWithVocabulary(line.text, parsed[index] ?? [], vocabulary),
+            fallbackCardFromText,
         ));
         const flatTokens = renderedTokens.flat();
         await this.options.enrichTokensBeforeRender?.(flatTokens);
@@ -1858,6 +1866,35 @@ function ocrTokensWithFallbackGaps(
         : safeTokens;
 }
 
+function ocrTokensWithVocabulary(
+    text: string,
+    tokens: JPDBToken[],
+    vocabulary: Map<string, JPDBCard> | null,
+): JPDBToken[] {
+    if (!vocabulary?.size) return tokens;
+    return tokens.map(token => ocrTokenWithVocabulary(text, token, vocabulary));
+}
+
+function ocrTokenWithVocabulary(
+    text: string,
+    token: JPDBToken,
+    vocabulary: Map<string, JPDBCard>,
+): JPDBToken {
+    const surface = ocrTokenSurface(text, token);
+    const seeded = vocabulary.get(ocrVocabularyKey(surface)) ?? vocabulary.get(ocrVocabularyKey(token.card.spelling));
+    if (!seeded) return token;
+    const card = cloneOcrVocabularyCard(seeded);
+    return {
+        ...token,
+        card,
+        pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass,
+    };
+}
+
+function ocrTokenSurface(text: string, token: JPDBToken): string {
+    return text.slice(token.start, token.end) || token.card.spelling;
+}
+
 function isRenderableOcrToken(token: JPDBToken, textLength: number): boolean {
     return Number.isFinite(token.start)
         && Number.isFinite(token.end)
@@ -1878,9 +1915,125 @@ function ocrFallbackToken(
         end: segment.end,
         length: segment.end - segment.start,
         rubies: [],
-        pitchClass: '',
+        pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling),
         sentence,
     };
+}
+
+function ocrFallbackCardFromImage(
+    image: HTMLImageElement,
+    fallbackCardFromText: (text: string) => JPDBCard,
+): (text: string) => JPDBCard {
+    const vocabulary = ocrVocabularyCards(image);
+    if (!vocabulary?.size) return fallbackCardFromText;
+    return text => {
+        const seeded = vocabulary.get(ocrVocabularyKey(text));
+        return seeded ? cloneOcrVocabularyCard(seeded) : fallbackCardFromText(text);
+    };
+}
+
+function ocrVocabularyCards(image: HTMLImageElement): Map<string, JPDBCard> | null {
+    const cached = ocrVocabularyCache.get(image);
+    if (cached !== undefined) return cached;
+    const parsed = parseOcrVocabularyCards(image.dataset.ocrVocabulary);
+    ocrVocabularyCache.set(image, parsed);
+    return parsed;
+}
+
+function parseOcrVocabularyCards(value: string | undefined): Map<string, JPDBCard> | null {
+    if (!value) return null;
+    try {
+        const entries = JSON.parse(value);
+        if (!Array.isArray(entries)) return null;
+        const cards = new Map<string, JPDBCard>();
+        entries.forEach(entry => {
+            if (!isOcrVocabularyRecord(entry)) return;
+            const card = ocrVocabularyCard(entry);
+            const surface = ocrVocabularySurface(entry) || card?.spelling;
+            if (card && surface) cards.set(ocrVocabularyKey(surface), card);
+        });
+        return cards.size ? cards : null;
+    } catch {
+        return null;
+    }
+}
+
+function ocrVocabularyCard(entry: unknown): JPDBCard | null {
+    if (!isOcrVocabularyRecord(entry)) return null;
+    const surface = ocrVocabularySurface(entry);
+    const spelling = ocrVocabularyString(entry.spelling) || surface;
+    if (!surface || !spelling) return null;
+    const reading = ocrVocabularyString(entry.reading);
+    const id = -stablePositiveHashId(`ocr-vocabulary\n${spelling}\n${reading}`);
+    return {
+        vid: id,
+        sid: id,
+        rid: 0,
+        spelling,
+        reading,
+        frequencyRank: ocrVocabularyInteger(entry.frequencyRank) ?? null,
+        partOfSpeech: [],
+        meanings: [],
+        cardState: ['not-in-deck'],
+        pitchAccent: ocrVocabularyPitchPatterns(entry, reading),
+        wordWithReading: null,
+        source: 'fallback',
+    };
+}
+
+function cloneOcrVocabularyCard(card: JPDBCard): JPDBCard {
+    return {
+        ...card,
+        partOfSpeech: [...card.partOfSpeech],
+        meanings: card.meanings.map(meaning => ({
+            ...meaning,
+            glosses: [...meaning.glosses],
+            partOfSpeech: [...meaning.partOfSpeech],
+        })),
+        cardState: [...card.cardState],
+        pitchAccent: [...card.pitchAccent],
+    };
+}
+
+function ocrVocabularySurface(entry: Record<string, unknown>): string {
+    return ocrVocabularyString(entry.surface) || ocrVocabularyString(entry.text);
+}
+
+function ocrVocabularyPitchPatterns(entry: Record<string, unknown>, reading: string): string[] {
+    const explicit = Array.isArray(entry.pitchAccent)
+        ? entry.pitchAccent.filter((value): value is string => typeof value === 'string' && /^[HL]+$/u.test(value))
+        : [];
+    const positions = ocrVocabularyPitchPositions(entry);
+    return [
+        ...explicit,
+        ...positions.map(position => pitchPatternFromPosition(reading, position)).filter(Boolean),
+    ];
+}
+
+function ocrVocabularyPitchPositions(entry: Record<string, unknown>): number[] {
+    if (Array.isArray(entry.pitchPositions)) {
+        return entry.pitchPositions
+            .map(ocrVocabularyInteger)
+            .filter((position): position is number => position !== undefined);
+    }
+    const position = ocrVocabularyInteger(entry.pitchPosition);
+    return position === undefined ? [] : [position];
+}
+
+function ocrVocabularyKey(value: string): string {
+    return value.replace(/\s+/g, ' ').trim();
+}
+
+function ocrVocabularyString(value: unknown): string {
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function ocrVocabularyInteger(value: unknown): number | undefined {
+    return Number.isInteger(value) ? value as number : undefined;
+}
+
+function isOcrVocabularyRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
 function rangesOverlap(start: number, end: number, otherStart: number, otherEnd: number): boolean {

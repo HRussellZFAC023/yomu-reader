@@ -942,11 +942,15 @@ export class ReaderApp {
 
     private registerMenuCommands(): void {
         registerReaderMenuCommands({
+            cycleOcr: () => this.cycleOcrMode(),
             getSettings: () => this.settings,
             saveSettings: settings => saveSettings(settings),
             installFloatingButton: () => this.installFab(),
             showSettings: () => this.showSettings(),
-            toggleYoutubeImmersion: () => this.toggleYoutubeImmersion(),
+            toggleAnnotations: () => this.toggleAnnotationsPaused(),
+            toggleAudio: () => this.toggleAutoPlayAudio(),
+            toggleSiteLanguage: () => this.togglePreferredJapaneseSiteLanguage(),
+            toggleYoutube: () => this.toggleYoutubeImmersion(),
             factoryReset: () => void this.factoryReset.resetAllData(),
             logInfo: (message, details) => {
                 log.info(message, details);

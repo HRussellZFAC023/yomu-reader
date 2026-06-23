@@ -5198,6 +5198,114 @@ recommendedJiten	Jiten頻度です。
       reader.readAsDataURL(blob);
     });
   }
+  const PITCH_LEVELS = /* @__PURE__ */ new Set(["H", "L"]);
+  const SMALL_KANA = new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
+  const PRONUNCIATION_KANA = /^[\u3040-\u30ff\u3099\u309A]+$/u;
+  const PITCH_CLASS_RULES = [
+    { className: "heiban", matches: (pitchNumber) => pitchNumber === 0 },
+    { className: "atamadaka", matches: (pitchNumber) => pitchNumber === 1 },
+    { className: "odaka", matches: (pitchNumber, moraCount) => pitchNumber === moraCount },
+    { className: "nakadaka", matches: (pitchNumber, moraCount) => pitchNumber > 1 && pitchNumber < moraCount }
+  ];
+  function normalizePitchPatternForReading(pattern, reading) {
+    const levels = pitchLevels(pattern);
+    if (!levels.length) return "";
+    return normalizePitchLevelsForReading(levels, reading).join("");
+  }
+  function pitchLevels(pattern) {
+    return Array.from(pattern).filter((level) => PITCH_LEVELS.has(level));
+  }
+  function splitMorae(reading) {
+    if (!PRONUNCIATION_KANA.test(reading)) return [];
+    const morae = [];
+    for (const char of Array.from(reading)) {
+      if (morae.length && SMALL_KANA.has(char)) morae[morae.length - 1] += char;
+      else morae.push(char);
+    }
+    return morae;
+  }
+  function countMorae(reading) {
+    return splitMorae(reading).length;
+  }
+  function pitchPatternFromPosition(reading, position) {
+    const moraCount = countMorae(reading);
+    if (!moraCount || !Number.isInteger(position) || position < 0 || position > moraCount) return "";
+    if (position === 0) return `L${"H".repeat(moraCount)}`;
+    if (position === 1) return `H${"L".repeat(moraCount)}`;
+    const highMorae = position - 1;
+    const lowTail = moraCount - position + 1;
+    return `L${"H".repeat(highMorae)}${"L".repeat(lowTail)}`;
+  }
+  function pitchProfileForPattern(pattern, reading) {
+    const normalized = normalizePitchPatternForReading(pattern, reading);
+    const morae = splitMorae(reading);
+    const pitchNumber = pitchNumberFromPattern(normalized, reading);
+    return {
+      reading,
+      morae,
+      pitchNumber,
+      pattern: normalized,
+      className: pitchClassNameFromProfile(normalized, morae.length, pitchNumber)
+    };
+  }
+  function pitchClassNameForPattern(pattern, reading) {
+    return pitchProfileForPattern(pattern, reading).className;
+  }
+  function contextPitchPattern(patterns, reading) {
+    if (!patterns?.length) return "";
+    if (!reading) return patterns[0];
+    return patterns.find((pattern) => pitchClassNameForPattern(pattern, reading) !== "") ?? "";
+  }
+  function pitchNumberFromPattern(pattern, reading) {
+    const levels = pitchLevels(normalizePitchPatternForReading(pattern, reading));
+    const moraCount = countMorae(reading);
+    if (!moraCount) return null;
+    if (levels.length < moraCount) {
+      return looksLikeShortHeibanPattern(levels) ? 0 : null;
+    }
+    const dropAt = levels.findIndex((level, index) => index > 0 && levels[index - 1] === "H" && level === "L");
+    if (dropAt === -1) return levels[0] === "L" ? 0 : null;
+    return dropAt;
+  }
+  function looksLikeShortHeibanPattern(levels) {
+    return levels.length >= 2 && levels[0] === "L" && levels.slice(1).every((level) => level === "H");
+  }
+  function pitchClassNameFromProfile(pattern, moraCount, pitchNumber) {
+    if (!moraCount) return "";
+    if (pitchNumber != null) return PITCH_CLASS_RULES.find((rule) => rule.matches(pitchNumber, moraCount))?.className ?? "";
+    return hasComplexPitchShape(pattern) ? "kifuku" : "";
+  }
+  function hasComplexPitchShape(pattern) {
+    const levels = pitchLevels(pattern);
+    return countPitchTransitions(levels, "L", "H") > 1 || countPitchTransitions(levels, "H", "L") > 1;
+  }
+  function countPitchTransitions(levels, from, to) {
+    let count = 0;
+    for (let index = 1; index < levels.length; index++) {
+      if (levels[index - 1] === from && levels[index] === to) count++;
+    }
+    return count;
+  }
+  function normalizePitchLevelsForReading(levels, reading) {
+    const chars = Array.from(reading);
+    if (!levels.length || !chars.some((char) => SMALL_KANA.has(char))) return levels;
+    if (!looksCharacterAlignedPitch(levels, chars)) return levels;
+    const normalized = [];
+    for (let index = 0; index < Math.min(chars.length, levels.length); index++) {
+      if (normalized.length && SMALL_KANA.has(chars[index])) continue;
+      normalized.push(levels[index]);
+    }
+    return normalized.concat(levels.slice(chars.length));
+  }
+  function looksCharacterAlignedPitch(levels, chars) {
+    if (levels.length > splitMorae(chars.join("")).length + 1) return true;
+    if (levels.length < chars.length) return false;
+    return chars.some((char, index) => index > 0 && SMALL_KANA.has(char) && levels[index] === levels[index - 1]);
+  }
+  function getPitchClass(pitchAccent, reading) {
+    const pattern = contextPitchPattern(pitchAccent, reading);
+    return pattern ? pitchClassNameForPattern(pattern, reading) : "";
+  }
   function pushJapaneseOcrLine(lines, text, box) {
     if (!text || !box || !HAS_JAPANESE.test(text)) return;
     lines.push({ text, box, vertical: isVerticalOcrBox(box, text.length) });
@@ -6393,7 +6501,7 @@ ${candidate.depth}`;
     if (!first || !isPureKanaSegment(first.surface)) return null;
     const previous = segments[startIndex - 1];
     const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
-    if (isInflectionBoundarySegment(first.surface) && !atKanaRunStart) return null;
+    if (isBoundarySegment(first.surface) && !atKanaRunStart) return null;
     const runEnd = contiguousKanaRunEnd(segments, startIndex);
     if (runEnd - startIndex < 2) return null;
     let surface = first.surface;
@@ -6401,7 +6509,7 @@ ${candidate.depth}`;
     for (let index = startIndex + 1; index < runEnd; index += 1) {
       const current = segments[index];
       const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isInflectionBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
       surface += current.surface;
       lastIndex = index;
     }
@@ -6509,7 +6617,7 @@ ${candidate.depth}`;
   }
   function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
     const first = segments[startIndex];
-    if (!first || isInflectionBoundarySegment(first.surface)) return null;
+    if (!first || isBoundarySegment(first.surface)) return null;
     let surface = "";
     let best = null;
     for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
@@ -6528,7 +6636,7 @@ ${candidate.depth}`;
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
     if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
-    if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
+    if (index > startIndex && isBoundarySegment(current.surface)) return null;
     if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
   }
@@ -6546,7 +6654,7 @@ ${candidate.depth}`;
       nextIndex: index + 1
     };
   }
-  function isInflectionBoundarySegment(surface) {
+  function isBoundarySegment(surface) {
     return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
   }
   function isInflectionContinuationSegment(surface) {
@@ -6631,7 +6739,6 @@ ${candidate.depth}`;
       return true;
     });
   }
-  new Set("ゃゅょぁぃぅぇぉゎャュョァィゥェォヮ゙゚");
   function stableHash32(value) {
     let hash = 2166136261;
     for (let index = 0; index < value.length; index += 1) {
@@ -6666,6 +6773,7 @@ ${candidate.depth}`;
   const OCR_WORD_UNDERLINE_OFFSET_EM = 0.12;
   const OCR_WORD_UNDERLINE_THICKNESS_EM = 0.12;
   const OCR_WORD_UNDERLINE_CLEARANCE_PX = 1;
+  const ocrVocabularyCache = /* @__PURE__ */ new WeakMap();
   let ocrLayerCounter = 0;
   const OCR_RECOGNIZERS = {
     "google-lens": recognizeViaGoogleLens,
@@ -7324,10 +7432,15 @@ ${candidate.depth}`;
       const parsed = ocrLinesChanged(result.lines, lines) ? await this.parseOcrLines(lines) : initialParsed;
       this.requireCurrentState(state2);
       const sentence = lines.map((line) => line.text).join("\n");
+      const vocabulary = ocrVocabularyCards(state2.image);
+      const fallbackCardFromText = ocrFallbackCardFromImage(
+        state2.image,
+        this.options.fallbackCardFromText ?? ocrFallbackCardFromText
+      );
       const renderedTokens = lines.map((line, index) => ocrTokensWithFallbackGaps(
         line.text,
-        parsed[index] ?? [],
-        this.options.fallbackCardFromText ?? ocrFallbackCardFromText
+        ocrTokensWithVocabulary(line.text, parsed[index] ?? [], vocabulary),
+        fallbackCardFromText
       ));
       const flatTokens = renderedTokens.flat();
       await this.options.enrichTokensBeforeRender?.(flatTokens);
@@ -8108,6 +8221,24 @@ ${candidate.depth}`;
     const fallbackTokens = fallbackJapaneseSegments(text).filter((segment) => !safeTokens.some((token) => rangesOverlap(segment.start, segment.end, token.start, token.end))).map((segment) => ocrFallbackToken(text, segment, fallbackCardFromText));
     return fallbackTokens.length ? [...safeTokens, ...fallbackTokens].sort(compareOcrTokens) : safeTokens;
   }
+  function ocrTokensWithVocabulary(text, tokens, vocabulary) {
+    if (!vocabulary?.size) return tokens;
+    return tokens.map((token) => ocrTokenWithVocabulary(text, token, vocabulary));
+  }
+  function ocrTokenWithVocabulary(text, token, vocabulary) {
+    const surface = ocrTokenSurface(text, token);
+    const seeded = vocabulary.get(ocrVocabularyKey(surface)) ?? vocabulary.get(ocrVocabularyKey(token.card.spelling));
+    if (!seeded) return token;
+    const card = cloneOcrVocabularyCard(seeded);
+    return {
+      ...token,
+      card,
+      pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling) || token.pitchClass
+    };
+  }
+  function ocrTokenSurface(text, token) {
+    return text.slice(token.start, token.end) || token.card.spelling;
+  }
   function isRenderableOcrToken(token, textLength) {
     return Number.isFinite(token.start) && Number.isFinite(token.end) && token.start >= 0 && token.end <= textLength && token.end > token.start;
   }
@@ -8119,9 +8250,108 @@ ${candidate.depth}`;
       end: segment.end,
       length: segment.end - segment.start,
       rubies: [],
-      pitchClass: "",
+      pitchClass: getPitchClass(card.pitchAccent, card.reading || card.spelling),
       sentence
     };
+  }
+  function ocrFallbackCardFromImage(image, fallbackCardFromText) {
+    const vocabulary = ocrVocabularyCards(image);
+    if (!vocabulary?.size) return fallbackCardFromText;
+    return (text) => {
+      const seeded = vocabulary.get(ocrVocabularyKey(text));
+      return seeded ? cloneOcrVocabularyCard(seeded) : fallbackCardFromText(text);
+    };
+  }
+  function ocrVocabularyCards(image) {
+    const cached = ocrVocabularyCache.get(image);
+    if (cached !== void 0) return cached;
+    const parsed = parseOcrVocabularyCards(image.dataset.ocrVocabulary);
+    ocrVocabularyCache.set(image, parsed);
+    return parsed;
+  }
+  function parseOcrVocabularyCards(value) {
+    if (!value) return null;
+    try {
+      const entries = JSON.parse(value);
+      if (!Array.isArray(entries)) return null;
+      const cards = /* @__PURE__ */ new Map();
+      entries.forEach((entry) => {
+        if (!isOcrVocabularyRecord(entry)) return;
+        const card = ocrVocabularyCard(entry);
+        const surface = ocrVocabularySurface(entry) || card?.spelling;
+        if (card && surface) cards.set(ocrVocabularyKey(surface), card);
+      });
+      return cards.size ? cards : null;
+    } catch {
+      return null;
+    }
+  }
+  function ocrVocabularyCard(entry) {
+    if (!isOcrVocabularyRecord(entry)) return null;
+    const surface = ocrVocabularySurface(entry);
+    const spelling = ocrVocabularyString(entry.spelling) || surface;
+    if (!surface || !spelling) return null;
+    const reading = ocrVocabularyString(entry.reading);
+    const id = -stablePositiveHashId(`ocr-vocabulary
+${spelling}
+${reading}`);
+    return {
+      vid: id,
+      sid: id,
+      rid: 0,
+      spelling,
+      reading,
+      frequencyRank: ocrVocabularyInteger(entry.frequencyRank) ?? null,
+      partOfSpeech: [],
+      meanings: [],
+      cardState: ["not-in-deck"],
+      pitchAccent: ocrVocabularyPitchPatterns(entry, reading),
+      wordWithReading: null,
+      source: "fallback"
+    };
+  }
+  function cloneOcrVocabularyCard(card) {
+    return {
+      ...card,
+      partOfSpeech: [...card.partOfSpeech],
+      meanings: card.meanings.map((meaning) => ({
+        ...meaning,
+        glosses: [...meaning.glosses],
+        partOfSpeech: [...meaning.partOfSpeech]
+      })),
+      cardState: [...card.cardState],
+      pitchAccent: [...card.pitchAccent]
+    };
+  }
+  function ocrVocabularySurface(entry) {
+    return ocrVocabularyString(entry.surface) || ocrVocabularyString(entry.text);
+  }
+  function ocrVocabularyPitchPatterns(entry, reading) {
+    const explicit = Array.isArray(entry.pitchAccent) ? entry.pitchAccent.filter((value) => typeof value === "string" && /^[HL]+$/u.test(value)) : [];
+    const positions = ocrVocabularyPitchPositions(entry);
+    return [
+      ...explicit,
+      ...positions.map((position) => pitchPatternFromPosition(reading, position)).filter(Boolean)
+    ];
+  }
+  function ocrVocabularyPitchPositions(entry) {
+    if (Array.isArray(entry.pitchPositions)) {
+      return entry.pitchPositions.map(ocrVocabularyInteger).filter((position2) => position2 !== void 0);
+    }
+    const position = ocrVocabularyInteger(entry.pitchPosition);
+    return position === void 0 ? [] : [position];
+  }
+  function ocrVocabularyKey(value) {
+    return value.replace(/\s+/g, " ").trim();
+  }
+  function ocrVocabularyString(value) {
+    return typeof value === "string" ? value.trim() : "";
+  }
+  function ocrVocabularyInteger(value) {
+    return Number.isInteger(value) ? value : void 0;
+  }
+  function isOcrVocabularyRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function rangesOverlap(start, end, otherStart, otherEnd) {
     return start < otherEnd && otherStart < end;

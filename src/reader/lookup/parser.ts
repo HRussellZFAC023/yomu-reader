@@ -4,6 +4,7 @@ import {
     JAPANESE_CHARACTER_RE,
     JAPANESE_SCRIPT_GROUP_RE,
     fallbackLookupTermsForText,
+    isBoundarySegment,
     normalizeFallbackTerm,
     segmentJapaneseText,
 } from './japanese-segments';
@@ -359,21 +360,22 @@ export class ReaderParser {
 
     private fillSegmentedFallbackGaps(text: string, tokens: JPDBToken[]): JPDBToken[] {
         const fallbackTokens = this.parseSegmentedText(text);
-        const repairedFallbackTokens = fallbackRepairTokens(text, fallbackTokens, tokens);
-        const replacementTokens = fallbackTokens
-            .filter(fallback => shouldPreferInflectedFallbackToken(fallback, tokens));
-        const replacementRanges = [
-            ...fallbackRepairRanges(repairedFallbackTokens),
-            ...replacementTokens.map(fallback => ({ start: fallback.start, end: fallback.end })),
+        const repaired = fallbackRepairTokens(text, fallbackTokens, tokens);
+        const broad = tokens.filter(token => isBroadPublic(token)
+            && fallbackTokens.some(fallback => tokenInsideRange(fallback, token.start, token.end)
+                && (fallback.start !== token.start || fallback.end !== token.end)
+                && isBoundarySegment(fallback.card.spelling)));
+        const replacements = [
+            ...fallbackTokens.filter(fallback => preferInflectedFallback(fallback, tokens)),
+            ...fallbackTokens.filter(fallback => broad.some(token => tokenInsideRange(fallback, token.start, token.end))),
         ];
-        const keptTokens = replacementRanges.length
-            ? tokens.filter(token => !replacementRanges.some(range => tokenInsideRange(token, range.start, range.end)))
+        const extras = fallbackTokens.filter(fallback => replacements.includes(fallback)
+            || repaired.includes(fallback)
+            || !tokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
+        const keptTokens = extras.length
+            ? tokens.filter(token => !extras.some(fallback => rangesOverlap(fallback.start, fallback.end, token.start, token.end)))
             : tokens;
-        const extraFallbackTokens = fallbackTokens
-            .filter(fallback => replacementTokens.includes(fallback)
-                || repairedFallbackTokens.includes(fallback)
-                || !keptTokens.some(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
-        return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
+        return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
     }
 
     // All-kanji compounds get their reading split per kanji when the user's
@@ -587,11 +589,17 @@ function tokenInsideRange(token: JPDBToken, start: number, end: number): boolean
     return token.start >= start && token.end <= end;
 }
 
-function shouldPreferInflectedFallbackToken(fallback: JPDBToken, tokens: JPDBToken[]): boolean {
+function preferInflectedFallback(fallback: JPDBToken, tokens: JPDBToken[]): boolean {
     if (!fallback.card.fallbackLookupTerms?.length) return false;
     const overlapping = tokens.filter(token => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
     return overlapping.length === 1
         && overlapping.every(token => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
+}
+
+function isBroadPublic(token: JPDBToken): boolean {
+    return token.card.source === 'jiten'
+        && !token.card.pitchAccent.length
+        && !token.pitchClass;
 }
 
 function fallbackRepairTokens(text: string, fallbackTokens: JPDBToken[], tokens: JPDBToken[]): JPDBToken[] {
@@ -643,19 +651,6 @@ function fallbackTokensCoveringRange(fallbackTokens: JPDBToken[], start: number,
         if (group[index - 1]?.end !== group[index]?.start) return null;
     }
     return group;
-}
-
-function fallbackRepairRanges(tokens: JPDBToken[]): Array<{ start: number; end: number }> {
-    const ranges: Array<{ start: number; end: number }> = [];
-    for (const token of tokens) {
-        const previous = ranges[ranges.length - 1];
-        if (previous && previous.end === token.start) {
-            previous.end = token.end;
-            continue;
-        }
-        ranges.push({ start: token.start, end: token.end });
-    }
-    return ranges;
 }
 
 function compareTokensByOffset(a: JPDBToken, b: JPDBToken): number {

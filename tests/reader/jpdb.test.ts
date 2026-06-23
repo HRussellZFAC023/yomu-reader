@@ -3720,7 +3720,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toMatch(/\.jpdb-reader-subtitle-underline-pitch :is\([^)]+\) \.jpdb-reader-word \{ --jpdb-reader-word-underline-offset: \.12em; --jpdb-reader-word-underline-thickness: \.12em; text-decoration-thickness: \.12em !important; text-underline-offset: \.12em !important;[^}]*text-decoration-color: transparent; \}/);
         expect(normalizedCss).not.toContain('.jpdb-reader-subtitle-underline-pitch :is(.jpdb-subtitle-primary, .jpdb-subtitle-row-text, .asbplayer-subtitles-container-bottom) .jpdb-reader-word { --jpdb-reader-word-underline: var(--jpdb-reader-source-pitch-decoration, transparent); text-decoration-line: underline !important; }');
         expect(normalizedCss).toContain('.jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-spoken { opacity: 1; } .jpdb-subtitle-primary .jpdb-reader-word.jpdb-subtitle-word-current { opacity: 1; }');
-        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); --jpdb-reader-word-underline-offset: .16em; --jpdb-reader-word-underline-thickness: .08em; display: inline !important; color: inherit; background-color: transparent; background-image: none; text-decoration-color: transparent;');
+        expect(normalizedCss).toContain('.jpdb-subtitle-row-text .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); --jpdb-reader-word-underline-offset: .16em; --jpdb-reader-word-underline-thickness: .08em; position: relative; display: inline !important; color: inherit; background-color: transparent; background-image: none; text-decoration-color: transparent;');
     });
 
     it('keeps passive control labels on the host line-wrapping contract', () => {
@@ -6965,6 +6965,29 @@ describe('reader helpers', () => {
             expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 2], [2, 7]]);
             expect(tokens[2]?.card.fallbackLookupTerms).toContain('読む');
             expect(tokens.map(token => token.card.spelling)).not.toContain('した');
+        });
+    });
+
+    it('repairs broad pitchless public parser phrase tokens with segmented fallback words', async () => {
+        const text = '頭がおかしい';
+        const broadPhrase = parsedProviderToken(text, text, 0, 'jiten');
+        broadPhrase.card.reading = 'あたまがおかしい';
+        broadPhrase.card.pitchAccent = [];
+
+        await withFakeSegmenter([
+            { segment: '頭', index: 0, isWordLike: true },
+            { segment: 'が', index: 1, isWordLike: true },
+            { segment: 'おかしい', index: 2, isWordLike: true },
+        ], async parser => {
+            const [tokens] = await parser.parse([text], { allowSegmentedFallback: true });
+
+            expect(tokenSpellings(tokens)).toEqual(['頭', 'が', 'おかしい']);
+            expect(tokens.map(token => [token.start, token.end])).toEqual([[0, 1], [1, 2], [2, 6]]);
+            expect(tokenSpellings(tokens)).not.toContain(text);
+        }, {
+            getSettings: () => ({ ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: false }),
+            jitenPublicVocabulary: { parse: vi.fn(async () => [[broadPhrase]]) },
+            dictionaries: {} as never,
         });
     });
 

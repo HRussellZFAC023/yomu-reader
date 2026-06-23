@@ -20,8 +20,8 @@ export function isLookupableJapaneseText(text: string): boolean {
 // the range when the popover renders). 24 letters is ~4-5 English words, well
 // past any short mixed lookup like "iPhoneを買う".
 export function isProseDominantSelection(text: string): boolean {
-    const latin = (text.match(/[A-Za-z]/gu) ?? []).length;
-    return latin >= 24 && latin > (text.match(/[぀-鿿]/gu) ?? []).length;
+    const latin = text.match(/[A-Za-z]/gu)?.length ?? 0;
+    return latin >= 24 && latin > (text.match(/[぀-鿿]/gu)?.length ?? 0);
 }
 
 export function lookupCandidateSentence(text: string, start = 0, end = text.length): string {

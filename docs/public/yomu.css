@@ -10784,6 +10784,7 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);
   --jpdb-reader-word-underline-offset: .16em;
   --jpdb-reader-word-underline-thickness: .08em;
+  position: relative;
   display: inline !important;
   color: inherit;
   background-color: transparent;
@@ -10802,7 +10803,9 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
   font-weight: inherit;
 }
 .jpdb-subtitle-row-text .jpdb-reader-word::after {
-  content: none;
+  content: "";
+  inset-inline: 1px;
+  inset-block-end: .04em;
 }
 .jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) {
   max-width: 100%;

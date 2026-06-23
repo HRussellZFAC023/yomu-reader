@@ -555,6 +555,89 @@ describe('OCR sentence focus', () => {
         }
     });
 
+    it('renders page-seeded OCR fallback vocabulary with furigana and pitch before remote enrichment', async () => {
+        stubInstantIntersectionObserver();
+        const { image, controller } = createOcrImageControllerFixture({
+            sentence: '使えなくて',
+            settings: {
+                apiKey: '',
+                localDictionariesEnabled: false,
+                furiganaMode: 'all',
+            },
+            parseJapanese: vi.fn(async () => []),
+        });
+        image.dataset.ocrVocabulary = JSON.stringify([
+            { surface: '使え', spelling: '使える', reading: 'つかえる', pitchPosition: 0 },
+        ]);
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                const seeded = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word[data-expression="使える"]');
+                expect(seeded).not.toBeNull();
+                expect(seeded?.dataset.reading).toBe('つかえる');
+                expect(seeded?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+                expect(seeded?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+                expect(seeded?.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('つか');
+            });
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
+    it('upgrades parsed OCR tokens from page-seeded vocabulary', async () => {
+        stubInstantIntersectionObserver();
+        const sentence = '使えなくて';
+        const { image, controller } = createOcrImageControllerFixture({
+            sentence,
+            settings: {
+                apiKey: '',
+                localDictionariesEnabled: false,
+                furiganaMode: 'all',
+            },
+            parseJapanese: vi.fn(async () => [{
+                card: testCard({
+                    vid: 101,
+                    sid: 202,
+                    rid: 0,
+                    spelling: '使え',
+                    reading: '',
+                    pitchAccent: [],
+                    meanings: [],
+                }),
+                start: 0,
+                end: 2,
+                length: 2,
+                rubies: [],
+                pitchClass: 'unknown',
+                sentence,
+            }]),
+        });
+        image.dataset.ocrVocabulary = JSON.stringify([
+            { surface: '使え', spelling: '使える', reading: 'つかえる', pitchPosition: 0 },
+        ]);
+
+        try {
+            controller.init();
+
+            await waitForExpect(() => {
+                const seeded = document.querySelector<HTMLElement>('.jpdb-ocr-line .jpdb-reader-word[data-expression="使える"]');
+                expect(seeded).not.toBeNull();
+                expect(seeded?.dataset.reading).toBe('つかえる');
+                expect(seeded?.classList.contains('jpdb-pitch-heiban')).toBe(true);
+                expect(seeded?.classList.contains('jpdb-reader-has-furi')).toBe(true);
+                expect(seeded?.querySelector<HTMLElement>('.jpdb-ocr-furi')?.textContent).toBe('つか');
+            });
+        } finally {
+            controller.destroy();
+            vi.unstubAllGlobals();
+            document.body.replaceChildren();
+        }
+    });
+
     it('keeps standalone Firefox OCR words even when Segmenter marks them non-word-like', async () => {
         stubInstantIntersectionObserver();
         const originalSegmenter = Object.getOwnPropertyDescriptor(Intl, 'Segmenter');

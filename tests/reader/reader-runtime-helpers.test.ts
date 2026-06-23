@@ -131,21 +131,40 @@ describe('reader runtime helpers', () => {
         }));
         const opened = { opener: window } as Window;
         const open = vi.spyOn(window, 'open').mockReturnValue(opened);
+        const cycleOcr = vi.fn();
+        const toggleAnnotations = vi.fn();
+        const toggleAudio = vi.fn();
+        const toggleSiteLanguage = vi.fn();
+        const toggleYoutube = vi.fn();
 
         registerReaderMenuCommands({
+            cycleOcr,
             factoryReset: vi.fn(),
             getSettings: () => ({ ...DEFAULT_SETTINGS, showFloatingButton: false }),
             installFloatingButton: vi.fn(),
             logInfo: vi.fn(),
             saveSettings: vi.fn().mockResolvedValue(undefined),
             showSettings: vi.fn(),
-            toggleYoutubeImmersion: vi.fn(),
+            toggleAnnotations,
+            toggleAudio,
+            toggleSiteLanguage,
+            toggleYoutube,
         });
 
         commands.get(`${APP_NAME} open new tab`)?.();
+        commands.get(`${APP_NAME} annotations`)?.();
+        commands.get(`${APP_NAME} audio`)?.();
+        commands.get(`${APP_NAME} OCR`)?.();
+        commands.get(`${APP_NAME} language`)?.();
+        commands.get(`${APP_NAME} YouTube`)?.();
 
         expect(open).toHaveBeenCalledWith(NEW_TAB_PAGE_URL, '_blank');
         expect(opened.opener).toBeNull();
+        expect(toggleAnnotations).toHaveBeenCalledTimes(1);
+        expect(toggleAudio).toHaveBeenCalledTimes(1);
+        expect(cycleOcr).toHaveBeenCalledTimes(1);
+        expect(toggleSiteLanguage).toHaveBeenCalledTimes(1);
+        expect(toggleYoutube).toHaveBeenCalledTimes(1);
     });
 
     it('opens reader action pills without leaking the click to YouTube page handlers', () => {

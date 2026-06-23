@@ -127,7 +127,7 @@ function contiguousKanaMergeSpanAt(
     // にほんご|の|じかん) — it is a real boundary, so leave it on its own.
     const previous = segments[startIndex - 1];
     const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
-    if (isInflectionBoundarySegment(first.surface) && !atKanaRunStart) return null;
+    if (isBoundarySegment(first.surface) && !atKanaRunStart) return null;
     const runEnd = contiguousKanaRunEnd(segments, startIndex);
     if (runEnd - startIndex < 2) return null;
     let surface = first.surface;
@@ -137,7 +137,7 @@ function contiguousKanaMergeSpanAt(
         const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
         // Stop merging at a real boundary: a standalone particle, or a point
         // where the rest of the run stands on its own as a content word.
-        if (isInflectionBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+        if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
         surface += current.surface;
         lastIndex = index;
     }
@@ -275,7 +275,7 @@ function inflectedFallbackSpanAt(
     sourceText: string,
 ): { segment: JapaneseTextSegment; nextIndex: number } | null {
     const first = segments[startIndex];
-    if (!first || isInflectionBoundarySegment(first.surface)) return null;
+    if (!first || isBoundarySegment(first.surface)) return null;
     let surface = '';
     let best: { segment: JapaneseTextSegment; nextIndex: number } | null = null;
     for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
@@ -303,7 +303,7 @@ function nextInflectedFallbackSegment(
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
     if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
-    if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
+    if (index > startIndex && isBoundarySegment(current.surface)) return null;
     if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
 }
@@ -336,7 +336,7 @@ function inflectedFallbackCandidateAt(
     };
 }
 
-function isInflectionBoundarySegment(surface: string): boolean {
+export function isBoundarySegment(surface: string): boolean {
     return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
 }
 

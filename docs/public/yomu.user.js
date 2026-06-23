@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.81
+// @version 1.4.82
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.81#sha256-a+YO8pO2KfTqnSuBM5qh+U1XBFkRiaMzPjiV7gpkNas=
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.81#sha256-9rb+gY4BH+W4RdtWp7oiZejC0/dGnu+35N0H9zKBs8c=
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.81#sha256-vJDbXXblYBh+4ZJKdMNVFwGPiNTdgHpMMWwzbpo+A+w=
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.81#sha256-F2JuzVED8yTg44nWFIum+hilpl72DszrS7RmSjYiuGQ=
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.82
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.82
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.82
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.82
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -22986,7 +22986,7 @@ ${glossaryKey}`;
     if (!first || !isPureKanaSegment(first.surface)) return null;
     const previous = segments[startIndex - 1];
     const atKanaRunStart = !previous || !isPureKanaSegment(previous.surface) || previous.end !== first.start;
-    if (isInflectionBoundarySegment(first.surface) && !atKanaRunStart) return null;
+    if (isBoundarySegment(first.surface) && !atKanaRunStart) return null;
     const runEnd = contiguousKanaRunEnd(segments, startIndex);
     if (runEnd - startIndex < 2) return null;
     let surface = first.surface;
@@ -22994,7 +22994,7 @@ ${glossaryKey}`;
     for (let index = startIndex + 1; index < runEnd; index += 1) {
       const current = segments[index];
       const trailingSpan = sliceKanaSpanSurface(segments, index, runEnd);
-      if (isInflectionBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
+      if (isBoundarySegment(current.surface) || isKanaContentWordSpan(trailingSpan)) break;
       surface += current.surface;
       lastIndex = index;
     }
@@ -23102,7 +23102,7 @@ ${glossaryKey}`;
   }
   function inflectedFallbackSpanAt(segments, startIndex, sourceText) {
     const first = segments[startIndex];
-    if (!first || isInflectionBoundarySegment(first.surface)) return null;
+    if (!first || isBoundarySegment(first.surface)) return null;
     let surface = "";
     let best = null;
     for (let index = startIndex; index < fallbackInflectionScanEnd(segments, startIndex); index += 1) {
@@ -23121,7 +23121,7 @@ ${glossaryKey}`;
     const current = segments[index];
     if (!current || !isContiguousFallbackSegment(segments, index, startIndex, first)) return null;
     if (index > startIndex && isNumericCounterFallbackStem(first, sourceText)) return null;
-    if (index > startIndex && isInflectionBoundarySegment(current.surface)) return null;
+    if (index > startIndex && isBoundarySegment(current.surface)) return null;
     if (index > startIndex && !canContinueInflectedFallbackSpan(surface, current.surface)) return null;
     return current;
   }
@@ -23139,7 +23139,7 @@ ${glossaryKey}`;
       nextIndex: index + 1
     };
   }
-  function isInflectionBoundarySegment(surface) {
+  function isBoundarySegment(surface) {
     return INFLECTION_BOUNDARY_SEGMENTS.has(surface);
   }
   function isInflectionContinuationSegment(surface) {
@@ -23793,15 +23793,15 @@ ${spelling}`);
     }
     fillSegmentedFallbackGaps(text2, tokens) {
       const fallbackTokens = this.parseSegmentedText(text2);
-      const repairedFallbackTokens = fallbackRepairTokens(text2, fallbackTokens, tokens);
-      const replacementTokens = fallbackTokens.filter((fallback) => shouldPreferInflectedFallbackToken(fallback, tokens));
-      const replacementRanges = [
-        ...fallbackRepairRanges(repairedFallbackTokens),
-        ...replacementTokens.map((fallback) => ({ start: fallback.start, end: fallback.end }))
+      const repaired = fallbackRepairTokens(text2, fallbackTokens, tokens);
+      const broad = tokens.filter((token) => isBroadPublic(token) && fallbackTokens.some((fallback) => tokenInsideRange(fallback, token.start, token.end) && (fallback.start !== token.start || fallback.end !== token.end) && isBoundarySegment(fallback.card.spelling)));
+      const replacements = [
+        ...fallbackTokens.filter((fallback) => preferInflectedFallback(fallback, tokens)),
+        ...fallbackTokens.filter((fallback) => broad.some((token) => tokenInsideRange(fallback, token.start, token.end)))
       ];
-      const keptTokens = replacementRanges.length ? tokens.filter((token) => !replacementRanges.some((range) => tokenInsideRange(token, range.start, range.end))) : tokens;
-      const extraFallbackTokens = fallbackTokens.filter((fallback) => replacementTokens.includes(fallback) || repairedFallbackTokens.includes(fallback) || !keptTokens.some((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
-      return extraFallbackTokens.length ? [...keptTokens, ...extraFallbackTokens].sort(compareTokensByOffset) : tokens;
+      const extras = fallbackTokens.filter((fallback) => replacements.includes(fallback) || repaired.includes(fallback) || !tokens.some((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end)));
+      const keptTokens = extras.length ? tokens.filter((token) => !extras.some((fallback) => rangesOverlap(fallback.start, fallback.end, token.start, token.end))) : tokens;
+      return extras.length ? [...keptTokens, ...extras].sort(compareTokensByOffset) : tokens;
     }
     async localRubySegments(surface, reading, start, end) {
       const whole = [{ text: reading, start, end, length: end - start }];
@@ -23982,10 +23982,13 @@ ${spelling}`);
   function tokenInsideRange(token, start, end) {
     return token.start >= start && token.end <= end;
   }
-  function shouldPreferInflectedFallbackToken(fallback, tokens) {
+  function preferInflectedFallback(fallback, tokens) {
     if (!fallback.card.fallbackLookupTerms?.length) return false;
     const overlapping = tokens.filter((token) => rangesOverlap(fallback.start, fallback.end, token.start, token.end));
     return overlapping.length === 1 && overlapping.every((token) => tokenInsideRange(token, fallback.start, fallback.end) && token.length < fallback.length);
+  }
+  function isBroadPublic(token) {
+    return token.card.source === "jiten" && !token.card.pitchAccent.length && !token.pitchClass;
   }
   function fallbackRepairTokens(text2, fallbackTokens, tokens) {
     const repaired = new Set();
@@ -24025,18 +24028,6 @@ ${spelling}`);
       if (group[index - 1]?.end !== group[index]?.start) return null;
     }
     return group;
-  }
-  function fallbackRepairRanges(tokens) {
-    const ranges = [];
-    for (const token of tokens) {
-      const previous = ranges[ranges.length - 1];
-      if (previous && previous.end === token.start) {
-        previous.end = token.end;
-        continue;
-      }
-      ranges.push({ start: token.start, end: token.end });
-    }
-    return ranges;
   }
   function compareTokensByOffset(a, b) {
     return a.start - b.start || b.length - a.length;
@@ -30121,8 +30112,8 @@ ${normalizedReading}`;
     return Boolean(text2 && HAS_JAPANESE$1.test(text2));
   }
   function isProseDominantSelection(text2) {
-    const latin = (text2.match(/[A-Za-z]/gu) ?? []).length;
-    return latin >= 24 && latin > (text2.match(/[぀-鿿]/gu) ?? []).length;
+    const latin = text2.match(/[A-Za-z]/gu)?.length ?? 0;
+    return latin >= 24 && latin > (text2.match(/[぀-鿿]/gu)?.length ?? 0);
   }
   function lookupCandidateSentence(text2, start = 0, end = text2.length) {
     const sentence = sentenceAroundRange(text2, start, end) || normalizedLookupText(text2);
@@ -35364,7 +35355,11 @@ ${reading}`);
     register(`${APP_NAME} settings`, () => handlers.showSettings());
     register(`${APP_NAME} open new tab`, () => openReaderNewTabPage(handlers.logInfo));
     register(`${APP_NAME} open video player`, () => openReaderVideoPlayer(handlers.logInfo));
-    register(`${APP_NAME} toggle YouTube filter`, () => void handlers.toggleYoutubeImmersion());
+    register(`${APP_NAME} annotations`, handlers.toggleAnnotations);
+    register(`${APP_NAME} audio`, handlers.toggleAudio);
+    register(`${APP_NAME} OCR`, handlers.cycleOcr);
+    register(`${APP_NAME} language`, handlers.toggleSiteLanguage);
+    register(`${APP_NAME} YouTube`, handlers.toggleYoutube);
     register(`${APP_NAME} toggle puck`, () => {
       const settings = handlers.getSettings();
       settings.showFloatingButton = !settings.showFloatingButton;
@@ -38049,11 +38044,15 @@ ${criticalWordCss()}
     }
     registerMenuCommands() {
       registerReaderMenuCommands({
+        cycleOcr: () => this.cycleOcrMode(),
         getSettings: () => this.settings,
         saveSettings: (settings) => saveSettings(settings),
         installFloatingButton: () => this.installFab(),
         showSettings: () => this.showSettings(),
-        toggleYoutubeImmersion: () => this.toggleYoutubeImmersion(),
+        toggleAnnotations: () => this.toggleAnnotationsPaused(),
+        toggleAudio: () => this.toggleAutoPlayAudio(),
+        toggleSiteLanguage: () => this.togglePreferredJapaneseSiteLanguage(),
+        toggleYoutube: () => this.toggleYoutubeImmersion(),
         factoryReset: () => void this.factoryReset.resetAllData(),
         logInfo: (message, details) => {
           log.info(message, details);

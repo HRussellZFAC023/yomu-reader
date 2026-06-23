@@ -45,7 +45,7 @@ hero:
   <div class="yomu-demo-copy">
     <p class="yomu-showcase-kicker">Text</p>
     <h2 id="yomu-demo-title">Look up a word, keep your place</h2>
-    <p>Readings, meanings, pitch, audio, examples, kanji, and save actions open beside the sentence.</p>
+    <p>Readings, meanings, pitch, audio, examples, kanji, and save actions open in a popover when you press a word.</p>
     <div class="yomu-try-me-text jpdb-reader-word-highlight-jpdb jpdb-reader-word-underline-pitch" data-yomu-furigana-mode="all">
       <p class="yomu-try-me-label">Try me</p>
       <p class="yomu-try-me-sample" lang="ja" aria-label="今日は静かな喫茶店で新しい本を読みました。音声や色も見えます。" data-yomu-localize="off" data-jpdb-reader-surface-ignore="true">
@@ -68,7 +68,7 @@ hero:
   <div class="yomu-manga-ocr-copy">
     <p class="yomu-showcase-kicker">Image</p>
     <h2 id="yomu-manga-title">See how image text becomes readable</h2>
-    <p>This sample uses よむ's real image reader on the manga page below. The picture stays clean while OCR prepares lookup targets for the text it finds.</p>
+    <p>When reading manga or images that contain Japanese, tap them to trigger OCR. You can then click any word within the panel.</p>
   </div>
   <div class="yomu-manga-figure" data-yomu-runtime-surface>
     <img class="yomu-manga-image" src="/media/manga-ocr-sample.png" alt="Japanese manga page with text detected by よむ OCR" loading="eager" fetchpriority="high" decoding="sync" />

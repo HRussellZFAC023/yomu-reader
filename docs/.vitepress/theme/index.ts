@@ -110,12 +110,45 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 const HOSTED_DEMO_VIDEO_SETTINGS_PATCH = {
+    showFurigana: true,
+    furiganaMode: 'all',
+    showPitchAccent: true,
+    wordUnderlineColorSource: 'pitch',
     subtitlePlayerEnabled: true,
     subtitleAutoDetect: true,
     subtitleOverlayVisible: true,
     subtitleControlsMode: 'always',
     subtitleTranscriptVisible: false,
 } as const;
+const HOSTED_MANGA_OCR_VOCABULARY = [
+    { surface: 'ファントムハイヴ', spelling: 'ファントムハイヴ', reading: 'ファントムハイヴ', pitchPosition: 1 },
+    { surface: '家', spelling: '家', reading: 'け', pitchPosition: 1 },
+    { surface: '執事', spelling: '執事', reading: 'しつじ', pitchPosition: 2 },
+    { surface: 'たる', spelling: 'たる', reading: 'たる', pitchPosition: 0 },
+    { surface: 'もの', spelling: 'もの', reading: 'もの', pitchPosition: 0 },
+    { surface: 'この', spelling: 'この', reading: 'この', pitchPosition: 0 },
+    { surface: '程度', spelling: '程度', reading: 'ていど', pitchPosition: 1 },
+    { surface: '技', spelling: '技', reading: 'わざ', pitchPosition: 1 },
+    { surface: '使え', spelling: '使える', reading: 'つかえる', pitchPosition: 0 },
+    { surface: 'なくて', spelling: 'ない', reading: 'ない', pitchPosition: 1 },
+    { surface: 'どうします', spelling: 'どうする', reading: 'どうする', pitchPosition: 2 },
+    { surface: 'セバスチャン', spelling: 'セバスチャン', reading: 'セバスチャン', pitchPosition: 2 },
+    { surface: 'ミカエリス', spelling: 'ミカエリス', reading: 'ミカエリス' },
+    { surface: '訳', spelling: '訳', reading: 'わけ', pitchPosition: 1 },
+    { surface: '坊ちゃん', spelling: '坊ちゃん', reading: 'ぼっちゃん', pitchPosition: 1 },
+    { surface: '私', spelling: '私', reading: 'わたし', pitchPosition: 0 },
+    { surface: '勝ち', spelling: '勝ち', reading: 'かち', pitchPosition: 2 },
+    { surface: '約束', spelling: '約束', reading: 'やくそく', pitchPosition: 0 },
+    { surface: '通り', spelling: '通り', reading: 'とおり', pitchPosition: 3 },
+    { surface: 'これから', spelling: 'これから', reading: 'これから', pitchPosition: 0 },
+    { surface: '晩餐', spelling: '晩餐', reading: 'ばんさん', pitchPosition: 0 },
+    { surface: '本日', spelling: '本日', reading: 'ほんじつ', pitchPosition: 1 },
+    { surface: '復習', spelling: '復習', reading: 'ふくしゅう', pitchPosition: 0 },
+    { surface: '明日', spelling: '明日', reading: 'あした', pitchPositions: [0, 3] },
+    { surface: '予習', spelling: '予習', reading: 'よしゅう', pitchPosition: 0 },
+    { surface: '下さいね', spelling: '下さい', reading: 'ください', pitchPosition: 3 },
+    { surface: '当主', spelling: '当主', reading: 'とうしゅ', pitchPosition: 1 },
+] as const;
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     // Docs JA localization sweep (verified)
@@ -727,6 +760,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Stats': '統計',
     'Changelog': '変更履歴',
     'Fixed': '修正',
+    'Added the radial-menu quick actions for pausing annotations, muting term audio, cycling OCR mode, and toggling Japanese site language to the userscript browser icon/context-menu shortcuts.': '注釈の一時停止、単語音声のミュート、OCRモードの切り替え、日本語サイト言語の切り替えに使うラジアルメニューのクイックアクションを、ユーザースクリプトのブラウザーアイコン/コンテキストメニューのショートカットにも追加しました。',
     'Mobile Google Search annotations no longer hide the base text inside compact rounded result controls, and passive result snippets no longer paint pale highlight blocks on dark-mode search results before or after hover.': 'モバイル版Google検索の注釈は、コンパクトな角丸の結果コントロール内で元の文字を隠さなくなり、パッシブな検索結果スニペットもダークモードの検索結果でホバー前後に薄いハイライトの四角を描かなくなりました。',
     'The hosted homepage now uses a tighter “Read Japanese without leaving the page” flow, a compact setup path, native demo video controls, a static pitch-accent demo fallback, and the real manga OCR sample image instead of the temporary illustrated panel.': 'ホスト版ホームページは、一時的なイラスト風パネルではなく、より引き締まった「Read Japanese without leaving the page」の流れ、コンパクトなセットアップ導線、ネイティブのデモ動画コントロール、静的なピッチアクセント付きデモのフォールバック、実際の漫画OCRサンプル画像を使うようになりました。',
     'Hosted docs now emit normal stylesheet links and load the root-hosted userscript assets, so the deployed homepage does not fall back to an unstyled or stale-looking page.': 'ホスト版ドキュメントは通常のスタイルシートリンクを出力し、ルートで配信されるユーザースクリプト資産を読み込むようになりました。そのため、デプロイ済みホームページが未スタイルまたは古く見えるページに戻ることはありません。',
@@ -780,17 +814,17 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Read a page': 'ページを読む',
     'Text': 'テキスト',
     'Look up a word, keep your place': '単語を調べても、読む場所を見失わない',
-    'Readings, meanings, pitch, audio, examples, kanji, and save actions open beside the sentence.': '読み、意味、ピッチ、音声、例文、漢字、保存操作が文のそばに開きます。',
+    'Readings, meanings, pitch, audio, examples, kanji, and save actions open in a popover when you press a word.': '単語を押すと、読み、意味、ピッチ、音声、例文、漢字、保存操作がポップオーバーで開きます。',
     'Try me': '試してみる',
     'よむ demo: reading Japanese on an iPhone and opening the dictionary popup. Press Space or Enter to pause or play.': 'iPhoneで日本語を読み、辞書ポップアップを開くよむのデモ。スペースまたはEnterで一時停止/再生できます。',
     'よむ demo: reading Japanese on an iPhone and opening the dictionary popup.': 'iPhoneで日本語を読み、辞書ポップアップを開くよむのデモ。',
     'Read Japanese in images': '画像の中の日本語を読む',
     'OCR': 'OCR',
     'See how image text becomes readable': '画像の文字が読めるようになる仕組み',
-    'This sample uses よむ\'s real image reader on the manga page below. The picture stays clean while OCR prepares lookup targets for the text it finds.': 'このサンプルでは、下の漫画ページでよむの実際の画像リーダーを使います。画像はきれいなまま、OCRが見つけた文字を検索対象として準備します。',
+    'When reading manga or images that contain Japanese, tap them to trigger OCR. You can then click any word within the panel.': '漫画や日本語を含む画像を読むときは、タップしてOCRを開始します。その後、パネル内の任意の単語をクリックできます。',
     'Japanese manga page with text detected by よむ OCR': 'よむのOCRで文字が検出された日本語漫画ページ',
     'Use captions in a real player': '実際のプレイヤーで字幕を使う',
-    'Play the sample and switch captions on. よむ reads the subtitle track in the player here, before you install anything.': 'サンプルを再生して字幕をオンにしてください。インストール前でも、このページ上でよむがプレイヤー内の字幕トラックを読みます。',
+    'Play the sample and switch captions on. よむ reads the subtitle track, shows a transcript, lets you skip ahead, and lets you pause to OCR any point in the video.': 'サンプルを再生して字幕をオンにしてください。よむは字幕トラックを読み取り、トランスクリプトを表示します。先へスキップしたり、動画の任意の時点で一時停止してOCRしたりできます。',
     'Captioned Japanese sample video': '字幕付き日本語サンプル動画',
     'YouTube video': 'YouTube動画',
     'Permalink to "Next"': '「次に」への固定リンク',
@@ -2705,8 +2739,9 @@ function armHostedRevealElements(): void {
 
 function prepareHostedYomuRuntime(): void {
     const forceLocalRuntime = isLocalHostedRuntime();
+    prepareHostedMangaOcrDemo();
     if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime);
-    if (isHostedYomuRuntimeLoadingOrReady()) return;
+    if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) return;
     // The settings companion loads on the settings warm path; normal docs pages
     // should not download every companion before the reader is needed.
     const target = findHostedYomuRuntimeTarget();
@@ -2761,8 +2796,10 @@ function clearHostedYomuRuntimeIntent(): void {
     hostedRuntimeIntentTarget = undefined;
 }
 
-function isHostedYomuRuntimeLoadingOrReady(): boolean {
-    return Boolean(hostedYomuRuntimeWindow().__yomuReaderAppInitialized || hostedRuntimeScript());
+function isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime = false): boolean {
+    if (hostedRuntimeScript()) return true;
+    if (forceLocalRuntime) return false;
+    return Boolean(hostedYomuRuntimeWindow().__yomuReaderAppInitialized);
 }
 
 function installHostedYomuRuntime(): HTMLScriptElement | undefined {
@@ -2783,6 +2820,12 @@ function installHostedYomuRuntime(): HTMLScriptElement | undefined {
 function prepareHostedDemoVideoSettings(): void {
     if (!document.querySelector('[data-yomu-demo-player]')) return;
     writeStoredSettingsPatch(HOSTED_DEMO_VIDEO_SETTINGS_PATCH);
+}
+
+function prepareHostedMangaOcrDemo(): void {
+    const image = document.querySelector<HTMLImageElement>('.yomu-manga-image[src*="manga-ocr-sample"]');
+    if (!image) return;
+    image.dataset.ocrVocabulary = JSON.stringify(HOSTED_MANGA_OCR_VOCABULARY);
 }
 
 function hostedYomuRuntimeWindow(): HostedYomuRuntimeWindow {
