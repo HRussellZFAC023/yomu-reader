@@ -110,6 +110,12 @@ const HOSTED_LANGUAGE_TOGGLE_LABELS: Record<InterfaceLanguage, Record<InterfaceL
 const HOSTED_THEME_PREFERENCES = new Set<HostedThemePreference>(['auto', 'dark', 'light']);
 
 const HOSTED_DOCS_JA_COPY: Record<string, string> = {
+    // Homepage redesign (hero + demo + manga OCR sections)
+    'Read anything in Japanese': '日本語なら何でも読める',
+    'Tap a word, keep reading': '単語をタップして、読み進める',
+    'よむ opens one popup with the reading, meaning, pitch accent, audio, and example sentences, then saves the word so you can keep going — the same popup on web pages, manga, PDFs, and subtitles.': 'よむは、読み、意味、ピッチアクセント、音声、例文を1つのポップアップで開き、その単語を保存して読み進められます。Webページ、漫画、PDF、字幕でも同じポップアップが使えます。',
+    'Manga, screenshots, and image-only pages have no selectable text. よむ reads the Japanese with OCR, adds furigana, and turns every word into the same tappable popup.': '漫画、スクリーンショット、画像だけのページには、選択できる文字がありません。よむはOCRで日本語を読み取り、ふりがなを付け、すべての単語を同じタップ可能なポップアップに変えます。',
+    'A manga page in Japanese, read with よむ OCR': 'よむのOCRで読み取った日本語の漫画ページ',
     'Skip to content': '本文へスキップ',
     'Search': '検索',
     'Main Navigation': 'メインナビゲーション',
