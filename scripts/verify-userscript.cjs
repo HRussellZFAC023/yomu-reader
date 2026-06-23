@@ -32,6 +32,7 @@ const maxLineLength = lines.reduce((max, line) => Math.max(max, line.length), 0)
 
 if (!code.startsWith('// ==UserScript==')) fail(`${USERSCRIPT_RELATIVE_PATH} is missing a userscript metadata block.`);
 if (!code.includes(`// @version      ${packageJson.version}`)) fail('userscript version does not match package.json.');
+if (!code.includes('// @icon         https://yomureader.com/favicon-32x32.png')) fail('userscript icon metadata must use the raster favicon for userscript manager compatibility.');
 if (!code.includes('// @match        *://*/*')) fail('userscript match metadata is missing.');
 if (code.includes('// @exclude      https://hrussellzfac023.github.io/yomu-reader/*')) fail('docs site exclude metadata should not block hosted new-tab request bridging.');
 if (!code.includes('// @grant        GM_xmlhttpRequest')) fail('GM_xmlhttpRequest grant is missing.');

@@ -25,7 +25,7 @@ const vitepressBin = process.platform === 'win32'
 const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
 const docsUrl = `https://${githubOwner.toLowerCase()}.github.io/${pkg.name}/`;
-const userscriptIcon = `${docsUrl}yomu-icon.svg`;
+const userscriptIcon = `${docsUrl}favicon-32x32.png`;
 const matches = process.env.YOMU_DEV_MATCH
     ? process.env.YOMU_DEV_MATCH.split(',').map(match => match.trim()).filter(Boolean)
     : ['*://*/*', 'file:///*'];

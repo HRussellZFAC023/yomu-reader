@@ -15,7 +15,7 @@ const githubOwner = 'HRussellZFAC023';
 const repoUrl = `https://github.com/${githubOwner}/${pkg.name}`;
 const docsUrl = 'https://yomureader.com/';
 const rawReaderCssUrl = `${docsUrl}yomu.css`;
-const userscriptIcon = `${docsUrl}yomu-icon.svg`;
+const userscriptIcon = `${docsUrl}favicon-32x32.png`;
 const broadUserscriptMatch = ['*://*/*', 'file:///*'];
 // Required for user-configured audio, OCR, proxy, dictionary,
 // AnkiConnect-compatible, Tailnet, and local service URLs.

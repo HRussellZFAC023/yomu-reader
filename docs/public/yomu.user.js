@@ -4,7 +4,7 @@
 // @version      1.4.77
 // @description  Japanese popup reader.
 // @license      MIT
-// @icon         https://yomureader.com/yomu-icon.svg
+// @icon         https://yomureader.com/favicon-32x32.png
 // @homepage     https://yomureader.com/
 // @match        *://*/*
 // @match        file:///*
