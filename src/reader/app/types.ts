@@ -483,6 +483,8 @@ export interface ReaderSettings {
 }
 
 declare global {
+    const __YOMU_EXTENSION_BUILD__: undefined | boolean;
+
     type UserscriptHttpResponse = { status: number; response: unknown; responseText?: string; finalUrl?: string };
     type UserscriptHttpRequestHandle = { abort?: () => void };
     type UserscriptHttpRequest = (details: {

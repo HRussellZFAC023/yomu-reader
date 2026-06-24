@@ -51,6 +51,7 @@ import {
 } from './form';
 import type { AnkiAdapterState, SettingsStatusAction, SettingsStatusDetail, SettingsStatusLine } from './form';
 import { updateAnkiTagsEditor } from './form-tags';
+import { CLOUD_SETTINGS_SYNC_ENABLED, cloudSettingsSyncAvailable, downloadCloudSettingsFromCloud, uploadCloudSettingsToCloud } from './cloud-sync';
 import { dateStamp, downloadBlob, getReaderDictionaryExport, getReaderSettingsExport, pickFile, readerDictionaryExportHasData, recommendedDictionaryFilename } from './file-io';
 import type { AnkiLibraryScanResult } from '../anki/types';
 import type { AnkiFieldMappingRole, InterfaceLanguage, ReaderSettings } from '../app/types';
@@ -1425,6 +1426,7 @@ export class SettingsDialogController {
         const handled = this.handleSettingsEditorAction(form, action, control)
             || await this.handleSettingsAudioAction(form, action, control)
             || await this.handleSettingsDictionaryAction(form, action, control, setStatus)
+            || await this.handleSettingsCloudSyncAction(form, action, control, setStatus)
             || await this.handleSettingsImportExportAction(form, action, setStatus);
         if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
@@ -1522,6 +1524,59 @@ export class SettingsDialogController {
             return true;
         }
         return false;
+    }
+
+    private async handleSettingsCloudSyncAction(form: HTMLFormElement, action: string, control: HTMLElement | null | undefined, setStatus: SettingsStatusSetter): Promise<boolean> {
+        if (!CLOUD_SETTINGS_SYNC_ENABLED || (action !== 'sync-cloud-settings' && action !== 'restore-cloud-settings')) return false;
+
+        const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+        if (!cloudSettingsSyncAvailable()) {
+            setStatus(cloudSettingsSyncUnavailableStatus(language));
+            return true;
+        }
+
+        const button = settingsActionButton(control);
+        button?.setAttribute('disabled', 'true');
+        try {
+            if (action === 'sync-cloud-settings') {
+                this.settings = readFormSettings(new FormData(form), this.settings);
+                await saveSettings(this.settings);
+                const metadata = await uploadCloudSettingsToCloud(this.settings);
+                const message = cloudSettingsSyncedStatus(metadata.syncedAt, language);
+                setStatus(message);
+                this.dependencies.toast(message);
+                log.info('Cloud settings synced', { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
+                return true;
+            }
+
+            const snapshot = await downloadCloudSettingsFromCloud();
+            if (!snapshot) {
+                setStatus(cloudSettingsNotFoundStatus(language));
+                return true;
+            }
+            this.settings = normalizeReaderSettings({
+                ...this.settings,
+                ...snapshot.settings,
+                shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts },
+            });
+            await saveSettings(this.settings);
+            const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
+            setStatus(message);
+            this.dependencies.toast(message);
+            this.dependencies.applyTheme();
+            void this.dependencies.refreshDictionaryStyles();
+            this.dependencies.scheduleDictionaryRescan();
+            this.dependencies.installFab();
+            this.dependencies.subtitles.refresh();
+            this.dependencies.ocr.refresh();
+            this.dependencies.youtube.refresh();
+            this.dependencies.clearSettingsPreview();
+            log.info('Cloud settings restored', { syncedAt: snapshot.syncedAt });
+            this.open('dictionaries');
+            return true;
+        } finally {
+            button?.removeAttribute('disabled');
+        }
     }
 
     private async handleSettingsImportExportAction(form: HTMLFormElement, action: string, setStatus: SettingsStatusSetter): Promise<boolean> {
@@ -2107,6 +2162,38 @@ function importSettingsStatus(restoredValues: number, dictionarySummary: ImportS
     return details.length
         ? formatUiTemplate(uiText(language, 'settingsImportedWithDetails'), { details: details.join('; ') })
         : uiText(language, 'settingsImported');
+}
+
+function cloudSettingsSyncUnavailableStatus(language: InterfaceLanguage): string {
+    return language === 'ja'
+        ? 'Google Drive設定同期はYomu拡張機能でのみ利用できます。'
+        : 'Google Drive settings sync is available only in the Yomu extension.';
+}
+
+function cloudSettingsNotFoundStatus(language: InterfaceLanguage): string {
+    return language === 'ja'
+        ? 'Google Driveに保存されたYomu設定が見つかりません。'
+        : 'No Yomu settings were found in Google Drive.';
+}
+
+function cloudSettingsSyncedStatus(syncedAt: string, language: InterfaceLanguage): string {
+    const time = cloudSettingsSyncTime(syncedAt, language);
+    return language === 'ja'
+        ? `設定をGoogle Driveに同期しました（${time}）。`
+        : `Settings synced to Google Drive (${time}).`;
+}
+
+function cloudSettingsRestoredStatus(syncedAt: string, language: InterfaceLanguage): string {
+    const time = cloudSettingsSyncTime(syncedAt, language);
+    return language === 'ja'
+        ? `Google Drive設定を復元しました（${time}）。`
+        : `Google Drive settings restored (${time}).`;
+}
+
+function cloudSettingsSyncTime(value: string, language: InterfaceLanguage): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(language === 'ja' ? 'ja-JP' : undefined);
 }
 
 function formatUiTemplate(template: string, values: Record<string, string>): string {

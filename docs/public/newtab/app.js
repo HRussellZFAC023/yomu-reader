@@ -1677,8 +1677,8 @@
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
-      cloudSettingsSync: "Cloud settings synchronization",
-      cloudSettingsSyncHelp: "Use Export settings JSON below for a cloud backup, then import it on another browser or device.",
+      cloudSettingsSync: "Google Drive settings sync",
+      cloudSettingsSyncHelp: "Stores extension settings in Google Drive app data. Dictionaries stay local.",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
@@ -3259,8 +3259,8 @@ jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
-cloudSettingsSync	クラウド設定同期
-cloudSettingsSyncHelp	下の設定JSONエクスポートでバックアップし、別のブラウザや端末でインポートできます。
+cloudSettingsSync	Google Drive設定同期
+cloudSettingsSyncHelp	拡張機能の設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -3665,7 +3665,7 @@ recommendedJiten	Jiten頻度です。
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike$1(value)) return { kind: "fallback" };
+      if (isPromiseLike$2(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -3692,7 +3692,7 @@ recommendedJiten	Jiten頻度です。
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike$1(result)) {
+        if (!isPromiseLike$2(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -3718,7 +3718,7 @@ recommendedJiten	Jiten頻度です。
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike$2(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -3992,7 +3992,7 @@ recommendedJiten	Jiten頻度です。
       }
     });
   }
-  function isPromiseLike$1(value) {
+  function isPromiseLike$2(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmGetValue() {
@@ -25593,6 +25593,102 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const [link] = links.splice(from, 1);
     links.splice(to, 0, link);
   }
+  const EXTENSION_BUILD_FLAG = typeof __YOMU_EXTENSION_BUILD__ === "boolean" ? __YOMU_EXTENSION_BUILD__ : false;
+  const CLOUD_SETTINGS_SYNC_ENABLED = EXTENSION_BUILD_FLAG;
+  const GOOGLE_DRIVE_SYNC_MESSAGE = "yomu.googleDriveSettingsSync";
+  const GOOGLE_DRIVE_SYNC_TIMEOUT_MS = 2e4;
+  function cloudSettingsSyncAvailable() {
+    const extension = extensionRuntime$1();
+    return CLOUD_SETTINGS_SYNC_ENABLED && Boolean(extension?.runtime.id && extension.runtime.sendMessage);
+  }
+  async function uploadCloudSettingsToCloud(settings) {
+    const snapshot = {
+      formatName: "yomu-google-drive-settings-sync",
+      formatVersion: 1,
+      syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      settings
+    };
+    const response = await sendCloudSettingsSyncMessage({ command: "upload", snapshot });
+    return response.metadata ?? { syncedAt: snapshot.syncedAt };
+  }
+  async function downloadCloudSettingsFromCloud() {
+    const response = await sendCloudSettingsSyncMessage({ command: "download" });
+    return response.snapshot ?? null;
+  }
+  async function sendCloudSettingsSyncMessage(message) {
+    const extension = extensionRuntime$1();
+    if (!CLOUD_SETTINGS_SYNC_ENABLED || !extension?.runtime.id || typeof extension.runtime.sendMessage !== "function") {
+      throw new Error("Google Drive settings sync is available only in the Yomu extension.");
+    }
+    const response = cloudSettingsSyncResponse(await sendExtensionMessage$1(extension, {
+      type: GOOGLE_DRIVE_SYNC_MESSAGE,
+      ...message
+    }));
+    if (!response?.ok) {
+      throw new Error(response?.error || "Google Drive settings sync is unavailable in this extension build.");
+    }
+    return response;
+  }
+  function sendExtensionMessage$1(extension, message) {
+    if (extension.promiseBased) {
+      try {
+        return withTimeout$1(Promise.resolve(extension.runtime.sendMessage?.(message)), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
+      } catch (error) {
+        return Promise.reject(error);
+      }
+    }
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (response) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        const lastError = extension.runtime.lastError;
+        if (lastError) reject(new Error(lastError.message || "Google Drive settings sync failed."));
+        else resolve(response);
+      };
+      const fail = (error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        reject(error);
+      };
+      const timer = window.setTimeout(() => fail(new Error("Google Drive settings sync timed out.")), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
+      try {
+        const maybePromise = extension.runtime.sendMessage?.(message, finish);
+        if (isPromiseLike$1(maybePromise)) void maybePromise.then(finish, fail);
+      } catch (error) {
+        fail(error);
+      }
+    });
+  }
+  function extensionRuntime$1() {
+    const global = globalThis;
+    if (global.browser?.runtime) return { promiseBased: true, runtime: global.browser.runtime };
+    if (global.chrome?.runtime) return { promiseBased: false, runtime: global.chrome.runtime };
+    return void 0;
+  }
+  function cloudSettingsSyncResponse(value) {
+    return value && typeof value === "object" ? value : null;
+  }
+  function withTimeout$1(promise, timeoutMs) {
+    return new Promise((resolve, reject) => {
+      const timer = window.setTimeout(() => reject(new Error("Google Drive settings sync timed out.")), timeoutMs);
+      promise.then(
+        (value) => {
+          window.clearTimeout(timer);
+          resolve(value);
+        },
+        (error) => {
+          window.clearTimeout(timer);
+          reject(error);
+        }
+      );
+    });
+  }
+  function isPromiseLike$1(value) {
+    return Boolean(value && typeof value.then === "function");
+  }
   function renderAnkiTagsEditor(value, language) {
     const tags = ankiTagList(value);
     return `
@@ -26950,10 +27046,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
-                <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
-                    <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Cloud settings synchronization</div>
-                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Use Export settings JSON below for a cloud backup, then import it on another browser or device.</div>
-                </div>
+                ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ""}
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
@@ -26964,6 +27057,21 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
+    `;
+  }
+  function renderCloudSettingsSyncSection(settings) {
+    const language = resolveUiLanguage(settings.interfaceLanguage);
+    const uploadLabel = language === "ja" ? "Google Driveに同期" : "Sync to Google Drive";
+    const restoreLabel = language === "ja" ? "Google Driveから復元" : "Restore from Google Drive";
+    return `
+                <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
+                    <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Google Drive settings sync</div>
+                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores extension settings in Google Drive app data. Dictionaries stay local.</div>
+                    <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
+                        <button class="jpdb-reader-btn" type="button" data-action="sync-cloud-settings">${uploadLabel}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="restore-cloud-settings">${restoreLabel}</button>
+                    </div>
+                </div>
     `;
   }
   function renderShortcutSettingsPanel(settings) {
@@ -29559,7 +29667,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }
     }
     async runSettingsAction(form, action, control, setStatus) {
-      const handled = this.handleSettingsEditorAction(form, action, control) || await this.handleSettingsAudioAction(form, action, control) || await this.handleSettingsDictionaryAction(form, action, control, setStatus) || await this.handleSettingsImportExportAction(form, action, setStatus);
+      const handled = this.handleSettingsEditorAction(form, action, control) || await this.handleSettingsAudioAction(form, action, control) || await this.handleSettingsDictionaryAction(form, action, control, setStatus) || await this.handleSettingsCloudSyncAction(form, action, control, setStatus) || await this.handleSettingsImportExportAction(form, action, setStatus);
       if (!handled) await this.handleSettingsConnectionOrSupportAction(form, action, control, setStatus);
     }
     async handleSettingsConnectionOrSupportAction(form, action, control, setStatus) {
@@ -29648,6 +29756,55 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         return true;
       }
       return false;
+    }
+    async handleSettingsCloudSyncAction(form, action, control, setStatus) {
+      if (!CLOUD_SETTINGS_SYNC_ENABLED || action !== "sync-cloud-settings" && action !== "restore-cloud-settings") return false;
+      const language = getFormInterfaceLanguage(form, this.settings.interfaceLanguage);
+      if (!cloudSettingsSyncAvailable()) {
+        setStatus(cloudSettingsSyncUnavailableStatus(language));
+        return true;
+      }
+      const button = settingsActionButton(control);
+      button?.setAttribute("disabled", "true");
+      try {
+        if (action === "sync-cloud-settings") {
+          this.settings = readFormSettings(new FormData(form), this.settings);
+          await saveSettings(this.settings);
+          const metadata = await uploadCloudSettingsToCloud(this.settings);
+          const message2 = cloudSettingsSyncedStatus(metadata.syncedAt, language);
+          setStatus(message2);
+          this.dependencies.toast(message2);
+          log$n.info("Cloud settings synced", { syncedAt: metadata.syncedAt, fileId: metadata.fileId });
+          return true;
+        }
+        const snapshot = await downloadCloudSettingsFromCloud();
+        if (!snapshot) {
+          setStatus(cloudSettingsNotFoundStatus(language));
+          return true;
+        }
+        this.settings = normalizeReaderSettings({
+          ...this.settings,
+          ...snapshot.settings,
+          shortcuts: { ...this.settings.shortcuts, ...snapshot.settings.shortcuts }
+        });
+        await saveSettings(this.settings);
+        const message = cloudSettingsRestoredStatus(snapshot.syncedAt, language);
+        setStatus(message);
+        this.dependencies.toast(message);
+        this.dependencies.applyTheme();
+        void this.dependencies.refreshDictionaryStyles();
+        this.dependencies.scheduleDictionaryRescan();
+        this.dependencies.installFab();
+        this.dependencies.subtitles.refresh();
+        this.dependencies.ocr.refresh();
+        this.dependencies.youtube.refresh();
+        this.dependencies.clearSettingsPreview();
+        log$n.info("Cloud settings restored", { syncedAt: snapshot.syncedAt });
+        this.open("dictionaries");
+        return true;
+      } finally {
+        button?.removeAttribute("disabled");
+      }
     }
     async handleSettingsImportExportAction(form, action, setStatus) {
       if (action === "import-yomitan-settings") {
@@ -30144,6 +30301,25 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       }));
     }
     return details.length ? formatUiTemplate(uiText(language, "settingsImportedWithDetails"), { details: details.join("; ") }) : uiText(language, "settingsImported");
+  }
+  function cloudSettingsSyncUnavailableStatus(language) {
+    return language === "ja" ? "Google Drive設定同期はYomu拡張機能でのみ利用できます。" : "Google Drive settings sync is available only in the Yomu extension.";
+  }
+  function cloudSettingsNotFoundStatus(language) {
+    return language === "ja" ? "Google Driveに保存されたYomu設定が見つかりません。" : "No Yomu settings were found in Google Drive.";
+  }
+  function cloudSettingsSyncedStatus(syncedAt, language) {
+    const time = cloudSettingsSyncTime(syncedAt, language);
+    return language === "ja" ? `設定をGoogle Driveに同期しました（${time}）。` : `Settings synced to Google Drive (${time}).`;
+  }
+  function cloudSettingsRestoredStatus(syncedAt, language) {
+    const time = cloudSettingsSyncTime(syncedAt, language);
+    return language === "ja" ? `Google Drive設定を復元しました（${time}）。` : `Google Drive settings restored (${time}).`;
+  }
+  function cloudSettingsSyncTime(value, language) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString(language === "ja" ? "ja-JP" : void 0);
   }
   function formatUiTemplate(template, values) {
     return template.replace(/\{([a-z]+)\}/gi, (_, key) => values[key] ?? "");

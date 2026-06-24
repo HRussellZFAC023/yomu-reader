@@ -61,6 +61,7 @@ function faviconDevMiddleware(): Plugin {
 
 export default defineConfig(({ command, mode }) => ({
     plugins: readerPlugins(command),
+    define: readerDefines(command),
     resolve: readerResolveConfig(command),
     server: readerDevServerConfig,
     build: readerBuildConfig(mode),
@@ -105,17 +106,22 @@ function readerUserscript(command: string, splitCompanions: boolean): MonkeyUser
 }
 
 function readerResolveConfig(command: string) {
-    return shouldUseGreasyForkCompanions(command)
-        ? {
-            alias: {
-                '../companions/register-build-target': path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts'),
-            },
-        }
-        : {};
+    const alias: Record<string, string> = {};
+    if (shouldUseGreasyForkCompanions(command)) {
+        alias['../companions/register-build-target'] = path.join(configRoot, 'src', 'reader', 'companions', 'register-empty.ts');
+        alias['./cloud-sync'] = path.join(configRoot, 'src', 'reader', 'settings', 'cloud-sync-disabled.ts');
+    }
+    return Object.keys(alias).length ? { alias } : {};
 }
 
 function shouldUseGreasyForkCompanions(command: string): boolean {
     return command === 'build' && process.env.YOMU_USERSCRIPT_BUNDLE_MODE !== 'self-contained';
+}
+
+function readerDefines(command: string) {
+    return command === 'build'
+        ? { __YOMU_EXTENSION_BUILD__: JSON.stringify(process.env.YOMU_USERSCRIPT_BUNDLE_MODE === 'self-contained') }
+        : {};
 }
 
 const readerDevServerConfig = {

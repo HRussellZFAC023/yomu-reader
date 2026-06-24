@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.88] - 2026-06-24
+
+### Fixed
+
+- Replaced the placeholder cloud settings section with extension-only Google Drive settings sync in Settings -> Sources, using Google Drive app data for settings backup and restore while keeping dictionaries local.
+
 ## [1.4.87] - 2026-06-24
 
 ### Fixed

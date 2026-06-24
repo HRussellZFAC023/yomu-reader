@@ -10,6 +10,7 @@ import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, 
 import { COLOR_SOURCE_VALUES, CUSTOM_FONT_FAMILY_VALUE, colorSourceOptions, readOption, settingsColorSourceValue } from './form-read';
 import type { ColorSourceSettingName } from './form-read';
 import { renderSourceRowsList } from './form-source-rows';
+import { CLOUD_SETTINGS_SYNC_ENABLED } from './cloud-sync';
 import { renderAnkiMiningSettingsPanel, renderDeckControls as renderJpdbDeckControls } from './anki-mining-panel';
 import {
     MOBILE_ANKI_SETUP_DOCS_URL,
@@ -802,10 +803,7 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
-                <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
-                    <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Cloud settings synchronization</div>
-                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Use Export settings JSON below for a cloud backup, then import it on another browser or device.</div>
-                </div>
+                ${CLOUD_SETTINGS_SYNC_ENABLED ? renderCloudSettingsSyncSection(settings) : ''}
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
@@ -816,6 +814,22 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <input hidden type="file" data-file="dictionary" accept="application/json,.json,.zip,application/zip">
                 <div class="jpdb-reader-help" data-import-status>Import Yomitan settings exports, Yomitan dictionary ZIPs, or exported dictionary backups.</div>
             </fieldset>
+    `;
+}
+
+function renderCloudSettingsSyncSection(settings: ReaderSettings): string {
+    const language = resolveUiLanguage(settings.interfaceLanguage);
+    const uploadLabel = language === 'ja' ? 'Google Driveに同期' : 'Sync to Google Drive';
+    const restoreLabel = language === 'ja' ? 'Google Driveから復元' : 'Restore from Google Drive';
+    return `
+                <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
+                    <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Google Drive settings sync</div>
+                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores extension settings in Google Drive app data. Dictionaries stay local.</div>
+                    <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
+                        <button class="jpdb-reader-btn" type="button" data-action="sync-cloud-settings">${uploadLabel}</button>
+                        <button class="jpdb-reader-btn" type="button" data-action="restore-cloud-settings">${restoreLabel}</button>
+                    </div>
+                </div>
     `;
 }
 
