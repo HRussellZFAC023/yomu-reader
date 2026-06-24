@@ -765,6 +765,8 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Support': 'サポート',
     'Stats': '統計',
     'Changelog': '変更履歴',
+    'Changed': '変更',
+    'Expanded the hosted homepage and localized metadata copy to describe SRS practice, Japanese site versions, and YouTube Japanese-content filtering as part of Yomu\'s immersion environment.': 'ホスト版ホームページとローカライズ済みメタデータの文言を広げ、SRSでの練習、日本語版サイト、YouTubeの日本語コンテンツ絞り込みを、Yomuの没入環境の一部として説明するようにしました。',
     'Fixed': '修正',
     'Kept the video play/pause control visible beside the previous/next subtitle buttons while subtitle navigation is showing, and moved the mobile subtitle height drag handle back to the centered subtitle line position now that it no longer conflicts with that control.': '字幕ナビゲーションを表示している間は、前／次の字幕ボタンの横に動画の再生／一時停止コントロールも表示するようにしました。また、そのコントロールと競合しなくなったため、モバイルの字幕高さ調整ハンドルを字幕行中央の位置へ戻しました。',
     'iPhone YouTube fullscreen now keeps Yomu subtitles in the page overlay by intercepting WebKit\'s native video fullscreen entry points and falling back to an inline fullscreen player host when Safari cannot fullscreen the player container.': 'iPhone版YouTubeの全画面表示でも、WebKitのネイティブ動画全画面化の入口を捕捉し、Safariがプレイヤーコンテナを全画面化できない場合はインラインの全画面プレイヤーホストへフォールバックすることで、よむの字幕をページ上のオーバーレイに保つようになりました。',
