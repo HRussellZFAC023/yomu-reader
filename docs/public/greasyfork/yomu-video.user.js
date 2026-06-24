@@ -17158,7 +17158,7 @@ ${spelling}`);
         if (distance <= 8) {
           Object.assign(this.transcriptPanelSize, originalSize);
           this.finishTranscriptResize();
-          if (mode === "commit") this.closeTranscriptPanel();
+          if (mode === "commit" || mode === "settle" && placement === "bottom") this.closeTranscriptPanel();
           else this.scheduleAlignToVideo();
           return;
         }
@@ -17839,7 +17839,8 @@ ${spelling}`);
         return false;
       }
       if (layout.placement === "bottom") {
-        return this.applyPageVideoInset("bottom", layout.top - videoRect.top - layout.margin, layout.height, videoRect, options);
+        this.clearVideoInsetForTranscriptPanel();
+        return false;
       }
       const availableWidth = this.availablePlayerWidthForSideLayout(layout, videoRect);
       return this.applyPageVideoInset(layout.placement, Math.max(0, availableWidth), layout.width, videoRect, options);

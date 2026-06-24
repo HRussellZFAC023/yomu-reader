@@ -493,8 +493,22 @@ async function runLocalMobileWrapSmoke(browser) {
     assert(wrap.style.overflowWrap === 'anywhere', 'Expected primary subtitle emergency wrapping', wrap);
     assert(wrap.style.wordBreak === 'normal', 'Expected primary subtitle to use normal Japanese line breaking', wrap);
 
+    await page.evaluate(() => {
+        const shell = document.createElement('ytm-app');
+        const sheet = document.createElement('bottom-sheet-container');
+        sheet.setAttribute('role', 'dialog');
+        sheet.setAttribute('aria-modal', 'true');
+        sheet.style.cssText = 'position:fixed;inset:180px 0 0;background:#0f0f0f;z-index:1000';
+        shell.append(sheet);
+        document.body.append(shell);
+    });
+    await page.waitForFunction(() => getComputedStyle(document.querySelector('.jpdb-subtitle-text')).display === 'none', null, { timeout: 3000 });
+    const sheetState = await readMobileBottomSheetSubtitleState(page);
+    assert(sheetState.subtitleDisplay === 'none', 'Mobile YouTube bottom sheet did not hide player subtitles', sheetState);
+    assert(sheetState.railDisplay === 'none', 'Mobile YouTube bottom sheet did not hide subtitle rail', sheetState);
+
     await page.close();
-    return wrap;
+    return { ...wrap, sheetState };
 }
 
 async function readPrimarySubtitleWrap(page) {
@@ -513,6 +527,14 @@ async function readPrimarySubtitleWrap(page) {
             text: primary?.textContent ?? '',
         };
     });
+}
+
+async function readMobileBottomSheetSubtitleState(page) {
+    return page.evaluate(() => ({
+        subtitleDisplay: getComputedStyle(document.querySelector('.jpdb-subtitle-text')).display,
+        railDisplay: getComputedStyle(document.querySelector('.jpdb-subtitle-rail')).display,
+        hasVisibleSheet: Boolean(document.querySelector('ytm-app bottom-sheet-container[aria-modal="true"]:not([hidden])')),
+    }));
 }
 
 async function runYouTubeSmoke(browser) {

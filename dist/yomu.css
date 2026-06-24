@@ -9662,6 +9662,10 @@ html.jpdb-reader-doodle-active * {
   display: none !important;
   pointer-events: none !important;
 }
+body:has(ytm-app):has(bottom-sheet-container[aria-modal="true"]:not([hidden])) .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) :is(.jpdb-subtitle-text, .jpdb-subtitle-rail) {
+  display: none !important;
+  pointer-events: none !important;
+}
 .jpdb-subtitle-primary {
   display: inline;
   padding: 0 .06em;
@@ -11004,9 +11008,12 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
      this only bounds extreme settings. */
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 12vw); }
   .jpdb-subtitle-drag-handle {
+    left: auto;
+    right: 10px;
     top: -32px;
     width: 42px;
     height: 28px;
+    transform: none;
   }
   .jpdb-subtitle-rail {
     top: max(8px, env(safe-area-inset-top));

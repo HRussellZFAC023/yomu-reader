@@ -4070,6 +4070,49 @@ describe('reader helpers', () => {
         }
     });
 
+    it('pauses a playing subtitle video on lookup and resumes it when the popup closes', () => {
+        const app = new ReaderApp();
+        const settings = { ...DEFAULT_SETTINGS, popupMode: 'popover' as const, subtitleMiningPause: true };
+        const activeVideo = document.createElement('video');
+        const staleBoundVideo = document.createElement('video');
+        let paused = false;
+        const pause = vi.fn(() => { paused = true; });
+        const play = vi.fn(async () => { paused = false; });
+        Object.defineProperty(activeVideo, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(activeVideo, 'paused', { configurable: true, get: () => paused });
+        Object.defineProperty(activeVideo, 'pause', { configurable: true, value: pause });
+        Object.defineProperty(activeVideo, 'play', { configurable: true, value: play });
+        Object.defineProperty(staleBoundVideo, 'paused', { configurable: true, value: true });
+        const internals = app as unknown as {
+            settings: typeof settings;
+            subtitles: { getBoundVideo: () => HTMLVideoElement | undefined; destroy: () => void };
+            mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover' }): void;
+            dismiss(): void;
+        };
+        internals.settings = settings;
+        internals.subtitles = { getBoundVideo: () => staleBoundVideo, destroy: vi.fn() };
+
+        try {
+            document.body.innerHTML = '<div class="jpdb-subtitle-player"><span class="jpdb-reader-word">音楽</span></div>';
+            document.body.append(activeVideo);
+            const anchor = document.querySelector<HTMLElement>('.jpdb-reader-word')!;
+            const popover = createReaderPopover('よむ', settings);
+
+            internals.mountPopover(popover, anchor, { mode: 'modal' });
+
+            expect(pause).toHaveBeenCalledTimes(1);
+            expect(activeVideo.dataset.jpdbReaderMiningPause).toMatch(/^\d+$/);
+
+            internals.dismiss();
+
+            expect(play).toHaveBeenCalledTimes(1);
+            expect(activeVideo.dataset.jpdbReaderMiningPause).toBeUndefined();
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('keeps sheet popover body scroll stable after in-body control actions', async () => {
         const app = new ReaderApp();
         const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };
@@ -35412,7 +35455,7 @@ describe('reader helpers', () => {
 
         const titleWord = document.querySelector<HTMLElement>('a#video-title-link .jpdb-reader-word')!;
         expect(readerWordSurfaceText(titleWord)).toBe('英語');
-        expect(titleWord.querySelector('rt')).toBeNull();
+        expect(titleWord.querySelector('rt')?.textContent).toBe('えいご');
         expect(document.querySelector('yt-touch-feedback-shape .jpdb-reader-word')).toBeNull();
     });
 

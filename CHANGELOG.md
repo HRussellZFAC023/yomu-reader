@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.83] - 2026-06-24
+
+### Fixed
+
+- YouTube subtitle panels no longer shrink or crop the player when the panel is docked below the video, while left and right panels still reserve player space.
+- Mobile subtitle playback is less cramped: long phone-width caption lines wrap inside the screen, the move handle sits out of the central play/pause lane, and tapping the bottom drawer handle closes the subtitle panel.
+- Tapping a subtitle word now reliably pauses the playing video for dictionary lookup and resumes that same video when the entry closes, even after YouTube swaps or stales the bound video element.
+- Mobile YouTube bottom sheets, including expanded descriptions, now hide Yomu's player subtitles and rail while they cover the watch page.
+
 ## [1.4.82] - 2026-06-24
 
 ### Fixed

@@ -2133,14 +2133,11 @@ export class ReaderApp {
         if (!this.settings.subtitleMiningPause) return;
         const bound = this.boundSubtitleVideo();
         let paused: HTMLVideoElement | undefined;
-        if (bound) {
-            if (!bound.paused) {
-                bound.pause();
-                paused = bound;
-            }
-        } else {
-            paused = pauseActiveVideo();
+        if (bound?.isConnected && !bound.paused) {
+            bound.pause();
+            paused = bound;
         }
+        paused ??= pauseActiveVideo();
         if (!paused) return;
         this.subtitleMiningPausedVideo = paused;
         this.markMiningPause(paused);
