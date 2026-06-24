@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.4.100] - 2026-06-24
+
+### Fixed
+
+- Aligned the Reader settings furigana state checkboxes with the surrounding control grid instead of splitting them into oversized columns.
+- Kept source editor order and remove controls in separate fixed columns so the down-arrow and remove buttons no longer collide in Settings -> Sources.
+
+## [1.4.99] - 2026-06-24
+
+### Fixed
+
+- iPhone and iPad YouTube caption selections now pause the playing video when the dictionary popover opens, including native YouTube caption text selected through iOS text selection rather than a direct Yomu word tap.
+
 ## [1.4.98] - 2026-06-24
 
 ### Fixed

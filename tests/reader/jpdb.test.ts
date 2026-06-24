@@ -4113,6 +4113,51 @@ describe('reader helpers', () => {
         }
     });
 
+    it('pauses a playing video for selection lookups on native YouTube captions', async () => {
+        const app = new ReaderApp();
+        const activeVideo = document.createElement('video');
+        let paused = false;
+        const pause = vi.fn(() => { paused = true; });
+        Object.defineProperty(activeVideo, 'readyState', { configurable: true, value: 4 });
+        Object.defineProperty(activeVideo, 'paused', { configurable: true, get: () => paused });
+        Object.defineProperty(activeVideo, 'pause', { configurable: true, value: pause });
+
+        document.body.innerHTML = '<div class="caption-window"><span class="ytp-caption-segment">日本語</span></div>';
+        document.body.append(activeVideo);
+        const segment = document.querySelector<HTMLElement>('.ytp-caption-segment')!;
+        const range = document.createRange();
+        range.selectNodeContents(segment);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        const lookupRenderedSelection = vi.fn(async () => false);
+        const lookupText = vi.fn(async () => undefined);
+        const internals = app as unknown as {
+            settings: typeof DEFAULT_SETTINGS;
+            lookupRenderedSelection: typeof lookupRenderedSelection;
+            lookupText: typeof lookupText;
+            lookupSelection(): Promise<void>;
+        };
+        internals.settings = { ...DEFAULT_SETTINGS, apiKey: '', localDictionariesEnabled: true, parseSelection: true, subtitleMiningPause: true };
+        internals.lookupRenderedSelection = lookupRenderedSelection;
+        internals.lookupText = lookupText;
+
+        try {
+            await internals.lookupSelection();
+
+            expect(pause).toHaveBeenCalledTimes(1);
+            expect(lookupText).toHaveBeenCalledWith('日本語', '日本語', expect.objectContaining({
+                source: 'selection',
+                anchor: segment,
+            }));
+        } finally {
+            selection.removeAllRanges();
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('keeps sheet popover body scroll stable after in-body control actions', async () => {
         const app = new ReaderApp();
         const settings = { ...DEFAULT_SETTINGS, popupMode: 'sheet' as const };

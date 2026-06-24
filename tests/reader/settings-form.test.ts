@@ -969,6 +969,7 @@ describe('settings form localization', () => {
     it('keeps mobile source editor row controls in a side rail', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
 
+        expect(normalizedCss).toContain('.jpdb-reader-order-head, .jpdb-reader-order-row { --jpdb-reader-order-tools-width: 112px; --jpdb-reader-remove-tools-width: 42px; display: grid;');
         expect(normalizedCss).toContain('.jpdb-reader-dictionary-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
         expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-row, .jpdb-reader-lookup-link-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
@@ -986,8 +987,14 @@ describe('settings form localization', () => {
     it('keeps lookup link editor columns aligned on wider settings layouts', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width); }');
+        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width); }');
+    });
+
+    it('keeps the furigana state checkbox grid aligned with settings controls', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-radio-group[data-furigana-hide-groups] { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px 16px; }');
     });
 
     it('keeps hosted settings companions lazy while preserving settings warmup', () => {

@@ -395,6 +395,21 @@ const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
     '.jpdb-reader-popover a.jpdb-reader-pill',
     '.jpdb-reader-popover .jpdb-reader-action-pill',
 ].join(',');
+const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
+    '.ytp-caption-segment',
+    '.caption-window',
+    '.caption-visual-line',
+    '.captions-text',
+    '[data-purpose="captions-text"]',
+].join(', ');
+const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
+    SUBTITLE_SURFACE_SELECTOR,
+    NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR,
+].join(', ');
+const SELECTION_LOOKUP_ANCHOR_SELECTOR = [
+    '.jpdb-reader-word',
+    VIDEO_LOOKUP_ANCHOR_SELECTOR,
+].join(', ');
 
 function createNoopImageOcrController(): ImageOcrController {
     const noop = (): void => undefined;
@@ -2130,7 +2145,7 @@ export class ReaderApp {
     private shouldPauseForLookupAnchor(anchor: Element | null): boolean {
         if (!this.settings.subtitleMiningPause || !anchor) return false;
         if (anchor.closest('.jpdb-reader-popover')) return false;
-        if (anchor.closest(SUBTITLE_SURFACE_SELECTOR)) return true;
+        if (anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
         const bound = this.boundSubtitleVideo();
         return Boolean(bound && !bound.paused);
     }
@@ -3632,8 +3647,10 @@ export class ReaderApp {
         // the selection actually changes.
         if (selected === this.dismissedSelectionText) return;
         this.dismissedSelectionText = '';
+        const anchor = this.selectionLookupAnchor();
+        if (anchor && this.shouldPauseForLookupAnchor(anchor)) this.pauseVideoForSubtitleMining();
         if (await this.lookupRenderedSelection(selected)) return;
-        await this.lookupText(selected, getSelectionSentence(), { source: 'selection' });
+        await this.lookupText(selected, getSelectionSentence(), { source: 'selection', anchor });
     }
 
     private rememberDismissedSelection(): void {
@@ -3647,6 +3664,21 @@ export class ReaderApp {
             || !HAS_JAPANESE.test(selected)
             || isProseDominantSelection(selected)
             || (document.activeElement as HTMLElement | null)?.closest?.('[data-jpdb-reader-root]')) ? '' : selected;
+    }
+
+    private selectionLookupAnchor(): HTMLElement | undefined {
+        const selection = window.getSelection();
+        if (!selection?.rangeCount) return undefined;
+        const range = selection.getRangeAt(0);
+        return this.selectionLookupElement(selection.focusNode)
+            ?? this.selectionLookupElement(selection.anchorNode)
+            ?? this.selectionLookupElement(range.startContainer)
+            ?? this.selectionLookupElement(range.commonAncestorContainer);
+    }
+
+    private selectionLookupElement(node: Node | null): HTMLElement | undefined {
+        const element = node instanceof HTMLElement ? node : node?.parentElement;
+        return element?.closest<HTMLElement>(SELECTION_LOOKUP_ANCHOR_SELECTOR) ?? element ?? undefined;
     }
 
     private async lookupText(text: string, sentence = text, options: TextLookupOptions = {}): Promise<void> {

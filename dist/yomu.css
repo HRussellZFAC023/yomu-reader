@@ -7811,6 +7811,10 @@ html.jpdb-reader-doodle-active * {
   margin: 0;
   min-height: 38px;
 }
+.jpdb-reader-settings .jpdb-reader-radio-group[data-furigana-hide-groups] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px 16px;
+}
 .jpdb-reader-settings .jpdb-reader-settings-cgrid > .jpdb-reader-radio-group {
   grid-column: auto;
   margin: 0;
@@ -8454,6 +8458,8 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-order-head,
 .jpdb-reader-order-row {
+  --jpdb-reader-order-tools-width: 112px;
+  --jpdb-reader-remove-tools-width: 42px;
   display: grid;
   gap: 10px;
   align-items: center;
@@ -8466,23 +8472,27 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-audio-source-row,
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
+  grid-template-columns:
+    56px minmax(0, 1fr) minmax(0, 0.9fr)
+    var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
 }
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px;
+  grid-template-columns:
+    56px minmax(110px, 0.8fr) minmax(220px, 1.2fr)
+    var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
 }
 .jpdb-reader-dictionary-head.no-remove,
 .jpdb-reader-dictionary-row.no-remove {
-  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) var(--jpdb-reader-order-tools-width);
 }
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 56px minmax(0, 1fr) max-content 42px;
+  grid-template-columns: 56px minmax(0, 1fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
 }
 .jpdb-reader-dictionary-head.compact.no-remove,
 .jpdb-reader-dictionary-row.compact.no-remove {
-  grid-template-columns: 56px minmax(0, 1fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) var(--jpdb-reader-order-tools-width);
 }
 .jpdb-reader-order-head {
   padding: 0 10px;
@@ -8703,27 +8713,31 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
+    grid-template-columns:
+      52px minmax(0, 0.95fr) minmax(0, 1.1fr)
+      var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
   }
 
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px;
+    grid-template-columns:
+      52px minmax(110px, 0.8fr) minmax(220px, 1.2fr)
+      var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
   }
 
   .jpdb-reader-dictionary-head.no-remove,
   .jpdb-reader-dictionary-row.no-remove {
-    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
+    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) var(--jpdb-reader-order-tools-width);
   }
 
   .jpdb-reader-dictionary-head.compact,
   .jpdb-reader-dictionary-row.compact {
-    grid-template-columns: 52px minmax(0, 1fr) max-content 42px;
+    grid-template-columns: 52px minmax(0, 1fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
   }
 
   .jpdb-reader-dictionary-head.compact.no-remove,
   .jpdb-reader-dictionary-row.compact.no-remove {
-    grid-template-columns: 52px minmax(0, 1fr) max-content;
+    grid-template-columns: 52px minmax(0, 1fr) var(--jpdb-reader-order-tools-width);
   }
 
   .jpdb-reader-recommended-item {
