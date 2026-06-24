@@ -290,6 +290,7 @@ function elementContainsVideo(element: HTMLElement | null | undefined, video: HT
 function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTMLElement | null {
     if (!isYouTubePage()) return null;
     const scopedHost = [
+        video?.closest<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
         video?.closest<HTMLElement>('.html5-video-player.ytp-fullscreen'),
         video?.closest<HTMLElement>('#movie_player.ytp-fullscreen'),
         video?.closest<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
@@ -299,6 +300,7 @@ function youtubeFullscreenHostForVideo(video: HTMLVideoElement | undefined): HTM
     if (scopedHost) return scopedHost;
 
     return [
+        document.querySelector<HTMLElement>('[data-yomu-inline-fullscreen="true"]'),
         document.querySelector<HTMLElement>('.html5-video-player.ytp-fullscreen'),
         document.querySelector<HTMLElement>('#movie_player.ytp-fullscreen'),
         document.querySelector<HTMLElement>('ytd-watch-flexy[fullscreen] #movie_player'),
@@ -830,7 +832,7 @@ export class SubtitlePlayerController {
             this.scheduleDiscoverVideo();
         });
         this.observer.observe(document.body, {
-            attributeFilter: ['aria-modal', 'class', 'fullscreen', 'hidden'],
+            attributeFilter: ['aria-modal', 'class', 'data-yomu-inline-fullscreen', 'fullscreen', 'hidden'],
             attributes: true,
             childList: true,
             subtree: true,
@@ -865,8 +867,8 @@ export class SubtitlePlayerController {
         if (mutation.type !== 'attributes') return false;
         const target = mutation.target;
         if (!(target instanceof HTMLElement)) return false;
-        return target.matches('ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player')
-            || Boolean(target.closest('ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player'));
+        return target.matches('ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player, [data-yomu-inline-fullscreen]')
+            || Boolean(target.closest('ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player, [data-yomu-inline-fullscreen]'));
     }
 
     private handleYouTubeNavigation(): void {
@@ -5395,6 +5397,8 @@ export class SubtitlePlayerController {
 
     private subtitleFullscreenHost(fullscreenElement: Element | null = currentFullscreenElement()): HTMLElement | null {
         if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
+        const inlineHost = this.inlineFullscreenHostForVideo();
+        if (inlineHost) return inlineHost;
         const youtubeHost = youtubeFullscreenHostForVideo(this.video);
         if (youtubeHost) return youtubeHost;
         if (fullscreenElement instanceof HTMLVideoElement && fullscreenElement === this.video) {
@@ -5409,6 +5413,14 @@ export class SubtitlePlayerController {
             && !(fullscreenElement instanceof HTMLVideoElement)
             && this.video
             && fullscreenElement.contains(this.video));
+    }
+
+    private inlineFullscreenHostForVideo(): HTMLElement | null {
+        const host = this.video?.closest<HTMLElement>('[data-yomu-inline-fullscreen="true"]')
+            ?? document.querySelector<HTMLElement>('[data-yomu-inline-fullscreen="true"]');
+        return host && (!this.video || host.contains(this.video) || isYouTubeMobileFullscreenHost(host))
+            ? host
+            : null;
     }
 
     private scheduleAlignToVideo(): void {

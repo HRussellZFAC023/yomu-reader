@@ -766,6 +766,7 @@ const HOSTED_DOCS_JA_COPY: Record<string, string> = {
     'Stats': '統計',
     'Changelog': '変更履歴',
     'Fixed': '修正',
+    'iPhone YouTube fullscreen now keeps Yomu subtitles in the page overlay by intercepting WebKit\'s native video fullscreen entry points and falling back to an inline fullscreen player host when Safari cannot fullscreen the player container.': 'iPhone版YouTubeの全画面表示でも、WebKitのネイティブ動画全画面化の入口を捕捉し、Safariがプレイヤーコンテナを全画面化できない場合はインラインの全画面プレイヤーホストへフォールバックすることで、よむの字幕をページ上のオーバーレイに保つようになりました。',
     'Rendered OCR and subtitle words now carry their reading and pitch metadata into the dictionary popup, so clicking a word such as 鯛 keeps the furigana and pitch accent already shown in the overlay instead of falling back to a bare card.': 'OCRや字幕で描画済みの単語が、読みとピッチアクセントのメタデータを辞書ポップアップへ引き継ぐようになりました。たとえば「鯛」をクリックしても、オーバーレイに表示されていたふりがなとピッチアクセントが保たれ、素のカードへ戻りません。',
     'Furigana-only subtitle enrichment now still resolves fallback vocabulary when pitch-accent display is disabled, preventing parsed long/keyless YouTube subtitles from losing ruby.': 'ピッチアクセント表示をオフにしていても、ふりがなだけの字幕補強ではフォールバック語彙を解決するようになりました。長い動画やキーなしのYouTube字幕で、解析済みの単語からルビが抜ける問題を防ぎます。',
     'Jiten only reports "rejected API key" for authenticated reader/SRS 401/403 responses, so public lookup outages and rate limits no longer look like bad keys.': 'Jitenの「APIキーが拒否されました」表示は、認証が必要なreader/SRSエンドポイントの401/403応答だけに限定されました。公開検索の障害やレート制限が、キー不正のように見えなくなります。',

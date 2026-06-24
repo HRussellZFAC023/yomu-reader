@@ -38277,26 +38277,161 @@ ${spelling}`);
   }
   const REDIRECT_FLAG = "__yomuSubtitleFullscreenRedirect";
   const STYLE_ID = "yomu-subtitle-fullscreen-redirect-style";
+  const INLINE_FULLSCREEN_CLASS = "jpdb-subtitle-inline-fullscreen";
+  const INLINE_FULLSCREEN_ATTRIBUTE = "data-yomu-inline-fullscreen";
   function fullscreenRedirectBootstrap(win) {
     const flag = "__yomuSubtitleFullscreenRedirect";
+    const inlineKey = "__yomuSubtitleInlineFullscreenElement";
+    const inlineClass = "jpdb-subtitle-inline-fullscreen";
+    const inlineAttribute = "data-yomu-inline-fullscreen";
     if (win[flag]) return;
-    const selector = "#movie_player, .html5-video-player, [data-yomu-video-frame]";
+    const selector = "#movie_player, .html5-video-player, ytm-player, ytd-player, [data-yomu-video-frame]";
     const elementCtor = win.HTMLElement;
     const videoCtor = win.HTMLVideoElement;
+    const documentCtor = win.Document;
     const proto = elementCtor?.prototype;
-    if (!proto || !videoCtor) return;
+    const videoProto = videoCtor?.prototype;
+    const documentProto = documentCtor?.prototype;
+    if (!proto || !videoCtor || !videoProto) return;
     const methods = ["requestFullscreen", "webkitRequestFullscreen", "webkitRequestFullScreen", "mozRequestFullScreen", "msRequestFullscreen"];
+    const requestNatives = {};
     for (const name of methods) {
       const original = proto[name];
       if (typeof original !== "function") continue;
       const native = original;
+      requestNatives[name] = native;
       proto[name] = function patchedRequestFullscreen(...args) {
-        const container = this instanceof videoCtor ? this.closest(selector) : null;
-        const target = container && container !== this && typeof container[name] === "function" ? container : this;
-        return native.apply(target, args);
+        const container = this instanceof videoCtor ? fullscreenContainerForVideo(this) : null;
+        if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+        return native.apply(this, args);
       };
     }
+    const enterVideoFullscreenMethods = ["webkitEnterFullscreen", "webkitEnterFullScreen"];
+    for (const name of enterVideoFullscreenMethods) {
+      const original = videoProto[name];
+      if (typeof original !== "function") continue;
+      const native = original;
+      videoProto[name] = function patchedVideoFullscreen(...args) {
+        const container = fullscreenContainerForVideo(this);
+        if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+        return native.apply(this, args);
+      };
+    }
+    const setPresentationMode = videoProto.webkitSetPresentationMode;
+    if (typeof setPresentationMode === "function") {
+      const native = setPresentationMode;
+      videoProto.webkitSetPresentationMode = function patchedPresentationMode(mode, ...args) {
+        if (mode === "fullscreen") {
+          const container = fullscreenContainerForVideo(this);
+          if (container && container !== this) return requestElementFullscreenOrInline(container, args);
+        }
+        if (mode === "inline" || mode === "picture-in-picture") exitInlineFullscreen();
+        return native.apply(this, [mode, ...args]);
+      };
+    }
+    const exitVideoFullscreenMethods = ["webkitExitFullscreen", "webkitExitFullScreen"];
+    for (const name of exitVideoFullscreenMethods) {
+      const original = videoProto[name];
+      if (typeof original !== "function") continue;
+      const native = original;
+      videoProto[name] = function patchedVideoExitFullscreen(...args) {
+        if (activeInlineFullscreenElement()) return exitInlineFullscreen();
+        return native.apply(this, args);
+      };
+    }
+    const exitDocumentFullscreenMethods = ["exitFullscreen", "webkitExitFullscreen", "webkitCancelFullScreen", "mozCancelFullScreen", "msExitFullscreen"];
+    if (documentProto) {
+      for (const name of exitDocumentFullscreenMethods) {
+        const original = documentProto[name];
+        if (typeof original !== "function") continue;
+        const native = original;
+        documentProto[name] = function patchedDocumentExitFullscreen(...args) {
+          if (activeInlineFullscreenElement()) return exitInlineFullscreen();
+          return native.apply(this, args);
+        };
+      }
+    }
     win[flag] = true;
+    function fullscreenContainerForVideo(video) {
+      const closest = video.closest(selector);
+      if (closest) return closest;
+      if (!isMobileYouTube()) return null;
+      return win.document.querySelector("ytm-player, #movie_player, .html5-video-player");
+    }
+    function requestElementFullscreenOrInline(target, args) {
+      for (const name of methods) {
+        const native = requestNatives[name];
+        if (!native || typeof target[name] !== "function") continue;
+        try {
+          return fallbackInlineOnRequestFailure(native.apply(target, args), target);
+        } catch {
+          return enterInlineFullscreen(target);
+        }
+      }
+      return enterInlineFullscreen(target);
+    }
+    function fallbackInlineOnRequestFailure(result, target) {
+      const promise = result;
+      return typeof promise?.catch === "function" ? promise.catch(() => enterInlineFullscreen(target)) : result;
+    }
+    function enterInlineFullscreen(target) {
+      const current = activeInlineFullscreenElement();
+      if (current && current !== target) clearInlineFullscreenElement(current);
+      target.setAttribute(inlineAttribute, "true");
+      if (!target.hasAttribute("fullscreen")) {
+        target.setAttribute("fullscreen", "");
+        target.dataset.yomuInlineFullscreenAttr = "true";
+      }
+      if (!target.classList.contains("ytp-fullscreen")) {
+        target.classList.add("ytp-fullscreen");
+        target.dataset.yomuInlineYtpFullscreenClass = "true";
+      }
+      if (!target.classList.contains("fullscreen")) {
+        target.classList.add("fullscreen");
+        target.dataset.yomuInlineFullscreenClass = "true";
+      }
+      win.document.documentElement.classList.add(inlineClass);
+      win[inlineKey] = target;
+      dispatchFullscreenLikeEvents();
+      return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
+    }
+    function exitInlineFullscreen() {
+      const current = activeInlineFullscreenElement();
+      if (!current) return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
+      clearInlineFullscreenElement(current);
+      win.document.documentElement.classList.remove(inlineClass);
+      delete win[inlineKey];
+      dispatchFullscreenLikeEvents();
+      return typeof win.Promise?.resolve === "function" ? win.Promise.resolve() : void 0;
+    }
+    function clearInlineFullscreenElement(element) {
+      element.removeAttribute(inlineAttribute);
+      if (element.dataset.yomuInlineFullscreenAttr === "true") element.removeAttribute("fullscreen");
+      if (element.dataset.yomuInlineYtpFullscreenClass === "true") element.classList.remove("ytp-fullscreen");
+      if (element.dataset.yomuInlineFullscreenClass === "true") element.classList.remove("fullscreen");
+      delete element.dataset.yomuInlineFullscreenAttr;
+      delete element.dataset.yomuInlineYtpFullscreenClass;
+      delete element.dataset.yomuInlineFullscreenClass;
+    }
+    function activeInlineFullscreenElement() {
+      const current = win[inlineKey];
+      return elementCtor && current instanceof elementCtor ? current : null;
+    }
+    function dispatchFullscreenLikeEvents() {
+      for (const eventName of ["fullscreenchange", "webkitfullscreenchange"]) {
+        try {
+          win.document.dispatchEvent(new win.Event(eventName));
+        } catch {
+        }
+      }
+      try {
+        win.dispatchEvent(new win.Event("resize"));
+      } catch {
+      }
+    }
+    function isMobileYouTube() {
+      return /^m\.youtube\.com$/i.test(win.location.hostname);
+    }
   }
   function fullscreenRedirectStyleText() {
     const fill = "width:100%!important;height:100%!important;left:0!important;top:0!important;";
@@ -38306,7 +38441,11 @@ ${spelling}`);
       `#movie_player:-webkit-full-screen video.html5-main-video{${fill}}`,
       "#movie_player:-webkit-full-screen .html5-video-container{width:100%!important;height:100%!important;}",
       `[data-yomu-video-frame]:fullscreen video{${fill}}`,
-      `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`
+      `[data-yomu-video-frame]:-webkit-full-screen video{${fill}}`,
+      `html.${INLINE_FULLSCREEN_CLASS},html.${INLINE_FULLSCREEN_CLASS} body{width:100%!important;height:100%!important;overflow:hidden!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"]{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;max-width:none!important;max-height:none!important;margin:0!important;z-index:2147483640!important;background:#000!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] video{${fill}object-fit:contain!important;}`,
+      `[${INLINE_FULLSCREEN_ATTRIBUTE}="true"] .html5-video-container{width:100%!important;height:100%!important;}`
     ].join("\n");
   }
   function injectFullscreenRedirectStyle() {
@@ -39960,6 +40099,7 @@ ${spelling}`);
   function youtubeFullscreenHostForVideo(video) {
     if (!isYouTubePage()) return null;
     const scopedHost = [
+      video?.closest('[data-yomu-inline-fullscreen="true"]'),
       video?.closest(".html5-video-player.ytp-fullscreen"),
       video?.closest("#movie_player.ytp-fullscreen"),
       video?.closest("ytd-watch-flexy[fullscreen] #movie_player"),
@@ -39968,6 +40108,7 @@ ${spelling}`);
     ].find((element) => Boolean(element));
     if (scopedHost) return scopedHost;
     return [
+      document.querySelector('[data-yomu-inline-fullscreen="true"]'),
       document.querySelector(".html5-video-player.ytp-fullscreen"),
       document.querySelector("#movie_player.ytp-fullscreen"),
       document.querySelector("ytd-watch-flexy[fullscreen] #movie_player"),
@@ -40366,7 +40507,7 @@ ${spelling}`);
         this.scheduleDiscoverVideo();
       });
       this.observer.observe(document.body, {
-        attributeFilter: ["aria-modal", "class", "fullscreen", "hidden"],
+        attributeFilter: ["aria-modal", "class", "data-yomu-inline-fullscreen", "fullscreen", "hidden"],
         attributes: true,
         childList: true,
         subtree: true
@@ -40400,7 +40541,7 @@ ${spelling}`);
       if (mutation.type !== "attributes") return false;
       const target = mutation.target;
       if (!(target instanceof HTMLElement)) return false;
-      return target.matches("ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player") || Boolean(target.closest("ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player"));
+      return target.matches("ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player, [data-yomu-inline-fullscreen]") || Boolean(target.closest("ytd-watch-flexy, ytd-player, ytm-player, #movie_player, .html5-video-player, [data-yomu-inline-fullscreen]"));
     }
     handleYouTubeNavigation() {
       if (!isYouTubePage()) return;
@@ -44200,6 +44341,8 @@ ${spelling}`);
     }
     subtitleFullscreenHost(fullscreenElement = currentFullscreenElement()) {
       if (this.shouldHostSubtitleRootInFullscreenElement(fullscreenElement)) return fullscreenElement;
+      const inlineHost = this.inlineFullscreenHostForVideo();
+      if (inlineHost) return inlineHost;
       const youtubeHost = youtubeFullscreenHostForVideo(this.video);
       if (youtubeHost) return youtubeHost;
       if (fullscreenElement instanceof HTMLVideoElement && fullscreenElement === this.video) {
@@ -44210,6 +44353,10 @@ ${spelling}`);
     }
     shouldHostSubtitleRootInFullscreenElement(fullscreenElement) {
       return Boolean(fullscreenElement instanceof HTMLElement && !(fullscreenElement instanceof HTMLVideoElement) && this.video && fullscreenElement.contains(this.video));
+    }
+    inlineFullscreenHostForVideo() {
+      const host = this.video?.closest('[data-yomu-inline-fullscreen="true"]') ?? document.querySelector('[data-yomu-inline-fullscreen="true"]');
+      return host && (!this.video || host.contains(this.video) || isYouTubeMobileFullscreenHost(host)) ? host : null;
     }
     scheduleAlignToVideo() {
       if (this.transcriptResizeActive) {

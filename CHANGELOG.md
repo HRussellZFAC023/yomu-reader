@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.87] - 2026-06-24
+
+### Fixed
+
+- iPhone YouTube fullscreen now keeps Yomu subtitles in the page overlay by intercepting WebKit's native video fullscreen entry points and falling back to an inline fullscreen player host when Safari cannot fullscreen the player container.
+
 ## [1.4.85] - 2026-06-24
 
 ### Fixed

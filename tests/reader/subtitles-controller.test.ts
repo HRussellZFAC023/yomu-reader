@@ -902,6 +902,60 @@ describe('SubtitlePlayerController', () => {
         }
     });
 
+    it('mounts the subtitle overlay in the iPhone inline fullscreen fallback host', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=iphonefullscreen123') as unknown as Location,
+        });
+
+        try {
+            withViewport(390, 844, () => {
+                const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+                const fullscreen = stubFullscreenElement(null);
+                try {
+                    document.body.insertAdjacentHTML('beforeend', `
+                        <ytm-player data-yomu-inline-fullscreen="true" class="ytp-fullscreen">
+                            <video></video>
+                        </ytm-player>
+                    `);
+                    const player = document.querySelector<HTMLElement>('ytm-player')!;
+                    const video = document.querySelector<HTMLVideoElement>('ytm-player video')!;
+                    mockElementRect(player, new DOMRect(0, 0, 390, 844));
+                    mockElementRect(video, new DOMRect(0, 0, 390, 844));
+                    attachVideo(controller, { video });
+                    const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                    const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list')!;
+                    const internals = controllerInternals<{
+                        alignToVideo: () => void;
+                        syncFullscreenState: () => void;
+                    }>(controller);
+
+                    fullscreen.set(null);
+                    internals.syncFullscreenState();
+                    openSingleCueTranscript(controller, 'iPhone全画面の字幕。');
+                    internals.alignToVideo();
+
+                    expect(root.parentElement).toBe(player);
+                    expect(panel.parentElement).toBe(player);
+                    expectFullscreenPanelDisplayOverride(panel);
+                    expect(root.classList.contains('jpdb-subtitle-fullscreen')).toBe(true);
+                    expect(root.classList.contains('jpdb-subtitle-video-out-of-view')).toBe(false);
+                    expect(root.style.width).toBe('390px');
+                    expect(root.style.height).toBe('844px');
+                } finally {
+                    fullscreen.restore();
+                    controller.destroy();
+                }
+            });
+        } finally {
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
+    });
+
     it('does not move the subtitle overlay into unrelated fullscreen elements', () => {
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         const fullscreen = stubFullscreenElement(null);
