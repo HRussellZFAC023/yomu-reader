@@ -333,6 +333,10 @@ type ReaderLifecycleSurface = {
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
+// How long after a subtitle-mining pause we keep re-asserting it. A competing
+// re-play (YouTube player, another extension) lands within a few hundred ms; a
+// deliberate user resume seconds later is left alone.
+const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
     '.textBox',
     '.ocr-line',
@@ -668,6 +672,9 @@ export class ReaderApp {
     // The video we paused when a subtitle word was clicked, so closing the
     // lookup popover resumes exactly that video (and only if it is still paused).
     private subtitleMiningPausedVideo?: HTMLVideoElement;
+    // One-shot guard that re-pauses the mined video if the page re-plays it right
+    // after our pause (YouTube player quirks or a competing extension/userscript).
+    private miningPauseReassert?: { video: HTMLVideoElement; off: () => void };
     private activePopoverAnchor?: HTMLElement;
     private activePopoverAnchorRect?: DOMRect;
     private keyboardActiveWord?: HTMLElement;
@@ -1642,6 +1649,7 @@ export class ReaderApp {
         window.clearTimeout(this.themeContrastRefreshTimer);
         document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
         this.autoScanObserver?.disconnect();
+        this.clearMiningPauseReassert();
         this.ocr.destroy();
         this.subtitles.destroy();
         this.youtube.destroy();
@@ -2145,9 +2153,49 @@ export class ReaderApp {
         if (!paused) return;
         this.subtitleMiningPausedVideo = paused;
         this.markMiningPause(paused);
+        this.armMiningPauseReassert(paused);
+    }
+
+    // Yomu's pause() sticks on its own, but on a video page the player or a
+    // competing extension/userscript can re-issue play() immediately after we
+    // pause — leaving the popover open while the subtitle keeps advancing (the
+    // "click didn't pause" symptom). Re-pause that reactive re-play for a short
+    // window while the mining marker is live, then stand down so a deliberate
+    // resume — or closing the popover — is never fought.
+    private armMiningPauseReassert(video: HTMLVideoElement): void {
+        this.clearMiningPauseReassert();
+        const armedAt = Date.now();
+        const reassert = () => {
+            if (this.subtitleMiningPausedVideo !== video || !video.dataset.jpdbReaderMiningPause) {
+                this.clearMiningPauseReassert();
+                return;
+            }
+            if (Date.now() - armedAt > MINING_PAUSE_REASSERT_WINDOW_MS) {
+                this.clearMiningPauseReassert();
+                return;
+            }
+            if (!video.paused) video.pause();
+        };
+        video.addEventListener('play', reassert);
+        video.addEventListener('playing', reassert);
+        this.miningPauseReassert = {
+            video,
+            off: () => {
+                video.removeEventListener('play', reassert);
+                video.removeEventListener('playing', reassert);
+            },
+        };
+    }
+
+    private clearMiningPauseReassert(): void {
+        this.miningPauseReassert?.off();
+        this.miningPauseReassert = undefined;
     }
 
     private resumeSubtitleMiningVideo(): void {
+        // Tear the re-assert guard down BEFORE the intentional play() below, so
+        // resuming on close is never re-paused by our own listener.
+        this.clearMiningPauseReassert();
         const stored = this.subtitleMiningPausedVideo;
         this.subtitleMiningPausedVideo = undefined;
         if (!stored) return;

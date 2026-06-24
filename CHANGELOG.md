@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.98] - 2026-06-24
+
+### Fixed
+
+- Clicking a subtitle word on a video now reliably keeps the video paused while the lookup popover is open. Yomu's pause is now self-healing: if the player or a competing extension re-plays the video immediately after the pause, Yomu re-asserts it for a short window (and stands down the moment you close the popover or deliberately resume), so the subtitle no longer keeps advancing past the word you clicked.
+
 ## [1.4.97] - 2026-06-24
 
 ### Fixed

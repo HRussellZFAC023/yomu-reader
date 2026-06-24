@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.97
+// @version 1.4.98
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.97
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.97
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.97
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.97
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.98
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.98
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.98
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.98
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37593,6 +37593,7 @@ const log = Logger.scope("ReaderApp");
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
+const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
 const HOVER_READER_WORD_GEOMETRY_SCOPE_SELECTOR = [
   ".textBox",
   ".ocr-line",
@@ -37903,6 +37904,7 @@ class ReaderApp {
   suppressedHoverLookupKey = "";
   activePopoverMode;
   subtitleMiningPausedVideo;
+  miningPauseReassert;
   activePopoverAnchor;
   activePopoverAnchorRect;
   keyboardActiveWord;
@@ -38731,6 +38733,7 @@ class ReaderApp {
     window.clearTimeout(this.themeContrastRefreshTimer);
     document.removeEventListener(NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT, this.handleNonDestructiveMirrorStale);
     this.autoScanObserver?.disconnect();
+    this.clearMiningPauseReassert();
     this.ocr.destroy();
     this.subtitles.destroy();
     this.youtube.destroy();
@@ -39118,8 +39121,38 @@ class ReaderApp {
     if (!paused) return;
     this.subtitleMiningPausedVideo = paused;
     this.markMiningPause(paused);
+    this.armMiningPauseReassert(paused);
+  }
+  armMiningPauseReassert(video) {
+    this.clearMiningPauseReassert();
+    const armedAt = Date.now();
+    const reassert = () => {
+      if (this.subtitleMiningPausedVideo !== video || !video.dataset.jpdbReaderMiningPause) {
+        this.clearMiningPauseReassert();
+        return;
+      }
+      if (Date.now() - armedAt > MINING_PAUSE_REASSERT_WINDOW_MS) {
+        this.clearMiningPauseReassert();
+        return;
+      }
+      if (!video.paused) video.pause();
+    };
+    video.addEventListener("play", reassert);
+    video.addEventListener("playing", reassert);
+    this.miningPauseReassert = {
+      video,
+      off: () => {
+        video.removeEventListener("play", reassert);
+        video.removeEventListener("playing", reassert);
+      }
+    };
+  }
+  clearMiningPauseReassert() {
+    this.miningPauseReassert?.off();
+    this.miningPauseReassert = void 0;
   }
   resumeSubtitleMiningVideo() {
+    this.clearMiningPauseReassert();
     const stored = this.subtitleMiningPausedVideo;
     this.subtitleMiningPausedVideo = void 0;
     if (!stored) return;

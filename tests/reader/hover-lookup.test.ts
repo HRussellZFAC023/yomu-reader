@@ -370,6 +370,72 @@ describe('hover lookup', () => {
         }
     });
 
+    it('re-asserts the mining pause when the page re-plays the video, then stops once the popover closes', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
+        const { video, pause, play } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
+        document.body.append(asbRoot);
+        const word = asbRoot.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.tabIndex = -1;
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'modal', focusOnMount: false });
+            expect(pause).toHaveBeenCalledTimes(1);
+
+            // A competing extension / player quirk re-plays the video right after
+            // our pause: play() flips paused=false and fires 'play'.
+            void video.play();
+            expect(pause).toHaveBeenCalledTimes(2); // re-asserted
+            expect(video.paused).toBe(true);
+
+            // Closing the popover resumes once and is NOT re-paused by our guard.
+            internals.dismiss();
+            expect(play).toHaveBeenCalledTimes(2); // the antagonist play + the resume
+            expect(pause).toHaveBeenCalledTimes(2);
+            expect(video.paused).toBe(false);
+
+            // The guard is gone: a later re-play is left alone.
+            void video.play();
+            expect(pause).toHaveBeenCalledTimes(2);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('tears down the mining-pause re-assert on destroy so a later re-play is not fought', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
+        const { video, pause } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
+        document.body.append(asbRoot);
+        const word = asbRoot.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.tabIndex = -1;
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'modal', focusOnMount: false });
+            expect(pause).toHaveBeenCalledTimes(1);
+
+            app.destroy();
+
+            // A dead app instance must not keep re-pausing the live video.
+            void video.play();
+            expect(pause).toHaveBeenCalledTimes(1);
+        } finally {
+            document.body.replaceChildren();
+        }
+    });
+
     it('does not suppress autoplay for a fresh hover of the same card', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;
