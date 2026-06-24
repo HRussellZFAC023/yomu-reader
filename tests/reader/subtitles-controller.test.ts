@@ -2293,6 +2293,14 @@ describe('SubtitlePlayerController', () => {
         expect(normalizedCss).toContain('.jpdb-subtitle-row-text :is(ruby, rt, .jpdb-reader-furi, .jpdb-reader-ruby-base) { max-width: 100%; white-space: normal !important; overflow-wrap: anywhere; word-break: break-word; }');
     });
 
+    it('keeps long primary player subtitles wrapable on phone-width screens', () => {
+        const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-subtitle-primary { display: inline;');
+        expect(normalizedCss).toContain('line-height: 1.58; overflow-wrap: anywhere; word-break: normal;');
+        expect(normalizedCss).toContain('text-underline-offset: .15em !important; white-space: nowrap; text-shadow:');
+    });
+
     it('keeps the transcript panel available in fullscreen', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 

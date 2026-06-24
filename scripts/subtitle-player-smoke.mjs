@@ -445,6 +445,76 @@ async function runLocalSmoke(browser) {
     return { initial, resized };
 }
 
+async function runLocalMobileWrapSmoke(browser) {
+    const page = await browser.newPage({
+        viewport: { width: 390, height: 844 },
+        deviceScaleFactor: 3,
+        isMobile: true,
+        hasTouch: true,
+    });
+    page.on('pageerror', error => {
+        console.error('MOBILE PAGE ERROR:', error);
+    });
+    await page.goto(localUrl, { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => {
+        document.body.innerHTML = `
+            <main style="margin:0;background:#050608;color:#e8edf4;min-height:100vh;font-family:system-ui,sans-serif;overflow:hidden">
+                <video controls muted preload="metadata" style="display:block;width:100%;aspect-ratio:16/9;background:#050608"></video>
+            </main>
+        `;
+    });
+    await page.evaluate((src) => {
+        const video = document.querySelector('video');
+        video.src = src;
+        video.muted = true;
+        video.controls = true;
+        video.load();
+    }, fixtureVideoUrl);
+    await ensureUserscript(page);
+    await chooseSubtitleFile(page, 'load', primaryPath);
+    await page.locator('.jpdb-subtitle-rail [data-action="panel"]').evaluate(button => button.click()).catch(() => undefined);
+    await page.waitForFunction(() => document.querySelector('.jpdb-subtitle-list')?.hidden, null, { timeout: 5000 }).catch(() => undefined);
+    await page.evaluate(() => {
+        const video = document.querySelector('video');
+        video.currentTime = 9.4;
+    });
+    await page.waitForFunction(() => {
+        const text = document.querySelector('.jpdb-subtitle-primary')?.textContent ?? '';
+        return text.includes('自動生成字幕');
+    }, null, { timeout: 10000 });
+    await page.waitForTimeout(250);
+
+    const wrap = await readPrimarySubtitleWrap(page);
+    assert(wrap.primary.left >= -1, 'Mobile primary subtitle overflowed left edge', wrap);
+    assert(wrap.primary.right <= wrap.viewport.width + 1, 'Mobile primary subtitle overflowed right edge', wrap);
+    assert(wrap.lineBoxes.length > 1, 'Expected long mobile primary subtitle to wrap onto multiple lines', wrap);
+    assert(wrap.style.overflowWrap === 'anywhere', 'Expected primary subtitle emergency wrapping', wrap);
+    assert(wrap.style.wordBreak === 'normal', 'Expected primary subtitle to use normal Japanese line breaking', wrap);
+
+    await page.close();
+    return wrap;
+}
+
+async function readPrimarySubtitleWrap(page) {
+    return page.evaluate(() => {
+        const primary = document.querySelector('.jpdb-subtitle-primary');
+        const style = primary ? getComputedStyle(primary) : null;
+        return {
+            primary: primary?.getBoundingClientRect().toJSON() ?? null,
+            lineBoxes: primary ? [...primary.getClientRects()].map(rect => rect.toJSON()) : [],
+            viewport: { width: window.innerWidth, height: window.innerHeight },
+            style: {
+                overflowWrap: style?.overflowWrap ?? '',
+                wordBreak: style?.wordBreak ?? '',
+                whiteSpace: style?.whiteSpace ?? '',
+            },
+            text: primary?.textContent ?? '',
+        };
+    });
+}
+
 async function runYouTubeSmoke(browser) {
     const page = await browser.newPage({ viewport: { width: 2048, height: 1152 }, locale: 'en-GB' });
     await page.goto(youtubeUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -532,7 +602,8 @@ async function readYouTubeSmokeState(page) {
 const browser = await launchSmokeBrowser({ headless: true });
 try {
     const local = await runLocalSmoke(browser);
-    const result = { local };
+    const localMobileWrap = await runLocalMobileWrapSmoke(browser);
+    const result = { local, localMobileWrap };
     if (runYouTube) result.youtube = await runYouTubeSmoke(browser);
     console.log(JSON.stringify(result, null, 2));
 } finally {

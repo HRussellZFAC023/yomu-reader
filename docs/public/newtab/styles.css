@@ -14568,8 +14568,8 @@ html.jpdb-reader-doodle-active * {
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   line-height: 1.58;
-  overflow-wrap: normal;
-  word-break: keep-all;
+  overflow-wrap: anywhere;
+  word-break: normal;
   -webkit-text-stroke: .02em color-mix(in srgb, var(--subtitle-outline) 78%, transparent);
   paint-order: stroke fill;
 }
