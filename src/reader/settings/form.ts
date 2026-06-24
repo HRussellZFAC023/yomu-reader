@@ -802,6 +802,10 @@ function renderDictionariesSettingsPanel(settings: ReaderSettings): string {
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
+                <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
+                    <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Cloud settings synchronization</div>
+                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Use Export settings JSON below for a cloud backup, then import it on another browser or device.</div>
+                </div>
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
@@ -1000,6 +1004,7 @@ const SELECTOR_TEXT_KEYS = [
     ['[data-proxy-guide-summary]', 'audioProxyGuideSummary'],
     ['[data-proxy-guide-show]', 'show'],
     ['[data-proxy-guide-hide]', 'hide'],
+    ['[data-cloud-settings-sync-title]', 'cloudSettingsSync'],
 ] as const satisfies readonly (readonly [string, SettingsTextKey])[];
 const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', 'testAnki'],

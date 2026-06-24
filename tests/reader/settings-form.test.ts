@@ -318,6 +318,23 @@ describe('settings form localization', () => {
         expect(form.querySelector<HTMLFieldSetElement>('fieldset[data-settings-panel="api"]')?.hidden).toBe(true);
     });
 
+    it('exposes cloud settings synchronization with the import and export controls', () => {
+        const form = renderSettingsTestForm(DEFAULT_SETTINGS);
+        const sourcesPanel = form.querySelector<HTMLElement>('#jpdb-reader-settings-panel-dictionaries')!;
+        const cloudSync = sourcesPanel.querySelector<HTMLElement>('[data-cloud-settings-sync]')!;
+        const settingsImport = sourcesPanel.querySelector<HTMLElement>('[data-action="import-yomitan-settings"]')!;
+
+        expect(cloudSync.textContent).toContain('Cloud settings synchronization');
+        expect(cloudSync.textContent).toContain('cloud backup');
+        expect(settingsImport).not.toBeNull();
+        expect(sourcesPanel.querySelector('[data-action="export-reader-settings"]')).not.toBeNull();
+        expect(Boolean(cloudSync.compareDocumentPosition(settingsImport) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+
+        localizeSettingsForm(form, 'ja');
+        expect(sourcesPanel.querySelector<HTMLElement>('[data-cloud-settings-sync-title]')?.textContent).toBe('クラウド設定同期');
+        expect(sourcesPanel.querySelector<HTMLElement>('[data-cloud-settings-sync]')?.textContent).toContain('バックアップ');
+    });
+
     it('gives Study settings their own top-level section', () => {
         const form = document.createElement('form');
         form.innerHTML = renderSettingsForm(DEFAULT_SETTINGS, 'https://jpdb.io/settings');

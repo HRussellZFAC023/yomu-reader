@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.84] - 2026-06-24
+
+### Fixed
+
+- Added a visible Cloud settings synchronization section in Settings -> Sources, beside the settings and dictionary import/export controls, explaining how to use the existing settings JSON export/import as a portable cloud backup.
+
 ## [1.4.83] - 2026-06-24
 
 ### Fixed

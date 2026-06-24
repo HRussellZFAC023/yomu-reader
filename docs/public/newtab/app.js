@@ -1677,6 +1677,8 @@
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
+      cloudSettingsSync: "Cloud settings synchronization",
+      cloudSettingsSyncHelp: "Use Export settings JSON below for a cloud backup, then import it on another browser or device.",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
@@ -3252,6 +3254,8 @@ jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
+cloudSettingsSync	クラウド設定同期
+cloudSettingsSyncHelp	下の設定JSONエクスポートでバックアップし、別のブラウザや端末でインポートできます。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -26937,6 +26941,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 <div class="jpdb-reader-recommended-dictionaries" data-recommended-dictionaries>
                     ${renderRecommendedDictionaries(installedDictionariesFromPreferences(settings.dictionaryPreferences))}
                 </div>
+                <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
+                    <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Cloud settings synchronization</div>
+                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Use Export settings JSON below for a cloud backup, then import it on another browser or device.</div>
+                </div>
                 <div class="jpdb-reader-settings-actions">
                     <button class="jpdb-reader-btn" type="button" data-action="import-yomitan-settings">Import settings JSON</button>
                     <button class="jpdb-reader-btn" type="button" data-action="export-reader-settings">Export settings JSON</button>
@@ -27118,7 +27126,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     ["[data-settings-preview-title]", "preview"],
     ["[data-proxy-guide-summary]", "audioProxyGuideSummary"],
     ["[data-proxy-guide-show]", "show"],
-    ["[data-proxy-guide-hide]", "hide"]
+    ["[data-proxy-guide-hide]", "hide"],
+    ["[data-cloud-settings-sync-title]", "cloudSettingsSync"]
   ];
   const SETTINGS_ACTION_TEXT_KEYS = [
     ['[data-action="test-anki"]', "testAnki"],

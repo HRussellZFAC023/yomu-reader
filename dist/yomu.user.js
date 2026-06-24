@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.83
+// @version 1.4.84
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.83
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.83
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.83
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.83
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.84
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.84
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.84
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.84
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -7252,6 +7252,8 @@
       localDictionariesEnabled: "Show imported dictionary definitions",
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
+      cloudSettingsSync: "Cloud settings synchronization",
+      cloudSettingsSyncHelp: "Use Export settings JSON below for a cloud backup, then import it on another browser or device.",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
@@ -8827,6 +8829,8 @@ jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
+cloudSettingsSync	クラウド設定同期
+cloudSettingsSyncHelp	下の設定JSONエクスポートでバックアップし、別のブラウザや端末でインポートできます。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート

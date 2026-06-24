@@ -515,6 +515,8 @@ const COPY = {
         localDictionariesEnabled: 'Show imported dictionary definitions',
         dictionarySourcesInitiallyExpanded: 'Open sources by default',
         localDictionaryMaxResults: 'Dictionary result limit',
+        cloudSettingsSync: 'Cloud settings synchronization',
+        cloudSettingsSyncHelp: 'Use Export settings JSON below for a cloud backup, then import it on another browser or device.',
         importSettings: 'Import settings JSON',
         exportSettings: 'Export settings JSON',
         importDictionaries: 'Import dictionaries',
@@ -2096,6 +2098,8 @@ jpdbDefinitionsEnabled	JPDB定義を表示
 localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
+cloudSettingsSync	クラウド設定同期
+cloudSettingsSyncHelp	下の設定JSONエクスポートでバックアップし、別のブラウザや端末でインポートできます。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
