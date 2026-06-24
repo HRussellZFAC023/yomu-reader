@@ -23214,7 +23214,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (video.closest("[data-jpdb-reader-root]")) return false;
     if (!hasRenderableVideoRect(video)) return false;
     if (isVideoHidden(video)) return false;
-    return hasVideoPlaybackSignal(video);
+    return isAudiblyPlayingVideo(video);
   }
   function hasRenderableVideoRect(video) {
     const rect = video.getBoundingClientRect();
@@ -23224,8 +23224,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const style = getComputedStyle(video);
     return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
   }
-  function hasVideoPlaybackSignal(video) {
-    return video.readyState > 0 || Boolean(video.currentSrc || video.src) || Number.isFinite(video.duration);
+  function isAudiblyPlayingVideo(video) {
+    return !video.paused && !video.ended && !video.muted && video.volume > 0;
   }
   function isEditableTarget(target) {
     const element = target instanceof Element ? target : null;

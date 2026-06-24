@@ -337,4 +337,38 @@ describe('reader runtime helpers', () => {
             userGesture: true,
         })).toBe(true);
     });
+
+    it('only suppresses hover auto-audio for an audibly playing page video', () => {
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover' as const,
+            suppressAutoAudioOnVideo: true,
+        };
+        const gate = () => canAttemptReaderAutoAudio({
+            settings,
+            subtitleSurfaceSelector: '.jpdb-subtitle-player',
+            trigger: 'hover',
+            userGesture: false,
+        });
+        const video = document.createElement('video');
+        video.getBoundingClientRect = () => ({ width: 320, height: 180, top: 0, left: 0, right: 320, bottom: 180, x: 0, y: 0, toJSON: () => ({}) });
+        document.body.append(video);
+
+        try {
+            // A merely present, paused video must not silence hover term audio.
+            expect(gate()).toBe(true);
+
+            // An audibly playing video should still suppress it.
+            Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+            expect(gate()).toBe(false);
+
+            // Playing but muted produces no sound, so it must not suppress.
+            video.muted = true;
+            expect(gate()).toBe(true);
+        } finally {
+            video.remove();
+        }
+    });
 });

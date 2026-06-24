@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.95] - 2026-06-24
+
+### Fixed
+
+- Hover auto-play term audio (Auto-play trigger set to "Hover only" or "Hover and tap/click") now fires on pages that merely contain a video. Auto-audio suppression on video now only applies while a video is actually producing sound, so a paused, muted, or silent embedded clip no longer silently blocks hover playback — clicking already worked because a click bypasses the suppression.
+
 ## [1.4.94] - 2026-06-24
 
 ### Fixed

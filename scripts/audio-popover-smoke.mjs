@@ -71,6 +71,10 @@ const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true 
 try {
     await pushScenario('fixture-click-open-blob', () => runFixtureClickBlobScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-hover-direct', () => runFixtureHoverScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-hover-mode-hover', () => runFixtureHoverModeHoverScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-tap-mode-no-hover-autoplay', () => runFixtureTapModeNoHoverScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-paused-video-hover-plays', () => runFixturePausedVideoHoverScenario(browser, fixture.baseUrl));
+    await pushScenario('fixture-playing-video-hover-suppressed', () => runFixturePlayingVideoHoverScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-hover-return-retries-pending-audio', () => runFixtureHoverReturnAfterPendingScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-blocked-source-fallback', () => runFixtureBlockedFallbackScenario(browser, fixture.baseUrl));
     await pushScenario('fixture-random-candidate-no-repeat', () => runFixtureRandomCandidateScenario(browser, fixture.baseUrl));
@@ -140,6 +144,102 @@ async function runFixtureHoverScenario(browser, baseUrl) {
         },
         assertResult: result => {
             assert(result.audiblePlays.some(play => play.src.includes('/hover-')), 'fixture hover did not play the hover source', result);
+        },
+    });
+}
+
+async function runFixtureHoverModeHoverScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-hover-mode-hover',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioAutoPlayMode: 'hover',
+            audioViaBlob: false,
+            audioSources: [{ type: 'custom', url: 'https://audio.test/hover-{term}.mp3', voice: '', enabled: true }],
+        },
+        action: async page => {
+            await page.mouse.click(12, 12);
+            const box = await targetWordBox(page);
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+            await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+            await waitForAudibleAudio(page, 'hover-only mode did not autoplay on hover');
+        },
+        assertResult: result => {
+            assert(result.audiblePlays.some(play => play.src.includes('/hover-')), 'hover-only mode did not play the hover source', result);
+        },
+    });
+}
+
+async function runFixtureTapModeNoHoverScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-tap-mode-no-hover-autoplay',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            audioAutoPlayMode: 'tap',
+            audioViaBlob: false,
+            audioSources: [{ type: 'custom', url: 'https://audio.test/hover-{term}.mp3', voice: '', enabled: true }],
+        },
+        action: async page => {
+            await page.mouse.click(12, 12);
+            const box = await targetWordBox(page);
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+            await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+            await page.waitForTimeout(1500);
+        },
+        assertResult: result => {
+            assert(result.audiblePlays.length === 0, 'tap-only mode incorrectly autoplayed on hover', result);
+        },
+    });
+}
+
+async function runFixturePausedVideoHoverScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-paused-video-hover-plays',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            suppressAutoAudioOnVideo: true,
+            audioAutoPlayMode: 'hover',
+            audioViaBlob: false,
+            audioSources: [{ type: 'custom', url: 'https://audio.test/hover-{term}.mp3', voice: '', enabled: true }],
+        },
+        action: async page => {
+            await page.mouse.click(12, 12);
+            await injectPageVideo(page, { playing: false });
+            const box = await targetWordBox(page);
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+            await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+            await waitForAudibleAudio(page, 'a paused page video wrongly suppressed hover term audio');
+        },
+        assertResult: result => {
+            assert(result.audiblePlays.some(play => play.src.includes('/hover-')), 'paused video suppressed hover term audio', result);
+        },
+    });
+}
+
+async function runFixturePlayingVideoHoverScenario(browser, baseUrl) {
+    return await runReaderScenario(browser, {
+        name: 'fixture-playing-video-hover-suppressed',
+        url: `${baseUrl}/fixture.html`,
+        settings: {
+            ...baseSettings,
+            suppressAutoAudioOnVideo: true,
+            audioAutoPlayMode: 'hover',
+            audioViaBlob: false,
+            audioSources: [{ type: 'custom', url: 'https://audio.test/hover-{term}.mp3', voice: '', enabled: true }],
+        },
+        action: async page => {
+            await page.mouse.click(12, 12);
+            await injectPageVideo(page, { playing: true });
+            const box = await targetWordBox(page);
+            await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+            await page.waitForSelector('.jpdb-reader-popover', { timeout: 8000 });
+            await page.waitForTimeout(1500);
+        },
+        assertResult: result => {
+            assert(result.audiblePlays.length === 0, 'an audibly playing video should still suppress hover term audio', result);
         },
     });
 }
@@ -614,6 +714,32 @@ async function clickFirstInteractiveWord(page) {
     assert(point, 'no interactive reader word found');
     await page.mouse.click(point.x, point.y);
     await page.waitForSelector('.jpdb-reader-popover', { timeout: 10_000 });
+}
+
+async function injectPageVideo(page, { playing }) {
+    await page.evaluate(({ playing }) => {
+        const existing = document.getElementById('yomu-smoke-video');
+        if (existing) existing.remove();
+        const video = document.createElement('video');
+        video.id = 'yomu-smoke-video';
+        video.style.cssText = 'position:fixed;right:16px;bottom:16px;width:320px;height:180px;z-index:1;background:#102030';
+        // A short data URL keeps `video.src` truthy so the legacy "has a source"
+        // signal still fires — the bug under test suppresses on mere presence.
+        video.src = 'data:video/mp4;base64,AAAAHGZ0eXBpc29tAAACAGlzb21pc28y';
+        video.muted = false;
+        video.volume = 1;
+        document.body.appendChild(video);
+        // The smoke harness mocks HTMLMediaElement.play(), so real playback never
+        // starts; define the playback-state props deterministically instead.
+        if (playing) Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+        window.__yomuSmokeVideoState = {
+            paused: video.paused,
+            muted: video.muted,
+            volume: video.volume,
+            hasSrc: Boolean(video.src),
+            rect: video.getBoundingClientRect().width + 'x' + video.getBoundingClientRect().height,
+        };
+    }, { playing });
 }
 
 async function targetWordBox(page) {

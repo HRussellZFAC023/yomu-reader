@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.94
+// @version 1.4.95
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.94
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.94
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.94
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.94
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.95
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.95
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.95
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.95
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -11393,7 +11393,7 @@ function isVisiblePageVideo(video) {
   if (video.closest("[data-jpdb-reader-root]")) return false;
   if (!hasRenderableVideoRect(video)) return false;
   if (isVideoHidden(video)) return false;
-  return hasVideoPlaybackSignal(video);
+  return isAudiblyPlayingVideo(video);
 }
 function hasRenderableVideoRect(video) {
   const rect = video.getBoundingClientRect();
@@ -11403,8 +11403,8 @@ function isVideoHidden(video) {
   const style = getComputedStyle(video);
   return style.display === "none" || style.visibility === "hidden" || style.opacity === "0";
 }
-function hasVideoPlaybackSignal(video) {
-  return video.readyState > 0 || Boolean(video.currentSrc || video.src) || Number.isFinite(video.duration);
+function isAudiblyPlayingVideo(video) {
+  return !video.paused && !video.ended && !video.muted && video.volume > 0;
 }
 function isEditableTarget(target) {
   const element2 = target instanceof Element ? target : null;

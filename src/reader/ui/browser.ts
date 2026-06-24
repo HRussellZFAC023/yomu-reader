@@ -80,7 +80,7 @@ function isVisiblePageVideo(video: HTMLVideoElement): boolean {
     if (video.closest('[data-jpdb-reader-root]')) return false;
     if (!hasRenderableVideoRect(video)) return false;
     if (isVideoHidden(video)) return false;
-    return hasVideoPlaybackSignal(video);
+    return isAudiblyPlayingVideo(video);
 }
 
 function hasRenderableVideoRect(video: HTMLVideoElement): boolean {
@@ -93,10 +93,16 @@ function isVideoHidden(video: HTMLVideoElement): boolean {
     return style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0';
 }
 
-function hasVideoPlaybackSignal(video: HTMLVideoElement): boolean {
-    return video.readyState > 0
-        || Boolean(video.currentSrc || video.src)
-        || Number.isFinite(video.duration);
+// Auto-audio suppression exists to avoid term audio clashing with a video the
+// user is listening to — so only a video that is actually producing sound
+// counts. A merely present, paused, ended, or muted video (an embedded clip on
+// an article, an autoplay-muted social embed) must not silence hover playback,
+// which previously fired on the bare presence of a source.
+function isAudiblyPlayingVideo(video: HTMLVideoElement): boolean {
+    return !video.paused
+        && !video.ended
+        && !video.muted
+        && video.volume > 0;
 }
 
 export function isEditableTarget(target: EventTarget | null): boolean {
