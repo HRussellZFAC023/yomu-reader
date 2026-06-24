@@ -89,7 +89,7 @@ describe('recorderBootstrap (injected page-world recorder)', () => {
 
     it('patches the page CanvasRenderingContext2D prototype and records ops into page state', () => {
         const win = mockWin();
-        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000 });
+        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000, e: 'data-yomu-mirror-epoch', d: 'data-yomu-mirror-dump', p: 'yomu-canvas-mirror-pull', r: 'data-yomu-mirror-recorder' });
         const canvas = fakeCanvas();
         const ctx = Object.create(win.CanvasRenderingContext2D.prototype) as { drawImage: (...a: unknown[]) => void; canvas: ReturnType<typeof fakeCanvas> };
         ctx.canvas = canvas;
@@ -103,7 +103,7 @@ describe('recorderBootstrap (injected page-world recorder)', () => {
 
     it('records source canvases, clears, skipped contexts, and dest-only arity', () => {
         const win = mockWin();
-        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000 });
+        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000, e: 'data-yomu-mirror-epoch', d: 'data-yomu-mirror-dump', p: 'yomu-canvas-mirror-pull', r: 'data-yomu-mirror-recorder' });
         const canvas = fakeCanvas(800, 600);
         const source = fakeCanvas(400, 400);
         const ctx = Object.create(win.CanvasRenderingContext2D.prototype) as { drawImage: (...a: unknown[]) => void; clearRect: (...a: unknown[]) => void; canvas: ReturnType<typeof fakeCanvas>; __yomuMirrorSkip?: boolean };
@@ -125,9 +125,9 @@ describe('recorderBootstrap (injected page-world recorder)', () => {
 
     it('is idempotent (does not double-patch)', () => {
         const win = mockWin();
-        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000 });
+        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000, e: 'data-yomu-mirror-epoch', d: 'data-yomu-mirror-dump', p: 'yomu-canvas-mirror-pull', r: 'data-yomu-mirror-recorder' });
         const first = win.CanvasRenderingContext2D.prototype.drawImage;
-        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000 });
+        recorderBootstrap(win, { a: 'data-yomu-mid', m: 6000, k: 3000, e: 'data-yomu-mirror-epoch', d: 'data-yomu-mirror-dump', p: 'yomu-canvas-mirror-pull', r: 'data-yomu-mirror-recorder' });
         expect(win.CanvasRenderingContext2D.prototype.drawImage).toBe(first);
     });
 });

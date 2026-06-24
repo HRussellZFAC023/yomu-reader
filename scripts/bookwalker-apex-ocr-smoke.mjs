@@ -44,12 +44,20 @@ function fixtureHtml({ double }) {
 .wideScreen{position:relative}canvas.default{display:block;width:min(${w});height:auto;background:#fff}</style></head>
 <body><div id="bookContainer">${canvases}</div><div id="toolbar">Page <span id="pageSliderCounter">1 / 10</span></div>
 <script>
+// NFBR-faithful paint: clear the on-screen canvas, render the page into an
+// off-screen buffer, then composite buffer→screen (a canvas→canvas drawImage).
+// The full clear + the composite are exactly what the mirror recorder watches to
+// detect a page turn, so re-running __draw simulates a real turn.
 window.__draw = async () => {
   const img = new Image(); img.src = ${JSON.stringify(IMG_URL)};
   try { await img.decode(); } catch (e) { return 'decode-failed'; }
   for (const c of document.querySelectorAll('canvas.default')) {
-    const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
-    x.drawImage(img, 0, 0, c.width, c.height);
+    const x = c.getContext('2d');
+    x.clearRect(0, 0, c.width, c.height);
+    const buffer = document.createElement('canvas'); buffer.width = c.width; buffer.height = c.height;
+    const bx = buffer.getContext('2d'); bx.fillStyle = '#fff'; bx.fillRect(0, 0, c.width, c.height);
+    bx.drawImage(img, 0, 0, c.width, c.height);
+    x.drawImage(buffer, 0, 0, c.width, c.height, 0, 0, c.width, c.height);
   }
   return 'drawn';
 };
@@ -62,16 +70,18 @@ const failures = [];
 const rows = [];
 const ENGINES = { webkit, chromium };
 
-async function runCase({ engineName, host, double }) {
+async function runCase({ engineName, host, double, deviceName }) {
     const engine = ENGINES[engineName];
-    const label = `${engineName}/${host}/${double ? 'double' : 'single'}`;
+    const label = `${engineName}/${host}/${double ? 'double' : 'single'}/${deviceName}`;
     const browser = await engine.launch({ headless: true });
-    const context = await browser.newContext({ ...devices['iPad Pro 11'], locale: 'ja-JP', bypassCSP: true });
+    const deviceProfile = deviceName === 'desktop' ? { viewport: { width: 1280, height: 900 } } : devices[deviceName];
+    const context = await browser.newContext({ ...deviceProfile, locale: 'ja-JP', bypassCSP: true });
     const page = await context.newPage();
+    let ocrHits = 0;
     await page.exposeFunction(BRIDGE, async request => {
         const url = request.url || '';
         if (url === IMG_URL) return { status: 200, bytes: [...PAGE_PNG], contentType: 'image/png', responseText: '' };
-        if (/127\.0\.0\.1:7331|\/ocr(\?|$)/.test(url)) return { status: 200, responseText: JSON.stringify(MOCK_OCR) };
+        if (/127\.0\.0\.1:7331|\/ocr(\?|$)/.test(url)) { ocrHits++; return { status: 200, responseText: JSON.stringify(MOCK_OCR) }; }
         return { status: 503, responseText: '' };
     });
     await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: SETTINGS, requestBridgeName: BRIDGE });
@@ -91,29 +101,59 @@ async function runCase({ engineName, host, double }) {
     await page.evaluate(() => window.__draw());
     await page.waitForTimeout(600);
     const sel = double ? '#cR' : '#c0';
-    const p = await page.evaluate(s => { const r = document.querySelector(s).getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 80) }; }, sel);
-    await page.mouse.move(p.x, p.y); await page.mouse.move(p.x + 3, p.y + 2);
-    let ms = -1; const start = Date.now();
-    while (Date.now() - start < 8000) {
-        if (await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line').length) >= 1) { ms = Date.now() - start; break; }
-        await page.waitForTimeout(100);
-    }
-    const lines = await page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line').length);
-    const ok = lines >= 1;
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — ${ok ? `OCR overlay in ${ms}ms` : 'NO OVERLAY'}`);
+    const center = async () => page.evaluate(s => { const r = document.querySelector(s).getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + 80) }; }, sel);
+    const lineCount = () => page.evaluate(() => document.querySelectorAll('.jpdb-ocr-line').length);
+    const waitFor = async predicate => { const start = Date.now(); while (Date.now() - start < 8000) { if (await predicate()) return Date.now() - start; await page.waitForTimeout(100); } return -1; };
+    const hasTouch = deviceName !== 'desktop';
+    // Trigger a scan the way the device would: a tap on touch, a hover on desktop.
+    const trigger = async () => {
+        const p = await center();
+        if (hasTouch) await page.touchscreen.tap(p.x, p.y);
+        else { await page.mouse.move(p.x, p.y); await page.mouse.move(p.x + 3, p.y + 2); }
+    };
+
+    // 1) First page OCRs (mirror replay → overlay).
+    await trigger();
+    const ms = await waitFor(async () => (await lineCount()) >= 1);
+    const firstOk = ms >= 0;
+
+    // 2) Turn the page (NFBR repaints the in-place canvas + bumps the page counter)
+    //    and re-trigger: the overlay must re-OCR the NEW page, not stay stale. This
+    //    is the "stuck after a page turn, must refresh" report.
+    const hitsBeforeTurn = ocrHits;
+    await page.evaluate(() => { const c = document.querySelector('#pageSliderCounter'); if (c) c.textContent = '2 / 10'; });
+    await page.evaluate(() => window.__draw());
+    await page.waitForTimeout(300);
+    await trigger();
+    const turnMs = await waitFor(async () => ocrHits > hitsBeforeTurn && (await lineCount()) >= 1);
+    const turnOk = turnMs >= 0;
+
+    const ok = firstOk && turnOk;
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — first ${firstOk ? ms + 'ms' : 'NO OVERLAY'}, page-turn ${turnOk ? 're-OCR ' + turnMs + 'ms' : 'NOT re-OCR\'d'}`);
     if (!ok) failures.push(label);
-    rows.push({ label, ok, ms });
+    rows.push({ label, ok, ms, turnOk });
     await context.close();
     await browser.close();
 }
 
+// Core matrix: both engines × apex/viewer hosts × single/double spread, on the iPad
+// (the device the report came from). Plus a small cross-device pass (iPhone touch +
+// desktop hover) so tap and hover triggers are both covered on the Safari engine.
+const CASES = [];
 for (const engineName of ['webkit', 'chromium']) {
     for (const host of ['bookwalker.jp', 'viewer.bookwalker.jp']) {
         for (const double of [false, true]) {
-            try { await runCase({ engineName, host, double }); }
-            catch (e) { console.log(`ERROR ${engineName}/${host}/${double}: ${String(e).slice(0, 160)}`); failures.push(`${engineName}/${host} crashed`); }
+            CASES.push({ engineName, host, double, deviceName: 'iPad Pro 11' });
         }
     }
+}
+CASES.push({ engineName: 'webkit', host: 'viewer.bookwalker.jp', double: false, deviceName: 'iPhone 13' });
+CASES.push({ engineName: 'webkit', host: 'viewer.bookwalker.jp', double: false, deviceName: 'desktop' });
+CASES.push({ engineName: 'chromium', host: 'viewer.bookwalker.jp', double: false, deviceName: 'desktop' });
+
+for (const testCase of CASES) {
+    try { await runCase(testCase); }
+    catch (e) { const label = `${testCase.engineName}/${testCase.host}/${testCase.double ? 'double' : 'single'}/${testCase.deviceName}`; console.log(`ERROR ${label}: ${String(e).slice(0, 160)}`); failures.push(`${label} crashed`); }
 }
 console.log('\n================ SUMMARY ================');
 for (const r of rows) console.log(`${r.label.padEnd(40)} ${r.ok ? 'OCR ' + r.ms + 'ms' : 'NO OCR'}`);

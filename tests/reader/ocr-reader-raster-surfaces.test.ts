@@ -10,9 +10,29 @@ const originalCanvasGetContext = HTMLCanvasElement.prototype.getContext;
 
 afterEach(() => {
     document.body.replaceChildren();
+    document.documentElement.removeAttribute('data-yomu-mirror-epoch');
+    document.documentElement.removeAttribute('data-yomu-mirror-recorder');
     HTMLCanvasElement.prototype.getContext = originalCanvasGetContext;
     vi.unstubAllGlobals();
 });
+
+const TAINTED_CANVAS = () => { throw new Error('The operation is insecure.'); };
+function stubTaintedCanvas(): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: TAINTED_CANVAS });
+}
+function mirrorCanvas(label: string): HTMLCanvasElement {
+    const mirror = document.createElement('canvas');
+    mirror.width = 1200;
+    mirror.height = 1600;
+    mirror.toDataURL = () => `data:image/jpeg;base64,${label}`;
+    return mirror;
+}
+function pageCounter(text: string): HTMLElement {
+    const counter = Object.assign(document.createElement('span'), { id: 'pageSliderCounter', textContent: text });
+    document.body.append(counter);
+    return counter;
+}
 
 function createController(
     overrides: Partial<ReaderSettings> = {},
@@ -414,6 +434,124 @@ describe('reader raster OCR surfaces', () => {
             await waitForExpect(() => {
                 const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-background-frame')];
                 expect(frames.map(frame => frame.src)).toEqual(['blob:https://reader.mokuro.app/page-2']);
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    // P1-1: NFBR repaints one in-place canvas and the page counter can be unchanged
+    // across a real turn. The mirror turn token must still change the page signature
+    // so the stale frame is dropped and the new page re-OCR'd (the "stuck, must
+    // refresh" bug — before this the snapshot key was identical so re-capture, by
+    // poll OR tap, was suppressed).
+    it('re-OCRs a tainted BookWalker canvas when the mirror epoch changes but the counter does not', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12'); // counter stays fixed across the turn
+        stubTaintedCanvas();
+        const mirrors = [mirrorCanvas('PAGE1'), mirrorCanvas('PAGE2')];
+        let mirrorIndex = 0;
+        const captureCanvasMirror = vi.fn(async () => mirrors[mirrorIndex]);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE1');
+            });
+            // A turn the counter didn't reflect, signalled only by the recorder epoch.
+            document.documentElement.setAttribute('data-yomu-mirror-epoch', '7');
+            mirrorIndex = 1;
+            controller.refresh();
+            await waitForExpect(() => {
+                expect(captureCanvasMirror).toHaveBeenCalledTimes(2);
+                const frames = [...document.querySelectorAll<HTMLImageElement>('.jpdb-ocr-canvas-frame')];
+                expect(frames).toHaveLength(1);
+                expect(frames[0]?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE2');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    // P0-2: a capture that races the engine (mirror has no ops yet) must retry with
+    // backoff and recover on its own, instead of leaving the page permanently blank
+    // until a full reload.
+    it('recovers from a transient capture failure via backoff retry (no page turn)', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const mirror = mirrorCanvas('RECOVERED');
+        let attempt = 0;
+        const captureCanvasMirror = vi.fn(async () => (++attempt >= 3 ? mirror : undefined));
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        const controller = createController({}, async () => undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,RECOVERED');
+            });
+            expect(captureCanvasMirror.mock.calls.length).toBeGreaterThanOrEqual(3);
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    // P1-2: in tap/manual mode the 1200ms poll never used to detect a turn, leaving
+    // the previous page's overlay over the new page. Detection now always runs (so
+    // the stale frame is dropped) while capture stays a tap's job.
+    it('drops the stale overlay on a page turn in manual mode without auto-capturing', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        const counter = pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('PAGE1'));
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        try {
+            dispatchCanvasPointer(canvas, 'pointermove'); // a tap/hover captures page 1
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1);
+
+            counter.textContent = '2 / 12'; // turn the page
+            controller.refresh(); // the poll's detection pass
+
+            await waitForExpect(() => {
+                expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull(); // stale overlay cleared
+            });
+            expect(captureCanvasMirror).toHaveBeenCalledTimes(1); // manual mode did NOT auto-capture
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    // P1-3: a touch tap (no hover) must OCR the page in manual mode — the only way
+    // to scan on iPad, where there is no keyboard shortcut.
+    it('OCRs a tainted BookWalker canvas on a touch tap in manual mode', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('TAPPED'));
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        try {
+            const event = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(event, {
+                clientX: { value: 200 }, clientY: { value: 300 },
+                button: { value: 0 }, pointerType: { value: 'touch' },
+            });
+            canvas.dispatchEvent(event);
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,TAPPED');
             });
         } finally {
             controller.destroy();

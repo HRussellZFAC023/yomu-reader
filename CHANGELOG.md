@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.96] - 2026-06-24
+
+### Fixed
+
+- BookWalker manga OCR now works in every userscript manager, not just Tampermonkey. The Safari "Userscripts" extension runs scripts in an isolated content world with no `unsafeWindow`, so the canvas-mirror recorder previously patched the wrong realm and recorded none of the DRM viewer's draws — OCR was silently dead there. The recorder is now always injected into the page world and the reader pulls its records back over a shared-DOM bridge, so OCR works on Tampermonkey, Violentmonkey, Greasemonkey and the Safari "Userscripts" extension alike.
+- BookWalker page turns now reliably re-OCR the new page. Turn detection no longer depends on the page counter alone (which NFBR can leave unchanged across a turn); a per-page content/turn token is folded into the page signature, so a turn is detected even when the counter, scroll and surface count are identical. This fixes pages getting stuck showing the previous page's overlay (or no overlay) with no way to recover short of a reload.
+- A canvas capture that races the viewer's repaint now retries with backoff and recovers on its own instead of leaving the page un-OCR'd until a reload; stale per-page readiness state is cleared on every turn.
+- Tap/manual OCR mode now detects page turns (clearing the stale overlay) and reliably re-scans on a tap — including touch taps on iPad/iPhone, where there is no keyboard shortcut. A background poll no longer wipes a page you tapped to scan.
+- The OCR loading indicator on full-page canvas readers (BookWalker/ComicWalker) is now a clear labelled pill instead of an easy-to-miss corner dot, so the multi-second scan reads as "working" rather than frozen.
+- Cross-origin OCR requests now also resolve through a manager's promise-based `GM.xmlHttpRequest`, and a one-time warning is logged when no userscript HTTP request is available, so a missing grant is diagnosable instead of a silent blank page.
+
 ## [1.4.95] - 2026-06-24
 
 ### Fixed

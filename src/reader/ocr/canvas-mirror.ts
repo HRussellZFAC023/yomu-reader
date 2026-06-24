@@ -18,8 +18,21 @@ const MAX_OPS_PER_CANVAS = 6000;
 const PRUNE_KEEP = 3000;
 const MAX_REBUILD_DEPTH = 6;
 
-interface MirrorGlobalState {
-    seq: number; nextId: number; installed: boolean;
+// Shared-DOM channel so an isolated content-world reader with no `unsafeWindow`
+// (the Safari "Userscripts" extension) can both detect page turns and pull the
+// page-world recorder's records. The DOM is shared across realms; the page window
+// is not. EPOCH_ATTR is a cheap turn token bumped on each page composite/clear;
+// MARKER_ATTR proves the page-world recorder installed; PULL_EVENT/DUMP_ATTR are a
+// synchronous request/response to copy records into the reader's realm.
+const EPOCH_ATTR = 'data-yomu-mirror-epoch';
+const MARKER_ATTR = 'data-yomu-mirror-recorder';
+const DUMP_ATTR = 'data-yomu-mirror-dump';
+const PULL_EVENT = 'yomu-canvas-mirror-pull';
+
+interface RecorderOpts { a: string; m: number; k: number; e: string; d: string; p: string; r: string; }
+
+export interface MirrorGlobalState {
+    seq: number; nextId: number; installed: boolean; epoch?: number;
     records: Record<string, MirrorRecord>;
 }
 // Share state between the userscript sandbox and page main world.
@@ -83,6 +96,19 @@ function markSkip(context: CanvasRenderingContext2D | null): CanvasRenderingCont
     return context;
 }
 
+// Mark a 2D context Yomu created so the recorder ignores draws into it. Yomu draws
+// the page canvas into its OWN transient canvases (content-hash sampling, JPEG
+// downscaling, mirror rebuild). Without this the recorder logs those Yomu-internal
+// canvas→canvas draws as page composites and bumps the shared-DOM turn epoch — and
+// since canvasReaderPageSignature samples content on every poll, the epoch (and so
+// the signature) would drift on every tick, releasing fresh frames and re-OCRing
+// the page in a loop. Callers outside this module reach the recorder's skip flag
+// only through here.
+export function markCanvasMirrorSkip<T extends CanvasRenderingContext2D | null>(context: T): T {
+    if (context) (context as unknown as { __yomuMirrorSkip?: boolean }).__yomuMirrorSkip = true;
+    return context;
+}
+
 function isReadable(canvas: HTMLCanvasElement): boolean {
     try {
         markSkip(canvas.getContext('2d', { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
@@ -130,6 +156,35 @@ export function canvasMirrorHasOps(canvas: object): boolean {
     return !!id && (state().records[id]?.ops.length ?? 0) > 0;
 }
 
+// Copy the page-world recorder's records into this (content-world) realm's state
+// over the shared DOM. dispatchEvent is synchronous, so the page-world responder
+// has written the JSON dump by the time dispatch returns. No-op (returns false)
+// when the page recorder isn't present or the reader already shares its realm.
+export function pullPageMirrorRecords(target: MirrorGlobalState = state()): boolean {
+    try {
+        const root = document.documentElement;
+        if (!root || !recorderMarkerPresent()) return false;
+        root.dispatchEvent(new CustomEvent(PULL_EVENT));
+        const text = root.querySelector('[' + DUMP_ATTR + ']')?.textContent;
+        if (!text) return false;
+        const parsed = JSON.parse(text) as { records?: Record<string, MirrorRecord>; seq?: number; nextId?: number; epoch?: number };
+        if (!parsed?.records) return false;
+        target.records = parsed.records;
+        if (typeof parsed.seq === 'number') target.seq = Math.max(target.seq, parsed.seq);
+        if (typeof parsed.nextId === 'number') target.nextId = Math.max(target.nextId, parsed.nextId);
+        if (typeof parsed.epoch === 'number') target.epoch = parsed.epoch;
+        return true;
+    } catch { return false; }
+}
+
+// Realm-agnostic page-turn token for tainted DRM canvases the pixel sampler can't
+// read. The page-world recorder bumps a shared-DOM epoch on every page composite /
+// full clear, so a turn changes this value even with no unsafeWindow and an
+// unchanged/absent page counter. '' when no recorder has run yet.
+export function canvasMirrorTurnToken(): string {
+    try { return document.documentElement?.getAttribute(EPOCH_ATTR) ?? ''; } catch { return ''; }
+}
+
 // Rebuild `canvas` onto an untainted canvas by replaying the engine's recorded draw
 // ops from origin-clean (GM-fetched) copies of the source images. Returns undefined
 // when there's nothing recorded, no fetchable source, or the rebuild is still
@@ -144,6 +199,10 @@ export async function captureCanvasMirror(
     installCanvasMirrorRecorder();
     const s = state();
     const id = canvasId(canvas, false);
+    // Isolated content world with no unsafeWindow (Safari "Userscripts"): the engine
+    // recorded into the PAGE-world __yomuCanvasMirror this realm can't see, so its own
+    // records map is empty. Pull the page-world records over the shared-DOM bridge.
+    if (id && !(s.records[id]?.ops.length)) pullPageMirrorRecords(s);
     const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, key => s.records[key]) : new Set<string>();
     const images = new Map<string, CanvasImageSource>();
     if (urls.size) {
@@ -158,7 +217,7 @@ export async function captureCanvasMirror(
 interface Context2DPrototype {
     drawImage: (...args: unknown[]) => unknown;
     clearRect: (x: number, y: number, w: number, h: number) => unknown;
-    canvas: { width: number; height: number };
+    canvas: { width: number; height: number; nodeType?: number; isConnected?: boolean };
     __yomuMirrorPatched?: boolean;
     __yomuMirrorSkip?: boolean;
 }
@@ -168,12 +227,39 @@ interface Context2DPrototype {
 // sandbox-created state object can't be defined on / read from the page window).
 // Running in the page realm makes the state + ops page-compartment objects the
 // main-world reader can read directly. Must reference ONLY its parameters.
-export function recorderBootstrap(win: PageWindowLike, opts: { a: string; m: number; k: number }): void {
+export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void {
     if (win.__yomuCanvasMirrorRecorder) return;
     win.__yomuCanvasMirrorRecorder = true;
     const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
-    const S = (win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: Object.create(null) }) as MirrorGlobalState;
+    const S = (win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, epoch: 0, records: Object.create(null) }) as MirrorGlobalState;
     S.installed = true;
+    // Shared-DOM channel for an isolated content-world reader (no unsafeWindow):
+    // a turn token (epoch), an install marker, and a synchronous record dump.
+    const doc = win.document;
+    const root = doc && doc.documentElement;
+    // Bump the page-turn epoch ONLY for composites into an on-DOM canvas (a real
+    // viewer surface). Yomu's own transient canvases (content sampling, JPEG
+    // downscale, mirror rebuild) are created detached via createElement and never
+    // appended, so they're skipped here — otherwise capturing the page would itself
+    // tick the epoch the page signature depends on, releasing the fresh frame in a
+    // loop. OffscreenCanvas has no nodeType/isConnected, so it still counts.
+    const bumpEpoch = (el: { nodeType?: number; isConnected?: boolean }): void => {
+        if (el && el.nodeType && !el.isConnected) return;
+        S.epoch = (S.epoch || 0) + 1;
+        if (root) { try { root.setAttribute(opts.e, String(S.epoch)); } catch { /* */ } }
+    };
+    if (doc && root) {
+        try { root.setAttribute(opts.r, '1'); } catch { /* */ }
+        try {
+            root.addEventListener(opts.p, () => {
+                try {
+                    let node = root.querySelector('[' + opts.d + ']');
+                    if (!node) { const created = doc.createElement('div'); created.setAttribute(opts.d, '1'); created.style.display = 'none'; root.appendChild(created); node = created; }
+                    node.textContent = JSON.stringify({ records: S.records, seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+                } catch { /* */ }
+            });
+        } catch { /* */ }
+    }
     const HC = (win as { HTMLCanvasElement?: unknown }).HTMLCanvasElement as (new () => unknown) | undefined;
     const OC = (win as { OffscreenCanvas?: unknown }).OffscreenCanvas as (new () => unknown) | undefined;
     const isCanvas = (o: unknown): boolean => Boolean(o) && ((HC != null && o instanceof HC) || (OC != null && o instanceof OC));
@@ -198,13 +284,16 @@ export function recorderBootstrap(win: PageWindowLike, opts: { a: string; m: num
                     else if (a.length === 5) { o.dx = a[1]; o.dy = a[2]; o.dw = a[3]; o.dh = a[4]; }
                     else if (a.length === 3) { o.dx = a[1]; o.dy = a[2]; }
                     r.ops.push(o);
+                    // A canvas→canvas draw is a page composite (buffer→on-screen);
+                    // it marks a turn far more cheaply than per-tile draws do.
+                    if (o.srcId) bumpEpoch(this.canvas);
                 }
             } catch { /* */ } }
             return draw.apply(this, arguments as unknown as unknown[]);
         } as typeof p.drawImage;
         const clr = p.clearRect;
         p.clearRect = function (this: Context2DPrototype, x: number, y: number, w: number, h: number) {
-            if (!this.__yomuMirrorSkip) { try { if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) { const cid = idOf(this.canvas, true); if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true }); } } catch { /* */ } }
+            if (!this.__yomuMirrorSkip) { try { if (x <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) { const cid = idOf(this.canvas, true); if (cid) { rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: '', sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true }); bumpEpoch(this.canvas); } } } catch { /* */ } }
             return clr.apply(this, arguments as unknown as [number, number, number, number]);
         } as typeof p.clearRect;
     };
@@ -213,11 +302,27 @@ export function recorderBootstrap(win: PageWindowLike, opts: { a: string; m: num
     patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
 }
 
-interface PageWindowLike { __yomuCanvasMirror?: MirrorGlobalState; __yomuCanvasMirrorRecorder?: boolean; }
+interface PageWindowLike {
+    __yomuCanvasMirror?: MirrorGlobalState;
+    __yomuCanvasMirrorRecorder?: boolean;
+    document?: Document;
+    CanvasRenderingContext2D?: { prototype: Context2DPrototype };
+    OffscreenCanvasRenderingContext2D?: { prototype: Context2DPrototype };
+    HTMLCanvasElement?: unknown;
+    OffscreenCanvas?: unknown;
+}
 
-// Inject the recorder into the page main world (Firefox sandbox → page realm).
-// Returns true if the injection ran (state created in the page compartment).
-function injectRecorderIntoPage(opts: { a: string; m: number; k: number }): boolean {
+function recorderOpts(): RecorderOpts {
+    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
+}
+
+// Inject the recorder into the page main world. A <script> appended to the DOM
+// runs in the PAGE realm even from an isolated content world with no unsafeWindow
+// (the Safari "Userscripts" extension) or a sandboxed manager (Firefox), so it
+// observes the engine's own page-world canvas draws. Returns true when the
+// page-world recorder confirms install via the shared-DOM marker (readable from
+// any realm) — the page window itself is NOT readable without unsafeWindow.
+function injectRecorderIntoPage(opts: RecorderOpts): boolean {
     const parent = document.head || document.documentElement;
     if (!parent) return false;
     const source = `;(${recorderBootstrap.toString()})(window, ${JSON.stringify(opts)});`;
@@ -231,7 +336,20 @@ function injectRecorderIntoPage(opts: { a: string; m: number; k: number }): bool
         parent.append(script);
         script.remove();
     } catch { return false; }
-    return Boolean((pageWindow() as PageWindowLike).__yomuCanvasMirror);
+    return recorderMarkerPresent() || Boolean((pageWindow() as PageWindowLike).__yomuCanvasMirror);
+}
+
+// The page-world recorder sets MARKER_ATTR on documentElement; the DOM is shared
+// across realms so the content-world reader can see it without unsafeWindow.
+function recorderMarkerPresent(): boolean {
+    try { return document.documentElement?.getAttribute(MARKER_ATTR) === '1'; } catch { return false; }
+}
+
+function recorderAlreadyInstalled(): boolean {
+    if (recorderMarkerPresent()) return true;
+    const uw = (globalThis as unknown as { unsafeWindow?: PageWindowLike }).unsafeWindow;
+    return Boolean(uw?.__yomuCanvasMirror?.installed)
+        || Boolean((pageWindow() as PageWindowLike).__yomuCanvasMirror?.installed);
 }
 
 function createTrustedMirrorScript(code: string): unknown {
@@ -243,28 +361,26 @@ function createTrustedMirrorScript(code: string): unknown {
     } catch { return null; }
 }
 
-// Install the recorder. No-op off BookWalker hosts. Same-realm (iPad/Chrome): patch
-// this realm's 2D-context prototype directly. Different realm (Firefox sandbox):
-// inject a page-world recorder so its state is page-compartment and the main-world
-// OCR reader can read it. Idempotent via the shared page-window state.
+// Install the recorder. No-op off BookWalker hosts. The engine paints in the PAGE
+// main world, so we inject the recorder there via a <script> tag FIRST — this is
+// the only realm-agnostic path: it works on the sandboxed managers (Firefox) AND
+// on the Safari "Userscripts" extension, which runs the script in an isolated
+// content world with NO unsafeWindow (the previous `differentRealm` gate left
+// those harnesses patching the content realm's prototype, recording zero of the
+// engine's draws — so BookWalker OCR was dead there). The content-world reader
+// then pulls the records over the shared-DOM bridge (pullPageMirrorRecords).
+// Idempotent via the shared-DOM marker so retries never re-append <script> nodes.
 export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
     if (!isBookwalkerViewerHost(hostname)) return;
-    const uw = (globalThis as unknown as { unsafeWindow?: typeof globalThis }).unsafeWindow;
-    const differentRealm = Boolean(uw) && uw !== (globalThis as unknown as typeof globalThis);
-    if (differentRealm) {
-        // Firefox: do NOT call state() here. In the sandbox, state() would create a
-        // sandbox-compartment object on the page window via `??=`; the injected page
-        // recorder would then reuse it (`|| existing`) and the main-world reader
-        // couldn't read it. Let the injected page script create the page-compartment
-        // state itself.
-        const existing = (uw as unknown as { __yomuCanvasMirror?: MirrorGlobalState }).__yomuCanvasMirror;
-        if (existing?.installed) return;
-        if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
-        // Injection blocked (CSP / Trusted Types): fall through to a same-realm patch.
-    }
-    // Same realm (iPad/Chrome, or injection unavailable): patch directly. The
-    // 2D-context prototype is shared across realms, so this still captures draws.
+    if (recorderAlreadyInstalled()) return;
+    // Inject into the page world first (do NOT touch state() before injecting on a
+    // sandboxed manager, or `??=` would create a sandbox-compartment state the page
+    // recorder then reuses and the reader can't read).
+    if (injectRecorderIntoPage(recorderOpts())) return;
+    // Injection blocked (CSP / Trusted Types with no usable nonce): patch this realm
+    // directly. This still captures draws when the script already runs in the page
+    // world (globalThis === page window).
     const s = state();
     if (s.installed) return;
-    recorderBootstrap(pageWindow() as PageWindowLike, { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
+    recorderBootstrap(pageWindow() as PageWindowLike, recorderOpts());
 }

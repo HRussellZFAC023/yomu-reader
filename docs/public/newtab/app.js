@@ -30448,7 +30448,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const sample = document.createElement("canvas");
       sample.width = CONTENT_SAMPLE_SIZE;
       sample.height = CONTENT_SAMPLE_SIZE;
-      const context = sample.getContext("2d", { willReadFrequently: true });
+      const context = markCanvasMirrorSkip(sample.getContext("2d", { willReadFrequently: true }));
       if (!context) return null;
       context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
       const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
@@ -30537,9 +30537,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function canvasReaderPageSignature() {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
     const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
-    const surfaces = pageCanvases().length;
+    const canvases = pageCanvases();
+    const surfaces = canvases.length;
+    const content = canvasReaderContentToken(canvases);
     const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
-    return `${counter}|${scroll}|${surfaces}|${backgrounds}`;
+    return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+  }
+  function canvasReaderContentToken(canvases) {
+    let mirrorToken;
+    return canvases.map((canvas) => {
+      try {
+        const signature = canvasRenderedContentSignature(canvas);
+        if (signature) return signature;
+      } catch {
+      }
+      mirrorToken ??= canvasMirrorTurnToken();
+      return mirrorToken;
+    }).join(",");
   }
   function captureCanvasDataUrl(canvas, maxPixels) {
     try {
@@ -30552,7 +30566,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       const scaled = document.createElement("canvas");
       scaled.width = Math.max(1, Math.round(width * scale));
       scaled.height = Math.max(1, Math.round(height * scale));
-      const context = scaled.getContext("2d");
+      const context = markCanvasMirrorSkip(scaled.getContext("2d"));
       if (!context) return void 0;
       context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
       return scaled.toDataURL("image/jpeg", 0.86);
@@ -30613,6 +30627,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const MAX_OPS_PER_CANVAS = 6e3;
   const PRUNE_KEEP = 3e3;
   const MAX_REBUILD_DEPTH = 6;
+  const EPOCH_ATTR = "data-yomu-mirror-epoch";
+  const MARKER_ATTR = "data-yomu-mirror-recorder";
+  const DUMP_ATTR = "data-yomu-mirror-dump";
+  const PULL_EVENT = "yomu-canvas-mirror-pull";
   function pageWindow() {
     const uw = globalThis.unsafeWindow;
     return uw || globalThis;
@@ -30654,6 +30672,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (context) context.__yomuMirrorSkip = true;
     return context;
   }
+  function markCanvasMirrorSkip(context) {
+    if (context) context.__yomuMirrorSkip = true;
+    return context;
+  }
   function isReadable(canvas) {
     try {
       markSkip(canvas.getContext("2d", { willReadFrequently: true }))?.getImageData(0, 0, 1, 1);
@@ -30690,10 +30712,36 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
     return drew ? out : null;
   }
+  function pullPageMirrorRecords(target = state()) {
+    try {
+      const root = document.documentElement;
+      if (!root || !recorderMarkerPresent()) return false;
+      root.dispatchEvent(new CustomEvent(PULL_EVENT));
+      const text2 = root.querySelector("[" + DUMP_ATTR + "]")?.textContent;
+      if (!text2) return false;
+      const parsed = JSON.parse(text2);
+      if (!parsed?.records) return false;
+      target.records = parsed.records;
+      if (typeof parsed.seq === "number") target.seq = Math.max(target.seq, parsed.seq);
+      if (typeof parsed.nextId === "number") target.nextId = Math.max(target.nextId, parsed.nextId);
+      if (typeof parsed.epoch === "number") target.epoch = parsed.epoch;
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  function canvasMirrorTurnToken() {
+    try {
+      return document.documentElement?.getAttribute(EPOCH_ATTR) ?? "";
+    } catch {
+      return "";
+    }
+  }
   async function captureCanvasMirror(canvas, loadCleanImage) {
     installCanvasMirrorRecorder();
     const s = state();
     const id = canvasId(canvas);
+    if (id && !s.records[id]?.ops.length) pullPageMirrorRecords(s);
     const urls = id ? collectLeafUrls(id, Number.POSITIVE_INFINITY, (key) => s.records[key]) : /* @__PURE__ */ new Set();
     const images = /* @__PURE__ */ new Map();
     if (urls.size) {
@@ -30712,8 +30760,43 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     if (win.__yomuCanvasMirrorRecorder) return;
     win.__yomuCanvasMirrorRecorder = true;
     const ATTR = opts.a, MAX = opts.m, KEEP = opts.k;
-    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, records: /* @__PURE__ */ Object.create(null) };
+    const S = win.__yomuCanvasMirror = win.__yomuCanvasMirror || { seq: 0, nextId: 1, installed: true, epoch: 0, records: /* @__PURE__ */ Object.create(null) };
     S.installed = true;
+    const doc = win.document;
+    const root = doc && doc.documentElement;
+    const bumpEpoch = (el2) => {
+      if (el2 && el2.nodeType && !el2.isConnected) return;
+      S.epoch = (S.epoch || 0) + 1;
+      if (root) {
+        try {
+          root.setAttribute(opts.e, String(S.epoch));
+        } catch {
+        }
+      }
+    };
+    if (doc && root) {
+      try {
+        root.setAttribute(opts.r, "1");
+      } catch {
+      }
+      try {
+        root.addEventListener(opts.p, () => {
+          try {
+            let node = root.querySelector("[" + opts.d + "]");
+            if (!node) {
+              const created = doc.createElement("div");
+              created.setAttribute(opts.d, "1");
+              created.style.display = "none";
+              root.appendChild(created);
+              node = created;
+            }
+            node.textContent = JSON.stringify({ records: S.records, seq: S.seq, nextId: S.nextId, epoch: S.epoch || 0 });
+          } catch {
+          }
+        });
+      } catch {
+      }
+    }
     const HC = win.HTMLCanvasElement;
     const OC = win.OffscreenCanvas;
     const isCanvas = (o) => Boolean(o) && (HC != null && o instanceof HC || OC != null && o instanceof OC);
@@ -30787,6 +30870,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                 o.dy = a[2];
               }
               r.ops.push(o);
+              if (o.srcId) bumpEpoch(this.canvas);
             }
           } catch {
           }
@@ -30799,7 +30883,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
           try {
             if (x2 <= 0 && y <= 0 && w >= this.canvas.width && h >= this.canvas.height) {
               const cid = idOf(this.canvas, true);
-              if (cid) rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+              if (cid) {
+                rec(cid, this.canvas.width, this.canvas.height).ops.push({ seq: S.seq++, srcId: null, url: "", sx: 0, sy: 0, sw: -1, sh: -1, dx: 0, dy: 0, dw: -1, dh: -1, clear: true });
+                bumpEpoch(this.canvas);
+              }
             }
           } catch {
           }
@@ -30810,6 +30897,9 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const w2 = win;
     patch(w2.CanvasRenderingContext2D?.prototype);
     patch(w2.OffscreenCanvasRenderingContext2D?.prototype);
+  }
+  function recorderOpts() {
+    return { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP, e: EPOCH_ATTR, d: DUMP_ATTR, p: PULL_EVENT, r: MARKER_ATTR };
   }
   function injectRecorderIntoPage(opts) {
     const parent = document.head || document.documentElement;
@@ -30827,7 +30917,19 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     } catch {
       return false;
     }
-    return Boolean(pageWindow().__yomuCanvasMirror);
+    return recorderMarkerPresent() || Boolean(pageWindow().__yomuCanvasMirror);
+  }
+  function recorderMarkerPresent() {
+    try {
+      return document.documentElement?.getAttribute(MARKER_ATTR) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function recorderAlreadyInstalled() {
+    if (recorderMarkerPresent()) return true;
+    const uw = globalThis.unsafeWindow;
+    return Boolean(uw?.__yomuCanvasMirror?.installed) || Boolean(pageWindow().__yomuCanvasMirror?.installed);
   }
   function createTrustedMirrorScript(code) {
     try {
@@ -30841,16 +30943,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   }
   function installCanvasMirrorRecorder(hostname = location.hostname) {
     if (!isBookwalkerViewerHost(hostname)) return;
-    const uw = globalThis.unsafeWindow;
-    const differentRealm = Boolean(uw) && uw !== globalThis;
-    if (differentRealm) {
-      const existing = uw.__yomuCanvasMirror;
-      if (existing?.installed) return;
-      if (injectRecorderIntoPage({ a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP })) return;
-    }
+    if (recorderAlreadyInstalled()) return;
+    if (injectRecorderIntoPage(recorderOpts())) return;
     const s = state();
     if (s.installed) return;
-    recorderBootstrap(pageWindow(), { a: ID_ATTR, m: MAX_OPS_PER_CANVAS, k: PRUNE_KEEP });
+    recorderBootstrap(pageWindow(), recorderOpts());
   }
   function normalizeOcrRenderedText(root) {
     normalizeOcrRuby(root);
@@ -33113,6 +33210,9 @@ ${spelling}`);
   const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
   const OCR_STATUS_READY_DWELL_MS = 1e3;
   const OCR_STATUS_FADE_MS = 360;
+  const READER_RASTER_RETRY_BASE_MS = 140;
+  const READER_RASTER_RETRY_MAX_MS = 1100;
+  const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
   const GOOGLE_LENS_ENDPOINT = "https://lensfrontend-pa.googleapis.com/v1/crupload";
   const GOOGLE_LENS_API_KEY = "AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY";
   const DEFAULT_LOCAL_OCR_ENDPOINT_URL = "http://127.0.0.1:7331/ocr";
@@ -33275,7 +33375,13 @@ ${spelling}`);
     readerRasterPoll = 0;
     readerRasterRetryTimer = 0;
     pendingCanvasSnapshots = /* @__PURE__ */ new WeakSet();
-    canvasContentReadiness = /* @__PURE__ */ new WeakMap();
+    // Map (not WeakMap) so a page turn can clear ALL readiness at once — NFBR reuses
+    // the same canvas object across turns, so a stale readiness entry would let the
+    // next page's first sample wrongly pass (or block). Bounded: cleared on every
+    // page-turn signature change and on teardown.
+    canvasContentReadiness = /* @__PURE__ */ new Map();
+    // Per-canvas failed-capture counter driving the backoff retry above.
+    canvasCaptureAttempts = /* @__PURE__ */ new Map();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
@@ -34007,6 +34113,9 @@ ${spelling}`);
       element.dataset.jpdbReaderSurfaceIgnore = "true";
       element.setAttribute("role", "status");
       element.setAttribute("aria-live", "polite");
+      const label = document.createElement("span");
+      label.className = "jpdb-ocr-video-frame-status-label";
+      element.append(label);
       this.setVideoFrameStatus(element, status);
       document.body.append(element);
       return element;
@@ -34065,6 +34174,10 @@ ${spelling}`);
       const card = existing ?? this.createVideoFrameStatus(status);
       if (existing) this.setVideoFrameStatus(card, status);
       else this.imageStatuses.set(image, card);
+      const isCanvasFrame = this.canvasFrameSources.has(image);
+      card.classList.toggle("jpdb-ocr-canvas-status", isCanvasFrame);
+      const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
+      if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
       this.positionImageStatusCard(image, card);
       if (status === "ready") this.scheduleImageStatusFade(image, card);
     }
@@ -34134,8 +34247,7 @@ ${spelling}`);
     }
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
-      if (!settings.ocrAutoScanImages && !userRequested) return;
-      if (this.options.shouldAutoScan?.() === false && !userRequested) {
+      if (this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested) {
         this.releaseAllCanvasFrames();
         return;
       }
@@ -34149,6 +34261,7 @@ ${spelling}`);
         this.releaseAllCanvasFrames();
         this.canvasReaderSignature = signature;
       }
+      if (!settings.ocrAutoScanImages && !userRequested) return;
       const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
@@ -34174,7 +34287,10 @@ ${spelling}`);
         let frameRect = rect;
         if (isCanvasReadable(canvas)) {
           const contentSignature = canvasRenderedContentSignature(canvas);
-          if (!contentSignature) return;
+          if (!contentSignature) {
+            this.scheduleCanvasCaptureRetry(canvas);
+            return;
+          }
           if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
           frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
         } else if (isBookwalkerViewerHost()) {
@@ -34191,7 +34307,10 @@ ${spelling}`);
         } else if (canUseReaderCanvasSourceImageFallback()) {
           frameSrc = readerCanvasSourceImageUrl();
         }
-        if (!frameSrc) return;
+        if (!frameSrc) {
+          this.scheduleCanvasCaptureRetry(canvas);
+          return;
+        }
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
         const frame = document.createElement("img");
         frame.className = "jpdb-ocr-canvas-frame";
@@ -34206,6 +34325,8 @@ ${spelling}`);
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);
         this.canvasFrameKeys.set(canvas, key);
+        this.clearCanvasCaptureRetry(canvas);
+        this.canvasReaderSignature = canvasReaderPageSignature();
         if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
         this.schedulePosition();
       } finally {
@@ -34233,6 +34354,21 @@ ${spelling}`);
         this.refreshBackgroundImageReaderSurfaces(settings);
       }, delayMs);
     }
+    // A canvas capture failed (engine hasn't painted / mirror has no ops yet).
+    // Retry with exponential backoff so the page OCRs as soon as it's ready instead
+    // of waiting for the next 1200ms poll. After the cap we stop the fast retry; the
+    // poll keeps trying and a tap force-rescans, so the page is never permanently
+    // stuck. The counter resets on a real turn (releaseAllCanvasFrames) or success.
+    scheduleCanvasCaptureRetry(canvas) {
+      const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
+      this.canvasCaptureAttempts.set(canvas, attempts);
+      if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return;
+      const delay2 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** (attempts - 1), READER_RASTER_RETRY_MAX_MS);
+      this.scheduleReaderRasterRefresh(delay2);
+    }
+    clearCanvasCaptureRetry(canvas) {
+      this.canvasCaptureAttempts.delete(canvas);
+    }
     releaseCanvasFrame(canvas) {
       const frame = this.canvasFrames.get(canvas);
       if (!frame) return;
@@ -34243,10 +34379,14 @@ ${spelling}`);
       this.canvasFrameSources.delete(frame);
       this.canvasFrameStaticRects.delete(frame);
       this.canvasFrameKeys.delete(canvas);
+      this.canvasContentReadiness.delete(canvas);
+      this.canvasCaptureAttempts.delete(canvas);
       frame.remove();
     }
     releaseAllCanvasFrames() {
       for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+      this.canvasContentReadiness.clear();
+      this.canvasCaptureAttempts.clear();
       this.canvasReaderSignature = void 0;
     }
     positionCanvasFrames() {
@@ -35852,14 +35992,33 @@ ${spelling}`);
   }
   function requestViaUserscript(options, readResponse, statusMessage, timeoutMessage) {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (!userscriptRequest) return null;
+    if (!userscriptRequest) {
+      log$l.warnOnce("no-userscript-http-request", "No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.");
+      return null;
+    }
     return new Promise((resolve, reject) => {
-      userscriptRequest({
+      let settled = false;
+      const onload = (response) => {
+        if (settled) return;
+        settled = true;
+        if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
+        else reject(new Error(statusMessage(response.status)));
+      };
+      const fail = (error) => {
+        if (!settled) {
+          settled = true;
+          reject(error instanceof Error ? error : new Error(String(error || "Request failed.")));
+        }
+      };
+      const result = userscriptRequest({
         ...options,
-        onload: (response) => isSuccessfulHttpStatus(response.status) ? resolve(readResponse(response)) : reject(new Error(statusMessage(response.status))),
-        onerror: reject,
-        ...timeoutMessage ? { ontimeout: () => reject(new Error(timeoutMessage)) } : {}
+        onload,
+        onerror: fail,
+        ...timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}
       });
+      if (result && typeof result.then === "function") {
+        result.then(onload, fail);
+      }
     });
   }
   function isSuccessfulHttpStatus(status) {

@@ -3,6 +3,10 @@
 // hosts use size/shape; generic pages also need viewport prominence + raster
 // content so UI, WebGL, blank, tainted, and off-screen buffers are skipped.
 
+// Runtime-only import (called inside canvasReaderPageSignature), so the
+// canvas-mirror ↔ canvas-readers cycle never resolves a binding at module-eval.
+import { canvasMirrorTurnToken, markCanvasMirrorSkip } from './canvas-mirror';
+
 const PAGE_COUNTER_SELECTOR = '#pageSliderCounter';
 
 // NFBR marks the on-screen page buffer's container (#viewportN) with this class.
@@ -96,7 +100,10 @@ function sampleCanvasContent(canvas: HTMLCanvasElement): CanvasContentSample | n
         const sample = document.createElement('canvas');
         sample.width = CONTENT_SAMPLE_SIZE;
         sample.height = CONTENT_SAMPLE_SIZE;
-        const context = sample.getContext('2d', { willReadFrequently: true });
+        // Skip-mark so the mirror recorder ignores this Yomu-internal draw; otherwise
+        // sampling the page canvas (every poll) would log a canvas→canvas composite
+        // and drift the turn epoch the page signature depends on.
+        const context = markCanvasMirrorSkip(sample.getContext('2d', { willReadFrequently: true }));
         if (!context) return null;
         context.drawImage(canvas, 0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
         const { data } = context.getImageData(0, 0, CONTENT_SAMPLE_SIZE, CONTENT_SAMPLE_SIZE);
@@ -229,22 +236,51 @@ export function isReaderRasterPage(hostname: string = location.hostname): boolea
 
 /**
  * Cheap page-change fingerprint. Canvas redraws fire no DOM event, so we detect
- * page turns by combining the viewer's page counter ("3 / 48") and the live
- * surface count. A change means the canvases were repainted and stale snapshots
- * must be dropped + retaken. The rounded scroll offset is included ONLY for
- * BookWalker, whose single-viewport vertical mode repaints one canvas as you
- * scroll; multi-canvas scroll readers (e.g. ComicWalker) paint each page once
- * into its own persistent canvas, so scrolling must NOT invalidate them — the
- * per-canvas snapshot map already covers them as they enter the viewport.
+ * page turns by combining the viewer's page counter ("3 / 48"), the live surface
+ * count, and a per-canvas content token. A change means the canvases were
+ * repainted and stale snapshots must be dropped + retaken. The rounded scroll
+ * offset is included ONLY for BookWalker, whose single-viewport vertical mode
+ * repaints one canvas as you scroll; multi-canvas scroll readers (e.g.
+ * ComicWalker) paint each page once into its own persistent canvas, so scrolling
+ * must NOT invalidate them — the per-canvas snapshot map already covers them.
+ *
+ * The content token is essential on NFBR: it repaints ONE in-place canvas per
+ * turn, so the surface count never changes, scroll is coarse/often static, and
+ * #pageSliderCounter can be hidden, absent, or momentarily identical — leaving
+ * the bare counter|scroll|surfaces signature unchanged across a real turn (the
+ * "stuck, must refresh" bug). A readable canvas contributes its cheap 20x20 pixel
+ * hash; a tainted DRM canvas (getImageData throws, hash is undefined) contributes
+ * the recorder's shared-DOM turn token instead, which bumps on every page
+ * composite. Both are try/caught so the signature can never throw.
  */
 export function canvasReaderPageSignature(): string {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
     const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
-    const surfaces = pageCanvases().length;
+    const canvases = pageCanvases();
+    const surfaces = canvases.length;
+    const content = canvasReaderContentToken(canvases);
     const backgrounds = backgroundImagePages()
         .map(element => `${element.getAttribute('data-page-index') ?? ''}:${backgroundImageReaderUrl(element) ?? ''}`)
         .join('|');
-    return `${counter}|${scroll}|${surfaces}|${backgrounds}`;
+    return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
+}
+
+// Per-canvas content fingerprint that changes when the painted page changes.
+// Readable canvases hash their pixels; tainted ones fall back to the mirror
+// recorder's shared-DOM turn token (one value for the whole viewer, bumped per
+// composite). Never throws — a failed sample contributes an empty string.
+function canvasReaderContentToken(canvases: HTMLCanvasElement[]): string {
+    let mirrorToken: string | undefined;
+    return canvases
+        .map(canvas => {
+            try {
+                const signature = canvasRenderedContentSignature(canvas);
+                if (signature) return signature;
+            } catch { /* tainted — fall through to the mirror token */ }
+            mirrorToken ??= canvasMirrorTurnToken();
+            return mirrorToken;
+        })
+        .join(',');
 }
 
 /** Snapshot a page canvas to a JPEG data URL, downscaling past `maxPixels`. */
@@ -259,7 +295,8 @@ export function captureCanvasDataUrl(canvas: HTMLCanvasElement, maxPixels: numbe
         const scaled = document.createElement('canvas');
         scaled.width = Math.max(1, Math.round(width * scale));
         scaled.height = Math.max(1, Math.round(height * scale));
-        const context = scaled.getContext('2d');
+        // Skip-mark so the recorder ignores this Yomu-internal downscale draw.
+        const context = markCanvasMirrorSkip(scaled.getContext('2d'));
         if (!context) return undefined;
         context.drawImage(canvas, 0, 0, scaled.width, scaled.height);
         return scaled.toDataURL('image/jpeg', 0.86);

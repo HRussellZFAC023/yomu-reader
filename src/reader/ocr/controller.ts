@@ -94,6 +94,14 @@ const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15000;
 // it away rather than leaving a solid dot lingering on a finished page.
 const OCR_STATUS_READY_DWELL_MS = 1000;
 const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
+// A canvas capture can fail transiently — the DRM engine hasn't painted yet, or
+// the mirror recorder hasn't recorded the new page's draw ops when the poll races
+// a turn. Retry with backoff so the page is never left permanently un-OCR'd while
+// waiting for the next 1200ms poll (the "stuck, must refresh" report). After the
+// cap the 1200ms poll keeps retrying at its own cadence, and a tap force-rescans.
+const READER_RASTER_RETRY_BASE_MS = 140;
+const READER_RASTER_RETRY_MAX_MS = 1100;
+const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
 const GOOGLE_LENS_ENDPOINT = 'https://lensfrontend-pa.googleapis.com/v1/crupload';
 const GOOGLE_LENS_API_KEY = 'AIzaSyDr2UxVnv_U85AbhhY8XSHSIavUW0DC-sY';
 const DEFAULT_LOCAL_OCR_ENDPOINT_URL = 'http://127.0.0.1:7331/ocr';
@@ -297,7 +305,13 @@ export class ImageOcrController {
     private readerRasterPoll = 0;
     private readerRasterRetryTimer = 0;
     private readonly pendingCanvasSnapshots = new WeakSet<HTMLCanvasElement>();
-    private readonly canvasContentReadiness = new WeakMap<HTMLCanvasElement, string>();
+    // Map (not WeakMap) so a page turn can clear ALL readiness at once — NFBR reuses
+    // the same canvas object across turns, so a stale readiness entry would let the
+    // next page's first sample wrongly pass (or block). Bounded: cleared on every
+    // page-turn signature change and on teardown.
+    private readonly canvasContentReadiness = new Map<HTMLCanvasElement, string>();
+    // Per-canvas failed-capture counter driving the backoff retry above.
+    private readonly canvasCaptureAttempts = new Map<HTMLCanvasElement, number>();
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
@@ -1198,6 +1212,12 @@ export class ImageOcrController {
         element.dataset.jpdbReaderSurfaceIgnore = 'true';
         element.setAttribute('role', 'status');
         element.setAttribute('aria-live', 'polite');
+        // Visible label text, shown only in the full-page canvas variant (a corner
+        // spinner is easy to miss on a full-bleed manga reader, so a labeled pill
+        // makes the multi-second Lens scan feel responsive rather than frozen).
+        const label = document.createElement('span');
+        label.className = 'jpdb-ocr-video-frame-status-label';
+        element.append(label);
         this.setVideoFrameStatus(element, status);
         document.body.append(element);
         return element;
@@ -1268,6 +1288,13 @@ export class ImageOcrController {
         // setVideoFrameStatus rewrites the class list, clearing any fade-out class.
         if (existing) this.setVideoFrameStatus(card, status);
         else this.imageStatuses.set(image, card);
+        // Full-page canvas readers (BookWalker/ComicWalker) get the prominent labeled
+        // pill; ordinary inline images keep the unobtrusive corner dot (and the
+        // label span stays empty so their textContent is unchanged).
+        const isCanvasFrame = this.canvasFrameSources.has(image);
+        card.classList.toggle('jpdb-ocr-canvas-status', isCanvasFrame);
+        const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
+        if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : '';
         this.positionImageStatusCard(image, card);
         // "ready" is terminal: flash the green dot, then fade it out and remove it.
         if (status === 'ready') this.scheduleImageStatusFade(image, card);
@@ -1349,8 +1376,13 @@ export class ImageOcrController {
 
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
-        if (!settings.ocrAutoScanImages && !userRequested) return;
-        if (this.options.shouldAutoScan?.() === false && !userRequested) {
+        // shouldAutoScan is false on pages that render their own native text layer
+        // (e.g. mokuro's .textBox): auto-OCRing the artwork misses characters the
+        // native layer has and double-paints, so strip auto frames there. Gate this
+        // to AUTO mode (ocrAutoScanImages): in tap/manual mode the user explicitly
+        // asked to scan, so a background poll must NOT wipe the frame they tapped to
+        // create — only a genuine page turn (detected below) should drop it.
+        if (this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested) {
             this.releaseAllCanvasFrames();
             return;
         }
@@ -1359,11 +1391,18 @@ export class ImageOcrController {
             return;
         }
         this.startReaderRasterPollingIfNeeded();
+        // ALWAYS detect page turns — even when we won't auto-capture. NFBR repaints
+        // one in-place canvas, so without this a turn in tap/manual mode left the
+        // previous page's overlay sitting over the new page until a full reload. On
+        // a turn we drop stale frames; whether we then capture is the mode's choice.
         const signature = canvasReaderPageSignature();
         if (signature !== this.canvasReaderSignature) {
             this.releaseAllCanvasFrames();
             this.canvasReaderSignature = signature;
         }
+        // Tap/manual mode: never spend OCR calls on the poll. Detection above already
+        // cleared the stale overlay; a tap (userRequested) re-enters here to capture.
+        if (!settings.ocrAutoScanImages && !userRequested) return;
         const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
@@ -1396,7 +1435,7 @@ export class ImageOcrController {
             let frameRect = rect;
             if (isCanvasReadable(canvas)) {
                 const contentSignature = canvasRenderedContentSignature(canvas);
-                if (!contentSignature) return;
+                if (!contentSignature) { this.scheduleCanvasCaptureRetry(canvas); return; }
                 if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
                 frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
             } else if (isBookwalkerViewerHost()) {
@@ -1418,7 +1457,7 @@ export class ImageOcrController {
             } else if (canUseReaderCanvasSourceImageFallback()) {
                 frameSrc = readerCanvasSourceImageUrl();
             }
-            if (!frameSrc) return;
+            if (!frameSrc) { this.scheduleCanvasCaptureRetry(canvas); return; }
             if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
             const frame = document.createElement('img');
             frame.className = 'jpdb-ocr-canvas-frame';
@@ -1433,6 +1472,14 @@ export class ImageOcrController {
             this.canvasFrames.set(canvas, frame);
             this.canvasFrameSources.set(frame, canvas);
             this.canvasFrameKeys.set(canvas, key);
+            this.clearCanvasCaptureRetry(canvas);
+            // Sync the page-turn signature to the state we just captured. A tap
+            // (userRequested) reaches snapshotCanvasSurface WITHOUT going through
+            // refreshCanvasReaderSurfaces, so canvasReaderSignature would still hold a
+            // pre-capture value; the next poll would then see a "change" and release
+            // this fresh frame. Recording it here keeps the tapped/auto frame alive
+            // until the page genuinely turns.
+            this.canvasReaderSignature = canvasReaderPageSignature();
             if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
             this.schedulePosition();
         } finally {
@@ -1467,6 +1514,23 @@ export class ImageOcrController {
         }, delayMs);
     }
 
+    // A canvas capture failed (engine hasn't painted / mirror has no ops yet).
+    // Retry with exponential backoff so the page OCRs as soon as it's ready instead
+    // of waiting for the next 1200ms poll. After the cap we stop the fast retry; the
+    // poll keeps trying and a tap force-rescans, so the page is never permanently
+    // stuck. The counter resets on a real turn (releaseAllCanvasFrames) or success.
+    private scheduleCanvasCaptureRetry(canvas: HTMLCanvasElement): void {
+        const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
+        this.canvasCaptureAttempts.set(canvas, attempts);
+        if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return;
+        const delay = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** (attempts - 1), READER_RASTER_RETRY_MAX_MS);
+        this.scheduleReaderRasterRefresh(delay);
+    }
+
+    private clearCanvasCaptureRetry(canvas: HTMLCanvasElement): void {
+        this.canvasCaptureAttempts.delete(canvas);
+    }
+
     private releaseCanvasFrame(canvas: HTMLCanvasElement): void {
         const frame = this.canvasFrames.get(canvas);
         if (!frame) return;
@@ -1477,11 +1541,17 @@ export class ImageOcrController {
         this.canvasFrameSources.delete(frame);
         this.canvasFrameStaticRects.delete(frame);
         this.canvasFrameKeys.delete(canvas);
+        this.canvasContentReadiness.delete(canvas);
+        this.canvasCaptureAttempts.delete(canvas);
         frame.remove();
     }
 
     private releaseAllCanvasFrames(): void {
         for (const canvas of [...this.canvasFrames.keys()]) this.releaseCanvasFrame(canvas);
+        // NFBR reuses the same canvas object across turns; a stale readiness entry
+        // (or capture-attempt count) would carry into the next page, so clear both.
+        this.canvasContentReadiness.clear();
+        this.canvasCaptureAttempts.clear();
         this.canvasReaderSignature = undefined;
     }
 
@@ -3479,16 +3549,35 @@ function requestViaUserscript<T>(
     timeoutMessage?: string,
 ): Promise<T> | null {
     const userscriptRequest = getUserscriptHttpRequest();
-    if (!userscriptRequest) return null;
+    if (!userscriptRequest) {
+        // The userscript HTTP request is the only way to fetch cross-origin OCR / DRM
+        // page assets (a plain fetch is CORS-blocked). If no manager exposes one, OCR
+        // fails silently; warn once so the cause is diagnosable, not a blank page.
+        log.warnOnce('no-userscript-http-request', 'No userscript HTTP request (GM_xmlhttpRequest / GM.xmlHttpRequest) available — cross-origin OCR/image fetch is blocked. Grant GM.xmlHttpRequest in the userscript manager.');
+        return null;
+    }
     return new Promise((resolve, reject) => {
-        userscriptRequest({
+        let settled = false;
+        const onload = (response: UserscriptHttpResponse): void => {
+            if (settled) return;
+            settled = true;
+            if (isSuccessfulHttpStatus(response.status)) resolve(readResponse(response));
+            else reject(new Error(statusMessage(response.status)));
+        };
+        const fail = (error: unknown): void => { if (!settled) { settled = true; reject(error instanceof Error ? error : new Error(String(error || 'Request failed.'))); } };
+        const result = userscriptRequest({
             ...options,
-            onload: response => isSuccessfulHttpStatus(response.status)
-                ? resolve(readResponse(response))
-                : reject(new Error(statusMessage(response.status))),
-            onerror: reject,
-            ...(timeoutMessage ? { ontimeout: () => reject(new Error(timeoutMessage)) } : {}),
+            onload,
+            onerror: fail,
+            ...(timeoutMessage ? { ontimeout: () => fail(new Error(timeoutMessage)) } : {}),
         });
+        // GM4 / the Safari "Userscripts" extension: GM.xmlHttpRequest can RESOLVE a
+        // promise instead of (or as well as) firing onload. Bridge that so a
+        // promise-only manager isn't left hanging until the 30s timeout (which broke
+        // OCR + the BookWalker mirror image fetch on those harnesses).
+        if (result && typeof (result as Promise<UserscriptHttpResponse>).then === 'function') {
+            (result as Promise<UserscriptHttpResponse>).then(onload, fail);
+        }
     });
 }
 
