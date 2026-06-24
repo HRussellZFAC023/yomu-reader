@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.85] - 2026-06-24
+
+### Fixed
+
+- Rendered OCR and subtitle words now carry their reading and pitch metadata into the dictionary popup, so clicking a word such as 鯛 keeps the furigana and pitch accent already shown in the overlay instead of falling back to a bare card.
+- Furigana-only subtitle enrichment now still resolves fallback vocabulary when pitch-accent display is disabled, preventing parsed long/keyless YouTube subtitles from losing ruby.
+- Jiten only reports "rejected API key" for authenticated reader/SRS 401/403 responses, so public lookup outages and rate limits no longer look like bad keys.
+- Mobile YouTube bottom-sheet detection no longer depends on fragile `:has()`/`:is()` selector parsing while expanded descriptions still hide the subtitle overlay and rail.
+
 ## [1.4.84] - 2026-06-24
 
 ### Fixed

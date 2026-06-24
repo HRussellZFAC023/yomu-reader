@@ -1838,8 +1838,10 @@
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : "";
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : "";
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : "";
+    const pitchAccent = token.card.pitchAccent.join("|");
+    const lookupMetadata = pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : "";
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? "")}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
   }
   function renderDeckMembershipAttributes(card) {
     const membership = cardDeckMembership(card);
@@ -4043,7 +4045,12 @@
     const copy = {};
     rows.trim().split("\n").forEach((row) => {
       const tab = row.indexOf("	");
-      if (tab <= 0) return;
+      if (tab < 0) {
+        const key = row.trim();
+        if (key) copy[key] = "";
+        return;
+      }
+      if (tab === 0) return;
       copy[row.slice(0, tab)] = row.slice(tab + 1).replaceAll("{APP_NAME}", APP_NAME);
     });
     return copy;
@@ -4620,7 +4627,7 @@ jpdbPageEnhancements	辞書サイト拡張
 jpdbPageEnhancementsEnabled	辞書ページを拡張
 jpdbPageWordEnhancementsEnabled	単語・検索ページにソースを追加
 jpdbPageKanjiEnhancementsEnabled	漢字ページにソースを追加
-jpdbPageEnhancementsHelp	
+jpdbPageEnhancementsHelp
 fivePoint	5段階: 全然から簡単まで
 twoPoint	2段階: 失敗 / 合格
 settingsLanguage	設定の表示言語
@@ -4712,7 +4719,7 @@ colorSourceStatus	JPDB + Ankiの状態
 colorSourceJpdb	JPDBの状態
 colorSourceAnki	Ankiの状態
 colorSourcePitch	ピッチアクセント
-colorChannelsHelp	
+colorChannelsHelp
 interfaceHelp	インターフェイス設定です。
 popupLookup	ポップアップ検索
 popupLookupEnabled	よむの検索ポップアップを表示
@@ -4760,7 +4767,7 @@ kanjiOriginKanjiMapEnabled	漢字情報と部品グラフを表示
 kanjiOriginGraphEnabled	部品グラフを表示
 kanjiOriginRadicalImagesEnabled	部首画像を表示
 similarKanjiWordLimit	類似語の上限
-kanjiHelp	
+kanjiHelp
 audioEnabled	語句の音声を有効にする
 autoPlayAudio	語句の音声を自動再生
 suppressAutoAudioOnVideo	動画では検索音声オフ
@@ -4956,7 +4963,7 @@ ankiBackIncludes	辞書、漢字、ピッチ、頻度、出典、画像を含み
 exampleMeaning	読む
 scanAnkiFirst	先にAnkiConnectに接続
 notMapped	対応付けなし
-noScannedFields	
+noScannedFields
 mappingForNoteType	{model} の対応付け
 currentNoteType	現在のノートタイプ
 ankiFieldMappingSelect	{role}フィールド
@@ -13643,8 +13650,17 @@ ${spelling}`);
     "jpdb-subtitle-controls-idle",
     "jpdb-subtitle-dragging"
   ];
+  const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = "jpdb-subtitle-yt-sheet-open";
   function isYouTubeTheaterMode() {
     return isYouTubePage() && Boolean(document.querySelector("ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]"));
+  }
+  function hasOpenYouTubeMobileBottomSheet() {
+    for (const app of Array.from(document.getElementsByTagName("ytm-app"))) {
+      for (const sheet of Array.from(app.getElementsByTagName("bottom-sheet-container"))) {
+        if (sheet.getAttribute("aria-modal") === "true" && !sheet.hasAttribute("hidden")) return true;
+      }
+    }
+    return false;
   }
   function currentFullscreenElement() {
     const fullscreenDocument = document;
@@ -14058,7 +14074,9 @@ ${spelling}`);
       this.destroyed = false;
       this.abortController = new AbortController();
       this.install();
+      this.syncYouTubeMobileBottomSheetState();
       this.observer = new MutationObserver((mutations) => {
+        this.syncYouTubeMobileBottomSheetState();
         if (mutations.some((mutation) => this.mutationCouldAffectFullscreenState(mutation))) {
           this.syncFullscreenState();
           this.scheduleAlignToVideo();
@@ -14068,7 +14086,7 @@ ${spelling}`);
         this.scheduleDiscoverVideo();
       });
       this.observer.observe(document.body, {
-        attributeFilter: ["class", "fullscreen"],
+        attributeFilter: ["aria-modal", "class", "fullscreen", "hidden"],
         attributes: true,
         childList: true,
         subtree: true
@@ -14135,6 +14153,7 @@ ${spelling}`);
       this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
       this.pendingPointerActivity = void 0;
       this.clearVideoInsetForTranscriptPanel();
+      document.documentElement.classList.remove(YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS);
       this.removeAsbPlayerSubtitleMoveHandles();
       this.transcriptPanel?.remove();
       this.root?.remove();
@@ -14675,6 +14694,7 @@ ${spelling}`);
       return this.video && this.video.isConnected ? this.video : void 0;
     }
     tickSubtitlePlayer(settings) {
+      this.syncYouTubeMobileBottomSheetState();
       this.refreshSubtitleSourcesForTick();
       this.refreshNativeCueLists();
       this.setNativeTrackModes();
@@ -14685,6 +14705,12 @@ ${spelling}`);
       this.syncAsbPlayerSubtitleMoveHandles(settings);
       if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
       if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
+    }
+    syncYouTubeMobileBottomSheetState() {
+      document.documentElement.classList.toggle(
+        YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS,
+        hasOpenYouTubeMobileBottomSheet()
+      );
     }
     // The rail follows the player's own chrome: on phones there is no hover,
     // so the player's fade state is the only "controls are visible" signal

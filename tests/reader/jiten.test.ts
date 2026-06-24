@@ -74,6 +74,50 @@ describe('JitenApiClient', () => {
         });
     });
 
+    it('labels only authenticated 401/403 responses as rejected Jiten keys', async () => {
+        const rejectedRequest = vi.fn(async () => {
+            throw new Error('Jiten request failed (401).');
+        });
+        const rejectedClient = new JitenApiClient(() => 'jiten-token', { requestImpl: rejectedRequest });
+
+        await expect(rejectedClient.parse(['読む'])).rejects.toMatchObject({
+            message: 'Jiten rejected the API key.',
+            status: 401,
+        });
+
+        const publicFailureRequest = vi.fn(async () => {
+            throw new Error('Jiten request failed (403).');
+        });
+        const publicClient = new JitenApiClient(() => 'jiten-token', { requestImpl: publicFailureRequest });
+
+        await expect(publicClient.lookupKanji('復')).rejects.toMatchObject({
+            message: 'Jiten request failed (403).',
+            status: 403,
+        });
+    });
+
+    it('keeps transient authenticated Jiten failures neutral', async () => {
+        const rateLimitedRequest = vi.fn(async () => {
+            throw new Error('Jiten request failed (429).');
+        });
+        const rateLimitedClient = new JitenApiClient(() => 'jiten-token', { requestImpl: rateLimitedRequest });
+
+        await expect(rateLimitedClient.parse(['読む'])).rejects.toMatchObject({
+            message: 'Jiten request failed (429).',
+            status: 429,
+        });
+
+        const serverFailureRequest = vi.fn(async () => {
+            throw new Error('Jiten request failed (503).');
+        });
+        const serverFailureClient = new JitenApiClient(() => 'jiten-token', { requestImpl: serverFailureRequest });
+
+        await expect(serverFailureClient.parse(['読む'])).rejects.toMatchObject({
+            message: 'Jiten request failed (503).',
+            status: 503,
+        });
+    });
+
     it('lists reader study decks from the SRS reader endpoint', async () => {
         const fetchMock = createFetchMock([
             { userStudyDeckId: 10, name: 'Mining' },

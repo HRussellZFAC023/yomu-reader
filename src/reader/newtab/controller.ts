@@ -304,7 +304,7 @@ import {
     orderedKanjiSourceIds,
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
-import { combinedApiCredentialLabel, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
+import { combinedApiCredentialLabel, effectiveJitenApiKey, effectiveJpdbApiKey, hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
 import { installUchisenCarousel, loadUchisenData, type UchisenData } from '../dictionaries/uchisen';
 import type { YomitanDictionaryStore, YomitanKanjiEntry, YomitanMetaEntry, YomitanTermEntry } from '../dictionaries/yomitan';
 
@@ -3075,7 +3075,7 @@ export class NewTabController {
     private jitenDeckSelectorOptions(settings: ReaderSettings): Promise<Array<{ id: string; name: string }>> {
         const jiten = this.dependencies.jiten;
         if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyDecks !== 'function') return Promise.resolve([]);
-        const key = settings.jitenApiKey.trim();
+        const key = effectiveJitenApiKey(settings);
         const now = Date.now();
         if (this.jitenDeckOptionsCache && this.jitenDeckOptionsCache.key === key && now - this.jitenDeckOptionsCache.at < 60_000) {
             return this.jitenDeckOptionsCache.promise;

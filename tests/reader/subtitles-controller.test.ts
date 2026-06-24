@@ -2302,7 +2302,35 @@ describe('SubtitlePlayerController', () => {
     it('hides player subtitles while a mobile YouTube bottom sheet covers the watch page', () => {
         const normalizedCss = SUBTITLES_YOUTUBE_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('body:has(ytm-app):has(bottom-sheet-container[aria-modal="true"]:not([hidden])) .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) :is(.jpdb-subtitle-text, .jpdb-subtitle-rail) { display: none !important; pointer-events: none !important; }');
+        expect(normalizedCss).toContain('html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-text, html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-rail { display: none !important; pointer-events: none !important; }');
+    });
+
+    it('toggles the mobile YouTube bottom sheet class without selector :has()', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://m.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+        const { controller } = createInstalledSubtitleController();
+        const internals = controllerInternals<{ syncYouTubeMobileBottomSheetState: () => void }>(controller);
+
+        try {
+            document.body.insertAdjacentHTML('beforeend', '<ytm-app><bottom-sheet-container aria-modal="true"></bottom-sheet-container></ytm-app>');
+
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(true);
+
+            document.querySelector('bottom-sheet-container')?.setAttribute('hidden', '');
+            internals.syncYouTubeMobileBottomSheetState();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(false);
+        } finally {
+            controller.destroy();
+            expect(document.documentElement.classList.contains('jpdb-subtitle-yt-sheet-open')).toBe(false);
+            Object.defineProperty(window, 'location', {
+                configurable: true,
+                value: originalLocation,
+            });
+        }
     });
 
     it('keeps the subtitle move handle draggable on touch without painting a default shadow', () => {

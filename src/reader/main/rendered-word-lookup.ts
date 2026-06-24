@@ -68,12 +68,30 @@ export function renderedWordCacheMatches(word: HTMLElement, card: JPDBCard): boo
     const expression = normalizedLookupText(word.dataset.expression ?? '');
     const reading = normalizedLookupText(word.dataset.reading ?? '');
     if (expression && !cardMatchesRenderedLookupValue(card, expression)) return false;
-    if (reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
+    if (reading && card.reading && !cardMatchesRenderedLookupValue(card, reading)) return false;
     return true;
 }
 
 export function cardMatchesRenderedLookupValue(card: JPDBCard, value: string): boolean {
     return normalizedLookupText(card.spelling) === value || normalizedLookupText(card.reading) === value;
+}
+
+export function renderedWordCardForLookup(word: HTMLElement, cachedCard: JPDBCard | undefined): JPDBCard | undefined {
+    if (cachedCard && !renderedWordCacheMatches(word, cachedCard)) return undefined;
+    if (!cachedCard) return undefined;
+    const reading = normalizedLookupText(word.dataset.reading ?? '');
+    const pitchAccent = renderedWordPitchAccent(word.dataset.pitchAccent ?? '');
+    const explicitSpelling = normalizedLookupText(word.dataset.expression || '');
+    if (explicitSpelling && explicitSpelling !== cachedCard.spelling) cachedCard.spelling = explicitSpelling;
+    if (reading && reading !== cachedCard.reading) cachedCard.reading = reading;
+    if (pitchAccent.length && !cachedCard.pitchAccent.length) cachedCard.pitchAccent = pitchAccent;
+    return cachedCard;
+}
+
+function renderedWordPitchAccent(value: string): string[] {
+    return value.split('|')
+        .map(pattern => pattern.trim())
+        .filter(pattern => /^[HL]+$/u.test(pattern));
 }
 
 function renderedWordSurfaceLength(word: HTMLElement, card: JPDBCard): number {

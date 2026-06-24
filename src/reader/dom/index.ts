@@ -2631,6 +2631,8 @@ function createReaderWordSpan(token: JPDBToken, options: TokenRenderOptions): HT
     span.dataset.sentence = token.sentence ?? '';
     if (token.card.spelling) span.dataset.expression = token.card.spelling;
     if (token.card.reading) span.dataset.reading = token.card.reading;
+    const pitchAccent = token.card.pitchAccent.join('|');
+    if (pitchAccent) span.dataset.pitchAccent = pitchAccent;
     applyDeckMembershipDataset(span, token.card);
     applyTokenRenderOptions(span, token, options);
     return span;
@@ -2678,8 +2680,10 @@ function renderTokenHtml(surface: string, token: JPDBToken, settings: ReaderSett
     const miningInsight = hasMiningInsight ? ' data-mining-insight="i-plus-one"' : '';
     const expression = token.card.spelling ? ` data-expression="${escapeHtml(token.card.spelling)}"` : '';
     const reading = token.card.reading ? ` data-reading="${escapeHtml(token.card.reading)}"` : '';
+    const pitchAccent = token.card.pitchAccent.join('|');
+    const lookupMetadata = pitchAccent ? ` data-pitch-accent="${escapeHtml(pitchAccent)}"` : '';
     const deck = renderDeckMembershipAttributes(token.card);
-    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${deck} tabindex="-1">${content}</span>`;
+    return `<span class="${classes}" data-vid="${token.card.vid}" data-sid="${token.card.sid}"${source}${cardId}${readingIndex}${cardState}${tokenRange}${surfaceAttr} data-pitch-class="${safePitchClass(token.pitchClass)}" data-sentence="${escapeHtml(token.sentence ?? '')}"${miningInsight}${expression}${reading}${lookupMetadata}${deck} tabindex="-1">${content}</span>`;
 }
 
 function renderDeckMembershipAttributes(card: JPDBCard): string {

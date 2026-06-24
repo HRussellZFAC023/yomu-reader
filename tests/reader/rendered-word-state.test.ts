@@ -44,11 +44,31 @@ describe('rendered word card identity', () => {
         expect(word.dataset.cardId).toBe('1456360');
         expect(word.dataset.readingIndex).toBe('3');
         expect(word.dataset.cardState).toBe('mature');
+        expect(word.dataset.pitchAccent).toBe('LH');
+        expect(word.dataset.wordWithReading).toBeUndefined();
         expect(word.classList.contains('jpdb-not-in-deck')).toBe(false);
         expect(word.classList.contains('fallback-not-in-deck')).toBe(false);
         expect(word.classList.contains('jpdb-mature')).toBe(true);
         expect(word.classList.contains('jiten-mature')).toBe(true);
         expect(word.classList.contains('jpdb-pitch-atamadaka')).toBe(true);
+    });
+
+    it('stamps and clears rendered pitch metadata', () => {
+        const word = document.createElement('span');
+        word.className = 'jpdb-reader-word';
+        word.dataset.pitchAccent = 'stale';
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            pitchAccent: ['LHHL'],
+        }));
+
+        expect(word.dataset.pitchAccent).toBe('LHHL');
+
+        setRenderedWordCardIdentity(word, renderedWordCard({
+            pitchAccent: [],
+        }));
+
+        expect(word.dataset.pitchAccent).toBeUndefined();
     });
 });
 

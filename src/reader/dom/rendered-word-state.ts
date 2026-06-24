@@ -132,6 +132,9 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     word.dataset.cardState = state;
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
+    const pitchAccent = card.pitchAccent.join('|');
+    if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
+    else delete word.dataset.pitchAccent;
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);

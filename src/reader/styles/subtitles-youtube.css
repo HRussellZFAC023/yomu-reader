@@ -136,7 +136,8 @@
   display: none !important;
   pointer-events: none !important;
 }
-body:has(ytm-app):has(bottom-sheet-container[aria-modal="true"]:not([hidden])) .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) :is(.jpdb-subtitle-text, .jpdb-subtitle-rail) {
+html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-text,
+html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullscreen) .jpdb-subtitle-rail {
   display: none !important;
   pointer-events: none !important;
 }

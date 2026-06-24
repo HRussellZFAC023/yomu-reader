@@ -3613,7 +3613,7 @@ describe('reader helpers', () => {
         expect(normalizedCss).toContain('--jpdb-reader-word-inline-gap: 0.08em; --jpdb-reader-word-highlight-size: calc(100% - var(--jpdb-reader-word-inline-gap) - var(--jpdb-reader-word-inline-gap)); --jpdb-reader-word-highlight-block-size: 1.16em;');
         expect(normalizedCss).toContain('.jpdb-reader-word::after { content: ""; position: absolute; z-index: 1; inset-inline: var(--jpdb-reader-word-inline-gap); inset-block-end: 0; border-block-end: var(--jpdb-reader-word-underline-thickness) var(--jpdb-reader-word-underline-style) var(--jpdb-reader-word-underline, transparent); pointer-events: none; }');
         expect(normalizedCss).not.toContain('.VPHero :is(.name, .text, .heading) .jpdb-reader-word:not(.jpdb-reader-has-furi)::after');
-        expect(normalizedCss).toContain(':has(> .jpdb-reader-word.jpdb-reader-has-furi) > .jpdb-reader-word { line-height: 2.05; }');
+        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-has-furi { line-height: 2.05; }');
         expect(normalizedCss).toContain('.jpdb-reader-word ruby {');
         expect(normalizedCss).toContain('display: ruby !important;');
         expect(normalizedCss).toContain('.jpdb-reader-word rt {');
@@ -18730,6 +18730,56 @@ describe('reader helpers', () => {
         }
     });
 
+    it('preserves rendered reading and pitch metadata when opening a cached rendered word', async () => {
+        const app = new ReaderApp();
+        const lookupCard = jitenTestCard({
+            vid: 1381470,
+            sid: 0,
+            jitenWordId: 1381470,
+            jitenReadingIndex: 0,
+            spelling: '青空',
+            reading: 'あおぞら',
+            pitchAccent: [],
+            wordWithReading: null,
+        });
+        const word = appendRenderedReaderWord(lookupCard, {
+            className: 'jpdb-reader-word jpdb-not-in-deck jpdb-pitch-nakadaka jpdb-reader-has-furi',
+        });
+        word.dataset.cardSource = 'jiten';
+        word.dataset.cardId = '1381470';
+        word.dataset.readingIndex = '0';
+        word.dataset.cardState = 'not-in-deck';
+        word.dataset.expression = '青空';
+        word.dataset.reading = 'あおぞら';
+        word.dataset.pitchClass = 'nakadaka';
+        word.dataset.pitchAccent = 'LHHL';
+        word.dataset.sentence = '青空を見る。';
+        word.innerHTML = '<ruby><span class="jpdb-reader-ruby-base">青空</span><rt class="jpdb-reader-furi">あおぞら</rt></ruby>';
+
+        const { internals, showRenderedWordCard } = configureRenderedWordTest(app, {
+            cachedCards: [lookupCard],
+        });
+
+        try {
+            await internals.showWord(word, { trigger: 'click', userGesture: true });
+
+            expect(showRenderedWordCard).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    spelling: '青空',
+                    reading: 'あおぞら',
+                    pitchAccent: ['LHHL'],
+                }),
+                expect.objectContaining({ sentence: '青空を見る。', anchor: word }),
+                expect.objectContaining({ trigger: 'click', userGesture: true }),
+                false,
+            );
+            expect(lookupCard.pitchAccent).toEqual(['LHHL']);
+        } finally {
+            app.destroy();
+            document.body.replaceChildren();
+        }
+    });
+
     it('uses parser-backed tokens before showing cached rendered kana fragments when API parsing is available', async () => {
         const app = new ReaderApp();
         const bookCard = testPublicCard({
@@ -28229,6 +28279,14 @@ describe('reader helpers', () => {
 
     it('adds furigana when public vocabulary enrichment supplies a reading after render', async () => {
         await expectPublicVocabularyFurigana({ furiganaMode: 'all', showFurigana: true });
+    });
+
+    it('keeps fallback furigana enrichment running when pitch display is disabled', async () => {
+        await expectPublicVocabularyFurigana({
+            furiganaMode: 'all',
+            showFurigana: true,
+            showPitchAccent: false,
+        });
     });
 
     it('adds public vocabulary furigana when automatic mode resolves through JPDB settings', async () => {

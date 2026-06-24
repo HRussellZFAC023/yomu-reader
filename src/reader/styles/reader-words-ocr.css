@@ -741,27 +741,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 :is(.jpdb-reader-word-highlight-pitch, .jpdb-reader-word-underline-pitch, .jpdb-reader-word-text-pitch) .jpdb-reader-word {
   opacity: 1 !important;
 }
-.jpdb-reader-word.jpdb-reader-has-furi,
-:is(
-  p,
-  li,
-  dd,
-  dt,
-  figcaption,
-  blockquote,
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6,
-  span,
-  a,
-  button,
-  summary,
-  label
-):has(> .jpdb-reader-word.jpdb-reader-has-furi)
-  > .jpdb-reader-word {
+.jpdb-reader-word.jpdb-reader-has-furi {
   line-height: 2.05;
 }
 .jpdb-reader-furi {

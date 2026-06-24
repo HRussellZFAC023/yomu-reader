@@ -1138,7 +1138,12 @@ function parseUiCopyTable(rows: string): Partial<Record<UiCopyKey, string>> {
     const copy: Partial<Record<UiCopyKey, string>> = {};
     rows.trim().split('\n').forEach(row => {
         const tab = row.indexOf('\t');
-        if (tab <= 0) return;
+        if (tab < 0) {
+            const key = row.trim();
+            if (key) copy[key as UiCopyKey] = '';
+            return;
+        }
+        if (tab === 0) return;
         copy[row.slice(0, tab) as UiCopyKey] = row.slice(tab + 1).replaceAll('{APP_NAME}', APP_NAME);
     });
     return copy;

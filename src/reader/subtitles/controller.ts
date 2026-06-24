@@ -214,6 +214,7 @@ const ASBPLAYER_SUBTITLE_DRAG_CLASSES = [
     'jpdb-subtitle-controls-idle',
     'jpdb-subtitle-dragging',
 ] as const;
+const YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS = 'jpdb-subtitle-yt-sheet-open';
 
 interface SubtitlePlayerOptions {
     getSettings: () => ReaderSettings;
@@ -240,6 +241,15 @@ interface ParseCueHtmlOptions {
 
 function isYouTubeTheaterMode(): boolean {
     return isYouTubePage() && Boolean(document.querySelector('ytd-watch-flexy[theater], ytd-watch-flexy[fullscreen]'));
+}
+
+function hasOpenYouTubeMobileBottomSheet(): boolean {
+    for (const app of Array.from(document.getElementsByTagName('ytm-app'))) {
+        for (const sheet of Array.from(app.getElementsByTagName('bottom-sheet-container'))) {
+            if (sheet.getAttribute('aria-modal') === 'true' && !sheet.hasAttribute('hidden')) return true;
+        }
+    }
+    return false;
 }
 
 type FullscreenDocument = Document & {
@@ -808,7 +818,9 @@ export class SubtitlePlayerController {
         this.destroyed = false;
         this.abortController = new AbortController();
         this.install();
+        this.syncYouTubeMobileBottomSheetState();
         this.observer = new MutationObserver(mutations => {
+            this.syncYouTubeMobileBottomSheetState();
             if (mutations.some(mutation => this.mutationCouldAffectFullscreenState(mutation))) {
                 this.syncFullscreenState();
                 this.scheduleAlignToVideo();
@@ -818,7 +830,7 @@ export class SubtitlePlayerController {
             this.scheduleDiscoverVideo();
         });
         this.observer.observe(document.body, {
-            attributeFilter: ['class', 'fullscreen'],
+            attributeFilter: ['aria-modal', 'class', 'fullscreen', 'hidden'],
             attributes: true,
             childList: true,
             subtree: true,
@@ -889,6 +901,7 @@ export class SubtitlePlayerController {
         this.pointerActivityFrame = clearWindowAnimationFrame(this.pointerActivityFrame);
         this.pendingPointerActivity = undefined;
         this.clearVideoInsetForTranscriptPanel();
+        document.documentElement.classList.remove(YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS);
         this.removeAsbPlayerSubtitleMoveHandles();
         this.transcriptPanel?.remove();
         this.root?.remove();
@@ -1512,6 +1525,7 @@ export class SubtitlePlayerController {
     }
 
     private tickSubtitlePlayer(settings: ReaderSettings): void {
+        this.syncYouTubeMobileBottomSheetState();
         this.refreshSubtitleSourcesForTick();
         this.refreshNativeCueLists();
         this.setNativeTrackModes();
@@ -1522,6 +1536,13 @@ export class SubtitlePlayerController {
         this.syncAsbPlayerSubtitleMoveHandles(settings);
         if (settings.subtitleKaraokeMode && cueHasExactWordTimings(this.currentCue)) this.render();
         if (this.shouldUpdateFromDomCaptions()) this.updateFromDomCaptions();
+    }
+
+    private syncYouTubeMobileBottomSheetState(): void {
+        document.documentElement.classList.toggle(
+            YOUTUBE_MOBILE_BOTTOM_SHEET_OPEN_CLASS,
+            hasOpenYouTubeMobileBottomSheet(),
+        );
     }
 
     // The rail follows the player's own chrome: on phones there is no hover,

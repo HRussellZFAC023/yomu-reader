@@ -4443,6 +4443,44 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('refreshes Jiten deck options when a legacy Jiten API key changes', async () => {
+        resetNewTabReviewStorage();
+        let settings: NewTabSettings = {
+            ...DEFAULT_SETTINGS,
+            apiKey: 'ak_old-jiten-key',
+            jitenApiKey: '',
+            newTabSource: 'jpdb',
+            newTabJpdbReviewMode: 'api-vocabulary',
+            immersionKitEnabled: false,
+        };
+        const listStudyDecks = vi.fn()
+            .mockResolvedValueOnce([{ id: 7, name: 'Old Persona' }])
+            .mockResolvedValueOnce([{ id: 8, name: 'New Persona' }]);
+        const controller = newTabBareController(() => settings, {
+            jiten: { listStudyDecks, listStudyBatchCards: vi.fn(async () => []), reviewCard: vi.fn() } as never,
+        });
+        const internals = controller as unknown as {
+            populateDeckSelector(select: HTMLSelectElement, settings: NewTabSettings): Promise<void>;
+        };
+        const select = document.createElement('select');
+        document.body.append(select);
+
+        try {
+            await internals.populateDeckSelector(select, settings);
+            expect([...select.options].map(option => option.value)).toContain('jiten:7');
+
+            settings = { ...settings, apiKey: 'ak_new-jiten-key' };
+            await internals.populateDeckSelector(select, settings);
+
+            expect(listStudyDecks).toHaveBeenCalledTimes(2);
+            expect([...select.options].map(option => option.value)).toContain('jiten:8');
+            expect([...select.options].map(option => option.value)).not.toContain('jiten:7');
+        } finally {
+            document.body.replaceChildren();
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('advertises grading keys on the study controls like jpdb.io and Jiten (SH-8)', () => {
         const buttons = renderNewTabGradeControlButtons({
             apiShortLabel: 'JPDB',

@@ -551,6 +551,7 @@ export class JitenApiClient {
         const apiKey = this.getApiKey().trim();
         const requiresAuth = endpoint.startsWith('reader/') || endpoint.startsWith('srs/');
         if (requiresAuth && !apiKey) throw new JitenApiError(MISSING_API_KEY_MESSAGE);
+        const authenticated = requiresAuth && Boolean(apiKey);
         const method = options.method ?? 'POST';
         const data = method === 'GET' ? undefined : body === undefined ? undefined : JSON.stringify(body);
         const url = endpointUrl(this.options.baseUrl, endpoint, options.query);
@@ -567,7 +568,7 @@ export class JitenApiClient {
                 this.options.timeoutMs ?? REQUEST_TIMEOUT_MS,
             );
 
-            return parseJitenResponse<T>(response);
+            return parseJitenResponse<T>(response, authenticated);
         }
 
         try {
@@ -589,7 +590,7 @@ export class JitenApiClient {
             });
             return parseJitenPayload<T>(payload);
         } catch (error) {
-            throw normalizeJitenRequestError(error);
+            throw normalizeJitenRequestError(error, authenticated);
         }
     }
 
@@ -1501,13 +1502,18 @@ async function fetchWithTimeout(fetchImpl: JitenFetch, url: string, init: Reques
     }
 }
 
-async function parseJitenResponse<T>(response: Response): Promise<T> {
+async function parseJitenResponse<T>(response: Response, authenticated: boolean): Promise<T> {
     const text = await response.text();
     const json = parseJson(text);
     const errorMessage = jitenApplicationErrorMessage(json);
+    const rejectedKey = authenticated && (response.status === 401 || response.status === 403);
 
-    if (errorMessage) throw new JitenApiError(errorMessage, response.status);
-    if (!response.ok) throw new JitenApiError(`Jiten request failed (${response.status}).`, response.status);
+    if (errorMessage) {
+        throw rejectedKey
+            ? new JitenApiError('Jiten rejected the API key.', response.status)
+            : new JitenApiError(errorMessage, response.status);
+    }
+    if (!response.ok) throw new JitenApiError(jitenStatusMessage(response.status, authenticated), response.status);
 
     return json as T;
 }
@@ -1518,13 +1524,16 @@ function parseJitenPayload<T>(payload: unknown): T {
     return payload as T;
 }
 
-function normalizeJitenRequestError(error: unknown): Error {
+function normalizeJitenRequestError(error: unknown, authenticated: boolean): Error {
     if (error instanceof JitenApiError) return error;
     const status = error instanceof Error ? statusFromMessage(error.message) : undefined;
-    if (status === 401 || status === 403) return new JitenApiError('Jiten rejected the API key.', status);
-    if (status) return new JitenApiError(`Jiten request failed (${status}).`, status);
+    if (status) return new JitenApiError(jitenStatusMessage(status, authenticated), status);
     if (error instanceof Error && /timed out|abort/i.test(error.message)) return new JitenApiError('Jiten request timed out.');
     return error instanceof Error ? error : new JitenApiError('Jiten request failed.');
+}
+
+function jitenStatusMessage(status: number, authenticated: boolean): string {
+    return authenticated && (status === 401 || status === 403) ? 'Jiten rejected the API key.' : `Jiten request failed (${status}).`;
 }
 
 function statusFromMessage(message: string): number | undefined {
