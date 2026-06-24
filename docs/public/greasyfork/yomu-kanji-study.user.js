@@ -2837,6 +2837,8 @@
       nextLookupWord: "Next word",
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
+      playVideo: "Play video",
+      pauseVideo: "Pause video",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -3583,6 +3585,8 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+playVideo	動画を再生
+pauseVideo	動画を一時停止
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -4330,6 +4334,8 @@ playingAudioPreview	{APP_NAME}を再生中...
 audioPreviewFailed	音声プレビューに失敗しました。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+playVideo	動画を再生
+pauseVideo	動画を一時停止
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え

@@ -493,6 +493,32 @@ async function runLocalMobileWrapSmoke(browser) {
     assert(wrap.style.overflowWrap === 'anywhere', 'Expected primary subtitle emergency wrapping', wrap);
     assert(wrap.style.wordBreak === 'normal', 'Expected primary subtitle to use normal Japanese line breaking', wrap);
 
+    const realPlaybackStarted = await page.evaluate(async () => {
+        const video = document.querySelector('video');
+        video.muted = true;
+        await video.play().catch(() => undefined);
+        return !video.paused;
+    });
+    if (!realPlaybackStarted) {
+        await page.evaluate(() => {
+            const video = document.querySelector('video');
+            Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+            video.dispatchEvent(new Event('play'));
+        });
+    }
+    await page.waitForFunction(() => {
+        const video = document.querySelector('video');
+        const playback = document.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
+        return video && !video.paused && playback?.getAttribute('aria-label') === 'Pause video';
+    }, null, { timeout: 3000 });
+    const controls = await readMobileSubtitleControlsState(page);
+    assert(controls.actions.join(',') === 'previous,next,playback,panel', 'Mobile rail did not keep playback beside subtitle navigation', controls);
+    assert(!controls.previousHidden && !controls.nextHidden && !controls.playbackHidden, 'Mobile previous/next/playback controls were not shown together', controls);
+    assert(controls.playbackLabel === 'Pause video' && controls.playbackPressed === 'true', 'Mobile playback control did not expose pause while playing', controls);
+    assert(controls.handle && controls.rail && controls.subtitle, 'Mobile subtitle controls did not expose measurable rail, subtitle, and handle boxes', controls);
+    assert(Math.abs(controls.handleCenterX - controls.subtitleCenterX) <= 3, 'Mobile subtitle drag handle is not centered on the subtitle line', controls);
+    assert(!overlaps(controls.handle, controls.rail), 'Mobile subtitle drag handle overlaps the subtitle rail', controls);
+
     await page.evaluate(() => {
         const shell = document.createElement('ytm-app');
         const sheet = document.createElement('bottom-sheet-container');
@@ -508,7 +534,7 @@ async function runLocalMobileWrapSmoke(browser) {
     assert(sheetState.railDisplay === 'none', 'Mobile YouTube bottom sheet did not hide subtitle rail', sheetState);
 
     await page.close();
-    return { ...wrap, sheetState };
+    return { ...wrap, controls, sheetState };
 }
 
 async function readPrimarySubtitleWrap(page) {
@@ -535,6 +561,34 @@ async function readMobileBottomSheetSubtitleState(page) {
         railDisplay: getComputedStyle(document.querySelector('.jpdb-subtitle-rail')).display,
         hasVisibleSheet: Boolean(document.querySelector('ytm-app bottom-sheet-container[aria-modal="true"]:not([hidden])')),
     }));
+}
+
+async function readMobileSubtitleControlsState(page) {
+    return page.evaluate(() => {
+        const root = document.querySelector('.jpdb-subtitle-player');
+        const rail = document.querySelector('.jpdb-subtitle-rail');
+        const subtitle = document.querySelector('.jpdb-subtitle-text');
+        const handle = document.querySelector('.jpdb-subtitle-text > .jpdb-subtitle-drag-handle');
+        const previous = document.querySelector('.jpdb-subtitle-rail [data-action="previous"]');
+        const next = document.querySelector('.jpdb-subtitle-rail [data-action="next"]');
+        const playback = document.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
+        const subtitleRect = subtitle?.getBoundingClientRect();
+        const handleRect = handle?.getBoundingClientRect();
+        return {
+            rootClass: root?.className ?? '',
+            actions: [...document.querySelectorAll('.jpdb-subtitle-rail button')].map(button => button.dataset.action),
+            previousHidden: previous?.hidden ?? true,
+            nextHidden: next?.hidden ?? true,
+            playbackHidden: playback?.hidden ?? true,
+            playbackLabel: playback?.getAttribute('aria-label') ?? '',
+            playbackPressed: playback?.getAttribute('aria-pressed') ?? '',
+            rail: rail?.getBoundingClientRect().toJSON() ?? null,
+            subtitle: subtitleRect?.toJSON() ?? null,
+            handle: handleRect?.toJSON() ?? null,
+            subtitleCenterX: subtitleRect ? subtitleRect.left + subtitleRect.width / 2 : 0,
+            handleCenterX: handleRect ? handleRect.left + handleRect.width / 2 : 0,
+        };
+    });
 }
 
 async function runYouTubeSmoke(browser) {

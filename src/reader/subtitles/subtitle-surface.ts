@@ -96,7 +96,7 @@ export function setStylePropertyIfChanged(element: HTMLElement, property: string
     element.style.setProperty(property, value);
 }
 
-export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'play' | 'tracks' | 'transcript';
+export type SubtitleIconName = 'auto-hide' | 'close' | 'copy' | 'eye' | 'eye-off' | 'menu' | 'panel-bottom' | 'panel-left' | 'panel-right' | 'pause' | 'play' | 'tracks' | 'transcript';
 
 export function transcriptPlacementIcon(placement: ReaderSettings['subtitleTranscriptPlacement']): SubtitleIconName {
     if (placement === 'left') return 'panel-left';
@@ -115,6 +115,7 @@ export function subtitleIcon(name: SubtitleIconName): string {
         'panel-bottom': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
         'panel-left': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
         'panel-right': '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
+        pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
         play: '<path d="M8 5v14l11-7-11-7Z"/>',
         tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
         transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>',

@@ -41,6 +41,25 @@ export function syncSubtitleLineNavigationButton(
     button.setAttribute('aria-label', label);
 }
 
+export function syncSubtitlePlaybackButton(
+    button: HTMLButtonElement,
+    options: {
+        video: HTMLVideoElement | undefined;
+        hiddenByNavigation: boolean;
+        hasLines: boolean;
+        language: InterfaceLanguage;
+    },
+): void {
+    const paused = options.video?.paused ?? true;
+    const label = uiText(options.language, paused ? 'playVideo' : 'pauseVideo');
+    button.hidden = !options.hasLines || options.hiddenByNavigation;
+    button.disabled = !options.video;
+    button.title = label;
+    button.setAttribute('aria-label', label);
+    button.setAttribute('aria-pressed', String(!paused));
+    setInnerHtml(button, subtitleIcon(paused ? 'play' : 'pause'));
+}
+
 export function subtitleDrawerButtonState(options: {
     panelOpen: boolean;
     hasLines: boolean;

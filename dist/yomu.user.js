@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.88
+// @version 1.4.89
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.88
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.88
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.88
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.88
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.89
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.89
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.89
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.89
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -7380,6 +7380,8 @@ const COPY = {
     nextLookupWord: "Next word",
     previousSubtitle: "Previous subtitle",
     nextSubtitle: "Next subtitle",
+    playVideo: "Play video",
+    pauseVideo: "Pause video",
     copySubtitle: "Copy subtitle",
     subtitleFallbackLabel: "Subtitle",
     subtitlesTitle: "Subtitles",
@@ -8145,6 +8147,8 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+playVideo	動画を再生
+pauseVideo	動画を一時停止
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -8892,6 +8896,8 @@ playingAudioPreview	{APP_NAME}を再生中...
 audioPreviewFailed	音声プレビューに失敗しました。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+playVideo	動画を再生
+pauseVideo	動画を一時停止
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え

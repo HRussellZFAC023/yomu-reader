@@ -74,6 +74,7 @@ import {
     subtitleTrackPanelState,
     syncSubtitleDrawerButton,
     syncSubtitleLineNavigationButton,
+    syncSubtitlePlaybackButton,
     syncSubtitleTrackStatus,
     syncTranscriptPlacementButtons,
 } from './subtitle-panel-actions';
@@ -794,6 +795,7 @@ export class SubtitlePlayerController {
         cue: target => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
         previous: () => this.seekSubtitle(-1),
         next: () => this.seekSubtitle(1),
+        playback: () => this.toggleVideoPlayback(),
         copy: target => { void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target)); },
         'copy-row': target => { void this.copyTranscriptRow(this.rowIndexFromTarget(target)).then(() => flashSubtitleCopyFeedback(target)); },
         'peek-row': target => this.toggleRowTranslationPeek(target),
@@ -981,6 +983,7 @@ export class SubtitlePlayerController {
         const settings = this.options.getSettings();
         const previousLabel = uiText(settings.interfaceLanguage, 'previousSubtitle');
         const nextLabel = uiText(settings.interfaceLanguage, 'nextSubtitle');
+        const playLabel = uiText(settings.interfaceLanguage, 'playVideo');
         const panelLabel = uiText(settings.interfaceLanguage, 'openSubtitlePanel');
         const moveLabel = uiText(settings.interfaceLanguage, 'moveSubtitles');
         setInnerHtml(root, `
@@ -989,6 +992,7 @@ export class SubtitlePlayerController {
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+                <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon('play')}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon('panel-right')}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -1204,6 +1208,7 @@ export class SubtitlePlayerController {
             // element. syncPauseTranscriptPanel is self-guarding (it no-ops when
             // this.video is not paused), so it stays unconditional.
             if (video === this.video) this.stopFrameSync();
+            if (video === this.video) this.syncControls();
             this.syncPauseTranscriptPanel({ deferRender: true });
         }, this.eventOptions({ passive: true }));
         const handlePlaybackStarted = () => {
@@ -1211,7 +1216,10 @@ export class SubtitlePlayerController {
             // Same deferred path as pause: syncPauseTranscriptPanel sees the
             // playing video and closes the auto-opened panel after the paint.
             if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
-            if (video === this.video) this.startFrameSync(video);
+            if (video === this.video) {
+                this.startFrameSync(video);
+                this.syncControls();
+            }
             this.scheduleAlignToVideo();
         };
         video.addEventListener('play', handlePlaybackStarted, this.eventOptions({ passive: true }));
@@ -3266,6 +3274,14 @@ export class SubtitlePlayerController {
         this.renderTranscriptPanel();
     }
 
+    private toggleVideoPlayback(): void {
+        const video = this.video;
+        if (!video) return;
+        if (video.paused) void video.play().catch(() => undefined);
+        else video.pause();
+        this.syncControls();
+    }
+
     private seekVideoTo(time: number): void {
         const video = this.video;
         if (!video) return;
@@ -3778,6 +3794,15 @@ export class SubtitlePlayerController {
             const railButton = this.root?.querySelector<HTMLButtonElement>(`.jpdb-subtitle-rail [data-action="${action}"]`);
             if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
             for (const button of this.panelLineNavigationButtons(action)) syncSubtitleLineNavigationButton(button, action, hasLines, Boolean(this.video), false, language);
+        }
+        const playbackButton = this.root?.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]');
+        if (playbackButton) {
+            syncSubtitlePlaybackButton(playbackButton, {
+                video: this.video,
+                hiddenByNavigation: hideRailNavigation,
+                hasLines,
+                language,
+            });
         }
     }
 

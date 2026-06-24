@@ -357,7 +357,7 @@ describe('SubtitlePlayerController', () => {
         expect(commentEvent.defaultPrevented).toBe(false);
     });
 
-    it('renders one rail toggle for the subtitle side panel', () => {
+    it('renders subtitle navigation, playback, and panel controls in the rail', () => {
         const settings = {
             ...DEFAULT_SETTINGS,
             apiKey: '',
@@ -373,11 +373,63 @@ describe('SubtitlePlayerController', () => {
         const actions = [...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-rail button')]
             .map(button => button.dataset.action);
 
-        expect(actions).toEqual(['previous', 'next', 'panel']);
+        expect(actions).toEqual(['previous', 'next', 'playback', 'panel']);
+        expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="playback"]')).toHaveLength(1);
         expect(document.querySelectorAll('.jpdb-subtitle-rail [data-action="panel"]')).toHaveLength(1);
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="toggle"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="list"]')).toBeNull();
         expect(document.querySelector('.jpdb-subtitle-rail [data-action="tracks"]')).toBeNull();
+    });
+
+    it('keeps the playback toggle beside subtitle navigation while playing', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController();
+        const video = attachVideo(controller, { currentTime: 0.5 });
+        let paused = false;
+        const play = vi.fn(() => {
+            paused = false;
+            return Promise.resolve();
+        });
+        const pause = vi.fn(() => {
+            paused = true;
+        });
+        Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+        Object.defineProperty(video, 'play', { configurable: true, value: play });
+        Object.defineProperty(video, 'pause', { configurable: true, value: pause });
+
+        try {
+            const internals = controllerInternals<{
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const previous = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="previous"]')!;
+            const next = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="next"]')!;
+            const playback = document.querySelector<HTMLButtonElement>('.jpdb-subtitle-rail [data-action="playback"]')!;
+
+            expect(previous.hidden).toBe(false);
+            expect(next.hidden).toBe(false);
+            expect(playback.hidden).toBe(false);
+            expect(playback.getAttribute('aria-label')).toBe('Pause video');
+            expect(playback.getAttribute('aria-pressed')).toBe('true');
+
+            playback.click();
+
+            expect(pause).toHaveBeenCalledTimes(1);
+            expect(playback.getAttribute('aria-label')).toBe('Play video');
+            expect(playback.getAttribute('aria-pressed')).toBe('false');
+
+            playback.click();
+
+            expect(play).toHaveBeenCalledTimes(1);
+            expect(playback.getAttribute('aria-label')).toBe('Pause video');
+            expect(playback.getAttribute('aria-pressed')).toBe('true');
+        } finally {
+            controller.destroy();
+        }
     });
 
     it('keeps the video rail hidden when tracks exist but no video frame is present', () => {
@@ -2397,7 +2449,7 @@ describe('SubtitlePlayerController', () => {
         expect(normalizedCss).toContain('opacity: .7; pointer-events: auto;');
         expect(normalizedCss).toContain('box-shadow: none;');
         expect(normalizedCss).toContain('touch-action: none;');
-        expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { left: auto; right: 10px; top: -32px; width: 42px; height: 28px; transform: none; }');
+        expect(normalizedCss).toContain('.jpdb-subtitle-drag-handle { left: 50%; right: auto; top: -32px; width: 42px; height: 28px; transform: translateX(-50%); }');
         expect(normalizedCss).toContain('transform: translateY(var(--jpdb-subtitle-asb-drag-offset-y)) var(--jpdb-subtitle-asb-base-transform, translateZ(0));');
         expect(normalizedCss).toContain('.jpdb-subtitle-player.jpdb-subtitle-has-lines:not(.jpdb-subtitle-hidden) .jpdb-subtitle-drag-handle:is(:hover, :focus-visible, .jpdb-subtitle-dragging)');
         expect(normalizedCss).toContain('box-shadow: 0 8px 20px var(--jpdb-reader-video-shadow);');

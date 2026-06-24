@@ -10210,6 +10210,10 @@ html.jpdb-subtitle-yt-sheet-open .jpdb-subtitle-player:not(.jpdb-subtitle-fullsc
   border-color: color-mix(in srgb, var(--jpdb-reader-accent) 50%, var(--jpdb-reader-border)) !important;
   background: color-mix(in srgb, var(--jpdb-reader-accent) 18%, var(--jpdb-reader-surface)) !important;
 }
+.jpdb-subtitle-playback-toggle[aria-pressed="true"] {
+  border-color: color-mix(in srgb, var(--jpdb-reader-accent) 42%, var(--jpdb-reader-border));
+  background: color-mix(in srgb, var(--jpdb-reader-accent) 14%, var(--jpdb-reader-surface));
+}
 .jpdb-subtitle-icon {
   width: 17px;
   height: 17px;
@@ -10989,12 +10993,12 @@ html.jpdb-subtitle-fullscreen .jpdb-reader-fab {
      this only bounds extreme settings. */
   .jpdb-subtitle-text { left: 8px; right: 8px; font-size: min(var(--subtitle-font-size), 12vw); }
   .jpdb-subtitle-drag-handle {
-    left: auto;
-    right: 10px;
+    left: 50%;
+    right: auto;
     top: -32px;
     width: 42px;
     height: 28px;
-    transform: none;
+    transform: translateX(-50%);
   }
   .jpdb-subtitle-rail {
     top: max(8px, env(safe-area-inset-top));

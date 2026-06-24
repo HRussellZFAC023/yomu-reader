@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.89] - 2026-06-24
+
+### Fixed
+
+- Kept the video play/pause control visible beside the previous/next subtitle buttons while subtitle navigation is showing, and moved the mobile subtitle height drag handle back to the centered subtitle line position now that it no longer conflicts with that control.
+
 ## [1.4.88] - 2026-06-24
 
 ### Fixed

@@ -3569,6 +3569,8 @@
       nextLookupWord: "Next word",
       previousSubtitle: "Previous subtitle",
       nextSubtitle: "Next subtitle",
+      playVideo: "Play video",
+      pauseVideo: "Pause video",
       copySubtitle: "Copy subtitle",
       subtitleFallbackLabel: "Subtitle",
       subtitlesTitle: "Subtitles",
@@ -4315,6 +4317,8 @@ couldNotReadAudio	音声を読み取れませんでした。
 couldNotReadAudioBlob	音声データを読み取れませんでした。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+playVideo	動画を再生
+pauseVideo	動画を一時停止
 copySubtitle	字幕をコピー
 subtitleFallbackLabel	字幕
 subtitlesTitle	字幕
@@ -5062,6 +5066,8 @@ playingAudioPreview	{APP_NAME}を再生中...
 audioPreviewFailed	音声プレビューに失敗しました。
 previousSubtitle	前の字幕
 nextSubtitle	次の字幕
+playVideo	動画を再生
+pauseVideo	動画を一時停止
 copySubtitle	字幕をコピー
 toggleImageReading	画像読み取りを切り替え
 toggleSubtitleOverlay	字幕オーバーレイを切り替え
@@ -10493,6 +10499,7 @@ ${spelling}`);
       "panel-bottom": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 14h16"/>',
       "panel-left": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M10 5v14"/>',
       "panel-right": '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M14 5v14"/>',
+      pause: '<path d="M9 5v14"/><path d="M15 5v14"/>',
       play: '<path d="M8 5v14l11-7-11-7Z"/>',
       tracks: '<path d="M4 6h16"/><path d="M4 12h10"/><path d="M4 18h16"/>',
       transcript: '<path d="M5 4h14v16H5z"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/>'
@@ -12799,6 +12806,16 @@ ${spelling}`);
     button.title = label;
     button.setAttribute("aria-label", label);
   }
+  function syncSubtitlePlaybackButton(button, options) {
+    const paused = options.video?.paused ?? true;
+    const label = uiText(options.language, paused ? "playVideo" : "pauseVideo");
+    button.hidden = !options.hasLines || options.hiddenByNavigation;
+    button.disabled = !options.video;
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.setAttribute("aria-pressed", String(!paused));
+    setInnerHtml(button, subtitleIcon(paused ? "play" : "pause"));
+  }
   function subtitleDrawerButtonState(options) {
     const canOpenTranscript = options.hasLines || options.hasTranscriptSurface;
     const canOpenTracks = options.hasVideo || options.trackCount > 0;
@@ -14182,6 +14199,7 @@ ${spelling}`);
       cue: (target) => this.seekToTranscriptRow(this.rowIndexFromTarget(target)),
       previous: () => this.seekSubtitle(-1),
       next: () => this.seekSubtitle(1),
+      playback: () => this.toggleVideoPlayback(),
       copy: (target) => {
         void this.copySubtitle().then(() => flashSubtitleCopyFeedback(target));
       },
@@ -14365,6 +14383,7 @@ ${spelling}`);
       const settings = this.options.getSettings();
       const previousLabel = uiText(settings.interfaceLanguage, "previousSubtitle");
       const nextLabel = uiText(settings.interfaceLanguage, "nextSubtitle");
+      const playLabel = uiText(settings.interfaceLanguage, "playVideo");
       const panelLabel = uiText(settings.interfaceLanguage, "openSubtitlePanel");
       const moveLabel = uiText(settings.interfaceLanguage, "moveSubtitles");
       setInnerHtml(root, `
@@ -14373,6 +14392,7 @@ ${spelling}`);
             <div class="jpdb-subtitle-rail" data-jpdb-reader-surface-ignore>
                 <button type="button" data-action="previous" title="${escapeHtml(previousLabel)}" aria-label="${escapeHtml(previousLabel)}">‹</button>
                 <button type="button" data-action="next" title="${escapeHtml(nextLabel)}" aria-label="${escapeHtml(nextLabel)}">›</button>
+                <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback" title="${escapeHtml(playLabel)}" aria-label="${escapeHtml(playLabel)}">${subtitleIcon("play")}</button>
                 <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel" title="${escapeHtml(panelLabel)}" aria-label="${escapeHtml(panelLabel)}">${subtitleIcon("panel-right")}</button>
             </div>
             <div class="jpdb-subtitle-list" hidden></div>
@@ -14554,12 +14574,16 @@ ${spelling}`);
       video.addEventListener("ratechange", handlePlaybackTimeChanged, this.eventOptions({ passive: true }));
       video.addEventListener("pause", () => {
         if (video === this.video) this.stopFrameSync();
+        if (video === this.video) this.syncControls();
         this.syncPauseTranscriptPanel({ deferRender: true });
       }, this.eventOptions({ passive: true }));
       const handlePlaybackStarted = () => {
         this.pausePanelDismissed = false;
         if (this.pausePanelOpen) this.schedulePauseTranscriptPanelSync();
-        if (video === this.video) this.startFrameSync(video);
+        if (video === this.video) {
+          this.startFrameSync(video);
+          this.syncControls();
+        }
         this.scheduleAlignToVideo();
       };
       video.addEventListener("play", handlePlaybackStarted, this.eventOptions({ passive: true }));
@@ -16266,6 +16290,13 @@ ${spelling}`);
       this.syncControls();
       this.renderTranscriptPanel();
     }
+    toggleVideoPlayback() {
+      const video = this.video;
+      if (!video) return;
+      if (video.paused) void video.play().catch(() => void 0);
+      else video.pause();
+      this.syncControls();
+    }
     seekVideoTo(time) {
       const video = this.video;
       if (!video) return;
@@ -16703,6 +16734,15 @@ ${spelling}`);
         const railButton = this.root?.querySelector(`.jpdb-subtitle-rail [data-action="${action}"]`);
         if (railButton) syncSubtitleLineNavigationButton(railButton, action, hasLines, Boolean(this.video), hideRailNavigation, language);
         for (const button of this.panelLineNavigationButtons(action)) syncSubtitleLineNavigationButton(button, action, hasLines, Boolean(this.video), false, language);
+      }
+      const playbackButton = this.root?.querySelector('.jpdb-subtitle-rail [data-action="playback"]');
+      if (playbackButton) {
+        syncSubtitlePlaybackButton(playbackButton, {
+          video: this.video,
+          hiddenByNavigation: hideRailNavigation,
+          hasLines,
+          language
+        });
       }
     }
     isTranscriptPanelDockedOpen() {
