@@ -55297,7 +55297,6 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     }
     // The new-tab browser needs the whole study deck, not the current review
     // queue. Jiten caps this endpoint at 100 rows per page.
-    // fallow-ignore-next-line unused-class-member
     async listStudyDeckVocabularyCards(deckId, limit = 5e3) {
       const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
       const cardLimit = Math.max(1, Math.floor(limit));
