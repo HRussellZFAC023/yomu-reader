@@ -17453,9 +17453,15 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     }
   }
   installPageActivationTracking();
+  function revokeBlobObjectUrl(url) {
+    if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+  }
   class ObjectUrlCache {
-    constructor(ttlMs) {
+    // `revoke` lets callers release side-channel state tied to the URL (e.g. the
+    // retained Blob the Web Audio CSP fallback reads), not just the object URL.
+    constructor(ttlMs, revoke = revokeBlobObjectUrl) {
       this.ttlMs = ttlMs;
+      this.revoke = revoke;
     }
     entries = /* @__PURE__ */ new Map();
     getOrCreate(key, createUrl) {
@@ -17493,9 +17499,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       if (!entry) return;
       if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
       this.entries.delete(key);
-      if (entry.url?.startsWith("blob:") && typeof URL.revokeObjectURL === "function") {
-        URL.revokeObjectURL(entry.url);
-      }
+      if (entry.url !== void 0) this.revoke(entry.url);
     }
   }
   function pruneExpiringMapEntries(cache2, limit, now = Date.now()) {
@@ -17531,10 +17535,25 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     svg: "image/svg+xml",
     webp: "image/webp"
   };
+  const PAGE_MEDIA_BLOB_LIMIT = 64;
+  const pageMediaBlobs = /* @__PURE__ */ new Map();
   async function createPageMediaUrl(blob, sourceUrl = "") {
     const typed = withUsableMediaType(blob, sourceUrl);
-    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(typed);
-    return URL.createObjectURL(typed);
+    const url = shouldUseDataUrlForPageMedia() ? await readBlobAsDataUrl(typed) : URL.createObjectURL(typed);
+    if (typed.type.startsWith("audio/")) registerPageMediaBlob(url, typed);
+    return url;
+  }
+  function getPageMediaBlob(url) {
+    return pageMediaBlobs.get(url);
+  }
+  function registerPageMediaBlob(url, blob) {
+    pageMediaBlobs.delete(url);
+    pageMediaBlobs.set(url, blob);
+    while (pageMediaBlobs.size > PAGE_MEDIA_BLOB_LIMIT) {
+      const oldest = pageMediaBlobs.keys().next().value;
+      if (oldest === void 0) break;
+      pageMediaBlobs.delete(oldest);
+    }
   }
   function withUsableMediaType(blob, sourceUrl) {
     const type = (blob.type || "").toLowerCase();
@@ -17543,6 +17562,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return new Blob([blob], { type: IMAGE_EXTENSION_TYPES[extension] ?? AUDIO_EXTENSION_TYPES[extension] ?? "audio/mpeg" });
   }
   function revokePageMediaUrl(url) {
+    pageMediaBlobs.delete(url);
     if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
   }
   function shouldUseDataUrlForPageMedia() {
@@ -17579,8 +17599,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     playRequestId = 0;
     shuffledAudio = new ShuffledAudioDeck();
     candidateCache = /* @__PURE__ */ new Map();
-    blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
-    jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
+    blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, revokePageMediaUrl);
+    jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, revokePageMediaUrl);
     readyAudioCache = /* @__PURE__ */ new Map();
     unavailableJpdbAudioIds = /* @__PURE__ */ new Map();
     lastAudioIdentityByCard = /* @__PURE__ */ new Map();
@@ -18036,12 +18056,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       return true;
     }
     async playViaWebAudio(audioUrl, requestId, isCurrent) {
-      if (!audioUrl.startsWith("blob:") && !audioUrl.startsWith("data:")) return false;
       const AudioContextCtor = getAudioContextConstructor();
       if (!AudioContextCtor) return false;
+      const bytes = await this.webAudioBytes(audioUrl);
+      if (!bytes) return false;
       let context;
       try {
-        const bytes = await (await fetch(audioUrl)).arrayBuffer();
         context = new AudioContextCtor();
         if (!await resumeAudioContext(context)) return false;
         if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
@@ -18058,6 +18078,27 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         return false;
       } finally {
         await context?.close().catch(() => void 0);
+      }
+    }
+    // Web Audio decoding is exempt from the page's media-src, so it is the only way
+    // to play audio refused by a strict CSP (chatgpt.com, claude.ai). It needs the
+    // raw bytes: prefer the Blob we already fetched (via the userscript bridge,
+    // which bypasses the page CSP) since re-fetching a blob:/data: URL is itself
+    // blocked by connect-src. fetch() is only a fallback for non-strict pages.
+    async webAudioBytes(audioUrl) {
+      const blob = getPageMediaBlob(audioUrl);
+      if (blob) {
+        try {
+          return await blob.arrayBuffer();
+        } catch {
+          return void 0;
+        }
+      }
+      if (!audioUrl.startsWith("blob:") && !audioUrl.startsWith("data:")) return void 0;
+      try {
+        return await (await fetch(audioUrl)).arrayBuffer();
+      } catch {
+        return void 0;
       }
     }
     rewindPreparedAudio(audio) {

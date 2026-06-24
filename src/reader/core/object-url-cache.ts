@@ -5,10 +5,16 @@ interface CachedObjectUrl {
     url?: string;
 }
 
+function revokeBlobObjectUrl(url: string): void {
+    if (url.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+}
+
 export class ObjectUrlCache {
     private entries = new Map<string, CachedObjectUrl>();
 
-    constructor(private ttlMs: number) {}
+    // `revoke` lets callers release side-channel state tied to the URL (e.g. the
+    // retained Blob the Web Audio CSP fallback reads), not just the object URL.
+    constructor(private ttlMs: number, private revoke: (url: string) => void = revokeBlobObjectUrl) {}
 
     getOrCreate(key: string, createUrl: () => Promise<string>): Promise<string> {
         const now = Date.now();
@@ -53,8 +59,6 @@ export class ObjectUrlCache {
         if (!entry) return;
         if (entry.timeoutId !== undefined) window.clearTimeout(entry.timeoutId);
         this.entries.delete(key);
-        if (entry.url?.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') {
-            URL.revokeObjectURL(entry.url);
-        }
+        if (entry.url !== undefined) this.revoke(entry.url);
     }
 }

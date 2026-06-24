@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.93
+// @version 1.4.94
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.93
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.93
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.93
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.93
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.94
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.94
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.94
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.94
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -10343,9 +10343,13 @@ function playSilentReservationAudio(audio) {
   }
 }
 installPageActivationTracking();
+function revokeBlobObjectUrl(url) {
+  if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
+}
 class ObjectUrlCache {
-  constructor(ttlMs) {
+  constructor(ttlMs, revoke = revokeBlobObjectUrl) {
     this.ttlMs = ttlMs;
+    this.revoke = revoke;
   }
   entries = new Map();
   getOrCreate(key, createUrl) {
@@ -10383,9 +10387,7 @@ class ObjectUrlCache {
     if (!entry) return;
     if (entry.timeoutId !== void 0) window.clearTimeout(entry.timeoutId);
     this.entries.delete(key);
-    if (entry.url?.startsWith("blob:") && typeof URL.revokeObjectURL === "function") {
-      URL.revokeObjectURL(entry.url);
-    }
+    if (entry.url !== void 0) this.revoke(entry.url);
   }
 }
 function pruneExpiringMapEntries(cache2, limit, now = Date.now()) {
@@ -10421,10 +10423,25 @@ const IMAGE_EXTENSION_TYPES = {
   svg: "image/svg+xml",
   webp: "image/webp"
 };
+const PAGE_MEDIA_BLOB_LIMIT = 64;
+const pageMediaBlobs = new Map();
 async function createPageMediaUrl(blob, sourceUrl = "") {
   const typed = withUsableMediaType(blob, sourceUrl);
-  if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(typed);
-  return URL.createObjectURL(typed);
+  const url = shouldUseDataUrlForPageMedia() ? await readBlobAsDataUrl(typed) : URL.createObjectURL(typed);
+  if (typed.type.startsWith("audio/")) registerPageMediaBlob(url, typed);
+  return url;
+}
+function getPageMediaBlob(url) {
+  return pageMediaBlobs.get(url);
+}
+function registerPageMediaBlob(url, blob) {
+  pageMediaBlobs.delete(url);
+  pageMediaBlobs.set(url, blob);
+  while (pageMediaBlobs.size > PAGE_MEDIA_BLOB_LIMIT) {
+    const oldest = pageMediaBlobs.keys().next().value;
+    if (oldest === void 0) break;
+    pageMediaBlobs.delete(oldest);
+  }
 }
 function withUsableMediaType(blob, sourceUrl) {
   const type = (blob.type || "").toLowerCase();
@@ -10433,6 +10450,7 @@ function withUsableMediaType(blob, sourceUrl) {
   return new Blob([blob], { type: IMAGE_EXTENSION_TYPES[extension] ?? AUDIO_EXTENSION_TYPES[extension] ?? "audio/mpeg" });
 }
 function revokePageMediaUrl(url) {
+  pageMediaBlobs.delete(url);
   if (url.startsWith("blob:") && typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(url);
 }
 function shouldUseDataUrlForPageMedia() {
@@ -10469,8 +10487,8 @@ class AudioPlayer {
   playRequestId = 0;
   shuffledAudio = new ShuffledAudioDeck();
   candidateCache = new Map();
-  blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
-  jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
+  blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, revokePageMediaUrl);
+  jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, revokePageMediaUrl);
   readyAudioCache = new Map();
   unavailableJpdbAudioIds = new Map();
   lastAudioIdentityByCard = new Map();
@@ -10924,12 +10942,12 @@ class AudioPlayer {
     return true;
   }
   async playViaWebAudio(audioUrl, requestId, isCurrent) {
-    if (!audioUrl.startsWith("blob:") && !audioUrl.startsWith("data:")) return false;
     const AudioContextCtor = getAudioContextConstructor();
     if (!AudioContextCtor) return false;
+    const bytes = await this.webAudioBytes(audioUrl);
+    if (!bytes) return false;
     let context;
     try {
-      const bytes = await (await fetch(audioUrl)).arrayBuffer();
       context = new AudioContextCtor();
       if (!await resumeAudioContext(context)) return false;
       if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
@@ -10946,6 +10964,22 @@ class AudioPlayer {
       return false;
     } finally {
       await context?.close().catch(() => void 0);
+    }
+  }
+  async webAudioBytes(audioUrl) {
+    const blob = getPageMediaBlob(audioUrl);
+    if (blob) {
+      try {
+        return await blob.arrayBuffer();
+      } catch {
+        return void 0;
+      }
+    }
+    if (!audioUrl.startsWith("blob:") && !audioUrl.startsWith("data:")) return void 0;
+    try {
+      return await (await fetch(audioUrl)).arrayBuffer();
+    } catch {
+      return void 0;
     }
   }
   rewindPreparedAudio(audio) {

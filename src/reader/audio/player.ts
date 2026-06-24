@@ -41,7 +41,7 @@ import {
 } from '../jpdb/jpdb-audio-file';
 import { ObjectUrlCache } from '../core/object-url-cache';
 import { pruneExpiringMapEntries } from '../core/expiring-map';
-import { createPageMediaUrl } from '../app/page-media-url';
+import { createPageMediaUrl, getPageMediaBlob, revokePageMediaUrl } from '../app/page-media-url';
 import type { AudioSelectionMode, AudioSourceSetting, AudioSourceType, JPDBCard, ReaderSettings } from '../app/types';
 
 interface AudioPlaybackOptions {
@@ -147,8 +147,8 @@ export class AudioPlayer {
     private playRequestId = 0;
     private shuffledAudio = new ShuffledAudioDeck();
     private candidateCache = new Map<string, { expiresAt: number; promise: Promise<AudioCandidate[]> }>();
-    private blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
-    private jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS);
+    private blobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, revokePageMediaUrl);
+    private jpdbAudioBlobUrlCache = new ObjectUrlCache(AUDIO_BLOB_CACHE_TTL_MS, revokePageMediaUrl);
     private readyAudioCache = new Map<string, { expiresAt: number; promise: Promise<HTMLAudioElement> }>();
     private unavailableJpdbAudioIds = new Map<string, number>();
     private lastAudioIdentityByCard = new Map<string, string>();
@@ -763,12 +763,12 @@ export class AudioPlayer {
     }
 
     private async playViaWebAudio(audioUrl: string, requestId: number, isCurrent: () => boolean): Promise<boolean> {
-        if (!audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) return false;
         const AudioContextCtor = getAudioContextConstructor();
         if (!AudioContextCtor) return false;
+        const bytes = await this.webAudioBytes(audioUrl);
+        if (!bytes) return false;
         let context: AudioContext | undefined;
         try {
-            const bytes = await (await fetch(audioUrl)).arrayBuffer();
             context = new AudioContextCtor();
             if (!(await resumeAudioContext(context))) return false;
             if (!this.isPlaybackCurrent(requestId, isCurrent)) return false;
@@ -785,6 +785,28 @@ export class AudioPlayer {
             return false;
         } finally {
             await context?.close().catch(() => undefined);
+        }
+    }
+
+    // Web Audio decoding is exempt from the page's media-src, so it is the only way
+    // to play audio refused by a strict CSP (chatgpt.com, claude.ai). It needs the
+    // raw bytes: prefer the Blob we already fetched (via the userscript bridge,
+    // which bypasses the page CSP) since re-fetching a blob:/data: URL is itself
+    // blocked by connect-src. fetch() is only a fallback for non-strict pages.
+    private async webAudioBytes(audioUrl: string): Promise<ArrayBuffer | undefined> {
+        const blob = getPageMediaBlob(audioUrl);
+        if (blob) {
+            try {
+                return await blob.arrayBuffer();
+            } catch {
+                return undefined;
+            }
+        }
+        if (!audioUrl.startsWith('blob:') && !audioUrl.startsWith('data:')) return undefined;
+        try {
+            return await (await fetch(audioUrl)).arrayBuffer();
+        } catch {
+            return undefined;
         }
     }
 

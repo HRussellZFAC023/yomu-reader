@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.94] - 2026-06-24
+
+### Fixed
+
+- Audio on strict-CSP sites such as ChatGPT and Claude now decodes the already-fetched clip in memory instead of re-fetching its blob URL (which the page CSP blocked), so the dictionary popup and the settings audio preview play the real audio instead of the fallback chime.
+
 ## [1.4.93] - 2026-06-24
 
 ### Fixed

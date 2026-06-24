@@ -29,10 +29,35 @@ const IMAGE_EXTENSION_TYPES: Record<string, string> = {
     webp: 'image/webp',
 };
 
+// Keeps the original bytes behind every audio media URL. Strict page CSPs
+// (chatgpt.com, claude.ai, jpdb.io) block re-fetching a blob:/data: URL through
+// connect-src, so the Web Audio fallback cannot recover the bytes with fetch();
+// reading them straight from the retained Blob is not a network request and is
+// exempt from CSP. Only audio is registered — keeping image media (ImmersionKit
+// thumbnails, uchisen art) out stops it from evicting an audio blob before its
+// fallback runs. Bounded as a backstop — entries normally drop when revoked.
+const PAGE_MEDIA_BLOB_LIMIT = 64;
+const pageMediaBlobs = new Map<string, Blob>();
+
 export async function createPageMediaUrl(blob: Blob, sourceUrl = ''): Promise<string> {
     const typed = withUsableMediaType(blob, sourceUrl);
-    if (shouldUseDataUrlForPageMedia()) return readBlobAsDataUrl(typed);
-    return URL.createObjectURL(typed);
+    const url = shouldUseDataUrlForPageMedia() ? await readBlobAsDataUrl(typed) : URL.createObjectURL(typed);
+    if (typed.type.startsWith('audio/')) registerPageMediaBlob(url, typed);
+    return url;
+}
+
+export function getPageMediaBlob(url: string): Blob | undefined {
+    return pageMediaBlobs.get(url);
+}
+
+function registerPageMediaBlob(url: string, blob: Blob): void {
+    pageMediaBlobs.delete(url);
+    pageMediaBlobs.set(url, blob);
+    while (pageMediaBlobs.size > PAGE_MEDIA_BLOB_LIMIT) {
+        const oldest = pageMediaBlobs.keys().next().value;
+        if (oldest === undefined) break;
+        pageMediaBlobs.delete(oldest);
+    }
 }
 
 function withUsableMediaType(blob: Blob, sourceUrl: string): Blob {
@@ -43,6 +68,7 @@ function withUsableMediaType(blob: Blob, sourceUrl: string): Blob {
 }
 
 export function revokePageMediaUrl(url: string): void {
+    pageMediaBlobs.delete(url);
     if (url.startsWith('blob:') && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
 }
 

@@ -5,6 +5,7 @@ import { AudioPlayer, getAudioCandidates } from '../../src/reader/audio/player';
 import { ReaderAudioActions } from '../../src/reader/audio/actions';
 import { audioCandidateSelectionMode, getOrderedAudioSources, orderAudioSources, preloadableAudioSources } from '../../src/reader/audio/source-resolution';
 import { reserveGestureAudioElement } from '../../src/reader/audio/media-activation';
+import { createPageMediaUrl } from '../../src/reader/app/page-media-url';
 import { builtInProxyUrls } from '../../src/reader/network/proxy-fetch-rules';
 import { DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 import type { AnkiExistingNote, AnkiLookupResult } from '../../src/reader/anki/index';
@@ -488,6 +489,79 @@ describe('audio module boundaries', () => {
             else delete (navigator as unknown as { userActivation?: Navigator['userActivation'] }).userActivation;
             if (previousAudioContext) Object.defineProperty(window, 'AudioContext', previousAudioContext);
             else delete (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext;
+            play.mockRestore();
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('decodes the retained blob bytes for the Web Audio fallback without re-fetching the URL', async () => {
+        const previousActivation = Object.getOwnPropertyDescriptor(navigator, 'userActivation');
+        Object.defineProperty(navigator, 'userActivation', {
+            configurable: true,
+            value: { hasBeenActive: true, isActive: true },
+        });
+        const play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(new Error('NotSupportedError'));
+        const previousAudioContext = Object.getOwnPropertyDescriptor(window, 'AudioContext');
+        let decodedBytes = -1;
+        let started = 0;
+        class WorkingAudioContext {
+            state = 'running';
+            currentTime = 0;
+            resume(): Promise<void> { return Promise.resolve(); }
+            close(): Promise<void> { return Promise.resolve(); }
+            async decodeAudioData(buffer: ArrayBuffer): Promise<AudioBuffer> {
+                decodedBytes = buffer.byteLength;
+                return { length: 3 } as unknown as AudioBuffer;
+            }
+            createBufferSource() {
+                const node: { buffer: AudioBuffer | null; connect: () => void; start: () => void; onended: null | (() => void) } = {
+                    buffer: null,
+                    connect() { return undefined; },
+                    start() { started += 1; node.onended?.(); },
+                    onended: null,
+                };
+                return node as unknown as AudioBufferSourceNode;
+            }
+            get destination() { return {} as AudioDestinationNode; }
+        }
+        Object.defineProperty(window, 'AudioContext', { configurable: true, value: WorkingAudioContext });
+        // jsdom omits the object-URL APIs; provide stand-ins for createPageMediaUrl.
+        const previousCreate = (URL as { createObjectURL?: (blob: Blob) => string }).createObjectURL;
+        const previousRevoke = (URL as { revokeObjectURL?: (url: string) => void }).revokeObjectURL;
+        let objectUrlSeq = 0;
+        URL.createObjectURL = () => `blob:http://localhost/retained-${++objectUrlSeq}`;
+        URL.revokeObjectURL = () => undefined;
+        // A strict page CSP refuses fetch() of a blob: URL — the fallback must not rely on it.
+        const fetchMock = vi.fn(async () => { throw new TypeError('Failed to fetch'); });
+        vi.stubGlobal('fetch', fetchMock);
+
+        try {
+            // Registers the source bytes behind the blob: URL, the way real playback does.
+            // jsdom's Blob omits arrayBuffer() (a real browser API, exercised by the smoke
+            // test), so provide it on the instance the registry will hand back.
+            const sourceBlob = new Blob([new Uint8Array([1, 2, 3, 4, 5, 6])], { type: 'audio/mpeg' });
+            Object.defineProperty(sourceBlob, 'arrayBuffer', { configurable: true, value: async () => new Uint8Array([1, 2, 3, 4, 5, 6]).buffer });
+            const audioUrl = await createPageMediaUrl(sourceBlob, 'https://audio.example.test/clip.mp3');
+            const player = new AudioPlayer(() => ({ ...DEFAULT_SETTINGS, audioEnabled: true }));
+            const internals = player as unknown as {
+                playPreparedAudio(audio: HTMLAudioElement, requestId: number, isCurrent: () => boolean, options?: { userGesture?: boolean }): Promise<boolean>;
+            };
+            const audio = document.createElement('audio');
+            audio.src = audioUrl;
+
+            await expect(internals.playPreparedAudio(audio, 0, () => true, { userGesture: true })).resolves.toBe(true);
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(decodedBytes).toBe(6);
+            expect(started).toBe(1);
+        } finally {
+            if (previousActivation) Object.defineProperty(navigator, 'userActivation', previousActivation);
+            else delete (navigator as unknown as { userActivation?: Navigator['userActivation'] }).userActivation;
+            if (previousAudioContext) Object.defineProperty(window, 'AudioContext', previousAudioContext);
+            else delete (window as unknown as { AudioContext?: typeof AudioContext }).AudioContext;
+            if (previousCreate) URL.createObjectURL = previousCreate;
+            else delete (URL as { createObjectURL?: (blob: Blob) => string }).createObjectURL;
+            if (previousRevoke) URL.revokeObjectURL = previousRevoke;
+            else delete (URL as { revokeObjectURL?: (url: string) => void }).revokeObjectURL;
             play.mockRestore();
             vi.unstubAllGlobals();
         }
