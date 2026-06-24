@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.91
+// @version 1.4.92
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.91
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.91
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.91
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.91
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.92
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.92
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.92
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.92
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -3623,6 +3623,11 @@ function furiganaHiddenStates(settings) {
   }
   return states;
 }
+function shouldHideFuriganaForCardState(settings, state) {
+  const mode = effectiveFuriganaMode(settings);
+  if (mode === "off") return true;
+  return mode === "known-status" && furiganaHiddenStates(settings).has(state);
+}
 const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
 const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
 const PLAYER_CHROME_FREE_HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},[data-jpdb-reader-root]`;
@@ -5494,7 +5499,7 @@ function shouldRenderRuby(surface, token, settings, allowRuby = true, preserveTo
 function furiganaModeAllowsRuby(mode, surface, token, settings) {
   if (mode === "off") return false;
   if (mode === "hover") return true;
-  if (mode === "known-status") return !furiganaHiddenStates(settings).has(primaryCardState(token.card.cardState));
+  if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
   return mode !== "difficult-kanji" || hasDifficultKanji(surface);
 }
 function hasDifficultKanji(surface) {
@@ -32600,6 +32605,7 @@ const RENDERED_WORD_CARD_STATES = [
 ];
 const RENDERED_WORD_CARD_STATE_PREFIXES = ["jpdb", "jiten", "local", "fallback"];
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ["jpdb", "jiten", "local", "fallback", "anki"];
+const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(["new", "not-in-deck", "in-deck"]);
 function clearRenderedWordAnkiState(word) {
   Array.from(word.classList).filter((className) => className.startsWith("anki-")).forEach((className) => word.classList.remove(className));
   delete word.dataset.ankiState;
@@ -32684,12 +32690,17 @@ function setRenderedWordCardIdentity(word, card) {
   word.dataset.cardState = state;
   word.dataset.expression = card.spelling;
   word.dataset.reading = card.reading;
+  if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
   const pitchAccent = card.pitchAccent.join("|");
   if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
   else delete word.dataset.pitchAccent;
   word.classList.add(`jpdb-${state}`);
   if (source !== "jpdb") word.classList.add(`${source}-${state}`);
   applyRenderedWordDeckMembership(word, card);
+}
+function clearRenderedWordMiningInsight(word) {
+  word.classList.remove("jpdb-reader-i-plus-one");
+  delete word.dataset.miningInsight;
 }
 function escapeCssAttributeValue(value) {
   return value.replace(/["\\]/g, "\\$&");
@@ -32842,6 +32853,10 @@ function applyPublicVocabularyFurigana(word, card, settings) {
   const ocrLine = word.closest(".jpdb-ocr-line");
   const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
   const renderSettings = publicVocabularyFuriganaSettings(word, settings);
+  if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
+    clearPublicVocabularyFurigana(word, surface, ocrLine);
+    return;
+  }
   const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
   const token = {
     card,
@@ -32859,6 +32874,14 @@ function applyPublicVocabularyFurigana(word, card, settings) {
   if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
   word.classList.add("jpdb-reader-has-furi");
   if (ocrLine) ocrLine.dataset.hasFuri = "true";
+}
+function clearPublicVocabularyFurigana(word, surface, ocrLine) {
+  if (!word.classList.contains("jpdb-reader-has-furi") && !word.querySelector(".jpdb-reader-furi, rt")) return;
+  word.textContent = surface;
+  word.classList.remove("jpdb-reader-has-furi");
+  if (!ocrLine) return;
+  yomuNormalizeOcrRenderedText()?.(word);
+  if (!ocrLine.querySelector(".jpdb-reader-word.jpdb-reader-has-furi")) delete ocrLine.dataset.hasFuri;
 }
 function publicVocabularyFuriganaSettings(word, settings) {
   if (!word.closest('[data-yomu-furigana-mode="all"]')) return settings;

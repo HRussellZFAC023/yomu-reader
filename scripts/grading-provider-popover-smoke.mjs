@@ -3,7 +3,7 @@
 // a word present in both services shows a provider toggle beside the grade target.
 // Toggling flips the deck/grade buttons between Jiten and JPDB, and grading
 // dispatches to the chosen service. Produces before/after screenshots.
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import {
@@ -20,13 +20,20 @@ import {
 } from './lib/smoke-harness.mjs';
 
 const { root: ROOT, artifacts: ARTIFACTS, scriptPath: SCRIPT_PATH, cssPath: CSS_PATH } = createSmokePaths(import.meta.dirname);
-const ARTIFACT_DIR = path.join(ARTIFACTS, 'grading-provider-popover');
+const SMOKE_VIEWPORT = smokeViewportName(process.env.YOMU_GRADING_PROVIDER_SMOKE_VIEWPORT);
+const ARTIFACT_DIR = path.join(ARTIFACTS, 'grading-provider-popover', SMOKE_VIEWPORT);
 const PAGE_PATH = '/grading-provider.html';
 const TERM = '復習';
 const SENTENCE = `毎日${TERM}するのが大切です。`;
 const REQUEST_BRIDGE_NAME = '__yomuGradingProviderSmokeRequest';
 const JITEN_WORD_ID = 1500800;
 const JITEN_READING_INDEX = 0;
+const COMPANION_SCRIPT_CANDIDATES = [
+    'yomu-anki.user.js',
+    'yomu-kanji-study.user.js',
+    'yomu-settings-surface.user.js',
+    'yomu-video.user.js',
+].map(fileName => path.join(ROOT, 'dist', 'greasyfork', fileName));
 
 // [surface, spelling, reading, gloss, partOfSpeech, frequency, state, pitch]
 const JPDB_VOCAB = [
@@ -43,6 +50,13 @@ const settings = {
     jpdbMiningEnabled: true,
     enableReviews: true,
     apiGradingProvider: 'jpdb',
+    furiganaMode: 'known-status',
+    furiganaHiddenStateGroups: ['known'],
+    audioEnabled: false,
+    autoPlayAudio: false,
+    audioAutoPlayMode: 'off',
+    audioSources: [],
+    audioEnableDefaultSources: false,
     jpdbDefinitionsEnabled: false,
     jitenDefinitionsEnabled: true,
     localDictionariesEnabled: false,
@@ -59,6 +73,8 @@ const settings = {
 
 mkdirSync(ARTIFACT_DIR, { recursive: true });
 assertBuiltArtifacts([SCRIPT_PATH, CSS_PATH], ROOT, 'Run npm run build first.');
+const COMPANION_SCRIPT_PATHS = userscriptRequiresCompanions(SCRIPT_PATH) ? COMPANION_SCRIPT_CANDIDATES : [];
+if (COMPANION_SCRIPT_PATHS.length) assertBuiltArtifacts(COMPANION_SCRIPT_PATHS, ROOT, 'Run npm run build first.');
 
 const server = await startLoopbackServer((request, response) => {
     if (new URL(request.url ?? '/', 'http://127.0.0.1').pathname !== PAGE_PATH) {
@@ -72,11 +88,19 @@ const server = await startLoopbackServer((request, response) => {
 
 const browser = await launchSmokeBrowser(chromium, 'chromium', { headless: true });
 const requests = [];
+const browserEvents = [];
+let jitenKnownState = [0];
+let jitenParseCalls = 0;
 
 try {
-    const context = await browser.newContext({ bypassCSP: true, viewport: { width: 1100, height: 820 } });
+    const context = await browser.newContext({ bypassCSP: true, ...smokeContextOptions(SMOKE_VIEWPORT) });
     const page = await context.newPage();
-    page.on('pageerror', error => requests.push({ pageerror: String(error) }));
+    page.on('console', message => {
+        if (message.type() === 'error' || message.type() === 'warning') {
+            browserEvents.push({ type: message.type(), text: message.text() });
+        }
+    });
+    page.on('pageerror', error => browserEvents.push({ type: 'pageerror', text: String(error) }));
     await page.exposeFunction(REQUEST_BRIDGE_NAME, request => handleRequest(request));
     await addGmStorageBridgeInitScript(page, { key: YOMU_SETTINGS_KEY, value: settings, requestBridgeName: REQUEST_BRIDGE_NAME });
     await page.route(/https?:\/\/(?:[^/]*jpdb\.io|[^/]*api\.jiten\.moe|[^/]*workers\.dev)\//, route => {
@@ -86,16 +110,17 @@ try {
 
     await page.goto(`${server.origin}${PAGE_PATH}`, { waitUntil: 'domcontentloaded' });
     await page.addStyleTag({ path: CSS_PATH });
+    for (const companionPath of COMPANION_SCRIPT_PATHS) await page.addScriptTag({ path: companionPath });
     await page.addScriptTag({ path: SCRIPT_PATH });
 
     await page.waitForFunction(() => document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word').length >= 2, null, { timeout: 20_000 });
-    const word = page.locator('[data-smoke-sentence] .jpdb-reader-word', { hasText: TERM }).first();
+    const word = page.locator(`[data-smoke-sentence] .jpdb-reader-word[data-expression="${TERM}"]`).first();
     assert(await word.count() === 1, 'jpdb parse did not render the 復習 reader word');
     await word.click();
     await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
 
     // The toggle only appears once the Jiten identity is enriched onto the card.
-    await page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 });
+    await waitForProviderToggle(page);
     const initialState = await readPopoverState(page);
     assert(initialState.toggleInTargetGutter, 'Provider toggle is not in the review target gutter', initialState);
     assert(initialState.labelInsideProviderToggle, 'Provider label is not part of the provider-toggle touch surface', initialState);
@@ -126,7 +151,7 @@ try {
 
     // Grade with Jiten.
     await page.locator('.jpdb-reader-actions [data-action="grade"][data-grade="okay"]').first().click();
-    await page.waitForTimeout(600);
+    const repaintState = await waitForReviewedWordRepaint(page);
     assert(requestCount('api.jiten.moe', '/srs/review') >= 1, 'Jiten review request was not sent on grade', summarizeRequests());
 
     // Kanji facts: navigate to a kanji and confirm the source is branded "Jiten"
@@ -139,19 +164,23 @@ try {
     const kanjiSourceTitle = await page.evaluate(() => document.querySelector('.jpdb-reader-jiten-kanji > summary')?.textContent?.trim() ?? '');
     await page.screenshot({ path: path.join(ARTIFACT_DIR, 'kanji-facts.png'), fullPage: false });
     assert(kanjiSourceTitle === 'Jiten', `Jiten kanji-fact section is not branded "Jiten"`, { kanjiSourceTitle });
+    assert(browserEvents.length === 0, 'Browser console/page errors occurred during grading-provider smoke', { browserEvents });
 
     const report = {
         ok: true,
+        viewport: SMOKE_VIEWPORT,
         term: TERM,
         jpdbState,
         jitenState,
+        repaintState,
         jpdbReviewRequests: requestCount('jpdb.io', '/review'),
         jitenReviewRequests: requestCount('api.jiten.moe', '/srs/review'),
         readerParseRequests: requestCount('api.jiten.moe', '/reader/parse'),
+        browserEvents,
         requests: summarizeRequests(),
     };
     writeFileSync(path.join(ARTIFACT_DIR, 'report.json'), JSON.stringify(report, null, 2));
-    console.log(JSON.stringify({ ok: true, jpdbState, jitenState, jpdbReviewRequests: report.jpdbReviewRequests, jitenReviewRequests: report.jitenReviewRequests }, null, 2));
+    console.log(JSON.stringify({ ok: true, viewport: SMOKE_VIEWPORT, jpdbState, jitenState, repaintState, jpdbReviewRequests: report.jpdbReviewRequests, jitenReviewRequests: report.jitenReviewRequests }, null, 2));
     await context.close();
 } finally {
     await closeSmokeBrowserAndServer(browser, server.server);
@@ -162,6 +191,38 @@ async function ensurePopover(page, word) {
     await word.click();
     await page.waitForSelector('.jpdb-reader-popover', { state: 'visible', timeout: 8_000 });
     await page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 });
+}
+
+async function waitForProviderToggle(page) {
+    try {
+        await page.waitForSelector('[data-action="grade-provider-toggle"]', { state: 'visible', timeout: 10_000 });
+    } catch (error) {
+        const state = await readPopoverState(page);
+        const debug = {
+            state,
+            requests: summarizeRequests(),
+            browserEvents,
+            words: await page.evaluate(() => [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')].map(word => word instanceof HTMLElement ? {
+                text: word.textContent?.replace(/\s+/g, '') ?? '',
+                expression: word.dataset.expression ?? '',
+                source: word.dataset.cardSource ?? '',
+                state: word.dataset.cardState ?? '',
+                className: word.className,
+            } : null)),
+            popover: await page.evaluate(() => {
+                const popover = document.querySelector('.jpdb-reader-popover');
+                if (!(popover instanceof HTMLElement)) return null;
+                return {
+                    loading: Boolean(popover.querySelector('[data-card-details-loading]')),
+                    blocked: popover.querySelector('.jpdb-reader-review-blocked')?.textContent?.trim() ?? '',
+                    text: popover.textContent?.replace(/\s+/g, ' ').trim().slice(0, 1000) ?? '',
+                    html: popover.innerHTML.slice(0, 3000),
+                };
+            }),
+        };
+        writeFileSync(path.join(ARTIFACT_DIR, 'provider-toggle-timeout.json'), JSON.stringify(debug, null, 2));
+        throw error;
+    }
 }
 
 async function ensureProvider(page, word, providerLabel) {
@@ -210,6 +271,61 @@ async function readPopoverState(page) {
     });
 }
 
+async function waitForReviewedWordRepaint(page) {
+    try {
+        await page.waitForFunction(
+            term => {
+                const word = [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')]
+                    .find(element => element instanceof HTMLElement && element.dataset.expression === term);
+                return Boolean(word
+                    && word instanceof HTMLElement
+                    && word.dataset.cardState === 'mature'
+                    && (word.classList.contains('jpdb-mature') || word.classList.contains('jiten-mature'))
+                    && !word.classList.contains('jpdb-reader-has-furi')
+                    && !word.querySelector('rt,.jpdb-reader-furi'));
+            },
+            TERM,
+            { timeout: 8_000 },
+        );
+    } catch (error) {
+        const debug = {
+            reviewedWord: await readReviewedWordState(page),
+            popover: await readPopoverState(page),
+            requests: summarizeRequests(),
+            browserEvents,
+        };
+        writeFileSync(path.join(ARTIFACT_DIR, 'reviewed-word-repaint-timeout.json'), JSON.stringify(debug, null, 2));
+        throw error;
+    }
+    const state = await readReviewedWordState(page);
+    assert(state.cardState === 'mature', 'Reviewed Jiten word did not repaint to the refreshed mature state', state);
+    assert(state.hasKnownHighlight, 'Reviewed Jiten word did not gain a known-family highlight class', state);
+    assert(!state.hasFuriganaClass && !state.hasRuby, 'Reviewed Jiten word kept stale furigana after entering the hidden known group', state);
+    return state;
+}
+
+async function readReviewedWordState(page) {
+    return page.evaluate(term => {
+        const word = [...document.querySelectorAll('[data-smoke-sentence] .jpdb-reader-word')]
+            .find(element => element instanceof HTMLElement && element.dataset.expression === term);
+        if (!(word instanceof HTMLElement)) return { found: false };
+        const style = getComputedStyle(word);
+        return {
+            found: true,
+            cardState: word.dataset.cardState ?? '',
+            className: word.className,
+            hasJpdbMature: word.classList.contains('jpdb-mature'),
+            hasJitenMature: word.classList.contains('jiten-mature'),
+            hasKnownHighlight: word.classList.contains('jpdb-mature') || word.classList.contains('jiten-mature'),
+            hasFuriganaClass: word.classList.contains('jpdb-reader-has-furi'),
+            hasRuby: Boolean(word.querySelector('rt,.jpdb-reader-furi')),
+            expression: word.dataset.expression ?? '',
+            text: word.textContent?.replace(/\s+/g, '') ?? '',
+            backgroundImage: style.backgroundImage,
+        };
+    }, TERM);
+}
+
 function handleRequest(request) {
     const url = new URL(request.url);
     const summary = { host: url.host, path: `${url.pathname}${url.search}`, method: request.method ?? 'GET' };
@@ -217,7 +333,7 @@ function handleRequest(request) {
     let body = {};
     try { body = request.data ? JSON.parse(request.data) : {}; } catch { body = {}; }
     if (url.host.includes('jpdb.io')) return mockJpdb(url.pathname, body);
-    if (url.host.includes('api.jiten.moe')) return mockJiten(url.pathname);
+    if (url.host.includes('api.jiten.moe')) return mockJiten(url.pathname, body);
     return { status: 503, responseText: '', contentType: 'text/plain; charset=utf-8' };
 }
 
@@ -229,10 +345,22 @@ function mockJpdb(pathname, body) {
     return jsonHttpResponse({});
 }
 
-function mockJiten(pathname) {
+function mockJiten(pathname, body = {}) {
     if (pathname.endsWith('/reader/parse')) {
+        jitenParseCalls += 1;
+        if (jitenParseCalls === 1) {
+            return { status: 503, responseText: 'temporary Jiten parse miss', contentType: 'text/plain; charset=utf-8' };
+        }
+        if (!Array.isArray(body.text) || typeof body.text[0] !== 'string') {
+            return { status: 400, responseText: 'missing Jiten reader text', contentType: 'text/plain; charset=utf-8' };
+        }
+        const text = body.text[0];
+        const start = text.indexOf(TERM);
+        if (start < 0) {
+            return { status: 422, responseText: 'Jiten reader text did not contain smoke term', contentType: 'text/plain; charset=utf-8' };
+        }
         return jsonHttpResponse({
-            tokens: [[{ wordId: JITEN_WORD_ID, readingIndex: JITEN_READING_INDEX, start: 0, end: TERM.length, length: TERM.length }]],
+            tokens: [[{ wordId: JITEN_WORD_ID, readingIndex: JITEN_READING_INDEX, start, end: start + TERM.length, length: TERM.length }]],
             vocabulary: [{
                 wordId: JITEN_WORD_ID,
                 readingIndex: JITEN_READING_INDEX,
@@ -242,10 +370,14 @@ function mockJiten(pathname) {
                 partsOfSpeech: ['n', 'vs'],
                 meaningsChunks: [['review; revision']],
                 meaningsPartOfSpeech: [['n']],
-                knownState: [0],
+                knownState: jitenKnownState,
                 pitchAccents: [0],
             }],
         });
+    }
+    if (pathname.endsWith('/srs/review')) {
+        jitenKnownState = [2];
+        return jsonHttpResponse({});
     }
     if (pathname === `/api/vocabulary/${JITEN_WORD_ID}/${JITEN_READING_INDEX}/info`) {
         return jsonHttpResponse({
@@ -255,7 +387,7 @@ function mockJiten(pathname) {
             partsOfSpeech: ['noun', 'suru verb'],
             definitions: [{ senseIndex: 0, englishMeanings: ['review; revision'], pos: ['noun'] }],
             pitchAccents: [0],
-            knownStates: [],
+            knownStates: jitenKnownState,
             composedOf: [],
             usedIn: [],
             usedInTotal: 0,
@@ -286,4 +418,25 @@ function requestCount(host, pathFragment) {
 
 function summarizeRequests() {
     return requests.filter(request => request.host).map(request => `${request.method} ${request.host}${request.path}`);
+}
+
+function userscriptRequiresCompanions(scriptPath) {
+    return readFileSync(scriptPath, 'utf8').includes('// @require');
+}
+
+function smokeViewportName(value) {
+    return value === 'ipad' ? 'ipad' : 'desktop';
+}
+
+function smokeContextOptions(viewport) {
+    if (viewport === 'ipad') {
+        return {
+            viewport: { width: 820, height: 1180 },
+            deviceScaleFactor: 2,
+            isMobile: true,
+            hasTouch: true,
+            userAgent: 'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+        };
+    }
+    return { viewport: { width: 1100, height: 820 } };
 }

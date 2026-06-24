@@ -24,6 +24,7 @@ const RENDERED_WORD_CARD_STATES = [
 ];
 const RENDERED_WORD_CARD_STATE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback'];
 const RENDERED_WORD_DECK_SOURCE_PREFIXES = ['jpdb', 'jiten', 'local', 'fallback', 'anki'];
+const RENDERED_WORD_MINING_INSIGHT_STATES = new Set(['new', 'not-in-deck', 'in-deck']);
 
 export function clearRenderedWordAnkiState(word: HTMLElement): void {
     Array.from(word.classList)
@@ -132,12 +133,18 @@ export function setRenderedWordCardIdentity(word: HTMLElement, card: JPDBCard): 
     word.dataset.cardState = state;
     word.dataset.expression = card.spelling;
     word.dataset.reading = card.reading;
+    if (!RENDERED_WORD_MINING_INSIGHT_STATES.has(state)) clearRenderedWordMiningInsight(word);
     const pitchAccent = card.pitchAccent.join('|');
     if (pitchAccent) word.dataset.pitchAccent = pitchAccent;
     else delete word.dataset.pitchAccent;
     word.classList.add(`jpdb-${state}`);
     if (source !== 'jpdb') word.classList.add(`${source}-${state}`);
     applyRenderedWordDeckMembership(word, card);
+}
+
+function clearRenderedWordMiningInsight(word: HTMLElement): void {
+    word.classList.remove('jpdb-reader-i-plus-one');
+    delete word.dataset.miningInsight;
 }
 
 function escapeCssAttributeValue(value: string): string {

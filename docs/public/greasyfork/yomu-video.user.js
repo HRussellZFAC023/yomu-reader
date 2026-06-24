@@ -1747,6 +1747,11 @@
     }
     return states;
   }
+  function shouldHideFuriganaForCardState(settings, state2) {
+    const mode = effectiveFuriganaMode(settings);
+    if (mode === "off") return true;
+    return mode === "known-status" && furiganaHiddenStates(settings).has(state2);
+  }
   new Set("ADDRESS,ARTICLE,ASIDE,BLOCKQUOTE,BR,DD,DETAILS,DIALOG,DIV,DL,DT,FIGCAPTION,FIGURE,H1,H2,H3,H4,H5,H6,HR,LI,MAIN,OL,P,PRE,SECTION,TABLE,TBODY,TD,TFOOT,TH,THEAD,TR,UL".split(","));
   function renderTokensToHtml(text, tokens, settings) {
     let html = "";
@@ -1857,7 +1862,7 @@
   function furiganaModeAllowsRuby(mode, surface, token, settings) {
     if (mode === "off") return false;
     if (mode === "hover") return true;
-    if (mode === "known-status") return !furiganaHiddenStates(settings).has(primaryCardState(token.card.cardState));
+    if (mode === "known-status") return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
     return mode !== "difficult-kanji" || hasDifficultKanji(surface);
   }
   function hasDifficultKanji(surface) {

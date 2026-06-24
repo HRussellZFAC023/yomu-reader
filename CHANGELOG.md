@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.92] - 2026-06-24
+
+### Fixed
+
+- Repainted page words immediately after JPDB/Jiten review actions, including hiding furigana for newly known words and clearing stale mining banners.
+
 ## [1.4.91] - 2026-06-24
 
 ### Fixed

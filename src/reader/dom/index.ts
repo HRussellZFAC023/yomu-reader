@@ -70,6 +70,12 @@ function furiganaHiddenStates(settings: ReaderSettings): Set<CardState> {
     return states;
 }
 
+export function shouldHideFuriganaForCardState(settings: ReaderSettings, state: CardState): boolean {
+    const mode = effectiveFuriganaMode(settings);
+    if (mode === 'off') return true;
+    return mode === 'known-status' && furiganaHiddenStates(settings).has(state);
+}
+
 const FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},button,summary,[data-jpdb-reader-root]`;
 const HARD_FRAGMENT_SKIP_SELECTOR = `${BASE_SKIP_SELECTOR},${FORM_BOUNDARY_SKIP_SELECTOR},${PLAYER_CHROME_SKIP_SELECTOR},[data-jpdb-reader-root]`;
 // ISS-11: YouTube wants ALL on-page Japanese parsed, including text inside the
@@ -2703,7 +2709,7 @@ function furiganaModeAllowsRuby(mode: string, surface: string, token: JPDBToken,
     if (mode === 'off') return false;
     // Hover mode renders ruby for every word; visibility is CSS-driven.
     if (mode === 'hover') return true;
-    if (mode === 'known-status') return !furiganaHiddenStates(settings).has(primaryCardState(token.card.cardState));
+    if (mode === 'known-status') return !shouldHideFuriganaForCardState(settings, primaryCardState(token.card.cardState));
     return mode !== 'difficult-kanji' || hasDifficultKanji(surface);
 }
 

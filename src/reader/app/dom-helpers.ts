@@ -4,10 +4,12 @@ import {
     readerWordSurfaceText,
     renderRuby,
     setInnerHtml,
+    shouldHideFuriganaForCardState,
     shouldRenderRuby,
 } from '../dom/index';
 import { cardStateLabel } from './i18n';
 import { cardDeckMembershipClassNames } from '../cards/deck-membership';
+import { primaryCardState } from '../cards/state';
 import { normalizedLookupText } from '../lookup/text-helpers';
 import { isNativePageLookupBlocked } from './native-page-lookup-targets';
 import { yomuNormalizeOcrRenderedText } from '../companions/registry';
@@ -139,6 +141,10 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     const ocrLine = word.closest<HTMLElement>('.jpdb-ocr-line');
     const surface = readerWordSurfaceText(word).trim() || word.dataset.expression || card.spelling;
     const renderSettings = publicVocabularyFuriganaSettings(word, settings);
+    if (shouldHideFuriganaForCardState(renderSettings, primaryCardState(card.cardState))) {
+        clearPublicVocabularyFurigana(word, surface, ocrLine);
+        return;
+    }
     const rubies = inferredInflectedSurfaceRubies(surface, card.spelling, card.reading);
     const token: JPDBToken = {
         card,
@@ -156,6 +162,15 @@ export function applyPublicVocabularyFurigana(word: HTMLElement, card: JPDBCard,
     if (ocrLine) yomuNormalizeOcrRenderedText()?.(word);
     word.classList.add('jpdb-reader-has-furi');
     if (ocrLine) ocrLine.dataset.hasFuri = 'true';
+}
+
+function clearPublicVocabularyFurigana(word: HTMLElement, surface: string, ocrLine: HTMLElement | null): void {
+    if (!word.classList.contains('jpdb-reader-has-furi') && !word.querySelector('.jpdb-reader-furi, rt')) return;
+    word.textContent = surface;
+    word.classList.remove('jpdb-reader-has-furi');
+    if (!ocrLine) return;
+    yomuNormalizeOcrRenderedText()?.(word);
+    if (!ocrLine.querySelector('.jpdb-reader-word.jpdb-reader-has-furi')) delete ocrLine.dataset.hasFuri;
 }
 
 function publicVocabularyFuriganaSettings(word: HTMLElement, settings: ReaderSettings): ReaderSettings {
