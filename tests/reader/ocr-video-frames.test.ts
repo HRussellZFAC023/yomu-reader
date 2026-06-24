@@ -531,6 +531,44 @@ describe('paused-video resume control', () => {
         controller.destroy();
         document.body.replaceChildren();
     });
+
+    it('does not add a second play control when the subtitle rail already has playback', () => {
+        document.body.innerHTML = `
+            <div class="jpdb-subtitle-player" data-jpdb-reader-root="true">
+                <div class="jpdb-subtitle-rail">
+                    <button type="button" data-action="previous">‹</button>
+                    <button type="button" data-action="next">›</button>
+                    <button class="jpdb-subtitle-playback-toggle" type="button" data-action="playback"></button>
+                    <button class="jpdb-subtitle-panel-toggle" type="button" data-action="panel"></button>
+                </div>
+            </div>
+        `;
+        const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+        const video = document.createElement('video');
+        Object.defineProperty(video, 'paused', { value: true, configurable: true });
+        video.getBoundingClientRect = () => new DOMRect(10, 10, 640, 360);
+        document.body.append(video);
+        const controller = new ImageOcrController({
+            getSettings: () => ({ ...DEFAULT_SETTINGS, interfaceLanguage: 'en', ocrEnabled: true, ocrVideoPauseFrames: true, ocrProvider: 'google-lens', ocrMinImageArea: 1000 }),
+            captureVideoFrame: () => 'data:image/jpeg;base64,Zg==',
+        } as never);
+        controller.init();
+
+        video.dispatchEvent(new Event('pause'));
+
+        expect([...document.querySelectorAll<HTMLButtonElement>('.jpdb-subtitle-rail button')].map(button => button.dataset.action))
+            .toEqual(['previous', 'next', 'playback', 'panel']);
+        expect(document.querySelector('.jpdb-subtitle-rail .jpdb-ocr-video-frame-resume')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+        expect(root.classList.contains('jpdb-ocr-video-frame-resume-active')).toBe(false);
+        expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
+
+        video.dispatchEvent(new Event('play'));
+
+        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
+        controller.destroy();
+        document.body.replaceChildren();
+    });
 });
 
 describe('paused-video seek refresh', () => {

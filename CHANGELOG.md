@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.91] - 2026-06-24
+
+### Fixed
+
+- Stopped paused-frame OCR from adding a second play button to the subtitle rail when the subtitle playback control is already visible; resuming through that control still clears the OCR overlay.
+
 ## [1.4.90] - 2026-06-24
 
 ### Changed

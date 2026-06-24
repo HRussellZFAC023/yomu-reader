@@ -3140,6 +3140,7 @@ function positionVideoFrameImage(frame: HTMLImageElement, rect: DOMRect, video: 
 }
 
 function positionVideoFrameResumeControl(control: HTMLElement, rect: DOMRect, video: HTMLVideoElement): void {
+    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control)) return;
     if (attachVideoFrameResumeControlToSubtitleRail(control)) return;
     attachVideoFrameResumeControlFallback(control);
     const content = videoContentBox(rect, video);
@@ -3187,6 +3188,19 @@ function attachVideoFrameResumeControlToSubtitleRail(control: HTMLElement): bool
     if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
     updateSubtitleRailResumeState(oldRoot);
     updateSubtitleRailResumeState(subtitlePlayerRoot(control));
+    return true;
+}
+
+function hideVideoFrameResumeControlBehindSubtitlePlayback(control: HTMLElement): boolean {
+    const rail = document.querySelector<HTMLElement>('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+    const playback = rail?.querySelector<HTMLButtonElement>('[data-action="playback"]');
+    if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
+    const oldRoot = subtitlePlayerRoot(control);
+    control.remove();
+    control.classList.remove('jpdb-ocr-video-frame-resume-fallback');
+    control.style.left = '';
+    control.style.top = '';
+    updateSubtitleRailResumeState(oldRoot);
     return true;
 }
 

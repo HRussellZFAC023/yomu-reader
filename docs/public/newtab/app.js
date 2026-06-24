@@ -35518,6 +35518,7 @@ ${spelling}`);
     frame.style.height = `${content.height}px`;
   }
   function positionVideoFrameResumeControl(control, rect, video) {
+    if (hideVideoFrameResumeControlBehindSubtitlePlayback(control)) return;
     if (attachVideoFrameResumeControlToSubtitleRail(control)) return;
     attachVideoFrameResumeControlFallback(control);
     const content = videoContentBox(rect, video);
@@ -35561,6 +35562,18 @@ ${spelling}`);
     if (control.parentElement !== rail) rail.insertBefore(control, panelButton ?? null);
     updateSubtitleRailResumeState(oldRoot);
     updateSubtitleRailResumeState(subtitlePlayerRoot(control));
+    return true;
+  }
+  function hideVideoFrameResumeControlBehindSubtitlePlayback(control) {
+    const rail = document.querySelector('.jpdb-subtitle-player[data-jpdb-reader-root="true"] .jpdb-subtitle-rail');
+    const playback = rail?.querySelector('[data-action="playback"]');
+    if (!rail?.isConnected || !playback || playback.hidden || playback.disabled) return false;
+    const oldRoot = subtitlePlayerRoot(control);
+    control.remove();
+    control.classList.remove("jpdb-ocr-video-frame-resume-fallback");
+    control.style.left = "";
+    control.style.top = "";
+    updateSubtitleRailResumeState(oldRoot);
     return true;
   }
   function attachVideoFrameResumeControlFallback(control) {
