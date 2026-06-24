@@ -53,7 +53,7 @@ export function createTextLookupDisplayContext(
 ): TextLookupDisplayContext | null {
     const selected = normalizedLookupText(text);
     if (!isLookupableJapaneseText(selected)) return null;
-    const trigger = options.trigger ?? state.defaultTrigger;
+    const trigger = options.trigger ?? textLookupDefaultTrigger(options.source, state);
     const navigation = options.navigation ?? 'reset';
     return {
         selected,
@@ -70,6 +70,13 @@ export function createTextLookupDisplayContext(
         stackOverSettings: options.stackOverSettings,
         source: options.source,
     };
+}
+
+function textLookupDefaultTrigger(
+    source: TextLookupOptions['source'],
+    state: TextLookupDisplayState,
+): TextLookupTrigger {
+    return source === 'selection' ? 'modal' : state.defaultTrigger;
 }
 
 export function textLookupParseOptions(apiKey: string): ReaderParserParseOptions {

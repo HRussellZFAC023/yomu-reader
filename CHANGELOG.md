@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.97] - 2026-06-24
+
+### Fixed
+
+- Selection lookups now take ownership over hover lookups: dragging across rendered text cancels pending hover work, dismisses active hover popovers, and opens the resulting selection popup as a modal instead of inheriting hover state.
+
 ## [1.4.96] - 2026-06-24
 
 ### Fixed

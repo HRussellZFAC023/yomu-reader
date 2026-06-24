@@ -2832,6 +2832,7 @@ export class ReaderApp {
             this.cancelPendingHoverLookup();
             return true;
         }
+        if (this.suppressHoverForActivePageSelection()) return true;
         if (!this.hasStickyModalPopover()) return false;
         this.cancelPendingHoverLookup();
         this.cancelHoverClose();
@@ -2855,6 +2856,26 @@ export class ReaderApp {
 
     private shouldSuppressPenHover(event: PointerEvent): boolean {
         return event.pointerType === 'pen' && Date.now() < this.suppressPenHoverUntil;
+    }
+
+    private suppressHoverForActivePageSelection(): boolean {
+        if (!this.hasActivePageTextSelection()) return false;
+        this.cancelPendingHoverLookup();
+        if (this.activePopoverMode === 'hover') this.dismiss({ suppressHoverTarget: false });
+        return true;
+    }
+
+    private hasActivePageTextSelection(): boolean {
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+        for (let index = 0; index < selection.rangeCount; index += 1) {
+            try {
+                if (!this.isInsideActivePopover(selection.getRangeAt(index).commonAncestorContainer)) return true;
+            } catch {
+                return true;
+            }
+        }
+        return false;
     }
 
     private handleActivePopoverHover(event: PointerEvent): boolean {
@@ -3550,6 +3571,7 @@ export class ReaderApp {
         if (this.settings.popupActivationMode === 'off') return;
         if (!this.settings.parseSelection) return;
         if (Date.now() < this.suppressSelectionLookupUntil) return;
+        this.suppressHoverForActivePageSelection();
         const selected = this.selectionLookupText();
         if (!selected) {
             // Selection went away — drop the dismissal guard so a fresh

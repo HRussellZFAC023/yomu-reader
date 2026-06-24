@@ -1085,6 +1085,52 @@ describe('hover lookup', () => {
         }
     });
 
+    it('ignores page hover lookup while text selection is active', () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const hoverLookup = setupHoverLookupSpies(app);
+        const range = document.createRange();
+        range.selectNodeContents(word);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word));
+
+            expectNoHoverLookup(hoverLookup);
+        } finally {
+            selection.removeAllRanges();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('dismisses an active hover popover when page selection takes ownership', () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('今日は読む', '読む');
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        document.body.append(popover);
+        const hoverLookup = setupHoverLookupSpies(app, { activePopover: popover, activePopoverMode: 'hover' });
+        const dismiss = vi.fn();
+        const range = document.createRange();
+        range.selectNodeContents(word);
+        const selection = window.getSelection()!;
+        selection.removeAllRanges();
+        selection.addRange(range);
+        hoverLookup.internals.dismiss = dismiss;
+
+        try {
+            hoverLookup.internals.handleHoverPointer(hoverPointerEvent(word));
+
+            expectNoHoverLookup(hoverLookup);
+            expect(dismiss).toHaveBeenCalledWith({ suppressHoverTarget: false });
+        } finally {
+            selection.removeAllRanges();
+            cleanupReaderApp(app);
+        }
+    });
+
     it('treats a clicked single-word OCR line frame as the parsed OCR word', () => {
         const app = new ReaderApp();
         const { line, word } = appendSingleWordOcrLine();

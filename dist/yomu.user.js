@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.96
+// @version 1.4.97
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.96
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.96
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.96
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.96
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.97
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.97
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.97
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.97
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -33164,7 +33164,7 @@ function renderTokenListTranslation(tokens, settings) {
 function createTextLookupDisplayContext(text2, options, state) {
   const selected = normalizedLookupText(text2);
   if (!isLookupableJapaneseText(selected)) return null;
-  const trigger = options.trigger ?? state.defaultTrigger;
+  const trigger = options.trigger ?? textLookupDefaultTrigger(options.source, state);
   const navigation = options.navigation ?? "reset";
   return {
     selected,
@@ -33181,6 +33181,9 @@ function createTextLookupDisplayContext(text2, options, state) {
     stackOverSettings: options.stackOverSettings,
     source: options.source
   };
+}
+function textLookupDefaultTrigger(source, state) {
+  return source === "selection" ? "modal" : state.defaultTrigger;
 }
 function textLookupParseOptions(apiKey) {
   const apiKeyActive = Boolean(apiKey.trim());
@@ -39673,6 +39676,7 @@ class ReaderApp {
       this.cancelPendingHoverLookup();
       return true;
     }
+    if (this.suppressHoverForActivePageSelection()) return true;
     if (!this.hasStickyModalPopover()) return false;
     this.cancelPendingHoverLookup();
     this.cancelHoverClose();
@@ -39692,6 +39696,24 @@ class ReaderApp {
   }
   shouldSuppressPenHover(event) {
     return event.pointerType === "pen" && Date.now() < this.suppressPenHoverUntil;
+  }
+  suppressHoverForActivePageSelection() {
+    if (!this.hasActivePageTextSelection()) return false;
+    this.cancelPendingHoverLookup();
+    if (this.activePopoverMode === "hover") this.dismiss({ suppressHoverTarget: false });
+    return true;
+  }
+  hasActivePageTextSelection() {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+    for (let index = 0; index < selection.rangeCount; index += 1) {
+      try {
+        if (!this.isInsideActivePopover(selection.getRangeAt(index).commonAncestorContainer)) return true;
+      } catch {
+        return true;
+      }
+    }
+    return false;
   }
   handleActivePopoverHover(event) {
     if (!this.isInsideActivePopover(event.target)) return false;
@@ -40238,6 +40260,7 @@ class ReaderApp {
     if (this.settings.popupActivationMode === "off") return;
     if (!this.settings.parseSelection) return;
     if (Date.now() < this.suppressSelectionLookupUntil) return;
+    this.suppressHoverForActivePageSelection();
     const selected = this.selectionLookupText();
     if (!selected) {
       this.dismissedSelectionText = "";
