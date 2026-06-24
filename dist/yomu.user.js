@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.98
+// @version 1.4.101
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.98
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.98
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.98
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.98
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.101
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.101
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.101
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.101
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37669,6 +37669,21 @@ const TOKEN_LIST_POPOVER_CONTROL_SELECTOR = [
   ".jpdb-reader-popover a.jpdb-reader-pill",
   ".jpdb-reader-popover .jpdb-reader-action-pill"
 ].join(",");
+const NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR = [
+  ".ytp-caption-segment",
+  ".caption-window",
+  ".caption-visual-line",
+  ".captions-text",
+  '[data-purpose="captions-text"]'
+].join(", ");
+const VIDEO_LOOKUP_ANCHOR_SELECTOR = [
+  SUBTITLE_SURFACE_SELECTOR,
+  NATIVE_CAPTION_SELECTION_SURFACE_SELECTOR
+].join(", ");
+const SELECTION_LOOKUP_ANCHOR_SELECTOR = [
+  ".jpdb-reader-word",
+  VIDEO_LOOKUP_ANCHOR_SELECTOR
+].join(", ");
 function createNoopImageOcrController() {
   const noop2 = () => void 0;
   return {
@@ -39125,7 +39140,7 @@ class ReaderApp {
   shouldPauseForLookupAnchor(anchor) {
     if (!this.settings.subtitleMiningPause || !anchor) return false;
     if (anchor.closest(".jpdb-reader-popover")) return false;
-    if (anchor.closest(SUBTITLE_SURFACE_SELECTOR)) return true;
+    if (anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR)) return true;
     const bound = this.boundSubtitleVideo();
     return Boolean(bound && !bound.paused);
   }
@@ -40321,8 +40336,10 @@ class ReaderApp {
     }
     if (selected === this.dismissedSelectionText) return;
     this.dismissedSelectionText = "";
+    const anchor = this.selectionLookupAnchor();
+    if (anchor && this.shouldPauseForLookupAnchor(anchor)) this.pauseVideoForSubtitleMining();
     if (await this.lookupRenderedSelection(selected)) return;
-    await this.lookupText(selected, getSelectionSentence(), { source: "selection" });
+    await this.lookupText(selected, getSelectionSentence(), { source: "selection", anchor });
   }
   rememberDismissedSelection() {
     this.dismissedSelectionText = getSelectionText();
@@ -40330,6 +40347,16 @@ class ReaderApp {
   selectionLookupText() {
     const selected = getSelectionText();
     return !selected || selected.length > 500 || !HAS_JAPANESE$1.test(selected) || isProseDominantSelection(selected) || document.activeElement?.closest?.("[data-jpdb-reader-root]") ? "" : selected;
+  }
+  selectionLookupAnchor() {
+    const selection = window.getSelection();
+    if (!selection?.rangeCount) return void 0;
+    const range = selection.getRangeAt(0);
+    return this.selectionLookupElement(selection.focusNode) ?? this.selectionLookupElement(selection.anchorNode) ?? this.selectionLookupElement(range.startContainer) ?? this.selectionLookupElement(range.commonAncestorContainer);
+  }
+  selectionLookupElement(node) {
+    const element2 = node instanceof HTMLElement ? node : node?.parentElement;
+    return element2?.closest(SELECTION_LOOKUP_ANCHOR_SELECTOR) ?? element2 ?? void 0;
   }
   async lookupText(text2, sentence = text2, options = {}) {
     const context = this.textLookupDisplayContext(text2, options);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.101] - 2026-06-24
+
+### Fixed
+
+- iPhone and iPad YouTube caption selections now pause the playing video when the dictionary popover opens, including native YouTube caption text selected through iOS text selection rather than a direct Yomu word tap.
+
 ## [1.4.98] - 2026-06-24
 
 ### Fixed
