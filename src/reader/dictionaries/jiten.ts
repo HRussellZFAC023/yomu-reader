@@ -474,7 +474,6 @@ export class JitenApiClient {
 
     // The new-tab browser needs the whole study deck, not the current review
     // queue. Jiten caps this endpoint at 100 rows per page.
-    // fallow-ignore-next-line unused-class-member
     async listStudyDeckVocabularyCards(deckId: number, limit = 5000): Promise<JPDBCard[]> {
         const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
         const cardLimit = Math.max(1, Math.floor(limit));
