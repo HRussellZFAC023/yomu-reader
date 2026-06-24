@@ -1226,6 +1226,7 @@ function siteScanResult(profiles: SiteParserProfile[], targets: FragmentTextTarg
 
 export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = window.location.href): ScanTextTarget[] {
     const matchingProfiles = getMatchingSiteParsers(href);
+    const useNonDestructiveGenericScan = !matchingProfiles.length && isGenericManagedAppShell();
     const effectiveLimit = matchingProfiles.length ? effectiveScanTargetLimit(matchingProfiles, limit) : limit;
     const siteTargets = completeSiteScanTargets(matchingProfiles, effectiveLimit, href);
     const baseTargets = siteTargets ?? [];
@@ -1243,12 +1244,33 @@ export function collectScanTargets(limit = DEFAULT_SCAN_TARGET_LIMIT, href = win
     );
     const collectedTargets = [...baseTargets, ...profileUiChromeTargets, ...genericTargets, ...uiChromeTargets];
     const targetsWithResidual = withResidualVisibleJapaneseTargets(collectedTargets, effectiveLimit, matchingProfiles);
-    if (targetsWithResidual.length) return targetsWithResidual;
+    if (targetsWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(targetsWithResidual) : targetsWithResidual;
 
     const broadTargets = collectWholePageScanTargets(effectiveLimit);
     const broadWithResidual = withResidualVisibleJapaneseTargets(broadTargets, effectiveLimit, matchingProfiles);
-    if (broadWithResidual.length) return broadWithResidual;
-    return collectVisibleTextTargets(effectiveLimit);
+    if (broadWithResidual.length) return useNonDestructiveGenericScan ? markTargetsNonDestructive(broadWithResidual) : broadWithResidual;
+    const visibleTargets = collectVisibleTextTargets(effectiveLimit);
+    return useNonDestructiveGenericScan ? markTargetsNonDestructive(visibleTargets) : visibleTargets;
+}
+
+function isGenericManagedAppShell(): boolean {
+    return Boolean(document.querySelector([
+        'script[src*="/_next/static/"]',
+        'script[id="__NEXT_DATA__"]',
+        '#__next',
+        '#__nuxt',
+        '[data-reactroot]',
+        '[data-server-rendered="true"]',
+        '[data-v-app]',
+        '[ng-version]',
+    ].join(',')));
+}
+
+function markTargetsNonDestructive(targets: ScanTextTarget[]): ScanTextTarget[] {
+    return targets.map(target => ({
+        ...target,
+        nonDestructive: true,
+    }));
 }
 
 function withResidualVisibleJapaneseTargets(

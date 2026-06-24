@@ -32672,6 +32672,56 @@ describe('reader helpers', () => {
             '青空の下で日本語を読む',
             '今日は静かな喫茶店で新しい本を読みました。',
         ]);
+        expect(targets.some(target => target.nonDestructive === true)).toBe(false);
+    });
+
+    it('uses non-destructive generic targets on managed app shells', () => {
+        const rectSpy = mockElementBoundingClientRect({ width: 640, height: 48 });
+        document.body.innerHTML = `
+            <script src="/_next/static/chunks/app-router.js"></script>
+            <main>
+                <article>
+                    <h1>日本語ツール一覧</h1>
+                    <p>今日は便利なスキルを探します。</p>
+                </article>
+                <nav><a href="/ja">戻る</a></nav>
+                <button type="button">保存</button>
+            </main>
+        `;
+
+        const targets = collectScanTargets(10, 'https://mcpmarket.com/ja/tools/skills');
+        rectSpy.mockRestore();
+
+        expect(targets.map(target => target.text)).toEqual(expect.arrayContaining([
+            '日本語ツール一覧',
+            '今日は便利なスキルを探します。',
+            '戻る',
+            '保存',
+        ]));
+        expect(targets.every(target => target.nonDestructive === true)).toBe(true);
+        expect(targets.find(target => target.text === '日本語ツール一覧')).toMatchObject({
+            parserId: 'generic-prose-parser',
+            nonDestructive: true,
+        });
+        expect(targets.find(target => target.text === '保存')).toMatchObject({
+            parserId: 'safe-ui-chrome-parser',
+            nonDestructive: true,
+        });
+
+        applyTokensToScanTarget(targets.find(target => target.text === '日本語ツール一覧')!, [{
+            card: { ...card, cardState: ['known'], spelling: '日本語', reading: 'にほんご' },
+            start: 0,
+            end: 3,
+            length: 3,
+            rubies: [{ text: 'にほんご', start: 0, end: 3, length: 3 }],
+            pitchClass: 'heiban',
+            sentence: '日本語ツール一覧',
+        }], { ...DEFAULT_SETTINGS, furiganaMode: 'all' });
+
+        const title = document.querySelector<HTMLElement>('h1')!;
+        expect(Array.from(title.childNodes).some(node => node.nodeType === Node.TEXT_NODE
+            && node.textContent?.includes('日本語ツール一覧'))).toBe(true);
+        expect(title.querySelectorAll('.jpdb-reader-text-mirror')).toHaveLength(1);
     });
 
     it('sweeps visible Japanese comments controls and nav after generic prose', () => {
