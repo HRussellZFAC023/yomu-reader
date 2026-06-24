@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.90] - 2026-06-24
+
+### Changed
+
+- Expanded the hosted homepage and localized metadata copy to describe SRS practice, Japanese site versions, and YouTube Japanese-content filtering as part of Yomu's immersion environment.
+
 ## [1.4.89] - 2026-06-24
 
 ### Fixed

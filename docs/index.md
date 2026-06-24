@@ -2,11 +2,11 @@
 layout: home
 title: よむ - Japanese reader for web, manga, PDFs, and subtitles
 titleTemplate: false
-description: よむ is a browser reader for Japanese on web pages, manga images, PDFs, and subtitles. Look up words for readings, meanings, audio, kanji, and study actions without leaving the page.
+description: Yomu helps you read real Japanese in the browser. Look up words on web pages, manga, PDFs, and subtitles, save useful sentences, connect your SRS, prefer Japanese site versions, and filter YouTube for Japanese content.
 hero:
   name: よむ
   text: Read Japanese without leaving the page
-  tagline: Look up words on web pages, manga, PDFs, and subtitles, then save useful sentences for study.
+  tagline: Look up words on web pages, manga, PDFs, and subtitles, then save useful sentences for study. Connect your SRS to practice your words, find new words by visiting the Japanese versions of the websites you use daily, and filter YouTube for Japanese content. Yomu brings the perfect immersion environment, no matter your level.
   image:
     src: /yomu-icon.svg
     alt: よむ app icon
