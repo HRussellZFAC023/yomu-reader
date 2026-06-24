@@ -482,6 +482,8 @@ const TRANSCRIPT_VIRTUALIZE_ROW_THRESHOLD = 240;
 const TRANSCRIPT_VIRTUAL_ROW_ESTIMATE_PX = 80;
 const TRANSCRIPT_VIRTUAL_OVERSCAN_ROWS = 8;
 const TRANSCRIPT_VIRTUAL_MIN_RENDERED_ROWS = 48;
+const TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS = 30;
+const TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS = 4;
 // Housekeeping cadence while playing (track discovery, realign backstop, chrome
 // idle). Cue + karaoke precision is owned by the per-frame sampler
 // (startFrameSync), so this no longer needs to run at 250ms.
@@ -4350,7 +4352,10 @@ export class SubtitlePlayerController {
 
     private transcriptAutoScrollResumeMs(): number {
         const seconds = this.options.getSettings().subtitleTranscriptAutoScrollResumeSeconds;
-        return (Number.isFinite(seconds) ? Math.max(1, seconds) : 4) * 1000;
+        const resumeSeconds = Number.isFinite(seconds) ? Math.max(1, seconds) : TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS;
+        return (resumeSeconds === TRANSCRIPT_AUTO_SCROLL_RESUME_LEGACY_DEFAULT_SECONDS
+            ? TRANSCRIPT_AUTO_SCROLL_RESUME_FALLBACK_SECONDS
+            : resumeSeconds) * 1000;
     }
 
     private bindTranscriptScroller(): void {

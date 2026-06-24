@@ -522,6 +522,12 @@ describe('settings form localization', () => {
         expect(saved.ankiTags).toBe('yomu');
     });
 
+    it('uses a reading-friendly transcript auto-scroll resume default', () => {
+        expect(DEFAULT_SETTINGS.subtitleTranscriptAutoScrollResumeSeconds).toBe(30);
+        expect(normalizeReaderSettings({}).subtitleTranscriptAutoScrollResumeSeconds).toBe(30);
+        expect(normalizeReaderSettings({ subtitleTranscriptAutoScrollResumeSeconds: 10 }).subtitleTranscriptAutoScrollResumeSeconds).toBe(10);
+    });
+
     it('keeps fresh-install and factory-reset defaults mobile-safe', () => {
         const defaults = normalizeReaderSettings({});
         const form = document.createElement('form');

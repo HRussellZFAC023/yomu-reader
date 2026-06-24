@@ -103,7 +103,6 @@ const COMPACT_PASSIVE_INTERACTION_SELECTOR = '[onclick],[tabindex]:not([tabindex
 const PASSIVE_INTERACTION_BOUNDARY_SELECTOR = `${PASSIVE_INTERACTION_SELECTOR},${COMPACT_PASSIVE_INTERACTION_SELECTOR}`;
 const RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR = 'ytd-watch-metadata,ytm-watch-metadata,ytm-slim-video-metadata-section-renderer,ytm-expandable-video-description-body-renderer,ytm-structured-description-content-renderer,ytd-comment-view-model,ytd-comments,ytd-transcript-segment-renderer,ytm-transcript-segment-renderer,yt-live-chat-renderer,yt-live-chat-text-message-renderer,yt-live-chat-paid-message-renderer,yt-live-chat-membership-item-renderer';
 const YOUTUBE_FEEDBACK_CHROME_SELECTOR = 'yt-touch-feedback-shape[aria-hidden=true],yt-interaction[aria-hidden=true]';
-const COMPACT_YOUTUBE_FEEDBACK_LINK_CONTEXT_SELECTOR = 'ytd-rich-grid-renderer,ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-watch-next-secondary-results-renderer,ytm-rich-grid-renderer,ytm-video-with-context-renderer';
 const COMPACT_MEDIA_CARD_CONTEXT_SELECTOR = '[class*="card" i],[class*="grid" i],[class*="item" i],[class*="lockup" i],[class*="movie" i],[class*="poster" i],[class*="thumb" i],[class*="tile" i],[class*="video" i]';
 const MEDIA_CAROUSEL_CLASS_RE = /banner|carousel|rail|scroll|shelf|slick|slider|splide|swiper/i;
 const EXPLICIT_MEDIA_CAROUSEL_CLASS_RE = /carousel|rail|shelf|slick|slider|splide|swiper/i;
@@ -1379,9 +1378,7 @@ export function isYouTubeHost(): boolean {
 
 function isYouTubeFeedbackChromeLinkText(parent: HTMLElement): boolean {
     if (parent.closest(RICH_YOUTUBE_RUBY_ALLOWED_SELECTOR)) return false;
-    const link = parent.closest<HTMLElement>('a[href]');
-    if (!link || !link.closest(COMPACT_YOUTUBE_FEEDBACK_LINK_CONTEXT_SELECTOR)) return false;
-    return Boolean(safeQuerySelector(link, YOUTUBE_FEEDBACK_CHROME_SELECTOR));
+    return Boolean(parent.closest(YOUTUBE_FEEDBACK_CHROME_SELECTOR));
 }
 
 function isCompactMediaCardLinkText(parent: HTMLElement): boolean {

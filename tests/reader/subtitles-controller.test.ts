@@ -3160,7 +3160,7 @@ describe('SubtitlePlayerController', () => {
                 makeSubtitleSettings({
                     subtitleOverlayVisible: true,
                     subtitleTranscriptAutoScroll: true,
-                    subtitleTranscriptAutoScrollResumeSeconds: 4,
+                    subtitleTranscriptAutoScrollResumeSeconds: 5,
                 }),
             );
             installController(controller);
@@ -3193,8 +3193,8 @@ describe('SubtitlePlayerController', () => {
             internals.scrollTranscriptToActive();
             expect(scrollSpy).toHaveBeenCalledTimes(2);
 
-            // Still paused just before the 4s window elapses.
-            now += 3700;
+            // Still paused just before the 5s window elapses.
+            now += 4700;
             internals.scrollTranscriptToActive();
             expect(scrollSpy).toHaveBeenCalledTimes(2);
 
@@ -3214,6 +3214,18 @@ describe('SubtitlePlayerController', () => {
             now += 6500;
             internals.scrollTranscriptToActive();
             expect(scrollSpy).toHaveBeenCalledTimes(4);
+
+            // The old saved default was 4s, which was too eager on YouTube;
+            // treat that legacy value as the safer 30s default during playback.
+            settings.subtitleTranscriptAutoScrollResumeSeconds = 4;
+            now += 1000;
+            internals.noteTranscriptScroll();
+            now += 5000;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(4);
+            now += 25000;
+            internals.scrollTranscriptToActive();
+            expect(scrollSpy).toHaveBeenCalledTimes(5);
         } finally {
             if (nowDescriptor) Object.defineProperty(performance, 'now', nowDescriptor);
             if (rafDescriptor) Object.defineProperty(window, 'requestAnimationFrame', rafDescriptor);

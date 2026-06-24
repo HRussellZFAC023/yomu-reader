@@ -348,7 +348,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitlePausePanel: false,
     subtitleTranscriptPlacement: 'right',
     subtitleTranscriptAutoScroll: true,
-    subtitleTranscriptAutoScrollResumeSeconds: 4,
+    subtitleTranscriptAutoScrollResumeSeconds: 30,
     subtitleAutoCopyLine: false,
     subtitleCopyIncludeTranslation: true,
     subtitleControlsMode: 'auto',

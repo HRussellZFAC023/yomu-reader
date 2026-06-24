@@ -41,7 +41,9 @@ export class SubtitleVideoInsetAdapter {
         }
         const metrics = videoInsetMetrics(options);
         if (metrics.signature === this.lastSignature) {
+            rememberYouTubeVideoElementInsetBeforeResize(options.video, options.side);
             this.applyResizeIfNeeded(options, metrics);
+            applyYouTubeVideoElementInset(options.video, options.side, metrics.width, metrics.height);
             return false;
         }
 
@@ -57,7 +59,9 @@ export class SubtitleVideoInsetAdapter {
             clearStableBottom: !previousSignature.startsWith('bottom:'),
         });
         applyGenericVideoInsetIfNeeded(options, metrics);
+        rememberYouTubeVideoElementInsetBeforeResize(options.video, options.side);
         this.applyResizeIfNeeded(options, metrics);
+        applyYouTubeVideoElementInset(options.video, options.side, metrics.width, metrics.height);
         return true;
     }
 
@@ -71,6 +75,7 @@ export class SubtitleVideoInsetAdapter {
         watchFlexy?.style.removeProperty('--ytd-watch-flexy-player-height');
         watchFlexy?.style.removeProperty('--ytd-watch-flexy-min-player-height');
         clearYouTubeInsetTargets();
+        clearYouTubeVideoElementInset(video);
         if (video) clearGenericVideoInset(video);
         resetYouTubePlayerResizeTracking();
         this.lastResizeSignature = '';
@@ -347,6 +352,8 @@ function bottomInsetHeight(side: SubtitleVideoInsetSide, height: number): number
 }
 
 const youtubePlayerContainerBaseRects = new WeakMap<HTMLElement, { left: number; right: number; viewportWidth: number }>();
+const youtubeVideoElementInsetStyles = new WeakMap<HTMLElement, Partial<Record<YoutubeVideoElementInsetProperty, string>>>();
+type YoutubeVideoElementInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'left' | 'top' | 'objectFit';
 
 function captureYouTubePlayerContainerBaseRects(elements: HTMLElement[]): void {
     const viewportWidth = visibleViewportWidth();
@@ -638,6 +645,53 @@ function clearYouTubeInsetTargets(): void {
     for (const element of youtubeInsetTargets()) clearYouTubePlayerContainerInset(element);
 }
 
+function applyYouTubeVideoElementInset(video: HTMLVideoElement | undefined, side: SubtitleVideoInsetSide, width: number, height: number): void {
+    if (side === 'bottom' || !video || !isYouTubePage()) {
+        clearYouTubeVideoElementInset(video);
+        return;
+    }
+    rememberYouTubeVideoElementInsetStyles(video);
+    setStylePropertyIfChanged(video, 'width', `${Math.round(width)}px`);
+    setStylePropertyIfChanged(video, 'height', `${Math.round(height)}px`);
+    setStylePropertyIfChanged(video, 'max-width', 'none');
+    setStylePropertyIfChanged(video, 'max-height', 'none');
+    setStylePropertyIfChanged(video, 'min-width', '0px');
+    setStylePropertyIfChanged(video, 'min-height', '0px');
+    setStylePropertyIfChanged(video, 'left', '0px');
+    setStylePropertyIfChanged(video, 'top', '0px');
+    setStylePropertyIfChanged(video, 'object-fit', 'contain');
+}
+
+function rememberYouTubeVideoElementInsetBeforeResize(video: HTMLVideoElement | undefined, side: SubtitleVideoInsetSide): void {
+    if (side === 'bottom' || !video || !isYouTubePage()) return;
+    rememberYouTubeVideoElementInsetStyles(video);
+}
+
+function rememberYouTubeVideoElementInsetStyles(video: HTMLVideoElement): void {
+    if (youtubeVideoElementInsetStyles.has(video)) return;
+    youtubeVideoElementInsetStyles.set(video, {
+        width: video.style.width,
+        height: video.style.height,
+        maxWidth: video.style.maxWidth,
+        maxHeight: video.style.maxHeight,
+        minWidth: video.style.minWidth,
+        minHeight: video.style.minHeight,
+        left: video.style.left,
+        top: video.style.top,
+        objectFit: video.style.objectFit,
+    });
+}
+
+function clearYouTubeVideoElementInset(video: HTMLVideoElement | undefined): void {
+    if (!video) return;
+    const previous = youtubeVideoElementInsetStyles.get(video);
+    if (!previous) return;
+    for (const [property, value] of Object.entries(previous)) {
+        setRestoredStyleProperty(video, stylePropertyName(property as YoutubeVideoElementInsetProperty), value);
+    }
+    youtubeVideoElementInsetStyles.delete(video);
+}
+
 type GenericInsetProperty = 'width' | 'height' | 'maxWidth' | 'maxHeight' | 'minWidth' | 'minHeight' | 'marginLeft' | 'marginRight' | 'justifySelf' | 'objectFit';
 
 const genericVideoInsetStyles = new WeakMap<HTMLElement, Partial<Record<GenericInsetProperty, string>>>();
@@ -787,7 +841,7 @@ function restoreGenericInsetStyleProperties(target: HTMLElement, properties: Gen
     return true;
 }
 
-function stylePropertyName(property: GenericInsetProperty): string {
+function stylePropertyName(property: string): string {
     return property.replace(/[A-Z]/g, character => `-${character.toLowerCase()}`);
 }
 

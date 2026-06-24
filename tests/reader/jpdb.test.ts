@@ -17236,6 +17236,86 @@ describe('reader helpers', () => {
         });
     });
 
+    it('fits and restores YouTube video element sizing during side drawer insets', () => {
+        const originalLocation = window.location;
+        Object.defineProperty(window, 'location', {
+            configurable: true,
+            value: new URL('https://www.youtube.com/watch?v=abc123') as unknown as Location,
+        });
+
+        withViewport(1600, 900, () => {
+            document.body.innerHTML = `
+                <ytd-watch-flexy>
+                    <div id="columns"><div id="primary"><div id="primary-inner"><div id="movie_player"><video style="width:1200px;height:675px;left:-80px;top:12px;object-fit:cover"></video></div></div></div></div>
+                </ytd-watch-flexy>
+            `;
+            const primary = document.querySelector<HTMLElement>('#primary')!;
+            const primaryInner = document.querySelector<HTMLElement>('#primary-inner')!;
+            const moviePlayer = document.querySelector<HTMLElement>('#movie_player') as HTMLElement & { setSize?: (width: number, height: number) => void };
+            const video = document.querySelector('video') as HTMLVideoElement;
+            moviePlayer.setSize = vi.fn((width: number, height: number) => {
+                moviePlayer.style.width = `${width}px`;
+                moviePlayer.style.height = `${height}px`;
+                video.style.width = '640px';
+                video.style.height = '360px';
+                video.style.left = '220px';
+            });
+            Object.defineProperty(primary, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 1200, 675),
+            });
+            Object.defineProperty(primaryInner, 'getBoundingClientRect', {
+                configurable: true,
+                value: () => new DOMRect(0, 0, 1200, 675),
+            });
+
+            const adapter = createSubtitleVideoInsetAdapter();
+            try {
+                const options = {
+                    video,
+                    side: 'right' as const,
+                    playerSize: 1080,
+                    panelSize: 420,
+                    videoRect: new DOMRect(0, 0, 1200, 675),
+                    margin: 12,
+                };
+                adapter.apply(options);
+
+                expect(moviePlayer.style.width).toBe('1080px');
+                expect(moviePlayer.style.height).toBe('608px');
+                expect(video.style.width).toBe('1080px');
+                expect(video.style.height).toBe('608px');
+                expect(video.style.left).toBe('0px');
+                expect(video.style.top).toBe('0px');
+                expect(video.style.objectFit).toBe('contain');
+
+                video.style.width = '640px';
+                video.style.height = '360px';
+                video.style.left = '220px';
+                adapter.apply(options);
+
+                expect(video.style.width).toBe('1080px');
+                expect(video.style.height).toBe('608px');
+                expect(video.style.left).toBe('0px');
+            } finally {
+                adapter.clear(video);
+                Object.defineProperty(window, 'location', {
+                    configurable: true,
+                    value: originalLocation,
+                });
+                document.body.innerHTML = '';
+            }
+
+            expect(moviePlayer.style.width).toBe('');
+            expect(moviePlayer.style.height).toBe('');
+            expect(video.style.width).toBe('1200px');
+            expect(video.style.height).toBe('675px');
+            expect(video.style.left).toBe('-80px');
+            expect(video.style.top).toBe('12px');
+            expect(video.style.objectFit).toBe('cover');
+        });
+    });
+
     it('applies non-overlap side insets on tablet mobile YouTube when side placement is explicit', () => {
         const originalLocation = location;
         vi.stubGlobal('location', new URL('https://m.youtube.com/watch?v=abc123'));

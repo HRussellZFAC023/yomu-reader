@@ -788,6 +788,12 @@ describe('VisiblePageScanner', () => {
                     </ytd-compact-video-renderer>
                 </ytd-watch-next-secondary-results-renderer>
                 <ytd-rich-grid-renderer>
+                    <ytd-rich-item-renderer data-yomu-test-nested-title>
+                        <a href="/watch?v=nested">
+                            <yt-touch-feedback-shape aria-hidden="true"><div>押下中</div></yt-touch-feedback-shape>
+                            <span id="video-title">東京散歩と春コーデ</span>
+                        </a>
+                    </ytd-rich-item-renderer>
                     ${Array.from({ length: 170 }, (_, index) => `
                         <ytd-rich-item-renderer>
                             <a href="/watch?v=feed-${index}">
@@ -814,6 +820,8 @@ describe('VisiblePageScanner', () => {
             expect(document.querySelector('ytd-compact-video-renderer .jpdb-reader-word[data-expression="講座"]')).not.toBeNull();
             expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="日本語"]')).not.toBeNull();
             expect(document.querySelector('ytd-rich-grid-renderer .jpdb-reader-word[data-expression="動画"]')).not.toBeNull();
+            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="東京"] rt')?.textContent).toBe('とうきょう');
+            expect(document.querySelector('[data-yomu-test-nested-title] .jpdb-reader-word[data-expression="春"] rt')?.textContent).toBe('はる');
         } finally {
             scanner.destroy();
             vi.unstubAllGlobals();
@@ -2201,6 +2209,10 @@ function tokensForYouTubeWatchMetadataText(text: string): JPDBToken[] {
         ['行', 'ぎょう'],
         ['おすすめ', ''],
         ['講座', 'こうざ'],
+        ['東京', 'とうきょう'],
+        ['散歩', 'さんぽ'],
+        ['春', 'はる'],
+        ['コーデ', ''],
         ['動画', 'どうが'],
     ] as const;
     const tokens: JPDBToken[] = [];
