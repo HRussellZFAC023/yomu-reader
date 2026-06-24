@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.93] - 2026-06-24
+
+### Fixed
+
+- Restored status highlights on passive link text such as Discord channel names, while keeping compact native controls highlight-free, so pitch underlines no longer leave dark-page text without a readable backing.
+
 ## [1.4.92] - 2026-06-24
 
 ### Fixed

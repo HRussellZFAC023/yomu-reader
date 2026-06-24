@@ -791,9 +791,9 @@ describe('reader theme', () => {
         const normalizedCss = READER_WORD_CSS.replace(/\s+/g, ' ');
 
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-paint: var( --jpdb-reader-word-accessible-highlight, var(--jpdb-reader-word-highlight-source, transparent) );');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
-        expect(normalizedCss).toContain('--jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none;');
-        expect(normalizedCss).toContain('.jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-word.jpdb-reader-passive-word:focus { background-image: none !important; box-shadow: none; }');
+        expect(normalizedCss).toContain(':is(button, [role="button"], [role="tab"], summary, label) .jpdb-reader-word.jpdb-reader-passive-word, .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word { --jpdb-reader-word-highlight-source: transparent; --jpdb-reader-word-highlight-shadow-source: none; }');
+        expect(normalizedCss).not.toMatch(/(?:^|\})\s*\.jpdb-reader-word\.jpdb-reader-passive-word \{ --jpdb-reader-word-highlight-source: transparent;/);
+        expect(normalizedCss).toContain(':is(button, [role="button"], [role="tab"], summary, label) .jpdb-reader-word.jpdb-reader-passive-word:hover, :is(button, [role="button"], [role="tab"], summary, label) .jpdb-reader-word.jpdb-reader-passive-word:focus, .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:hover, .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-passive-word:focus { background-image: none !important; box-shadow: none; }');
         expect(normalizedCss).toContain('background-image: linear-gradient(var(--jpdb-reader-word-highlight-paint), var(--jpdb-reader-word-highlight-paint)) !important;');
         expect(normalizedCss).toContain('background-size: var(--jpdb-reader-word-highlight-size) var(--jpdb-reader-word-highlight-block-size) !important;');
         expect(normalizedCss).toContain('--jpdb-reader-word-highlight-block-size: 1.16em;');

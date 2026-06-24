@@ -58,7 +58,8 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-word-highlight-jpdb .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-highlight-anki .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-highlight-pitch .jpdb-reader-word');
-        expect(css).toContain('.jpdb-reader-word:not(.jpdb-reader-passive-word){background:linear-gradient(var(--yh),var(--yh))');
+        expect(css).toContain('.jpdb-reader-word{background:linear-gradient(var(--yh),var(--yh))');
+        expect(css).toContain(':is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}');
         expect(css).toContain('.jpdb-reader-word-underline-status .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-underline-anki .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-text-anki .jpdb-reader-word');

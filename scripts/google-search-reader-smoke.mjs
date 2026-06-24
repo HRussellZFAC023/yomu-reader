@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Regression smoke for mobile Google Search reader styling: passive result words
-// must not draw opaque highlight blocks, and clipped result-local controls must
-// keep their ruby base text visible.
+// keep status highlight paint without drawing opaque background-color blocks, and
+// clipped result-local controls must keep their ruby base text visible.
 import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { chromium, devices, webkit } from 'playwright';
@@ -201,7 +201,7 @@ async function runGoogleSearchCaseWithBrowser(engineName, browser) {
         await page.waitForTimeout(150);
         const afterHover = await page.evaluate(snapshotGoogleSearchFixture);
         assertGoogleSearchSnapshot(afterHover, 'after hover');
-        assert(afterHover.snippetFirstWord.backgroundImage === 'none', 'Passive Google snippet word gained a hover rectangle', afterHover.snippetFirstWord);
+        assert(afterHover.snippetFirstWord.backgroundImage.includes('linear-gradient'), 'Passive Google snippet word lost its highlight backing on hover', afterHover.snippetFirstWord);
 
         await page.screenshot({ path: path.join(ARTIFACTS, `google-search-reader-smoke-${engineName}.png`), fullPage: true });
         return { beforeHover, afterHover, requests: requests.length };
@@ -287,7 +287,13 @@ function assertGoogleSearchSnapshot(snapshot, label) {
     assert(snapshot.chip.labelHeight > 18, `${label}: Google chip label kept its plain-text height`, snapshot.chip);
     assert(snapshot.layout.scrollWidth <= snapshot.layout.viewportWidth + 2, `${label}: Google result annotations caused horizontal overflow`, snapshot.layout);
     assert(snapshot.snippetFirstWord, `${label}: no passive snippet word found`, snapshot);
-    assert(snapshot.snippetFirstWord.highlightSource === 'transparent', `${label}: passive snippet word still has a highlight source`, snapshot.snippetFirstWord);
+    assert(!isTransparentCssColor(snapshot.snippetFirstWord.highlightSource), `${label}: passive snippet word lost its status highlight source`, snapshot.snippetFirstWord);
     assert(snapshot.snippetFirstWord.accessibleHighlight === '', `${label}: passive snippet word still has accessible highlight paint`, snapshot.snippetFirstWord);
     assert(snapshot.snippetFirstWord.backgroundColor === 'rgba(0, 0, 0, 0)', `${label}: passive snippet word has a filled background color`, snapshot.snippetFirstWord);
+    assert(snapshot.snippetFirstWord.backgroundImage.includes('linear-gradient'), `${label}: passive snippet word lost its gradient highlight backing`, snapshot.snippetFirstWord);
+}
+
+function isTransparentCssColor(value) {
+    const normalized = value.trim().toLowerCase();
+    return normalized === '' || normalized === 'transparent' || normalized === '#0000' || normalized === 'rgba(0, 0, 0, 0)';
 }

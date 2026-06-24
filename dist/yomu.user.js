@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.92
+// @version 1.4.93
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.92
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.92
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.92
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.92
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.93
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.93
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.93
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.93
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -36572,7 +36572,8 @@ function criticalWordCss() {
 function criticalChannelCss() {
   return [
     ".jpdb-reader-word-highlight-status .jpdb-reader-word{--yh:var(--hs,#0000)}.jpdb-reader-word-highlight-jpdb .jpdb-reader-word{--yh:var(--h1,#0000)}.jpdb-reader-word-highlight-anki .jpdb-reader-word{--yh:var(--ah,#0000)}.jpdb-reader-word-highlight-pitch .jpdb-reader-word{--yh:var(--h2,#0000)}",
-    ":is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word:not(.jpdb-reader-passive-word){background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}",
+    ":is(.jpdb-reader-word-highlight-status,.jpdb-reader-word-highlight-jpdb,.jpdb-reader-word-highlight-anki,.jpdb-reader-word-highlight-pitch) .jpdb-reader-word{background:linear-gradient(var(--yh),var(--yh)) center/var(--yz) 100% no-repeat!important}",
+    ":is(button,[role=button],[role=tab],summary,label,.jpdb-reader-control-text-mirror) .jpdb-reader-word.jpdb-reader-passive-word{--yh:#0000}",
     ".jpdb-reader-word-underline-status .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-jpdb .jpdb-reader-word{--yu:var(--ysc,#0000)}.jpdb-reader-word-underline-anki .jpdb-reader-word{--yu:var(--ac,#0000)}.jpdb-reader-word-underline-pitch .jpdb-reader-word{--yu:var(--d2,#0000)}",
     ".jpdb-reader-word-text-status .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-jpdb .jpdb-reader-word{--yt:var(--ysr,var(--ysc,currentColor))}.jpdb-reader-word-text-anki .jpdb-reader-word{--yt:var(--ar,var(--ac,currentColor))}.jpdb-reader-word-text-pitch .jpdb-reader-word{--yt:var(--c2,currentColor)}",
     ":is(.jpdb-reader-word-text-status,.jpdb-reader-word-text-jpdb,.jpdb-reader-word-text-anki,.jpdb-reader-word-text-pitch) .jpdb-reader-word{color:var(--yt,currentColor)!important;-webkit-text-fill-color:var(--yt,currentColor)}"
