@@ -184,6 +184,73 @@ describe('JitenApiClient', () => {
         }));
     });
 
+    it('loads paginated Jiten study deck vocabulary for new-tab browse filters', async () => {
+        const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
+            const href = String(url);
+            if (href.endsWith('/srs/study-decks/7/vocabulary?offset=0')) {
+                return jsonResponse({
+                    data: [{
+                        wordId: 101,
+                        mainReading: { text: '日本語[にほんご]', readingIndex: 2, frequencyRank: 123 },
+                        partsOfSpeech: ['n'],
+                        definitions: [{ meanings: ['Japanese language'], partsOfSpeech: ['n'] }],
+                        pitchAccents: [0],
+                        knownStates: [4],
+                    }],
+                    totalItems: 2,
+                    pageSize: 1,
+                    currentOffset: 0,
+                });
+            }
+            if (href.endsWith('/srs/study-decks/7/vocabulary?offset=1')) {
+                return jsonResponse({
+                    data: [{
+                        wordId: 102,
+                        mainReading: { text: '仮名[かな]', readingIndex: 0, frequencyRank: 0 },
+                        definitions: [{ meanings: ['kana'] }],
+                        knownStates: [1],
+                    }],
+                    totalItems: 2,
+                    pageSize: 1,
+                    currentOffset: 1,
+                });
+            }
+            throw new Error(`Unexpected Jiten vocabulary URL: ${href}`);
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        await expect(client.listStudyDeckVocabularyCards(7, 5)).resolves.toEqual([
+            expect.objectContaining({
+                vid: 101,
+                sid: 2,
+                spelling: '日本語',
+                reading: 'にほんご',
+                frequencyRank: 123,
+                cardState: ['due'],
+                meanings: [{ glosses: ['Japanese language'], partOfSpeech: ['n'] }],
+                source: 'jiten',
+                reviewSource: 'jiten-api',
+                jitenWordId: 101,
+                jitenReadingIndex: 2,
+            }),
+            expect.objectContaining({
+                vid: 102,
+                sid: 0,
+                spelling: '仮名',
+                reading: 'かな',
+                frequencyRank: null,
+                cardState: ['young'],
+                meanings: [{ glosses: ['kana'], partOfSpeech: [] }],
+                source: 'jiten',
+                reviewSource: 'jiten-api',
+                jitenWordId: 102,
+                jitenReadingIndex: 0,
+            }),
+        ]);
+        expect(fetchMock).toHaveBeenNthCalledWith(1, `${JITEN_API_BASE_URL}/srs/study-decks/7/vocabulary?offset=0`, expect.any(Object));
+        expect(fetchMock).toHaveBeenNthCalledWith(2, `${JITEN_API_BASE_URL}/srs/study-decks/7/vocabulary?offset=1`, expect.any(Object));
+    });
+
     it('parses Jiten reader output into Yomu token cards', async () => {
         const fetchMock = createFetchMock({
             vocabulary: [{

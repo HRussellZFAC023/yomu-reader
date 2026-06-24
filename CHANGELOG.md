@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.102] - 2026-06-24
+
+### Fixed
+
+- Loaded full Jiten study deck vocabulary in the newtab Search/My Cards browser, so source chips and state filters see every card in decks such as Vocab 2k instead of only the current study batch.
+- Removed the standalone Undo study button; Previous now owns recent-review undo and otherwise no-ops on the first card.
+
 ## [1.4.101] - 2026-06-24
 
 ### Fixed

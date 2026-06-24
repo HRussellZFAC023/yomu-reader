@@ -144,6 +144,37 @@ interface JitenStudyCardDto {
     ratingIntervals?: unknown;
 }
 
+interface JitenStudyDeckVocabularyPage {
+    cards: JPDBCard[];
+    totalItems: number;
+    pageSize: number;
+    currentOffset: number;
+}
+
+interface JitenStudyDeckVocabularyWordDto {
+    wordId: number;
+    mainReading: JitenStudyDeckVocabularyReadingDto;
+    alternativeReadings?: JitenStudyDeckVocabularyReadingDto[];
+    partsOfSpeech?: string[];
+    definitions?: JitenStudyDeckVocabularyDefinitionDto[];
+    occurrences?: number;
+    pitchAccents?: number[] | null;
+    knownStates?: number[] | null;
+}
+
+interface JitenStudyDeckVocabularyReadingDto {
+    text: string;
+    readingIndex: number;
+    frequencyRank?: number | null;
+}
+
+interface JitenStudyDeckVocabularyDefinitionDto {
+    index?: number;
+    meanings?: string[];
+    partsOfSpeech?: string[];
+    pos?: string[];
+}
+
 interface JitenStudyReadingDto {
     text: string;
     rubyText: string;
@@ -441,6 +472,31 @@ export class JitenApiClient {
         return keys;
     }
 
+    // The new-tab browser needs the whole study deck, not the current review
+    // queue. Jiten caps this endpoint at 100 rows per page.
+    // fallow-ignore-next-line unused-class-member
+    async listStudyDeckVocabularyCards(deckId: number, limit = 5000): Promise<JPDBCard[]> {
+        const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
+        const cardLimit = Math.max(1, Math.floor(limit));
+        const cards: JPDBCard[] = [];
+        let offset = 0;
+        while (cards.length < cardLimit) {
+            const page = normalizeJitenStudyDeckVocabularyPage(
+                await this.requestEndpoint<unknown>(`srs/study-decks/${normalizedDeckId}/vocabulary`, undefined, {
+                    method: 'GET',
+                    query: { offset },
+                }),
+            );
+            if (!page.cards.length) break;
+            cards.push(...page.cards);
+            const pageSize = Math.max(1, page.pageSize || page.cards.length);
+            const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
+            if (nextOffset <= offset || nextOffset >= page.totalItems) break;
+            offset = nextOffset;
+        }
+        return cards.slice(0, cardLimit);
+    }
+
     async listStudyBatchCards(limit = 80): Promise<JPDBCard[]> {
         const cardLimit = Math.max(1, Math.floor(limit));
         const response = await this.requestEndpoint<JitenStudyBatchResponse>('srs/study-batch', undefined, {
@@ -728,6 +784,56 @@ function normalizeJitenStudyBatchCards(response: JitenStudyBatchResponse): JPDBC
         .filter((card): card is JPDBCard => Boolean(card));
 }
 
+function normalizeJitenStudyDeckVocabularyPage(response: unknown): JitenStudyDeckVocabularyPage {
+    if (!isJsonRecord(response)) return { cards: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
+    const data = response.data ?? response.Data;
+    const cards = arrayOfRecords(data)
+        .map(jitenCardFromStudyDeckVocabularyWord)
+        .filter((card): card is JPDBCard => Boolean(card));
+    return {
+        cards,
+        totalItems: firstRecordFiniteNumber(response, ['totalItems', 'TotalItems']) ?? cards.length,
+        pageSize: firstRecordFiniteNumber(response, ['pageSize', 'PageSize']) ?? cards.length,
+        currentOffset: firstRecordFiniteNumber(response, ['currentOffset', 'CurrentOffset']) ?? 0,
+    };
+}
+
+function jitenCardFromStudyDeckVocabularyWord(value: unknown): JPDBCard | null {
+    const word = value as JitenStudyDeckVocabularyWordDto;
+    if (!isJsonRecord(word) || !isJsonRecord(word.mainReading)) return null;
+    const wordId = finiteJitenInteger(word.wordId);
+    const readingIndex = finiteJitenInteger(word.mainReading.readingIndex);
+    const annotatedText = typeof word.mainReading.text === 'string' ? word.mainReading.text.trim() : '';
+    if (wordId === undefined || readingIndex === undefined || !annotatedText) return null;
+    const spelling = cleanJitenAnnotatedSpelling(annotatedText).trim() || cleanJitenAnnotatedReading(annotatedText).trim();
+    const reading = cleanJitenAnnotatedReading(annotatedText).trim() || spelling;
+    if (!spelling) return null;
+    return {
+        vid: wordId,
+        sid: readingIndex,
+        rid: 0,
+        spelling,
+        reading,
+        frequencyRank: positiveJitenInteger(word.mainReading.frequencyRank) ?? null,
+        partOfSpeech: arrayOfStrings(word.partsOfSpeech),
+        meanings: jitenStudyDeckVocabularyMeanings(word.definitions),
+        cardState: jitenKnownStateToCardStates(word.knownStates),
+        pitchAccent: jitenPitchAccentPatterns(word.pitchAccents, reading),
+        wordWithReading: annotatedText,
+        source: 'jiten',
+        reviewSource: 'jiten-api',
+        jitenWordId: wordId,
+        jitenReadingIndex: readingIndex,
+    };
+}
+
+function jitenStudyDeckVocabularyMeanings(value: unknown): JPDBCard['meanings'] {
+    return arrayOfRecords(value).map(definition => ({
+        glosses: arrayOfStrings(definition.meanings),
+        partOfSpeech: firstNonEmptyStringArray(definition.partsOfSpeech, definition.pos),
+    })).filter(meaning => meaning.glosses.length);
+}
+
 function jitenCardFromStudyCard(card: JitenStudyCardDto): JPDBCard | null {
     const wordId = finiteJitenInteger(card.wordId);
     const readingIndex = finiteJitenInteger(card.readingIndex);
@@ -827,6 +933,10 @@ const JITEN_FSRS_CARD_STATE_MAP: Record<number, CardState> = {
 
 function cleanJitenAnnotatedReading(value: string): string {
     return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, '$2');
+}
+
+function cleanJitenAnnotatedSpelling(value: string): string {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, '$1');
 }
 
 function jitenKnownStateToCardStates(states: unknown): CardState[] {
@@ -1171,6 +1281,11 @@ function arrayOfRecords(value: unknown): Record<string, unknown>[] {
 
 function nullableFiniteInteger(value: unknown): number | null {
     return finiteJitenInteger(value) ?? null;
+}
+
+function positiveJitenInteger(value: unknown): number | undefined {
+    const parsed = finiteJitenInteger(value);
+    return parsed !== undefined && parsed > 0 ? parsed : undefined;
 }
 
 function nullableFiniteNumber(value: unknown): number | null {

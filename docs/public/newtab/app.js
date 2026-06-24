@@ -55295,6 +55295,30 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
       }
       return keys;
     }
+    // The new-tab browser needs the whole study deck, not the current review
+    // queue. Jiten caps this endpoint at 100 rows per page.
+    // fallow-ignore-next-line unused-class-member
+    async listStudyDeckVocabularyCards(deckId, limit = 5e3) {
+      const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
+      const cardLimit = Math.max(1, Math.floor(limit));
+      const cards = [];
+      let offset = 0;
+      while (cards.length < cardLimit) {
+        const page = normalizeJitenStudyDeckVocabularyPage(
+          await this.requestEndpoint(`srs/study-decks/${normalizedDeckId}/vocabulary`, void 0, {
+            method: "GET",
+            query: { offset }
+          })
+        );
+        if (!page.cards.length) break;
+        cards.push(...page.cards);
+        const pageSize = Math.max(1, page.pageSize || page.cards.length);
+        const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
+        if (nextOffset <= offset || nextOffset >= page.totalItems) break;
+        offset = nextOffset;
+      }
+      return cards.slice(0, cardLimit);
+    }
     async listStudyBatchCards(limit = 80) {
       const cardLimit = Math.max(1, Math.floor(limit));
       const response = await this.requestEndpoint("srs/study-batch", void 0, {
@@ -55538,6 +55562,51 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
     const cards = Array.isArray(response.cards) ? response.cards : [];
     return cards.map(jitenCardFromStudyCard).filter((card) => Boolean(card));
   }
+  function normalizeJitenStudyDeckVocabularyPage(response) {
+    if (!isJsonRecord(response)) return { cards: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
+    const data = response.data ?? response.Data;
+    const cards = arrayOfRecords(data).map(jitenCardFromStudyDeckVocabularyWord).filter((card) => Boolean(card));
+    return {
+      cards,
+      totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? cards.length,
+      pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? cards.length,
+      currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
+    };
+  }
+  function jitenCardFromStudyDeckVocabularyWord(value) {
+    const word = value;
+    if (!isJsonRecord(word) || !isJsonRecord(word.mainReading)) return null;
+    const wordId = finiteJitenInteger(word.wordId);
+    const readingIndex = finiteJitenInteger(word.mainReading.readingIndex);
+    const annotatedText = typeof word.mainReading.text === "string" ? word.mainReading.text.trim() : "";
+    if (wordId === void 0 || readingIndex === void 0 || !annotatedText) return null;
+    const spelling = cleanJitenAnnotatedSpelling(annotatedText).trim() || cleanJitenAnnotatedReading$1(annotatedText).trim();
+    const reading = cleanJitenAnnotatedReading$1(annotatedText).trim() || spelling;
+    if (!spelling) return null;
+    return {
+      vid: wordId,
+      sid: readingIndex,
+      rid: 0,
+      spelling,
+      reading,
+      frequencyRank: positiveJitenInteger(word.mainReading.frequencyRank) ?? null,
+      partOfSpeech: arrayOfStrings(word.partsOfSpeech),
+      meanings: jitenStudyDeckVocabularyMeanings(word.definitions),
+      cardState: jitenKnownStateToCardStates(word.knownStates),
+      pitchAccent: jitenPitchAccentPatterns(word.pitchAccents, reading),
+      wordWithReading: annotatedText,
+      source: "jiten",
+      reviewSource: "jiten-api",
+      jitenWordId: wordId,
+      jitenReadingIndex: readingIndex
+    };
+  }
+  function jitenStudyDeckVocabularyMeanings(value) {
+    return arrayOfRecords(value).map((definition) => ({
+      glosses: arrayOfStrings(definition.meanings),
+      partOfSpeech: firstNonEmptyStringArray(definition.partsOfSpeech, definition.pos)
+    })).filter((meaning) => meaning.glosses.length);
+  }
   function jitenCardFromStudyCard(card) {
     const wordId = finiteJitenInteger(card.wordId);
     const readingIndex = finiteJitenInteger(card.readingIndex);
@@ -55625,6 +55694,9 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   };
   function cleanJitenAnnotatedReading$1(value) {
     return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
+  }
+  function cleanJitenAnnotatedSpelling(value) {
+    return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
   }
   function jitenKnownStateToCardStates(states) {
     const mapped = jitenStateNumbers(states).map((state2) => JITEN_CARD_STATE_MAP[state2]).filter((state2) => Boolean(state2));
@@ -55918,6 +55990,10 @@ situation-tokoro-wo	N1	ところを	{F}ところを	e	h
   }
   function nullableFiniteInteger(value) {
     return finiteJitenInteger(value) ?? null;
+  }
+  function positiveJitenInteger(value) {
+    const parsed = finiteJitenInteger(value);
+    return parsed !== void 0 && parsed > 0 ? parsed : void 0;
   }
   function nullableFiniteNumber(value) {
     return finiteJitenNumber(value) ?? null;
@@ -64742,7 +64818,13 @@ ${entry.url}`),
     // only here — NOT in jpdbStatsApiProviders — because the stats page has
     // its own dedicated Anki source and must not double-count cards.
     browsePoolProviders(settings) {
-      const providers = this.jpdbStatsApiProviders(settings);
+      const providers = [];
+      const jiten = this.jitenBrowsePoolProvider(settings);
+      if (jiten) providers.push(jiten);
+      if (hasJpdbApiCredential(settings)) providers.push({
+        label: "JPDB",
+        load: () => this.loadJpdbStatsCards()
+      });
       if (settings.ankiEnabled && settings.newTabAnkiEnabled && typeof this.dependencies.anki.listNewTabCards === "function") {
         providers.push({
           label: "Anki",
@@ -64750,6 +64832,21 @@ ${entry.url}`),
         });
       }
       return providers;
+    }
+    jitenBrowsePoolProvider(settings) {
+      const jiten = this.dependencies.jiten;
+      if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyBatchCards !== "function") return null;
+      if (typeof jiten.listStudyDeckVocabularyCards === "function") {
+        return {
+          label: "Jiten",
+          load: () => this.loadAllJitenDeckBrowseCards(settings)
+        };
+      }
+      const listJitenStudyBatchCards = jiten.listStudyBatchCards.bind(jiten);
+      return {
+        label: "Jiten",
+        load: () => listJitenStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT)
+      };
     }
     async loadJpdbStatsApiProvider(provider) {
       try {
@@ -65384,18 +65481,51 @@ ${entry.url}`),
     }
     // UT-44: Jiten study decks in the deck picker (labelled to distinguish
     // them from JPDB decks; ids carry the jiten: prefix).
-    jitenDeckOptionsCache;
+    jitenStudyDecksCache;
     jitenDeckSelectorOptions(settings) {
+      return this.jitenStudyDecks(settings).then((decks) => decks.map((deck) => ({ id: `jiten:${deck.id}`, name: `Jiten · ${deck.name}` })));
+    }
+    jitenStudyDecks(settings = this.dependencies.getSettings()) {
       const jiten = this.dependencies.jiten;
       if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyDecks !== "function") return Promise.resolve([]);
       const key = effectiveJitenApiKey(settings);
       const now = Date.now();
-      if (this.jitenDeckOptionsCache && this.jitenDeckOptionsCache.key === key && now - this.jitenDeckOptionsCache.at < 6e4) {
-        return this.jitenDeckOptionsCache.promise;
+      if (this.jitenStudyDecksCache && this.jitenStudyDecksCache.key === key && now - this.jitenStudyDecksCache.at < 6e4) {
+        return this.jitenStudyDecksCache.promise;
       }
-      const promise = jiten.listStudyDecks().then((decks) => decks.map((deck) => ({ id: `jiten:${deck.id}`, name: `Jiten · ${deck.name}` }))).catch(() => []);
-      this.jitenDeckOptionsCache = { key, at: now, promise };
+      const promise = jiten.listStudyDecks().then((decks) => decks.map((deck) => ({ id: deck.id, name: deck.name }))).catch(() => []);
+      this.jitenStudyDecksCache = { key, at: now, promise };
       return promise;
+    }
+    async loadAllJitenDeckBrowseCards(settings = this.dependencies.getSettings()) {
+      const jiten = this.dependencies.jiten;
+      if (typeof jiten?.listStudyDeckVocabularyCards !== "function") {
+        return typeof jiten?.listStudyBatchCards === "function" ? jiten.listStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT) : [];
+      }
+      const decks = await this.jitenStudyDecks(settings);
+      if (!decks.length) return jiten.listStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT);
+      const cards = await Promise.all(decks.map((deck) => this.loadJitenDeckBrowseCards(deck.id, NEW_TAB_BROWSE_DECK_LIMIT, deck.name)));
+      return dedupeWords(cards.flat()).slice(0, NEW_TAB_BROWSE_DECK_LIMIT);
+    }
+    async loadJitenDeckBrowseCards(deckId, limit = NEW_TAB_BROWSE_DECK_LIMIT, deckName) {
+      const jiten = this.dependencies.jiten;
+      if (typeof jiten?.listStudyDeckVocabularyCards !== "function") {
+        const result = await this.loadJitenStudyBatchWords({ limit, deckId });
+        return result?.cards ?? [];
+      }
+      const cards = await jiten.listStudyDeckVocabularyCards(deckId, limit);
+      const resolvedDeckName = deckName ?? (await this.jitenStudyDecks().catch(() => [])).find((deck) => deck.id === deckId)?.name ?? "";
+      return cards.map((card) => this.withJitenDeckMetadata(card, resolvedDeckName));
+    }
+    withJitenDeckMetadata(card, deckName) {
+      if (!deckName.trim()) return normalizeNewTabCard(card);
+      const normalized = normalizeNewTabCard(card);
+      const deckNames = [...new Set([...normalized.deckNames ?? [], deckName.trim()].filter(Boolean))];
+      return {
+        ...normalized,
+        deckNames,
+        sourceDeckName: normalized.sourceDeckName || deckName.trim()
+      };
     }
     async loadPublicJpdbWords() {
       const cards = await this.remoteSourceWithFallback(
@@ -65837,6 +65967,7 @@ ${entry.url}`),
           return;
         }
       }
+      if (this.index <= 0) return;
       this.navigateStudyWord(-1);
     }
     navigateStudyWord(direction) {
@@ -68862,6 +68993,16 @@ ${entry.url}`),
     async loadBrowsePool(onPartial) {
       const settings = this.dependencies.getSettings();
       const deck = (this.state.jpdbDeck || "").trim();
+      const jitenDeckId = jitenScopedDeckId(deck);
+      if (this.state.mode === "search" && jitenDeckId !== null) {
+        return this.loadScopedBrowsePool(`jiten-deck:${jitenDeckId}`, () => this.loadJitenDeckBrowseCards(jitenDeckId, NEW_TAB_BROWSE_DECK_LIMIT));
+      }
+      if (this.state.mode === "search" && deck === "provider:jiten") {
+        return this.loadScopedBrowsePool("provider:jiten", () => this.loadAllJitenDeckBrowseCards(settings));
+      }
+      if (this.state.mode === "search" && deck === "provider:jpdb" && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === "function") {
+        return this.loadScopedBrowsePool("provider:jpdb", () => this.dependencies.jpdb.listDeckCards("all", NEW_TAB_BROWSE_DECK_LIMIT).catch(() => []));
+      }
       if (this.state.mode === "search" && deck && deck !== "all" && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === "function") {
         const deckKey = `jpdb-deck:${deck}`;
         if (this.browsePool && this.browsePoolKey === deckKey) return this.browsePool;
@@ -68893,6 +69034,13 @@ ${entry.url}`),
       this.browsePoolKey = key;
       onPartial?.(cards);
       return cards;
+    }
+    async loadScopedBrowsePool(key, load) {
+      if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
+      const cards = await load().catch(() => []);
+      this.browsePool = dedupeWords(cards.map(normalizeNewTabCard));
+      this.browsePoolKey = key;
+      return this.browsePool;
     }
     renderSearchSuggestion(suggestion, index) {
       const detail = [suggestion.reading && suggestion.reading !== suggestion.query ? suggestion.reading : "", suggestion.meaning].filter(Boolean).join(" · ");
@@ -69027,10 +69175,9 @@ ${entry.url}`),
       replaceChildrenWith(slots.controls, buttons);
     }
     controlButtonsForCard(card) {
-      const undo = this.canUndoLastReview() ? [el("button", { type: "button", class: "jpdb-reader-newtab-undo-review", dataset: { newtabAction: "undo-review" } }, this.text("undoReview"))] : [];
-      if (!this.canReviewCard(card)) return [...undo, ...this.navigationControlButtons(this.text(this.state.revealAnswer ? "hide" : "reveal"))];
-      if (!this.state.revealAnswer) return [...undo, ...this.navigationControlButtons(this.text("reveal"))];
-      return [...undo, ...this.gradeControlButtons(card)];
+      if (!this.canReviewCard(card)) return this.navigationControlButtons(this.text(this.state.revealAnswer ? "hide" : "reveal"));
+      if (!this.state.revealAnswer) return this.navigationControlButtons(this.text("reveal"));
+      return this.gradeControlButtons(card);
     }
     canReviewCard(card) {
       if (this.isOfflineSourceLabel(this.sourceLabel) && !this.offlineGradeTargets(card).length) return false;

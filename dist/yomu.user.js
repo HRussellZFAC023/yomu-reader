@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.101
+// @version 1.4.102
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.101
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.101
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.101
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.101
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.102
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.102
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.102
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.102
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -25813,6 +25813,27 @@ class JitenApiClient {
     }
     return keys;
   }
+  async listStudyDeckVocabularyCards(deckId, limit = 5e3) {
+    const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
+    const cardLimit = Math.max(1, Math.floor(limit));
+    const cards = [];
+    let offset = 0;
+    while (cards.length < cardLimit) {
+      const page = normalizeJitenStudyDeckVocabularyPage(
+        await this.requestEndpoint(`srs/study-decks/${normalizedDeckId}/vocabulary`, void 0, {
+          method: "GET",
+          query: { offset }
+        })
+      );
+      if (!page.cards.length) break;
+      cards.push(...page.cards);
+      const pageSize = Math.max(1, page.pageSize || page.cards.length);
+      const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
+      if (nextOffset <= offset || nextOffset >= page.totalItems) break;
+      offset = nextOffset;
+    }
+    return cards.slice(0, cardLimit);
+  }
   async listStudyBatchCards(limit = 80) {
     const cardLimit = Math.max(1, Math.floor(limit));
     const response = await this.requestEndpoint("srs/study-batch", void 0, {
@@ -26044,6 +26065,51 @@ function normalizeJitenStudyBatchCards(response) {
   const cards = Array.isArray(response.cards) ? response.cards : [];
   return cards.map(jitenCardFromStudyCard).filter((card) => Boolean(card));
 }
+function normalizeJitenStudyDeckVocabularyPage(response) {
+  if (!isJsonRecord$1(response)) return { cards: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
+  const data = response.data ?? response.Data;
+  const cards = arrayOfRecords(data).map(jitenCardFromStudyDeckVocabularyWord).filter((card) => Boolean(card));
+  return {
+    cards,
+    totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? cards.length,
+    pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? cards.length,
+    currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
+  };
+}
+function jitenCardFromStudyDeckVocabularyWord(value) {
+  const word = value;
+  if (!isJsonRecord$1(word) || !isJsonRecord$1(word.mainReading)) return null;
+  const wordId = finiteJitenInteger(word.wordId);
+  const readingIndex = finiteJitenInteger(word.mainReading.readingIndex);
+  const annotatedText = typeof word.mainReading.text === "string" ? word.mainReading.text.trim() : "";
+  if (wordId === void 0 || readingIndex === void 0 || !annotatedText) return null;
+  const spelling = cleanJitenAnnotatedSpelling(annotatedText).trim() || cleanJitenAnnotatedReading$1(annotatedText).trim();
+  const reading = cleanJitenAnnotatedReading$1(annotatedText).trim() || spelling;
+  if (!spelling) return null;
+  return {
+    vid: wordId,
+    sid: readingIndex,
+    rid: 0,
+    spelling,
+    reading,
+    frequencyRank: positiveJitenInteger(word.mainReading.frequencyRank) ?? null,
+    partOfSpeech: arrayOfStrings(word.partsOfSpeech),
+    meanings: jitenStudyDeckVocabularyMeanings(word.definitions),
+    cardState: jitenKnownStateToCardStates(word.knownStates),
+    pitchAccent: jitenPitchAccentPatterns(word.pitchAccents, reading),
+    wordWithReading: annotatedText,
+    source: "jiten",
+    reviewSource: "jiten-api",
+    jitenWordId: wordId,
+    jitenReadingIndex: readingIndex
+  };
+}
+function jitenStudyDeckVocabularyMeanings(value) {
+  return arrayOfRecords(value).map((definition) => ({
+    glosses: arrayOfStrings(definition.meanings),
+    partOfSpeech: firstNonEmptyStringArray(definition.partsOfSpeech, definition.pos)
+  })).filter((meaning) => meaning.glosses.length);
+}
 function jitenCardFromStudyCard(card) {
   const wordId = finiteJitenInteger(card.wordId);
   const readingIndex = finiteJitenInteger(card.readingIndex);
@@ -26131,6 +26197,9 @@ const JITEN_FSRS_CARD_STATE_MAP = {
 };
 function cleanJitenAnnotatedReading$1(value) {
   return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[([^\]]+)\]/g, "$2");
+}
+function cleanJitenAnnotatedSpelling(value) {
+  return value.replace(/([\u4e00-\u9faf\u3005-\u3007]+)\[[^\]]+]/g, "$1");
 }
 function jitenKnownStateToCardStates(states) {
   const mapped = jitenStateNumbers(states).map((state) => JITEN_CARD_STATE_MAP[state]).filter((state) => Boolean(state));
@@ -26424,6 +26493,10 @@ function arrayOfRecords(value) {
 }
 function nullableFiniteInteger(value) {
   return finiteJitenInteger(value) ?? null;
+}
+function positiveJitenInteger(value) {
+  const parsed = finiteJitenInteger(value);
+  return parsed !== void 0 && parsed > 0 ? parsed : void 0;
 }
 function nullableFiniteNumber(value) {
   return finiteJitenNumber(value) ?? null;
