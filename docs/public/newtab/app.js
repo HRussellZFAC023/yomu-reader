@@ -30679,22 +30679,23 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? "";
     const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
     const canvases = pageCanvases();
-    const surfaces = canvases.length;
-    const content = canvasReaderContentToken(canvases);
+    const tokens = canvasReaderContentTokens(canvases);
+    const surfaces = tokens.length;
+    const content = tokens.join(",");
     const backgrounds = backgroundImagePages().map((element) => `${element.getAttribute("data-page-index") ?? ""}:${backgroundImageReaderUrl(element) ?? ""}`).join("|");
     return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
   }
-  function canvasReaderContentToken(canvases) {
+  function canvasReaderContentTokens(canvases) {
     let mirrorToken;
-    return canvases.map((canvas) => {
+    const tokens = canvases.map((canvas) => {
       try {
         const signature = canvasRenderedContentSignature(canvas);
         if (signature) return signature;
       } catch {
       }
-      mirrorToken ??= canvasMirrorTurnToken();
-      return mirrorToken;
-    }).join(",");
+      return mirrorToken ??= canvasMirrorTurnToken();
+    });
+    return [...new Set(tokens)].filter(Boolean);
   }
   function captureCanvasDataUrl(canvas, maxPixels) {
     try {
@@ -33452,6 +33453,8 @@ ${spelling}`);
   }
   const MAX_CACHE_ITEMS = 36;
   const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
+  const OCR_STATUS_READY_DWELL_MS = 1e3;
+  const OCR_STATUS_FADE_MS = 360;
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
@@ -33610,6 +33613,10 @@ ${spelling}`);
     canvasFrameSources = /* @__PURE__ */ new Map();
     canvasFrameStaticRects = /* @__PURE__ */ new Map();
     canvasFrameKeys = /* @__PURE__ */ new Map();
+    // Canvases whose frame the user explicitly tapped to create. A native-text-layer
+    // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
+    // tapped to make must survive that poll — only a real page turn drops it.
+    canvasFrameUserRequested = /* @__PURE__ */ new Set();
     backgroundFrames = /* @__PURE__ */ new Map();
     backgroundFrameSources = /* @__PURE__ */ new Map();
     backgroundFrameKeys = /* @__PURE__ */ new Map();
@@ -34413,15 +34420,33 @@ ${spelling}`);
       else if (status === "empty" || status === "failed") this.revealVideoFrameStatusAndResume(image);
       this.updateVideoFrameStatusForImage(image, status);
     }
-    // The OCR scanning/ready loading pill — the labeled "Scanning…/Text ready" chip on
-    // canvas readers (BookWalker/ComicWalker) AND the corner dot on ordinary images — is
-    // intentionally not shown. OCR is reliable enough that the indicator is just noise,
-    // and a clean, mokuro-like reveal (the overlay simply appears) is what's wanted, on
-    // every site. Any stray card is dropped. The VIDEO paused-frame status is unaffected:
-    // it routes through updateOcrStatus's video branch (applyVideoFrameStatusTransition),
-    // never here, and it gates the frame reveal / resume control so it must stay.
-    updateImageStatusCard(image, _status) {
-      this.removeImageStatusCard(image);
+    updateImageStatusCard(image, status) {
+      if (this.videoFrameVideos.has(image)) return;
+      if (!this.options.getSettings().ocrEnabled) return;
+      const existing = this.imageStatuses.get(image);
+      this.clearImageStatusTimer(image);
+      if (status === "empty") {
+        existing?.remove();
+        this.imageStatuses.delete(image);
+        return;
+      }
+      const card = existing ?? this.createVideoFrameStatus(status);
+      if (existing) this.setVideoFrameStatus(card, status);
+      else this.imageStatuses.set(image, card);
+      const isCanvasFrame = this.canvasFrameSources.has(image);
+      card.classList.toggle("jpdb-ocr-canvas-status", isCanvasFrame);
+      const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
+      if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
+      this.positionImageStatusCard(image, card);
+      if (status === "ready") this.scheduleImageStatusFade(image, card);
+    }
+    scheduleImageStatusFade(image, card) {
+      const dwell = window.setTimeout(() => {
+        card.classList.add("jpdb-ocr-video-frame-status-fade-out");
+        const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
+        this.imageStatusTimers.set(image, remove);
+      }, OCR_STATUS_READY_DWELL_MS);
+      this.imageStatusTimers.set(image, dwell);
     }
     clearImageStatusTimer(image) {
       const timer = this.imageStatusTimers.get(image);
@@ -34482,7 +34507,16 @@ ${spelling}`);
     refreshCanvasReaderSurfaces(settings, userRequested = false) {
       if (!settings.ocrEnabled || settings.ocrProvider === "off") return;
       if (this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested) {
-        this.releaseAllCanvasFrames();
+        if (!isReaderRasterPage()) {
+          this.releaseAllCanvasFrames();
+          return;
+        }
+        const signature2 = canvasReaderPageSignature();
+        const turned = signature2 !== this.canvasReaderSignature;
+        this.canvasReaderSignature = signature2;
+        for (const canvas of [...this.canvasFrames.keys()]) {
+          if (turned || !this.canvasFrameUserRequested.has(canvas)) this.releaseCanvasFrame(canvas);
+        }
         return;
       }
       if (!isReaderRasterPage()) {
@@ -34501,7 +34535,9 @@ ${spelling}`);
       }
       const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
       for (const canvas of [...this.canvasFrames.keys()]) {
-        if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
+        if (canvases.includes(canvas)) continue;
+        if (this.canvasFrames.get(canvas)?.complete === false) continue;
+        this.releaseCanvasFrame(canvas);
       }
       for (const canvas of canvases) {
         if (this.canvasFrames.has(canvas)) continue;
@@ -34568,6 +34604,8 @@ ${spelling}`);
         this.canvasFrames.set(canvas, frame);
         this.canvasFrameSources.set(frame, canvas);
         this.canvasFrameKeys.set(canvas, key);
+        if (userRequested) this.canvasFrameUserRequested.add(canvas);
+        else this.canvasFrameUserRequested.delete(canvas);
         this.clearCanvasCaptureRetry(canvas);
         this.canvasReaderSignature = canvasReaderPageSignature();
         if (frameRect !== rect) this.canvasFrameStaticRects.set(frame, frameRect);
@@ -34660,6 +34698,7 @@ ${spelling}`);
       this.canvasContentReadiness.delete(canvas);
       this.canvasCaptureAttempts.delete(canvas);
       this.canvasTapRecapture.delete(canvas);
+      this.canvasFrameUserRequested.delete(canvas);
       frame.remove();
     }
     releaseAllCanvasFrames() {

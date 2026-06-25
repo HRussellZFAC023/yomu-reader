@@ -90,6 +90,10 @@ interface OcrWordRenderState {
 
 const MAX_CACHE_ITEMS = 36;
 const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15000;
+// Flash the "ready" dot briefly so the user sees the scan finished, then fade
+// it away rather than leaving a solid dot lingering on a finished page.
+const OCR_STATUS_READY_DWELL_MS = 1000;
+const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 // A canvas capture can fail transiently — the DRM engine hasn't painted yet, or
 // the mirror recorder hasn't recorded the new page's draw ops when the poll races
 // a turn. Retry with backoff so the page is never left permanently un-OCR'd while
@@ -294,6 +298,10 @@ export class ImageOcrController {
     private canvasFrameSources = new Map<HTMLImageElement, HTMLCanvasElement>();
     private canvasFrameStaticRects = new Map<HTMLImageElement, DOMRect>();
     private canvasFrameKeys = new Map<HTMLCanvasElement, string>();
+    // Canvases whose frame the user explicitly tapped to create. A native-text-layer
+    // page (shouldAutoScan=false) strips AUTO frames on the poll, but a frame the user
+    // tapped to make must survive that poll — only a real page turn drops it.
+    private readonly canvasFrameUserRequested = new Set<HTMLCanvasElement>();
     private backgroundFrames = new Map<HTMLElement, HTMLImageElement>();
     private backgroundFrameSources = new Map<HTMLImageElement, HTMLElement>();
     private backgroundFrameKeys = new Map<HTMLElement, string>();
@@ -1278,15 +1286,41 @@ export class ImageOcrController {
         this.updateVideoFrameStatusForImage(image, status);
     }
 
-    // The OCR scanning/ready loading pill — the labeled "Scanning…/Text ready" chip on
-    // canvas readers (BookWalker/ComicWalker) AND the corner dot on ordinary images — is
-    // intentionally not shown. OCR is reliable enough that the indicator is just noise,
-    // and a clean, mokuro-like reveal (the overlay simply appears) is what's wanted, on
-    // every site. Any stray card is dropped. The VIDEO paused-frame status is unaffected:
-    // it routes through updateOcrStatus's video branch (applyVideoFrameStatusTransition),
-    // never here, and it gates the frame reveal / resume control so it must stay.
-    private updateImageStatusCard(image: HTMLImageElement, _status: OcrVideoFrameStatus): void {
-        this.removeImageStatusCard(image);
+    private updateImageStatusCard(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
+        if (this.videoFrameVideos.has(image)) return; // already shown over its video
+        if (!this.options.getSettings().ocrEnabled) return;
+        const existing = this.imageStatuses.get(image);
+        // Status changed — cancel any pending "ready" fade so a re-scan starts clean.
+        this.clearImageStatusTimer(image);
+        // No recognizable text — drop the loader rather than linger on the image.
+        if (status === 'empty') {
+            existing?.remove();
+            this.imageStatuses.delete(image);
+            return;
+        }
+        const card = existing ?? this.createVideoFrameStatus(status);
+        // setVideoFrameStatus rewrites the class list, clearing any fade-out class.
+        if (existing) this.setVideoFrameStatus(card, status);
+        else this.imageStatuses.set(image, card);
+        // Full-page canvas readers (BookWalker/ComicWalker) get the prominent labeled
+        // pill; ordinary inline images keep the unobtrusive corner dot (and the
+        // label span stays empty so their textContent is unchanged).
+        const isCanvasFrame = this.canvasFrameSources.has(image);
+        card.classList.toggle('jpdb-ocr-canvas-status', isCanvasFrame);
+        const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
+        if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : '';
+        this.positionImageStatusCard(image, card);
+        // "ready" is terminal: flash the green dot, then fade it out and remove it.
+        if (status === 'ready') this.scheduleImageStatusFade(image, card);
+    }
+
+    private scheduleImageStatusFade(image: HTMLImageElement, card: HTMLElement): void {
+        const dwell = window.setTimeout(() => {
+            card.classList.add('jpdb-ocr-video-frame-status-fade-out');
+            const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
+            this.imageStatusTimers.set(image, remove);
+        }, OCR_STATUS_READY_DWELL_MS);
+        this.imageStatusTimers.set(image, dwell);
     }
 
     private clearImageStatusTimer(image: HTMLImageElement): void {
@@ -1356,14 +1390,21 @@ export class ImageOcrController {
 
     private refreshCanvasReaderSurfaces(settings: ReaderSettings, userRequested = false): void {
         if (!settings.ocrEnabled || settings.ocrProvider === 'off') return;
-        // shouldAutoScan is false on pages that render their own native text layer
-        // (e.g. mokuro's .textBox): auto-OCRing the artwork misses characters the
-        // native layer has and double-paints, so strip auto frames there. Gate this
-        // to AUTO mode (ocrAutoScanImages): in tap/manual mode the user explicitly
         // asked to scan, so a background poll must NOT wipe the frame they tapped to
         // create — only a genuine page turn (detected below) should drop it.
         if (this.options.shouldAutoScan?.() === false && settings.ocrAutoScanImages && !userRequested) {
-            this.releaseAllCanvasFrames();
+            if (!isReaderRasterPage()) { this.releaseAllCanvasFrames(); return; }
+            // Native-text-layer page (mokuro et al.): strip AUTO frames so we don't
+            // double-paint the page's own text, but KEEP a frame the user explicitly
+            // tapped to create — only a real page turn drops that. Releasing everything
+            // here wiped a just-tapped frame on the very next background poll. Never
+            // auto-capture from this path (that is the whole point of the gate).
+            const signature = canvasReaderPageSignature();
+            const turned = signature !== this.canvasReaderSignature;
+            this.canvasReaderSignature = signature;
+            for (const canvas of [...this.canvasFrames.keys()]) {
+                if (turned || !this.canvasFrameUserRequested.has(canvas)) this.releaseCanvasFrame(canvas);
+            }
             return;
         }
         if (!isReaderRasterPage()) {
@@ -1390,7 +1431,12 @@ export class ImageOcrController {
         }
         const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
         for (const canvas of [...this.canvasFrames.keys()]) {
-            if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
+            if (canvases.includes(canvas)) continue;
+            // Don't drop a frame whose image is still loading — a transient off-screen
+            // blip (layout shift right after capture, before the mirror image decodes)
+            // would otherwise waste the in-flight capture and leave the page un-OCR'd.
+            if (this.canvasFrames.get(canvas)?.complete === false) continue;
+            this.releaseCanvasFrame(canvas);
         }
         for (const canvas of canvases) {
             if (this.canvasFrames.has(canvas)) continue;
@@ -1472,6 +1518,8 @@ export class ImageOcrController {
             this.canvasFrames.set(canvas, frame);
             this.canvasFrameSources.set(frame, canvas);
             this.canvasFrameKeys.set(canvas, key);
+            if (userRequested) this.canvasFrameUserRequested.add(canvas);
+            else this.canvasFrameUserRequested.delete(canvas);
             this.clearCanvasCaptureRetry(canvas);
             // Sync the page-turn signature to the state we just captured. A tap
             // (userRequested) reaches snapshotCanvasSurface WITHOUT going through
@@ -1577,6 +1625,7 @@ export class ImageOcrController {
         this.canvasContentReadiness.delete(canvas);
         this.canvasCaptureAttempts.delete(canvas);
         this.canvasTapRecapture.delete(canvas);
+        this.canvasFrameUserRequested.delete(canvas);
         frame.remove();
     }
 

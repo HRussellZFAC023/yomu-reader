@@ -4,6 +4,11 @@ import '../../src/reader/companions/register-build-companions';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { applyPreferredJapaneseSiteLanguage } from '../../src/reader/app/preferred-site-language';
 
+if (typeof document !== 'undefined' && !document.elementFromPoint) {
+    document.elementFromPoint = () => null;
+}
+
+
 const TEST_LANGUAGE = 'en-US';
 const TEST_LANGUAGES = ['en-US', 'en'] as const;
 const PREFERRED_SITE_LANGUAGE_CACHE_KEY = 'yomu:prefer-japanese-site-language';

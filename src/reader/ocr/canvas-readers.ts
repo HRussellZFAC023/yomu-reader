@@ -257,30 +257,37 @@ export function canvasReaderPageSignature(): string {
     const counter = document.querySelector(PAGE_COUNTER_SELECTOR)?.textContent?.trim() ?? '';
     const scroll = isBookwalkerViewerHost() ? Math.round((window.scrollY || 0) / 40) : 0;
     const canvases = pageCanvases();
-    const surfaces = canvases.length;
-    const content = canvasReaderContentToken(canvases);
+    // Key on DISTINCT page content, not raw canvas count: NFBR transiently mounts a
+    // second blank/decoy canvas in the same viewport mid-turn, and a bare count would
+    // flip the signature (spurious frame release + re-OCR) for what is still the same
+    // page. Deduped, content-bearing tokens stay stable across that flicker while a
+    // real turn (counter advance, or a new rendered pixel hash / mirror epoch) still
+    // changes the signature.
+    const tokens = canvasReaderContentTokens(canvases);
+    const surfaces = tokens.length;
+    const content = tokens.join(',');
     const backgrounds = backgroundImagePages()
         .map(element => `${element.getAttribute('data-page-index') ?? ''}:${backgroundImageReaderUrl(element) ?? ''}`)
         .join('|');
     return `${counter}|${scroll}|${surfaces}|${content}|${backgrounds}`;
 }
 
-// Per-canvas content fingerprint that changes when the painted page changes.
-// Readable canvases hash their pixels; tainted ones fall back to the mirror
+// Distinct content fingerprints for the page canvases, blank/duplicate tokens
+// dropped. Readable canvases hash their pixels; tainted ones fall back to the mirror
 // recorder's shared-DOM turn token (one value for the whole viewer, bumped per
-// composite). Never throws — a failed sample contributes an empty string.
-function canvasReaderContentToken(canvases: HTMLCanvasElement[]): string {
+// composite). Never throws — a failed sample contributes nothing. Deduping means a
+// transient blank flicker canvas (empty token) and a duplicate of the same painted
+// page don't perturb the signature, while genuinely different pages still each count.
+function canvasReaderContentTokens(canvases: HTMLCanvasElement[]): string[] {
     let mirrorToken: string | undefined;
-    return canvases
-        .map(canvas => {
-            try {
-                const signature = canvasRenderedContentSignature(canvas);
-                if (signature) return signature;
-            } catch { /* tainted — fall through to the mirror token */ }
-            mirrorToken ??= canvasMirrorTurnToken();
-            return mirrorToken;
-        })
-        .join(',');
+    const tokens = canvases.map(canvas => {
+        try {
+            const signature = canvasRenderedContentSignature(canvas);
+            if (signature) return signature;
+        } catch { /* tainted — fall through to the mirror token */ }
+        return (mirrorToken ??= canvasMirrorTurnToken());
+    });
+    return [...new Set(tokens)].filter(Boolean);
 }
 
 /** Snapshot a page canvas to a JPEG data URL, downscaling past `maxPixels`. */

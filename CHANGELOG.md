@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.117] - 2026-06-25
+
+### Fixed
+
+- Restored the OCR "Scanning…/Text ready" loading pill on canvas readers (BookWalker, ComicWalker) and the corner status dot on ordinary images. The indicator was removed in 1.4.114 but its absence left users with no feedback that OCR was in progress, which was confusing on slower scans or double-page spreads.
+
 ## [1.4.116] - 2026-06-25
 
 ### Fixed
