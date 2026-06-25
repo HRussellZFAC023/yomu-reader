@@ -35,11 +35,6 @@
   </a>
 </p>
 
-<p>
-  <a href="https://yomureader.com/video-player/index.html">
-    <img src="https://yomureader.com/screenshots/real-video-player.png" alt="The よむ video reader with Japanese subtitles and lookup tools" width="760" />
-  </a>
-</p>
 
 </div>
 
