@@ -33441,8 +33441,6 @@ ${spelling}`);
   }
   const MAX_CACHE_ITEMS = 36;
   const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15e3;
-  const OCR_STATUS_READY_DWELL_MS = 1e3;
-  const OCR_STATUS_FADE_MS = 360;
   const READER_RASTER_RETRY_BASE_MS = 140;
   const READER_RASTER_RETRY_MAX_MS = 1100;
   const READER_RASTER_MAX_CAPTURE_ATTEMPTS = 8;
@@ -34404,33 +34402,15 @@ ${spelling}`);
       else if (status === "empty" || status === "failed") this.revealVideoFrameStatusAndResume(image);
       this.updateVideoFrameStatusForImage(image, status);
     }
-    updateImageStatusCard(image, status) {
-      if (this.videoFrameVideos.has(image)) return;
-      if (!this.options.getSettings().ocrEnabled) return;
-      const existing = this.imageStatuses.get(image);
-      this.clearImageStatusTimer(image);
-      if (status === "empty") {
-        existing?.remove();
-        this.imageStatuses.delete(image);
-        return;
-      }
-      const card = existing ?? this.createVideoFrameStatus(status);
-      if (existing) this.setVideoFrameStatus(card, status);
-      else this.imageStatuses.set(image, card);
-      const isCanvasFrame = this.canvasFrameSources.has(image);
-      card.classList.toggle("jpdb-ocr-canvas-status", isCanvasFrame);
-      const labelNode = card.querySelector(".jpdb-ocr-video-frame-status-label");
-      if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : "";
-      this.positionImageStatusCard(image, card);
-      if (status === "ready") this.scheduleImageStatusFade(image, card);
-    }
-    scheduleImageStatusFade(image, card) {
-      const dwell = window.setTimeout(() => {
-        card.classList.add("jpdb-ocr-video-frame-status-fade-out");
-        const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
-        this.imageStatusTimers.set(image, remove);
-      }, OCR_STATUS_READY_DWELL_MS);
-      this.imageStatusTimers.set(image, dwell);
+    // The OCR scanning/ready loading pill — the labeled "Scanning…/Text ready" chip on
+    // canvas readers (BookWalker/ComicWalker) AND the corner dot on ordinary images — is
+    // intentionally not shown. OCR is reliable enough that the indicator is just noise,
+    // and a clean, mokuro-like reveal (the overlay simply appears) is what's wanted, on
+    // every site. Any stray card is dropped. The VIDEO paused-frame status is unaffected:
+    // it routes through updateOcrStatus's video branch (applyVideoFrameStatusTransition),
+    // never here, and it gates the frame reveal / resume control so it must stay.
+    updateImageStatusCard(image, _status) {
+      this.removeImageStatusCard(image);
     }
     clearImageStatusTimer(image) {
       const timer = this.imageStatusTimers.get(image);

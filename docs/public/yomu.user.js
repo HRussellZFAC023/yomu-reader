@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.113
+// @version 1.4.114
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.113
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.113
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.113
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.113
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.114
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.114
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.114
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.114
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -38123,10 +38123,19 @@ function pointOverReaderRoot(event) {
 function readerRootGestureLeaks(event) {
   return !eventTargetsReaderRoot(event) && pointOverReaderRoot(event);
 }
-const READER_ROOT_SCROLL_EVENTS = ["touchmove", "wheel"];
 const READER_ROOT_SCROLL_BODY_SELECTOR = ".jpdb-reader-settings-scroll, .jpdb-reader-popover-body, .jpdb-reader-onboarding";
-function eventTargetsReaderScrollBody(event) {
-  return Boolean(event.target?.closest?.(READER_ROOT_SCROLL_BODY_SELECTOR));
+function readerScrollBodyForEvent(event) {
+  return event.target?.closest?.(READER_ROOT_SCROLL_BODY_SELECTOR) ?? null;
+}
+const READER_INTERACTIVE_CONTROL_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
+function eventTargetsInteractiveControl(event) {
+  return Boolean(event.target?.closest?.(READER_INTERACTIVE_CONTROL_SELECTOR));
+}
+function manualScrollReaderBody(body, deltaY) {
+  const maxTop = body.scrollHeight - body.clientHeight;
+  if (maxTop <= 0 || !deltaY) return false;
+  body.scrollTop = Math.max(0, Math.min(maxTop, body.scrollTop + deltaY));
+  return true;
 }
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
@@ -39457,14 +39466,44 @@ class ReaderApp {
     for (const gestureType of READER_ROOT_GESTURE_EVENTS) {
       document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
     }
-    const guardReaderRootScroll = (event) => {
-      if (!eventTargetsReaderScrollBody(event)) return;
-      event.stopPropagation();
-      event.stopImmediatePropagation();
+    let scrollDragBody = null;
+    let scrollDragLastY = 0;
+    const onScrollDragStart = (event) => {
+      scrollDragBody = eventTargetsInteractiveControl(event) ? null : readerScrollBodyForEvent(event);
+      scrollDragLastY = event.touches[0]?.clientY ?? 0;
     };
-    for (const scrollType of READER_ROOT_SCROLL_EVENTS) {
-      window.addEventListener(scrollType, guardReaderRootScroll, { capture: true, passive: true });
-    }
+    const onScrollDragMove = (event) => {
+      if (!scrollDragBody?.isConnected || event.touches.length > 1) return;
+      const y = event.touches[0]?.clientY;
+      if (typeof y !== "number") return;
+      const consumed = manualScrollReaderBody(scrollDragBody, scrollDragLastY - y);
+      scrollDragLastY = y;
+      if (consumed && event.cancelable) event.preventDefault();
+    };
+    const endScrollDrag = () => {
+      scrollDragBody = null;
+    };
+    const onScrollWheel = (event) => {
+      if (eventTargetsInteractiveControl(event)) return;
+      const body = readerScrollBodyForEvent(event);
+      const px = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * (body?.clientHeight ?? 0) : event.deltaY;
+      if (!body || !manualScrollReaderBody(body, px)) return;
+      if (event.cancelable) event.preventDefault();
+    };
+    let scrollDriveAttached = false;
+    const setScrollDrive = (on) => {
+      if (on === scrollDriveAttached) return;
+      scrollDriveAttached = on;
+      const bind = (on ? document.addEventListener : document.removeEventListener).bind(document);
+      bind("touchstart", onScrollDragStart, { capture: true, passive: true });
+      bind("touchmove", onScrollDragMove, { capture: true, passive: false });
+      bind("touchend", endScrollDrag, { capture: true, passive: true });
+      bind("touchcancel", endScrollDrag, { capture: true, passive: true });
+      bind("wheel", onScrollWheel, { capture: true, passive: false });
+    };
+    const syncScrollDrive = () => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
+    syncScrollDrive();
+    new MutationObserver(syncScrollDrive).observe(document.body, { childList: true });
     document.addEventListener("click", (event) => this.handleDocumentClick(event), { capture: true });
     document.addEventListener("mousedown", (event) => {
       if (this.isDestroyed) return;

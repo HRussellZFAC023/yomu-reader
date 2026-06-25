@@ -366,33 +366,45 @@ function readerRootGestureLeaks(event: Event): boolean {
 }
 
 // Scroll-lock hosts (BookWalker/NFBR and other fullscreen readers) register a
-// non-passive touchmove/wheel listener that preventDefault()s every scroll so the
-// page can't move under their viewer. When a Yomu overlay (settings dialog, popover,
-// onboarding) opens on top, scrolling INSIDE it fires touchmove/wheel that the host's
-// listener also preventDefault()s — so the panel can't scroll on mobile at all. We
-// can't undo the host's preventDefault, but we can stop the host's listener from ever
-// running for a scroll that belongs to our overlay: a window capture-phase listener
-// fires before any host listener on document (either phase) or window-BUBBLE (capture
-// descends window→document, then bubbles back up), so stopImmediatePropagation there
-// means the host never preventDefaults — and because we DON'T preventDefault ourselves,
-// the browser still natively scrolls the overlay's own container (overscroll-behavior:
-// contain keeps it from chaining to the page). The one shape we can't out-order is a
-// host that locks on window-CAPTURE and registered before us; in practice the targeted
-// readers load their viewer engine late (after this runs) so we still precede them, but
-// it is not a positional guarantee like the document/bubble cases.
-const READER_ROOT_SCROLL_EVENTS = ['touchmove', 'wheel'] as const;
-// Scoped to our scrollable overlay BODIES only — NOT whole overlays. We match on the
-// event's TARGET (not elementFromPoint): a touch's target is fixed at touchstart, so a
-// sheet-drag that began on the handle keeps the handle as its target for the whole
-// gesture and is never matched here — the popover sheet-drag (handle-drag.ts) and the
-// popover-body stabilizer are never starved, the drag handles sit outside these scroll
-// bodies, and the newtab swipe target is page content. Matching the target is also far
-// cheaper than a per-touchmove hit-test. Panel/sheet DRAG uses pointer events
-// (touch-action:none), untouched by a touchmove/wheel guard regardless.
+// non-passive touch/wheel listener that preventDefault()s every scroll so the page
+// can't move under their viewer. That also kills scrolling INSIDE a Yomu overlay
+// (settings dialog, popover, onboarding) that opens on top — on mobile the panel
+// can't scroll at all. Trying to out-race the host (stop its listener before it runs)
+// is fragile: a lock on window-CAPTURE registered before us, or on `touchstart`, or
+// living in the page realm while we run in an isolated content world, all defeat a
+// capture-phase stopPropagation. So instead of fighting the host's preventDefault we
+// IGNORE it and drive the scroll ourselves: a document-level touch-drag / wheel
+// handler sets the overlay body's scrollTop directly. Setting scrollTop is not a
+// cancellable "default action", so it works even while the host preventDefaults native
+// scrolling — independent of listener phase, registration order, and realm (document
+// listeners demonstrably fire on these hosts; the OCR tap-swallow relies on the same).
+// Scoped by event TARGET to scroll BODIES (a touch's target is fixed at touchstart, so
+// a sheet-drag that began on the handle is never matched — the popover sheet-drag,
+// the popover-body stabilizer, the newtab swipe and the OCR overlay are all untouched).
+// Trade-off: these utility panels lose native fling momentum (1:1 drag), which is fine.
 const READER_ROOT_SCROLL_BODY_SELECTOR = '.jpdb-reader-settings-scroll, .jpdb-reader-popover-body, .jpdb-reader-onboarding';
 
-function eventTargetsReaderScrollBody(event: Event): boolean {
-    return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SCROLL_BODY_SELECTOR));
+function readerScrollBodyForEvent(event: Event): HTMLElement | null {
+    return (event.target as Element | null)?.closest?.<HTMLElement>(READER_ROOT_SCROLL_BODY_SELECTOR) ?? null;
+}
+
+// A gesture on an editable / form control inside an overlay body must keep its native
+// behaviour (text caret + selection, a textarea's own scroll, native option lists) —
+// the uchisen image-generation panel renders multi-line <textarea>s into the popover
+// body — so the manual scroll driver leaves those alone.
+const READER_INTERACTIVE_CONTROL_SELECTOR = 'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"]';
+
+function eventTargetsInteractiveControl(event: Event): boolean {
+    return Boolean((event.target as Element | null)?.closest?.(READER_INTERACTIVE_CONTROL_SELECTOR));
+}
+
+// Move `body` by `deltaY` if it can scroll that way; returns true when it consumed the
+// gesture (so the caller claims it and the host/page never act on the leftover).
+function manualScrollReaderBody(body: HTMLElement, deltaY: number): boolean {
+    const maxTop = body.scrollHeight - body.clientHeight;
+    if (maxTop <= 0 || !deltaY) return false;
+    body.scrollTop = Math.max(0, Math.min(maxTop, body.scrollTop + deltaY));
+    return true;
 }
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
@@ -1942,22 +1954,57 @@ export class ReaderApp {
             document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
         }
 
-        // Keep a scroll-locking host (BookWalker/NFBR et al. preventDefault touchmove/
-        // wheel to freeze their viewer) from killing scroll INSIDE a Yomu overlay body.
-        // On window-capture (fires before any host document-level or window-bubble lock)
-        // we stop the scroll from reaching the host when its target is our scroll body —
-        // without preventDefault, so the body's own container still scrolls natively.
-        // Bound to window (not document) so it precedes a host's document-level lock;
-        // passive:true is fine — we never call preventDefault. Scoped to scroll BODIES so
-        // Yomu's own sheet-drag / stabilizer handlers aren't starved.
-        const guardReaderRootScroll = (event: Event): void => {
-            if (!eventTargetsReaderScrollBody(event)) return;
-            event.stopPropagation();
-            event.stopImmediatePropagation();
+        // Drive scroll inside a Yomu overlay body ourselves so a scroll-locking host
+        // (BookWalker/NFBR et al. preventDefault touch/wheel to freeze their viewer)
+        // can't keep the panel from scrolling on mobile. We set scrollTop directly (not
+        // a cancellable default action) so it works regardless of the host's
+        // preventDefault, listener phase, registration order, or realm. (The only shape
+        // that could still starve it is a host that STOPS propagation before our
+        // document-capture listener — scroll-locks preventDefault, they don't.)
+        // A non-passive touch/wheel listener pessimises the browser's threaded scrolling,
+        // so we attach these ONLY while an overlay is actually open — gated by the
+        // observer below — and never during ordinary browsing.
+        let scrollDragBody: HTMLElement | null = null;
+        let scrollDragLastY = 0;
+        const onScrollDragStart = (event: TouchEvent): void => {
+            // Editable / form controls keep native touch (caret, selection, option lists).
+            scrollDragBody = eventTargetsInteractiveControl(event) ? null : readerScrollBodyForEvent(event);
+            scrollDragLastY = event.touches[0]?.clientY ?? 0;
         };
-        for (const scrollType of READER_ROOT_SCROLL_EVENTS) {
-            window.addEventListener(scrollType, guardReaderRootScroll, { capture: true, passive: true });
-        }
+        const onScrollDragMove = (event: TouchEvent): void => {
+            if (!scrollDragBody?.isConnected || event.touches.length > 1) return; // pinch → native
+            const y = event.touches[0]?.clientY;
+            if (typeof y !== 'number') return;
+            const consumed = manualScrollReaderBody(scrollDragBody, scrollDragLastY - y);
+            scrollDragLastY = y;
+            if (consumed && event.cancelable) event.preventDefault(); // the line above already moved the body
+        };
+        const endScrollDrag = (): void => { scrollDragBody = null; };
+        const onScrollWheel = (event: WheelEvent): void => {
+            if (eventTargetsInteractiveControl(event)) return;
+            const body = readerScrollBodyForEvent(event);
+            // deltaMode: 0=pixels, 1=lines, 2=pages — normalise so a notch scrolls sanely.
+            const px = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * (body?.clientHeight ?? 0) : event.deltaY;
+            if (!body || !manualScrollReaderBody(body, px)) return;
+            if (event.cancelable) event.preventDefault();
+        };
+        let scrollDriveAttached = false;
+        const setScrollDrive = (on: boolean): void => {
+            if (on === scrollDriveAttached) return;
+            scrollDriveAttached = on;
+            const bind = (on ? document.addEventListener : document.removeEventListener).bind(document);
+            bind('touchstart', onScrollDragStart as EventListener, { capture: true, passive: true });
+            bind('touchmove', onScrollDragMove as EventListener, { capture: true, passive: false });
+            bind('touchend', endScrollDrag, { capture: true, passive: true });
+            bind('touchcancel', endScrollDrag, { capture: true, passive: true });
+            bind('wheel', onScrollWheel as EventListener, { capture: true, passive: false });
+        };
+        // Overlays mount as document.body children; attach the scroll driver only while
+        // one carrying a scroll body is present (cheap querySelector, run only when body's
+        // direct children change — never on every scroll).
+        const syncScrollDrive = (): void => setScrollDrive(Boolean(document.querySelector(READER_ROOT_SCROLL_BODY_SELECTOR)));
+        syncScrollDrive();
+        new MutationObserver(syncScrollDrive).observe(document.body, { childList: true });
 
         document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true });
 

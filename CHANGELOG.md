@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.114] - 2026-06-25
+
+### Fixed
+
+- Scrolling now works inside the settings panel and the dictionary popover on BookWalker (and other fullscreen readers that lock page scrolling) on mobile. These viewers `preventDefault()` every touch/wheel scroll to freeze the page under their reader, which also killed scrolling inside Yomu's overlays — and the earlier attempt (stopping the host's listener) couldn't beat a viewer that locks earlier than Yomu loads, via `touchstart`, or from a different realm. Yomu now drives the overlay's scroll itself (setting `scrollTop` directly in response to a touch drag or wheel), which works no matter how the host locks scrolling. Scoped to overlay scroll bodies — and to non-editable areas — so page-turn, sheet-drag, and text-field gestures are unaffected, and the non-passive listeners are attached only while an overlay is open.
+
+### Changed
+
+- Removed the OCR "Scanning…/Text ready" pill (and the small loading dot on inline images) on all sites. Now that OCR is reliable, the indicator was just noise — the overlay simply appears, mokuro-style. (The paused-video frame OCR keeps its status, since it doubles as the resume control.)
+
 ## [1.4.113] - 2026-06-25
 
 ### Fixed

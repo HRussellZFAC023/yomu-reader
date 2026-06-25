@@ -90,10 +90,6 @@ interface OcrWordRenderState {
 
 const MAX_CACHE_ITEMS = 36;
 const LOCAL_OCR_UNAVAILABLE_RETRY_MS = 15000;
-// Flash the "ready" dot briefly so the user sees the scan finished, then fade
-// it away rather than leaving a solid dot lingering on a finished page.
-const OCR_STATUS_READY_DWELL_MS = 1000;
-const OCR_STATUS_FADE_MS = 360; // keep in sync with the CSS opacity transition
 // A canvas capture can fail transiently — the DRM engine hasn't painted yet, or
 // the mirror recorder hasn't recorded the new page's draw ops when the poll races
 // a turn. Retry with backoff so the page is never left permanently un-OCR'd while
@@ -1282,41 +1278,15 @@ export class ImageOcrController {
         this.updateVideoFrameStatusForImage(image, status);
     }
 
-    private updateImageStatusCard(image: HTMLImageElement, status: OcrVideoFrameStatus): void {
-        if (this.videoFrameVideos.has(image)) return; // already shown over its video
-        if (!this.options.getSettings().ocrEnabled) return;
-        const existing = this.imageStatuses.get(image);
-        // Status changed — cancel any pending "ready" fade so a re-scan starts clean.
-        this.clearImageStatusTimer(image);
-        // No recognizable text — drop the loader rather than linger on the image.
-        if (status === 'empty') {
-            existing?.remove();
-            this.imageStatuses.delete(image);
-            return;
-        }
-        const card = existing ?? this.createVideoFrameStatus(status);
-        // setVideoFrameStatus rewrites the class list, clearing any fade-out class.
-        if (existing) this.setVideoFrameStatus(card, status);
-        else this.imageStatuses.set(image, card);
-        // Full-page canvas readers (BookWalker/ComicWalker) get the prominent labeled
-        // pill; ordinary inline images keep the unobtrusive corner dot (and the
-        // label span stays empty so their textContent is unchanged).
-        const isCanvasFrame = this.canvasFrameSources.has(image);
-        card.classList.toggle('jpdb-ocr-canvas-status', isCanvasFrame);
-        const labelNode = card.querySelector('.jpdb-ocr-video-frame-status-label');
-        if (labelNode) labelNode.textContent = isCanvasFrame ? uiText(this.options.getSettings().interfaceLanguage, videoFrameStatusTextKey(status)) : '';
-        this.positionImageStatusCard(image, card);
-        // "ready" is terminal: flash the green dot, then fade it out and remove it.
-        if (status === 'ready') this.scheduleImageStatusFade(image, card);
-    }
-
-    private scheduleImageStatusFade(image: HTMLImageElement, card: HTMLElement): void {
-        const dwell = window.setTimeout(() => {
-            card.classList.add('jpdb-ocr-video-frame-status-fade-out');
-            const remove = window.setTimeout(() => this.removeImageStatusCard(image), OCR_STATUS_FADE_MS);
-            this.imageStatusTimers.set(image, remove);
-        }, OCR_STATUS_READY_DWELL_MS);
-        this.imageStatusTimers.set(image, dwell);
+    // The OCR scanning/ready loading pill — the labeled "Scanning…/Text ready" chip on
+    // canvas readers (BookWalker/ComicWalker) AND the corner dot on ordinary images — is
+    // intentionally not shown. OCR is reliable enough that the indicator is just noise,
+    // and a clean, mokuro-like reveal (the overlay simply appears) is what's wanted, on
+    // every site. Any stray card is dropped. The VIDEO paused-frame status is unaffected:
+    // it routes through updateOcrStatus's video branch (applyVideoFrameStatusTransition),
+    // never here, and it gates the frame reveal / resume control so it must stay.
+    private updateImageStatusCard(image: HTMLImageElement, _status: OcrVideoFrameStatus): void {
+        this.removeImageStatusCard(image);
     }
 
     private clearImageStatusTimer(image: HTMLImageElement): void {
