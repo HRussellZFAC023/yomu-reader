@@ -39,7 +39,7 @@ function stripGeneratedPureAnnotations(value) {
 
 function stripRedundantMetadata(value) {
   return value.split('\n')
-    .filter(line => !/^\/\/ @(?:author|homepageURL|source|supportURL)\b/.test(line))
+    .filter(line => !/^\/\/ @(?:homepageURL|source|supportURL)\b/.test(line))
     .join('\n');
 }
 

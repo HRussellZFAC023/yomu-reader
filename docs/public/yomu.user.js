@@ -2,6 +2,7 @@
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
 // @version 1.4.111
+// @author Henry Russell
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
