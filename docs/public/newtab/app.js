@@ -7541,12 +7541,47 @@ recommendedJiten	Jiten頻度です。
     loopingScanHosts.add(host);
     return true;
   }
+  const FRAMEWORK_OWNERSHIP_KEY_RE = /^(?:__reactFiber\$|__reactProps\$|__reactInternalInstance\$|__reactContainer\$|__vue__|__vnode|__vueParentComponent|__ngContext__|__svelte)/;
+  const FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT = 6;
+  const LIVE_FRAMEWORK_CHAT_HOST_SELECTOR = '[data-message-author-role],[data-message-id],[data-testid*="conversation-turn" i],[data-testid*="chat-message" i],[data-testid*="message-content" i],[data-testid*="message-bubble" i],[data-test-id*="chat-message" i],[data-test-id*="message-content" i],.markdown,.markdown-body,.markdown-content,.message,.message-body,.message-content,.messageContent,.chat-message,.conversation-turn,.model-response,.model-response-text,.response-content,.font-claude-message';
+  const frameworkManagedElements = /* @__PURE__ */ new WeakSet();
+  function elementHasFrameworkOwnershipMarker(element) {
+    for (const key of Object.getOwnPropertyNames(element)) {
+      if (FRAMEWORK_OWNERSHIP_KEY_RE.test(key)) return true;
+    }
+    return false;
+  }
+  function elementIsFrameworkManaged(element) {
+    let current = element;
+    for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
+      if (frameworkManagedElements.has(current)) return true;
+      if (elementHasFrameworkOwnershipMarker(current)) {
+        frameworkManagedElements.add(current);
+        return true;
+      }
+    }
+    return false;
+  }
+  function hostInConversationContext(host) {
+    if (host.closest(LIVE_FRAMEWORK_CHAT_HOST_SELECTOR)) return true;
+    let current = host;
+    for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
+      if (isConversationTextClass(current)) return true;
+    }
+    return false;
+  }
+  function scanHostIsLiveFrameworkRegion(host) {
+    if (host.closest('[contenteditable="true"]')) return false;
+    if (!elementIsFrameworkManaged(host)) return false;
+    return hostInConversationContext(host);
+  }
   function applyTokensToScanTarget(target, tokens, settings) {
     if (target.controlTextMirror) {
       applyTokensToControlTextMirrorTarget(target, tokens, settings);
       return;
     }
-    if (!target.forceInlineRender && (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text))) {
+    const nonDestructiveHost = nonDestructiveScanHost(target);
+    if (!target.forceInlineRender && (target.nonDestructive || scanHostIsLiveFrameworkRegion(nonDestructiveHost) || scanHostIsRepaintLooping(nonDestructiveHost, target.text))) {
       applyTokensToNonDestructiveScanTarget(target, tokens, settings);
       return;
     }

@@ -1090,12 +1090,73 @@ function scanHostIsRepaintLooping(host: HTMLElement, text: string): boolean {
     return true;
 }
 
+// React/Vue/Angular/Svelte tag every DOM node they render with a private expando
+// (e.g. __reactFiber$<hash>, __reactProps$<hash>, __vnode, __ngContext__) and keep
+// a live reference to the original Text node in their fiber/vnode/render tree. Our
+// destructive paint REPLACES that Text node with word/ruby spans (node.replaceWith),
+// so the framework's next re-render calls removeChild/insertBefore on a node that is
+// no longer where it expects and throws synchronously — which is exactly the ChatGPT
+// failure: a streaming assistant message hits the React error boundary ("このメッセージ
+// を表示できません"), and the shared layout collapses (fat composer, displaced send
+// button). The repaint-loop/rejection guards below are reactive and fire only AFTER a
+// re-render, so they cannot prevent that first synchronous crash, and streaming text
+// never repeats identically. For framework-owned LIVE regions we therefore render
+// non-destructively up front: the overlay mirror never mutates the framework's nodes,
+// so it keeps full ownership and re-renders freely. Scoped to conversation/message
+// surfaces (the streaming category) so static framework article pages keep the
+// higher-fidelity inline destructive paint and the reactive guards still cover the rest.
+const FRAMEWORK_OWNERSHIP_KEY_RE = /^(?:__reactFiber\$|__reactProps\$|__reactInternalInstance\$|__reactContainer\$|__vue__|__vnode|__vueParentComponent|__ngContext__|__svelte)/;
+const FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT = 6;
+const LIVE_FRAMEWORK_CHAT_HOST_SELECTOR = '[data-message-author-role],[data-message-id],[data-testid*="conversation-turn" i],[data-testid*="chat-message" i],[data-testid*="message-content" i],[data-testid*="message-bubble" i],[data-test-id*="chat-message" i],[data-test-id*="message-content" i],.markdown,.markdown-body,.markdown-content,.message,.message-body,.message-content,.messageContent,.chat-message,.conversation-turn,.model-response,.model-response-text,.response-content,.font-claude-message';
+const frameworkManagedElements = new WeakSet<Element>();
+
+function elementHasFrameworkOwnershipMarker(element: Element): boolean {
+    for (const key of Object.getOwnPropertyNames(element)) {
+        if (FRAMEWORK_OWNERSHIP_KEY_RE.test(key)) return true;
+    }
+    return false;
+}
+
+// Walk a bounded set of ancestors: frameworks tag most but not every node, and the
+// host of a text run is usually a component-rendered element that carries the marker.
+function elementIsFrameworkManaged(element: Element | null): boolean {
+    let current = element;
+    for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
+        if (frameworkManagedElements.has(current)) return true;
+        if (elementHasFrameworkOwnershipMarker(current)) {
+            frameworkManagedElements.add(current);
+            return true;
+        }
+    }
+    return false;
+}
+
+function hostInConversationContext(host: HTMLElement): boolean {
+    if (host.closest(LIVE_FRAMEWORK_CHAT_HOST_SELECTOR)) return true;
+    let current: HTMLElement | null = host;
+    for (let depth = 0; current && depth < FRAMEWORK_OWNERSHIP_ANCESTOR_LIMIT; depth++, current = current.parentElement) {
+        if (isConversationTextClass(current)) return true;
+    }
+    return false;
+}
+
+function scanHostIsLiveFrameworkRegion(host: HTMLElement): boolean {
+    // Never overlay a mirror inside a rich-text editor; that would corrupt the
+    // composer (already skipped at collection, guarded here for defence in depth).
+    if (host.closest('[contenteditable="true"]')) return false;
+    if (!elementIsFrameworkManaged(host)) return false;
+    return hostInConversationContext(host);
+}
+
 export function applyTokensToScanTarget(target: ScanTextTarget, tokens: JPDBToken[], settings: ReaderSettings): void {
     if (target.controlTextMirror) {
         applyTokensToControlTextMirrorTarget(target, tokens, settings);
         return;
     }
-    if (!target.forceInlineRender && (target.nonDestructive || scanHostIsRepaintLooping(nonDestructiveScanHost(target), target.text))) {
+    const nonDestructiveHost = nonDestructiveScanHost(target);
+    if (!target.forceInlineRender && (target.nonDestructive
+        || scanHostIsLiveFrameworkRegion(nonDestructiveHost)
+        || scanHostIsRepaintLooping(nonDestructiveHost, target.text))) {
         applyTokensToNonDestructiveScanTarget(target, tokens, settings);
         return;
     }

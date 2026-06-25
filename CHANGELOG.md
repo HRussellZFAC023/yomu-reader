@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.110] - 2026-06-25
+
+### Fixed
+
+- Furigana, reader-word colour, and pitch underlines now render on chat assistant responses (ChatGPT, Claude, Gemini, Grok, and similar) without breaking the page. React/Vue/Angular keep a live reference to each message's text node and re-render it while streaming; Yomu's destructive paint replaced that node, so the framework's next re-render hit a node that was no longer there and threw — which is why a streaming/thinking message collapsed into ChatGPT's own "このメッセージを表示できません" error, the composer grew tall, and the send button drifted off (a page refresh only cleared it until the next response streamed). Yomu now detects framework-owned conversation surfaces and annotates them with the non-destructive overlay mirror (the same path already used for YouTube), which never mutates the framework's own nodes — so the app keeps full ownership and re-renders safely. The fix is generic across chat/message UIs, so other framework-driven chat apps cannot break the same way; static framework article pages keep the higher-fidelity inline rendering, and the rich-text composer is never overlaid.
+
 ## [1.4.109] - 2026-06-25
 
 ### Fixed
