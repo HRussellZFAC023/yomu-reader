@@ -362,6 +362,36 @@ function pointOverReaderRoot(event: Event): boolean {
 function readerRootGestureLeaks(event: Event): boolean {
     return !eventTargetsReaderRoot(event) && pointOverReaderRoot(event);
 }
+
+// Scroll-lock hosts (BookWalker/NFBR and other fullscreen readers) register a
+// non-passive touchmove/wheel listener that preventDefault()s every scroll so the
+// page can't move under their viewer. When a Yomu overlay (settings dialog, popover,
+// onboarding) opens on top, scrolling INSIDE it fires touchmove/wheel that the host's
+// listener also preventDefault()s — so the panel can't scroll on mobile at all. We
+// can't undo the host's preventDefault, but we can stop the host's listener from ever
+// running for a scroll that belongs to our overlay: a window capture-phase listener
+// fires before any host listener on document (either phase) or window-BUBBLE (capture
+// descends window→document, then bubbles back up), so stopImmediatePropagation there
+// means the host never preventDefaults — and because we DON'T preventDefault ourselves,
+// the browser still natively scrolls the overlay's own container (overscroll-behavior:
+// contain keeps it from chaining to the page). The one shape we can't out-order is a
+// host that locks on window-CAPTURE and registered before us; in practice the targeted
+// readers load their viewer engine late (after this runs) so we still precede them, but
+// it is not a positional guarantee like the document/bubble cases.
+const READER_ROOT_SCROLL_EVENTS = ['touchmove', 'wheel'] as const;
+// Scoped to our scrollable overlay BODIES only — NOT whole overlays. We match on the
+// event's TARGET (not elementFromPoint): a touch's target is fixed at touchstart, so a
+// sheet-drag that began on the handle keeps the handle as its target for the whole
+// gesture and is never matched here — the popover sheet-drag (handle-drag.ts) and the
+// popover-body stabilizer are never starved, the drag handles sit outside these scroll
+// bodies, and the newtab swipe target is page content. Matching the target is also far
+// cheaper than a per-touchmove hit-test. Panel/sheet DRAG uses pointer events
+// (touch-action:none), untouched by a touchmove/wheel guard regardless.
+const READER_ROOT_SCROLL_BODY_SELECTOR = '.jpdb-reader-settings-scroll, .jpdb-reader-popover-body, .jpdb-reader-onboarding';
+
+function eventTargetsReaderScrollBody(event: Event): boolean {
+    return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SCROLL_BODY_SELECTOR));
+}
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 // How long after a subtitle-mining pause we keep re-asserting it. A competing
@@ -1908,6 +1938,23 @@ export class ReaderApp {
         };
         for (const gestureType of READER_ROOT_GESTURE_EVENTS) {
             document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
+        }
+
+        // Keep a scroll-locking host (BookWalker/NFBR et al. preventDefault touchmove/
+        // wheel to freeze their viewer) from killing scroll INSIDE a Yomu overlay body.
+        // On window-capture (fires before any host document-level or window-bubble lock)
+        // we stop the scroll from reaching the host when its target is our scroll body —
+        // without preventDefault, so the body's own container still scrolls natively.
+        // Bound to window (not document) so it precedes a host's document-level lock;
+        // passive:true is fine — we never call preventDefault. Scoped to scroll BODIES so
+        // Yomu's own sheet-drag / stabilizer handlers aren't starved.
+        const guardReaderRootScroll = (event: Event): void => {
+            if (!eventTargetsReaderScrollBody(event)) return;
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+        };
+        for (const scrollType of READER_ROOT_SCROLL_EVENTS) {
+            window.addEventListener(scrollType, guardReaderRootScroll, { capture: true, passive: true });
         }
 
         document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true });

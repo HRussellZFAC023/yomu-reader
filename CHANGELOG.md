@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.109] - 2026-06-25
+
+### Fixed
+
+- The settings panel (and other Yomu overlays) can now be scrolled on mobile on top of fullscreen readers that lock page scrolling. BookWalker/NFBR and similar viewers register a non-passive `touchmove`/`wheel` listener that `preventDefault()`s every scroll to freeze the page under their viewer — which also killed scrolling inside Yomu's settings dialog, so it couldn't be scrolled at all on touch. Yomu now stops a scroll that originates inside its own overlay scroll body from reaching the host's lock (at window-capture, without `preventDefault`), so the panel scrolls natively while the host's lock stays intact everywhere else. Scoped to overlay scroll bodies (settings, popover, onboarding) so the popover sheet-drag and panel-drag gestures are untouched.
+
 ## [1.4.108] - 2026-06-25
 
 ### Fixed

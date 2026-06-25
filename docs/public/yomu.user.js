@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.108
+// @version 1.4.109
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.108
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.108
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.108
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.108
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.109
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.109
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.109
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.109
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -37731,6 +37731,11 @@ function pointOverReaderRoot(event) {
 function readerRootGestureLeaks(event) {
   return !eventTargetsReaderRoot(event) && pointOverReaderRoot(event);
 }
+const READER_ROOT_SCROLL_EVENTS = ["touchmove", "wheel"];
+const READER_ROOT_SCROLL_BODY_SELECTOR = ".jpdb-reader-settings-scroll, .jpdb-reader-popover-body, .jpdb-reader-onboarding";
+function eventTargetsReaderScrollBody(event) {
+  return Boolean(event.target?.closest?.(READER_ROOT_SCROLL_BODY_SELECTOR));
+}
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
@@ -39059,6 +39064,14 @@ class ReaderApp {
     };
     for (const gestureType of READER_ROOT_GESTURE_EVENTS) {
       document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
+    }
+    const guardReaderRootScroll = (event) => {
+      if (!eventTargetsReaderScrollBody(event)) return;
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    };
+    for (const scrollType of READER_ROOT_SCROLL_EVENTS) {
+      window.addEventListener(scrollType, guardReaderRootScroll, { capture: true, passive: true });
     }
     document.addEventListener("click", (event) => this.handleDocumentClick(event), { capture: true });
     document.addEventListener("mousedown", (event) => {
