@@ -33425,6 +33425,16 @@ ${spelling}`);
     canvasContentReadiness = /* @__PURE__ */ new Map();
     // Per-canvas failed-capture counter driving the backoff retry above.
     canvasCaptureAttempts = /* @__PURE__ */ new Map();
+    // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
+    // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
+    // rebuild momentarily failed: the origin-clean page image was still loading, or
+    // the engine repainted the page a beat late) must keep retrying AS a tap. This
+    // window deliberately SURVIVES page-signature changes (a late NFBR repaint, or the
+    // poll first registering the freshly-composited page, looks like a "turn") so the
+    // tap isn't silently dropped — the reported "a page just has no OCR, no Scanning…/
+    // Text ready pill" bug. Bounded so it can never become permanent auto-OCR in tap
+    // mode; cleared on success, frame release, disconnect, or teardown.
+    canvasTapRecapture = /* @__PURE__ */ new Map();
     ocrWordRenderStates = /* @__PURE__ */ new WeakMap();
     pointerActivatedOcrLines = /* @__PURE__ */ new WeakMap();
     handleMediaPause = (event) => this.snapshotPausedVideo(event.target);
@@ -33499,6 +33509,7 @@ ${spelling}`);
       }
       this.releaseAllVideoFrames();
       this.releaseAllCanvasFrames();
+      this.canvasTapRecapture.clear();
       this.releaseAllBackgroundFrames();
       if (this.readerRasterPoll) {
         window.clearInterval(this.readerRasterPoll);
@@ -34304,7 +34315,10 @@ ${spelling}`);
         this.releaseAllCanvasFrames();
         this.canvasReaderSignature = signature;
       }
-      if (!settings.ocrAutoScanImages && !userRequested) return;
+      if (!settings.ocrAutoScanImages && !userRequested) {
+        this.retryPendingUserRequestedCaptures(settings);
+        return;
+      }
       const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
       for (const canvas of [...this.canvasFrames.keys()]) {
         if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
@@ -34332,7 +34346,7 @@ ${spelling}`);
         if (isCanvasReadable(canvas)) {
           const contentSignature = canvasRenderedContentSignature(canvas);
           if (!contentSignature) {
-            this.scheduleCanvasCaptureRetry(canvas);
+            this.scheduleCanvasCaptureRetry(canvas, userRequested);
             return;
           }
           if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
@@ -34356,7 +34370,7 @@ ${spelling}`);
           if (frameSrc) contentKey = `src:${frameSrc}`;
         }
         if (!frameSrc) {
-          this.scheduleCanvasCaptureRetry(canvas);
+          this.scheduleCanvasCaptureRetry(canvas, userRequested);
           return;
         }
         if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
@@ -34408,15 +34422,50 @@ ${spelling}`);
     // of waiting for the next 1200ms poll. After the cap we stop the fast retry; the
     // poll keeps trying and a tap force-rescans, so the page is never permanently
     // stuck. The counter resets on a real turn (releaseAllCanvasFrames) or success.
-    scheduleCanvasCaptureRetry(canvas) {
+    // A user-requested (tapped) capture opens a bounded recapture WINDOW so the retry
+    // re-attempts AS a tap — in tap/manual mode the poll itself never captures, so
+    // without this a failed tap is dropped and the page never OCRs until the user taps
+    // again. The window survives page-signature changes (a late repaint, or the poll
+    // first seeing the freshly-composited page, that releaseAllCanvasFrames treats as a
+    // turn) and is bounded by its own attempt count, so it can never become permanent
+    // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
+    scheduleCanvasCaptureRetry(canvas, userRequested = false) {
+      if (userRequested) {
+        if (!this.canvasTapRecapture.has(canvas)) this.canvasTapRecapture.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
+        const remaining = this.canvasTapRecapture.get(canvas) ?? 0;
+        if (remaining <= 0) {
+          this.canvasTapRecapture.delete(canvas);
+          return;
+        }
+        const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining;
+        const delay22 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
+        this.scheduleReaderRasterRefresh(delay22);
+        return;
+      }
       const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
       this.canvasCaptureAttempts.set(canvas, attempts);
       if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return;
       const delay2 = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** (attempts - 1), READER_RASTER_RETRY_MAX_MS);
       this.scheduleReaderRasterRefresh(delay2);
     }
+    // Re-attempt captures a tap requested but that weren't ready yet. Called before the
+    // tap-mode poll early-return so a tapped-but-not-ready page keeps trying without the
+    // user tapping again (the "page has no OCR" / no-pill report). Each pass decrements
+    // the canvas's remaining window so it bounds out even if snapshot can't schedule.
+    retryPendingUserRequestedCaptures(settings) {
+      if (!this.canvasTapRecapture.size) return;
+      for (const [canvas, remaining] of [...this.canvasTapRecapture]) {
+        if (!canvas.isConnected || this.canvasFrames.has(canvas) || remaining <= 0) {
+          this.canvasTapRecapture.delete(canvas);
+          continue;
+        }
+        this.canvasTapRecapture.set(canvas, remaining - 1);
+        void this.snapshotCanvasSurface(canvas, settings, true);
+      }
+    }
     clearCanvasCaptureRetry(canvas) {
       this.canvasCaptureAttempts.delete(canvas);
+      this.canvasTapRecapture.delete(canvas);
     }
     releaseCanvasFrame(canvas) {
       const frame = this.canvasFrames.get(canvas);
@@ -34430,6 +34479,7 @@ ${spelling}`);
       this.canvasFrameKeys.delete(canvas);
       this.canvasContentReadiness.delete(canvas);
       this.canvasCaptureAttempts.delete(canvas);
+      this.canvasTapRecapture.delete(canvas);
       frame.remove();
     }
     releaseAllCanvasFrames() {

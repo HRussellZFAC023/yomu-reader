@@ -312,6 +312,16 @@ export class ImageOcrController {
     private readonly canvasContentReadiness = new Map<HTMLCanvasElement, string>();
     // Per-canvas failed-capture counter driving the backoff retry above.
     private readonly canvasCaptureAttempts = new Map<HTMLCanvasElement, number>();
+    // Canvas -> remaining tap-driven recapture attempts. In tap/manual mode the poll
+    // never captures, so a tap whose capture wasn't ready (the tainted-canvas mirror
+    // rebuild momentarily failed: the origin-clean page image was still loading, or
+    // the engine repainted the page a beat late) must keep retrying AS a tap. This
+    // window deliberately SURVIVES page-signature changes (a late NFBR repaint, or the
+    // poll first registering the freshly-composited page, looks like a "turn") so the
+    // tap isn't silently dropped — the reported "a page just has no OCR, no Scanning…/
+    // Text ready pill" bug. Bounded so it can never become permanent auto-OCR in tap
+    // mode; cleared on success, frame release, disconnect, or teardown.
+    private readonly canvasTapRecapture = new Map<HTMLCanvasElement, number>();
     private readonly ocrWordRenderStates = new WeakMap<HTMLElement, OcrWordRenderState>();
     private readonly pointerActivatedOcrLines = new WeakMap<HTMLElement, number>();
     private readonly handleMediaPause = (event: Event) => this.snapshotPausedVideo(event.target);
@@ -407,6 +417,7 @@ export class ImageOcrController {
         }
         this.releaseAllVideoFrames();
         this.releaseAllCanvasFrames();
+        this.canvasTapRecapture.clear();
         this.releaseAllBackgroundFrames();
         if (this.readerRasterPoll) { window.clearInterval(this.readerRasterPoll); this.readerRasterPoll = 0; }
         if (this.readerRasterRetryTimer) { window.clearTimeout(this.readerRasterRetryTimer); this.readerRasterRetryTimer = 0; }
@@ -1402,7 +1413,12 @@ export class ImageOcrController {
         }
         // Tap/manual mode: never spend OCR calls on the poll. Detection above already
         // cleared the stale overlay; a tap (userRequested) re-enters here to capture.
-        if (!settings.ocrAutoScanImages && !userRequested) return;
+        // A tap that failed because the page wasn't composited yet still re-attempts
+        // here (it stays flagged user-requested) so the page OCRs without a 2nd tap.
+        if (!settings.ocrAutoScanImages && !userRequested) {
+            this.retryPendingUserRequestedCaptures(settings);
+            return;
+        }
         const canvases = activeReaderRasterSurfaces(collectCanvasReaderSurfaces(), settings, userRequested);
         for (const canvas of [...this.canvasFrames.keys()]) {
             if (!canvases.includes(canvas)) this.releaseCanvasFrame(canvas);
@@ -1442,7 +1458,7 @@ export class ImageOcrController {
             let contentKey: string | undefined;
             if (isCanvasReadable(canvas)) {
                 const contentSignature = canvasRenderedContentSignature(canvas);
-                if (!contentSignature) { this.scheduleCanvasCaptureRetry(canvas); return; }
+                if (!contentSignature) { this.scheduleCanvasCaptureRetry(canvas, userRequested); return; }
                 if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
                 frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
                 contentKey = `cv:${contentSignature}:${canvas.width}x${canvas.height}`;
@@ -1470,7 +1486,7 @@ export class ImageOcrController {
                 frameSrc = readerCanvasSourceImageUrl();
                 if (frameSrc) contentKey = `src:${frameSrc}`; // page image URL is stable per page
             }
-            if (!frameSrc) { this.scheduleCanvasCaptureRetry(canvas); return; }
+            if (!frameSrc) { this.scheduleCanvasCaptureRetry(canvas, userRequested); return; }
             if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
             const frame = document.createElement('img');
             frame.className = 'jpdb-ocr-canvas-frame';
@@ -1534,7 +1550,23 @@ export class ImageOcrController {
     // of waiting for the next 1200ms poll. After the cap we stop the fast retry; the
     // poll keeps trying and a tap force-rescans, so the page is never permanently
     // stuck. The counter resets on a real turn (releaseAllCanvasFrames) or success.
-    private scheduleCanvasCaptureRetry(canvas: HTMLCanvasElement): void {
+    // A user-requested (tapped) capture opens a bounded recapture WINDOW so the retry
+    // re-attempts AS a tap — in tap/manual mode the poll itself never captures, so
+    // without this a failed tap is dropped and the page never OCRs until the user taps
+    // again. The window survives page-signature changes (a late repaint, or the poll
+    // first seeing the freshly-composited page, that releaseAllCanvasFrames treats as a
+    // turn) and is bounded by its own attempt count, so it can never become permanent
+    // auto-OCR — it expires after READER_RASTER_MAX_CAPTURE_ATTEMPTS tries.
+    private scheduleCanvasCaptureRetry(canvas: HTMLCanvasElement, userRequested = false): void {
+        if (userRequested) {
+            if (!this.canvasTapRecapture.has(canvas)) this.canvasTapRecapture.set(canvas, READER_RASTER_MAX_CAPTURE_ATTEMPTS);
+            const remaining = this.canvasTapRecapture.get(canvas) ?? 0;
+            if (remaining <= 0) { this.canvasTapRecapture.delete(canvas); return; }
+            const attempt = READER_RASTER_MAX_CAPTURE_ATTEMPTS - remaining; // 0,1,2…
+            const delay = Math.min(READER_RASTER_RETRY_BASE_MS * 2 ** attempt, READER_RASTER_RETRY_MAX_MS);
+            this.scheduleReaderRasterRefresh(delay);
+            return;
+        }
         const attempts = (this.canvasCaptureAttempts.get(canvas) ?? 0) + 1;
         this.canvasCaptureAttempts.set(canvas, attempts);
         if (attempts > READER_RASTER_MAX_CAPTURE_ATTEMPTS) return;
@@ -1542,8 +1574,25 @@ export class ImageOcrController {
         this.scheduleReaderRasterRefresh(delay);
     }
 
+    // Re-attempt captures a tap requested but that weren't ready yet. Called before the
+    // tap-mode poll early-return so a tapped-but-not-ready page keeps trying without the
+    // user tapping again (the "page has no OCR" / no-pill report). Each pass decrements
+    // the canvas's remaining window so it bounds out even if snapshot can't schedule.
+    private retryPendingUserRequestedCaptures(settings: ReaderSettings): void {
+        if (!this.canvasTapRecapture.size) return;
+        for (const [canvas, remaining] of [...this.canvasTapRecapture]) {
+            if (!canvas.isConnected || this.canvasFrames.has(canvas) || remaining <= 0) {
+                this.canvasTapRecapture.delete(canvas);
+                continue;
+            }
+            this.canvasTapRecapture.set(canvas, remaining - 1);
+            void this.snapshotCanvasSurface(canvas, settings, true);
+        }
+    }
+
     private clearCanvasCaptureRetry(canvas: HTMLCanvasElement): void {
         this.canvasCaptureAttempts.delete(canvas);
+        this.canvasTapRecapture.delete(canvas);
     }
 
     private releaseCanvasFrame(canvas: HTMLCanvasElement): void {
@@ -1558,6 +1607,7 @@ export class ImageOcrController {
         this.canvasFrameKeys.delete(canvas);
         this.canvasContentReadiness.delete(canvas);
         this.canvasCaptureAttempts.delete(canvas);
+        this.canvasTapRecapture.delete(canvas);
         frame.remove();
     }
 
@@ -1567,6 +1617,11 @@ export class ImageOcrController {
         // (or capture-attempt count) would carry into the next page, so clear both.
         this.canvasContentReadiness.clear();
         this.canvasCaptureAttempts.clear();
+        // NOTE: canvasTapRecapture is deliberately NOT cleared here. A turn is detected
+        // by a page-signature change, but so is a late repaint / the poll first seeing
+        // the just-composited page — clearing the tap window on either would drop a tap
+        // whose capture wasn't ready (the no-OCR bug). The window is self-bounding (it
+        // expires after its attempt budget) so a genuine turn can't leave it auto-OCRing.
         this.canvasReaderSignature = undefined;
     }
 

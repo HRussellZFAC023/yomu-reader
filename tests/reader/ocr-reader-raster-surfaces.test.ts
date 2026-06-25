@@ -558,6 +558,43 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    // A tap whose capture isn't ready yet (the tainted-canvas mirror momentarily can't
+    // rebuild: the origin-clean page image is still loading, or the engine repaints the
+    // page a beat late) must still OCR WITHOUT a second tap — even when the page
+    // signature changes in the meantime (a late repaint / the poll first registering the
+    // composited page reads as a "turn"). In tap/manual mode the poll never captures, so
+    // the tap opens a bounded recapture window that survives the signature-change
+    // releaseAll. Before the fix the failed tap was dropped → the page just "had no OCR"
+    // with no Scanning…/Text ready pill (the reported intermittent-blank-page bug).
+    it('keeps OCRing a tapped BookWalker page across a signature change until the capture is ready', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        const counter = pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const mirror = mirrorCanvas('LATE_READY');
+        let attempt = 0;
+        const captureCanvasMirror = vi.fn(async () => (++attempt >= 3 ? mirror : undefined));
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => canvas) });
+        try {
+            const event = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(event, {
+                clientX: { value: 200 }, clientY: { value: 300 },
+                button: { value: 0 }, pointerType: { value: 'touch' },
+            });
+            canvas.dispatchEvent(event); // one tap — capture #1 fails (mirror not ready)
+            counter.textContent = '2 / 12'; // signature change while the tap retry is pending
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.getAttribute('src')).toBe('data:image/jpeg;base64,LATE_READY');
+            });
+            expect(captureCanvasMirror.mock.calls.length).toBeGreaterThanOrEqual(3);
+        } finally {
+            controller.destroy();
+        }
+    });
+
     // A tap whose POINT lands on existing OCR text must NOT re-scan — re-scanning
     // releases the frame mid-tap, which loses the lookup and lets the gesture fall
     // through to the viewer's page turn (the "pressing text turns the page" bug). On

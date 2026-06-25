@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.106] - 2026-06-25
+
+### Fixed
+
+- A BookWalker manga page would sometimes show no OCR at all — no "Scanning…"/"Text ready" pill — most often on a page you had already visited. In tap/manual mode only a tap captures the page, and a tap whose capture wasn't ready yet (the tainted-canvas mirror couldn't rebuild because the origin-clean page image was still loading, or the viewer repainted the page a beat late) was silently dropped, leaving the page blank until you tapped again. A tap now opens a short, self-bounding recapture window that keeps retrying — and survives the page repaint that previously cancelled it — so the page OCRs on its own without a second tap.
+
 ## [1.4.105] - 2026-06-25
 
 ### Fixed
