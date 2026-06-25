@@ -7749,7 +7749,6 @@ ${candidate.depth}`;
       const settings = this.options.getSettings();
       if (!settings.ocrEnabled || !settings.ocrVideoPauseFrames || settings.ocrProvider === "off") return;
       if (isFreshMiningPause(target)) return;
-      if (target.closest("[data-yomu-video-frame]")) return;
       if (isLikelyPausedVideoThumbnail(target)) return;
       const rect = target.getBoundingClientRect();
       if (rect.width * rect.height < settings.ocrMinImageArea) return;

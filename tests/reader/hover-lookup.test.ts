@@ -37,6 +37,7 @@ interface HoverLookupInternals {
     handleHoverPointer(event: PointerEvent): void;
     handleHoverPointerOut(event: PointerEvent): void;
     handleDocumentClick(event: MouseEvent): void;
+    pauseForSubtitleSurfaceTap(event: MouseEvent): boolean;
     scheduleHoverLookup(word: HTMLElement, event: PointerEvent): void;
     scheduleHoverClose(delay?: number, options?: { ignoreCssHover?: boolean }): void;
     dismissModalPopoverForOutsidePointer(event: PointerEvent): void;
@@ -416,6 +417,55 @@ describe('hover lookup', () => {
 
         try {
             internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+            expect(pause).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('pauses a playing video when a tap lands on the caption text but misses a word', () => {
+        // Japanese captions tile with no gaps, so on a phone the line padding,
+        // furigana band, or a wrapped line's inter-line gap is easy to hit instead
+        // of an exact word. Such a near-miss must still pause so the line freezes.
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
+        const { pause } = appendPlayingVideo();
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-subtitle-player';
+        overlay.innerHTML = '<div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines"><div class="jpdb-subtitle-primary">字幕</div></div></div>';
+        document.body.append(overlay);
+        const textBox = overlay.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+        const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+        Object.defineProperty(event, 'target', { value: textBox });
+
+        try {
+            expect(internals.pauseForSubtitleSurfaceTap(event)).toBe(true);
+            expect(pause).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('does not claim a caption-surface tap that landed on a word or a control', () => {
+        // A word tap is handled by the lookup path (which pauses); a control tap
+        // must not be stolen. Either way pauseForSubtitleSurfaceTap stands down.
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
+        const { pause } = appendPlayingVideo();
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-subtitle-player';
+        overlay.innerHTML = '<div class="jpdb-subtitle-text"><div class="jpdb-subtitle-lines"><span class="jpdb-reader-word" data-vid="1" data-sid="2">字幕</span><button data-action="playback">▶</button></div></div>';
+        document.body.append(overlay);
+        const wordEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+        Object.defineProperty(wordEvent, 'target', { value: overlay.querySelector('.jpdb-reader-word') });
+        const controlEvent = new MouseEvent('click', { bubbles: true, cancelable: true });
+        Object.defineProperty(controlEvent, 'target', { value: overlay.querySelector('[data-action]') });
+
+        try {
+            expect(internals.pauseForSubtitleSurfaceTap(wordEvent)).toBe(false);
+            expect(internals.pauseForSubtitleSurfaceTap(controlEvent)).toBe(false);
             expect(pause).not.toHaveBeenCalled();
         } finally {
             cleanupReaderApp(app);

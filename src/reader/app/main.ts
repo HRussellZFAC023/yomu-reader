@@ -2078,6 +2078,7 @@ export class ReaderApp {
 
         const insideActivePopover = this.activePopoverMode === 'modal' && this.isInsideActivePopover(event.target as Node | null);
         if (!word) {
+            if (this.pauseForSubtitleSurfaceTap(event)) return;
             this.handleDocumentLookupCandidateClick(event, insideActivePopover);
             return;
         }
@@ -2282,6 +2283,30 @@ export class ReaderApp {
         const anchor = state.resolvedAnchor ?? null;
         if (!anchor || anchor.closest('.jpdb-reader-popover')) return false;
         return Boolean(anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
+    }
+
+    // A tap that lands on the caption text but resolves no word still pauses the
+    // playing video. Japanese caption words tile with no gaps, so on a phone the
+    // furigana ruby band, punctuation, the line padding, the inter-line gaps of a
+    // wrapped caption, or a cue that just changed are all easy to hit instead of an
+    // exact word glyph — and before this a near-miss did nothing while the caption
+    // kept scrolling (the reported "tapping the captions doesn't pause"). Pausing
+    // freezes the line so the word can then be tapped cleanly. Scoped to the
+    // player's own caption overlay text (not the transcript panel, whose rows seek)
+    // and never steals a tap meant for a control or a word.
+    private pauseForSubtitleSurfaceTap(event: MouseEvent): boolean {
+        if (!this.settings.subtitleMiningPause) return false;
+        const target = event.target instanceof Element ? event.target : null;
+        if (!target?.closest('.jpdb-subtitle-text')) return false;
+        if (target.closest('button, a[href], input, [data-action], [data-resize-transcript], [data-subtitle-drag-handle], .jpdb-reader-word')) return false;
+        const before = this.subtitleMiningPausedVideo;
+        this.pauseVideoForSubtitleMining();
+        // Only claim the tap when a playing video was actually paused; otherwise let
+        // it fall through (nothing is playing, or it was already paused).
+        if (this.subtitleMiningPausedVideo === before) return false;
+        event.preventDefault();
+        event.stopPropagation();
+        return true;
     }
 
     // Opening a pinned lookup pauses the video so the entry can be read, and

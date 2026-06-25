@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.112
+// @version 1.4.113
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.112
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.112
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.112
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.112
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.113
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.113
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.113
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.113
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -39552,6 +39552,7 @@ class ReaderApp {
     if (!word && target.closest?.("[data-jpdb-reader-root] a.gloss-link[data-dictionary-lookup]")) return;
     const insideActivePopover = this.activePopoverMode === "modal" && this.isInsideActivePopover(event.target);
     if (!word) {
+      if (this.pauseForSubtitleSurfaceTap(event)) return;
       this.handleDocumentLookupCandidateClick(event, insideActivePopover);
       return;
     }
@@ -39683,6 +39684,18 @@ class ReaderApp {
     const anchor = state.resolvedAnchor ?? null;
     if (!anchor || anchor.closest(".jpdb-reader-popover")) return false;
     return Boolean(anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
+  }
+  pauseForSubtitleSurfaceTap(event) {
+    if (!this.settings.subtitleMiningPause) return false;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest(".jpdb-subtitle-text")) return false;
+    if (target.closest("button, a[href], input, [data-action], [data-resize-transcript], [data-subtitle-drag-handle], .jpdb-reader-word")) return false;
+    const before = this.subtitleMiningPausedVideo;
+    this.pauseVideoForSubtitleMining();
+    if (this.subtitleMiningPausedVideo === before) return false;
+    event.preventDefault();
+    event.stopPropagation();
+    return true;
   }
   pauseVideoForSubtitleMining() {
     if (!this.settings.subtitleMiningPause) return;
