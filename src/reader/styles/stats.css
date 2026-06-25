@@ -65,12 +65,16 @@
 .jpdb-reader-stats-tabs {
   justify-self: start;
   display: inline-grid;
-  grid-template-columns: repeat(3, minmax(88px, 1fr));
+  grid-template-columns: repeat(var(--stats-tabs-count, 3), minmax(88px, 1fr));
   gap: 2px;
   padding: 3px;
   border: 1px solid var(--jpdb-reader-border);
   border-radius: 8px;
   background: color-mix(in srgb, var(--jpdb-reader-surface) 78%, transparent);
+}
+
+.jpdb-reader-stats-tabs[hidden] {
+  display: none;
 }
 
 .jpdb-reader-stats-tabs button,
@@ -747,7 +751,7 @@
 
   .jpdb-reader-stats-tabs {
     width: 100%;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(var(--stats-tabs-count, 3), minmax(0, 1fr));
   }
 
   .jpdb-reader-stats-metrics,

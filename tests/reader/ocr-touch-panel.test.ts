@@ -735,6 +735,16 @@ describe('OCR sentence focus', () => {
         expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-line:is(:hover, :focus, .jpdb-ocr-line-active) .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text);');
     });
 
+    it('keeps the paused-frame OCR status pill readable in light mode', () => {
+        const normalizedCss = OCR_CSS.replace(/\s+/g, ' ');
+        expect(normalizedCss).toContain('.jpdb-ocr-video-frame-status { --jpdb-ocr-status-surface:');
+        expect(normalizedCss).toContain('position: fixed;');
+        expect(normalizedCss).toContain('background: var(--jpdb-ocr-status-surface);');
+        expect(normalizedCss).toContain('color: var(--jpdb-ocr-status-text);');
+        expect(normalizedCss).toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status { --jpdb-ocr-status-surface: color-mix( in srgb, var(--jpdb-reader-theme-light-surface, #f4f7fa) 96%, transparent ); --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a); --jpdb-ocr-status-muted: var(--jpdb-reader-theme-light-muted, #4f5968); }');
+        expect(normalizedCss).toContain('font: 600 12px/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;');
+    });
+
     it('reserves paint room for pitch underlines in small horizontal OCR line frames', () => {
         const controller = createLocalServiceOcrController();
         const line = measuredOcrLine({

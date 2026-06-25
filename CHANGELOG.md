@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.4.111] - 2026-06-25
+
+### Added
+
+- Built-in definition and kanji source display names are now editable in Settings, and the custom names flow through the source panels, definition renderers, study/Anki sections, and the newtab/kanji views.
+- The newtab My Cards browser has a fourth **History** sort that orders Jiten cards newest-reviewed first, mirroring Jiten's `/srs/history`, and keeps unreviewed cards after reviewed ones.
+- Jiten retention and average speed now come from Jiten review-history ratings and durations instead of showing as unavailable.
+
+### Fixed
+
+- Immersion Kit media captions are now readable in light mode (they kept the dark caption backdrop/shadow/stroke treatment that already looked good in dark mode) instead of being forced onto transparent backgrounds with plain page text.
+- Unknown-pitch words keep a visible underline (neutral unknown-pitch colour) instead of rendering with a transparent decoration that made the underline disappear.
+- The paused-frame OCR "Text ready" status pill now has readable contrast in light mode.
+- Settings source/dictionary rows align on shared order/remove tool columns so the reorder arrow and remove button no longer collide.
+- Kanji furigana is split against local readings (e.g. 認証する → 認[にん]証[しょう]する) so ruby aligns to each kanji.
+- Text-input and textarea selections are preserved when a selection lookup is dismissed by clicking away, so selected words stay selected after the Yomu panel closes.
+- Updated the hosted homepage video demo caption copy.
+
 ## [1.4.110] - 2026-06-25
 
 ### Fixed

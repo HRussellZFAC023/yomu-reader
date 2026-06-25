@@ -19,7 +19,9 @@ import {
     TRANSCRIPT_PANEL_MARGIN,
     applyTranscriptPanelLayout,
     computeSubtitleDrawerLayout,
+    loadSubtitleDragOffsetFraction,
     loadTranscriptPanelSize,
+    saveSubtitleDragOffsetFraction,
     saveTranscriptPanelSize,
     shouldUseCompactSubtitleDrawer,
     type SubtitleDrawerLayoutOptions,
@@ -783,6 +785,10 @@ export class SubtitlePlayerController {
     private pausePanelDismissed = false;
     private pausePanelSyncScheduled = false;
     private subtitleDragOffsetYPx = 0;
+    // Remembered manual vertical position, as a fraction of viewport height, so a
+    // nudge survives video changes and reloads instead of snapping back to the
+    // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
+    private subtitleDragOffsetFraction = loadSubtitleDragOffsetFraction();
     private subtitleDragActive = false;
     private transcriptResizeActive = false;
     private asbMoveHandlesActive = false;
@@ -1010,6 +1016,7 @@ export class SubtitlePlayerController {
         document.body.appendChild(this.transcriptPanel);
         this.root = root;
         this.bindSubtitleDragHandle();
+        this.restoreSubtitleDragOffset();
         this.refresh();
         // Touch devices get no pointermove, so without this the rail stays
         // visible forever; tapping the video re-reveals it via pointerdown.
@@ -1140,7 +1147,7 @@ export class SubtitlePlayerController {
         this.renderSerial += 1;
         this.parseWarmupSerial += 1;
         this.lastParseWarmupAnchor = -1;
-        this.resetSubtitleDragOffset();
+        this.restoreSubtitleDragOffset();
     }
 
     private removeStaleNativeTracks(video: HTMLVideoElement): void {
@@ -2946,6 +2953,7 @@ export class SubtitlePlayerController {
         session.handle.classList.remove('jpdb-subtitle-dragging');
         session.dragRoot?.classList.remove('jpdb-subtitle-dragging');
         if (session.dragRoot !== this.root) this.root?.classList.remove('jpdb-subtitle-dragging');
+        this.persistSubtitleDragOffset();
         this.showControlsTemporarily();
     }
 
@@ -2966,7 +2974,12 @@ export class SubtitlePlayerController {
 
         event.preventDefault();
         event.stopPropagation();
-        this.setSubtitleDragOffset(shouldReset ? 0 : this.subtitleDragOffsetYPx + delta, dragFrame);
+        if (shouldReset) {
+            this.resetSubtitleDragOffset();
+        } else {
+            this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
+            this.persistSubtitleDragOffset();
+        }
         this.showControlsTemporarily();
     }
 
@@ -2977,9 +2990,36 @@ export class SubtitlePlayerController {
         this.syncSubtitleDragOffsetStyle();
     }
 
+    // Snap back to the configured bottom offset and forget the remembered nudge.
     private resetSubtitleDragOffset(): void {
+        this.subtitleDragOffsetFraction = 0;
+        saveSubtitleDragOffsetFraction(0);
         this.subtitleDragOffsetYPx = 0;
         this.syncSubtitleDragOffsetStyle();
+    }
+
+    // Reproject the remembered nudge (a viewport-height fraction) into pixels
+    // against the current viewport. Runs on first install, on video changes, and
+    // on every viewport/fullscreen change (via syncFullscreenState) so the line
+    // keeps its relative position when the player resizes, rotates, or enters
+    // fullscreen instead of staying frozen at the old pixel magnitude. Skipped
+    // mid-drag so it never fights the gesture the user is performing.
+    private restoreSubtitleDragOffset(): void {
+        if (this.subtitleDragActive) return;
+        this.subtitleDragOffsetYPx = Math.round(this.subtitleDragOffsetFraction * this.subtitleDragViewportHeight());
+        this.syncSubtitleDragOffsetStyle();
+    }
+
+    // Remember the current nudge as a viewport-height fraction so it scales across
+    // players of different sizes. Called when a drag/keyboard adjustment settles.
+    private persistSubtitleDragOffset(): void {
+        const viewportHeight = this.subtitleDragViewportHeight();
+        this.subtitleDragOffsetFraction = viewportHeight > 0 ? this.subtitleDragOffsetYPx / viewportHeight : 0;
+        saveSubtitleDragOffsetFraction(this.subtitleDragOffsetFraction);
+    }
+
+    private subtitleDragViewportHeight(): number {
+        return Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
     }
 
     private syncSubtitleDragOffsetStyle(): void {
@@ -2997,7 +3037,7 @@ export class SubtitlePlayerController {
     }
 
     private subtitleDragOffsetBounds(dragFrame?: HTMLElement): { min: number; max: number } {
-        const viewportHeight = Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
+        const viewportHeight = this.subtitleDragViewportHeight();
         const fallback = {
             min: -Math.round(viewportHeight * 0.45),
             max: Math.round(viewportHeight * 0.35),
@@ -5371,6 +5411,10 @@ export class SubtitlePlayerController {
     }
 
     private syncFullscreenState(): void {
+        // Resize, orientationchange, and fullscreen transitions all route through
+        // here; reproject the remembered drag nudge so it tracks the new viewport
+        // height instead of staying frozen at its previous pixel value.
+        this.restoreSubtitleDragOffset();
         const fullscreenElement = currentFullscreenElement();
         const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
         this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));

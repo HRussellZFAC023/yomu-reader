@@ -48,12 +48,14 @@ function criticalWordCss(): string {
     const pitches = CRITICAL_PITCHES
         .map(pattern => `.jpdb-reader-word:is(${criticalPitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`)
         .join('');
+    const unknownPitch = '.jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000)}';
     const pitchSelector = CRITICAL_PITCHES.map(criticalPitchSelector).join(',');
     return [
         states,
         ankiStates,
         '.jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,#0000) 36%,var(--yb)))}',
         pitches,
+        unknownPitch,
         `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
         criticalChannelCss(),
     ].join('');

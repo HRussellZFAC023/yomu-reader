@@ -269,16 +269,65 @@ const renderedScanHosts = new WeakMap<HTMLElement, RenderedScanHost>();
 const textMirrorHosts = new WeakMap<HTMLElement, TextMirrorHostState>();
 
 export function getSelectionText(): string {
-    const selection = window.getSelection();
-    return selection?.toString().replace(/\s+/g, ' ').trim() ?? '';
+    return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
 }
 
 export function getSelectionSentence(): string {
     const selected = getSelectionText();
-    const fullText = selectionHostText(window.getSelection());
+    const fullText = activeControlSelectionHostText() || selectionHostText(window.getSelection());
     if (!fullText || !selected) return selected;
 
     return sentenceAroundSurface(fullText, selected) || selected;
+}
+
+export function getSelectionControlElement(): HTMLInputElement | HTMLTextAreaElement | null {
+    const control = activeSelectableControl();
+    return activeControlSelectionText(control) ? control : null;
+}
+
+function documentSelectionText(): string {
+    return normalizedSelectedText(window.getSelection()?.toString() ?? '');
+}
+
+function activeControlSelectionHostText(): string {
+    const control = activeSelectableControl();
+    if (!control || !activeControlSelectionText(control)) return '';
+    return normalizedSelectedText(control.value);
+}
+
+function activeControlSelectionText(control: HTMLInputElement | HTMLTextAreaElement | null): string {
+    if (!control) return '';
+    const range = controlSelectionRange(control);
+    return range ? control.value.slice(range.start, range.end) : '';
+}
+
+function activeSelectableControl(): HTMLInputElement | HTMLTextAreaElement | null {
+    const element = deepActiveElement();
+    if (element instanceof HTMLTextAreaElement) return element;
+    if (!(element instanceof HTMLInputElement)) return null;
+    if (element.type.toLowerCase() === 'password') return null;
+    return controlSelectionRange(element) ? element : null;
+}
+
+function deepActiveElement(root: Document | ShadowRoot = document): Element | null {
+    const active = root.activeElement;
+    if (active?.shadowRoot?.activeElement) return deepActiveElement(active.shadowRoot);
+    return active;
+}
+
+function controlSelectionRange(control: HTMLInputElement | HTMLTextAreaElement): { start: number; end: number } | null {
+    try {
+        const start = control.selectionStart;
+        const end = control.selectionEnd;
+        if (typeof start !== 'number' || typeof end !== 'number' || start === end) return null;
+        return start < end ? { start, end } : { start: end, end: start };
+    } catch {
+        return null;
+    }
+}
+
+function normalizedSelectedText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
 }
 
 function selectionHostText(selection: Selection | null): string {

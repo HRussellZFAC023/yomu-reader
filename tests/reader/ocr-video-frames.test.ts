@@ -95,7 +95,7 @@ describe('paused-video OCR frames', () => {
         expect(frame.dataset.ocrPending).toBe('true');
         expect(status).not.toBeNull();
         expect(status!.dataset.status).toBe('loading');
-        expect(status!.textContent).toBe('');
+        expect(status!.textContent).toBe('Scanning...');
         expect(status!.getAttribute('aria-label')).toBe('Scanning...');
 
         Object.defineProperty(frame, 'naturalWidth', { value: 640, configurable: true });
@@ -110,7 +110,7 @@ describe('paused-video OCR frames', () => {
             expect(frame.classList.contains('jpdb-ocr-video-frame-pending')).toBe(false);
             expect(frame.dataset.ocrPending).toBeUndefined();
             expect(status!.dataset.status).toBe('ready');
-            expect(status!.textContent).toBe('');
+            expect(status!.textContent).toBe('Text ready');
             expect(status!.getAttribute('aria-label')).toBe('Text ready');
         });
     });
@@ -148,7 +148,7 @@ describe('paused-video OCR frames', () => {
         expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
     });
 
-    it('skips paused-frame snapshots inside the hosted Yomu video player', () => {
+    it('snapshots paused frames inside the hosted Yomu video player', () => {
         createController();
         const host = document.createElement('section');
         host.dataset.yomuVideoFrame = '';
@@ -158,9 +158,8 @@ describe('paused-video OCR frames', () => {
 
         video.dispatchEvent(new Event('pause'));
 
-        expect(document.querySelector('.jpdb-ocr-video-frame')).toBeNull();
-        expect(document.querySelector('.jpdb-ocr-video-frame-status')).toBeNull();
-        expect(document.querySelector('.jpdb-ocr-video-frame-resume')).toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame')).not.toBeNull();
+        expect(document.querySelector('.jpdb-ocr-video-frame-status')).not.toBeNull();
     });
 
     it('keeps the gate intact through the loading status update (status class must not clobber pending)', async () => {
@@ -281,7 +280,7 @@ describe('paused-video OCR frames', () => {
         await waitForExpect(() => {
             expect(document.querySelector('.jpdb-ocr-line')).toBeNull();
             expect(status.dataset.status).toBe('empty');
-            expect(status.textContent).toBe('');
+            expect(status.textContent).toBe('No text found');
             expect(status.getAttribute('aria-label')).toBe('No text found');
             // On a no-text frame the status un-gates (feedback), the resume/play
             // control was already visible from pause, but the captured frame

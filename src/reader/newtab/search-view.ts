@@ -16,7 +16,7 @@ import { renderJitenDefinitionSource } from '../jiten/jiten-definition-source-re
 import { renderPitch } from '../popup/render';
 import { speakerIcon } from '../ui/icons';
 import { hasJitenApiCredential, hasJpdbApiCredential } from '../settings/api-credential';
-import { KANJI_DICTIONARIES_SOURCE_ID, orderedDefinitionSourceIds } from '../sources/sections';
+import { KANJI_DICTIONARIES_SOURCE_ID, definitionSourceLabel, orderedDefinitionSourceIds } from '../sources/sections';
 import { kanjiSourceStateKey, renderJpdbDefinitionSource, renderKanjiDefinitions, renderLocalDefinitionSourcesSection } from '../sources/definition-render';
 import { searchKanjiInlineWordMeta } from './card-selection';
 import { firstCardMeaning } from './index';
@@ -281,11 +281,11 @@ function searchFallbackDefinitionSourcesHtml(card: JPDBCard, detail: NewTabSearc
     let renderedDictionaries = false;
     const definitionSections = sourceIds.map(sourceId => {
         if (sourceId === JPDB_DEFINITION_SOURCE_ID) {
-            return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage);
+            return renderJpdbDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jpdbVocabularyInfo, settings.interfaceLanguage, definitionSourceLabel(settings, JPDB_DEFINITION_SOURCE_ID, 'JPDB'));
         }
         if (sourceId === JITEN_DEFINITION_SOURCE_ID) {
             return hasSearchJitenContent(detail)
-                ? renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage)
+                ? renderJitenDefinitionSource(card, (key, initiallyExpanded) => context.sourceAttributes(key, initiallyExpanded), detail.jitenVocabularyInfo ?? null, settings.interfaceLanguage, definitionSourceLabel(settings, JITEN_DEFINITION_SOURCE_ID, 'Jiten'))
                 : '';
         }
         if (sourceId === ANKI_SOURCE_ID) {

@@ -9,7 +9,7 @@ import { JPDB_RELATED_WORD_PITCH_CLASS, JPDB_RELATED_WORD_STATE } from './jpdb-r
 
 type SourceAttributes = (sourceStateKey: string, initiallyExpanded?: boolean) => string;
 
-export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null, language: InterfaceLanguage = 'en'): string {
+export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: SourceAttributes, info: JpdbVocabularyInfo | null = null, language: InterfaceLanguage = 'en', title = 'JPDB'): string {
     const meanings = jpdbDefinitionMeanings(card, info)
         .map(meaning => `<div class="jpdb-reader-meaning">${escapeHtml(meaning)}</div>`)
         .join('');
@@ -17,7 +17,7 @@ export function renderJpdbDefinitionSource(card: JPDBCard, sourceAttributes: Sou
     if (!meanings && !extras) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JPDB_DEFINITION_SOURCE_ID), true)}>
-            <summary class="jpdb-reader-local-title">JPDB</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ''}
             ${extras}
         </details>

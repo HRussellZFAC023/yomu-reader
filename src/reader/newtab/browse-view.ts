@@ -13,7 +13,7 @@ import type { CardState, JPDBCard, ReaderSettings } from '../app/types';
 export type BrowseFilter = 'all' | CardState;
 export type BrowseSourceFilter = 'jpdb' | 'jiten' | 'anki';
 export type BrowseSourceChip = 'all' | BrowseSourceFilter;
-export type BrowseSortKey = 'queue' | 'alpha' | 'frequency';
+export type BrowseSortKey = 'queue' | 'alpha' | 'frequency' | 'history';
 
 const BROWSE_PAGE_SIZE = 50;
 
@@ -110,17 +110,34 @@ export function renderBrowseSourceChips(
 
 // 2D reviews: 'queue' keeps the pool's SRS order (due_at ascending for jpdb
 // cards, provider order otherwise — the pool is loaded queue-first), 'alpha'
-// sorts by reading, 'frequency' by frequency rank. Descending flips any key.
+// sorts by reading, 'frequency' by frequency rank, and 'history' mirrors
+// Jiten's /srs/history newest-first chronology when review timestamps exist.
 export function sortBrowseCards(cards: JPDBCard[], sort: BrowseSortKey, descending: boolean): JPDBCard[] {
     const sorted = [...cards];
     if (sort === 'alpha') {
         sorted.sort((a, b) => (a.reading || a.spelling).localeCompare(b.reading || b.spelling, 'ja'));
     } else if (sort === 'frequency') {
         sorted.sort((a, b) => (a.frequencyRank ?? Number.MAX_SAFE_INTEGER) - (b.frequencyRank ?? Number.MAX_SAFE_INTEGER));
+    } else if (sort === 'history') {
+        sorted.sort((a, b) => compareHistoryOrder(a, b, descending));
+        return sorted;
     } else {
         sorted.sort((a, b) => queueOrderValue(a) - queueOrderValue(b));
     }
     return descending ? sorted.reverse() : sorted;
+}
+
+function compareHistoryOrder(a: JPDBCard, b: JPDBCard, descending: boolean): number {
+    const aTime = finiteTimestamp(a.lastReviewAt);
+    const bTime = finiteTimestamp(b.lastReviewAt);
+    if (aTime !== null && bTime !== null) return descending ? bTime - aTime : aTime - bTime;
+    if (aTime !== null) return -1;
+    if (bTime !== null) return 1;
+    return queueOrderValue(a) - queueOrderValue(b);
+}
+
+function finiteTimestamp(value: number | null | undefined): number | null {
+    return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function queueOrderValue(card: JPDBCard): number {
@@ -153,6 +170,7 @@ export interface BrowseControlsCopy {
     sortQueue: string;
     sortAlpha: string;
     sortFrequency: string;
+    sortHistory: string;
     directionAscending: string;
     directionDescending: string;
     select: string;
@@ -175,6 +193,7 @@ export function renderBrowseControls(
                 el('option', { value: 'queue', selected: sort === 'queue' }, copy.sortQueue),
                 el('option', { value: 'alpha', selected: sort === 'alpha' }, copy.sortAlpha),
                 el('option', { value: 'frequency', selected: sort === 'frequency' }, copy.sortFrequency),
+                el('option', { value: 'history', selected: sort === 'history' }, copy.sortHistory),
             ),
         ),
         el('button', {

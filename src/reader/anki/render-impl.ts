@@ -1,6 +1,7 @@
 import { ankiMediaFilenameFromCardUrl, buildYomuAnkiPreviewFields, canUseMobileAnkiHandoff, mobileAnkiHandoffAppName, type AnkiCardContext, type AnkiExistingNote, type AnkiLookupResult, type AnkiNoteFieldTargetPlan, type AnkiRenderedCard } from './index';
 import { ANKI_SOURCE_ID } from '../app/constants';
 import { escapeHtml, setInnerHtml } from '../dom';
+import { definitionSourceLabel } from '../sources/sections';
 import { speakerIcon } from '../ui/icons';
 import type { StoredMiningContext } from '../study/mining-context';
 import type { CardState, InterfaceLanguage, JPDBCard, ReaderSettings, ReviewGradeIntervals } from '../app/types';
@@ -74,10 +75,11 @@ export function renderAnkiExistingSection(
     const language = settings.interfaceLanguage;
     const aggregateState = ankiLookup.state;
     const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
+    const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, 'Anki');
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ''}</span>
+                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml(title)}${notes.length > 1 ? ` (${notes.length})` : ''}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml(summary)}</small>
             </summary>
             ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ''}
@@ -93,10 +95,11 @@ export function renderAnkiNewCardPreview(card: JPDBCard, sentence: string | unde
     const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? '', settings, context, fieldTargetPlan);
     const fieldPreview = renderAnkiPreviewFields(fields, settings.interfaceLanguage, { renderHtml: true });
     if (!fieldPreview) return '';
+    const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, 'Anki');
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing jpdb-reader-anki-new">
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>Anki</span>
+                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>${escapeHtml(title)}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml(ankiNewCardSummary(settings))}</small>
             </summary>
             <div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview">

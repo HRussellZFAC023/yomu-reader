@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.110
+// @version 1.4.111
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.110
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.110
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.110
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.110
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.111
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.111
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.111
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.111
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -1420,6 +1420,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
   "jpdb-reader-settings-drawer-height-ratio",
   "jpdb-reader-sheet-height-ratio",
   "jpdb-reader-transcript-panel-size",
+  "jpdb-reader-subtitle-drag-offset",
   "yomu:anki-status-index:v1",
   "yomu:anki-status-index-rebuild:v1",
   "yomu:jpdb-cache:v1",
@@ -2496,6 +2497,21 @@ const API_DEFINITION_NUMBER_SETTING_RANGES = {
   jpdbDefinitionsPriority: { min: 0, max: 999 },
   jitenDefinitionsPriority: { min: 0, max: 999 }
 };
+const SOURCE_ALIAS_SETTING_KEYS = [
+  "jpdbDefinitionsAlias",
+  "jitenDefinitionsAlias",
+  "jpdbKanjiAlias",
+  "kanjiImmersionKitAlias",
+  "uchisenAlias",
+  "rtkAlias",
+  "kanjivgAlias",
+  "kanjiOriginsAlias",
+  "kanjiDictionariesAlias",
+  "immersionKitAlias",
+  "ankiSectionAlias",
+  "studyTranslationAlias",
+  "studyGrammarAlias"
+];
 const MINING_BOOLEAN_SETTING_KEYS = [
   "jpdbMiningEnabled",
   "dictionarySourcesInitiallyExpanded"
@@ -2593,23 +2609,31 @@ const DEFAULT_SETTINGS = {
   pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
   ...DEFAULT_COLOR_CHANNELS,
   jpdbDefinitionsEnabled: true,
+  jpdbDefinitionsAlias: "",
   jpdbDefinitionsPriority: 1,
   jitenDefinitionsEnabled: true,
+  jitenDefinitionsAlias: "",
   jitenDefinitionsPriority: 0,
   jpdbPageEnhancementsEnabled: true,
   jpdbPageWordEnhancementsEnabled: true,
   jpdbPageKanjiEnhancementsEnabled: true,
   jpdbKanjiEnabled: true,
+  jpdbKanjiAlias: "",
   jpdbKanjiPriority: 10,
   kanjiImmersionKitEnabled: true,
+  kanjiImmersionKitAlias: "",
   kanjiImmersionKitPriority: 60,
   uchisenEnabled: true,
+  uchisenAlias: "",
   uchisenPriority: 50,
   rtkEnabled: true,
+  rtkAlias: "",
   rtkPriority: 20,
   kanjivgEnabled: true,
+  kanjivgAlias: "",
   kanjivgPriority: 0,
   kanjiOriginsEnabled: true,
+  kanjiOriginsAlias: "",
   kanjiOriginsPriority: 30,
   kanjiOriginKanjiMapEnabled: true,
   kanjiOriginGraphEnabled: true,
@@ -2630,6 +2654,7 @@ const DEFAULT_SETTINGS = {
   audioSelectionMode: "random",
   audioTtsMode: "fallback",
   immersionKitEnabled: true,
+  immersionKitAlias: "",
   immersionKitExampleSource: "immersion-kit",
   nadeshikoApiKey: "",
   immersionKitPriority: 80,
@@ -2711,6 +2736,7 @@ const DEFAULT_SETTINGS = {
   localDictionariesEnabled: true,
   localDictionaryMaxResults: 12,
   localDictionaryShowKanji: true,
+  kanjiDictionariesAlias: "",
   kanjiDictionariesPriority: 30,
   dictionarySourcesInitiallyExpanded: true,
   dictionaryPreferences: [],
@@ -2745,6 +2771,7 @@ const DEFAULT_SETTINGS = {
   preferJapaneseSiteLanguage: true,
   ankiEnabled: false,
   ankiSectionEnabled: false,
+  ankiSectionAlias: "",
   ankiSectionPriority: 90,
   ankiConnectUrl: "http://127.0.0.1:8765",
   ankiDeck: "よむ",
@@ -2755,7 +2782,9 @@ const DEFAULT_SETTINGS = {
   ankiFrontImage: true,
   ankiMobileHandoff: false,
   studyTranslationEnabled: true,
+  studyTranslationAlias: "",
   studyGrammarEnabled: true,
+  studyGrammarAlias: "",
   enableLogging: false,
   ankiTags: "yomu",
   ankiMineWithJpdb: false,
@@ -2847,6 +2876,7 @@ function mergeSettings(value) {
     ...normalizeAnkiAndStudySettings(settingsValue),
     ...normalizePresentationSettings(settingsValue),
     ...normalizeMiningSettings(settingsValue),
+    ...normalizeSourceAliasSettings(settingsValue),
     ...normalizeRemovedDictionarySettings(settingsValue),
     dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
     dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
@@ -2975,6 +3005,13 @@ function normalizeDefinitionSourcePrioritySettings(value) {
     jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
     jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
   } : normalized;
+}
+function normalizeSourceAliasSettings(value) {
+  const aliases = {};
+  for (const key of SOURCE_ALIAS_SETTING_KEYS) {
+    aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
+  }
+  return aliases;
 }
 function isLegacyDefaultDefinitionSourceOrder(value) {
   return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
@@ -3676,14 +3713,55 @@ const NON_DESTRUCTIVE_SCAN_MIRROR_STALE_EVENT = "jpdb-reader-text-mirror-stale";
 const renderedScanHosts = new WeakMap();
 const textMirrorHosts = new WeakMap();
 function getSelectionText() {
-  const selection = window.getSelection();
-  return selection?.toString().replace(/\s+/g, " ").trim() ?? "";
+  return normalizedSelectedText(activeControlSelectionText(activeSelectableControl())) || documentSelectionText();
 }
 function getSelectionSentence() {
   const selected = getSelectionText();
-  const fullText = selectionHostText(window.getSelection());
+  const fullText = activeControlSelectionHostText() || selectionHostText(window.getSelection());
   if (!fullText || !selected) return selected;
   return sentenceAroundSurface(fullText, selected) || selected;
+}
+function getSelectionControlElement() {
+  const control = activeSelectableControl();
+  return activeControlSelectionText(control) ? control : null;
+}
+function documentSelectionText() {
+  return normalizedSelectedText(window.getSelection()?.toString() ?? "");
+}
+function activeControlSelectionHostText() {
+  const control = activeSelectableControl();
+  if (!control || !activeControlSelectionText(control)) return "";
+  return normalizedSelectedText(control.value);
+}
+function activeControlSelectionText(control) {
+  if (!control) return "";
+  const range = controlSelectionRange(control);
+  return range ? control.value.slice(range.start, range.end) : "";
+}
+function activeSelectableControl() {
+  const element2 = deepActiveElement();
+  if (element2 instanceof HTMLTextAreaElement) return element2;
+  if (!(element2 instanceof HTMLInputElement)) return null;
+  if (element2.type.toLowerCase() === "password") return null;
+  return controlSelectionRange(element2) ? element2 : null;
+}
+function deepActiveElement(root = document) {
+  const active = root.activeElement;
+  if (active?.shadowRoot?.activeElement) return deepActiveElement(active.shadowRoot);
+  return active;
+}
+function controlSelectionRange(control) {
+  try {
+    const start = control.selectionStart;
+    const end = control.selectionEnd;
+    if (typeof start !== "number" || typeof end !== "number" || start === end) return null;
+    return start < end ? { start, end } : { start: end, end: start };
+  } catch {
+    return null;
+  }
+}
+function normalizedSelectedText(text2) {
+  return text2.replace(/\s+/g, " ").trim();
 }
 function selectionHostText(selection) {
   return selectionSentenceHost(selection)?.textContent?.replace(/\s+/g, " ").trim() ?? "";
@@ -14570,6 +14648,89 @@ const BUILT_IN_SOURCE_NAME_KEYS = {
   [KANJI_DICTIONARIES_SOURCE_ID]: "sourceNameImportedKanjiDictionaries",
   [KANJI_ORIGINS_SOURCE_ID]: "originStructure"
 };
+function definitionSourceRows(settings) {
+  const language = settings.interfaceLanguage;
+  const builtInRows = [
+    {
+      id: JITEN_DEFINITION_SOURCE_ID,
+      name: "Jiten",
+      alias: settings.jitenDefinitionsAlias,
+      enabled: settings.jitenDefinitionsEnabled,
+      priority: settings.jitenDefinitionsPriority,
+      prefix: "jitenDefinitions",
+      readonly: true,
+      help: uiText(language, "sourceHelpJiten")
+    },
+    {
+      id: JPDB_DEFINITION_SOURCE_ID,
+      name: "JPDB",
+      alias: settings.jpdbDefinitionsAlias,
+      enabled: settings.jpdbDefinitionsEnabled,
+      priority: settings.jpdbDefinitionsPriority,
+      prefix: "jpdbDefinitions",
+      readonly: true,
+      help: uiText(language, "sourceHelpJpdb")
+    },
+    {
+      id: STUDY_TRANSLATION_SOURCE_ID,
+      name: uiText(language, "sourceNameTranslation"),
+      alias: settings.studyTranslationAlias,
+      enabled: settings.studyTranslationEnabled,
+      priority: settings.studyTranslationPriority,
+      prefix: "studyTranslation",
+      readonly: true,
+      help: uiText(language, "sourceHelpTranslation")
+    },
+    {
+      id: ANKI_SOURCE_ID,
+      name: "Anki",
+      alias: settings.ankiSectionAlias,
+      enabled: settings.ankiSectionEnabled,
+      priority: settings.ankiSectionPriority,
+      prefix: "ankiSection",
+      readonly: true,
+      help: uiText(language, "sourceHelpAnki")
+    },
+    {
+      id: STUDY_GRAMMAR_SOURCE_ID,
+      name: uiText(language, "sourceNameGrammar"),
+      alias: settings.studyGrammarAlias,
+      enabled: settings.studyGrammarEnabled,
+      priority: settings.studyGrammarPriority,
+      prefix: "studyGrammar",
+      readonly: true,
+      help: uiText(language, "sourceHelpGrammar")
+    },
+    {
+      id: IMMERSION_KIT_SOURCE_ID,
+      name: uiText(language, "sourceNameImmersionKit"),
+      alias: settings.immersionKitAlias,
+      enabled: settings.immersionKitEnabled,
+      priority: settings.immersionKitPriority,
+      prefix: "immersionKit",
+      readonly: true,
+      help: uiText(language, "sourceHelpImmersionKit")
+    }
+  ];
+  return [
+    ...builtInRows,
+    ...settings.dictionaryPreferences.filter((preference) => {
+      const type = preference.type ?? "terms";
+      return type === "terms" || type === "kanji";
+    }).map((preference) => ({
+      id: preference.name,
+      name: preference.name,
+      alias: preference.alias,
+      enabled: preference.enabled,
+      priority: preference.priority,
+      prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
+      readonly: false,
+      removable: true,
+      dictionaryType: preference.type === "kanji" ? "kanji" : "terms",
+      help: ""
+    }))
+  ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
+}
 function kanjiSourceRows(settings) {
   const language = settings.interfaceLanguage;
   const apiSource = activeKanjiFactSource(settings);
@@ -14590,7 +14751,7 @@ function kanjiSourceRows(settings) {
     {
       id: KANJI_STROKE_SOURCE_ID,
       name: uiText(language, "sourceNameStrokePractice"),
-      alias: uiText(language, "sourceNameStrokePractice"),
+      alias: settings.kanjivgAlias,
       enabled: settings.kanjivgEnabled,
       priority: settings.kanjivgPriority,
       prefix: "kanjivg",
@@ -14600,7 +14761,7 @@ function kanjiSourceRows(settings) {
     {
       id: KANJI_JPDB_SOURCE_ID,
       name: readingsComponentsName,
-      alias: readingsComponentsName,
+      alias: settings.jpdbKanjiAlias,
       enabled: settings.jpdbKanjiEnabled,
       priority: settings.jpdbKanjiPriority,
       prefix: "jpdbKanji",
@@ -14610,7 +14771,7 @@ function kanjiSourceRows(settings) {
     {
       id: KANJI_RTK_SOURCE_ID,
       name: "RTK",
-      alias: "RTK",
+      alias: settings.rtkAlias,
       enabled: settings.rtkEnabled,
       priority: settings.rtkPriority,
       prefix: "rtk",
@@ -14620,7 +14781,7 @@ function kanjiSourceRows(settings) {
     {
       id: IMMERSION_KIT_SOURCE_ID,
       name: uiText(language, "sourceNameImmersionKit"),
-      alias: uiText(language, "sourceNameImmersionKit"),
+      alias: settings.kanjiImmersionKitAlias,
       enabled: settings.kanjiImmersionKitEnabled,
       priority: settings.kanjiImmersionKitPriority,
       prefix: "kanjiImmersionKit",
@@ -14630,7 +14791,7 @@ function kanjiSourceRows(settings) {
     {
       id: KANJI_UCHISEN_SOURCE_ID,
       name: "Uchisen",
-      alias: "Uchisen",
+      alias: settings.uchisenAlias,
       enabled: settings.uchisenEnabled,
       priority: settings.uchisenPriority,
       prefix: "uchisen",
@@ -14640,7 +14801,7 @@ function kanjiSourceRows(settings) {
     ...kanjiDictionaryRows.length ? [] : [{
       id: KANJI_DICTIONARIES_SOURCE_ID,
       name: uiText(language, "sourceNameImportedKanjiDictionaries"),
-      alias: uiText(language, "sourceNameImportedKanjiDictionaries"),
+      alias: settings.kanjiDictionariesAlias,
       enabled: settings.localDictionaryShowKanji,
       priority: settings.kanjiDictionariesPriority,
       prefix: "kanjiDictionaries",
@@ -14651,7 +14812,7 @@ function kanjiSourceRows(settings) {
     {
       id: KANJI_ORIGINS_SOURCE_ID,
       name: uiText(language, "originStructure"),
-      alias: uiText(language, "originStructure"),
+      alias: settings.kanjiOriginsAlias,
       enabled: settings.kanjiOriginsEnabled,
       priority: settings.kanjiOriginsPriority,
       prefix: "kanjiOrigins",
@@ -14714,6 +14875,10 @@ function orderedDefinitionSourceIds(settings, dictionaryNames) {
   ];
   return sources.filter((source) => source.enabled).sort(compareSourceOrder).map((source) => source.id);
 }
+function definitionSourceLabel(settings, sourceId, fallback = "", language = settings.interfaceLanguage) {
+  const row = definitionSourceRows(settings).find((candidate) => candidate.id === sourceId);
+  return localizedSourceRowLabel(row, language) || fallback;
+}
 function orderedKanjiSourceIds(settings) {
   return kanjiSourceRows(settings).filter((row) => row.enabled).filter((row) => row.id !== KANJI_SIMILAR_WORDS_SOURCE_ID).filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).filter((row) => row.id !== KANJI_DICTIONARIES_SOURCE_ID || !settings.dictionaryPreferences.some((preference) => preference.type === "kanji")).map((row) => row.id);
 }
@@ -14735,9 +14900,10 @@ function compareSourceOrder(a, b) {
 }
 function localizedSourceRowLabel(row, language) {
   if (!row) return "";
-  if (row.id === KANJI_JPDB_SOURCE_ID && row.name !== uiText(language, "readingsComponents")) return row.alias || row.name;
+  if (row.alias) return row.alias;
+  if (row.id === KANJI_JPDB_SOURCE_ID && row.name !== uiText(language, "readingsComponents")) return row.name;
   const key = builtInSourceNameKey(row.id);
-  return key ? uiText(language, key) : row.alias || row.name;
+  return key ? uiText(language, key) : row.name;
 }
 function builtInSourceNameKey(sourceId) {
   return BUILT_IN_SOURCE_NAME_KEYS[sourceId];
@@ -19108,13 +19274,13 @@ ${entry.reading || ""}`;
       sentence: word.dataset.sentence || spelling
     };
   }
-  function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en") {
+  function renderJpdbDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "JPDB") {
     const meanings = jpdbDefinitionMeanings(card, info).map((meaning) => `<div class="jpdb-reader-meaning">${escapeHtml$1(meaning)}</div>`).join("");
     const extras = renderJpdbVocabularyExtras(info, sourceAttributes, language, card);
     if (!meanings && !extras) return "";
     return `
       <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jpdb" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey$2(JPDB_DEFINITION_SOURCE_ID), true)}>
-          <summary class="jpdb-reader-local-title">JPDB</summary>
+          <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
           ${meanings ? `<div class="jpdb-reader-meanings">${meanings}</div>` : ""}
           ${extras}
       </details>
@@ -21705,7 +21871,7 @@ function jitenKanjiAnchor() {
 function ownedElement(element2) {
   return element2 && !element2.closest(READER_OWNED_SELECTOR) ? element2 : null;
 }
-function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en") {
+function renderJitenDefinitionSource(card, sourceAttributes, info = null, language = "en", title = "Jiten") {
   const meanings = jitenDefinitionMeanings(card, info);
   const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
   if (info && !meanings && !extras) return "";
@@ -21716,7 +21882,7 @@ function renderJitenDefinitionSource(card, sourceAttributes, info = null, langua
   if (!body.trim()) return "";
   return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
-            <summary class="jpdb-reader-local-title">Jiten</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml$1(title)}</summary>
             ${body}
         </details>
     `;
@@ -22076,9 +22242,10 @@ function renderDefinitionSourcesStack(params) {
 }
 function renderDefinitionSourceImmersionMount(settings, sourceAttributes) {
   if (!settings.immersionKitEnabled) return "";
+  const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, "immersionKit"));
   return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey$1(IMMERSION_KIT_SOURCE_ID), false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, "immersionKit")}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, "loadingExamples")}</div>
         </details>
     `;
@@ -22144,7 +22311,8 @@ function renderJpdbDefinitionSourceSection(context, params) {
     context.card,
     params.sourceAttributes,
     context.jpdbVocabularyInfo,
-    params.jpdbLanguage
+    params.jpdbLanguage,
+    definitionSourceLabel(params.settings, JPDB_DEFINITION_SOURCE_ID, "JPDB")
   );
 }
 function renderJitenDefinitionSourceSection(context, params) {
@@ -22153,7 +22321,8 @@ function renderJitenDefinitionSourceSection(context, params) {
     context.card,
     params.sourceAttributes,
     context.jitenVocabularyInfo,
-    params.jpdbLanguage ?? params.settings.interfaceLanguage
+    params.jpdbLanguage ?? params.settings.interfaceLanguage,
+    definitionSourceLabel(params.settings, JITEN_DEFINITION_SOURCE_ID, "Jiten")
   );
 }
 function renderAnkiDefinitionSourceSection(context) {
@@ -23646,6 +23815,8 @@ const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6e3;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3400-\u9fff々]+$/u;
+const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
 const log$b = Logger.scope("ReaderParser");
 function apiFirstParseOptions(options = {}) {
   const requireApi = options.requireApi ?? options.requireJpdb ?? true;
@@ -23677,7 +23848,8 @@ class ReaderParser {
     });
     try {
       const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-      return this.withNormalizedMetricParseResult(paragraphs, parsed);
+      const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, parsed);
+      return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
     } finally {
       done();
     }
@@ -23955,6 +24127,66 @@ ${spelling}`);
     }
     return promise;
   }
+  async withLocallySplitKanjiRubies(paragraphs, parsed) {
+    if (!this.canUseLocalKanjiRubySplits()) return parsed;
+    let nextParsed = parsed;
+    await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
+      let nextTokens = tokens;
+      await Promise.all(tokens.map(async (token, tokenIndex) => {
+        const surface = paragraphs[paragraphIndex]?.slice(token.start, token.end) ?? "";
+        const split = await this.locallySplitTokenRubies(surface, token);
+        if (!split || rubiesEqual(split, token.rubies)) return;
+        if (nextTokens === tokens) nextTokens = [...tokens];
+        nextTokens[tokenIndex] = { ...token, rubies: split };
+        this.syncCardWordWithReadingFromTokenRuby(nextTokens[tokenIndex], surface);
+      }));
+      if (nextTokens === tokens) return;
+      if (nextParsed === parsed) nextParsed = [...parsed];
+      nextParsed[paragraphIndex] = nextTokens;
+    }));
+    return nextParsed;
+  }
+  canUseLocalKanjiRubySplits() {
+    const settings = this.dependencies.getSettings();
+    return settings.localDictionariesEnabled && typeof this.dependencies.dictionaries.lookupKanji === "function";
+  }
+  async locallySplitTokenRubies(surface, token) {
+    if (!surface) return null;
+    if (token.rubies.length) {
+      return await this.locallySplitExistingRubies(surface, token);
+    }
+    const reading = token.card.reading.trim();
+    if (!shouldTryLocalKanjiRubySplit(surface, reading)) return null;
+    const whole = [{ text: reading, start: token.start, end: token.end, length: token.end - token.start }];
+    const split = await this.enrichmentGate.run(() => this.localRubySegments(surface, reading, token.start, token.end));
+    return rubiesEqual(split, whole) ? null : split;
+  }
+  async locallySplitExistingRubies(surface, token) {
+    let changed = false;
+    const split = [];
+    for (const ruby of token.rubies) {
+      const start = ruby.start - token.start;
+      const end = ruby.end - token.start;
+      const base = surface.slice(start, end);
+      if (!shouldTryLocalKanjiRubySplit(base, ruby.text)) {
+        split.push(ruby);
+        continue;
+      }
+      const next = await this.enrichmentGate.run(() => this.localRubySegments(base, ruby.text, ruby.start, ruby.end));
+      changed ||= !rubiesEqual(next, [ruby]);
+      split.push(...next);
+    }
+    return changed ? split : null;
+  }
+  syncCardWordWithReadingFromTokenRuby(token, surface) {
+    if (!token.rubies.length || token.card.spelling !== surface) return;
+    const word = Array.from(token.card.spelling);
+    for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
+      const { text: text2, start, length } = token.rubies[index];
+      word.splice(start - token.start + length, 0, `[${text2}]`);
+    }
+    token.card.wordWithReading = word.join("");
+  }
   async localPitchPattern(card, options) {
     const settings = this.dependencies.getSettings();
     if (options.includeLocalPitch === false) return "";
@@ -24032,6 +24264,15 @@ ${spelling}`);
 }
 function remoteParseFallbackTimeoutMs(options) {
   return options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS : 0;
+}
+function shouldTryLocalKanjiRubySplit(base, reading) {
+  return Array.from(base).length >= 2 && LOCAL_RUBY_SPLIT_BASE_RE.test(base) && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
+}
+function rubiesEqual(first, second) {
+  return first.length === second.length && first.every((ruby, index) => {
+    const other = second[index];
+    return Boolean(other) && ruby.text === other.text && ruby.start === other.start && ruby.end === other.end && ruby.length === other.length;
+  });
 }
 function shouldUseJitenParser(settings, options, jiten) {
   return Boolean(hasJitenApiCredential(settings) && jiten && !shouldSkipApiParser(options));
@@ -25531,6 +25772,31 @@ class FloatingButtonController {
     let startY = 0;
     let originX = 0;
     let originY = 0;
+    let puckBox = null;
+    let pendingPosition = null;
+    let currentPosition = null;
+    let dragFrame;
+    let dragFramePending = false;
+    let dragPositionAnchored = false;
+    const cancelDragFrame = () => {
+      if (dragFrame !== void 0) window.cancelAnimationFrame(dragFrame);
+      dragFrame = void 0;
+      dragFramePending = false;
+    };
+    const scheduleDragFrame = (position) => {
+      pendingPosition = position;
+      if (dragFramePending) return;
+      dragFramePending = true;
+      const frame = window.requestAnimationFrame(() => {
+        dragFramePending = false;
+        dragFrame = void 0;
+        if (!dragging || !pendingPosition) return;
+        currentPosition = pendingPosition;
+        pendingPosition = null;
+        applyPuckDragTransform(button2, currentPosition.x - originX, currentPosition.y - originY);
+      });
+      dragFrame = dragFramePending ? frame : void 0;
+    };
     button2.addEventListener("pointerdown", (event) => {
       if (event.button !== 0) return;
       dragging = true;
@@ -25541,28 +25807,54 @@ class FloatingButtonController {
       const rect = button2.getBoundingClientRect();
       originX = rect.left;
       originY = rect.top;
+      puckBox = { width: rect.width, height: rect.height };
+      pendingPosition = null;
+      currentPosition = { x: originX, y: originY };
+      cancelDragFrame();
+      dragPositionAnchored = false;
       button2.setPointerCapture?.(event.pointerId);
     });
     button2.addEventListener("pointermove", (event) => {
-      if (!dragging) return;
+      if (!dragging || !puckBox) return;
       const dx = event.clientX - startX;
       const dy = event.clientY - startY;
       if (Math.hypot(dx, dy) > 4) moved = true;
       if (!moved) return;
       event.preventDefault();
-      button2.dataset.jpdbReaderMoved = "true";
-      const position = clampPuck(button2, originX + dx, originY + dy);
+      if (button2.dataset.jpdbReaderMoved !== "true") button2.dataset.jpdbReaderMoved = "true";
+      if (!dragPositionAnchored) {
+        dragPositionAnchored = true;
+        applyPuckPosition(button2, originX, originY);
+        resetPuckDragTransform(button2);
+        button2.classList.add("jpdb-reader-fab-dragging");
+      }
+      const position = clampPuckToViewport(puckBox, originX + dx, originY + dy);
       if (!position) return;
-      applyPuckPosition(button2, position.x, position.y);
+      scheduleDragFrame(position);
     }, { passive: false });
     const finishDrag = (event) => {
       if (!dragging) return;
       dragging = false;
+      button2.classList.remove("jpdb-reader-fab-dragging");
       button2.releasePointerCapture?.(event.pointerId);
-      if (!moved) return;
-      const rect = button2.getBoundingClientRect();
-      const position = clampPuck(button2, rect.left, rect.top);
+      cancelDragFrame();
+      if (pendingPosition) {
+        currentPosition = pendingPosition;
+        pendingPosition = null;
+      }
+      resetPuckDragTransform(button2);
+      if (!moved || !puckBox || !currentPosition) {
+        puckBox = null;
+        currentPosition = null;
+        dragPositionAnchored = false;
+        return;
+      }
+      const position = clampPuckToViewport(puckBox, currentPosition.x, currentPosition.y);
+      puckBox = null;
+      currentPosition = null;
+      dragPositionAnchored = false;
       if (!position) return;
+      applyPuckPosition(button2, position.x, position.y);
       if (this.settings) {
         this.settings.puckPositionX = Math.round(position.x);
         this.settings.puckPositionY = Math.round(position.y);
@@ -25595,7 +25887,7 @@ function avoidVideoOverlap(button2, settings, saveSettings2) {
   const video = overlappingVideo(rect);
   button2.classList.toggle("jpdb-reader-fab-over-video", Boolean(video));
   if (!shouldMoveAwayFromVideo(button2, video)) return;
-  for (const position of nonOverlappingPuckPositions(button2, rect, video.getBoundingClientRect())) {
+  for (const position of nonOverlappingPuckPositions(rect, video.getBoundingClientRect())) {
     movePuck(button2, position, settings, saveSettings2);
     button2.classList.remove("jpdb-reader-fab-over-video");
     return;
@@ -25610,14 +25902,14 @@ function shouldMoveAwayFromVideo(button2, video) {
 function overlappingVideo(rect) {
   return visibleVideos().find((candidate) => intersects(rect, candidate.getBoundingClientRect()));
 }
-function nonOverlappingPuckPositions(button2, rect, videoRect) {
+function nonOverlappingPuckPositions(rect, videoRect) {
   const candidates = [
     { x: videoRect.right + 10, y: rect.top },
     { x: videoRect.left - rect.width - 10, y: rect.top },
     { x: rect.left, y: videoRect.bottom + 10 },
     { x: rect.left, y: videoRect.top - rect.height - 10 }
   ];
-  return candidates.map((candidate) => clampPuck(button2, candidate.x, candidate.y)).filter((position) => Boolean(position)).filter((position) => !intersects(new DOMRect(position.x, position.y, rect.width, rect.height), videoRect));
+  return candidates.map((candidate) => clampPuckToViewport(rect, candidate.x, candidate.y)).filter((position) => Boolean(position)).filter((position) => !intersects(new DOMRect(position.x, position.y, rect.width, rect.height), videoRect));
 }
 function movePuck(button2, position, settings, saveSettings2) {
   applyPuckPosition(button2, position.x, position.y);
@@ -25646,20 +25938,29 @@ function applyPuckPosition(button2, x, y) {
   button2.style.setProperty("right", "auto", "important");
   button2.style.setProperty("bottom", "auto", "important");
 }
+function applyPuckDragTransform(button2, dx, dy) {
+  button2.style.setProperty("transform", `translate3d(${Math.round(dx)}px, ${Math.round(dy)}px, 0)`, "important");
+}
+function resetPuckDragTransform(button2) {
+  button2.style.removeProperty("transform");
+}
 function clampPuck(button2, x, y) {
   const rect = button2.getBoundingClientRect();
+  return clampPuckToViewport(rect, x, y);
+}
+function clampPuckToViewport(box, x, y) {
   const margin = 8;
-  if (!canClampPuck(rect, x, y, margin)) return null;
+  if (!canClampPuck(box, x, y, margin)) return null;
   return {
-    x: Math.max(margin, Math.min(window.innerWidth - rect.width - margin, x)),
-    y: Math.max(margin, Math.min(window.innerHeight - rect.height - margin, y))
+    x: Math.max(margin, Math.min(window.innerWidth - box.width - margin, x)),
+    y: Math.max(margin, Math.min(window.innerHeight - box.height - margin, y))
   };
 }
-function canClampPuck(rect, x, y, margin) {
+function canClampPuck(box, x, y, margin) {
   if (!finitePuckPosition(x, y)) return false;
   if (!finiteViewport()) return false;
   if (!hasViewportRoom(margin)) return false;
-  return hasVisiblePuckRect(rect);
+  return hasVisiblePuckRect(box);
 }
 function finitePuckPosition(x, y) {
   return Number.isFinite(x) && Number.isFinite(y);
@@ -25670,8 +25971,8 @@ function finiteViewport() {
 function hasViewportRoom(margin) {
   return window.innerWidth > margin * 2 && window.innerHeight > margin * 2;
 }
-function hasVisiblePuckRect(rect) {
-  return rect.width > 0 && rect.height > 0;
+function hasVisiblePuckRect(box) {
+  return box.width > 0 && box.height > 0;
 }
 function visibleVideos() {
   return Array.from(document.querySelectorAll("video")).filter((video) => video instanceof HTMLVideoElement).filter((video) => {
@@ -25900,6 +26201,29 @@ class JitenApiClient {
       offset = nextOffset;
     }
     return cards.slice(0, cardLimit);
+  }
+  async listRecentReviews(limit = 5e3) {
+    const reviewLimit = Math.max(1, Math.floor(limit));
+    const reviews = [];
+    let offset = 0;
+    while (reviews.length < reviewLimit) {
+      const page = normalizeJitenRecentReviewsPage(
+        await this.requestEndpoint("srs/review-history", void 0, {
+          method: "GET",
+          query: {
+            offset,
+            limit: Math.min(100, reviewLimit - reviews.length)
+          }
+        })
+      );
+      if (!page.reviews.length) break;
+      reviews.push(...page.reviews);
+      const pageSize = Math.max(1, page.pageSize || page.reviews.length);
+      const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
+      if (nextOffset <= offset || nextOffset >= page.totalItems) break;
+      offset = nextOffset;
+    }
+    return reviews.slice(0, reviewLimit);
   }
   async listStudyBatchCards(limit = 80) {
     const cardLimit = Math.max(1, Math.floor(limit));
@@ -26141,6 +26465,34 @@ function normalizeJitenStudyDeckVocabularyPage(response) {
     totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? cards.length,
     pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? cards.length,
     currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
+  };
+}
+function normalizeJitenRecentReviewsPage(response) {
+  if (!isJsonRecord$1(response)) return { reviews: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
+  const data = response.data ?? response.Data;
+  const reviews = arrayOfRecords(data).map(normalizeJitenRecentReview).filter((review) => Boolean(review));
+  return {
+    reviews,
+    totalItems: firstRecordFiniteNumber(response, ["totalItems", "TotalItems"]) ?? reviews.length,
+    pageSize: firstRecordFiniteNumber(response, ["pageSize", "PageSize"]) ?? reviews.length,
+    currentOffset: firstRecordFiniteNumber(response, ["currentOffset", "CurrentOffset"]) ?? 0
+  };
+}
+function normalizeJitenRecentReview(value) {
+  const wordId = finiteJitenInteger(value.wordId ?? value.WordId);
+  const readingIndex = finiteJitenInteger(value.readingIndex ?? value.ReadingIndex);
+  const reviewDateTime = firstRecordString(value, ["reviewDateTime", "ReviewDateTime"]);
+  const reviewedAt = reviewDateTime ? Date.parse(reviewDateTime) : Number.NaN;
+  if (wordId === void 0 || readingIndex === void 0 || !Number.isFinite(reviewedAt)) return null;
+  return {
+    wordId,
+    readingIndex,
+    wordText: firstRecordString(value, ["wordText", "WordText"]) ?? "",
+    rating: finiteJitenInteger(value.rating ?? value.Rating) ?? 0,
+    reviewDateTime: reviewDateTime ?? "",
+    reviewedAt,
+    reviewDuration: nullableFiniteInteger(value.reviewDuration ?? value.ReviewDuration),
+    cardState: finiteJitenInteger(value.cardState ?? value.CardState) ?? 0
   };
 }
 function jitenCardFromStudyDeckVocabularyWord(value) {
@@ -36756,12 +37108,14 @@ function criticalWordCss() {
   const states = CRITICAL_STATES.map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalSelector(group)}){${criticalVars(color, highlightAlpha)}}`).join("");
   const ankiStates = CRITICAL_STATES.map(([color, group, highlightAlpha]) => `.jpdb-reader-word:is(${criticalAnkiSelector(group)}){${criticalAnkiVars(color, highlightAlpha)}}`).join("");
   const pitches = CRITICAL_PITCHES.map((pattern) => `.jpdb-reader-word:is(${criticalPitchSelector(pattern)}){--pc:var(--jpdb-reader-pitch-${pattern});--pr:var(--jpdb-reader-pitch-${pattern}-readable)}`).join("");
+  const unknownPitch = ".jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);--pr:var(--jpdb-reader-pitch-unknown-readable);--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000)}";
   const pitchSelector = CRITICAL_PITCHES.map(criticalPitchSelector).join(",");
   return [
     states,
     ankiStates,
     ".jpdb-reader-word:is([data-card-source=jpdb],[data-card-source=jiten]){--h1:var(--hs,color-mix(in srgb,var(--ysc,#0000) 36%,var(--yb)))}",
     pitches,
+    unknownPitch,
     `.jpdb-reader-word:is(${pitchSelector}){--c2:var(--pr,var(--pc,currentColor));--d2:var(--pc,#0000);--h2:color-mix(in srgb,var(--pc) 36%,var(--yb))}`,
     criticalChannelCss()
   ].join("");
@@ -37014,9 +37368,10 @@ class StudySourceController {
   renderTranslationSource(sentence) {
     const settings = this.settings();
     if (!sentence || !settings.studyTranslationEnabled) return "";
+    const title = definitionSourceLabel(settings, STUDY_TRANSLATION_SOURCE_ID, uiText(settings.interfaceLanguage, "translation"));
     return `
           <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-              <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(uiText(settings.interfaceLanguage, "translation"))}</summary>
+              <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
               ${this.renderTranslationPanel(sentence)}
           </details>
       `;
@@ -37024,9 +37379,10 @@ class StudySourceController {
   renderGrammarSource(sentence) {
     const settings = this.settings();
     if (!sentence || !settings.studyGrammarEnabled) return "";
+    const title = definitionSourceLabel(settings, STUDY_GRAMMAR_SOURCE_ID, uiText(settings.interfaceLanguage, "grammar"));
     return `
           <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-              <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(uiText(settings.interfaceLanguage, "grammar"))}</summary>
+              <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml$1(title)}</summary>
               ${this.renderGrammarPanel()}
           </details>
       `;
@@ -40180,7 +40536,7 @@ class ReaderApp {
     if (this.isDestroyed || this.activePopoverMode !== "modal" || !this.activePopover) return;
     if (this.isInsideActivePopover(event.target)) return;
     if (this.shouldKeepModalPopoverForOutsidePointer(event.target)) return;
-    if (window.getSelection()?.isCollapsed === false) event.preventDefault();
+    if (getSelectionText()) event.preventDefault();
     this.rememberDismissedSelection();
     this.dismiss({ suppressHoverTarget: true });
   }
@@ -40532,6 +40888,8 @@ class ReaderApp {
     return !selected || selected.length > 500 || !HAS_JAPANESE$1.test(selected) || isProseDominantSelection(selected) || document.activeElement?.closest?.("[data-jpdb-reader-root]") ? "" : selected;
   }
   selectionLookupAnchor() {
+    const control = getSelectionControlElement();
+    if (control) return control;
     const selection = window.getSelection();
     if (!selection?.rangeCount) return void 0;
     const range = selection.getRangeAt(0);
@@ -43241,15 +43599,20 @@ class ReaderApp {
     return this.settings.dictionaryPreferences.find((item) => item.name === name)?.alias || name;
   }
   kanjiSourceTitle(sourceId) {
+    return kanjiSourceLabel(this.settings, sourceId, this.defaultKanjiSourceTitle(sourceId));
+  }
+  kanjiFactSourceTitle(source) {
+    const sourceId = source === "jpdb" ? JPDB_DEFINITION_SOURCE_ID : JITEN_DEFINITION_SOURCE_ID;
+    return definitionSourceLabel(this.settings, sourceId, kanjiFactProviderTitle(source));
+  }
+  defaultKanjiSourceTitle(sourceId) {
     if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "strokePractice");
-    if (sourceId === KANJI_JPDB_SOURCE_ID) return kanjiSourceLabel(this.settings, sourceId) || uiText(this.settings.interfaceLanguage, "readingsComponents");
+    if (sourceId === KANJI_JPDB_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "readingsComponents");
     if (sourceId === KANJI_RTK_SOURCE_ID) return "RTK";
     if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "kanjiDictionaries");
     if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, "originStructure");
-    return kanjiSourceLabel(this.settings, sourceId);
-  }
-  kanjiFactSourceTitle(source) {
-    return kanjiFactProviderTitle(source);
+    if (sourceId === KANJI_UCHISEN_SOURCE_ID) return "Uchisen";
+    return "";
   }
   renderKanjiFactSourcesHtml(jpdbInfo, jitenInfo, language) {
     const sections = [];

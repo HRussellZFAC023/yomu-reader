@@ -30,7 +30,7 @@ import { apiSrsProviderViewForCard, isJitenBackedCard } from '../cards/srs-provi
 import type { CardRenderData } from '../cards/render-data';
 import { isCardHighlightWord } from '../cards/highlight';
 import { loadCachedParsedTokens, type ParsedTokenCacheEntry } from '../core/parsed-token-cache';
-import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID } from '../app/constants';
+import { APP_NAME, DOCS_BASE_URL, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID } from '../app/constants';
 import { htmlToFirstElement, setInnerHtml } from '../dom';
 import { el, fragment, replaceChildrenWith } from '../dom/builder';
 import { nearestElementByPoint, pointerPointFromEvent, pointInElementClientRects } from '../dom/pointer-geometry';
@@ -50,7 +50,7 @@ import {
     uniqueImmersionQueries,
 } from '../immersion/query';
 import { promiseWithTimeout, runLimited } from '../core/async-utils';
-import type { JitenApiClient, JitenKanjiInfo, JitenVocabularyInfo } from '../dictionaries/jiten';
+import type { JitenApiClient, JitenKanjiInfo, JitenRecentReview, JitenVocabularyInfo } from '../dictionaries/jiten';
 import {
     jitenKanjiFactRows,
     jitenKanjiReadingRows,
@@ -226,6 +226,7 @@ import {
 import { uniqueTrimmedStrings as uniqueStrings } from '../core/string-utils';
 import {
     applyJitenDailyStats,
+    applyJitenReviewHistory,
     applyJpdbReviewImport,
     combineStatsSources,
     emptyStatsDashboardSnapshot,
@@ -233,6 +234,7 @@ import {
     loadAnkiConnectStats,
     parseJpdbReviewExportText,
     statsFromApiCards,
+    statsFromJitenCards,
     type JpdbReviewImport,
     type StatsActivityMetric,
     type StatsDashboardSnapshot,
@@ -301,6 +303,7 @@ import {
     KANJI_STROKE_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
     kanjiDictionaryNameFromSourceId,
+    definitionSourceLabel,
     orderedKanjiSourceIds,
 } from '../sources/sections';
 import type { CardNavigationMode, PopupNavigationEntry } from '../popup/navigation';
@@ -322,6 +325,7 @@ const NEW_TAB_SEARCH_PITCH_CONCURRENCY = 4;
 const NEW_TAB_LIVE_GRADE_REFRESH_DELAY_MS = 900;
 const NEW_TAB_PARSED_SENTENCE_CACHE_LIMIT = 160;
 const NEW_TAB_REVIEW_HISTORY_LIMIT = 12;
+const NEW_TAB_STATS_JITEN_HISTORY_LIMIT = 1000;
 type NewTabTextKey = UiCopyKey | NewTabCopyKey;
 export type { NewTabLookupReviewTarget, NewTabLookupReviewTargetSelection } from './review-controls';
 
@@ -387,7 +391,7 @@ export interface NewTabControllerDependencies {
         requestPermission: () => Promise<unknown>;
     };
     jpdb: JpdbClient;
-    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'parse' | 'lookupVocabularyInfoForCard' | 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys' | 'listStudyDeckVocabularyCards'>>;
+    jiten?: Pick<JitenApiClient, 'listStudyBatchCards' | 'reviewCard' | 'lookupKanji' | 'lookupKanjiWords'> & Partial<Pick<JitenApiClient, 'parse' | 'lookupVocabularyInfoForCard' | 'refreshCardState' | 'undoReview' | 'listStudyDecks' | 'studyDeckWordKeys' | 'listStudyDeckVocabularyCards' | 'listRecentReviews'>>;
     jpdbKanji: JpdbKanjiClient;
     kanjiVG: KanjiVGClient;
     rtk: RtkClient;
@@ -1128,7 +1132,9 @@ export class NewTabController {
             const browseSort = target?.closest<HTMLSelectElement>('[data-newtab-action="browse-sort"]');
             if (browseSort && root.contains(browseSort)) {
                 const value = browseSort.value;
-                this.browseSort = value === 'alpha' || value === 'frequency' ? value : 'queue';
+                const previousSort = this.browseSort;
+                this.browseSort = value === 'alpha' || value === 'frequency' || value === 'history' ? value : 'queue';
+                if (this.browseSort === 'history' && previousSort !== 'history') this.browseSortDescending = true;
                 this.browsePage = 0;
                 const mount = this.searchResultsMount(root);
                 if (mount && this.state.mode === 'search') this.renderBrowseResults(mount);
@@ -2209,7 +2215,7 @@ export class NewTabController {
     }
 
     private studyStatsTroubleCards(root: HTMLElement): void {
-        const source: NewTabUiState['source'] = this.statsSelectedSource === 'jpdb'
+        const source: NewTabUiState['source'] = this.statsSelectedSource === 'jpdb' || this.statsSelectedSource === 'jiten'
             ? 'jpdb'
             : this.statsSelectedSource === 'anki'
                 ? 'anki'
@@ -2238,46 +2244,47 @@ export class NewTabController {
     private async loadStatsInto(root: HTMLElement, force = false): Promise<void> {
         if (this.statsLoaded && !force) return;
         await this.loadStatsDeckPrefs();
+        const settings = this.dependencies.getSettings();
         const generation = ++this.statsGeneration;
         this.statsSnapshot = {
-            jpdb: { ...this.statsSnapshot.jpdb, status: 'loading', message: this.text('statsLoading') },
-            anki: { ...this.statsSnapshot.anki, status: 'loading', message: this.text('statsLoading') },
-            combined: { ...this.statsSnapshot.combined, status: 'loading', message: this.text('statsLoading') },
+            jpdb: hasJpdbApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jpdb) : emptyStatsSource('jpdb', 'JPDB', this.text('statsApiKeyMissing'), 'setup'),
+            jiten: hasJitenApiCredential(settings) ? this.loadingStatsSource(this.statsSnapshot.jiten) : emptyStatsSource('jiten', 'Jiten', this.text('statsApiKeyMissing'), 'setup'),
+            anki: this.shouldLoadAnkiStats(settings) ? this.loadingStatsSource(this.statsSnapshot.anki) : emptyStatsSource('anki', 'Anki', this.text('statsConnectAnki'), 'setup'),
+            combined: this.loadingStatsSource(this.statsSnapshot.combined),
         };
         this.renderStats(root);
-        const [history, jpdb, anki] = await Promise.all([
+        const [history, jpdb, jiten, anki] = await Promise.all([
             this.readJpdbStatsHistory(),
             this.loadJpdbStatsSource(),
+            this.loadJitenStatsSource(),
             this.loadAnkiStatsSource(),
         ]);
         if (generation !== this.statsGeneration || !root.isConnected) return;
-        const jpdbWithHistory = applyJitenDailyStats(applyJpdbReviewImport(jpdb, history), loadJitenDailyStats());
+        const jpdbWithHistory = applyJpdbReviewImport(jpdb, history);
+        const jitenWithHistory = applyJitenDailyStats(jiten, loadJitenDailyStats());
         this.statsSnapshot = {
             jpdb: jpdbWithHistory,
+            jiten: jitenWithHistory,
             anki,
-            combined: combineStatsSources(jpdbWithHistory, anki),
+            combined: combineStatsSources(jpdbWithHistory, jitenWithHistory, anki),
         };
         this.statsLoaded = true;
         this.renderStats(root);
     }
 
+    private loadingStatsSource<T extends StatsSourceSnapshot | StatsDashboardSnapshot['combined']>(source: T): T {
+        return { ...source, status: 'loading', message: this.text('statsLoading') };
+    }
+
     private async loadJpdbStatsSource(): Promise<StatsSourceSnapshot> {
         const providers = this.jpdbStatsApiProviders(this.dependencies.getSettings());
-        if (!providers.length) return emptyStatsSource('jpdb', this.apiReviewSourceLabel(), this.text('statsApiKeyMissing'), 'setup');
+        if (!providers.length) return emptyStatsSource('jpdb', 'JPDB', this.text('statsApiKeyMissing'), 'setup');
         const results = await Promise.all(providers.map(provider => this.loadJpdbStatsApiProvider(provider)));
         return this.jpdbStatsSourceFromApiResults(results);
     }
 
     private jpdbStatsApiProviders(settings: ReaderSettings): NewTabStatsApiProvider[] {
         const providers: NewTabStatsApiProvider[] = [];
-        const jiten = this.dependencies.jiten;
-        if (hasJitenApiCredential(settings) && typeof jiten?.listStudyBatchCards === 'function') {
-            const listJitenStudyBatchCards = jiten.listStudyBatchCards.bind(jiten);
-            providers.push({
-                label: 'Jiten',
-                load: () => listJitenStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
-            });
-        }
         if (hasJpdbApiCredential(settings)) providers.push({
             label: 'JPDB',
             load: () => this.loadJpdbStatsCards(),
@@ -2311,7 +2318,7 @@ export class NewTabController {
         if (typeof jiten.listStudyDeckVocabularyCards === 'function') {
             return {
                 label: 'Jiten',
-                load: () => this.loadAllJitenDeckBrowseCards(settings),
+                load: async () => this.withJitenReviewHistory(await this.loadAllJitenDeckBrowseCards(settings)),
             };
         }
         const listJitenStudyBatchCards = jiten.listStudyBatchCards.bind(jiten);
@@ -2349,6 +2356,38 @@ export class NewTabController {
         return this.formatNewTabText('statsApiLoaded', { providers: label });
     }
 
+    private async loadJitenStatsSource(): Promise<StatsSourceSnapshot> {
+        const settings = this.dependencies.getSettings();
+        const jiten = this.dependencies.jiten;
+        if (!hasJitenApiCredential(settings) || typeof jiten?.listStudyBatchCards !== 'function') {
+            return emptyStatsSource('jiten', 'Jiten', this.text('statsApiKeyMissing'), 'setup');
+        }
+        try {
+            const [cards, reviews] = await Promise.all([
+                jiten.listStudyBatchCards(NEW_TAB_STATS_JPDB_CARD_LIMIT),
+                this.loadJitenRecentReviews().catch(error => {
+                    log.warn('Jiten review history failed', error);
+                    return [];
+                }),
+            ]);
+            const source = statsFromJitenCards(cards, this.apiStatsLoadedMessage('Jiten', cards.length));
+            return applyJitenReviewHistory(source, reviews);
+        } catch (error) {
+            log.warn('Jiten stats failed', error);
+            return emptyStatsSource('jiten', 'Jiten', error instanceof Error ? error.message : this.text('couldNotLoadWords'), 'error');
+        }
+    }
+
+    private async loadJitenRecentReviews(): Promise<Array<{ rating: number; reviewDateTime: string; reviewDuration: number | null }>> {
+        const jiten = this.dependencies.jiten;
+        if (typeof jiten?.listRecentReviews !== 'function') return [];
+        return (await jiten.listRecentReviews(NEW_TAB_STATS_JITEN_HISTORY_LIMIT)).map(review => ({
+            rating: review.rating,
+            reviewDateTime: review.reviewDateTime,
+            reviewDuration: review.reviewDuration,
+        }));
+    }
+
     private async loadJpdbStatsCards(): Promise<JPDBCard[]> {
         try {
             return await this.dependencies.jpdb.listDeckCards(JPDB_ALL_DECKS, NEW_TAB_STATS_JPDB_CARD_LIMIT);
@@ -2363,6 +2402,9 @@ export class NewTabController {
     }
 
     private async loadAnkiStatsSource(): Promise<StatsSourceSnapshot> {
+        if (!this.shouldLoadAnkiStats(this.dependencies.getSettings())) {
+            return emptyStatsSource('anki', 'Anki', this.text('statsConnectAnki'), 'setup');
+        }
         try {
             return await loadAnkiConnectStats({
                 invoke: (action, params) => this.dependencies.anki.invoke(action, params),
@@ -2371,8 +2413,12 @@ export class NewTabController {
             });
         } catch (error) {
             log.warn('Anki stats failed', error);
-            return emptyStatsSource('anki', 'Anki', this.text('statsAnkiUnavailable'), 'setup');
+            return emptyStatsSource('anki', 'Anki', this.text('statsAnkiUnavailable'), 'error');
         }
+    }
+
+    private shouldLoadAnkiStats(settings: ReaderSettings): boolean {
+        return settings.ankiEnabled || settings.newTabAnkiEnabled;
     }
 
     private async connectAnkiStats(root: HTMLElement): Promise<void> {
@@ -2384,7 +2430,7 @@ export class NewTabController {
                 ...this.statsSnapshot,
                 anki: emptyStatsSource('anki', 'Anki', this.text('statsAnkiUnavailable'), 'error'),
             };
-            this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.anki);
+            this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.anki);
             this.renderStats(root);
             return;
         }
@@ -2422,7 +2468,7 @@ export class NewTabController {
         this.statsSnapshot = {
             ...this.statsSnapshot,
             anki: nextAnki,
-            combined: combineStatsSources(this.statsSnapshot.jpdb, nextAnki),
+            combined: combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, nextAnki),
         };
         this.renderStats(root);
     }
@@ -2453,8 +2499,9 @@ export class NewTabController {
             }, imported);
             this.statsSnapshot = {
                 jpdb,
+                jiten: this.statsSnapshot.jiten,
                 anki: this.statsSnapshot.anki,
-                combined: combineStatsSources(jpdb, this.statsSnapshot.anki),
+                combined: combineStatsSources(jpdb, this.statsSnapshot.jiten, this.statsSnapshot.anki),
             };
             this.statsSelectedSource = this.statsSelectedSource === 'anki' ? 'combined' : this.statsSelectedSource;
             this.statsLoaded = true;
@@ -2468,7 +2515,7 @@ export class NewTabController {
                     message: this.text('statsImportFailed'),
                 },
             };
-            this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.anki);
+            this.statsSnapshot.combined = combineStatsSources(this.statsSnapshot.jpdb, this.statsSnapshot.jiten, this.statsSnapshot.anki);
         }
         this.renderStats(root);
     }
@@ -3147,6 +3194,17 @@ export class NewTabController {
             deckNames,
             sourceDeckName: normalized.sourceDeckName || deckName.trim(),
         };
+    }
+
+    private async withJitenReviewHistory(cards: JPDBCard[], limit = NEW_TAB_BROWSE_DECK_LIMIT): Promise<JPDBCard[]> {
+        const jiten = this.dependencies.jiten;
+        if (!cards.length || typeof jiten?.listRecentReviews !== 'function') return cards;
+        const latestByKey = jitenLatestReviewTimes(await jiten.listRecentReviews(limit).catch((): JitenRecentReview[] => []));
+        if (!latestByKey.size) return cards;
+        return cards.map(card => {
+            const time = latestByKey.get(jitenHistoryCardKey(card));
+            return time === undefined ? card : { ...card, lastReviewAt: time };
+        });
     }
 
     private async loadPublicJpdbWords(): Promise<NewTabLoadResult> {
@@ -4414,10 +4472,29 @@ export class NewTabController {
     private revealedKanjiAnswer(card: JPDBCard, kanji: string): HTMLElement {
         const preview = this.doodlePreviewCache.get(cardKey(card));
         return el('div', { class: 'jpdb-reader-newtab-kanji-answer' },
-            el('div', { class: 'jpdb-reader-newtab-kanji-svg', dataset: { newtabKanjiSvg: kanji } }, kanji),
+            el('div', { class: 'jpdb-reader-newtab-kanji-answer-main' },
+                el('div', { class: 'jpdb-reader-newtab-kanji-svg', dataset: { newtabKanjiSvg: kanji } }, kanji),
+                this.renderJitenKanjiBackingWord(card, kanji),
+            ),
             el('div', { class: 'jpdb-reader-newtab-doodle-preview' },
                 preview ? el('img', { src: preview, alt: `${this.text('yourDrawing')}: ${kanji}` }) : null,
             ),
+        );
+    }
+
+    private renderJitenKanjiBackingWord(card: JPDBCard, kanji: string): HTMLElement | null {
+        if (!isJitenSrsCard(card) || isStandaloneKanjiCard(card, kanji) || card.spelling === kanji) return null;
+        const reading = newTabCardOptionalReading(card);
+        const meaning = firstCardMeaning(card);
+        return el('div', { class: 'jpdb-reader-newtab-kanji-backing-word', dataset: { newtabKanjiBackingWord: true } },
+            el('button', {
+                class: 'jpdb-reader-newtab-kanji-popover-word',
+                type: 'button',
+                dataset: { action: 'similar-word', expression: card.spelling, reading: card.reading },
+                title: `${this.text('lookUp')}: ${card.spelling}`,
+            }, card.spelling),
+            reading ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-reading', lang: 'ja' }, reading) : null,
+            meaning ? el('span', { class: 'jpdb-reader-newtab-kanji-backing-meaning' }, meaning) : null,
         );
     }
 
@@ -5922,7 +5999,8 @@ export class NewTabController {
     }
 
     private kanjiFactSourceTitle(source: 'jpdb' | 'jiten'): string {
-        return kanjiFactProviderTitle(source);
+        const sourceId = source === 'jpdb' ? JPDB_DEFINITION_SOURCE_ID : JITEN_DEFINITION_SOURCE_ID;
+        return definitionSourceLabel(this.dependencies.getSettings(), sourceId, kanjiFactProviderTitle(source));
     }
 
     private renderKanjiMiningControls(info: JpdbKanjiInfo | null): HTMLElement | null {
@@ -7167,6 +7245,7 @@ export class NewTabController {
                 sortQueue: this.text('browseSortQueue'),
                 sortAlpha: this.text('browseSortAlpha'),
                 sortFrequency: this.text('browseSortFrequency'),
+                sortHistory: this.text('browseSortHistory'),
                 directionAscending: this.text('browseSortAscending'),
                 directionDescending: this.text('browseSortDescending'),
                 select: this.text('browseSelectMode'),
@@ -7250,10 +7329,10 @@ export class NewTabController {
         const deck = (this.state.jpdbDeck || '').trim();
         const jitenDeckId = jitenScopedDeckId(deck);
         if (this.state.mode === 'search' && jitenDeckId !== null) {
-            return this.loadScopedBrowsePool(`jiten-deck:${jitenDeckId}`, () => this.loadJitenDeckBrowseCards(jitenDeckId, NEW_TAB_BROWSE_DECK_LIMIT));
+            return this.loadScopedBrowsePool(`jiten-deck:${jitenDeckId}`, async () => this.withJitenReviewHistory(await this.loadJitenDeckBrowseCards(jitenDeckId, NEW_TAB_BROWSE_DECK_LIMIT)));
         }
         if (this.state.mode === 'search' && deck === 'provider:jiten') {
-            return this.loadScopedBrowsePool('provider:jiten', () => this.loadAllJitenDeckBrowseCards(settings));
+            return this.loadScopedBrowsePool('provider:jiten', async () => this.withJitenReviewHistory(await this.loadAllJitenDeckBrowseCards(settings)));
         }
         if (this.state.mode === 'search' && deck === 'provider:jpdb' && hasJpdbApiCredential(settings) && typeof this.dependencies.jpdb.listDeckCards === 'function') {
             return this.loadScopedBrowsePool('provider:jpdb', () => this.dependencies.jpdb.listDeckCards('all', NEW_TAB_BROWSE_DECK_LIMIT).catch((): JPDBCard[] => []));
@@ -7267,7 +7346,12 @@ export class NewTabController {
             return this.browsePool;
         }
         const providers = this.browsePoolProviders(settings);
-        const key = providers.map(provider => provider.label).join('+');
+        const key = JSON.stringify({
+            providers: providers.map(provider => provider.label),
+            jpdb: effectiveJpdbApiKey(settings),
+            jiten: effectiveJitenApiKey(settings),
+            anki: settings.ankiEnabled && settings.newTabAnkiEnabled,
+        });
         if (this.browsePool && this.browsePoolKey === key) return this.browsePool;
         this.browsePool = [];
         this.browsePoolKey = key;
@@ -8709,7 +8793,7 @@ function uniqueConcreteSources(sources: Array<ConcreteNewTabWordSource | null>):
 }
 
 function statsSourceIdFromValue(value: string | undefined): StatsSourceId {
-    if (value === 'jpdb' || value === 'anki' || value === 'combined') return value;
+    if (value === 'jpdb' || value === 'jiten' || value === 'anki' || value === 'combined') return value;
     return 'combined';
 }
 
@@ -8870,6 +8954,27 @@ function capitalizedSessionSource(source: string): string {
 
 function uniqueNumbers(values: number[]): number[] {
     return [...new Set(values)];
+}
+
+function jitenLatestReviewTimes(reviews: JitenRecentReview[]): Map<string, number> {
+    const latest = new Map<string, number>();
+    for (const review of reviews) {
+        if (!Number.isFinite(review.reviewedAt)) continue;
+        const key = jitenReviewKey(review.wordId, review.readingIndex);
+        const existing = latest.get(key);
+        if (existing === undefined || review.reviewedAt > existing) latest.set(key, review.reviewedAt);
+    }
+    return latest;
+}
+
+function jitenHistoryCardKey(card: JPDBCard): string {
+    const wordId = typeof card.jitenWordId === 'number' ? card.jitenWordId : card.source === 'jiten' ? card.vid : Number.NaN;
+    const readingIndex = typeof card.jitenReadingIndex === 'number' ? card.jitenReadingIndex : card.source === 'jiten' ? card.sid : Number.NaN;
+    return jitenReviewKey(wordId, readingIndex);
+}
+
+function jitenReviewKey(wordId: number, readingIndex: number): string {
+    return Number.isFinite(wordId) && Number.isFinite(readingIndex) ? `${wordId}:${readingIndex}` : '';
 }
 
 function isJitenBulkAction(action: string): boolean {

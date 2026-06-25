@@ -32,6 +32,7 @@ function statsSource(id: StatsSourceSnapshot['id']): StatsSourceSnapshot {
 function snapshot(): StatsDashboardSnapshot {
     return {
         jpdb: statsSource('jpdb'),
+        jiten: statsSource('jiten'),
         anki: statsSource('anki'),
         combined: { ...statsSource('jpdb'), id: 'combined' },
     };
@@ -60,5 +61,20 @@ describe('new tab stats view', () => {
         const root = renderStats('2026-06-10');
         const selected = Array.from(root.querySelectorAll<HTMLElement>('.jpdb-reader-stats-bar[data-selected="true"]'));
         expect(selected.map(bar => bar.dataset.statsDay)).toEqual(['2026-06-10']);
+    });
+
+    it('renders separate source tabs only for visible stats sources', () => {
+        const visibleSnapshot = snapshot();
+        visibleSnapshot.anki = { ...statsSource('anki'), status: 'setup', daily: [], cards: { ...EMPTY_CARDS } };
+        const root = renderNewTabStatsContent({
+            activityMetric: 'reviews',
+            language: 'en',
+            selectedSource: 'combined',
+            snapshot: visibleSnapshot,
+            text: key => String(key),
+        });
+        const tabs = Array.from(root.querySelectorAll<HTMLElement>('[data-stats-source]')).map(tab => tab.dataset.statsSource);
+
+        expect(tabs).toEqual(['combined', 'jpdb', 'jiten']);
     });
 });

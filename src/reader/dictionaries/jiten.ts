@@ -151,6 +151,24 @@ interface JitenStudyDeckVocabularyPage {
     currentOffset: number;
 }
 
+export interface JitenRecentReview {
+    wordId: number;
+    readingIndex: number;
+    wordText: string;
+    rating: number;
+    reviewDateTime: string;
+    reviewedAt: number;
+    reviewDuration: number | null;
+    cardState: number;
+}
+
+interface JitenRecentReviewsPage {
+    reviews: JitenRecentReview[];
+    totalItems: number;
+    pageSize: number;
+    currentOffset: number;
+}
+
 interface JitenStudyDeckVocabularyWordDto {
     wordId: number;
     mainReading: JitenStudyDeckVocabularyReadingDto;
@@ -472,8 +490,9 @@ export class JitenApiClient {
         return keys;
     }
 
-    // The new-tab browser needs the whole study deck, not the current review
-    // queue. Jiten caps this endpoint at 100 rows per page.
+    // Jiten Cards parity: the new-tab Search browser needs the full deck, not
+    // the current review batch. /vocabulary is paginated by the API at 100 rows.
+    // fallow-ignore-next-line unused-class-member
     async listStudyDeckVocabularyCards(deckId: number, limit = 5000): Promise<JPDBCard[]> {
         const normalizedDeckId = normalizeJitenStudyDeckId(deckId);
         const cardLimit = Math.max(1, Math.floor(limit));
@@ -494,6 +513,30 @@ export class JitenApiClient {
             offset = nextOffset;
         }
         return cards.slice(0, cardLimit);
+    }
+
+    async listRecentReviews(limit = 5000): Promise<JitenRecentReview[]> {
+        const reviewLimit = Math.max(1, Math.floor(limit));
+        const reviews: JitenRecentReview[] = [];
+        let offset = 0;
+        while (reviews.length < reviewLimit) {
+            const page = normalizeJitenRecentReviewsPage(
+                await this.requestEndpoint<unknown>('srs/review-history', undefined, {
+                    method: 'GET',
+                    query: {
+                        offset,
+                        limit: Math.min(100, reviewLimit - reviews.length),
+                    },
+                }),
+            );
+            if (!page.reviews.length) break;
+            reviews.push(...page.reviews);
+            const pageSize = Math.max(1, page.pageSize || page.reviews.length);
+            const nextOffset = Math.max(offset + pageSize, page.currentOffset + pageSize);
+            if (nextOffset <= offset || nextOffset >= page.totalItems) break;
+            offset = nextOffset;
+        }
+        return reviews.slice(0, reviewLimit);
     }
 
     async listStudyBatchCards(limit = 80): Promise<JPDBCard[]> {
@@ -794,6 +837,38 @@ function normalizeJitenStudyDeckVocabularyPage(response: unknown): JitenStudyDec
         totalItems: firstRecordFiniteNumber(response, ['totalItems', 'TotalItems']) ?? cards.length,
         pageSize: firstRecordFiniteNumber(response, ['pageSize', 'PageSize']) ?? cards.length,
         currentOffset: firstRecordFiniteNumber(response, ['currentOffset', 'CurrentOffset']) ?? 0,
+    };
+}
+
+function normalizeJitenRecentReviewsPage(response: unknown): JitenRecentReviewsPage {
+    if (!isJsonRecord(response)) return { reviews: [], totalItems: 0, pageSize: 0, currentOffset: 0 };
+    const data = response.data ?? response.Data;
+    const reviews = arrayOfRecords(data)
+        .map(normalizeJitenRecentReview)
+        .filter((review): review is JitenRecentReview => Boolean(review));
+    return {
+        reviews,
+        totalItems: firstRecordFiniteNumber(response, ['totalItems', 'TotalItems']) ?? reviews.length,
+        pageSize: firstRecordFiniteNumber(response, ['pageSize', 'PageSize']) ?? reviews.length,
+        currentOffset: firstRecordFiniteNumber(response, ['currentOffset', 'CurrentOffset']) ?? 0,
+    };
+}
+
+function normalizeJitenRecentReview(value: Record<string, unknown>): JitenRecentReview | null {
+    const wordId = finiteJitenInteger(value.wordId ?? value.WordId);
+    const readingIndex = finiteJitenInteger(value.readingIndex ?? value.ReadingIndex);
+    const reviewDateTime = firstRecordString(value, ['reviewDateTime', 'ReviewDateTime']);
+    const reviewedAt = reviewDateTime ? Date.parse(reviewDateTime) : Number.NaN;
+    if (wordId === undefined || readingIndex === undefined || !Number.isFinite(reviewedAt)) return null;
+    return {
+        wordId,
+        readingIndex,
+        wordText: firstRecordString(value, ['wordText', 'WordText']) ?? '',
+        rating: finiteJitenInteger(value.rating ?? value.Rating) ?? 0,
+        reviewDateTime: reviewDateTime ?? '',
+        reviewedAt,
+        reviewDuration: nullableFiniteInteger(value.reviewDuration ?? value.ReviewDuration),
+        cardState: finiteJitenInteger(value.cardState ?? value.CardState) ?? 0,
     };
 }
 

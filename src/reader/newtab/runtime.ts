@@ -11,7 +11,7 @@ import { highlightCardTargetScopes } from '../cards/highlight';
 import { isPlainReadingDuplicatedByVisibleRuby } from '../cards/reading-display';
 import { normalizeCardStates, primaryCardState } from '../cards/state';
 import { cardKey } from '../cards/utils';
-import { APP_NAME, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
+import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, USERSCRIPT_HTTP_BRIDGE_READY_EVENT } from '../app/constants';
 import { handleReaderActionPillLink } from '../app/main-helpers';
 import { yomuKanjiStudyCompanion } from '../companions/registry';
 import {
@@ -110,6 +110,7 @@ import {
     KANJI_ORIGINS_SOURCE_ID,
     KANJI_RTK_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
+    definitionSourceLabel,
 } from '../sources/sections';
 import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
 import { renderKanjiImmersionKitMount, renderKanjiSourceMounts as renderRuntimeKanjiSourceMounts } from '../runtime/kanji-source-mounts';
@@ -1964,11 +1965,11 @@ export class NewTabRuntime {
         const sections: string[] = [];
         const jpdbKey = kanjiSourceStateKey(KANJI_JPDB_SOURCE_ID);
         if (jpdbInfo) {
-            sections.push(renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, kanjiFactProviderTitle('jpdb')));
+            sections.push(renderJpdbKanjiInfo(jpdbInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jpdbKey), jpdbKey, definitionSourceLabel(this.settings, JPDB_DEFINITION_SOURCE_ID, kanjiFactProviderTitle('jpdb'))));
         }
         if (jitenInfo) {
             const jitenKey = `${jpdbKey}:jiten`;
-            sections.push(renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jitenKey), jitenKey, kanjiFactProviderTitle('jiten')));
+            sections.push(renderJitenKanjiInfo(jitenInfo, this.settings.interfaceLanguage, this.dictionarySourceState.isOpen(jitenKey), jitenKey, definitionSourceLabel(this.settings, JITEN_DEFINITION_SOURCE_ID, kanjiFactProviderTitle('jiten'))));
         }
         return sections.join('');
     }

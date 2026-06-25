@@ -9980,6 +9980,93 @@ describe('reader helpers', () => {
         }
     });
 
+    it('leaves a tapped default puck anchored to the responsive safe-area corner', () => {
+        const controller = new FloatingButtonController();
+        const restoreRects = mockFloatingButtonRects(700, 500);
+        const save = vi.fn();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            puckPositionX: undefined,
+            puckPositionY: undefined,
+        };
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, save, stubFloatingButtonActions());
+            }));
+            const button = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
+            expect(button).not.toBeNull();
+
+            button?.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 40, button: 0, clientX: 710, clientY: 510 }));
+            button?.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 40, clientX: 710, clientY: 510 }));
+
+            expect(button?.style.left).toBe('');
+            expect(button?.style.top).toBe('');
+            expect(button?.style.getPropertyValue('transform')).toBe('');
+            expect(settings.puckPositionX).toBeUndefined();
+            expect(settings.puckPositionY).toBeUndefined();
+            expect(save).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            restoreRects();
+            document.body.innerHTML = '';
+        }
+    });
+
+    it('moves the iPad puck without remeasuring layout on every touch move', () => {
+        const controller = new FloatingButtonController();
+        const rectSpy = vi.spyOn(HTMLButtonElement.prototype, 'getBoundingClientRect').mockImplementation(function rect(this: HTMLButtonElement) {
+            const styleLeft = Number.parseFloat(this.style.left);
+            const styleTop = Number.parseFloat(this.style.top);
+            const x = Number.isFinite(styleLeft) ? styleLeft : 700;
+            const y = Number.isFinite(styleTop) ? styleTop : 500;
+            return new DOMRect(x, y, 52, 52);
+        });
+        const save = vi.fn();
+        const settings = {
+            ...DEFAULT_SETTINGS,
+            puckPositionX: undefined,
+            puckPositionY: undefined,
+        };
+
+        try {
+            withViewport(1200, 900, () => withImmediateAnimationFrame(() => {
+                controller.install(settings, save, stubFloatingButtonActions());
+            }));
+            const button = document.querySelector<HTMLButtonElement>('.jpdb-reader-fab');
+            expect(button).not.toBeNull();
+            rectSpy.mockClear();
+
+            withImmediateAnimationFrame(() => {
+                button?.dispatchEvent(createPointerEvent('pointerdown', { pointerType: 'touch', pointerId: 41, button: 0, clientX: 710, clientY: 510 }));
+                for (let index = 1; index <= 10; index += 1) {
+                    button?.dispatchEvent(createPointerEvent('pointermove', {
+                        pointerType: 'touch',
+                        pointerId: 41,
+                        clientX: 710 + index * 10,
+                        clientY: 510 + index * 10,
+                    }));
+                }
+                expect(rectSpy).toHaveBeenCalledTimes(1);
+                expect(button?.style.getPropertyValue('transform')).toBe('translate3d(100px, 100px, 0)');
+                button?.dispatchEvent(createPointerEvent('pointerup', { pointerType: 'touch', pointerId: 41, clientX: 810, clientY: 610 }));
+            });
+
+            expect(rectSpy).toHaveBeenCalledTimes(1);
+            expect(button?.style.getPropertyValue('transform')).toBe('');
+            expect(button?.style.left).toBe('800px');
+            expect(button?.style.top).toBe('600px');
+            expect(settings.puckPositionX).toBe(800);
+            expect(settings.puckPositionY).toBe(600);
+            expect(save).toHaveBeenCalledTimes(1);
+        } finally {
+            controller.destroy();
+            rectSpy.mockRestore();
+            restoreInheritedButtonRectLookup();
+            document.body.innerHTML = '';
+        }
+    });
+
     it('normalizes invalid persisted popup presentation settings', async () => {
         const storageKey = 'jpdb-popup-reader-settings';
         const previous = localStorage.getItem(storageKey);
@@ -11783,18 +11870,20 @@ describe('reader helpers', () => {
         }
     });
 
-    it('keeps definition source ordering compact until editable dictionaries exist', () => {
+    it('shows editable display names for built-in definition sources', () => {
         document.body.innerHTML = `<form>${renderDictionarySourceRows(DEFAULT_SETTINGS)}</form>`;
 
         const header = document.querySelector<HTMLElement>('.jpdb-reader-dictionary-head');
         const row = document.querySelector<HTMLElement>('[data-dictionary-source-row]');
+        const alias = document.querySelector<HTMLInputElement>('input[name="jitenDefinitions.alias"]');
 
-        expect(header?.textContent).not.toContain('Display name');
+        expect(header?.textContent).toContain('Display name');
         expect(header?.textContent).not.toContain('Remove');
-        expect(header?.classList.contains('compact')).toBe(true);
+        expect(header?.classList.contains('compact')).toBe(false);
         expect(header?.classList.contains('no-remove')).toBe(true);
-        expect(row?.classList.contains('compact')).toBe(true);
+        expect(row?.classList.contains('compact')).toBe(false);
         expect(row?.classList.contains('no-remove')).toBe(true);
+        expect(alias?.type).toBe('text');
     });
 
     it('saves editable dictionary display names without changing dictionary titles', () => {
@@ -11864,10 +11953,10 @@ describe('reader helpers', () => {
 
         document.body.innerHTML = `<form>${renderKanjiSourceRows(settings)}</form>`;
         const rawName = document.querySelector<HTMLInputElement>('input[name="dictionaryPreferences.1.name"]');
-        const compactRow = rawName?.closest<HTMLElement>('[data-dictionary-source-row]');
+        const alias = document.querySelector<HTMLInputElement>('input[name="dictionaryPreferences.1.alias"]');
 
         expect(rawName?.value).toBe('KANJIDIC <raw export>');
-        expect(compactRow?.querySelector<HTMLElement>('.jpdb-reader-field-display')?.textContent).toBe('Kanji names');
+        expect(alias?.value).toBe('Kanji names');
     });
 
     it('keeps recommended dictionary downloads as in-reader import buttons', () => {

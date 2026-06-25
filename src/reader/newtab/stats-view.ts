@@ -11,6 +11,7 @@ import {
     statsActivityMetricTotal,
     statsActivityMetricValue,
     statsCardSegments,
+    statsSourceHasVisibleData,
     statsSourceForId,
     type StatsActivityMetric,
     type StatsDailyPoint,
@@ -38,9 +39,11 @@ interface NewTabStatsRenderContext extends NewTabStatsContentOptions {
 }
 
 export function renderNewTabStatsContent(options: NewTabStatsContentOptions): HTMLElement {
+    const selectedSource = resolvedStatsSourceId(options.snapshot, options.selectedSource);
     const context: NewTabStatsRenderContext = {
         ...options,
-        source: statsSourceForId(options.snapshot, options.selectedSource),
+        selectedSource,
+        source: statsSourceForId(options.snapshot, selectedSource),
     };
     const { source, text } = context;
     return el('div', { class: 'jpdb-reader-stats', dataset: { statsStatus: source.status } },
@@ -76,12 +79,14 @@ export function isNewTabStatsDateKey(value: string | undefined): value is string
 
 function renderStatsSourceTabs(context: NewTabStatsRenderContext): HTMLElement {
     const { selectedSource, snapshot, text } = context;
-    const tabs: Array<[StatsSourceId, string]> = [
-        ['combined', text('statsCombined')],
-        ['jpdb', snapshot.jpdb.label || 'JPDB'],
-        ['anki', 'Anki'],
-    ];
-    return el('div', { class: 'jpdb-reader-stats-tabs', role: 'group', 'aria-label': text('stats') },
+    const sources = visibleStatsSources(snapshot);
+    const tabs: Array<[StatsSourceId, string]> = sources.length > 1
+        ? [
+            ['combined', text('statsCombined')],
+            ...sources.map(([source, snapshot]) => [source, snapshot.label || fallbackStatsSourceLabel(source)] as [StatsSourceId, string]),
+        ]
+        : [];
+    return el('div', { class: 'jpdb-reader-stats-tabs', role: 'group', 'aria-label': text('stats'), hidden: tabs.length === 0, style: `--stats-tabs-count:${Math.max(1, tabs.length)}` },
         tabs.map(([source, label]) => el('button', {
             type: 'button',
             dataset: {
@@ -316,45 +321,45 @@ function renderStatsDistribution(context: NewTabStatsRenderContext): HTMLElement
 
 function renderStatsConnections(context: NewTabStatsRenderContext): HTMLElement {
     const { snapshot, text } = context;
+    const sources = visibleStatsSources(snapshot).map(([, source]) => source);
     return el('section', { class: 'jpdb-reader-stats-connections', 'aria-label': text('statsConnections') },
-        renderStatsConnectionCard(snapshot.jpdb, context),
-        renderStatsConnectionCard(snapshot.anki, context),
+        sources.map(source => renderStatsConnectionCard(source, context)),
     );
 }
 
 function renderStatsConnectionCard(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): HTMLElement {
-    const isJpdb = source.id === 'jpdb';
-    const hasJitenApi = isJpdb && source.label.includes('Jiten');
-    const hasJpdbApi = isJpdb && source.label.includes('JPDB');
     return el('article', { class: `jpdb-reader-stats-connection is-${source.id}`, dataset: { statsStatus: source.status } },
-        renderStatsConnectionMain(source, isJpdb, context),
-        el('div', { class: 'jpdb-reader-stats-connection-actions' }, statsConnectionActions(source, isJpdb, hasJitenApi, hasJpdbApi, context)),
-        renderStatsConnectionDropzone(isJpdb && hasJpdbApi, context.text),
+        renderStatsConnectionMain(source, context),
+        el('div', { class: 'jpdb-reader-stats-connection-actions' }, statsConnectionActions(source, context)),
+        renderStatsConnectionDropzone(source.id === 'jpdb', context.text),
     );
 }
 
-function renderStatsConnectionMain(source: StatsSourceSnapshot, isJpdb: boolean, context: NewTabStatsRenderContext): HTMLElement {
+function renderStatsConnectionMain(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): HTMLElement {
     return el('div', { class: 'jpdb-reader-stats-connection-main' },
         el('strong', {}, source.label),
         el('span', {}, source.message),
-        statsConnectionDeckToggles(source, isJpdb, context),
+        statsConnectionDeckToggles(source, context),
     );
 }
 
-function statsConnectionDeckToggles(source: StatsSourceSnapshot, isJpdb: boolean, context: NewTabStatsRenderContext): HTMLElement | null {
-    if (isJpdb || !source.deckNames?.length) return null;
+function statsConnectionDeckToggles(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): HTMLElement | null {
+    if (source.id !== 'anki' || !source.deckNames?.length) return null;
     return renderStatsAnkiDeckToggles(source, context.text);
 }
 
-function statsConnectionActions(source: StatsSourceSnapshot, isJpdb: boolean, hasJitenApi: boolean, hasJpdbApi: boolean, context: NewTabStatsRenderContext): Array<HTMLElement | null> {
+function statsConnectionActions(source: StatsSourceSnapshot, context: NewTabStatsRenderContext): Array<HTMLElement | null> {
     const { text } = context;
-    if (isJpdb) {
+    if (source.id === 'jpdb') {
         const actions: Array<HTMLElement | null> = [
-            el('button', { type: 'button', dataset: { newtabAction: 'stats-open-jpdb-settings' } }, text(hasJitenApi ? 'statsOpenApiSettings' : 'statsOpenJpdbSettings')),
+            el('button', { type: 'button', dataset: { newtabAction: 'stats-open-jpdb-settings' } }, text('statsOpenJpdbSettings')),
         ];
-        if (hasJpdbApi) actions.push(el('button', { type: 'button', dataset: { newtabAction: 'stats-import-jpdb' } }, text('statsChooseJpdbFile')));
+        actions.push(el('button', { type: 'button', dataset: { newtabAction: 'stats-import-jpdb' } }, text('statsChooseJpdbFile')));
         return actions;
     }
+    if (source.id === 'jiten') return [
+        el('button', { type: 'button', dataset: { newtabAction: 'stats-open-jpdb-settings' } }, text('statsOpenApiSettings')),
+    ];
     return [
         isStatsSourceConnected(source) ? null : el('button', { type: 'button', dataset: { newtabAction: 'stats-connect-anki' } }, text('statsConnectAnki')),
         el('button', { type: 'button', dataset: { newtabAction: 'stats-open-anki-settings' } }, text('statsOpenAnkiSettings')),
@@ -372,6 +377,27 @@ function renderStatsConnectionDropzone(isJpdb: boolean, text: NewTabStatsText): 
         el('input', { type: 'file', accept: '.json,application/json', dataset: { statsJpdbFile: true } }),
         el('span', {}, text('statsDropJpdbFile')),
     );
+}
+
+function visibleStatsSources(snapshot: StatsDashboardSnapshot): Array<[Exclude<StatsSourceId, 'combined'>, StatsSourceSnapshot]> {
+    return ([
+        ['jpdb', snapshot.jpdb],
+        ['jiten', snapshot.jiten],
+        ['anki', snapshot.anki],
+    ] as Array<[Exclude<StatsSourceId, 'combined'>, StatsSourceSnapshot]>).filter(([, source]) => statsSourceHasVisibleData(source));
+}
+
+function resolvedStatsSourceId(snapshot: StatsDashboardSnapshot, requested: StatsSourceId): StatsSourceId {
+    const visible = visibleStatsSources(snapshot).map(([id]) => id);
+    if (visible.length <= 1) return visible[0] ?? 'combined';
+    if (requested === 'combined' || visible.includes(requested as Exclude<StatsSourceId, 'combined'>)) return requested;
+    return 'combined';
+}
+
+function fallbackStatsSourceLabel(source: Exclude<StatsSourceId, 'combined'>): string {
+    if (source === 'jpdb') return 'JPDB';
+    if (source === 'jiten') return 'Jiten';
+    return 'Anki';
 }
 
 function renderStatsAnkiDeckToggles(source: StatsSourceSnapshot, text: NewTabStatsText): HTMLElement | null {

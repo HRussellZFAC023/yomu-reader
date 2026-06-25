@@ -1,11 +1,12 @@
 import { ANKI_SOURCE_ID, IMMERSION_KIT_SOURCE_ID, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, STUDY_GRAMMAR_SOURCE_ID, STUDY_TRANSLATION_SOURCE_ID } from '../app/constants';
 import { definitionSourceStateKey, renderJpdbDefinitionSource, renderLocalDefinitionSourcesSection } from './definition-render';
+import { escapeHtml } from '../dom';
 import { uiText } from '../app/i18n';
 import { groupTermEntriesByDictionary } from '../dictionaries/groups';
 import { isJitenHost } from '../jiten/jiten-page-targets';
 import { isJpdbHost } from '../jpdb/jpdb-page-targets';
 import { renderJitenDefinitionSource } from '../jiten/jiten-definition-source-render';
-import { orderedDefinitionSourceIds } from './sections';
+import { definitionSourceLabel, orderedDefinitionSourceIds } from './sections';
 import type { InterfaceLanguage, JPDBCard, ReaderSettings } from '../app/types';
 import type { JitenVocabularyInfo } from '../dictionaries/jiten';
 import type { YomitanTermEntry } from '../dictionaries/yomitan';
@@ -83,9 +84,10 @@ export function renderDefinitionSourcesStack(params: RenderDefinitionSourcesStac
 
 export function renderDefinitionSourceImmersionMount(settings: ReaderSettings, sourceAttributes: SourceAttributes): string {
     if (!settings.immersionKitEnabled) return '';
+    const title = definitionSourceLabel(settings, IMMERSION_KIT_SOURCE_ID, uiText(settings.interfaceLanguage, 'immersionKit'));
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-immersion" data-immersion-kit ${sourceAttributes(definitionSourceStateKey(IMMERSION_KIT_SOURCE_ID), false)}>
-            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${uiText(settings.interfaceLanguage, 'immersionKit')}</summary>
+            <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
             <div class="jpdb-reader-help">${uiText(settings.interfaceLanguage, 'loadingExamples')}</div>
         </details>
     `;
@@ -177,6 +179,7 @@ function renderJpdbDefinitionSourceSection(context: DefinitionSourceStackContext
         params.sourceAttributes,
         context.jpdbVocabularyInfo,
         params.jpdbLanguage,
+        definitionSourceLabel(params.settings, JPDB_DEFINITION_SOURCE_ID, 'JPDB'),
     );
 }
 
@@ -187,6 +190,7 @@ function renderJitenDefinitionSourceSection(context: DefinitionSourceStackContex
         params.sourceAttributes,
         context.jitenVocabularyInfo,
         params.jpdbLanguage ?? params.settings.interfaceLanguage,
+        definitionSourceLabel(params.settings, JITEN_DEFINITION_SOURCE_ID, 'Jiten'),
     );
 }
 

@@ -54,6 +54,12 @@ describe('settings CSS', () => {
         expect(normalizedSettingsCss).toContain('.jpdb-reader-settings-tab[aria-selected="true"] { border-color: var(--jpdb-reader-accent) !important; color: var(--jpdb-reader-accent-readable) !important; background: var(--jpdb-reader-accent-soft) !important; }');
     });
 
+    it('paints unknown-pitch page-word underlines with the neutral pitch color', () => {
+        const normalizedReaderWordsOcrCss = normalizeCss(READER_WORDS_OCR_CSS);
+
+        expect(normalizedReaderWordsOcrCss).toContain('.jpdb-reader-word.jpdb-pitch-unknown { --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown); --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable); --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent); --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent); }');
+    });
+
     it('keeps host page button widths out of shared popover controls', () => {
         const normalizedKanjiCss = normalizeCss(KANJI_CSS);
 

@@ -127,6 +127,7 @@ export function mergeDedupeCardMetadata(primary: JPDBCard, secondary: JPDBCard):
         ankiDeckNames: mergeOptionalStrings(primary.ankiDeckNames, secondary.ankiDeckNames),
         jpdbDeckMembership: primary.jpdbDeckMembership ?? secondary.jpdbDeckMembership,
         sourceDeckName: primary.sourceDeckName ?? secondary.sourceDeckName,
+        lastReviewAt: primary.lastReviewAt ?? secondary.lastReviewAt,
         ankiModelName: primary.ankiModelName ?? secondary.ankiModelName,
         ankiCardKind: primary.ankiCardKind ?? secondary.ankiCardKind,
         ankiReps: primary.ankiReps ?? secondary.ankiReps,

@@ -32,6 +32,7 @@ export function renderJitenDefinitionSource(
     sourceAttributes: SourceAttributes,
     info: JitenVocabularyInfo | null = null,
     language: InterfaceLanguage = 'en',
+    title = 'Jiten',
 ): string {
     const meanings = jitenDefinitionMeanings(card, info);
     const extras = renderJitenVocabularyExtras(info, sourceAttributes, language, card);
@@ -43,7 +44,7 @@ export function renderJitenDefinitionSource(
     if (!body.trim()) return '';
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card" data-source="jiten" ${cardHighlightScopeAttributes(card)} ${sourceAttributes(definitionSourceStateKey(JITEN_DEFINITION_SOURCE_ID), true)}>
-            <summary class="jpdb-reader-local-title">Jiten</summary>
+            <summary class="jpdb-reader-local-title">${escapeHtml(title)}</summary>
             ${body}
         </details>
     `;

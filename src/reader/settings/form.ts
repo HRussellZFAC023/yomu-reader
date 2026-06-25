@@ -1498,6 +1498,10 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
         const key = element.dataset.sourceNameKey;
         if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
+    form.querySelectorAll<HTMLInputElement>('[data-source-placeholder-key]').forEach(input => {
+        const key = input.dataset.sourcePlaceholderKey;
+        if (isSettingsTextKey(key)) input.placeholder = text(key);
+    });
     form.querySelectorAll<HTMLElement>('[data-source-help-key]').forEach(element => {
         const key = element.dataset.sourceHelpKey;
         if (isSettingsTextKey(key)) element.replaceChildren(text(key));
@@ -1529,7 +1533,8 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
     replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text('sourceHelpImportedKanjiDictionary'));
     form.querySelectorAll<HTMLInputElement>('[data-source-enable-toggle]').forEach(input => {
         const row = input.closest<HTMLElement>('[data-dictionary-source-row]');
-        const name = row?.querySelector<HTMLElement>('.jpdb-reader-field-display')?.textContent?.trim()
+        const name = row?.querySelector<HTMLInputElement>('input[name$=".alias"]')?.value.trim()
+            || row?.querySelector<HTMLElement>('.jpdb-reader-field-display')?.textContent?.trim()
             || input.closest('label')?.textContent?.trim()
             || '';
         input.setAttribute('aria-label', text('enableSourceName').replace('{name}', name));
@@ -1538,15 +1543,17 @@ function localizeSourceRows(form: HTMLFormElement, text: SettingsText): void {
 
 function localizeSourceHead(head: Element, text: SettingsText): void {
     const spans = head.querySelectorAll('span');
+    const hasDisplayName = !head.classList.contains('compact');
     spans[0]?.replaceChildren(text('enabledHeader'));
     const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? '', text);
     spans[1]?.replaceChildren(sourceLabel);
-    if (spans.length === 5) {
+    if (hasDisplayName) {
         spans[2]?.replaceChildren(text('displayName'));
         spans[3]?.replaceChildren(text('orderHeader'));
         spans[4]?.replaceChildren(text('removeHeader'));
     } else {
         spans[2]?.replaceChildren(text('orderHeader'));
+        spans[3]?.replaceChildren(text('removeHeader'));
     }
 }
 
@@ -2112,7 +2119,7 @@ function syncSubtitlePreviewColorClasses(form: HTMLFormElement, preview: HTMLEle
 
 export function renderDictionarySourceRows(settings: ReaderSettings): string {
     const rows = definitionSourceRows(settings);
-    const showAlias = rows.some(row => !row.readonly);
+    const showAlias = true;
     const visibleNames = new Set([
         ...rows.filter(row => row.removable).map(row => row.name),
         ...frequencySourceRows(settings).map(row => row.name),
@@ -2141,7 +2148,7 @@ export function renderDictionarySourceRows(settings: ReaderSettings): string {
 }
 
 export function renderKanjiSourceRows(settings: ReaderSettings): string {
-    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: false });
+    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: 'Kanji section', showAlias: true });
 }
 
 export function renderFrequencyLookupPillRows(settings: ReaderSettings): string {

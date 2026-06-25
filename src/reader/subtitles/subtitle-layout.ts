@@ -18,6 +18,22 @@ export interface TranscriptPanelLayout {
 export const TRANSCRIPT_PANEL_MARGIN = 10;
 export const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
 const TRANSCRIPT_PANEL_SIZE_KEY = 'jpdb-reader-transcript-panel-size';
+export const SUBTITLE_DRAG_OFFSET_KEY = 'jpdb-reader-subtitle-drag-offset';
+
+// The manual drag offset is stored as a fraction of the viewport height (negative
+// = nudged up) rather than raw pixels so the remembered position scales sensibly
+// across players of different sizes, orientations, and fullscreen. The live drag
+// already keeps the overlay on-screen, so this band is only a defensive guard
+// against a corrupted/imported value. It mirrors the live drag's reach: up to
+// most of the viewport upward, and no further down than the live downward cap so
+// a stray positive value can't drop a bottom-anchored line below the fold.
+const SUBTITLE_DRAG_OFFSET_MIN_FRACTION = -0.9;
+const SUBTITLE_DRAG_OFFSET_MAX_FRACTION = 0.35;
+
+function clampSubtitleDragOffsetFraction(fraction: number): number {
+    if (!Number.isFinite(fraction)) return 0;
+    return Math.min(SUBTITLE_DRAG_OFFSET_MAX_FRACTION, Math.max(SUBTITLE_DRAG_OFFSET_MIN_FRACTION, fraction));
+}
 
 export interface TranscriptPanelSize {
     sideWidth?: number;
@@ -128,6 +144,23 @@ export function loadTranscriptPanelSize(): TranscriptPanelSize {
 export function saveTranscriptPanelSize(size: TranscriptPanelSize): void {
     try {
         gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size);
+    } catch {
+        // Best-effort preference only.
+    }
+}
+
+export function loadSubtitleDragOffsetFraction(): number {
+    try {
+        const parsed = gmStorageGetSync<{ fraction?: number }>(SUBTITLE_DRAG_OFFSET_KEY, {});
+        return clampSubtitleDragOffsetFraction(parsed?.fraction ?? 0);
+    } catch {
+        return 0;
+    }
+}
+
+export function saveSubtitleDragOffsetFraction(fraction: number): void {
+    try {
+        gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) });
     } catch {
         // Best-effort preference only.
     }

@@ -20,6 +20,7 @@ const KNOWN_MANAGED_STORAGE_KEYS = [
     'jpdb-reader-settings-drawer-height-ratio',
     'jpdb-reader-sheet-height-ratio',
     'jpdb-reader-transcript-panel-size',
+    'jpdb-reader-subtitle-drag-offset',
     'yomu:anki-status-index:v1',
     'yomu:anki-status-index-rebuild:v1',
     'yomu:jpdb-cache:v1',

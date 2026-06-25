@@ -53,25 +53,26 @@ describe('study-page card browser (SH-3)', () => {
         expect(results.map(c => c.spelling)).toEqual(['読む', 'およぐ']);
     });
 
-    it('sorts by queue order (due_at), alphabetically, and by frequency, with descending flips', () => {
+    it('sorts by queue order (due_at), alphabetically, frequency, and history, with descending flips', () => {
         const sortable = [
-            card('一', ['due'], { vid: 11, reading: 'いち', dueAt: 300, frequencyRank: 30 }),
-            card('二', ['due'], { vid: 12, reading: 'に', dueAt: 100, frequencyRank: 10 }),
+            card('一', ['due'], { vid: 11, reading: 'いち', dueAt: 300, frequencyRank: 30, lastReviewAt: 2000 }),
+            card('二', ['due'], { vid: 12, reading: 'に', dueAt: 100, frequencyRank: 10, lastReviewAt: 1000 }),
             card('三', ['new'], { vid: 13, reading: 'さん', dueAt: null, frequencyRank: 20 }),
         ];
         expect(sortBrowseCards(sortable, 'queue', false).map(c => c.spelling)).toEqual(['二', '一', '三']);
         expect(sortBrowseCards(sortable, 'queue', true).map(c => c.spelling)).toEqual(['三', '一', '二']);
         expect(sortBrowseCards(sortable, 'alpha', false).map(c => c.spelling)).toEqual(['一', '三', '二']);
         expect(sortBrowseCards(sortable, 'frequency', false).map(c => c.spelling)).toEqual(['二', '三', '一']);
+        expect(sortBrowseCards(sortable, 'history', true).map(c => c.spelling)).toEqual(['一', '二', '三']);
     });
 
     it('renders compact sort/direction/select controls', () => {
         const controls = renderBrowseControls('queue', false, false, {
-            sortLabel: 'Sort', sortQueue: 'Queue order', sortAlpha: 'A→Z', sortFrequency: 'Frequency',
+            sortLabel: 'Sort', sortQueue: 'Queue order', sortAlpha: 'A→Z', sortFrequency: 'Frequency', sortHistory: 'History',
             directionAscending: 'Ascending', directionDescending: 'Descending', select: 'Select',
         });
         const select = controls.querySelector<HTMLSelectElement>('[data-newtab-action="browse-sort"]')!;
-        expect([...select.options].map(option => option.value)).toEqual(['queue', 'alpha', 'frequency']);
+        expect([...select.options].map(option => option.value)).toEqual(['queue', 'alpha', 'frequency', 'history']);
         expect(controls.querySelector('[data-newtab-action="browse-sort-direction"]')?.getAttribute('aria-pressed')).toBe('false');
         expect(controls.querySelector('[data-newtab-action="browse-select-mode"]')?.getAttribute('aria-pressed')).toBe('false');
     });

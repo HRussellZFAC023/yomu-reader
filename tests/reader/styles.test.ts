@@ -49,6 +49,7 @@ describe('reader stylesheet loading', () => {
         expect(css).toContain('.jpdb-reader-actions .jpdb-reader-mining-collapse::before');
         expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-heiban,[data-pitch-class=heiban])');
         expect(css).toContain('--d2:var(--pc,#0000);');
+        expect(css).toContain('.jpdb-reader-word:is(.jpdb-pitch-unknown,[data-pitch-class=unknown]){--pc:var(--jpdb-reader-pitch-unknown);');
         expect(css).toContain('.jpdb-reader-word-underline-pitch .jpdb-reader-word');
         expect(css).toContain('.jpdb-reader-word-text-pitch .jpdb-reader-word');
         expect(css).toContain('[data-card-state=new]');

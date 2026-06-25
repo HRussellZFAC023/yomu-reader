@@ -38,6 +38,7 @@ function createController(
     overrides: Partial<ReaderSettings> = {},
     captureReaderSurface?: (surface: Element, maxPixels: number) => Promise<{ dataUrl: string; rect: DOMRect } | undefined>,
     captureCanvasMirror?: (canvas: HTMLCanvasElement, loadCleanImage: (url: string) => Promise<CanvasImageSource | undefined>) => Promise<HTMLCanvasElement | undefined>,
+    shouldAutoScan: () => boolean = () => true,
 ): ImageOcrController {
     const controller = new ImageOcrController({
         getSettings: () => ({
@@ -52,7 +53,7 @@ function createController(
         }),
         parseJapanese: vi.fn(async () => []),
         onToast: vi.fn(),
-        shouldAutoScan: () => true,
+        shouldAutoScan,
         captureReaderSurface,
         captureCanvasMirror,
     });
@@ -205,6 +206,39 @@ describe('reader raster OCR surfaces', () => {
         }
     });
 
+    it('positions screenshot-backed BookWalker frames against the cropped viewport rect', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        document.body.append(Object.assign(document.createElement('span'), {
+            id: 'pageSliderCounter',
+            textContent: '1 / 12',
+        }));
+        const tainted = () => { throw new Error('The operation is insecure.'); };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+        const captureReaderSurface = vi.fn(async () => ({
+            dataUrl: 'data:image/jpeg;base64,CLIPPED',
+            rect: new DOMRect(32, 0, 400, 600),
+        }));
+
+        const canvas = pageCanvas(32, -40, 400, 640);
+        canvas.toDataURL = tainted;
+        document.body.append(canvas);
+
+        const controller = createController({}, captureReaderSurface);
+        try {
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.style.left).toBe('32px');
+                expect(frame!.style.top).toBe('0px');
+                expect(frame!.style.width).toBe('400px');
+                expect(frame!.style.height).toBe('600px');
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
+
     it.each(['viewer.bookwalker.jp', 'bookwalker.jp'])(
         'can OCR a tainted BookWalker canvas through clean-source mirror replay on %s',
         async hostname => {
@@ -341,6 +375,82 @@ describe('reader raster OCR surfaces', () => {
                 expect(frames).toHaveLength(1);
                 expect(frames[0]?.getAttribute('src')).toBe('data:image/jpeg;base64,PAGE2');
             });
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('does not drop a BookWalker canvas OCR frame before the frame image loads', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        document.body.append(Object.assign(document.createElement('span'), {
+            id: 'pageSliderCounter',
+            textContent: '1 / 12',
+        }));
+        const tainted = () => { throw new Error('The operation is insecure.'); };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+        const mirrored = document.createElement('canvas');
+        mirrored.width = 1200;
+        mirrored.height = 1600;
+        mirrored.toDataURL = () => 'data:image/jpeg;base64,MIRROR';
+        const captureCanvasMirror = vi.fn(async () => mirrored);
+        let rect = new DOMRect(32, 40, 400, 520);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.getBoundingClientRect = () => rect;
+        canvas.toDataURL = tainted;
+        document.body.append(canvas);
+
+        const controller = createController({}, undefined, captureCanvasMirror);
+        try {
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                expect(frame!.complete).toBe(false);
+            });
+
+            rect = new DOMRect(8000, 40, 400, 520);
+            controller.refresh();
+
+            await new Promise(resolve => setTimeout(resolve, 80));
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('keeps a manually requested BookWalker canvas OCR frame when auto-scan is gated off', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        document.body.append(Object.assign(document.createElement('span'), {
+            id: 'pageSliderCounter',
+            textContent: '1 / 12',
+        }));
+        const tainted = () => { throw new Error('The operation is insecure.'); };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (HTMLCanvasElement.prototype as any).getContext = () => ({ drawImage() {}, getImageData: tainted });
+        const mirrored = document.createElement('canvas');
+        mirrored.width = 1200;
+        mirrored.height = 1600;
+        mirrored.toDataURL = () => 'data:image/jpeg;base64,MIRROR';
+        const captureCanvasMirror = vi.fn(async () => mirrored);
+        const controller = createController({ ocrAutoScanImages: true }, undefined, captureCanvasMirror, () => false);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = tainted;
+        document.body.append(canvas);
+        Object.defineProperty(document, 'elementFromPoint', {
+            configurable: true,
+            value: vi.fn(() => canvas),
+        });
+
+        try {
+            dispatchCanvasPointer(canvas, 'pointerdown');
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
+            });
+
+            controller.refresh();
+
+            await new Promise(resolve => setTimeout(resolve, 80));
+            expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')).not.toBeNull();
         } finally {
             controller.destroy();
         }

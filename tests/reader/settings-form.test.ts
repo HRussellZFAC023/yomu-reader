@@ -219,6 +219,48 @@ describe('recommended dictionary settings buttons', () => {
     });
 });
 
+describe('source display names', () => {
+    it('renders built-in source display names as editable settings and saves them', () => {
+        const form = renderSettingsTestForm({
+            ...DEFAULT_SETTINGS,
+            jitenDefinitionsAlias: 'Jiten Custom',
+            jpdbKanjiAlias: 'Kanji Facts Custom',
+        });
+
+        expect(form.querySelector<HTMLInputElement>('input[name="jitenDefinitions.alias"]')?.value).toBe('Jiten Custom');
+        expect(form.querySelector<HTMLInputElement>('input[name="jpdbDefinitions.alias"]')).not.toBeNull();
+        expect(form.querySelector<HTMLInputElement>('input[name="studyTranslation.alias"]')).not.toBeNull();
+        expect(form.querySelector<HTMLInputElement>('input[name="ankiSection.alias"]')).not.toBeNull();
+        expect(form.querySelector<HTMLInputElement>('input[name="jpdbKanji.alias"]')?.value).toBe('Kanji Facts Custom');
+        expect(form.querySelector<HTMLInputElement>('input[name="rtk.alias"]')).not.toBeNull();
+        expect(settingsText(form, '.jpdb-reader-kanji-priorities .jpdb-reader-dictionary-head span:nth-child(3)')).toBe('Display name');
+
+        form.querySelector<HTMLInputElement>('input[name="jpdbDefinitions.alias"]')!.value = 'Cards API';
+        form.querySelector<HTMLInputElement>('input[name="studyGrammar.alias"]')!.value = 'Grammar Notes';
+        form.querySelector<HTMLInputElement>('input[name="kanjivg.alias"]')!.value = 'Draw';
+
+        const saved = readFormSettings(new FormData(form), DEFAULT_SETTINGS);
+
+        expect(saved.jitenDefinitionsAlias).toBe('Jiten Custom');
+        expect(saved.jpdbDefinitionsAlias).toBe('Cards API');
+        expect(saved.studyGrammarAlias).toBe('Grammar Notes');
+        expect(saved.jpdbKanjiAlias).toBe('Kanji Facts Custom');
+        expect(saved.kanjivgAlias).toBe('Draw');
+    });
+
+    it('keeps default built-in source names localized until a custom alias is entered', () => {
+        const form = renderJapaneseSettingsTestForm();
+
+        expect(form.querySelector<HTMLInputElement>('input[name="studyTranslation.alias"]')?.placeholder).toBe('翻訳');
+        expect(form.querySelector<HTMLInputElement>('input[name="studyGrammar.alias"]')?.placeholder).toBe('文法');
+
+        form.querySelector<HTMLInputElement>('input[name="studyTranslation.alias"]')!.value = 'My Translation';
+        localizeSettingsForm(form, 'ja');
+
+        expect(form.querySelector<HTMLInputElement>('input[name="studyTranslation.alias"]')?.value).toBe('My Translation');
+    });
+});
+
 describe('frequency dictionary preferences', () => {
     it('renders frequency dictionaries under lookup pills with toggle, reorder, and remove controls', () => {
         const form = renderSettingsTestForm(frequencySettings);
@@ -969,6 +1011,7 @@ describe('settings form localization', () => {
     it('keeps mobile source editor row controls in a side rail', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
 
+        expect(normalizedCss).toContain('.jpdb-reader-order-head, .jpdb-reader-order-row { --jpdb-reader-order-tools-width: 112px; --jpdb-reader-remove-tools-width: 42px; display: grid;');
         expect(normalizedCss).toContain('.jpdb-reader-dictionary-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
         expect(normalizedCss).toContain('.jpdb-reader-dictionary-row > .jpdb-reader-row-order-tools { grid-column: 3; grid-row: 1 / span 2; align-self: start; align-content: flex-start; justify-content: flex-end; width: 73px; min-width: 73px; max-width: 73px; }');
         expect(normalizedCss).toContain('.jpdb-reader-audio-source-row, .jpdb-reader-lookup-link-row { grid-template-columns: 44px minmax(0, 1fr) 73px; align-items: start; }');
@@ -986,8 +1029,14 @@ describe('settings form localization', () => {
     it('keeps lookup link editor columns aligned on wider settings layouts', () => {
         const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
 
-        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px; }');
-        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px; }');
+        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width); }');
+        expect(normalizedCss).toContain('.jpdb-reader-lookup-link-head, .jpdb-reader-lookup-link-row { grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width); }');
+    });
+
+    it('keeps the furigana state checkbox grid aligned with settings controls', () => {
+        const normalizedCss = SETTINGS_CSS.replace(/\s+/g, ' ');
+
+        expect(normalizedCss).toContain('.jpdb-reader-settings .jpdb-reader-radio-group[data-furigana-hide-groups] { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 14px 16px; }');
     });
 
     it('keeps hosted settings companions lazy while preserving settings warmup', () => {
@@ -997,6 +1046,9 @@ describe('settings form localization', () => {
         expect(normalizedTheme).toContain('function prepareHostedYomuRuntime(): void { const forceLocalRuntime = isLocalHostedRuntime(); prepareHostedMangaOcrDemo(); if (shouldLoadHostedRuntimeCompanionsBeforeCore()) appendHostedRuntimeCompanionScripts(forceLocalRuntime); if (isHostedYomuRuntimeLoadingOrReady(forceLocalRuntime)) return;');
         expect(normalizedTheme).toContain('function shouldLoadHostedRuntimeCompanionsBeforeCore(): boolean { return location.pathname.includes(\'/video-player/\') || Boolean(document.querySelector(\'[data-yomu-video-frame]\')); }');
         expect(normalizedTheme).toContain('if (!companionFirst) appendHostedSettingsCompanionAfterCoreLoad(script, forceLocalRuntime);');
+        expect(normalizedTheme).toContain('ocrEnabled: true');
+        expect(normalizedTheme).toContain('ocrVideoPauseFrames: true');
+        expect(normalizedTheme).toContain('ocrProvider: \'google-lens\'');
     });
 
     it('shows Immersion Kit reveal audio autoplay enabled by default', () => {

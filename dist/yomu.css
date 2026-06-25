@@ -962,6 +962,7 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   --jpdb-reader-pitch-color: var(--jpdb-reader-pitch-unknown);
   --jpdb-reader-pitch-readable: var(--jpdb-reader-pitch-unknown-readable);
   --jpdb-reader-pitch-soft: var(--jpdb-reader-pitch-unknown-soft, transparent);
+  --jpdb-reader-source-pitch-decoration: var(--jpdb-reader-pitch-unknown, transparent);
 }
 /* The card headword (.jpdb-reader-spelling) reuses the same pitch colors so it
    shows the pitch-accent underline like words on the page; previously the card
@@ -1256,22 +1257,56 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 }
 
 .jpdb-ocr-video-frame-status {
+  --jpdb-ocr-status-surface: color-mix(
+    in srgb,
+    var(--jpdb-reader-surface, var(--jpdb-reader-theme-dark-surface, #20242b)) 94%,
+    transparent
+  );
+  --jpdb-ocr-status-text: var(--jpdb-reader-text, var(--jpdb-reader-theme-dark-text, #f2f4f8));
+  --jpdb-ocr-status-muted: var(--jpdb-reader-muted, var(--jpdb-reader-theme-dark-muted, #aab2c0));
   position: fixed;
   z-index: 2147483644;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 24px;
+  gap: 6px;
   min-width: 24px;
-  max-width: 24px !important;
+  max-width: 320px !important;
   min-height: 24px;
-  padding: 0;
-  border: 0;
-  background: transparent;
+  padding: 4px 9px;
+  border: 1px solid var(--jpdb-reader-border, rgba(37, 52, 73, 0.18));
+  border-radius: 999px;
+  background: var(--jpdb-ocr-status-surface);
+  color: var(--jpdb-ocr-status-text);
+  font: 600 12px/1.15 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   pointer-events: none;
   overflow: hidden;
   opacity: 1;
+  white-space: nowrap;
+  box-shadow:
+    0 8px 22px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
   transition: opacity 360ms ease;
+}
+
+:is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-ocr-video-frame-status {
+  --jpdb-ocr-status-surface: color-mix(
+    in srgb,
+    var(--jpdb-reader-theme-light-surface, #f4f7fa) 96%,
+    transparent
+  );
+  --jpdb-ocr-status-text: var(--jpdb-reader-theme-light-text, #17202a);
+  --jpdb-ocr-status-muted: var(--jpdb-reader-theme-light-muted, #4f5968);
+}
+
+:is(.jpdb-reader-theme-dark, .yomu-page-theme-dark) .jpdb-ocr-video-frame-status {
+  --jpdb-ocr-status-surface: color-mix(
+    in srgb,
+    var(--jpdb-reader-theme-dark-surface, #20242b) 94%,
+    transparent
+  );
+  --jpdb-ocr-status-text: var(--jpdb-reader-theme-dark-text, #f2f4f8);
+  --jpdb-ocr-status-muted: var(--jpdb-reader-theme-dark-muted, #aab2c0);
 }
 
 /* "ready" dot flashes briefly then fades out (see OCR_STATUS_FADE_MS). */
@@ -1303,11 +1338,11 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-ocr-video-frame-status-empty,
 .jpdb-ocr-video-frame-status-failed {
-  color: var(--jpdb-reader-muted, #a8b0bd);
+  color: var(--jpdb-ocr-status-muted);
 }
 
 .jpdb-ocr-video-frame-status-empty::before {
-  background: var(--jpdb-reader-muted, #a8b0bd);
+  background: var(--jpdb-ocr-status-muted);
 }
 
 .jpdb-ocr-video-frame-status-failed::before {
@@ -1745,6 +1780,10 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 .jpdb-reader-fab-over-video:not(:hover):not(:focus-visible) {
   opacity: 0.28 !important;
   transform: translate3d(0, 6px, 0) scale(0.92) !important;
+}
+.jpdb-reader-fab.jpdb-reader-fab-dragging {
+  opacity: 1 !important;
+  will-change: transform !important;
 }
 
 /* Jiten Reader parity: with "Hide styling on JPDB-redundant words" enabled,
@@ -7819,6 +7858,10 @@ html.jpdb-reader-doodle-active * {
   margin: 0;
   min-height: 38px;
 }
+.jpdb-reader-settings .jpdb-reader-radio-group[data-furigana-hide-groups] {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px 16px;
+}
 .jpdb-reader-settings .jpdb-reader-settings-cgrid > .jpdb-reader-radio-group {
   grid-column: auto;
   margin: 0;
@@ -8462,6 +8505,8 @@ html.jpdb-reader-doodle-active * {
 }
 .jpdb-reader-order-head,
 .jpdb-reader-order-row {
+  --jpdb-reader-order-tools-width: 112px;
+  --jpdb-reader-remove-tools-width: 42px;
   display: grid;
   gap: 10px;
   align-items: center;
@@ -8474,23 +8519,27 @@ html.jpdb-reader-doodle-active * {
 .jpdb-reader-audio-source-row,
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content 42px;
+  grid-template-columns:
+    56px minmax(0, 1fr) minmax(0, 0.9fr)
+    var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
 }
 .jpdb-reader-lookup-link-head,
 .jpdb-reader-lookup-link-row {
-  grid-template-columns: 56px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px;
+  grid-template-columns:
+    56px minmax(110px, 0.8fr) minmax(220px, 1.2fr)
+    var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
 }
 .jpdb-reader-dictionary-head.no-remove,
 .jpdb-reader-dictionary-row.no-remove {
-  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) minmax(0, 0.9fr) var(--jpdb-reader-order-tools-width);
 }
 .jpdb-reader-dictionary-head.compact,
 .jpdb-reader-dictionary-row.compact {
-  grid-template-columns: 56px minmax(0, 1fr) max-content 42px;
+  grid-template-columns: 56px minmax(0, 1fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
 }
 .jpdb-reader-dictionary-head.compact.no-remove,
 .jpdb-reader-dictionary-row.compact.no-remove {
-  grid-template-columns: 56px minmax(0, 1fr) max-content;
+  grid-template-columns: 56px minmax(0, 1fr) var(--jpdb-reader-order-tools-width);
 }
 .jpdb-reader-order-head {
   padding: 0 10px;
@@ -8711,27 +8760,31 @@ html.jpdb-reader-doodle-active * {
   .jpdb-reader-audio-source-row,
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content 42px;
+    grid-template-columns:
+      52px minmax(0, 0.95fr) minmax(0, 1.1fr)
+      var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
   }
 
   .jpdb-reader-lookup-link-head,
   .jpdb-reader-lookup-link-row {
-    grid-template-columns: 52px minmax(110px, 0.8fr) minmax(220px, 1.2fr) 73px 42px;
+    grid-template-columns:
+      52px minmax(110px, 0.8fr) minmax(220px, 1.2fr)
+      var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
   }
 
   .jpdb-reader-dictionary-head.no-remove,
   .jpdb-reader-dictionary-row.no-remove {
-    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) max-content;
+    grid-template-columns: 52px minmax(0, 0.95fr) minmax(0, 1.1fr) var(--jpdb-reader-order-tools-width);
   }
 
   .jpdb-reader-dictionary-head.compact,
   .jpdb-reader-dictionary-row.compact {
-    grid-template-columns: 52px minmax(0, 1fr) max-content 42px;
+    grid-template-columns: 52px minmax(0, 1fr) var(--jpdb-reader-order-tools-width) var(--jpdb-reader-remove-tools-width);
   }
 
   .jpdb-reader-dictionary-head.compact.no-remove,
   .jpdb-reader-dictionary-row.compact.no-remove {
-    grid-template-columns: 52px minmax(0, 1fr) max-content;
+    grid-template-columns: 52px minmax(0, 1fr) var(--jpdb-reader-order-tools-width);
   }
 
   .jpdb-reader-recommended-item {

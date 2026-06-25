@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     applyJpdbReviewImport,
+    applyJitenReviewHistory,
     averageReviewSpeed,
     combineStatsSources,
     dailyActivityStreakAt,
@@ -10,7 +11,7 @@ import {
     parseJpdbReviewExport,
     statsActivityMetricTotal,
     statsCardSegments,
-    statsFromApiCards,
+    statsFromJitenCards,
     statsFromJpdbCards,
 } from '../../src/reader/app/stats';
 import type { JPDBCard } from '../../src/reader/app/types';
@@ -181,7 +182,7 @@ describe('stats aggregation', () => {
     });
 
     it('uses the configured API provider label in combined stats messages', () => {
-        const jiten = statsFromApiCards([statsCard({ source: 'jiten', reviewSource: 'jiten-api' })], 'Jiten', 'Jiten SRS loaded.');
+        const jiten = statsFromJitenCards([statsCard({ source: 'jiten', reviewSource: 'jiten-api' })]);
         const emptyAnki = {
             id: 'anki' as const,
             label: 'Anki',
@@ -207,7 +208,26 @@ describe('stats aggregation', () => {
             updatedAt: null,
         };
 
-        expect(combineStatsSources(jiten, emptyAnki).message).toBe('Showing Jiten stats. Connect Anki for the combined view.');
+        expect(combineStatsSources(jiten, emptyAnki).message).toBe('Showing Jiten stats.');
+    });
+
+    it('computes Jiten retention and review speed from recent review history', () => {
+        const source = applyJitenReviewHistory(
+            statsFromJitenCards([statsCard({ source: 'jiten', reviewSource: 'jiten-api', cardState: ['due'] })]),
+            [
+                { rating: 4, reviewDateTime: '2026-06-24T17:04:00Z', reviewDuration: 12_000 },
+                { rating: 1, reviewDateTime: '2026-06-24T17:03:00Z', reviewDuration: 18_000 },
+                { rating: 3, reviewDateTime: '2026-06-23T09:00:00Z', reviewDuration: 30_000 },
+            ],
+        );
+
+        expect(source.totalReviews).toBe(3);
+        expect(source.retention).toBeCloseTo(2 / 3);
+        expect(averageReviewSpeed(source)).toBeCloseTo(3 / 1);
+        expect(source.daily).toEqual(expect.arrayContaining([
+            expect.objectContaining({ date: '2026-06-24', reviews: 2, correct: 1, failed: 1, minutes: 0.5 }),
+            expect.objectContaining({ date: '2026-06-23', reviews: 1, correct: 1, failed: 0, minutes: 0.5 }),
+        ]));
     });
 
     it('builds compact calendar months for stats heatmaps', () => {

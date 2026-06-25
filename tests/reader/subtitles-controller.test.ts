@@ -8,6 +8,7 @@ import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/sett
 const DEFAULT_SETTINGS: typeof BASE_DEFAULT_SETTINGS = { ...BASE_DEFAULT_SETTINGS, interfaceLanguage: 'en' };
 import { readPageCaptionText } from '../../src/reader/subtitles/subtitle-dom-captions';
 import { requestSubtitleText, SubtitlePlayerController } from '../../src/reader/subtitles/controller';
+import { SUBTITLE_DRAG_OFFSET_KEY } from '../../src/reader/subtitles/subtitle-layout';
 import { createSubtitleVideoInsetAdapter, subtitleVideoLayoutTarget } from '../../src/reader/subtitles/subtitle-video-inset';
 
 // UT-48 session parse cache: clear between tests so persisted cue html from
@@ -16,6 +17,9 @@ afterEach(() => {
     for (const key of Object.keys(sessionStorage)) {
         if (key.startsWith('yomu:subtitle-parse:')) sessionStorage.removeItem(key);
     }
+    // The remembered manual subtitle position persists via gmStorage (localStorage
+    // in tests); clear it so a drag in one test cannot leak into the next.
+    localStorage.removeItem(SUBTITLE_DRAG_OFFSET_KEY);
 });
 import type { JPDBToken, ReaderSettings } from '../../src/reader/app/types';
 import { withViewport } from './helpers/browser-fixtures';
@@ -1923,7 +1927,7 @@ describe('SubtitlePlayerController', () => {
         });
     });
 
-    it('temporarily moves subtitle overlay only while dragging the move handle', () => {
+    it('moves the subtitle overlay while dragging the move handle and keeps it after a video change', () => {
         const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
         const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
         try {
@@ -1932,6 +1936,7 @@ describe('SubtitlePlayerController', () => {
                 clearTransientSubtitleState(): void;
                 cues: Array<typeof cue>;
                 currentCue: typeof cue;
+                subtitleDragOffsetYPx: number;
             }>(controller);
             internals.cues = [cue];
             internals.currentCue = cue;
@@ -1950,11 +1955,163 @@ describe('SubtitlePlayerController', () => {
 
             window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 7 }));
             expect(root.classList.contains('jpdb-subtitle-dragging')).toBe(false);
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+
+            // Zero the live pixel offset so the assertion below proves the value is
+            // recomputed from the remembered fraction, not merely left untouched.
+            internals.subtitleDragOffsetYPx = 0;
+
+            // A new video clears transient cue state but the manual nudge is
+            // remembered and reapplied instead of snapping back to the baseline.
+            internals.clearTransientSubtitleState();
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+        } finally {
+            controller.destroy();
+        }
+    });
+
+    it('restores the remembered subtitle position on a freshly installed overlay', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const first = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(first.controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{ cues: Array<typeof cue>; currentCue: typeof cue }>(first.controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            first.controller.refresh();
+
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+            handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 9 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 9 }));
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 9 }));
+        } finally {
+            first.controller.destroy();
+        }
+
+        // A new page load builds a fresh overlay; the saved position carries over.
+        const second = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+        } finally {
+            second.controller.destroy();
+        }
+    });
+
+    it('snaps the subtitle overlay back to the baseline when the position is reset', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{
+                clearTransientSubtitleState(): void;
+                cues: Array<typeof cue>;
+                currentCue: typeof cue;
+            }>(controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+
+            handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 8 }));
+            window.dispatchEvent(pointerEvent('pointermove', { clientY: 260, pointerId: 8 }));
+            window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 8 }));
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-40px');
+
+            // The keyboard reset (Home / 0) clears the remembered nudge, so a later
+            // video change no longer reapplies it.
+            handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }));
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
 
             internals.clearTransientSubtitleState();
             expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
         } finally {
             controller.destroy();
+        }
+
+        // The reset is durable: a freshly installed overlay starts at the baseline,
+        // proving the reset wrote fraction 0 to storage rather than only clearing
+        // the in-memory field.
+        const next = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('0px');
+        } finally {
+            next.controller.destroy();
+        }
+    });
+
+    it('rescales the remembered subtitle position to the viewport height it is restored under', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        // Persist a drag while the viewport is short.
+        withViewport(1280, 360, () => {
+            const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+            try {
+                attachVideo(controller, { rect: new DOMRect(0, 0, 640, 360) });
+                const internals = controllerInternals<{ cues: Array<typeof cue>; currentCue: typeof cue }>(controller);
+                internals.cues = [cue];
+                internals.currentCue = cue;
+                controller.refresh();
+
+                const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+                const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+                mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+                // Drag up 90px → fraction -90/360 = -0.25 of the viewport.
+                handle.dispatchEvent(pointerEvent('pointerdown', { clientY: 300, pointerId: 12 }));
+                window.dispatchEvent(pointerEvent('pointermove', { clientY: 210, pointerId: 12 }));
+                window.dispatchEvent(pointerEvent('pointerup', { clientY: 210, pointerId: 12 }));
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-90px');
+            } finally {
+                controller.destroy();
+            }
+        });
+
+        // Restore under a 3× taller viewport: the same -0.25 fraction → -270px.
+        withViewport(1280, 1080, () => {
+            const { controller } = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+            try {
+                const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+                expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-270px');
+            } finally {
+                controller.destroy();
+            }
+        });
+    });
+
+    it('remembers a keyboard-nudged subtitle position across a fresh install', () => {
+        const cue = { start: 0, end: 2, text: '今日は読む。', transcriptEligible: true };
+        const first = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            attachVideo(first.controller, { rect: new DOMRect(0, 0, 640, 360) });
+            const internals = controllerInternals<{ cues: Array<typeof cue>; currentCue: typeof cue }>(first.controller);
+            internals.cues = [cue];
+            internals.currentCue = cue;
+            first.controller.refresh();
+
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            const subtitleFrame = document.querySelector<HTMLElement>('.jpdb-subtitle-text')!;
+            const handle = document.querySelector<HTMLButtonElement>('[data-subtitle-drag-handle]')!;
+            mockElementRect(subtitleFrame, new DOMRect(16, 220, 608, 72));
+            // Shift+ArrowUp nudges by 24px (a non-default value so the assertion is meaningful).
+            handle.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true, cancelable: true }));
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-24px');
+        } finally {
+            first.controller.destroy();
+        }
+
+        const second = createInstalledSubtitleController({ subtitleOverlayVisible: true });
+        try {
+            const root = document.querySelector<HTMLElement>('.jpdb-subtitle-player')!;
+            expect(root.style.getPropertyValue('--subtitle-drag-offset-y')).toBe('-24px');
+        } finally {
+            second.controller.destroy();
         }
     });
 
@@ -2046,8 +2203,9 @@ describe('SubtitlePlayerController', () => {
             window.dispatchEvent(pointerEvent('pointerup', { clientY: 260, pointerId: 11 }));
             expect(asbRoot.classList.contains('jpdb-subtitle-dragging')).toBe(false);
 
+            // The remembered nudge survives a video change here too.
             internals.clearTransientSubtitleState();
-            expect(asbRoot.style.getPropertyValue('--jpdb-subtitle-asb-drag-offset-y')).toBe('0px');
+            expect(asbRoot.style.getPropertyValue('--jpdb-subtitle-asb-drag-offset-y')).toBe('-40px');
         } finally {
             controller.destroy();
         }

@@ -7,7 +7,7 @@ describe('isProseDominantSelection', () => {
         // The reported regression: dragging across this paragraph collapsed the
         // selection back onto よむ when the auto popup opened.
         expect(isProseDominantSelection(
-            'Play the sample and switch captions on. よむ reads the subtitle track in the player here, before you install anything.',
+            'Follow along with your favourite shows using よむ, looking up any words you dont understand while the video is paused.',
         )).toBe(true);
     });
 

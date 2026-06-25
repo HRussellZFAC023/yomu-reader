@@ -4,6 +4,7 @@ import { escapeHtml, renderTokensToHtml, setInnerHtml } from '../dom';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { definitionSourceStateKey } from '../sources/definition-render';
+import { definitionSourceLabel } from '../sources/sections';
 import { renderStudyMeaningBlock, renderStudySentenceBlock } from './section-render';
 import {
     detectGrammarHints as detectLocalGrammarHints,
@@ -48,9 +49,10 @@ export class StudySourceController {
     renderTranslationSource(sentence?: string): string {
         const settings = this.settings();
         if (!sentence || !settings.studyTranslationEnabled) return '';
+        const title = definitionSourceLabel(settings, STUDY_TRANSLATION_SOURCE_ID, uiText(settings.interfaceLanguage, 'translation'));
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-translation ${this.sourceAttributes(STUDY_TRANSLATION_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(uiText(settings.interfaceLanguage, 'translation'))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
                 ${this.renderTranslationPanel(sentence)}
             </details>
         `;
@@ -59,9 +61,10 @@ export class StudySourceController {
     renderGrammarSource(sentence?: string): string {
         const settings = this.settings();
         if (!sentence || !settings.studyGrammarEnabled) return '';
+        const title = definitionSourceLabel(settings, STUDY_GRAMMAR_SOURCE_ID, uiText(settings.interfaceLanguage, 'grammar'));
         return `
             <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-study-source" data-study-grammar ${this.sourceAttributes(STUDY_GRAMMAR_SOURCE_ID)}>
-                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(uiText(settings.interfaceLanguage, 'grammar'))}</summary>
+                <summary class="jpdb-reader-local-title" data-jpdb-reader-surface-ignore>${escapeHtml(title)}</summary>
                 ${this.renderGrammarPanel()}
             </details>
         `;

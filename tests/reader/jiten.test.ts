@@ -135,6 +135,49 @@ describe('JitenApiClient', () => {
         expect(fetchMock).toHaveBeenCalledWith('https://example.test/api/srs/reader-study-decks', expect.any(Object));
     });
 
+    it('loads paginated Jiten review history for the My Cards history sort', async () => {
+        const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+            const url = String(input);
+            if (url.endsWith('/srs/review-history?offset=0&limit=2')) {
+                return jsonResponse({
+                    data: [{
+                        wordId: 42,
+                        readingIndex: 2,
+                        wordText: '困[こま]る',
+                        rating: 4,
+                        reviewDateTime: '2026-06-24T17:04:00Z',
+                        reviewDuration: 12000,
+                        cardState: 2,
+                    }],
+                    totalItems: 2,
+                    pageSize: 1,
+                    currentOffset: 0,
+                });
+            }
+            return jsonResponse({
+                data: [{
+                    wordId: 43,
+                    readingIndex: 0,
+                    wordText: '図鑑',
+                    rating: 1,
+                    reviewDateTime: '2026-06-24T17:03:00Z',
+                    cardState: 3,
+                }],
+                totalItems: 2,
+                pageSize: 1,
+                currentOffset: 1,
+            });
+        });
+        const client = new JitenApiClient(() => 'jiten-token', { fetchImpl: fetchMock });
+
+        await expect(client.listRecentReviews(2)).resolves.toEqual([
+            expect.objectContaining({ wordId: 42, readingIndex: 2, reviewedAt: Date.parse('2026-06-24T17:04:00Z') }),
+            expect.objectContaining({ wordId: 43, readingIndex: 0, reviewedAt: Date.parse('2026-06-24T17:03:00Z') }),
+        ]);
+        expect(fetchMock).toHaveBeenNthCalledWith(1, `${JITEN_API_BASE_URL}/srs/review-history?offset=0&limit=2`, expect.any(Object));
+        expect(fetchMock).toHaveBeenNthCalledWith(2, `${JITEN_API_BASE_URL}/srs/review-history?offset=1&limit=1`, expect.any(Object));
+    });
+
     it('loads Jiten SRS study-batch cards for new-tab reviews', async () => {
         const fetchMock = createFetchMock({
             sessionId: 'session-1',
@@ -778,6 +821,14 @@ describe('JitenApiClient', () => {
         expect(mount.textContent).not.toContain("Godan verb with 'mu' ending");
         expect(mount.textContent).not.toContain('transitive verb');
         expect(Array.from(mount.querySelectorAll('.jpdb-reader-jiten-meaning')).map(item => item.textContent?.replace(/\s+/g, ' ').trim())).toEqual(['1 to read', '2 to recite']);
+    });
+
+    it('uses the configured Jiten source title', () => {
+        const html = renderJitenDefinitionSource(jitenCard(), () => '', jitenVocabularyInfo(), 'en', 'Jiten Custom');
+        const mount = document.createElement('div');
+        mount.innerHTML = html;
+
+        expect(mount.querySelector('summary')?.textContent?.trim()).toBe('Jiten Custom');
     });
 
     it('omits duplicate Jiten definition part-of-speech tag rows', () => {

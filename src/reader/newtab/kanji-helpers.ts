@@ -147,13 +147,17 @@ export const newTabKanjiSourceAttrs = (sourceStateKey: string, initiallyExpanded
     `data-source-state-key="${escapeHtml(sourceStateKey)}" data-source-initial-open="${String(initiallyExpanded)}" ${initiallyExpanded ? 'open' : ''}`;
 
 export function newTabKanjiSourceTitle(settings: ReaderSettings, sourceId: string): string {
+    return kanjiSourceLabel(settings, sourceId, defaultNewTabKanjiSourceTitle(settings, sourceId));
+}
+
+function defaultNewTabKanjiSourceTitle(settings: ReaderSettings, sourceId: string): string {
     const language = settings.interfaceLanguage;
     if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(language, 'strokePractice');
-    if (sourceId === KANJI_JPDB_SOURCE_ID) return kanjiSourceLabel(settings, sourceId) || uiText(language, 'readingsComponents');
+    if (sourceId === KANJI_JPDB_SOURCE_ID) return uiText(language, 'readingsComponents');
     if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(language, 'kanjiDictionaries');
     if (sourceId === KANJI_SIMILAR_WORDS_SOURCE_ID) return uiText(language, 'sourceNameWordsUsingKanji');
     if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(language, 'originStructure');
-    return kanjiSourceLabel(settings, sourceId);
+    return '';
 }
 
 export function normalizeJpdbKanjiInfo(info: JpdbKanjiInfo): JpdbKanjiInfo {

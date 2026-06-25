@@ -115,6 +115,21 @@ const API_DEFINITION_NUMBER_SETTING_RANGES = {
     jpdbDefinitionsPriority: { min: 0, max: 999 },
     jitenDefinitionsPriority: { min: 0, max: 999 },
 } as const;
+const SOURCE_ALIAS_SETTING_KEYS = [
+    'jpdbDefinitionsAlias',
+    'jitenDefinitionsAlias',
+    'jpdbKanjiAlias',
+    'kanjiImmersionKitAlias',
+    'uchisenAlias',
+    'rtkAlias',
+    'kanjivgAlias',
+    'kanjiOriginsAlias',
+    'kanjiDictionariesAlias',
+    'immersionKitAlias',
+    'ankiSectionAlias',
+    'studyTranslationAlias',
+    'studyGrammarAlias',
+] as const satisfies readonly (keyof ReaderSettings)[];
 const MINING_BOOLEAN_SETTING_KEYS = [
     'jpdbMiningEnabled',
     'dictionarySourcesInitiallyExpanded',
@@ -216,23 +231,31 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
+    jpdbDefinitionsAlias: '',
     jpdbDefinitionsPriority: 1,
     jitenDefinitionsEnabled: true,
+    jitenDefinitionsAlias: '',
     jitenDefinitionsPriority: 0,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
     jpdbKanjiEnabled: true,
+    jpdbKanjiAlias: '',
     jpdbKanjiPriority: 10,
     kanjiImmersionKitEnabled: true,
+    kanjiImmersionKitAlias: '',
     kanjiImmersionKitPriority: 60,
     uchisenEnabled: true,
+    uchisenAlias: '',
     uchisenPriority: 50,
     rtkEnabled: true,
+    rtkAlias: '',
     rtkPriority: 20,
     kanjivgEnabled: true,
+    kanjivgAlias: '',
     kanjivgPriority: 0,
     kanjiOriginsEnabled: true,
+    kanjiOriginsAlias: '',
     kanjiOriginsPriority: 30,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
@@ -253,6 +276,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     audioSelectionMode: 'random',
     audioTtsMode: 'fallback',
     immersionKitEnabled: true,
+    immersionKitAlias: '',
     immersionKitExampleSource: 'immersion-kit',
     nadeshikoApiKey: '',
     immersionKitPriority: 80,
@@ -334,6 +358,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
+    kanjiDictionariesAlias: '',
     kanjiDictionariesPriority: 30,
     dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
@@ -369,6 +394,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,
+    ankiSectionAlias: '',
     ankiSectionPriority: 90,
     ankiConnectUrl: 'http://127.0.0.1:8765',
     ankiDeck: 'よむ',
@@ -379,7 +405,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     ankiFrontImage: true,
     ankiMobileHandoff: false,
     studyTranslationEnabled: true,
+    studyTranslationAlias: '',
     studyGrammarEnabled: true,
+    studyGrammarAlias: '',
     enableLogging: false,
     ankiTags: 'yomu',
     ankiMineWithJpdb: false,
@@ -473,6 +501,7 @@ function mergeSettings(value: LegacyReaderSettings | null): ReaderSettings {
         ...normalizeAnkiAndStudySettings(settingsValue),
         ...normalizePresentationSettings(settingsValue),
         ...normalizeMiningSettings(settingsValue),
+        ...normalizeSourceAliasSettings(settingsValue),
         ...normalizeRemovedDictionarySettings(settingsValue),
         dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
         dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
@@ -649,6 +678,14 @@ function normalizeDefinitionSourcePrioritySettings(value: Partial<ReaderSettings
             jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority,
         }
         : normalized;
+}
+
+function normalizeSourceAliasSettings(value: Partial<ReaderSettings> | null): Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]> {
+    const aliases = {} as Pick<ReaderSettings, typeof SOURCE_ALIAS_SETTING_KEYS[number]>;
+    for (const key of SOURCE_ALIAS_SETTING_KEYS) {
+        aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
+    }
+    return aliases;
 }
 
 function isLegacyDefaultDefinitionSourceOrder(value: Partial<ReaderSettings> | null | undefined): boolean {

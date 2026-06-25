@@ -234,6 +234,18 @@ describe('canvas readers (BookWalker)', () => {
         expect(canvasReaderPageSignature()).not.toBe(first);
     });
 
+    it('keeps the page signature stable when same-page canvas surface detection flickers', () => {
+        mountViewerFixture('1 / 3');
+        const first = canvasReaderPageSignature();
+        document.querySelector('#wideScreen0')!.insertAdjacentHTML(
+            'beforeend',
+            '<canvas class="default" width="800" height="1130"></canvas>',
+        );
+
+        expect(collectCanvasReaderSurfaces('viewer.bookwalker.jp')).toHaveLength(2);
+        expect(canvasReaderPageSignature()).toBe(first);
+    });
+
     it('captures a canvas without throwing and skips empty canvases', () => {
         const empty = document.createElement('canvas');
         empty.width = 0; empty.height = 0;

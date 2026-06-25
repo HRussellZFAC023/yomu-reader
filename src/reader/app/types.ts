@@ -131,6 +131,8 @@ export interface JPDBCard {
     // jpdb API due_at (unix seconds): the card's next scheduled review.
     // Sorting due cards ascending reproduces jpdb's exact Learn queue order.
     dueAt?: number | null;
+    // Provider review timestamp (unix milliseconds), used by the My Cards history sort.
+    lastReviewAt?: number | null;
     wordWithReading: string | null;
     source?: 'jpdb' | 'jiten' | 'local' | 'anki' | 'fallback';
     sentence?: string;
@@ -245,23 +247,31 @@ export interface ReaderSettings {
     subtitleUnderlineColorSource: ReaderColorSource;
     subtitleTextColorSource: ReaderColorSource;
     jpdbDefinitionsEnabled: boolean;
+    jpdbDefinitionsAlias: string;
     jpdbDefinitionsPriority: number;
     jitenDefinitionsEnabled: boolean;
+    jitenDefinitionsAlias: string;
     jitenDefinitionsPriority: number;
     jpdbPageEnhancementsEnabled: boolean;
     jpdbPageWordEnhancementsEnabled: boolean;
     jpdbPageKanjiEnhancementsEnabled: boolean;
     jpdbKanjiEnabled: boolean;
+    jpdbKanjiAlias: string;
     jpdbKanjiPriority: number;
     kanjiImmersionKitEnabled: boolean;
+    kanjiImmersionKitAlias: string;
     kanjiImmersionKitPriority: number;
     uchisenEnabled: boolean;
+    uchisenAlias: string;
     uchisenPriority: number;
     rtkEnabled: boolean;
+    rtkAlias: string;
     rtkPriority: number;
     kanjivgEnabled: boolean;
+    kanjivgAlias: string;
     kanjivgPriority: number;
     kanjiOriginsEnabled: boolean;
+    kanjiOriginsAlias: string;
     kanjiOriginsPriority: number;
     kanjiOriginKanjiMapEnabled: boolean;
     kanjiOriginGraphEnabled: boolean;
@@ -282,6 +292,7 @@ export interface ReaderSettings {
     audioSelectionMode: AudioSelectionMode;
     audioTtsMode: AudioTtsMode;
     immersionKitEnabled: boolean;
+    immersionKitAlias: string;
     immersionKitExampleSource: ImmersionExampleSource;
     nadeshikoApiKey: string;
     immersionKitPriority: number;
@@ -376,6 +387,7 @@ export interface ReaderSettings {
     localDictionariesEnabled: boolean;
     localDictionaryMaxResults: number;
     localDictionaryShowKanji: boolean;
+    kanjiDictionariesAlias: string;
     kanjiDictionariesPriority: number;
     dictionarySourcesInitiallyExpanded: boolean;
     dictionaryPreferences: DictionaryPreference[];
@@ -412,6 +424,7 @@ export interface ReaderSettings {
     preferJapaneseSiteLanguage: boolean;
     ankiEnabled: boolean;
     ankiSectionEnabled: boolean;
+    ankiSectionAlias: string;
     ankiSectionPriority: number;
     ankiConnectUrl: string;
     ankiDeck: string;
@@ -426,8 +439,10 @@ export interface ReaderSettings {
     ankiFrontImage: boolean;
     ankiMobileHandoff: boolean;
     studyTranslationEnabled: boolean;
+    studyTranslationAlias: string;
     studyTranslationPriority: number;
     studyGrammarEnabled: boolean;
+    studyGrammarAlias: string;
     studyGrammarPriority: number;
     enableLogging: boolean;
     theme: 'auto' | 'light' | 'dark';

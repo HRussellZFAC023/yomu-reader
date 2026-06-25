@@ -103,8 +103,8 @@ function renderSourceRow(row: SettingsSourceRow, index: number, context: SourceR
 
 function renderSourceAliasControl(row: SettingsSourceRow, showAlias: boolean, keys: SourceRowCopyKeys | undefined): string {
     if (!showAlias) return '';
-    if (row.readonly) return sourceField(row.alias, row.alias, row.prefix, 'alias', 'Display name', keys?.nameKey);
-    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml(row.name)}">`;
+    const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml(keys.nameKey)}"` : '';
+    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml(row.name)}"${keyAttribute}>`;
 }
 
 function renderSourceRemoveCell(row: SettingsSourceRow, showRemove: boolean): string {
@@ -129,7 +129,7 @@ function renderSourceRowHelp(row: SettingsSourceRow, keys: SourceRowCopyKeys | u
 }
 
 function sourceRowDisplayName(row: SettingsSourceRow, showAlias: boolean): string {
-    return !showAlias && !row.readonly && row.alias ? row.alias : row.name;
+    return !showAlias && row.alias ? row.alias : row.name;
 }
 
 function sourceField(displayValue: string, formValue: string, prefix: string, field: 'name' | 'alias', label: string, nameKey?: string): string {

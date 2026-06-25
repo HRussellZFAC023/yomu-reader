@@ -16,7 +16,7 @@ describe('jiten daily stats cache', () => {
     it('merges cached snapshots into a stats source as daily activity', () => {
         recordJitenDailyStats({ newCardsToday: 3, reviewsToday: 12 }, new Date('2026-06-09T12:00:00Z'));
         const source = applyJitenDailyStats(
-            emptyStatsSource('jpdb', 'Jiten', 'Jiten SRS loaded.', 'ready'),
+            emptyStatsSource('jiten', 'Jiten', 'Jiten SRS loaded.', 'ready'),
             loadJitenDailyStats(),
         );
 

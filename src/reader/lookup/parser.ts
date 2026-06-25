@@ -31,6 +31,8 @@ const LOCAL_PARSE_CACHE_LIMIT = 600;
 const LOCAL_PITCH_CACHE_LIMIT = 800;
 const JPDB_PARSE_FALLBACK_TIMEOUT_MS = 6_000;
 const YOUTUBE_VIEW_METRIC_RE = /回視聴/gu;
+const LOCAL_RUBY_SPLIT_BASE_RE = /^[\u3400-\u9fff々]+$/u;
+const LOCAL_RUBY_SPLIT_READING_RE = /^[\u3040-\u30ffー・]+$/u;
 const log = Logger.scope('ReaderParser');
 
 export interface ReaderParserParseOptions {
@@ -86,7 +88,8 @@ export class ReaderParser {
         });
         try {
             const parsed = await this.parseWithPreferredSource(paragraphs, options, settings);
-            return this.withNormalizedMetricParseResult(paragraphs, parsed);
+            const rubyAligned = await this.withLocallySplitKanjiRubies(paragraphs, parsed);
+            return this.withNormalizedMetricParseResult(paragraphs, rubyAligned);
         } finally {
             done();
         }
@@ -417,6 +420,72 @@ export class ReaderParser {
         return promise;
     }
 
+    private async withLocallySplitKanjiRubies(paragraphs: string[], parsed: JPDBToken[][]): Promise<JPDBToken[][]> {
+        if (!this.canUseLocalKanjiRubySplits()) return parsed;
+        let nextParsed = parsed;
+        await Promise.all(parsed.map(async (tokens, paragraphIndex) => {
+            let nextTokens = tokens;
+            await Promise.all(tokens.map(async (token, tokenIndex) => {
+                const surface = paragraphs[paragraphIndex]?.slice(token.start, token.end) ?? '';
+                const split = await this.locallySplitTokenRubies(surface, token);
+                if (!split || rubiesEqual(split, token.rubies)) return;
+                if (nextTokens === tokens) nextTokens = [...tokens];
+                nextTokens[tokenIndex] = { ...token, rubies: split };
+                this.syncCardWordWithReadingFromTokenRuby(nextTokens[tokenIndex], surface);
+            }));
+            if (nextTokens === tokens) return;
+            if (nextParsed === parsed) nextParsed = [...parsed];
+            nextParsed[paragraphIndex] = nextTokens;
+        }));
+        return nextParsed;
+    }
+
+    private canUseLocalKanjiRubySplits(): boolean {
+        const settings = this.dependencies.getSettings();
+        return settings.localDictionariesEnabled
+            && typeof this.dependencies.dictionaries.lookupKanji === 'function';
+    }
+
+    private async locallySplitTokenRubies(surface: string, token: JPDBToken): Promise<JPDBToken['rubies'] | null> {
+        if (!surface) return null;
+        if (token.rubies.length) {
+            return await this.locallySplitExistingRubies(surface, token);
+        }
+        const reading = token.card.reading.trim();
+        if (!shouldTryLocalKanjiRubySplit(surface, reading)) return null;
+        const whole = [{ text: reading, start: token.start, end: token.end, length: token.end - token.start }];
+        const split = await this.enrichmentGate.run(() => this.localRubySegments(surface, reading, token.start, token.end));
+        return rubiesEqual(split, whole) ? null : split;
+    }
+
+    private async locallySplitExistingRubies(surface: string, token: JPDBToken): Promise<JPDBToken['rubies'] | null> {
+        let changed = false;
+        const split: JPDBToken['rubies'] = [];
+        for (const ruby of token.rubies) {
+            const start = ruby.start - token.start;
+            const end = ruby.end - token.start;
+            const base = surface.slice(start, end);
+            if (!shouldTryLocalKanjiRubySplit(base, ruby.text)) {
+                split.push(ruby);
+                continue;
+            }
+            const next = await this.enrichmentGate.run(() => this.localRubySegments(base, ruby.text, ruby.start, ruby.end));
+            changed ||= !rubiesEqual(next, [ruby]);
+            split.push(...next);
+        }
+        return changed ? split : null;
+    }
+
+    private syncCardWordWithReadingFromTokenRuby(token: JPDBToken, surface: string): void {
+        if (!token.rubies.length || token.card.spelling !== surface) return;
+        const word = Array.from(token.card.spelling);
+        for (let index = token.rubies.length - 1; index >= 0; index -= 1) {
+            const { text, start, length } = token.rubies[index];
+            word.splice(start - token.start + length, 0, `[${text}]`);
+        }
+        token.card.wordWithReading = word.join('');
+    }
+
     private async localPitchPattern(card: JPDBCard, options: ReaderParserParseOptions): Promise<string> {
         const settings = this.dependencies.getSettings();
         if (options.includeLocalPitch === false) return '';
@@ -501,6 +570,24 @@ function remoteParseFallbackTimeoutMs(options: ReaderParserParseOptions): number
     return (options.allowApiTimeoutFallback ?? options.allowJpdbTimeoutFallback)
         ? options.apiTimeoutMs ?? options.jpdbTimeoutMs ?? JPDB_PARSE_FALLBACK_TIMEOUT_MS
         : 0;
+}
+
+function shouldTryLocalKanjiRubySplit(base: string, reading: string): boolean {
+    return Array.from(base).length >= 2
+        && LOCAL_RUBY_SPLIT_BASE_RE.test(base)
+        && LOCAL_RUBY_SPLIT_READING_RE.test(reading.trim());
+}
+
+function rubiesEqual(first: JPDBToken['rubies'], second: JPDBToken['rubies']): boolean {
+    return first.length === second.length
+        && first.every((ruby, index) => {
+            const other = second[index];
+            return Boolean(other)
+                && ruby.text === other.text
+                && ruby.start === other.start
+                && ruby.end === other.end
+                && ruby.length === other.length;
+        });
 }
 
 function shouldUseJitenParser(settings: ReaderSettings, options: ReaderParserParseOptions, jiten: JitenApiClient | undefined): boolean {

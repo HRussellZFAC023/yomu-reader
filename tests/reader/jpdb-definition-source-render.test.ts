@@ -23,6 +23,13 @@ function card(overrides: Partial<JPDBCard> = {}): JPDBCard {
 }
 
 describe('JPDB definition source rendering', () => {
+    it('uses the configured source title', () => {
+        const mount = document.createElement('div');
+        mount.innerHTML = renderJpdbDefinitionSource(card(), key => `data-source-state-key="${key}"`, null, 'en', 'Cards API');
+
+        expect(mount.querySelector('summary')?.textContent?.trim()).toBe('Cards API');
+    });
+
     it('renders used-in words for enrichment and examples for nested parsing', () => {
         const info: JpdbVocabularyInfo = {
             meanings: ['university'],

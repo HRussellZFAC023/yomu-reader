@@ -19,7 +19,7 @@ import {
     type SubtitlePlayerControllerInstance,
     type YoutubeImmersionFilterInstance,
 } from '../companions/registry';
-import { APP_NAME, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT } from './constants';
+import { APP_NAME, JITEN_DEFINITION_SOURCE_ID, JPDB_DEFINITION_SOURCE_ID, NEW_TAB_PAGE_URL, SETTINGS_CHANGE_EVENT } from './constants';
 import { dispatchWindowEvent, createWindowCustomEvent } from '../platform/window-events';
 import { DictionarySourceStateController } from '../sources/state';
 import { DictionaryStyleController } from '../sources/styles';
@@ -30,6 +30,7 @@ import {
     appendToDocumentHead,
     documentHasJapaneseText,
     escapeHtml,
+    getSelectionControlElement,
     getSelectionSentence,
     getSelectionText,
     isPassiveInteractionElement,
@@ -307,6 +308,7 @@ import {
     KANJI_RTK_SOURCE_ID,
     KANJI_STROKE_SOURCE_ID,
     KANJI_UCHISEN_SOURCE_ID,
+    definitionSourceLabel,
     kanjiSourceLabel,
 } from '../sources/sections';
 import { parseContentCacheKey } from '../lookup/parse-content-cache-key';
@@ -3339,7 +3341,7 @@ export class ReaderApp {
         if (this.isDestroyed || this.activePopoverMode !== 'modal' || !this.activePopover) return;
         if (this.isInsideActivePopover(event.target as Node | null)) return;
         if (this.shouldKeepModalPopoverForOutsidePointer(event.target as Node | null)) return;
-        if (window.getSelection()?.isCollapsed === false) event.preventDefault();
+        if (getSelectionText()) event.preventDefault();
         this.rememberDismissedSelection();
         this.dismiss({ suppressHoverTarget: true });
     }
@@ -3799,6 +3801,8 @@ export class ReaderApp {
     }
 
     private selectionLookupAnchor(): HTMLElement | undefined {
+        const control = getSelectionControlElement();
+        if (control) return control;
         const selection = window.getSelection();
         if (!selection?.rangeCount) return undefined;
         const range = selection.getRangeAt(0);
@@ -7312,16 +7316,22 @@ export class ReaderApp {
     }
 
     private kanjiSourceTitle(sourceId: string): string {
-        if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'strokePractice');
-        if (sourceId === KANJI_JPDB_SOURCE_ID) return kanjiSourceLabel(this.settings, sourceId) || uiText(this.settings.interfaceLanguage, 'readingsComponents');
-        if (sourceId === KANJI_RTK_SOURCE_ID) return 'RTK';
-        if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'kanjiDictionaries');
-        if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'originStructure');
-        return kanjiSourceLabel(this.settings, sourceId);
+        return kanjiSourceLabel(this.settings, sourceId, this.defaultKanjiSourceTitle(sourceId));
     }
 
     private kanjiFactSourceTitle(source: 'jpdb' | 'jiten'): string {
-        return kanjiFactProviderTitle(source);
+        const sourceId = source === 'jpdb' ? JPDB_DEFINITION_SOURCE_ID : JITEN_DEFINITION_SOURCE_ID;
+        return definitionSourceLabel(this.settings, sourceId, kanjiFactProviderTitle(source));
+    }
+
+    private defaultKanjiSourceTitle(sourceId: string): string {
+        if (sourceId === KANJI_STROKE_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'strokePractice');
+        if (sourceId === KANJI_JPDB_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'readingsComponents');
+        if (sourceId === KANJI_RTK_SOURCE_ID) return 'RTK';
+        if (sourceId === KANJI_DICTIONARIES_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'kanjiDictionaries');
+        if (sourceId === KANJI_ORIGINS_SOURCE_ID) return uiText(this.settings.interfaceLanguage, 'originStructure');
+        if (sourceId === KANJI_UCHISEN_SOURCE_ID) return 'Uchisen';
+        return '';
     }
 
     private renderKanjiFactSourcesHtml(jpdbInfo: JpdbKanjiInfo | null, jitenInfo: JitenKanjiInfo | null, language: InterfaceLanguage): string {

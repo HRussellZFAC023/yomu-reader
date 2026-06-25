@@ -33,6 +33,16 @@ export interface FloatingButtonActions {
     isYoutubeFilterEnabled(): boolean;
 }
 
+interface PuckBox {
+    width: number;
+    height: number;
+}
+
+interface PuckPosition {
+    x: number;
+    y: number;
+}
+
 export class FloatingButtonController {
     private button?: HTMLButtonElement;
     private abortController?: AbortController;
@@ -217,6 +227,31 @@ export class FloatingButtonController {
         let startY = 0;
         let originX = 0;
         let originY = 0;
+        let puckBox: PuckBox | null = null;
+        let pendingPosition: PuckPosition | null = null;
+        let currentPosition: PuckPosition | null = null;
+        let dragFrame: number | undefined;
+        let dragFramePending = false;
+        let dragPositionAnchored = false;
+        const cancelDragFrame = (): void => {
+            if (dragFrame !== undefined) window.cancelAnimationFrame(dragFrame);
+            dragFrame = undefined;
+            dragFramePending = false;
+        };
+        const scheduleDragFrame = (position: PuckPosition): void => {
+            pendingPosition = position;
+            if (dragFramePending) return;
+            dragFramePending = true;
+            const frame = window.requestAnimationFrame(() => {
+                dragFramePending = false;
+                dragFrame = undefined;
+                if (!dragging || !pendingPosition) return;
+                currentPosition = pendingPosition;
+                pendingPosition = null;
+                applyPuckDragTransform(button, currentPosition.x - originX, currentPosition.y - originY);
+            });
+            dragFrame = dragFramePending ? frame : undefined;
+        };
         button.addEventListener('pointerdown', event => {
             if (event.button !== 0) return;
             dragging = true;
@@ -227,28 +262,54 @@ export class FloatingButtonController {
             const rect = button.getBoundingClientRect();
             originX = rect.left;
             originY = rect.top;
+            puckBox = { width: rect.width, height: rect.height };
+            pendingPosition = null;
+            currentPosition = { x: originX, y: originY };
+            cancelDragFrame();
+            dragPositionAnchored = false;
             button.setPointerCapture?.(event.pointerId);
         });
         button.addEventListener('pointermove', event => {
-            if (!dragging) return;
+            if (!dragging || !puckBox) return;
             const dx = event.clientX - startX;
             const dy = event.clientY - startY;
             if (Math.hypot(dx, dy) > 4) moved = true;
             if (!moved) return;
             event.preventDefault();
-            button.dataset.jpdbReaderMoved = 'true';
-            const position = clampPuck(button, originX + dx, originY + dy);
+            if (button.dataset.jpdbReaderMoved !== 'true') button.dataset.jpdbReaderMoved = 'true';
+            if (!dragPositionAnchored) {
+                dragPositionAnchored = true;
+                applyPuckPosition(button, originX, originY);
+                resetPuckDragTransform(button);
+                button.classList.add('jpdb-reader-fab-dragging');
+            }
+            const position = clampPuckToViewport(puckBox, originX + dx, originY + dy);
             if (!position) return;
-            applyPuckPosition(button, position.x, position.y);
+            scheduleDragFrame(position);
         }, { passive: false });
         const finishDrag = (event: PointerEvent): void => {
             if (!dragging) return;
             dragging = false;
+            button.classList.remove('jpdb-reader-fab-dragging');
             button.releasePointerCapture?.(event.pointerId);
-            if (!moved) return;
-            const rect = button.getBoundingClientRect();
-            const position = clampPuck(button, rect.left, rect.top);
+            cancelDragFrame();
+            if (pendingPosition) {
+                currentPosition = pendingPosition;
+                pendingPosition = null;
+            }
+            resetPuckDragTransform(button);
+            if (!moved || !puckBox || !currentPosition) {
+                puckBox = null;
+                currentPosition = null;
+                dragPositionAnchored = false;
+                return;
+            }
+            const position = clampPuckToViewport(puckBox, currentPosition.x, currentPosition.y);
+            puckBox = null;
+            currentPosition = null;
+            dragPositionAnchored = false;
             if (!position) return;
+            applyPuckPosition(button, position.x, position.y);
             if (this.settings) {
                 this.settings.puckPositionX = Math.round(position.x);
                 this.settings.puckPositionY = Math.round(position.y);
@@ -287,7 +348,7 @@ function avoidVideoOverlap(button: HTMLButtonElement, settings: ReaderSettings, 
     button.classList.toggle('jpdb-reader-fab-over-video', Boolean(video));
     if (!shouldMoveAwayFromVideo(button, video)) return;
 
-    for (const position of nonOverlappingPuckPositions(button, rect, video.getBoundingClientRect())) {
+    for (const position of nonOverlappingPuckPositions(rect, video.getBoundingClientRect())) {
         movePuck(button, position, settings, saveSettings);
         button.classList.remove('jpdb-reader-fab-over-video');
         return;
@@ -306,7 +367,7 @@ function overlappingVideo(rect: DOMRect): HTMLVideoElement | undefined {
     return visibleVideos().find(candidate => intersects(rect, candidate.getBoundingClientRect()));
 }
 
-function nonOverlappingPuckPositions(button: HTMLButtonElement, rect: DOMRect, videoRect: DOMRect): Array<{ x: number; y: number }> {
+function nonOverlappingPuckPositions(rect: DOMRect, videoRect: DOMRect): Array<{ x: number; y: number }> {
     const candidates = [
         { x: videoRect.right + 10, y: rect.top },
         { x: videoRect.left - rect.width - 10, y: rect.top },
@@ -314,7 +375,7 @@ function nonOverlappingPuckPositions(button: HTMLButtonElement, rect: DOMRect, v
         { x: rect.left, y: videoRect.top - rect.height - 10 },
     ];
     return candidates
-        .map(candidate => clampPuck(button, candidate.x, candidate.y))
+        .map(candidate => clampPuckToViewport(rect, candidate.x, candidate.y))
         .filter((position): position is { x: number; y: number } => Boolean(position))
         .filter(position => !intersects(new DOMRect(position.x, position.y, rect.width, rect.height), videoRect));
 }
@@ -354,21 +415,33 @@ function applyPuckPosition(button: HTMLButtonElement, x: number, y: number): voi
     button.style.setProperty('bottom', 'auto', 'important');
 }
 
+function applyPuckDragTransform(button: HTMLButtonElement, dx: number, dy: number): void {
+    button.style.setProperty('transform', `translate3d(${Math.round(dx)}px, ${Math.round(dy)}px, 0)`, 'important');
+}
+
+function resetPuckDragTransform(button: HTMLButtonElement): void {
+    button.style.removeProperty('transform');
+}
+
 function clampPuck(button: HTMLButtonElement, x: number, y: number): { x: number; y: number } | null {
     const rect = button.getBoundingClientRect();
+    return clampPuckToViewport(rect, x, y);
+}
+
+function clampPuckToViewport(box: PuckBox, x: number, y: number): { x: number; y: number } | null {
     const margin = 8;
-    if (!canClampPuck(rect, x, y, margin)) return null;
+    if (!canClampPuck(box, x, y, margin)) return null;
     return {
-        x: Math.max(margin, Math.min(window.innerWidth - rect.width - margin, x)),
-        y: Math.max(margin, Math.min(window.innerHeight - rect.height - margin, y)),
+        x: Math.max(margin, Math.min(window.innerWidth - box.width - margin, x)),
+        y: Math.max(margin, Math.min(window.innerHeight - box.height - margin, y)),
     };
 }
 
-function canClampPuck(rect: DOMRect, x: number, y: number, margin: number): boolean {
+function canClampPuck(box: PuckBox, x: number, y: number, margin: number): boolean {
     if (!finitePuckPosition(x, y)) return false;
     if (!finiteViewport()) return false;
     if (!hasViewportRoom(margin)) return false;
-    return hasVisiblePuckRect(rect);
+    return hasVisiblePuckRect(box);
 }
 
 function finitePuckPosition(x: number, y: number): boolean {
@@ -383,8 +456,8 @@ function hasViewportRoom(margin: number): boolean {
     return window.innerWidth > margin * 2 && window.innerHeight > margin * 2;
 }
 
-function hasVisiblePuckRect(rect: DOMRect): boolean {
-    return rect.width > 0 && rect.height > 0;
+function hasVisiblePuckRect(box: PuckBox): boolean {
+    return box.width > 0 && box.height > 0;
 }
 
 function visibleVideos(): HTMLVideoElement[] {

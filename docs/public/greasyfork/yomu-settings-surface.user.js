@@ -892,6 +892,7 @@
     "jpdb-reader-settings-drawer-height-ratio",
     "jpdb-reader-sheet-height-ratio",
     "jpdb-reader-transcript-panel-size",
+    "jpdb-reader-subtitle-drag-offset",
     "yomu:anki-status-index:v1",
     "yomu:anki-status-index-rebuild:v1",
     "yomu:jpdb-cache:v1",
@@ -1860,6 +1861,21 @@
     jpdbDefinitionsPriority: { min: 0, max: 999 },
     jitenDefinitionsPriority: { min: 0, max: 999 }
   };
+  const SOURCE_ALIAS_SETTING_KEYS = [
+    "jpdbDefinitionsAlias",
+    "jitenDefinitionsAlias",
+    "jpdbKanjiAlias",
+    "kanjiImmersionKitAlias",
+    "uchisenAlias",
+    "rtkAlias",
+    "kanjivgAlias",
+    "kanjiOriginsAlias",
+    "kanjiDictionariesAlias",
+    "immersionKitAlias",
+    "ankiSectionAlias",
+    "studyTranslationAlias",
+    "studyGrammarAlias"
+  ];
   const MINING_BOOLEAN_SETTING_KEYS = [
     "jpdbMiningEnabled",
     "dictionarySourcesInitiallyExpanded"
@@ -1957,23 +1973,31 @@
     pitchColorUnknown: DEFAULT_PITCH_COLORS.unknown,
     ...DEFAULT_COLOR_CHANNELS,
     jpdbDefinitionsEnabled: true,
+    jpdbDefinitionsAlias: "",
     jpdbDefinitionsPriority: 1,
     jitenDefinitionsEnabled: true,
+    jitenDefinitionsAlias: "",
     jitenDefinitionsPriority: 0,
     jpdbPageEnhancementsEnabled: true,
     jpdbPageWordEnhancementsEnabled: true,
     jpdbPageKanjiEnhancementsEnabled: true,
     jpdbKanjiEnabled: true,
+    jpdbKanjiAlias: "",
     jpdbKanjiPriority: 10,
     kanjiImmersionKitEnabled: true,
+    kanjiImmersionKitAlias: "",
     kanjiImmersionKitPriority: 60,
     uchisenEnabled: true,
+    uchisenAlias: "",
     uchisenPriority: 50,
     rtkEnabled: true,
+    rtkAlias: "",
     rtkPriority: 20,
     kanjivgEnabled: true,
+    kanjivgAlias: "",
     kanjivgPriority: 0,
     kanjiOriginsEnabled: true,
+    kanjiOriginsAlias: "",
     kanjiOriginsPriority: 30,
     kanjiOriginKanjiMapEnabled: true,
     kanjiOriginGraphEnabled: true,
@@ -1994,6 +2018,7 @@
     audioSelectionMode: "random",
     audioTtsMode: "fallback",
     immersionKitEnabled: true,
+    immersionKitAlias: "",
     immersionKitExampleSource: "immersion-kit",
     nadeshikoApiKey: "",
     immersionKitPriority: 80,
@@ -2075,6 +2100,7 @@
     localDictionariesEnabled: true,
     localDictionaryMaxResults: 12,
     localDictionaryShowKanji: true,
+    kanjiDictionariesAlias: "",
     kanjiDictionariesPriority: 30,
     dictionarySourcesInitiallyExpanded: true,
     dictionaryPreferences: [],
@@ -2110,6 +2136,7 @@
     // Keep Anki opt-in: fresh installs/factory resets cannot assume Anki exists, and the send button costs real space on mobile popups.
     ankiEnabled: false,
     ankiSectionEnabled: false,
+    ankiSectionAlias: "",
     ankiSectionPriority: 90,
     ankiConnectUrl: "http://127.0.0.1:8765",
     ankiDeck: "よむ",
@@ -2120,7 +2147,9 @@
     ankiFrontImage: true,
     ankiMobileHandoff: false,
     studyTranslationEnabled: true,
+    studyTranslationAlias: "",
     studyGrammarEnabled: true,
+    studyGrammarAlias: "",
     enableLogging: false,
     ankiTags: "yomu",
     ankiMineWithJpdb: false,
@@ -2212,6 +2241,7 @@
       ...normalizeAnkiAndStudySettings(settingsValue),
       ...normalizePresentationSettings(settingsValue),
       ...normalizeMiningSettings(settingsValue),
+      ...normalizeSourceAliasSettings(settingsValue),
       ...normalizeRemovedDictionarySettings(settingsValue),
       dictionaryPreferences: normalizeDictionaryPreferences(settingsValue?.dictionaryPreferences),
       dictionaryLookupLinks: normalizeDictionaryLookupLinkSettings(settingsValue),
@@ -2343,6 +2373,13 @@
       jpdbDefinitionsPriority: DEFAULT_SETTINGS.jpdbDefinitionsPriority,
       jitenDefinitionsPriority: DEFAULT_SETTINGS.jitenDefinitionsPriority
     } : normalized;
+  }
+  function normalizeSourceAliasSettings(value) {
+    const aliases = {};
+    for (const key of SOURCE_ALIAS_SETTING_KEYS) {
+      aliases[key] = trimmedStringSetting(value, key, DEFAULT_SETTINGS[key]);
+    }
+    return aliases;
   }
   function isLegacyDefaultDefinitionSourceOrder(value) {
     return hasOwn(value, "jpdbDefinitionsPriority") && hasOwn(value, "jitenDefinitionsPriority") && value?.jpdbDefinitionsPriority === 0 && value?.jitenDefinitionsPriority === 1;
@@ -5860,12 +5897,12 @@ recommendedJiten	Jiten頻度です。
     "gradePass"
   ];
   const KANJI_ADDON_SOURCE_ROWS = [
-    ["jpdbKanji", "jpdbKanjiEnabled", "jpdbKanjiPriority"],
-    ["kanjiImmersionKit", "kanjiImmersionKitEnabled", "kanjiImmersionKitPriority"],
-    ["uchisen", "uchisenEnabled", "uchisenPriority"],
-    ["rtk", "rtkEnabled", "rtkPriority"],
-    ["kanjivg", "kanjivgEnabled", "kanjivgPriority"],
-    ["kanjiOrigins", "kanjiOriginsEnabled", "kanjiOriginsPriority"]
+    ["jpdbKanji", "jpdbKanjiEnabled", "jpdbKanjiPriority", "jpdbKanjiAlias"],
+    ["kanjiImmersionKit", "kanjiImmersionKitEnabled", "kanjiImmersionKitPriority", "kanjiImmersionKitAlias"],
+    ["uchisen", "uchisenEnabled", "uchisenPriority", "uchisenAlias"],
+    ["rtk", "rtkEnabled", "rtkPriority", "rtkAlias"],
+    ["kanjivg", "kanjivgEnabled", "kanjivgPriority", "kanjivgAlias"],
+    ["kanjiOrigins", "kanjiOriginsEnabled", "kanjiOriginsPriority", "kanjiOriginsAlias"]
   ];
   function settingsColorSourceValue(settings, name) {
     const source = settings[name];
@@ -5943,8 +5980,10 @@ recommendedJiten	Jiten頻度です。
     const jpdbPageEnhancementsEnabled = has("jpdbPageEnhancementsEnabled");
     return {
       jpdbDefinitionsEnabled: true,
+      jpdbDefinitionsAlias: readSourceAlias(reader, "jpdbDefinitions", current.jpdbDefinitionsAlias),
       jpdbDefinitionsPriority: clamped("jpdbDefinitions.priority", 0, 999, current.jpdbDefinitionsPriority),
       jitenDefinitionsEnabled: rowsPresent.jiten ? has("jitenDefinitions.enabled") : current.jitenDefinitionsEnabled,
+      jitenDefinitionsAlias: readSourceAlias(reader, "jitenDefinitions", current.jitenDefinitionsAlias),
       jitenDefinitionsPriority: clamped("jitenDefinitions.priority", 0, 999, current.jitenDefinitionsPriority),
       jpdbPageEnhancementsEnabled,
       jpdbPageWordEnhancementsEnabled: jpdbPageEnhancementsEnabled && has("jpdbPageWordEnhancementsEnabled"),
@@ -5966,11 +6005,16 @@ recommendedJiten	Jiten頻度です。
   function readSourcePriorityRows(reader, current, rows) {
     const settings = {};
     const out = settings;
-    for (const [rowName, enabledKey, priorityKey] of rows) {
+    for (const [rowName, enabledKey, priorityKey, aliasKey] of rows) {
       out[enabledKey] = reader.has(`${rowName}.enabled`);
       out[priorityKey] = reader.clamped(`${rowName}.priority`, 0, 999, Number(current[priorityKey]));
+      if (aliasKey) out[aliasKey] = readSourceAlias(reader, rowName, String(current[aliasKey] ?? ""));
     }
     return settings;
+  }
+  function readSourceAlias(reader, prefix, current) {
+    const key = `${prefix}.alias`;
+    return reader.has(key) ? reader.get(key).trim() : current;
   }
   function readAudioFormSettings(reader, current, audioSources) {
     const { get, has, clamped } = reader;
@@ -6070,6 +6114,7 @@ recommendedJiten	Jiten頻度です。
     return {
       localDictionariesEnabled: true,
       localDictionaryShowKanji: has("kanjiDictionaries.enabled") || kanjiPreferences.some((preference) => preference.enabled),
+      kanjiDictionariesAlias: readSourceAlias(reader, "kanjiDictionaries", current.kanjiDictionariesAlias),
       kanjiDictionariesPriority: clamped("kanjiDictionaries.priority", 0, 999, current.kanjiDictionariesPriority),
       dictionarySourcesInitiallyExpanded: true,
       localDictionaryMaxResults: DEFAULT_SETTINGS.localDictionaryMaxResults
@@ -6099,11 +6144,13 @@ recommendedJiten	Jiten頻度です。
     if (!ankiSectionRowPresent(reader)) {
       return {
         ankiSectionEnabled: current.ankiSectionEnabled,
+        ankiSectionAlias: current.ankiSectionAlias,
         ankiSectionPriority: current.ankiSectionPriority
       };
     }
     return {
       ankiSectionEnabled: reader.has("ankiSection.enabled") || shouldAutoEnableAnkiSection(ankiEnabled, current),
+      ankiSectionAlias: readSourceAlias(reader, "ankiSection", current.ankiSectionAlias),
       ankiSectionPriority: reader.clamped("ankiSection.priority", 0, 999, current.ankiSectionPriority)
     };
   }
@@ -6129,8 +6176,10 @@ recommendedJiten	Jiten頻度です。
     const { has, clamped } = reader;
     return {
       studyTranslationEnabled: has("studyTranslation.enabled"),
+      studyTranslationAlias: readSourceAlias(reader, "studyTranslation", current.studyTranslationAlias),
       studyTranslationPriority: clamped("studyTranslation.priority", 0, 999, current.studyTranslationPriority),
       studyGrammarEnabled: has("studyGrammar.enabled"),
+      studyGrammarAlias: readSourceAlias(reader, "studyGrammar", current.studyGrammarAlias),
       studyGrammarPriority: clamped("studyGrammar.priority", 0, 999, current.studyGrammarPriority)
     };
   }
@@ -6231,6 +6280,7 @@ recommendedJiten	Jiten頻度です。
     const sourceEnabled = sourceRowPresent ? has("immersionKit.enabled") : true;
     return {
       immersionKitEnabled: mediaEnabled && sourceEnabled,
+      immersionKitAlias: readSourceAlias(reader, "immersionKit", current.immersionKitAlias),
       immersionKitExampleSource: readOption(get("immersionKitExampleSource"), ["immersion-kit", "nadeshiko", "combined"], current.immersionKitExampleSource),
       nadeshikoApiKey: get("nadeshikoApiKey").trim(),
       immersionKitPriority: clamped("immersionKit.priority", 0, 999, current.immersionKitPriority),
@@ -6435,8 +6485,8 @@ recommendedJiten	Jiten頻度です。
   }
   function renderSourceAliasControl(row, showAlias, keys) {
     if (!showAlias) return "";
-    if (row.readonly) return sourceField(row.alias, row.alias, row.prefix, "alias", "Display name", keys?.nameKey);
-    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Dictionary display name" placeholder="${escapeHtml(row.name)}">`;
+    const keyAttribute = keys?.nameKey ? ` data-source-placeholder-key="${escapeHtml(keys.nameKey)}"` : "";
+    return `<input name="${row.prefix}.alias" type="text" value="${escapeHtml(row.alias)}" aria-label="Source display name" placeholder="${escapeHtml(row.name)}"${keyAttribute}>`;
   }
   function renderSourceRemoveCell(row, showRemove) {
     if (!showRemove) return "";
@@ -6456,7 +6506,7 @@ recommendedJiten	Jiten頻度です。
     return `<div class="jpdb-reader-dictionary-row-help" ${keyAttribute}>${escapeHtml(row.help)}</div>`;
   }
   function sourceRowDisplayName(row, showAlias) {
-    return !showAlias && !row.readonly && row.alias ? row.alias : row.name;
+    return !showAlias && row.alias ? row.alias : row.name;
   }
   function sourceField(displayValue, formValue, prefix, field, label, nameKey) {
     return `
@@ -7253,7 +7303,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: JITEN_DEFINITION_SOURCE_ID,
         name: "Jiten",
-        alias: "Jiten",
+        alias: settings.jitenDefinitionsAlias,
         enabled: settings.jitenDefinitionsEnabled,
         priority: settings.jitenDefinitionsPriority,
         prefix: "jitenDefinitions",
@@ -7263,7 +7313,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: JPDB_DEFINITION_SOURCE_ID,
         name: "JPDB",
-        alias: "JPDB",
+        alias: settings.jpdbDefinitionsAlias,
         enabled: settings.jpdbDefinitionsEnabled,
         priority: settings.jpdbDefinitionsPriority,
         prefix: "jpdbDefinitions",
@@ -7273,7 +7323,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: STUDY_TRANSLATION_SOURCE_ID,
         name: uiText(language, "sourceNameTranslation"),
-        alias: uiText(language, "sourceNameTranslation"),
+        alias: settings.studyTranslationAlias,
         enabled: settings.studyTranslationEnabled,
         priority: settings.studyTranslationPriority,
         prefix: "studyTranslation",
@@ -7283,7 +7333,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: ANKI_SOURCE_ID,
         name: "Anki",
-        alias: "Anki",
+        alias: settings.ankiSectionAlias,
         enabled: settings.ankiSectionEnabled,
         priority: settings.ankiSectionPriority,
         prefix: "ankiSection",
@@ -7293,7 +7343,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: STUDY_GRAMMAR_SOURCE_ID,
         name: uiText(language, "sourceNameGrammar"),
-        alias: uiText(language, "sourceNameGrammar"),
+        alias: settings.studyGrammarAlias,
         enabled: settings.studyGrammarEnabled,
         priority: settings.studyGrammarPriority,
         prefix: "studyGrammar",
@@ -7303,7 +7353,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: IMMERSION_KIT_SOURCE_ID,
         name: uiText(language, "sourceNameImmersionKit"),
-        alias: uiText(language, "sourceNameImmersionKit"),
+        alias: settings.immersionKitAlias,
         enabled: settings.immersionKitEnabled,
         priority: settings.immersionKitPriority,
         prefix: "immersionKit",
@@ -7364,7 +7414,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: KANJI_STROKE_SOURCE_ID,
         name: uiText(language, "sourceNameStrokePractice"),
-        alias: uiText(language, "sourceNameStrokePractice"),
+        alias: settings.kanjivgAlias,
         enabled: settings.kanjivgEnabled,
         priority: settings.kanjivgPriority,
         prefix: "kanjivg",
@@ -7374,7 +7424,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: KANJI_JPDB_SOURCE_ID,
         name: readingsComponentsName,
-        alias: readingsComponentsName,
+        alias: settings.jpdbKanjiAlias,
         enabled: settings.jpdbKanjiEnabled,
         priority: settings.jpdbKanjiPriority,
         prefix: "jpdbKanji",
@@ -7384,7 +7434,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: KANJI_RTK_SOURCE_ID,
         name: "RTK",
-        alias: "RTK",
+        alias: settings.rtkAlias,
         enabled: settings.rtkEnabled,
         priority: settings.rtkPriority,
         prefix: "rtk",
@@ -7394,7 +7444,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: IMMERSION_KIT_SOURCE_ID,
         name: uiText(language, "sourceNameImmersionKit"),
-        alias: uiText(language, "sourceNameImmersionKit"),
+        alias: settings.kanjiImmersionKitAlias,
         enabled: settings.kanjiImmersionKitEnabled,
         priority: settings.kanjiImmersionKitPriority,
         prefix: "kanjiImmersionKit",
@@ -7404,7 +7454,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: KANJI_UCHISEN_SOURCE_ID,
         name: "Uchisen",
-        alias: "Uchisen",
+        alias: settings.uchisenAlias,
         enabled: settings.uchisenEnabled,
         priority: settings.uchisenPriority,
         prefix: "uchisen",
@@ -7414,7 +7464,7 @@ recommendedJiten	Jiten頻度です。
       ...kanjiDictionaryRows.length ? [] : [{
         id: KANJI_DICTIONARIES_SOURCE_ID,
         name: uiText(language, "sourceNameImportedKanjiDictionaries"),
-        alias: uiText(language, "sourceNameImportedKanjiDictionaries"),
+        alias: settings.kanjiDictionariesAlias,
         enabled: settings.localDictionaryShowKanji,
         priority: settings.kanjiDictionariesPriority,
         prefix: "kanjiDictionaries",
@@ -7425,7 +7475,7 @@ recommendedJiten	Jiten頻度です。
       {
         id: KANJI_ORIGINS_SOURCE_ID,
         name: uiText(language, "originStructure"),
-        alias: uiText(language, "originStructure"),
+        alias: settings.kanjiOriginsAlias,
         enabled: settings.kanjiOriginsEnabled,
         priority: settings.kanjiOriginsPriority,
         prefix: "kanjiOrigins",
@@ -8774,6 +8824,10 @@ recommendedJiten	Jiten頻度です。
       const key = element.dataset.sourceNameKey;
       if (isSettingsTextKey(key)) element.replaceChildren(text(key));
     });
+    form.querySelectorAll("[data-source-placeholder-key]").forEach((input2) => {
+      const key = input2.dataset.sourcePlaceholderKey;
+      if (isSettingsTextKey(key)) input2.placeholder = text(key);
+    });
     form.querySelectorAll("[data-source-help-key]").forEach((element) => {
       const key = element.dataset.sourceHelpKey;
       if (isSettingsTextKey(key)) element.replaceChildren(text(key));
@@ -8804,21 +8858,23 @@ recommendedJiten	Jiten頻度です。
     replaceSourceHelp(form, /Imported Yomitan kanji dictionary/, text("sourceHelpImportedKanjiDictionary"));
     form.querySelectorAll("[data-source-enable-toggle]").forEach((input2) => {
       const row = input2.closest("[data-dictionary-source-row]");
-      const name = row?.querySelector(".jpdb-reader-field-display")?.textContent?.trim() || input2.closest("label")?.textContent?.trim() || "";
+      const name = row?.querySelector('input[name$=".alias"]')?.value.trim() || row?.querySelector(".jpdb-reader-field-display")?.textContent?.trim() || input2.closest("label")?.textContent?.trim() || "";
       input2.setAttribute("aria-label", text("enableSourceName").replace("{name}", name));
     });
   }
   function localizeSourceHead(head, text) {
     const spans = head.querySelectorAll("span");
+    const hasDisplayName = !head.classList.contains("compact");
     spans[0]?.replaceChildren(text("enabledHeader"));
     const sourceLabel = sourceHeadLabel(spans[1]?.textContent ?? "", text);
     spans[1]?.replaceChildren(sourceLabel);
-    if (spans.length === 5) {
+    if (hasDisplayName) {
       spans[2]?.replaceChildren(text("displayName"));
       spans[3]?.replaceChildren(text("orderHeader"));
       spans[4]?.replaceChildren(text("removeHeader"));
     } else {
       spans[2]?.replaceChildren(text("orderHeader"));
+      spans[3]?.replaceChildren(text("removeHeader"));
     }
   }
   function sourceHeadLabel(value, text) {
@@ -9434,7 +9490,7 @@ recommendedJiten	Jiten頻度です。
   }
   function renderDictionarySourceRows(settings) {
     const rows = definitionSourceRows(settings);
-    const showAlias = rows.some((row) => !row.readonly);
+    const showAlias = true;
     const visibleNames = /* @__PURE__ */ new Set([
       ...rows.filter((row) => row.removable).map((row) => row.name),
       ...frequencySourceRows(settings).map((row) => row.name)
@@ -9460,7 +9516,7 @@ recommendedJiten	Jiten頻度です。
     return `${renderSourceRowsList(rows, { sourceLabel: "Definition source", countName: "dictionaryPreferenceCount", countValue: settings.dictionaryPreferences.length, showAlias })}${metadataHelp}${hidden}`;
   }
   function renderKanjiSourceRows(settings) {
-    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: false });
+    return renderSourceRowsList(kanjiSourceRows(settings), { sourceLabel: "Kanji section", showAlias: true });
   }
   function renderFrequencyLookupPillRows(settings) {
     const rows = frequencySourceRows(settings);

@@ -29,7 +29,12 @@
   const NEW_TAB_PAGE_URL = `${DOCS_BASE_URL}newtab/`;
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
+  const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
+  const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
   const ANKI_SOURCE_ID = "__anki__";
+  const STUDY_TRANSLATION_SOURCE_ID = "__study_translation__";
+  const STUDY_GRAMMAR_SOURCE_ID = "__study_grammar__";
+  const IMMERSION_KIT_SOURCE_ID = "__immersion_kit__";
   const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
   const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
   const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
@@ -9120,6 +9125,120 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function mobileAnkiHandoffAppName() {
     return yomuAnkiCompanion()?.mobileAnkiHandoffAppName() ?? "AnkiMobile";
   }
+  const KANJI_STROKE_SOURCE_ID = "__kanji_stroke__";
+  const KANJI_JPDB_SOURCE_ID = "__kanji_jpdb__";
+  const KANJI_DICTIONARIES_SOURCE_ID = "__kanji_dictionaries__";
+  const KANJI_ORIGINS_SOURCE_ID = "__kanji_origins__";
+  const BUILT_IN_SOURCE_NAME_KEYS = {
+    [ANKI_SOURCE_ID]: "sourceNameAnki",
+    [STUDY_TRANSLATION_SOURCE_ID]: "sourceNameTranslation",
+    [STUDY_GRAMMAR_SOURCE_ID]: "sourceNameGrammar",
+    [IMMERSION_KIT_SOURCE_ID]: "sourceNameImmersionKit",
+    [KANJI_STROKE_SOURCE_ID]: "sourceNameStrokePractice",
+    [KANJI_JPDB_SOURCE_ID]: "readingsComponents",
+    [KANJI_DICTIONARIES_SOURCE_ID]: "sourceNameImportedKanjiDictionaries",
+    [KANJI_ORIGINS_SOURCE_ID]: "originStructure"
+  };
+  function definitionSourceRows(settings) {
+    const language = settings.interfaceLanguage;
+    const builtInRows = [
+      {
+        id: JITEN_DEFINITION_SOURCE_ID,
+        name: "Jiten",
+        alias: settings.jitenDefinitionsAlias,
+        enabled: settings.jitenDefinitionsEnabled,
+        priority: settings.jitenDefinitionsPriority,
+        prefix: "jitenDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpJiten")
+      },
+      {
+        id: JPDB_DEFINITION_SOURCE_ID,
+        name: "JPDB",
+        alias: settings.jpdbDefinitionsAlias,
+        enabled: settings.jpdbDefinitionsEnabled,
+        priority: settings.jpdbDefinitionsPriority,
+        prefix: "jpdbDefinitions",
+        readonly: true,
+        help: uiText(language, "sourceHelpJpdb")
+      },
+      {
+        id: STUDY_TRANSLATION_SOURCE_ID,
+        name: uiText(language, "sourceNameTranslation"),
+        alias: settings.studyTranslationAlias,
+        enabled: settings.studyTranslationEnabled,
+        priority: settings.studyTranslationPriority,
+        prefix: "studyTranslation",
+        readonly: true,
+        help: uiText(language, "sourceHelpTranslation")
+      },
+      {
+        id: ANKI_SOURCE_ID,
+        name: "Anki",
+        alias: settings.ankiSectionAlias,
+        enabled: settings.ankiSectionEnabled,
+        priority: settings.ankiSectionPriority,
+        prefix: "ankiSection",
+        readonly: true,
+        help: uiText(language, "sourceHelpAnki")
+      },
+      {
+        id: STUDY_GRAMMAR_SOURCE_ID,
+        name: uiText(language, "sourceNameGrammar"),
+        alias: settings.studyGrammarAlias,
+        enabled: settings.studyGrammarEnabled,
+        priority: settings.studyGrammarPriority,
+        prefix: "studyGrammar",
+        readonly: true,
+        help: uiText(language, "sourceHelpGrammar")
+      },
+      {
+        id: IMMERSION_KIT_SOURCE_ID,
+        name: uiText(language, "sourceNameImmersionKit"),
+        alias: settings.immersionKitAlias,
+        enabled: settings.immersionKitEnabled,
+        priority: settings.immersionKitPriority,
+        prefix: "immersionKit",
+        readonly: true,
+        help: uiText(language, "sourceHelpImmersionKit")
+      }
+    ];
+    return [
+      ...builtInRows,
+      ...settings.dictionaryPreferences.filter((preference) => {
+        const type = preference.type ?? "terms";
+        return type === "terms" || type === "kanji";
+      }).map((preference) => ({
+        id: preference.name,
+        name: preference.name,
+        alias: preference.alias,
+        enabled: preference.enabled,
+        priority: preference.priority,
+        prefix: `dictionaryPreferences.${settings.dictionaryPreferences.indexOf(preference)}`,
+        readonly: false,
+        removable: true,
+        dictionaryType: preference.type === "kanji" ? "kanji" : "terms",
+        help: ""
+      }))
+    ].filter((row) => row.id !== IMMERSION_KIT_SOURCE_ID || settings.immersionKitEnabled).sort(compareSourceRows);
+  }
+  function definitionSourceLabel(settings, sourceId, fallback = "", language = settings.interfaceLanguage) {
+    const row = definitionSourceRows(settings).find((candidate) => candidate.id === sourceId);
+    return localizedSourceRowLabel(row, language) || fallback;
+  }
+  function compareSourceRows(a, b) {
+    return a.priority - b.priority || a.name.localeCompare(b.name);
+  }
+  function localizedSourceRowLabel(row, language) {
+    if (!row) return "";
+    if (row.alias) return row.alias;
+    if (row.id === KANJI_JPDB_SOURCE_ID && row.name !== uiText(language, "readingsComponents")) return row.name;
+    const key = builtInSourceNameKey(row.id);
+    return key ? uiText(language, key) : row.name;
+  }
+  function builtInSourceNameKey(sourceId) {
+    return BUILT_IN_SOURCE_NAME_KEYS[sourceId];
+  }
   function speakerIcon() {
     return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
         <path d="M11 5 6.8 8.4H4.5v7.2h2.3L11 19V5Z"></path>
@@ -9171,10 +9290,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const language = settings.interfaceLanguage;
     const aggregateState = ankiLookup.state;
     const summary = ankiExistingSectionSummary(primary, notes.length, language, aggregateState);
+    const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, "Anki");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing" ${ankiDetailsStateAttributes(options, ANKI_SOURCE_ID, true)}>
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>Anki${notes.length > 1 ? ` (${notes.length})` : ""}</span>
+                <span><span class="jpdb-reader-state-dot anki-${aggregateState}"></span>${escapeHtml$1(title)}${notes.length > 1 ? ` (${notes.length})` : ""}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml$1(summary)}</small>
             </summary>
             ${notes.length > 1 ? renderAnkiCollisionSummary(notes, language) : ""}
@@ -9187,10 +9307,11 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     const fields = buildYomuAnkiPreviewFields(card, sentence ?? card.sentence ?? "", settings, context, fieldTargetPlan);
     const fieldPreview = renderAnkiPreviewFields(fields, settings.interfaceLanguage, { renderHtml: true });
     if (!fieldPreview) return "";
+    const title = definitionSourceLabel(settings, ANKI_SOURCE_ID, "Anki");
     return `
         <details class="jpdb-reader-local jpdb-reader-source-card jpdb-reader-anki-existing jpdb-reader-anki-new">
             <summary class="jpdb-reader-local-title">
-                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>Anki</span>
+                <span><span class="jpdb-reader-state-dot anki-not-in-deck"></span>${escapeHtml$1(title)}</span>
                 <small class="jpdb-reader-source-status">${escapeHtml$1(ankiNewCardSummary(settings))}</small>
             </summary>
             <div class="jpdb-reader-local-entry jpdb-reader-anki-card-preview">

@@ -22,7 +22,7 @@ interface HoverLookupInternals {
     activePopoverAnchor?: HTMLElement;
     activePointerTextLookup?: { text: string; start: number; end: number; anchor: HTMLElement };
     lastPointerPosition?: { x: number; y: number };
-    parser: { cacheCards?(cards: JPDBCard[]): void };
+    parser: { cacheCards(cards: JPDBCard[]): void };
     stackedSettingsDialog?: { form: HTMLElement; backdrop?: HTMLElement };
     pressLookup?: {
         pointerId: number;
@@ -873,6 +873,80 @@ describe('hover lookup', () => {
             internals.handleHoverPointer(hoverPointerEvent(line));
 
             expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({ trigger: 'hover' }));
+        } finally {
+            restoreElementFromPoint();
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('auto-plays hover audio for OCR image words resolved from line geometry', async () => {
+        const app = new ReaderApp();
+        const { line, word } = appendSingleWordOcrLine();
+        word.getBoundingClientRect = () => ({ left: 30, top: 20, right: 50, bottom: 30, width: 20, height: 10 } as DOMRect);
+        const internals = app as unknown as HoverLookupInternals;
+        const parser = internals.parser as typeof internals.parser & {
+            getCachedCard(vid: number, sid: number): JPDBCard | undefined;
+        };
+        const getCachedCard = vi.spyOn(parser, 'getCachedCard').mockReturnValue(HOVER_LOOKUP_CARD);
+        const playTermAudio = vi.fn();
+        const showCard = vi.fn(async (
+            card: JPDBCard,
+            sentence?: string,
+            anchor?: HTMLElement,
+            options: Record<string, unknown> = {},
+        ) => {
+            const trigger = options.trigger === 'hover' ? 'hover' : 'modal';
+            if (!internals.shouldAutoPlay(
+                card,
+                trigger,
+                Boolean(options.userGesture),
+                anchor,
+                typeof options.hoverLookupGeneration === 'number' ? options.hoverLookupGeneration : undefined,
+            )) return;
+            await internals.audioActions.playTermAudio(card, {
+                autoPlay: true,
+                hoverLookupGeneration: options.hoverLookupGeneration,
+                isCurrent: trigger === 'hover' ? () => true : undefined,
+            });
+            void sentence;
+        });
+        const restoreElementFromPoint = stubElementFromPoint(line);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover',
+            hoverOpenDelayMs: 0,
+            lookupOnHover: true,
+            suppressAutoAudioOnVideo: false,
+            shortcuts: { ...DEFAULT_SETTINGS.shortcuts, hoverLookup: '' },
+        };
+        internals.audioActions = { playTermAudio };
+        internals.preloadHoverWordAudio = vi.fn();
+        internals.showCard = showCard;
+
+        try {
+            internals.handleHoverPointer(hoverPointerEvent(line));
+            await Promise.resolve();
+
+            expect(getCachedCard).toHaveBeenCalledWith(1, 2);
+            expect(showCard).toHaveBeenCalledWith(
+                HOVER_LOOKUP_CARD,
+                '読む',
+                word,
+                expect.objectContaining({
+                    trigger: 'hover',
+                    hoverLookupKey: 'word:1:2:読む',
+                }),
+            );
+            expect(playTermAudio).toHaveBeenCalledWith(
+                HOVER_LOOKUP_CARD,
+                expect.objectContaining({
+                    autoPlay: true,
+                    hoverLookupGeneration: expect.any(Number),
+                }),
+            );
         } finally {
             restoreElementFromPoint();
             cleanupReaderApp(app);

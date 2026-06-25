@@ -1,8 +1,8 @@
 import { gmStorageGetSync, gmStorageSetSync } from '../app/storage';
 
-// Jiten exposes no review-history API — only today's counters on each
-// study-batch response. Snapshot them per day so the stats page can build
-// heatmaps/streaks locally, like the Anki history source.
+// Jiten review history covers reviews, correctness, and duration. The study
+// batch still exposes today's new-card counter, so keep a small daily snapshot
+// for new cards and as a fallback when history cannot be loaded.
 const JITEN_DAILY_STATS_KEY = 'jpdb-reader-jiten-daily-stats';
 const JITEN_DAILY_STATS_MAX_DAYS = 400;
 

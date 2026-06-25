@@ -1,7 +1,7 @@
 import { primaryCardState } from '../cards/state';
 import type { CardState, JPDBCard } from './types';
 
-export type StatsSourceId = 'combined' | 'jpdb' | 'anki';
+export type StatsSourceId = 'combined' | 'jpdb' | 'jiten' | 'anki';
 export type StatsSourceStatus = 'setup' | 'loading' | 'ready' | 'partial' | 'error';
 export type StatsActivityMetric = 'reviews' | 'minutes' | 'newCards';
 
@@ -66,6 +66,7 @@ export interface StatsCombinedSnapshot extends Omit<StatsSourceSnapshot, 'id'> {
 
 export interface StatsDashboardSnapshot {
     jpdb: StatsSourceSnapshot;
+    jiten: StatsSourceSnapshot;
     anki: StatsSourceSnapshot;
     combined: StatsCombinedSnapshot;
 }
@@ -82,6 +83,12 @@ export interface StatsAnkiApi {
 
 export interface LoadAnkiConnectStatsOptions {
     disabledDeckNames?: readonly string[];
+}
+
+export interface JitenReviewHistoryEntry {
+    rating: number;
+    reviewDateTime: string;
+    reviewDuration: number | null;
 }
 
 interface AnkiDeckStats {
@@ -119,11 +126,13 @@ const ANKI_RETENTION_CARD_LIMIT = 5_000;
 
 export function emptyStatsDashboardSnapshot(): StatsDashboardSnapshot {
     const jpdb = emptyStatsSource('jpdb', 'JPDB', 'Add JPDB data to see stats.');
+    const jiten = emptyStatsSource('jiten', 'Jiten', 'Add Jiten data to see stats.');
     const anki = emptyStatsSource('anki', 'Anki', 'Connect Anki to see stats.');
     return {
         jpdb,
+        jiten,
         anki,
-        combined: combineStatsSources(jpdb, anki),
+        combined: combineStatsSources(jpdb, jiten, anki),
     };
 }
 
@@ -149,9 +158,14 @@ export function emptyStatsSource(
     });
 }
 
-export function statsFromApiCards(cards: JPDBCard[], label: string, message: string): StatsSourceSnapshot {
+export function statsFromApiCards(
+    cards: JPDBCard[],
+    label: string,
+    message: string,
+    id: Exclude<StatsSourceId, 'combined'> = 'jpdb',
+): StatsSourceSnapshot {
     return finalizeStatsSource({
-        id: 'jpdb',
+        id,
         label,
         status: cards.length ? 'ready' : 'partial',
         message,
@@ -170,6 +184,10 @@ export function statsFromJpdbCards(cards: JPDBCard[], message = 'JPDB card state
     return statsFromApiCards(cards, 'JPDB', message);
 }
 
+export function statsFromJitenCards(cards: JPDBCard[], message = 'Jiten SRS loaded.'): StatsSourceSnapshot {
+    return statsFromApiCards(cards, 'Jiten', message, 'jiten');
+}
+
 export function applyJpdbReviewImport(source: StatsSourceSnapshot, imported: JpdbReviewImport | null): StatsSourceSnapshot {
     if (!imported) return source;
     return finalizeStatsSource({
@@ -181,43 +199,64 @@ export function applyJpdbReviewImport(source: StatsSourceSnapshot, imported: Jpd
     });
 }
 
-// Jiten has no history API; its per-day counters are snapshotted locally on
-// every study-batch load (see dictionaries/jiten-stats-cache) and merged into
-// the API source's activity here.
+// Jiten review history supplies review/correctness/timing data; the local daily
+// cache still fills same-day new-card counts and keeps older snapshots around.
 export function applyJitenDailyStats(source: StatsSourceSnapshot, byDate: Record<string, { newCardsToday: number; reviewsToday: number; updatedAt: number }>): StatsSourceSnapshot {
     const entries = Object.entries(byDate);
     if (!entries.length) return source;
-    const daily: StatsDailyPoint[] = entries.map(([date, snapshot]) => ({
-        date,
-        reviews: snapshot.reviewsToday,
-        correct: 0,
-        failed: 0,
-        newCards: snapshot.newCardsToday,
-        minutes: 0,
-    }));
+    const daily = new Map(source.daily.map(point => [point.date, { ...point }]));
+    for (const [date, snapshot] of entries) {
+        const point = ensureDailyPoint(daily, date);
+        point.reviews = Math.max(point.reviews, snapshot.reviewsToday);
+        point.newCards = Math.max(point.newCards, snapshot.newCardsToday);
+    }
     return finalizeStatsSource({
         ...source,
-        daily: mergeDailyPoints(source.daily, daily),
+        daily: sortedDailyPoints([...daily.values()]),
         updatedAt: Math.max(source.updatedAt ?? 0, ...entries.map(([, snapshot]) => snapshot.updatedAt)),
     });
 }
 
-export function combineStatsSources(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot): StatsCombinedSnapshot {
-    const daily = mergeDailyPoints(jpdb.daily, anki.daily);
+export function applyJitenReviewHistory(source: StatsSourceSnapshot, reviews: JitenReviewHistoryEntry[]): StatsSourceSnapshot {
+    if (!reviews.length) return source;
+    const daily = new Map<string, StatsDailyPoint>();
+    let newest = source.updatedAt ?? 0;
+    for (const review of reviews) {
+        const timestamp = new Date(review.reviewDateTime);
+        if (!Number.isFinite(timestamp.getTime())) continue;
+        newest = Math.max(newest, timestamp.getTime());
+        const point = ensureDailyPoint(daily, dateKey(timestamp));
+        point.reviews += 1;
+        if (jitenReviewRatingIsCorrect(review.rating)) point.correct += 1;
+        else point.failed += 1;
+        point.minutes += Math.max(0, numberValue(review.reviewDuration)) / 60_000;
+    }
+    return finalizeStatsSource({
+        ...source,
+        daily: mergeDailyPoints(source.daily, sortedDailyPoints([...daily.values()])),
+        updatedAt: newest || source.updatedAt,
+    });
+}
+
+export function combineStatsSources(...sources: StatsSourceSnapshot[]): StatsCombinedSnapshot {
+    const active = statsSourcesForCombined(sources);
+    const combinedSources = active.length ? active : sources;
+    const daily = mergeDailyPoints(...combinedSources.map(source => source.daily));
+    const dueForecast = addDueForecasts(combinedSources);
     return finalizeCombinedStatsSource({
         id: 'combined',
         label: 'Combined',
-        status: combinedStatus(jpdb, anki),
-        message: combinedMessage(jpdb, anki),
+        status: combinedStatus(combinedSources),
+        message: combinedMessage(combinedSources),
         daily,
-        cards: addCardBreakdowns(jpdb.cards, anki.cards),
+        cards: addCardBreakdowns(...combinedSources.map(source => source.cards)),
         reviewsToday: 0,
         totalReviews: 0,
         retention: null,
         currentStreak: 0,
         longestStreak: 0,
-        updatedAt: Math.max(jpdb.updatedAt ?? 0, anki.updatedAt ?? 0) || null,
-        ...(anki.dueForecast ? { dueForecast: anki.dueForecast } : {}),
+        updatedAt: Math.max(0, ...combinedSources.map(source => source.updatedAt ?? 0)) || null,
+        ...(dueForecast ? { dueForecast } : {}),
     });
 }
 
@@ -343,8 +382,17 @@ export function monthlyActivityHeatmaps(points: StatsDailyPoint[], months = 6, t
 
 export function statsSourceForId(snapshot: StatsDashboardSnapshot, id: StatsSourceId): StatsSourceSnapshot | StatsCombinedSnapshot {
     if (id === 'jpdb') return snapshot.jpdb;
+    if (id === 'jiten') return snapshot.jiten;
     if (id === 'anki') return snapshot.anki;
     return snapshot.combined;
+}
+
+export function statsSourceHasVisibleData(source: StatsSourceSnapshot): boolean {
+    return source.status !== 'setup'
+        || source.cards.total > 0
+        || source.daily.length > 0
+        || Boolean(source.deckNames?.length)
+        || source.updatedAt !== null;
 }
 
 export function formatPercent(value: number | null): string {
@@ -436,40 +484,52 @@ function finalizeStatsSource<T extends StatsSourceSnapshot>(source: T): T {
     };
 }
 
-function combinedStatus(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot): StatsSourceStatus {
-    if (sourcesHaveStatus(jpdb, anki, 'ready')) return bothSourcesHaveStatus(jpdb, anki, 'ready') ? 'ready' : 'partial';
-    return COMBINED_STATUS_PRIORITY.find(status => sourcesHaveStatus(jpdb, anki, status)) ?? 'setup';
+function combinedStatus(sources: StatsSourceSnapshot[]): StatsSourceStatus {
+    if (!sources.length) return 'setup';
+    if (sources.every(source => source.status === 'ready')) return 'ready';
+    if (sources.some(source => source.status === 'ready' || source.status === 'partial')) return 'partial';
+    if (sources.some(source => source.status === 'loading')) return 'loading';
+    if (sources.some(source => source.status === 'error')) return 'error';
+    return 'setup';
 }
 
-const COMBINED_STATUS_PRIORITY: StatsSourceStatus[] = ['partial', 'loading', 'error'];
-
-function sourcesHaveStatus(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot, status: StatsSourceStatus): boolean {
-    return jpdb.status === status || anki.status === status;
-}
-
-function bothSourcesHaveStatus(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot, status: StatsSourceStatus): boolean {
-    return jpdb.status === status && anki.status === status;
-}
-
-function combinedMessage(jpdb: StatsSourceSnapshot, anki: StatsSourceSnapshot): string {
-    const apiLabel = jpdb.label || 'JPDB';
-    if (jpdb.status === 'ready' && anki.status === 'ready') return `${apiLabel} and Anki are connected.`;
-    if (jpdb.status === 'ready' || jpdb.status === 'partial') return `Showing ${apiLabel} stats. Connect Anki for the combined view.`;
-    if (anki.status === 'ready' || anki.status === 'partial') return 'Showing Anki stats. Add Jiten or JPDB data for the combined view.';
+function combinedMessage(sources: StatsSourceSnapshot[]): string {
+    const active = statsSourcesForCombined(sources);
+    if (active.length > 1) return `${statsSourceLabelList(active)} are connected.`;
+    if (active.length === 1) return `Showing ${active[0]?.label || 'SRS'} stats.`;
     return 'Connect Jiten, JPDB, or Anki to build your dashboard.';
 }
 
-function addCardBreakdowns(left: StatsCardBreakdown, right: StatsCardBreakdown): StatsCardBreakdown {
+function statsSourcesForCombined(sources: StatsSourceSnapshot[]): StatsSourceSnapshot[] {
+    return sources.filter(source => source.status === 'ready' || source.status === 'partial');
+}
+
+function statsSourceLabelList(sources: StatsSourceSnapshot[]): string {
+    return sources.map(source => source.label || source.id).join(' + ');
+}
+
+function addCardBreakdowns(...groups: StatsCardBreakdown[]): StatsCardBreakdown {
+    const out = { ...EMPTY_CARDS };
+    for (const cards of groups) {
+        out.total += cards.total;
+        out.new += cards.new;
+        out.learning += cards.learning;
+        out.review += cards.review;
+        out.due += cards.due;
+        out.failed += cards.failed;
+        out.known += cards.known;
+        out.suspended += cards.suspended;
+        out.ignored += cards.ignored;
+    }
+    return out;
+}
+
+function addDueForecasts(sources: StatsSourceSnapshot[]): StatsDueForecast | undefined {
+    const forecasts = sources.map(source => source.dueForecast).filter((forecast): forecast is StatsDueForecast => Boolean(forecast));
+    if (!forecasts.length) return undefined;
     return {
-        total: left.total + right.total,
-        new: left.new + right.new,
-        learning: left.learning + right.learning,
-        review: left.review + right.review,
-        due: left.due + right.due,
-        failed: left.failed + right.failed,
-        known: left.known + right.known,
-        suspended: left.suspended + right.suspended,
-        ignored: left.ignored + right.ignored,
+        in7: forecasts.reduce((sum, forecast) => sum + forecast.in7, 0),
+        in30: forecasts.reduce((sum, forecast) => sum + forecast.in30, 0),
     };
 }
 
@@ -522,6 +582,10 @@ function addDueJpdbCard(out: StatsCardBreakdown, failed: boolean): void {
 function addKnownJpdbCard(out: StatsCardBreakdown): void {
     out.known += 1;
     out.review += 1;
+}
+
+function jitenReviewRatingIsCorrect(rating: number): boolean {
+    return rating > 1;
 }
 
 function ankiCardBreakdown(stats: AnkiDeckStats[]): StatsCardBreakdown {

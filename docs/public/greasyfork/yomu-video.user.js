@@ -10828,6 +10828,13 @@ ${spelling}`);
   const TRANSCRIPT_PANEL_MARGIN = 10;
   const TRANSCRIPT_PANEL_MIN_BOTTOM_HEIGHT = 220;
   const TRANSCRIPT_PANEL_SIZE_KEY = "jpdb-reader-transcript-panel-size";
+  const SUBTITLE_DRAG_OFFSET_KEY = "jpdb-reader-subtitle-drag-offset";
+  const SUBTITLE_DRAG_OFFSET_MIN_FRACTION = -0.9;
+  const SUBTITLE_DRAG_OFFSET_MAX_FRACTION = 0.35;
+  function clampSubtitleDragOffsetFraction(fraction) {
+    if (!Number.isFinite(fraction)) return 0;
+    return Math.min(SUBTITLE_DRAG_OFFSET_MAX_FRACTION, Math.max(SUBTITLE_DRAG_OFFSET_MIN_FRACTION, fraction));
+  }
   function computeSubtitleDrawerLayout(options) {
     const size = options.size ?? {};
     const preferredPlacement = options.preferredPlacement ?? "right";
@@ -10907,6 +10914,20 @@ ${spelling}`);
   function saveTranscriptPanelSize(size) {
     try {
       gmStorageSetSync(TRANSCRIPT_PANEL_SIZE_KEY, size);
+    } catch {
+    }
+  }
+  function loadSubtitleDragOffsetFraction() {
+    try {
+      const parsed = gmStorageGetSync(SUBTITLE_DRAG_OFFSET_KEY, {});
+      return clampSubtitleDragOffsetFraction(parsed?.fraction ?? 0);
+    } catch {
+      return 0;
+    }
+  }
+  function saveSubtitleDragOffsetFraction(fraction) {
+    try {
+      gmStorageSetSync(SUBTITLE_DRAG_OFFSET_KEY, { fraction: clampSubtitleDragOffsetFraction(fraction) });
     } catch {
     }
   }
@@ -14463,6 +14484,10 @@ ${spelling}`);
     pausePanelDismissed = false;
     pausePanelSyncScheduled = false;
     subtitleDragOffsetYPx = 0;
+    // Remembered manual vertical position, as a fraction of viewport height, so a
+    // nudge survives video changes and reloads instead of snapping back to the
+    // configured bottom offset. Persisted via gmStorage; see subtitle-layout.
+    subtitleDragOffsetFraction = loadSubtitleDragOffsetFraction();
     subtitleDragActive = false;
     transcriptResizeActive = false;
     asbMoveHandlesActive = false;
@@ -14683,6 +14708,7 @@ ${spelling}`);
       document.body.appendChild(this.transcriptPanel);
       this.root = root;
       this.bindSubtitleDragHandle();
+      this.restoreSubtitleDragOffset();
       this.refresh();
       this.scheduleControlsIdle();
     }
@@ -14796,7 +14822,7 @@ ${spelling}`);
       this.renderSerial += 1;
       this.parseWarmupSerial += 1;
       this.lastParseWarmupAnchor = -1;
-      this.resetSubtitleDragOffset();
+      this.restoreSubtitleDragOffset();
     }
     removeStaleNativeTracks(video) {
       const textTracks = new Set(Array.from(video.textTracks));
@@ -16300,6 +16326,7 @@ ${spelling}`);
       session.handle.classList.remove("jpdb-subtitle-dragging");
       session.dragRoot?.classList.remove("jpdb-subtitle-dragging");
       if (session.dragRoot !== this.root) this.root?.classList.remove("jpdb-subtitle-dragging");
+      this.persistSubtitleDragOffset();
       this.showControlsTemporarily();
     }
     moveSubtitleOverlayFromKeyboard(event) {
@@ -16316,7 +16343,12 @@ ${spelling}`);
       if (delta === void 0 && !shouldReset) return;
       event.preventDefault();
       event.stopPropagation();
-      this.setSubtitleDragOffset(shouldReset ? 0 : this.subtitleDragOffsetYPx + delta, dragFrame);
+      if (shouldReset) {
+        this.resetSubtitleDragOffset();
+      } else {
+        this.setSubtitleDragOffset(this.subtitleDragOffsetYPx + delta, dragFrame);
+        this.persistSubtitleDragOffset();
+      }
       this.showControlsTemporarily();
     }
     setSubtitleDragOffset(offsetPx, dragFrame) {
@@ -16325,9 +16357,33 @@ ${spelling}`);
       this.subtitleDragOffsetYPx = offset;
       this.syncSubtitleDragOffsetStyle();
     }
+    // Snap back to the configured bottom offset and forget the remembered nudge.
     resetSubtitleDragOffset() {
+      this.subtitleDragOffsetFraction = 0;
+      saveSubtitleDragOffsetFraction(0);
       this.subtitleDragOffsetYPx = 0;
       this.syncSubtitleDragOffsetStyle();
+    }
+    // Reproject the remembered nudge (a viewport-height fraction) into pixels
+    // against the current viewport. Runs on first install, on video changes, and
+    // on every viewport/fullscreen change (via syncFullscreenState) so the line
+    // keeps its relative position when the player resizes, rotates, or enters
+    // fullscreen instead of staying frozen at the old pixel magnitude. Skipped
+    // mid-drag so it never fights the gesture the user is performing.
+    restoreSubtitleDragOffset() {
+      if (this.subtitleDragActive) return;
+      this.subtitleDragOffsetYPx = Math.round(this.subtitleDragOffsetFraction * this.subtitleDragViewportHeight());
+      this.syncSubtitleDragOffsetStyle();
+    }
+    // Remember the current nudge as a viewport-height fraction so it scales across
+    // players of different sizes. Called when a drag/keyboard adjustment settles.
+    persistSubtitleDragOffset() {
+      const viewportHeight = this.subtitleDragViewportHeight();
+      this.subtitleDragOffsetFraction = viewportHeight > 0 ? this.subtitleDragOffsetYPx / viewportHeight : 0;
+      saveSubtitleDragOffsetFraction(this.subtitleDragOffsetFraction);
+    }
+    subtitleDragViewportHeight() {
+      return Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
     }
     syncSubtitleDragOffsetStyle() {
       const offset = `${this.subtitleDragOffsetYPx}px`;
@@ -16342,7 +16398,7 @@ ${spelling}`);
       return Math.min(max, Math.max(min, offsetPx));
     }
     subtitleDragOffsetBounds(dragFrame) {
-      const viewportHeight = Math.max(240, window.innerHeight || document.documentElement.clientHeight || 0);
+      const viewportHeight = this.subtitleDragViewportHeight();
       const fallback = {
         min: -Math.round(viewportHeight * 0.45),
         max: Math.round(viewportHeight * 0.35)
@@ -18334,6 +18390,7 @@ ${spelling}`);
       return layout.placement === "left" ? viewportWidth - (layout.left + layout.width + layout.margin * 2) : layout.left - videoRect.left - layout.margin;
     }
     syncFullscreenState() {
+      this.restoreSubtitleDragOffset();
       const fullscreenElement = currentFullscreenElement();
       const fullscreenHost = this.subtitleFullscreenHost(fullscreenElement);
       this.fullscreen = Boolean(fullscreenElement || fullscreenHost || videoIsInNativeFullscreen(this.video));

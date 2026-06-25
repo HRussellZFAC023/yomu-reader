@@ -85,6 +85,7 @@ function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         jitenReadingIndex,
         fallbackLookupTerms,
         sourceDeckName,
+        lastReviewAt,
     } = overrides;
     return {
         vid,
@@ -115,6 +116,7 @@ function newTabTestCard(overrides: Partial<JPDBCard> = {}): JPDBCard {
         jitenReadingIndex,
         fallbackLookupTerms,
         sourceDeckName,
+        lastReviewAt,
     };
 }
 
@@ -990,10 +992,6 @@ function expectApiStatsSettingsButton(root: HTMLElement, showSettings: ReturnTyp
     expect(showSettings).toHaveBeenCalledWith('api');
 }
 
-function expectApiStatsSource(root: HTMLElement, sourceLabel: string): void {
-    expect(Array.from(root.querySelectorAll('[data-stats-source]')).some(tab => tab.textContent === sourceLabel)).toBe(true);
-}
-
 function applySeededNewTabWords(controller: NewTabController, root: HTMLElement, options: {
     allWords: JPDBCard[];
     sourceLabel: string;
@@ -1466,27 +1464,30 @@ describe('new tab review helpers', () => {
             .toContain('.jpdb-reader-newtab-controls button[data-grade]:disabled { opacity: 1; color: var(--jpdb-reader-text); -webkit-text-fill-color: var(--jpdb-reader-text); }');
     });
 
-    it('keeps light-mode Immersion Kit media subtitles transparent on dictionary theme surfaces', () => {
+    it('keeps Immersion Kit media subtitles in video-caption colors across themes', () => {
         const normalizedCss = NEW_TAB_CSS.replace(/\s+/g, ' ');
         const imageSentenceRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence');
-        const lightImageSentenceRule = newTabCssRule(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence');
+        const subtitleWordRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-sentence .jpdb-reader-word');
+        const imageWordRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word');
+        const imageTargetRule = newTabCssRule('.jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target');
 
-        expect(normalizedCss)
-            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); background: transparent; box-shadow: none; }');
-        expect(lightImageSentenceRule).not.toContain('var(--jpdb-reader-surface) 94%');
-        expect(lightImageSentenceRule).not.toContain('var(--jpdb-reader-white) 6%');
-        expect(lightImageSentenceRule).not.toContain('text-shadow: none');
-        expect(lightImageSentenceRule).not.toContain('-webkit-text-stroke: 0 transparent');
         expect(imageSentenceRule).toContain('left: 50%;');
         expect(imageSentenceRule).toContain('max-width: calc(100% - clamp(28px, 8%, 52px));');
         expect(imageSentenceRule).toContain('transform: translateX(-50%);');
+        expect(imageSentenceRule).toContain('color: var(--subtitle-color, var(--jpdb-reader-video-text));');
+        expect(imageSentenceRule).toContain('background: var(--jpdb-ocr-background-rgba, var(--jpdb-reader-ocr-bg));');
+        expect(imageSentenceRule).toContain('text-shadow: 0 1px 2px var(--subtitle-outline, var(--jpdb-reader-video-outline))');
         expect(imageSentenceRule).not.toContain('right: clamp(');
+        expect(subtitleWordRule)
+            .toContain('--jpdb-reader-subtitle-fallback: var(--subtitle-color, var(--jpdb-reader-video-text));');
+        expect(imageWordRule).toContain('-webkit-text-stroke: 0.02em');
+        expect(imageTargetRule).toContain('var(--jpdb-reader-video-target-backdrop)');
         expect(normalizedCss)
-            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); background: transparent !important; }');
+            .not.toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); background: transparent; box-shadow: none; }');
         expect(normalizedCss)
-            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target { background: var( --jpdb-reader-example-target-bg, var(--jpdb-reader-accent-soft) ) !important;');
+            .not.toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word { --jpdb-reader-subtitle-fallback: var(--jpdb-reader-text); background: transparent !important; }');
         expect(normalizedCss)
-            .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-word.jpdb-reader-example-target.jpdb-reader-has-furi .jpdb-reader-ruby-base { background: transparent !important; box-shadow: none !important; text-decoration-color: transparent !important; }');
+            .not.toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-sentence .jpdb-reader-furi { color: currentColor; opacity: 0.82; text-shadow: none; }');
         expect(normalizedCss)
             .toContain(':is(.jpdb-reader-theme-light, .yomu-page-theme-light) .jpdb-reader-newtab-immersion .jpdb-reader-example-card.has-image .jpdb-reader-example-translation { color: var(--jpdb-reader-muted); text-shadow: none; }');
     });
@@ -1645,21 +1646,28 @@ describe('new tab review helpers', () => {
             reading: 'よむ',
         });
         const listStudyBatchCards = vi.fn(async () => [jitenCard]);
+        const listRecentReviews = vi.fn(async () => [
+            { wordId: 42, readingIndex: 2, wordText: '読む', rating: 4, reviewDateTime: '2026-06-24T17:04:00Z', reviewedAt: Date.parse('2026-06-24T17:04:00Z'), reviewDuration: 12_000, cardState: 2 },
+            { wordId: 42, readingIndex: 2, wordText: '読む', rating: 1, reviewDateTime: '2026-06-24T17:03:00Z', reviewedAt: Date.parse('2026-06-24T17:03:00Z'), reviewDuration: 18_000, cardState: 3 },
+        ]);
         const showSettings = vi.fn();
         const controller = newTabApiSourceController({
             ...DEFAULT_SETTINGS,
             apiKey: '',
             jitenApiKey: 'jiten-key',
         }, {
-            jiten: { listStudyBatchCards, reviewCard: vi.fn() } as never,
+            jiten: { listStudyBatchCards, listRecentReviews, reviewCard: vi.fn() } as never,
             showSettings,
         });
         try {
             const root = await renderLoadedApiStats(controller);
 
             expect(listStudyBatchCards).toHaveBeenCalled();
+            expect(listRecentReviews).toHaveBeenCalledWith(1000);
             expect(root.textContent).toContain('Jiten SRS loaded.');
-            expectApiStatsSource(root, 'Jiten');
+            expect(root.textContent).toContain('50%');
+            expect(root.textContent).toContain('4.0');
+            expect(root.querySelectorAll('[data-stats-source]')).toHaveLength(0);
             expect(root.querySelector('[data-newtab-action="stats-import-jpdb"]')).toBeNull();
             expect(root.querySelector('[data-stats-jpdb-file]')).toBeNull();
             expectApiStatsSettingsButton(root, showSettings);
@@ -2126,11 +2134,16 @@ describe('new tab review helpers', () => {
 
             expect(listDeckCards).toHaveBeenCalledWith('all', 2000);
             expect(listStudyBatchCards).toHaveBeenCalledWith(2000);
-            expect(root.textContent).toContain('Jiten + JPDB SRS loaded.');
-            expectApiStatsSource(root, 'Jiten + JPDB');
+            expect(root.textContent).toContain('Jiten SRS loaded.');
+            expect(root.textContent).toContain('JPDB card states loaded.');
+            expect(Array.from(root.querySelectorAll('[data-stats-source]')).map(tab => tab.textContent)).toEqual(['Combined', 'JPDB', 'Jiten']);
             expect(root.querySelector('[data-newtab-action="stats-import-jpdb"]')).not.toBeNull();
             expect(root.querySelector('[data-stats-jpdb-file]')).not.toBeNull();
-            expectApiStatsSettingsButton(root, showSettings);
+            const settingsButtons = Array.from(root.querySelectorAll<HTMLButtonElement>('[data-newtab-action="stats-open-jpdb-settings"]'));
+            const apiSettings = settingsButtons.find(button => button.textContent === 'API settings');
+            expect(apiSettings).toBeTruthy();
+            apiSettings?.click();
+            expect(showSettings).toHaveBeenCalledWith('api');
         } finally {
             controller.destroy();
             document.body.replaceChildren();
@@ -4497,6 +4510,79 @@ describe('new tab review helpers', () => {
         }
     });
 
+    it('loads all Jiten study deck vocabulary for the Search tab source filters', async () => {
+        resetNewTabReviewStorage();
+        const deckCards = [
+            newTabTestCard({
+                spelling: '日本語',
+                reading: 'にほんご',
+                source: 'jiten',
+                reviewSource: 'jiten-api',
+                jitenWordId: 42,
+                jitenReadingIndex: 0,
+                cardState: ['new'],
+            }),
+            newTabTestCard({
+                spelling: '復習',
+                reading: 'ふくしゅう',
+                source: 'jiten',
+                reviewSource: 'jiten-api',
+                jitenWordId: 43,
+                jitenReadingIndex: 0,
+                cardState: ['mature'],
+            }),
+        ];
+        const listStudyBatchCards = vi.fn(async () => [deckCards[0]!]);
+        const listStudyDecks = vi.fn(async () => [{ id: 7, name: 'Vocab 2k' }]);
+        const listStudyDeckVocabularyCards = vi.fn(async () => deckCards);
+        const controller = newTabBareController({
+            ...DEFAULT_SETTINGS,
+            apiKey: '',
+            jitenApiKey: 'jiten-key',
+            newTabSource: 'jpdb',
+            newTabJpdbReviewMode: 'api-vocabulary',
+            immersionKitEnabled: false,
+        }, {
+            jiten: { listStudyBatchCards, listStudyDecks, listStudyDeckVocabularyCards, reviewCard: vi.fn() } as never,
+        });
+        const internals = controller as unknown as {
+            state: {
+                mode: 'search';
+                sort: 'random';
+                filter: 'study';
+                source: 'jpdb';
+                revealAnswer: false;
+                jpdbDeck: string;
+                ankiDeck: string;
+                keyHintsDismissed: false;
+            };
+            loadBrowsePool(): Promise<JPDBCard[]>;
+        };
+
+        try {
+            internals.state = {
+                mode: 'search',
+                sort: 'random',
+                filter: 'study',
+                source: 'jpdb',
+                revealAnswer: false,
+                jpdbDeck: '',
+                ankiDeck: '',
+                keyHintsDismissed: false,
+            };
+
+            const cards = await internals.loadBrowsePool();
+
+            expect(cards.map(card => card.spelling)).toEqual(['日本語', '復習']);
+            expect(cards.every(card => card.sourceDeckName === 'Vocab 2k')).toBe(true);
+            expect(listStudyDeckVocabularyCards).toHaveBeenCalledWith(7, NEW_TAB_BROWSE_DECK_LIMIT);
+            expect(listStudyBatchCards).not.toHaveBeenCalled();
+        } finally {
+            controller.destroy();
+            resetNewTabReviewStorage();
+        }
+    });
+
     it('refreshes Jiten deck options when a legacy Jiten API key changes', async () => {
         resetNewTabReviewStorage();
         let settings: NewTabSettings = {
@@ -6663,6 +6749,69 @@ describe('new tab review helpers', () => {
         expect(root.querySelector('[data-newtab-action="previous"]')).not.toBeNull();
         expect(root.querySelector('[data-newtab-action="reveal"]')?.firstChild?.textContent).toBe('Hide');
         expect(root.querySelector('[data-newtab-action="next"]')).not.toBeNull();
+    });
+
+    it('keeps undo on the Previous control without rendering a separate undo button', () => {
+        const card = newTabTestCard({
+            spelling: '辞典',
+            reading: 'じてん',
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 42,
+            jitenReadingIndex: 0,
+        });
+        const controller = newTabBareController(() => ({
+                ...DEFAULT_SETTINGS,
+                jitenApiKey: 'jiten-key',
+                jpdbMiningEnabled: true,
+                enableReviews: true,
+                immersionKitEnabled: false,
+            }), {
+            jiten: { listStudyBatchCards: vi.fn(), reviewCard: vi.fn(), undoReview: vi.fn() } as never,
+        });
+        const root = renderSeededNewTabWord(controller, card, {
+            sourceLabel: 'Jiten',
+            state: { mode: 'word', revealAnswer: false },
+            appendToDocument: true,
+        });
+        Object.assign(controller as unknown as { lastUndoableReview?: { card: JPDBCard; at: number; serverUndo: boolean; counted: boolean } }, {
+            lastUndoableReview: { card, at: Date.now(), serverUndo: true, counted: true },
+        });
+
+        try {
+            (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+            expect(root.querySelector('[data-newtab-action="undo-review"]')).toBeNull();
+            expect(root.querySelector('[data-newtab-action="previous"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="reveal"]')).not.toBeNull();
+            expect(root.querySelector('[data-newtab-action="next"]')).not.toBeNull();
+        } finally {
+            root.remove();
+        }
+    });
+
+    it('leaves Previous as a no-op on the first card when there is no undo review', () => {
+        const first = newTabTestCard({ spelling: '一', reading: 'いち' });
+        const second = newTabTestCard({ spelling: '二', reading: 'に' });
+        const controller = newTabBareController(() => ({
+                ...DEFAULT_SETTINGS,
+                immersionKitEnabled: false,
+            }));
+        const root = renderSeededNewTabWord(controller, first, {
+            visibleWords: [first, second],
+            sourceLabel: 'Dictionary',
+            state: { mode: 'word', revealAnswer: false },
+            appendToDocument: true,
+            bindRootEvents: true,
+        });
+
+        try {
+            root.querySelector<HTMLButtonElement>('[data-newtab-action="previous"]')?.click();
+
+            expect(root.querySelector('[data-newtab-prompt]')?.textContent).toContain('一');
+        } finally {
+            root.remove();
+        }
     });
 
     it('exposes grade options to kanji lookup popovers for the revealed review card', () => {
@@ -14219,6 +14368,40 @@ describe('new tab review helpers', () => {
 
         expect(root.querySelector('[data-newtab-reading]')?.textContent).toBe('かえす');
         expect(root.querySelector('[data-newtab-meaning]')?.textContent).toContain('to return');
+    });
+
+    it('shows the full Jiten word on revealed kanji cards because Jiten grades that word', async () => {
+        const card: JPDBCard = {
+            vid: 2701,
+            sid: 0,
+            rid: 1,
+            spelling: '図鑑',
+            reading: 'ずかん',
+            frequencyRank: null,
+            partOfSpeech: [],
+            meanings: [{ glosses: ['picture book; field guide'], partOfSpeech: [] }],
+            cardState: ['due'],
+            pitchAccent: [],
+            wordWithReading: null,
+            source: 'jiten',
+            reviewSource: 'jiten-api',
+            jitenWordId: 2701,
+            jitenReadingIndex: 0,
+        };
+        const controller = newTabBareController(() => ({ ...DEFAULT_SETTINGS, immersionKitEnabled: false, kanjiImmersionKitEnabled: false }));
+        const root = renderEnabledNewTabRoot(controller);
+        Object.assign(controller as unknown as { visibleWords: JPDBCard[]; sourceLabel: string; state: { mode: string; revealAnswer: boolean } }, {
+            visibleWords: [card],
+            sourceLabel: 'Jiten',
+            state: { mode: 'kanji', revealAnswer: true },
+        });
+
+        (controller as unknown as { renderWord(root: HTMLElement, card: JPDBCard): void }).renderWord(root, card);
+
+        const backingWord = root.querySelector<HTMLElement>('[data-newtab-kanji-backing-word]');
+        expect(backingWord?.textContent).toContain('図鑑');
+        expect(backingWord?.textContent).toContain('ずかん');
+        expect(backingWord?.textContent).toContain('picture book; field guide');
     });
 
     it('does not recheck an empty dictionary source on a later new-tab render', async () => {
