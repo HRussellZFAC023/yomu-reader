@@ -8305,6 +8305,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   };
   const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
   const JAPANESE_TEXT_RE = /[\u3040-\u30ff\u3400-\u9fff]/u;
+  const AUDIO_QUERY_PLACEHOLDER_RE = /\{(?:term|reading)\}/;
   function formatAudioUrl(template, card) {
     const replacements = {
       term: card.spelling,
@@ -8422,11 +8423,22 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return [{ url, sourceUrl: url }];
   }
   async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) {
-    if (!source.url.trim()) return [];
-    const sourceUrl = formatAudioUrl(source.url, card);
+    const template = source.url.trim();
+    if (!template) return [];
+    const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
     const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
     const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
     return urls.map((url) => ({ url, sourceUrl }));
+  }
+  function withAudioQueryPlaceholders(template) {
+    if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
+    const [base, fragment = ""] = splitUrlFragment(template);
+    const separator = base.includes("?") ? "&" : "?";
+    return `${base}${separator}term={term}&reading={reading}${fragment}`;
+  }
+  function splitUrlFragment(value) {
+    const hash = value.indexOf("#");
+    return hash < 0 ? [value, ""] : [value.slice(0, hash), value.slice(hash)];
   }
   async function loadJapanesePod101AudioCandidates(_source, card) {
     const url = getJapanesePod101Url(card);

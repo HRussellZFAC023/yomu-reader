@@ -96,6 +96,45 @@ describe('audio module boundaries', () => {
         }
     });
 
+    it('appends term/reading to a bare custom JSON server URL so it does not 400', async () => {
+        const requested = stubAudioServerJson({
+            type: 'audioSourceList',
+            audioSources: [{ name: 'daijisen よ＼む [1]', url: 'http://localhost:9090/audio/daijisen/media/s1.mp3' }],
+        });
+
+        try {
+            const source = customJsonSource('http://localhost:9090/');
+            const candidates = await getAudioCandidates(source, card('読む', 'よむ'), 1000, '');
+
+            expect(candidates.map(candidate => candidate.url)).toEqual(['http://localhost:9090/audio/daijisen/media/s1.mp3']);
+            expect(requested[0]).toBe(`http://localhost:9090/?term=${encodeURIComponent('読む')}&reading=${encodeURIComponent('よむ')}`);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('joins auto-added term/reading with & when the server URL already has a query', async () => {
+        const requested = stubAudioServerJson({ type: 'audioSourceList', audioSources: [] });
+
+        try {
+            await getAudioCandidates(customJsonSource('http://localhost:9090/?user=henry'), card('読む', 'よむ'), 1000, '');
+            expect(requested[0]).toBe(`http://localhost:9090/?user=henry&term=${encodeURIComponent('読む')}&reading=${encodeURIComponent('よむ')}`);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
+    it('leaves an explicit {term}/{reading} server URL untouched', async () => {
+        const requested = stubAudioServerJson({ type: 'audioSourceList', audioSources: [] });
+
+        try {
+            await getAudioCandidates(customJsonSource('http://localhost:9090/?reading={reading}&term={term}'), card('読む', 'よむ'), 1000, '');
+            expect(requested[0]).toBe(`http://localhost:9090/?reading=${encodeURIComponent('よむ')}&term=${encodeURIComponent('読む')}`);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+    });
+
     it('keeps generated API text-to-speech out of fallback preloads', () => {
         const sources = [
             jishoSource(),

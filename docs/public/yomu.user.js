@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.103
+// @version 1.4.104
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.103
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.103
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.103
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.103
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.104
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.104
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.104
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.104
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -9562,6 +9562,7 @@ const JPDB_TTS_VOICE_PREFIXES = {
 };
 const JISHO_TEXT_PROXY_BASE_URL = "https://r.jina.ai/http://jisho.org/search";
 const JAPANESE_TEXT_RE$2 = /[\u3040-\u30ff\u3400-\u9fff]/u;
+const AUDIO_QUERY_PLACEHOLDER_RE = /\{(?:term|reading)\}/;
 const AUDIO_PRECONNECT_RELS = ["preconnect", "dns-prefetch"];
 const preconnectedAudioOrigins = new Set();
 function formatAudioUrl(template, card) {
@@ -9690,11 +9691,22 @@ async function loadCustomAudioCandidates(source, card) {
   return [{ url, sourceUrl: url }];
 }
 async function loadCustomJsonAudioCandidates(source, card, timeoutMs, proxyUrl) {
-  if (!source.url.trim()) return [];
-  const sourceUrl = formatAudioUrl(source.url, card);
+  const template = source.url.trim();
+  if (!template) return [];
+  const sourceUrl = formatAudioUrl(withAudioQueryPlaceholders(template), card);
   const response = await requestAudioUrl(sourceUrl, "text", timeoutMs, { proxyUrl });
   const urls = typeof response === "string" ? findAudioUrls(JSON.parse(response), sourceUrl) : [];
   return urls.map((url) => ({ url, sourceUrl }));
+}
+function withAudioQueryPlaceholders(template) {
+  if (AUDIO_QUERY_PLACEHOLDER_RE.test(template)) return template;
+  const [base, fragment = ""] = splitUrlFragment(template);
+  const separator = base.includes("?") ? "&" : "?";
+  return `${base}${separator}term={term}&reading={reading}${fragment}`;
+}
+function splitUrlFragment(value) {
+  const hash = value.indexOf("#");
+  return hash < 0 ? [value, ""] : [value.slice(0, hash), value.slice(hash)];
 }
 async function loadJapanesePod101AudioCandidates(_source, card) {
   const url = getJapanesePod101Url(card);

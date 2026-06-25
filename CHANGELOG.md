@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.104] - 2026-06-25
+
+### Fixed
+
+- A local audio server configured by its bare URL (e.g. `http://localhost:9090/`) now plays instead of failing with "Audio request failed (400)". The yomidevs/Yomitan "Ultimate" local audio server requires `?term=&reading=` query parameters and rejects a bare URL, so Yomu now appends the standard `term`/`reading` markers to a custom JSON audio source URL when none are present.
+
 ## [1.4.103] - 2026-06-25
 
 ### Fixed
