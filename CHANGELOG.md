@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.119] - 2026-06-26
+
+### Fixed
+
+- Added the missing hosted Japanese changelog localization for the 1.4.118 Yomu Video release notes, allowing the release check to publish the video improvements cleanly.
+
 ## [1.4.118] - 2026-06-26
 
 ### Added
