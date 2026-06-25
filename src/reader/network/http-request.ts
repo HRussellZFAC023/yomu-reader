@@ -115,8 +115,34 @@ function userscriptTextResponse(response: UserscriptHttpResponse): string {
     return String(response.responseText ?? response.response ?? '');
 }
 
+// Yomu's public CORS-proxy worker. The hosted reader (yomureader.com pages — the
+// homepage demo, /video-player/, /newtab/) runs in the page world with NO
+// GM_xmlhttpRequest, so a cross-origin request to api.jiten.moe / jpdb.io is
+// blocked by CORS (those origins send no Access-Control-Allow-Origin). The
+// userscript is exempt via GM and needs no proxy. So when nothing is configured
+// AND there is no userscript bridge, fall back to the public proxy — otherwise the
+// hosted reader cannot parse subtitles or fetch readings/pitch, and its captions
+// silently degrade to reading-less, pitch-less fallback tokens (and the failing
+// parse retries churn the caption, making word taps miss).
+const YOMU_HOSTED_FALLBACK_PROXY_URL = 'https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/';
+
+export function hostedFallbackProxyUrl(url: string): string {
+    if (getUserscriptHttpRequest()) return '';        // GM bypasses CORS — no proxy needed
+    if (!isOfficialHostedReaderOrigin()) return '';   // only Yomu's own hosted pages opt in
+    if (isSameOriginUrl(url) || !/^https?:\/\//i.test(url)) return '';
+    return YOMU_HOSTED_FALLBACK_PROXY_URL;
+}
+
+// Scoped to Yomu's official hosted reader so a normal userscript page never silently
+// routes through the shared proxy (the codebase deliberately requires explicit proxy
+// config off-site). The hosted pages have no other cross-origin transport.
+function isOfficialHostedReaderOrigin(): boolean {
+    if (typeof location === 'undefined') return false;
+    return location.hostname === 'yomureader.com' || location.hostname === 'www.yomureader.com';
+}
+
 async function requestViaFetch(url: string, options: ReaderHttpOptions): Promise<unknown> {
-    const response = await fetchWithCorsFallbacks(url, options.proxyUrl ?? '', {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? '').trim() || hostedFallbackProxyUrl(url), {
         method: options.method ?? 'GET',
         headers: options.headers,
         body: options.data,

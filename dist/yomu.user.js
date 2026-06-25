@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.115
+// @version 1.4.116
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.115
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.115
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.115
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.115
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.116
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.116
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.116
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.116
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -6791,8 +6791,19 @@ function userscriptJsonResponse(response) {
 function userscriptTextResponse(response) {
   return String(response.responseText ?? response.response ?? "");
 }
+const YOMU_HOSTED_FALLBACK_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/";
+function hostedFallbackProxyUrl(url) {
+  if (getUserscriptHttpRequest()) return "";
+  if (!isOfficialHostedReaderOrigin()) return "";
+  if (isSameOriginUrl(url) || !/^https?:\/\//i.test(url)) return "";
+  return YOMU_HOSTED_FALLBACK_PROXY_URL;
+}
+function isOfficialHostedReaderOrigin() {
+  if (typeof location === "undefined") return false;
+  return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
+}
 async function requestViaFetch(url, options) {
-  const response = await fetchWithCorsFallbacks(url, options.proxyUrl ?? "", {
+  const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url), {
     method: options.method ?? "GET",
     headers: options.headers,
     body: options.data,
