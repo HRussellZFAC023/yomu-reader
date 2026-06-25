@@ -23855,6 +23855,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const MIN_SHEET_HEIGHT_PX = 180;
   const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
   const SHEET_DISMISS_OVERSHOOT_PX = 72;
+  const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
   const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
   const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
   const SHEET_TAP_MOVEMENT_PX = 8;
@@ -23936,6 +23937,21 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function popoverMaxHeightSetting(settings) {
     return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
   }
+  function suppressTrailingClickAfterSheetGestureDismiss() {
+    if (typeof window === "undefined") return;
+    let timer = 0;
+    const cleanup = () => {
+      if (timer) window.clearTimeout(timer);
+      window.removeEventListener("click", consume, true);
+    };
+    const consume = (event) => {
+      cleanup();
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    window.addEventListener("click", consume, { capture: true });
+    timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
+  }
   function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
     if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
     popover.dataset.jpdbReaderSheetHandleInstalled = "true";
@@ -24009,6 +24025,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         popover.style.transition = "";
       }, 180);
     };
+    const dismissFromGesture = () => {
+      suppressTrailingClickAfterSheetGestureDismiss();
+      onDismiss();
+    };
     const sheetDrag = createHandleDragController({
       tapMovementPx: SHEET_TAP_MOVEMENT_PX,
       movementDistance: (state2) => Math.abs(state2.deltaY),
@@ -24027,12 +24047,12 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
         popover.classList.remove("jpdb-reader-sheet-resizing");
         if (!wasMoved) {
           suppressNextHandleClick = true;
-          onDismiss();
+          dismissFromGesture();
           return;
         }
         suppressNextHandleClick = true;
         if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
-          onDismiss();
+          dismissFromGesture();
           return;
         }
         applySheetHeight(finishHeight, true);

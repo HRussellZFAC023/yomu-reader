@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.107
+// @version 1.4.108
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.107
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.107
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.107
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.107
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.108
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.108
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.108
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.108
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -12061,6 +12061,7 @@ const SHEET_HEIGHT_STORAGE_KEY = "jpdb-reader-sheet-height-ratio";
 const DEFAULT_SHEET_HEIGHT_RATIO = 0.7;
 const MIN_SHEET_HEIGHT_PX = 180;
 const SHEET_DISMISS_OVERSHOOT_PX = 72;
+const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
 const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
 const SHEET_TAP_MOVEMENT_PX = 8;
 const SHEET_KEYBOARD_STEP_PX = 48;
@@ -12139,6 +12140,21 @@ function createReaderBackdrop(onDismiss) {
 function popoverMaxHeightSetting(settings) {
   return settings.popoverHeightMode === "fixed" ? settings.popoverHeight : void 0;
 }
+function suppressTrailingClickAfterSheetGestureDismiss() {
+  if (typeof window === "undefined") return;
+  let timer = 0;
+  const cleanup = () => {
+    if (timer) window.clearTimeout(timer);
+    window.removeEventListener("click", consume, true);
+  };
+  const consume = (event) => {
+    cleanup();
+    event.preventDefault();
+    event.stopImmediatePropagation();
+  };
+  window.addEventListener("click", consume, { capture: true });
+  timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
+}
 function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup sheet, or tap to close") {
   if (popover.dataset.jpdbReaderSheetHandleInstalled === "true") return;
   popover.dataset.jpdbReaderSheetHandleInstalled = "true";
@@ -12212,6 +12228,10 @@ function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup s
       popover.style.transition = "";
     }, 180);
   };
+  const dismissFromGesture = () => {
+    suppressTrailingClickAfterSheetGestureDismiss();
+    onDismiss();
+  };
   const sheetDrag = createHandleDragController({
     tapMovementPx: SHEET_TAP_MOVEMENT_PX,
     movementDistance: (state) => Math.abs(state.deltaY),
@@ -12230,12 +12250,12 @@ function installSheetHandle(popover, onDismiss, label = "Drag to resize lookup s
       popover.classList.remove("jpdb-reader-sheet-resizing");
       if (!wasMoved) {
         suppressNextHandleClick = true;
-        onDismiss();
+        dismissFromGesture();
         return;
       }
       suppressNextHandleClick = true;
       if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
-        onDismiss();
+        dismissFromGesture();
         return;
       }
       applySheetHeight(finishHeight, true);

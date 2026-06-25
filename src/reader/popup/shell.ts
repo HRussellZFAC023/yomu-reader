@@ -11,6 +11,7 @@ const DEFAULT_SETTINGS_DRAWER_HEIGHT_RATIO = 0.88;
 const MIN_SHEET_HEIGHT_PX = 180;
 const MIN_SETTINGS_DRAWER_HEIGHT_PX = 280;
 const SHEET_DISMISS_OVERSHOOT_PX = 72;
+const SHEET_DISMISS_CLICK_SUPPRESSION_MS = 700;
 const SHEET_FULL_HEIGHT_THRESHOLD_PX = 12;
 const SETTINGS_DRAWER_FULL_HEIGHT_THRESHOLD_PX = 12;
 const SHEET_TAP_MOVEMENT_PX = 8;
@@ -111,6 +112,30 @@ export function popoverMaxHeightSetting(settings: ReaderSettings): number | unde
     return settings.popoverHeightMode === 'fixed' ? settings.popoverHeight : undefined;
 }
 
+// A sheet handle dismisses on pointer/touch-up (the drag controller's tap and
+// drag-down-to-close paths), which removes the popover BEFORE the browser fires
+// the trailing synthetic `click`. That orphaned click then lands on the page or
+// article text the sheet was covering and opens a fresh lookup — so closing the
+// drawer pops a new word for whatever was under it. Swallow the one trailing
+// click at the window-capture layer, which runs ahead of both the userscript's
+// document-capture lookup handler and the hosted reader's root-bubble handler,
+// so it can never pierce through.
+function suppressTrailingClickAfterSheetGestureDismiss(): void {
+    if (typeof window === 'undefined') return;
+    let timer = 0;
+    const cleanup = (): void => {
+        if (timer) window.clearTimeout(timer);
+        window.removeEventListener('click', consume, true);
+    };
+    const consume = (event: MouseEvent): void => {
+        cleanup();
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    };
+    window.addEventListener('click', consume, { capture: true });
+    timer = window.setTimeout(cleanup, SHEET_DISMISS_CLICK_SUPPRESSION_MS);
+}
+
 export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, label = 'Drag to resize lookup sheet, or tap to close'): void {
     if (popover.dataset.jpdbReaderSheetHandleInstalled === 'true') return;
     popover.dataset.jpdbReaderSheetHandleInstalled = 'true';
@@ -189,6 +214,13 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
         clearDragStyles();
         window.setTimeout(() => { popover.style.transition = ''; }, 180);
     };
+    // The drag controller closes the sheet on pointer/touch-up, so the popover is
+    // already gone when the trailing synthetic click fires — guard against that
+    // click reopening a lookup on the text the sheet covered.
+    const dismissFromGesture = (): void => {
+        suppressTrailingClickAfterSheetGestureDismiss();
+        onDismiss();
+    };
     const sheetDrag = createHandleDragController<HTMLElement>({
         tapMovementPx: SHEET_TAP_MOVEMENT_PX,
         movementDistance: state => Math.abs(state.deltaY),
@@ -207,12 +239,12 @@ export function installSheetHandle(popover: HTMLElement, onDismiss: () => void, 
             popover.classList.remove('jpdb-reader-sheet-resizing');
             if (!wasMoved) {
                 suppressNextHandleClick = true;
-                onDismiss();
+                dismissFromGesture();
                 return;
             }
             suppressNextHandleClick = true;
             if (finishHeight < sheetMinHeight(viewportHeight) - SHEET_DISMISS_OVERSHOOT_PX) {
-                onDismiss();
+                dismissFromGesture();
                 return;
             }
             applySheetHeight(finishHeight, true);

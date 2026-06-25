@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.108] - 2026-06-25
+
+### Fixed
+
+- On a phone, tapping the "—" drag handle at the top of the lookup drawer to close it no longer instantly reopens the drawer on whatever word was sitting behind it. The drawer closes on touch‑release, so the browser's trailing "ghost" click landed on the page text the drawer had been covering and opened a fresh lookup; that one orphaned click is now swallowed so the handle just closes the drawer.
+
 ## [1.4.107] - 2026-06-25
 
 ### Fixed

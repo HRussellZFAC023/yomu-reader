@@ -3853,6 +3853,69 @@ describe('reader helpers', () => {
         expect(dismiss).toHaveBeenCalledTimes(1);
     });
 
+    it('swallows the trailing click after a handle tap so it cannot reopen a lookup under the drawer', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        const { popover, handle } = createSheetPopoverFixture({ pointerCapture: true });
+        const pageWord = document.createElement('span');
+        pageWord.className = 'jpdb-reader-word';
+        pageWord.textContent = '場所';
+        document.body.append(pageWord);
+        // Stands in for both lookup handlers the orphaned synthetic click would
+        // otherwise reach — the userscript's document-capture handler and the
+        // hosted reader's root-bubble handler. Neither should fire.
+        const lookup = vi.fn();
+        document.addEventListener('click', lookup, { capture: true });
+        const dismiss = vi.fn(() => popover.remove());
+
+        try {
+            installSheetHandle(popover, dismiss);
+            handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 120, pointerId: 21 }));
+            handle.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 120, pointerId: 21 }));
+            expect(dismiss).toHaveBeenCalledTimes(1);
+
+            // The drawer is gone, so the browser's trailing click lands on the
+            // page text it was covering — this is the bug it must not reopen.
+            const orphanClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+            pageWord.dispatchEvent(orphanClick);
+            expect(lookup).not.toHaveBeenCalled();
+            expect(orphanClick.defaultPrevented).toBe(true);
+
+            // One-shot: a genuine later tap still looks the word up.
+            const nextClick = new MouseEvent('click', { bubbles: true, cancelable: true });
+            pageWord.dispatchEvent(nextClick);
+            expect(lookup).toHaveBeenCalledTimes(1);
+            expect(nextClick.defaultPrevented).toBe(false);
+        } finally {
+            document.removeEventListener('click', lookup, true);
+            pageWord.remove();
+            localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        }
+    });
+
+    it('does not swallow clicks after a resize drag that keeps the sheet open', () => {
+        localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        const { popover, handle } = createSheetPopoverFixture({ pointerCapture: true });
+        const lookup = vi.fn();
+        document.addEventListener('click', lookup, { capture: true });
+        const dismiss = vi.fn();
+
+        try {
+            installSheetHandle(popover, dismiss);
+            handle.dispatchEvent(Object.assign(new Event('pointerdown', { bubbles: true }), { clientY: 220, pointerId: 22 }));
+            document.dispatchEvent(Object.assign(new Event('pointermove', { bubbles: true }), { clientY: 140, pointerId: 22 }));
+            document.dispatchEvent(Object.assign(new Event('pointerup', { bubbles: true }), { clientY: 140, pointerId: 22 }));
+            expect(dismiss).not.toHaveBeenCalled();
+
+            const click = new MouseEvent('click', { bubbles: true, cancelable: true });
+            document.body.dispatchEvent(click);
+            expect(lookup).toHaveBeenCalledTimes(1);
+            expect(click.defaultPrevented).toBe(false);
+        } finally {
+            document.removeEventListener('click', lookup, true);
+            localStorage.removeItem(SHEET_HEIGHT_STORAGE_KEY);
+        }
+    });
+
     it('resizes full-height sheet popovers downward without dismissing', () => {
         localStorage.setItem(SHEET_HEIGHT_STORAGE_KEY, JSON.stringify(1));
         const { popover, handle } = createSheetPopoverFixture({ expanded: true, pointerCapture: true });
