@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.107] - 2026-06-25
+
+### Fixed
+
+- Hovering or clicking a subtitle word on a video now pauses the video while the dictionary popover is open, on the homepage demo player and every video site. The default lookup trigger is hover, but only pinned (clicked) lookups paused before — so with the default settings the caption kept scrolling, the popover chased the moving word and never settled, and the wrong word kept getting hit. A hover lookup over a real subtitle/caption surface now pauses too (and resumes when you move off the captions); the popover re-anchors across words while paused, so there is no play/pause flicker. Hover previews over ordinary page text are unchanged.
+
 ## [1.4.106] - 2026-06-25
 
 ### Fixed

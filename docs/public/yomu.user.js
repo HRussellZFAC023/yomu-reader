@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.106
+// @version 1.4.107
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.106
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.106
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.106
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.106
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.107
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.107
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.107
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.107
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -39252,6 +39252,13 @@ class ReaderApp {
     const bound = this.boundSubtitleVideo();
     return Boolean(bound && !bound.paused);
   }
+  shouldPauseForMountedLookup(state) {
+    if (state.mode === "modal") return this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null);
+    if (!this.settings.subtitleMiningPause) return false;
+    const anchor = state.resolvedAnchor ?? null;
+    if (!anchor || anchor.closest(".jpdb-reader-popover")) return false;
+    return Boolean(anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
+  }
   pauseVideoForSubtitleMining() {
     if (!this.settings.subtitleMiningPause) return;
     const bound = this.boundSubtitleVideo();
@@ -43572,7 +43579,7 @@ class ReaderApp {
     this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
     popover.classList.toggle("jpdb-reader-sheet-sticky", this.isStickyMountedSheet(popover, state));
     this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
-    if (state.mode === "modal" && this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null)) {
+    if (this.shouldPauseForMountedLookup(state)) {
       this.pauseVideoForSubtitleMining();
     }
   }

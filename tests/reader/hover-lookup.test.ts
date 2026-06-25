@@ -370,6 +370,58 @@ describe('hover lookup', () => {
         }
     });
 
+    it('pauses a playing video for HOVER previews opened over a subtitle word', () => {
+        // The shipped default activation mode is hover, so a hover preview is how
+        // most users look up a caption word. Hovering a caption must pause too —
+        // otherwise the line scrolls out from under the cursor before it can be
+        // read (the "hovering a caption doesn't pause / mis-press" report).
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
+        const { pause, play } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
+        document.body.append(asbRoot);
+        const word = asbRoot.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.tabIndex = -1;
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+            expect(pause).toHaveBeenCalledTimes(1);
+
+            internals.dismiss();
+            expect(play).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('does NOT pause for a hover preview over ordinary page text while a video plays', () => {
+        // Hover previews over general page text keep playing — only real caption
+        // surfaces opt into hover-pause, so a background video is left alone.
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
+        const { pause } = appendPlayingVideo();
+        const article = document.createElement('p');
+        article.innerHTML = '<span class="jpdb-reader-word" data-vid="3" data-sid="4" data-sentence="記事の文章">文章</span>';
+        document.body.append(article);
+        const word = article.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.tabIndex = -1;
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+            expect(pause).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('re-asserts the mining pause when the page re-plays the video, then stops once the popover closes', () => {
         const app = new ReaderApp();
         const internals = app as unknown as HoverLookupInternals;

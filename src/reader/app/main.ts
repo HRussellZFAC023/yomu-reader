@@ -2216,6 +2216,25 @@ export class ReaderApp {
         return Boolean(bound && !bound.paused);
     }
 
+    // Whether mounting this lookup should pause the video. A pinned (modal) lookup
+    // pauses per the general rule above (any caption surface, or any text while a
+    // bound video plays). A hover PREVIEW normally keeps playing — but directly
+    // over a video caption surface the line scrolls out from under the cursor
+    // before you finish reading, so the popover never settles and the wrong word
+    // gets hit. The shipped default activation mode is hover, so without this a
+    // caption lookup never paused at all. Hovering a caption therefore pauses too;
+    // the hover popover re-anchors across words while paused (one popover, no
+    // play/pause churn) and resumes when you leave the captions. General page-text
+    // hover is unaffected — only real subtitle/caption surfaces opt in.
+    private shouldPauseForMountedLookup(state: PopoverMountState): boolean {
+        if (state.mode === 'modal') return this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null);
+        // Hover preview: pause only directly over a real subtitle/caption surface.
+        if (!this.settings.subtitleMiningPause) return false;
+        const anchor = state.resolvedAnchor ?? null;
+        if (!anchor || anchor.closest('.jpdb-reader-popover')) return false;
+        return Boolean(anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
+    }
+
     // Opening a pinned lookup pauses the video so the entry can be read, and
     // remembers which video we paused so closing the popover resumes it. Prefer
     // the bound player; only fall back to the largest-video heuristic when the
@@ -7724,11 +7743,10 @@ export class ReaderApp {
         this.hoverPopoverPointerPosition = mountedHoverPointerPosition(state, this.lastPointerPosition);
         popover.classList.toggle('jpdb-reader-sheet-sticky', this.isStickyMountedSheet(popover, state));
         this.nativeTitleGuard.suppressForPopover(popover, state.resolvedAnchor);
-        // Entering the pinned (clicked) lookup state for a subtitle word pauses the
-        // video so the entry can be read; closing the popover resumes it. Hover
-        // previews keep playing. Anchored here so every path that opens a modal
-        // lookup over a subtitle word pauses, not just the direct word-click.
-        if (state.mode === 'modal' && this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null)) {
+        // Opening a lookup over a subtitle word pauses the video so the entry can
+        // be read; closing the popover resumes it. Anchored here so EVERY path
+        // that mounts a lookup pauses, not just the direct word-click.
+        if (this.shouldPauseForMountedLookup(state)) {
             this.pauseVideoForSubtitleMining();
         }
     }
