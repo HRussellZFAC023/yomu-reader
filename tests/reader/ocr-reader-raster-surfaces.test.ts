@@ -557,4 +557,41 @@ describe('reader raster OCR surfaces', () => {
             controller.destroy();
         }
     });
+
+    // A tap whose POINT lands on existing OCR text must NOT re-scan — re-scanning
+    // releases the frame mid-tap, which loses the lookup and lets the gesture fall
+    // through to the viewer's page turn (the "pressing text turns the page" bug). On
+    // touch, WebKit can target the underlying canvas even with the OCR word on top,
+    // so the guard checks the tap POINT (elementFromPoint), not just event.target.
+    it('does NOT re-scan a tainted BookWalker canvas when the tap point is over an OCR overlay', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        pageCounter('1 / 12');
+        stubTaintedCanvas();
+        const captureCanvasMirror = vi.fn(async () => mirrorCanvas('SHOULD_NOT_FIRE'));
+        const controller = createController({ ocrAutoScanImages: false }, async () => undefined, captureCanvasMirror);
+        const canvas = pageCanvas(32, 40, 400, 520);
+        canvas.toDataURL = TAINTED_CANVAS;
+        document.body.append(canvas);
+        // An existing OCR overlay element sits at the tap point (event.target is still
+        // the canvas, as touch does on WebKit).
+        const overlayWord = document.createElement('span');
+        const overlayLayer = Object.assign(document.createElement('div'), { className: 'jpdb-ocr-layer' });
+        overlayLayer.dataset.jpdbReaderRoot = 'true';
+        overlayLayer.append(overlayWord);
+        document.body.append(overlayLayer);
+        Object.defineProperty(document, 'elementFromPoint', { configurable: true, value: vi.fn(() => overlayWord) });
+        try {
+            const event = new Event('pointerdown', { bubbles: true }) as Event & Partial<PointerEvent>;
+            Object.defineProperties(event, {
+                clientX: { value: 200 }, clientY: { value: 300 },
+                button: { value: 0 }, pointerType: { value: 'touch' },
+            });
+            canvas.dispatchEvent(event);
+            await new Promise(resolve => setTimeout(resolve, 300));
+            expect(captureCanvasMirror).not.toHaveBeenCalled();
+            expect(document.querySelector('.jpdb-ocr-canvas-frame')).toBeNull();
+        } finally {
+            controller.destroy();
+        }
+    });
 });

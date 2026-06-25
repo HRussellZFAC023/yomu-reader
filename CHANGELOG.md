@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.4.103] - 2026-06-25
+
+### Fixed
+
+- Tapping OCR text on BookWalker now looks the word up instead of turning the page. On touch, Safari can target the underlying viewer canvas even when the OCR word is painted on top, so a text tap leaked through to the viewer's tap-to-turn; the gesture is now swallowed when its point is over Yomu's overlay, while bare-page taps still turn the page and auto-scan.
+- The previous page's OCR overlay no longer sticks on the next page. Page-turn detection now also advances when the viewer paints a new source image (some BookWalker modes redraw page tiles directly with no canvas composite, which the old turn signal missed), while staying stable when the same page is merely repainted.
+- The "Scanning…/Text ready" loading pill is now a dark chip with white text, legible in light mode (it was white-on-white).
+- Added a reload-loop circuit breaker: if a page reloads rapidly in a loop, Yomu stops injecting the OCR recorder for that load so the page stays usable (mitigates a reported loop on the Safari "Userscripts" extension).
+- A tap on existing OCR text no longer triggers a re-scan that briefly tore the overlay down mid-tap.
+
 ## [1.4.102] - 2026-06-24
 
 ### Fixed

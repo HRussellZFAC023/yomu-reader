@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.102
+// @version 1.4.103
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.102
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.102
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.102
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.102
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.103
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.103
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.103
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.103
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -248,7 +248,7 @@ const LOGGER_COLOR_TOKENS = {
   error: "#b91c1c"
 };
 const HAS_JAPANESE$1 = /[\u3040-\u30ff\u3400-\u9fff]/;
-const READER_ROOT_SELECTOR$2 = "[data-jpdb-reader-root]";
+const READER_ROOT_SELECTOR$3 = "[data-jpdb-reader-root]";
 const initialWindowDispatchEvent = initialWindowMethod("dispatchEvent");
 const initialWindowAddEventListener = initialWindowMethod("addEventListener");
 const initialWindowRemoveEventListener = initialWindowMethod("removeEventListener");
@@ -589,7 +589,7 @@ function coordinateInRange(value, start, end, slack) {
 const READABLE_IGNORED_TAGS = new Set(["RT", "RP", "SCRIPT", "STYLE"]);
 const MAX_CONTEXT_SENTENCE_LENGTH = 180;
 function unwrapReaderWords(root = document, options = {}) {
-  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$2)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
+  const words = Array.from(root.querySelectorAll(".jpdb-reader-word")).filter((word) => options.includeReaderRoot || !word.closest(READER_ROOT_SELECTOR$3)).filter((word) => !word.closest("[data-jpdb-reader-surface-ignore]")).filter((word) => !options.excludeSelector || !word.matches(options.excludeSelector));
   const parents = new Set();
   for (const word of words) {
     const parent = word.parentNode;
@@ -712,7 +712,7 @@ function fallbackReadableSentence(cleanFallback, surface) {
   return sentenceAroundSurface(cleanFallback, surface) || cleanFallback;
 }
 function canReadSentenceContextFrom(element2) {
-  return !element2.closest(READER_ROOT_SELECTOR$2) || Boolean(element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
+  return !element2.closest(READER_ROOT_SELECTOR$3) || Boolean(element2.closest(".jpdb-reader-popover, .jpdb-subtitle-player, .jpdb-subtitle-list, .jpdb-ocr-layer"));
 }
 function sentenceAroundSurface(value, surface = "", fallback = "") {
   const text2 = cleanReadableSentence(value);
@@ -3712,7 +3712,7 @@ function visibleTextNodeFilter(node) {
 }
 function canInspectTextNode(node) {
   const parent = node.parentElement;
-  if (!parent || parent.closest(READER_ROOT_SELECTOR$2)) return false;
+  if (!parent || parent.closest(READER_ROOT_SELECTOR$3)) return false;
   const blocked = parent.closest(SKIP_SELECTOR);
   if (!blocked) return true;
   return isAnnotatableChipControl(blocked);
@@ -3784,7 +3784,7 @@ function shouldRejectTextTargetParent(parent, text2, visibleOnly, options) {
 }
 function isInsideExcludedReaderRoot(parent, options) {
   if (options.includeReaderRoot) return false;
-  return Boolean(parent.closest(READER_ROOT_SELECTOR$2));
+  return Boolean(parent.closest(READER_ROOT_SELECTOR$3));
 }
 function shouldRejectTextTargetPresentation(parent, text2, visibleOnly) {
   if (shouldRejectInvisibleTextTarget(parent, visibleOnly)) return true;
@@ -3854,7 +3854,7 @@ function formControlTextTarget(control, visibleOnly, options) {
 }
 function isCollectableFormControlTextElement(control, visibleOnly, options) {
   if (control.closest(READER_CONTROL_TEXT_MIRROR_SELECTOR)) return false;
-  if (!options.includeReaderRoot && control.closest(READER_ROOT_SELECTOR$2)) return false;
+  if (!options.includeReaderRoot && control.closest(READER_ROOT_SELECTOR$3)) return false;
   if (options.excludeSelector && (safeElementMatches$1(control, options.excludeSelector) || control.closest(options.excludeSelector))) return false;
   if (isDisabledFormControl(control) || isUnlookupableFormControl(control)) return false;
   return !visibleOnly || isVisible(control);
@@ -4010,7 +4010,7 @@ function isSurfaceIgnoredElement(element2) {
   return element2.matches("[data-jpdb-reader-surface-ignore]");
 }
 function isExcludedReaderRootElement(element2, options) {
-  return !options.includeReaderRoot && Boolean(element2.closest(READER_ROOT_SELECTOR$2));
+  return !options.includeReaderRoot && Boolean(element2.closest(READER_ROOT_SELECTOR$3));
 }
 function shouldFlushAndSkipFragmentElement(element2, state, isRoot) {
   if (matchesSkippedFragmentElement(element2, state, isRoot)) return true;
@@ -4108,7 +4108,7 @@ function hasRawJapaneseOutsideReaderWords(element2) {
   return Boolean(walker.nextNode());
 }
 function isPassiveInteractionElement(element2) {
-  if (element2.closest(READER_ROOT_SELECTOR$2)) return false;
+  if (element2.closest(READER_ROOT_SELECTOR$3)) return false;
   if (element2.closest(PASSIVE_INTERACTION_SELECTOR)) return true;
   const compactInteraction = element2.closest(COMPACT_PASSIVE_INTERACTION_SELECTOR);
   if (!compactInteraction) return false;
@@ -4122,7 +4122,7 @@ function isCompactPassiveInteractionElement(element2) {
 }
 function isFragmentPassiveInteractionElement(element2, options) {
   if (isPassiveInteractionElement(element2)) return true;
-  return Boolean(options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR$2) && element2.closest(PASSIVE_INTERACTION_SELECTOR));
+  return Boolean(options.readerRootPassiveInteractions && element2.closest(READER_ROOT_SELECTOR$3) && element2.closest(PASSIVE_INTERACTION_SELECTOR));
 }
 function isLayoutSensitiveScanElement(element2) {
   if (element2 && isInsideOwnedReaderRoot(element2)) return false;
@@ -4583,7 +4583,7 @@ function closestCompactMediaContext(parent) {
 function hasMediaPeer(container, textElement) {
   return Array.from(container.querySelectorAll("img, picture, video, canvas")).some((media) => {
     if (!(media instanceof HTMLElement)) return false;
-    if (media.closest(READER_ROOT_SELECTOR$2)) return false;
+    if (media.closest(READER_ROOT_SELECTOR$3)) return false;
     return media !== textElement && !textElement.contains(media);
   });
 }
@@ -5219,7 +5219,7 @@ function scanFragmentAllowsRuby(hasNativeRuby) {
   return !hasNativeRuby;
 }
 function isInsideOwnedReaderRoot(element2) {
-  const readerRoot = element2.closest(READER_ROOT_SELECTOR$2);
+  const readerRoot = element2.closest(READER_ROOT_SELECTOR$3);
   return Boolean(readerRoot && readerRoot !== document.body && readerRoot !== document.documentElement);
 }
 function replaceTextNodeRange(node, start, end, replacement) {
@@ -30333,7 +30333,7 @@ const JPDB_POINTER_BOUNDARY_SEGMENTS = [
   "の",
   "や"
 ];
-const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
+const READER_ROOT_SELECTOR$2 = "[data-jpdb-reader-root]";
 const POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR = [
   "script",
   "style",
@@ -30347,7 +30347,7 @@ const POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR = [
   "rt",
   "rp",
   '[contenteditable="true"]',
-  READER_ROOT_SELECTOR$1
+  READER_ROOT_SELECTOR$2
 ].join(",");
 const POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR = [
   "button",
@@ -30359,7 +30359,7 @@ const POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR = [
   "[onclick]"
 ].join(",");
 const POINTER_TEXT_SKIP_SELECTOR = `${POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR},${POINTER_TEXT_INTERACTIVE_SKIP_SELECTOR}`;
-const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR$1} .jpdb-reader-local-glossary a[href]`;
+const READER_ROOT_POINTER_TEXT_LINK_SELECTOR = `${READER_ROOT_SELECTOR$2} .jpdb-reader-local-glossary a[href]`;
 const SCREEN_READER_ONLY_CLASS_RE = /(^|[-_\s])(sr-only|screen-reader-text|visually-hidden|visuallyhidden)([-_\s]|$)/i;
 const YOUTUBE_METADATA_SELECTOR = [
   "#metadata",
@@ -30642,7 +30642,7 @@ function elementPassesPointerTextAttributes(element2, allowReaderRoot, insideSub
     return true;
   }
   const skipSelector = options.allowInteractiveText ? POINTER_TEXT_STRUCTURAL_SKIP_SELECTOR : POINTER_TEXT_SKIP_SELECTOR;
-  return !element2.matches(skipSelector) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR$1);
+  return !element2.matches(skipSelector) || allowReaderRoot && element2.matches(READER_ROOT_SELECTOR$2);
 }
 function stylePassesPointerTextLookup(style) {
   return style.display !== "none" && style.visibility !== "hidden" && style.visibility !== "collapse" && Number(style.opacity || "1") > 0;
@@ -33743,7 +33743,7 @@ const HAS_JAPANESE = /[\u3040-\u30ff\u3400-\u9fff]/;
 const MUTATION_TEXT_SCAN_LIMIT = 4e3;
 const MUTATION_TEXT_NODE_SCAN_LIMIT = 80;
 const TEXT_REVEAL_ATTRIBUTES = new Set(["hidden", "open", "aria-hidden", "aria-expanded"]);
-const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+const READER_ROOT_SELECTOR$1 = "[data-jpdb-reader-root]";
 const JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR = [
   ".result.vocabulary",
   ".result.kanji",
@@ -33759,7 +33759,7 @@ const JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR = [
 ].join(",");
 const JPDB_PAGE_ENHANCEMENT_TARGET_SELECTOR = `${JPDB_PAGE_ENHANCEMENT_ROOT_SELECTOR},${JPDB_PAGE_ENHANCEMENT_ANCHOR_SELECTOR}`;
 const JPDB_PAGE_ENHANCEMENT_DYNAMIC_IGNORE_SELECTOR = [
-  READER_ROOT_SELECTOR,
+  READER_ROOT_SELECTOR$1,
   "[data-immersion-kit]",
   '[class*="immersion" i]'
 ].join(",");
@@ -33775,7 +33775,7 @@ function mutationTouchesAsbPlayer(mutation) {
   });
 }
 function mutationInsideReaderRoot(mutation) {
-  return mutationInsideClosest(mutation, READER_ROOT_SELECTOR);
+  return mutationInsideClosest(mutation, READER_ROOT_SELECTOR$1);
 }
 function mutationMayContainJapaneseText(mutation) {
   if (mutation.type === "characterData") return nodeTextMayContainJapanese(mutation.target);
@@ -37684,6 +37684,21 @@ function nextVisibleScanParseBatch(targets, startCursor, charBudget = VISIBLE_SC
 }
 const log = Logger.scope("ReaderApp");
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
+const READER_ROOT_GESTURE_EVENTS = ["touchstart", "touchend", "pointerdown", "pointerup", "mousedown", "mouseup", "click"];
+const READER_ROOT_SELECTOR = "[data-jpdb-reader-root]";
+function eventTargetsReaderRoot(event) {
+  return Boolean(event.target?.closest?.(READER_ROOT_SELECTOR));
+}
+function pointOverReaderRoot(event) {
+  const touch = event.changedTouches?.[0] ?? event.touches?.[0];
+  const x = touch ? touch.clientX : event.clientX;
+  const y = touch ? touch.clientY : event.clientY;
+  if (typeof x !== "number" || typeof y !== "number") return false;
+  return Boolean(document.elementFromPoint(x, y)?.closest?.(READER_ROOT_SELECTOR));
+}
+function readerRootGestureLeaks(event) {
+  return !eventTargetsReaderRoot(event) && pointOverReaderRoot(event);
+}
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 const MINING_PAUSE_REASSERT_WINDOW_MS = 2500;
@@ -39006,6 +39021,13 @@ class ReaderApp {
       saveSettings: (settings) => saveSettings(settings),
       clearBridgeCaches: () => this.clearBridgeBackedCaches()
     }, this.abortController.signal);
+    const swallowReaderRootGesture = (event) => {
+      const swallow = event.type === "touchstart" || event.type === "touchend" ? pointOverReaderRoot(event) : readerRootGestureLeaks(event);
+      if (swallow) event.stopPropagation();
+    };
+    for (const gestureType of READER_ROOT_GESTURE_EVENTS) {
+      document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
+    }
     document.addEventListener("click", (event) => this.handleDocumentClick(event), { capture: true });
     document.addEventListener("mousedown", (event) => {
       if (this.isDestroyed) return;

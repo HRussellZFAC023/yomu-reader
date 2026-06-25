@@ -2805,7 +2805,20 @@ function ocrImageFromPointerEvent(event: Event, settings: ReaderSettings): HTMLI
 
 function ocrReaderSurfaceFromPointerEvent(event: Event, settings: ReaderSettings): HTMLCanvasElement | HTMLElement | null {
     if (!settings.ocrEnabled || settings.ocrProvider === 'off' || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    // A tap whose POINT lands on existing OCR text must look it up, not re-scan.
+    // Re-scanning releases the frame mid-tap, so the overlay vanishes before the
+    // gesture ends — losing the lookup AND letting the tap fall through to the host
+    // viewer's page turn. Touch can target the canvas even with the overlay painted
+    // on top, so check the point, not just event.target.
+    if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
+}
+
+function pointerEventOverOcrOverlay(event: Event & Pick<PointerEvent, 'clientX' | 'clientY'>): boolean {
+    const target = event.target as Element | null;
+    if (target?.closest?.('[data-jpdb-reader-root]')) return true;
+    if (typeof event.clientX !== 'number' || typeof event.clientY !== 'number') return false;
+    return Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest?.('[data-jpdb-reader-root]'));
 }
 
 function shouldHandleOcrPointerEvent(event: Event & Pick<PointerEvent, 'button' | 'pointerType'>): boolean {

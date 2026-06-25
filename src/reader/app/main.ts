@@ -331,6 +331,37 @@ type ReaderLifecycleSurface = {
     destroy: () => void;
 };
 const POINTER_TEXT_KANA_SURFACE_RE = /^[\u3040-\u30ffー]+$/u;
+// Gesture events a host viewer (e.g. BookWalker/NFBR) uses to turn the page; Yomu
+// swallows them when they land on its own overlay/popover so a text tap looks up
+// the word instead of flipping the page.
+const READER_ROOT_GESTURE_EVENTS = ['touchstart', 'touchend', 'pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click'] as const;
+const READER_ROOT_SELECTOR = '[data-jpdb-reader-root]';
+
+function eventTargetsReaderRoot(event: Event): boolean {
+    return Boolean((event.target as Element | null)?.closest?.(READER_ROOT_SELECTOR));
+}
+
+// True when the gesture's POINT is over Yomu's overlay/popover. On touch, WebKit
+// can target the underlying viewer canvas even when the OCR text is painted on top,
+// so we resolve the element actually at the coordinates (elementFromPoint skips
+// pointer-events:none layers and finds the OCR line/word).
+function pointOverReaderRoot(event: Event): boolean {
+    const touch = (event as TouchEvent).changedTouches?.[0] ?? (event as TouchEvent).touches?.[0];
+    const x = touch ? touch.clientX : (event as MouseEvent).clientX;
+    const y = touch ? touch.clientY : (event as MouseEvent).clientY;
+    if (typeof x !== 'number' || typeof y !== 'number') return false;
+    return Boolean(document.elementFromPoint(x, y)?.closest?.(READER_ROOT_SELECTOR));
+}
+
+// A gesture should be kept from the host viewer's page-turn handler ONLY when it is
+// "leaking" — its point is over Yomu's overlay but it targets the canvas/page (the
+// touch-targets-canvas case). When the event already targets the overlay, Yomu's
+// own line/word handlers process it (and stopPropagation themselves), so swallowing
+// it here would wrongly cancel the lookup (it would also break the OCR-line click
+// handler that stops the event reaching underlying host links).
+function readerRootGestureLeaks(event: Event): boolean {
+    return !eventTargetsReaderRoot(event) && pointOverReaderRoot(event);
+}
 const HOST_THEME_ENFORCE_STEPS = 12;
 const HOST_THEME_ENFORCE_STEP_MS = 200;
 // How long after a subtitle-mining pause we keep re-asserting it. A competing
@@ -1851,6 +1882,33 @@ export class ReaderApp {
             saveSettings: settings => saveSettings(settings),
             clearBridgeCaches: () => this.clearBridgeBackedCaches(),
         }, this.abortController.signal);
+
+        // Tapping Yomu's OCR overlay must look the word up, never fall through to the
+        // host viewer's tap-to-turn. BookWalker (NFBR) turns the page on a touchend /
+        // click on its canvas; the viewer's handlers live on the canvas / viewer
+        // container (a descendant of document) or bubble to document, so a
+        // capture-phase stopPropagation here keeps the gesture from reaching them.
+        // Two cases, handled differently so we don't break Yomu's OWN overlay handlers:
+        //  • TOUCH (touchstart/touchend): Yomu has no overlay touch handler, and on
+        //    touch WebKit may target the underlying canvas even with the OCR word on
+        //    top — so swallow whenever the POINT is over the overlay (elementFromPoint
+        //    finds the word through pointer-events:none layers).
+        //  • POINTER / MOUSE / CLICK: Yomu's own line/word handlers process these and
+        //    stopPropagation themselves when the event targets the overlay, so only
+        //    swallow the "leaking" case (event targets the canvas but the point is over
+        //    the overlay). Swallowing an overlay-targeted click here would cancel the
+        //    lookup and break the OCR line's click handler.
+        // A bare-page tap (genuine turn zone, point not over the overlay) is never
+        // swallowed, so page-turn + auto-scan still work.
+        const swallowReaderRootGesture = (event: Event): void => {
+            const swallow = (event.type === 'touchstart' || event.type === 'touchend')
+                ? pointOverReaderRoot(event)
+                : readerRootGestureLeaks(event);
+            if (swallow) event.stopPropagation();
+        };
+        for (const gestureType of READER_ROOT_GESTURE_EVENTS) {
+            document.addEventListener(gestureType, swallowReaderRootGesture, { capture: true, passive: true });
+        }
 
         document.addEventListener('click', event => this.handleDocumentClick(event), { capture: true });
 

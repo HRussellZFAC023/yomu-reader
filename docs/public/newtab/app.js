@@ -30627,6 +30627,31 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   const MAX_OPS_PER_CANVAS = 6e3;
   const PRUNE_KEEP = 3e3;
   const MAX_REBUILD_DEPTH = 6;
+  const RELOAD_GUARD_KEY = "yomu:bw:mirror-loadguard";
+  const RELOAD_GUARD_WINDOW_MS = 8e3;
+  const RELOAD_GUARD_LIMIT = 4;
+  let recorderLoadGuardChecked = false;
+  let recorderLoopBroken = false;
+  function recorderReloadLoopDetected() {
+    if (recorderLoadGuardChecked) return recorderLoopBroken;
+    recorderLoadGuardChecked = true;
+    try {
+      const now = Date.now();
+      const prev = JSON.parse(sessionStorage.getItem(RELOAD_GUARD_KEY) || "null");
+      const next = prev && now - prev.at < RELOAD_GUARD_WINDOW_MS ? { n: prev.n + 1, at: prev.at } : { n: 1, at: now };
+      sessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
+      recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
+      if (recorderLoopBroken) {
+        try {
+          console.warn("[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.");
+        } catch {
+        }
+      }
+    } catch {
+      recorderLoopBroken = false;
+    }
+    return recorderLoopBroken;
+  }
   const EPOCH_ATTR = "data-yomu-mirror-epoch";
   const MARKER_ATTR = "data-yomu-mirror-recorder";
   const DUMP_ATTR = "data-yomu-mirror-dump";
@@ -30764,6 +30789,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     S.installed = true;
     const doc = win.document;
     const root = doc && doc.documentElement;
+    let lastDrawUrl = "";
     const bumpEpoch = (el2) => {
       if (el2 && el2.nodeType && !el2.isConnected) return;
       S.epoch = (S.epoch || 0) + 1;
@@ -30871,6 +30897,10 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
               }
               r.ops.push(o);
               if (o.srcId) bumpEpoch(this.canvas);
+              else if (o.url && o.url !== lastDrawUrl) {
+                lastDrawUrl = o.url;
+                bumpEpoch(this.canvas);
+              }
             }
           } catch {
           }
@@ -30944,6 +30974,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
   function installCanvasMirrorRecorder(hostname = location.hostname) {
     if (!isBookwalkerViewerHost(hostname)) return;
     if (recorderAlreadyInstalled()) return;
+    if (recorderReloadLoopDetected()) return;
     if (injectRecorderIntoPage(recorderOpts())) return;
     const s = state();
     if (s.installed) return;
@@ -35419,7 +35450,14 @@ ${spelling}`);
   }
   function ocrReaderSurfaceFromPointerEvent(event, settings) {
     if (!settings.ocrEnabled || settings.ocrProvider === "off" || !isPointerLikeEvent(event) || !shouldHandleOcrPointerEvent(event)) return null;
+    if (pointerEventOverOcrOverlay(event)) return null;
     return pointerEventReaderSurfaceTarget(event, settings) ?? pointerEventReaderSurfaceAtPoint(event, settings);
+  }
+  function pointerEventOverOcrOverlay(event) {
+    const target = event.target;
+    if (target?.closest?.("[data-jpdb-reader-root]")) return true;
+    if (typeof event.clientX !== "number" || typeof event.clientY !== "number") return false;
+    return Boolean(document.elementFromPoint(event.clientX, event.clientY)?.closest?.("[data-jpdb-reader-root]"));
   }
   function shouldHandleOcrPointerEvent(event) {
     if (event.type === "pointerdown") return event.button === void 0 || event.button === 0;

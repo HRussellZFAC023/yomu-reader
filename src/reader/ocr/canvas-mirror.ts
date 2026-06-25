@@ -17,6 +17,34 @@ const ID_ATTR = 'data-yomu-mid';
 const MAX_OPS_PER_CANVAS = 6000;
 const PRUNE_KEEP = 3000;
 const MAX_REBUILD_DEPTH = 6;
+// Circuit breaker: if the page reloads in a rapid loop, stop installing the
+// recorder so the loop breaks and the page stays usable (some BookWalker / manager
+// combinations — e.g. the Safari "Userscripts" extension — reload when the
+// page-world recorder <script> is injected or the canvas prototype is patched).
+const RELOAD_GUARD_KEY = 'yomu:bw:mirror-loadguard';
+const RELOAD_GUARD_WINDOW_MS = 8000;
+const RELOAD_GUARD_LIMIT = 4;
+let recorderLoadGuardChecked = false;
+let recorderLoopBroken = false;
+
+// Counts page loads within a short window using sessionStorage (shared with the
+// page realm, survives reloads in the same tab). Counts ONCE per load. Returns true
+// once a reload loop is detected so installCanvasMirrorRecorder bails out.
+function recorderReloadLoopDetected(): boolean {
+    if (recorderLoadGuardChecked) return recorderLoopBroken;
+    recorderLoadGuardChecked = true;
+    try {
+        const now = Date.now();
+        const prev = JSON.parse(sessionStorage.getItem(RELOAD_GUARD_KEY) || 'null') as { n: number; at: number } | null;
+        const next = prev && now - prev.at < RELOAD_GUARD_WINDOW_MS ? { n: prev.n + 1, at: prev.at } : { n: 1, at: now };
+        sessionStorage.setItem(RELOAD_GUARD_KEY, JSON.stringify(next));
+        recorderLoopBroken = next.n > RELOAD_GUARD_LIMIT;
+        if (recorderLoopBroken) { try { console.warn('[Yomu] BookWalker reload loop detected — disabling the OCR recorder injection for this load. Reload manually to retry.'); } catch { /* */ } }
+    } catch {
+        recorderLoopBroken = false;
+    }
+    return recorderLoopBroken;
+}
 
 // Shared-DOM channel so an isolated content-world reader with no `unsafeWindow`
 // (the Safari "Userscripts" extension) can both detect page turns and pull the
@@ -243,6 +271,7 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
     // appended, so they're skipped here — otherwise capturing the page would itself
     // tick the epoch the page signature depends on, releasing the fresh frame in a
     // loop. OffscreenCanvas has no nodeType/isConnected, so it still counts.
+    let lastDrawUrl = '';
     const bumpEpoch = (el: { nodeType?: number; isConnected?: boolean }): void => {
         if (el && el.nodeType && !el.isConnected) return;
         S.epoch = (S.epoch || 0) + 1;
@@ -284,9 +313,16 @@ export function recorderBootstrap(win: PageWindowLike, opts: RecorderOpts): void
                     else if (a.length === 5) { o.dx = a[1]; o.dy = a[2]; o.dw = a[3]; o.dh = a[4]; }
                     else if (a.length === 3) { o.dx = a[1]; o.dy = a[2]; }
                     r.ops.push(o);
-                    // A canvas→canvas draw is a page composite (buffer→on-screen);
-                    // it marks a turn far more cheaply than per-tile draws do.
+                    // Advance the page-turn epoch on a composite (buffer→on-screen) OR
+                    // when a NEW source image is drawn. Some NFBR modes paint a new page
+                    // as direct image tiles with no canvas→canvas composite or full
+                    // clear, so a composite-only signal misses the turn and the previous
+                    // page's overlay sticks. Keying off the source URL bumps exactly once
+                    // per new page (all ~2048 tiles share one page image) and stays
+                    // stable if the viewer repaints the SAME page (animation/zoom) — a
+                    // per-op stride would churn there and could flicker in a loop.
                     if (o.srcId) bumpEpoch(this.canvas);
+                    else if (o.url && o.url !== lastDrawUrl) { lastDrawUrl = o.url; bumpEpoch(this.canvas); }
                 }
             } catch { /* */ } }
             return draw.apply(this, arguments as unknown as unknown[]);
@@ -373,6 +409,7 @@ function createTrustedMirrorScript(code: string): unknown {
 export function installCanvasMirrorRecorder(hostname: string = location.hostname): void {
     if (!isBookwalkerViewerHost(hostname)) return;
     if (recorderAlreadyInstalled()) return;
+    if (recorderReloadLoopDetected()) return;
     // Inject into the page world first (do NOT touch state() before injecting on a
     // sandboxed manager, or `??=` would create a sandbox-compartment state the page
     // recorder then reuses and the reader can't read).

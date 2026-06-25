@@ -91,19 +91,22 @@ describe('canvas-mirror realm bridge (Safari "Userscripts" / no unsafeWindow)', 
     it('bumps a shared-DOM turn token on a page composite (a canvas→canvas draw)', () => {
         const pageWin = pageWorldWindow();
         recorderBootstrap(pageWin, OPTS);
-        expect(canvasMirrorTurnToken()).toBe(''); // no composite yet
+        expect(canvasMirrorTurnToken()).toBe(''); // no draw yet
 
         const buffer = canvasSource(pageWin as unknown as { HTMLCanvasElement: new () => object });
         const screen = fakeCanvas(2048, 1024);
         const ctx = Object.create(pageWin.CanvasRenderingContext2D.prototype) as { drawImage: (...a: unknown[]) => void; canvas: ReturnType<typeof fakeCanvas> };
         ctx.canvas = screen;
-        // Tile draws (image source, no srcId) must NOT bump the turn token...
+        // A second tile from the SAME source image must NOT churn the token (a page
+        // repaint, not a turn).
         ctx.drawImage({ src: 'https://cdn/tile.jpeg' }, 0, 0, 64, 64, 0, 0, 64, 64);
-        expect(canvasMirrorTurnToken()).toBe('');
-        // ...but a buffer→screen composite (canvas source) IS a page turn.
+        const afterTile = canvasMirrorTurnToken();
+        ctx.drawImage({ src: 'https://cdn/tile.jpeg' }, 64, 0, 64, 64, 64, 0, 64, 64);
+        expect(canvasMirrorTurnToken()).toBe(afterTile);
+        // A buffer→screen composite (canvas source) IS a page turn.
         ctx.drawImage(buffer, 0, 0, 1024, 1024, 0, 0, 1024, 1024);
         const afterFirst = canvasMirrorTurnToken();
-        expect(afterFirst).not.toBe('');
+        expect(afterFirst).not.toBe(afterTile);
         // A second composite (next turn) advances the token again.
         ctx.drawImage(buffer, 0, 0, 1024, 1024, 1024, 0, 1024, 1024);
         expect(canvasMirrorTurnToken()).not.toBe(afterFirst);
@@ -157,6 +160,26 @@ describe('canvas-mirror realm bridge (Safari "Userscripts" / no unsafeWindow)', 
         ctx.drawImage(src, 0, 0, 64, 64, 0, 0, 64, 64);
         expect(canvasMirrorTurnToken()).toBe(''); // skip-marked → ignored by the recorder
         expect(onDom.getAttribute(OPTS.a)).toBeNull(); // and never even assigned a mirror id
+    });
+
+    // Regression for the "previous page's overlay sticks on the next page" report:
+    // some NFBR modes paint a new page as direct image tiles with no canvas→canvas
+    // composite, so the turn token must also advance when a NEW source image is
+    // drawn — while staying stable if the SAME page is repainted (else it would
+    // churn the page signature and flicker).
+    it('bumps the turn token on a new source image but stays stable when the same page is repainted', () => {
+        const pageWin = pageWorldWindow();
+        recorderBootstrap(pageWin, OPTS);
+        const screen = Object.assign(canvasSource(pageWin as unknown as { HTMLCanvasElement: new () => object }, 1024, 1024), { nodeType: 1, isConnected: true });
+        const ctx = Object.create(pageWin.CanvasRenderingContext2D.prototype) as { drawImage: (...a: unknown[]) => void; canvas: unknown };
+        ctx.canvas = screen;
+        ctx.drawImage({ src: 'https://cdn/page-1.jpeg' }, 0, 0, 64, 64, 0, 0, 64, 64); // page 1, first tile
+        const afterPage1 = canvasMirrorTurnToken();
+        expect(afterPage1).not.toBe('');
+        ctx.drawImage({ src: 'https://cdn/page-1.jpeg' }, 64, 0, 64, 64, 64, 0, 64, 64); // same page, another tile
+        expect(canvasMirrorTurnToken()).toBe(afterPage1); // no churn on same-page repaint
+        ctx.drawImage({ src: 'https://cdn/page-2.jpeg' }, 0, 0, 64, 64, 0, 0, 64, 64); // turned to page 2
+        expect(canvasMirrorTurnToken()).not.toBe(afterPage1);
     });
 
     it('the pulled records reconstruct the leaf URLs for rebuild', () => {

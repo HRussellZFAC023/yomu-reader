@@ -6230,12 +6230,20 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
   gap: 8px;
   padding: 6px 12px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--jpdb-reader-bg, #11131a) 82%, transparent);
+  /* Self-contained dark "toast" — the status pill is appended to <body>, outside the
+     reader's themed scope, so --jpdb-reader-bg/-fg are unreliable here and resolved
+     to white-on-white in light mode. A fixed dark, semi-opaque chip with white text
+     stays legible over any page background in both light and dark mode. */
+  background: rgba(17, 19, 26, 0.86) !important;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-  color: var(--jpdb-reader-fg, #f5f7ff);
+  color: #f5f7ff !important;
   font: 600 13px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
+  color: #f5f7ff !important;
 }
 
 .jpdb-ocr-video-frame-status.jpdb-ocr-canvas-status .jpdb-ocr-video-frame-status-label {
