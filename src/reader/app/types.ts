@@ -499,6 +499,7 @@ export interface ReaderSettings {
 
 declare global {
     const __YOMU_EXTENSION_BUILD__: undefined | boolean;
+    const __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: undefined | string;
 
     type UserscriptHttpResponse = { status: number; response: unknown; responseText?: string; finalUrl?: string };
     type UserscriptHttpRequestHandle = { abort?: () => void };

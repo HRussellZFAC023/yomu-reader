@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Yomu · Google Drive settings sync</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      text-align: center;
+      padding: 24px;
+      background: Canvas;
+      color: CanvasText;
+    }
+    .icon { width: 48px; height: 48px; }
+    .status { max-width: 30ch; opacity: 0.85; }
+    .error { color: #d33; }
+    button {
+      font: inherit;
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid color-mix(in srgb, CanvasText 30%, transparent);
+      background: color-mix(in srgb, CanvasText 6%, Canvas);
+      color: inherit;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <img class="icon" src="/yomu-icon.svg" alt="" />
+  <h1 style="font-size: 1.1rem; margin: 0;">Google Drive settings sync</h1>
+  <p class="status" id="status">Connecting to Google…</p>
+  <button id="retry" hidden>Try again</button>
+  <script src="https://accounts.google.com/gsi/client" async></script>
+  <script>
+    // Static OAuth broker for the Yomu userscript. The userscript runs on
+    // third-party origins Google will not authorise, so it opens this page on the
+    // authorised yomureader.com origin, which performs the consent popup and posts
+    // the access token back to the opener. No token is persisted here.
+    (function () {
+      'use strict';
+      var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+      var params = new URLSearchParams(location.search);
+      var clientId = params.get('client_id') || '';
+      var openerOrigin = params.get('origin') || '';
+      var statusEl = document.getElementById('status');
+      var retryEl = document.getElementById('retry');
+
+      function setStatus(text, isError) {
+        statusEl.textContent = text;
+        statusEl.className = isError ? 'status error' : 'status';
+      }
+
+      function postToOpener(message) {
+        if (!window.opener || !openerOrigin) return;
+        try { window.opener.postMessage(message, openerOrigin); } catch (_) { /* ignore */ }
+      }
+
+      function fail(reason) {
+        setStatus(reason, true);
+        retryEl.hidden = false;
+        postToOpener({ type: 'yomu-drive-oauth-token', error: reason });
+      }
+
+      // Only proxy Google client ids, and only post back to a real web origin.
+      if (!/^[-\w]+\.apps\.googleusercontent\.com$/.test(clientId)) {
+        fail('Missing or invalid Google client id.');
+        return;
+      }
+      if (!/^https?:\/\//.test(openerOrigin)) {
+        setStatus('This window must be opened by Yomu.', true);
+        return;
+      }
+
+      function start() {
+        if (!(window.google && google.accounts && google.accounts.oauth2)) {
+          setStatus('Loading Google sign-in…');
+          window.setTimeout(start, 200);
+          return;
+        }
+        setStatus('Waiting for Google authorization…');
+        retryEl.hidden = true;
+        try {
+          var client = google.accounts.oauth2.initTokenClient({
+            client_id: clientId,
+            scope: DRIVE_SCOPE,
+            callback: function (response) {
+              if (response && response.access_token) {
+                setStatus('Connected. You can close this window.');
+                postToOpener({
+                  type: 'yomu-drive-oauth-token',
+                  accessToken: response.access_token,
+                  expiresIn: Number(response.expires_in) || 3600,
+                });
+                window.setTimeout(function () { try { window.close(); } catch (_) {} }, 400);
+              } else {
+                fail((response && (response.error_description || response.error)) || 'Authorization failed.');
+              }
+            },
+            error_callback: function (error) {
+              fail((error && error.message) || 'Authorization was cancelled.');
+            },
+          });
+          client.requestAccessToken({ prompt: '' });
+        } catch (error) {
+          fail((error && error.message) || 'Could not start Google authorization.');
+        }
+      }
+
+      retryEl.addEventListener('click', start);
+      window.addEventListener('beforeunload', function () {
+        postToOpener({ type: 'yomu-drive-oauth-token', error: 'Window closed before authorization completed.' });
+      });
+      start();
+    })();
+  </script>
+</body>
+</html>

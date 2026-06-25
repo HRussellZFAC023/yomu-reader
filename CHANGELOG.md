@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.115] - 2026-06-25
+
+### Added
+
+- Google Drive settings sync now works outside the browser extension: the userscript and the hosted reader can sign in to Google and back up/restore your Yomu settings (stored privately in the Drive app-data folder; dictionaries stay local). Authorization uses Google Identity Services on the hosted reader and a small consent popup on `yomureader.com` for the userscript — no tokens to paste. Activates once the public OAuth client id is configured; ships inert otherwise.
+
 ## [1.4.114] - 2026-06-25
 
 ### Fixed

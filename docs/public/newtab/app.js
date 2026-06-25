@@ -1678,7 +1678,7 @@
       dictionarySourcesInitiallyExpanded: "Open sources by default",
       localDictionaryMaxResults: "Dictionary result limit",
       cloudSettingsSync: "Google Drive settings sync",
-      cloudSettingsSyncHelp: "Stores extension settings in Google Drive app data. Dictionaries stay local.",
+      cloudSettingsSyncHelp: "Stores your Yomu settings in Google Drive app data. Dictionaries stay local.",
       importSettings: "Import settings JSON",
       exportSettings: "Export settings JSON",
       importDictionaries: "Import dictionaries",
@@ -3264,7 +3264,7 @@ localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
-cloudSettingsSyncHelp	拡張機能の設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
+cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
@@ -27242,7 +27242,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return `
                 <div class="jpdb-reader-settings-subsection" data-cloud-settings-sync>
                     <div class="jpdb-reader-local-title" data-cloud-settings-sync-title>Google Drive settings sync</div>
-                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores extension settings in Google Drive app data. Dictionaries stay local.</div>
+                    <div class="jpdb-reader-help" data-help-key="cloudSettingsSyncHelp">Stores your Yomu settings in Google Drive app data. Dictionaries stay local.</div>
                     <div class="jpdb-reader-settings-actions jpdb-reader-settings-actions-single">
                         <button class="jpdb-reader-btn" type="button" data-action="sync-cloud-settings">${uploadLabel}</button>
                         <button class="jpdb-reader-btn" type="button" data-action="restore-cloud-settings">${restoreLabel}</button>
@@ -30485,7 +30485,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     return details.length ? formatUiTemplate(uiText(language, "settingsImportedWithDetails"), { details: details.join("; ") }) : uiText(language, "settingsImported");
   }
   function cloudSettingsSyncUnavailableStatus(language) {
-    return language === "ja" ? "Google Drive設定同期はYomu拡張機能でのみ利用できます。" : "Google Drive settings sync is available only in the Yomu extension.";
+    return language === "ja" ? "このブラウザーではGoogle Drive設定同期を利用できません。" : "Google Drive settings sync is unavailable in this browser.";
   }
   function cloudSettingsNotFoundStatus(language) {
     return language === "ja" ? "Google Driveに保存されたYomu設定が見つかりません。" : "No Yomu settings were found in Google Drive.";

@@ -2166,8 +2166,8 @@ function importSettingsStatus(restoredValues: number, dictionarySummary: ImportS
 
 function cloudSettingsSyncUnavailableStatus(language: InterfaceLanguage): string {
     return language === 'ja'
-        ? 'Google Drive設定同期はYomu拡張機能でのみ利用できます。'
-        : 'Google Drive settings sync is available only in the Yomu extension.';
+        ? 'このブラウザーではGoogle Drive設定同期を利用できません。'
+        : 'Google Drive settings sync is unavailable in this browser.';
 }
 
 function cloudSettingsNotFoundStatus(language: InterfaceLanguage): string {

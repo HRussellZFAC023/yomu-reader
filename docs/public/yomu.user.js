@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.114
+// @version 1.4.115
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.114
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.114
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.114
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.114
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.115
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.115
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.115
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.115
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -7376,7 +7376,7 @@ const COPY = {
     dictionarySourcesInitiallyExpanded: "Open sources by default",
     localDictionaryMaxResults: "Dictionary result limit",
     cloudSettingsSync: "Google Drive settings sync",
-    cloudSettingsSyncHelp: "Stores extension settings in Google Drive app data. Dictionaries stay local.",
+    cloudSettingsSyncHelp: "Stores your Yomu settings in Google Drive app data. Dictionaries stay local.",
     importSettings: "Import settings JSON",
     exportSettings: "Export settings JSON",
     importDictionaries: "Import dictionaries",
@@ -8962,7 +8962,7 @@ localDictionariesEnabled	インポート済み辞書の定義を表示
 dictionarySourcesInitiallyExpanded	ポップアップのソースを標準で開く
 localDictionaryMaxResults	辞書結果の上限
 cloudSettingsSync	Google Drive設定同期
-cloudSettingsSyncHelp	拡張機能の設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
+cloudSettingsSyncHelp	Yomuの設定をGoogle Driveのアプリデータに保存します。辞書は端末内に残ります。
 importSettings	設定JSONをインポート
 exportSettings	設定JSONをエクスポート
 importDictionaries	辞書をインポート
