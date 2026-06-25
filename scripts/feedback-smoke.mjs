@@ -320,15 +320,18 @@ async function verifyMediaSettings(page) {
     await page.locator('[data-action="settings-panel"][data-panel="media"]').click();
     const media = await readMediaSettings(page);
     assert(media.pausePanel, 'Pause-only subtitle panel setting was not discoverable', media);
+    assert(media.hoverPause, 'Subtitle hover-pause setting was not discoverable', media);
     assert(includesText(media.text, 'Open side panel when paused'), 'Pause-only subtitle panel setting was not discoverable', media);
+    assert(includesText(media.text, 'Pause video on subtitle hover'), 'Subtitle hover-pause setting was not discoverable', media);
 }
 
 async function readMediaSettings(page) {
-    const [pausePanelCount, text] = await Promise.all([
+    const [pausePanelCount, hoverPauseCount, text] = await Promise.all([
         page.locator('input[name="subtitlePausePanel"]').count(),
+        page.locator('input[name="subtitleHoverPause"]').count(),
         settingsDialogText(page),
     ]);
-    return { pausePanel: pausePanelCount > 0, text };
+    return { pausePanel: pausePanelCount > 0, hoverPause: hoverPauseCount > 0, text };
 }
 
 async function settingsDialogText(page) {
@@ -485,6 +488,9 @@ async function verifyHostedSubtitleFlow(page, baseUrl) {
     await assertHostedBrandIcon(page);
     await openHostedSettingsFromOverflow(page);
     await assertSubtitleOpenRequiresVideo(page);
+    await loadHostedVideoAndSubtitleTogether(page);
+    await page.screenshot({ path: path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'), fullPage: false });
+    await openHostedVideoPlayer(page, baseUrl);
     await loadHostedVideoAndOpenTracks(page);
     await assertHostedTracksPanel(page);
     await loadPrimarySubtitleTrack(page);
@@ -580,6 +586,28 @@ async function loadHostedVideoAndOpenTracks(page) {
     await page.waitForFunction(() => /local-video\.mp4/.test(document.querySelector('[data-status]')?.textContent ?? ''));
     await page.locator('[data-subtitle-open]').click();
     await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-tracks-panel:not([hidden])', { timeout: 6000 });
+}
+
+async function loadHostedVideoAndSubtitleTogether(page) {
+    await page.setInputFiles('[data-video-input]', [fakeVideoPath, primaryVttPath]);
+    await page.waitForSelector('.jpdb-subtitle-list.jpdb-subtitle-lines-panel:not([hidden]) .jpdb-subtitle-list-row', { timeout: 8000 });
+    const loaded = await readHostedVideoAndSubtitleTogetherState(page);
+    assert(loaded.inputMultiple === true, 'Hosted video picker should allow video and subtitle files together', loaded);
+    assert(loaded.status.includes('loaded 1 subtitle file'), 'Hosted video status did not acknowledge the loaded subtitle file', loaded);
+    assert(loaded.rows >= 2, 'Opening video and subtitle together did not render transcript rows', loaded);
+    assert(hostedPausePanelHasExpectedText(loaded), 'Opening video and subtitle together did not load the expected subtitle text', loaded);
+}
+
+async function readHostedVideoAndSubtitleTogetherState(page) {
+    return page.evaluate(() => {
+        const panel = document.querySelector('.jpdb-subtitle-list');
+        return {
+            inputMultiple: document.querySelector('[data-video-input]')?.hasAttribute('multiple') === true,
+            status: document.querySelector('[data-status]')?.textContent ?? '',
+            rows: document.querySelectorAll('.jpdb-subtitle-list-row').length,
+            text: panel?.textContent ?? '',
+        };
+    });
 }
 
 async function assertHostedTracksPanel(page) {
@@ -745,6 +773,7 @@ try {
         artifacts: [
             path.join(ARTIFACTS, 'feedback-settings-font.png'),
             path.join(ARTIFACTS, 'feedback-keyboard-word-nav.png'),
+            path.join(ARTIFACTS, 'feedback-video-open-with-subtitles.png'),
             path.join(ARTIFACTS, 'feedback-video-pause-panel.png'),
         ],
     }, null, 2));

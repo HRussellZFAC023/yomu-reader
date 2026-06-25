@@ -519,6 +519,7 @@ function readSubtitleFormSettings(reader: SettingsFormReader, current: ReaderSet
         subtitleFontFamily: readFontFamilySetting(reader, 'subtitleFontFamily', current.subtitleFontFamily),
         subtitleFontWeight: clamped('subtitleFontWeight', 100, 900, current.subtitleFontWeight),
         subtitleMiningPause: has('subtitleMiningPause'),
+        subtitleHoverPause: has('subtitleHoverPause'),
         subtitleSeekPadding: clamped('subtitleSeekPadding', -2, 2, current.subtitleSeekPadding),
     };
 }

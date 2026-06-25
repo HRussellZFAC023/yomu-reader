@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.4.118] - 2026-06-26
+
+### Added
+
+- The hosted Yomu Video player now accepts a video file and subtitle files in the same picker/drop action. Japanese/native subtitle files are inferred from their names, loaded automatically, and the transcript opens directly to the lines view.
+- Added a separate Video setting for pausing on subtitle hover lookup. Clicked/tapped subtitle lookups still pause by default, while hover pause can now be turned off independently.
+
+### Fixed
+
+- Caption clicks on the homepage "Read captions in any player" demo and Yomu Video now use the fast lookup shell path, so the video pauses immediately and the popover appears without waiting on heavier dictionary/enrichment work. The docs Playwright audit now profiles this path on desktop, iPad, and iPhone.
+
 ## [1.4.117] - 2026-06-25
 
 ### Fixed

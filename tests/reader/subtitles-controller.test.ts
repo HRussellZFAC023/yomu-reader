@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { OPEN_SUBTITLE_TRACKS_EVENT } from '../../src/reader/app/constants';
+import { LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT } from '../../src/reader/app/constants';
 import { DEFAULT_SETTINGS as BASE_DEFAULT_SETTINGS } from '../../src/reader/settings/index';
 
 // These tests assert English UI copy; pin the interface language since the
@@ -510,6 +510,47 @@ describe('SubtitlePlayerController', () => {
             expect(document.querySelector('input[type="file"]')).toBeNull();
         } finally {
             clickSpy.mockRestore();
+            controller.destroy();
+        }
+    });
+
+    it('loads host-provided subtitle files and opens the Japanese transcript', async () => {
+        const { controller } = createSubtitleController(makeSubtitleSettings());
+        const primary = new File([`WEBVTT
+
+00:00:00.000 --> 00:00:04.000
+猫を見る
+`], 'episode.ja.vtt', { type: 'text/vtt' });
+        const native = new File([`WEBVTT
+
+00:00:00.000 --> 00:00:04.000
+Watch the cat
+`], 'episode.en.vtt', { type: 'text/vtt' });
+
+        try {
+            controller.init();
+            attachVideo(controller, { currentTime: 1 });
+
+            window.dispatchEvent(new CustomEvent(LOAD_SUBTITLE_FILES_EVENT, {
+                detail: { files: [native, primary], openPanel: 'auto' },
+            }));
+
+            await vi.waitFor(() => {
+                const panel = document.querySelector<HTMLElement>('.jpdb-subtitle-list');
+                expect(panel?.hidden).toBe(false);
+                expect(panel?.classList.contains('jpdb-subtitle-lines-panel')).toBe(true);
+                expect(panel?.textContent).toContain('猫を見る');
+                expect(panel?.textContent).not.toContain('Watch the cat');
+            });
+
+            const internals = controllerInternals<{
+                selectedTrackId: string;
+                secondaryTrackId: string;
+                tracks: Array<{ id: string; label: string }>;
+            }>(controller);
+            expect(internals.tracks.find(track => track.id === internals.selectedTrackId)?.label).toBe('episode.ja');
+            expect(internals.tracks.find(track => track.id === internals.secondaryTrackId)?.label).toBe('episode.en');
+        } finally {
             controller.destroy();
         }
     });

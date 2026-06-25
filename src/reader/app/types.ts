@@ -417,6 +417,7 @@ export interface ReaderSettings {
     subtitleFontFamily: string;
     subtitleFontWeight: number;
     subtitleMiningPause: boolean;
+    subtitleHoverPause: boolean;
     subtitleSeekPadding: number;
     youtubeImmersionEnabled: boolean;
     youtubeShowFilterNotice: boolean;

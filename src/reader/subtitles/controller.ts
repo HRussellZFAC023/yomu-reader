@@ -156,7 +156,7 @@ import {
     transcriptResizePatchForKeyboard,
     transcriptResizePatchForPointerDrag,
 } from './subtitles-transcript-resize';
-import { OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
+import { LOAD_SUBTITLE_FILES_EVENT, OPEN_SUBTITLE_TRACKS_EVENT } from '../app/constants';
 import { uiText } from '../app/i18n';
 import { Logger } from '../app/logger';
 import { accentToRgba, matchesShortcut } from '../settings/index';
@@ -533,6 +533,16 @@ interface TranscriptRow {
     cueIndex: number;
 }
 
+interface HostedSubtitleFileJob {
+    kind: 'primary' | 'secondary';
+    file: File;
+}
+
+interface HostedSubtitleFileLoadRequest {
+    jobs: HostedSubtitleFileJob[];
+    openPanel?: 'auto' | 'lines' | 'tracks' | false;
+}
+
 interface SubtitleDragSession {
     handle: HTMLElement;
     dragFrame: HTMLElement;
@@ -682,6 +692,90 @@ function fittedSubtitleFontSize(element: HTMLElement, fitted: number, minimum: n
         apply(fitted);
     }
     return fitted;
+}
+
+function subtitleFilesFromHostEvent(event: Event): HostedSubtitleFileLoadRequest {
+    const rawDetail = event instanceof CustomEvent ? detailValue(event) : undefined;
+    const detail = isRecord(rawDetail) ? rawDetail : {};
+    const explicitJobs = [
+        ...hostedSubtitleFileJobs('primary', detail.primary ?? detail.primaryFiles),
+        ...hostedSubtitleFileJobs('secondary', detail.secondary ?? detail.secondaryFiles),
+    ];
+    const inferredJobs = explicitJobs.length ? [] : inferHostedSubtitleFileJobs(hostedFiles(detail.files));
+    return {
+        jobs: [...explicitJobs, ...inferredJobs],
+        openPanel: normalizeHostedSubtitleOpenPanel(detail.openPanel),
+    };
+}
+
+function detailValue(event: Event): unknown {
+    return (event as CustomEvent<unknown>).detail;
+}
+
+function hostedSubtitleFileJobs(kind: 'primary' | 'secondary', value: unknown): HostedSubtitleFileJob[] {
+    return hostedFiles(value).map(file => ({ kind, file }));
+}
+
+function hostedFiles(value: unknown): File[] {
+    if (isHostedFile(value)) return [value];
+    if (!value || typeof value !== 'object') return [];
+    if (typeof (value as { length?: unknown }).length === 'number') {
+        return Array.from(value as ArrayLike<unknown>).filter(isHostedFile);
+    }
+    if (Symbol.iterator in value) return Array.from(value as Iterable<unknown>).filter(isHostedFile);
+    return [];
+}
+
+function isHostedFile(value: unknown): value is File {
+    if (typeof File !== 'undefined' && value instanceof File) return true;
+    return Boolean(value
+        && typeof value === 'object'
+        && typeof (value as File).name === 'string'
+        && typeof (value as Blob).slice === 'function');
+}
+
+function readHostedSubtitleFileText(file: File): Promise<string> {
+    if (typeof file.text === 'function') return file.text();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ''));
+        reader.onerror = () => reject(reader.error ?? new Error('Could not read subtitle file.'));
+        reader.readAsText(file);
+    });
+}
+
+function inferHostedSubtitleFileJobs(files: File[]): HostedSubtitleFileJob[] {
+    const subtitleFiles = files.filter(file => isSubtitleFileName(file.name));
+    if (!subtitleFiles.length) return [];
+    const primaryCandidates = subtitleFiles.filter(file => looksLikeJapaneseSubtitleFile(file.name));
+    const secondaryCandidates = subtitleFiles.filter(file => looksLikeNativeSubtitleFile(file.name));
+    const fallbackCandidates = subtitleFiles.filter(file => !primaryCandidates.includes(file) && !secondaryCandidates.includes(file));
+    const primary = primaryCandidates.shift() ?? fallbackCandidates.shift() ?? secondaryCandidates.shift();
+    if (!primary) return [];
+    return [
+        { kind: 'primary', file: primary },
+        ...[...primaryCandidates, ...fallbackCandidates, ...secondaryCandidates].map(file => ({ kind: 'secondary' as const, file })),
+    ];
+}
+
+function isSubtitleFileName(name: string): boolean {
+    return /\.(?:srt|vtt|ass|ssa)$/iu.test(name);
+}
+
+function looksLikeJapaneseSubtitleFile(name: string): boolean {
+    return /(^|[.\-_\s()[\]])(?:ja|jp|jpn|japanese|日本語)(?=$|[.\-_\s()[\]])/iu.test(name);
+}
+
+function looksLikeNativeSubtitleFile(name: string): boolean {
+    return /(^|[.\-_\s()[\]])(?:en|eng|english|native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(name);
+}
+
+function normalizeHostedSubtitleOpenPanel(value: unknown): HostedSubtitleFileLoadRequest['openPanel'] {
+    return value === 'lines' || value === 'tracks' || value === 'auto' || value === false ? value : 'auto';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return Boolean(value && typeof value === 'object');
 }
 
 export class SubtitlePlayerController {
@@ -850,6 +944,7 @@ export class SubtitlePlayerController {
         document.addEventListener('visibilitychange', () => this.restartTickAfterVisibilityChange(), this.eventOptions());
         document.addEventListener('pointermove', event => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
         window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
+        window.addEventListener(LOAD_SUBTITLE_FILES_EVENT, event => this.loadSubtitleFilesFromHost(event), this.eventOptions());
         for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
             window.addEventListener(eventName, () => this.handleYouTubeNavigation(), this.eventOptions());
         }
@@ -3435,9 +3530,33 @@ export class SubtitlePlayerController {
         input.click();
     }
 
+    private loadSubtitleFilesFromHost(event: Event): void {
+        const request = subtitleFilesFromHostEvent(event);
+        if (!request.jobs.length) return;
+        void this.loadHostedSubtitleFileJobs(request);
+    }
+
+    private async loadHostedSubtitleFileJobs(request: HostedSubtitleFileLoadRequest): Promise<void> {
+        for (const job of request.jobs) {
+            await this.loadSubtitleFile(job.kind, job.file).catch(error => {
+                log.warn('Hosted subtitle file load failed', { kind: job.kind, name: job.file.name, error });
+            });
+        }
+        if (request.openPanel === false) {
+            this.renderOpenSubtitlePanel();
+            return;
+        }
+        if (request.openPanel === 'tracks') {
+            this.openTracksPanel();
+            return;
+        }
+        if (this.hasTranscriptSurface()) this.openLinesPanel({ deferRender: true });
+        else this.openTracksPanel();
+    }
+
     private async loadSubtitleFile(kind: 'primary' | 'secondary', file: File): Promise<void> {
         if (!file) return;
-        const text = await file.text();
+        const text = await readHostedSubtitleFileText(file);
         const cues = normalizeSubtitleCues(parseSubtitleText(text), { transcriptEligible: kind === 'primary' });
         const track: SubtitleTrackOption = {
             id: `file-${kind}-${Date.now()}`,

@@ -410,6 +410,7 @@ const COPY = {
         subtitleTranscriptAutoScrollResumeSeconds: 'Resume auto-scroll delay (s)',
         subtitleAutoCopyLine: 'Auto-copy subtitle lines',
         subtitleMiningPause: 'Pause video when mining subtitle',
+        subtitleHoverPause: 'Pause video on subtitle hover',
         subtitleControlsMode: 'Subtitle controls',
         right: 'Right',
         left: 'Left',
@@ -2004,6 +2005,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
+subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 moveSubtitles	字幕を移動
 right	右

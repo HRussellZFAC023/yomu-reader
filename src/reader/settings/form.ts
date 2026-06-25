@@ -729,7 +729,8 @@ function renderVideoSettingsPanel(settings: ReaderSettings): string {
                     ${checkbox('subtitleTranscriptAutoScroll', 'Scroll transcript with playback', settings.subtitleTranscriptAutoScroll)}
                     ${checkbox('subtitleAutoCopyLine', 'Auto-copy each subtitle line as it plays', settings.subtitleAutoCopyLine)}
                     ${checkbox('subtitleCopyIncludeTranslation', 'Include the translation when copying a line', settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox('subtitleMiningPause', 'Pause video when looking up a clicked subtitle word (resumes on close)', settings.subtitleMiningPause)}
+                    ${checkbox('subtitleMiningPause', 'Pause video when looking up subtitles', settings.subtitleMiningPause)}
+                    ${checkbox('subtitleHoverPause', 'Pause video on subtitle hover lookup', settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${input('subtitleTranscriptAutoScrollResumeSeconds', 'Resume transcript auto-scroll after manual scroll (s)', String(settings.subtitleTranscriptAutoScrollResumeSeconds), 'number')}
@@ -1685,7 +1686,7 @@ const DIRECT_SETTINGS_CONTROL_LABEL_KEYS = [
     'ocrFontScale', 'ocrEndpointUrl', 'ocrEngine', 'subtitlePlayerEnabled', 'subtitleAutoDetect',
     'subtitleOverlayVisible', 'subtitleSecondaryVisible', 'subtitleNativeBlurred', 'subtitleKaraokeMode', 'subtitleTranscriptVisible',
     'subtitlePausePanel', 'subtitleTranscriptPlacement', 'subtitleTranscriptAutoScroll', 'subtitleTranscriptAutoScrollResumeSeconds', 'subtitleAutoCopyLine', 'subtitleCopyIncludeTranslation', 'subtitleMiningPause',
-    'subtitleControlsMode', 'subtitleFontSize', 'subtitleBottomOffset', 'subtitleTextColor', 'subtitleOutlineColor',
+    'subtitleHoverPause', 'subtitleControlsMode', 'subtitleFontSize', 'subtitleBottomOffset', 'subtitleTextColor', 'subtitleOutlineColor',
     'subtitleBackgroundColor', 'subtitleBackgroundOpacity', 'subtitleFontFamily', 'subtitleFontWeight', 'subtitleSeekPadding',
     'ankiEnabled', 'ankiMineWithJpdb', 'ankiCaptureScreenshot', 'ankiConnectUrl', 'ankiDeck',
     'ankiModel', 'ankiTemplateMode', 'ankiFrontReading', 'ankiFrontSentence', 'ankiFrontImage',

@@ -76,6 +76,7 @@
   const NADESHIKO_DEVELOPER_URL = `${NADESHIKO_URL}user/developer`;
   const USERSCRIPT_HTTP_BRIDGE_READY_EVENT = "yomu-userscript-http-bridge-ready";
   const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
+  const LOAD_SUBTITLE_FILES_EVENT = "yomu-load-subtitle-files";
   const SETTINGS_CHANGE_EVENT = "yomu-settings-change";
   const JPDB_DEFINITION_SOURCE_ID = "__jpdb__";
   const JITEN_DEFINITION_SOURCE_ID = "__jiten__";
@@ -1583,6 +1584,7 @@
       subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
       subtitleAutoCopyLine: "Auto-copy subtitle lines",
       subtitleMiningPause: "Pause video when mining subtitle",
+      subtitleHoverPause: "Pause video on subtitle hover",
       subtitleControlsMode: "Subtitle controls",
       right: "Right",
       left: "Left",
@@ -3171,6 +3173,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
+subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 moveSubtitles	字幕を移動
 right	右
@@ -6008,7 +6011,9 @@ recommendedJiten	Jiten頻度です。
     "subtitleKaraokeMode",
     "subtitlePausePanel",
     "subtitleAutoCopyLine",
-    "subtitleCopyIncludeTranslation"
+    "subtitleCopyIncludeTranslation",
+    "subtitleMiningPause",
+    "subtitleHoverPause"
   ];
   const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
     "ankiFrontReading",
@@ -6251,6 +6256,7 @@ recommendedJiten	Jiten頻度です。
     subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
     subtitleMiningPause: true,
+    subtitleHoverPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
@@ -10245,7 +10251,7 @@ ${item.sequence ?? ""}`;
     if (Array.isArray(value)) {
       return value.map((child) => glossaryValueToProfileText(child, options)).filter(Boolean).join(" ");
     }
-    return isRecord$6(value) ? glossaryRecordToText(value, options) : "";
+    return isRecord$7(value) ? glossaryRecordToText(value, options) : "";
   }
   function primitiveGlossaryText(value) {
     if (value == null) return "";
@@ -10276,7 +10282,7 @@ ${item.sequence ?? ""}`;
   function shouldReadRecordTextKey(key, options) {
     return options.fallbackTextKeys.has(key) || options.includeDirectDataAttributes && key.startsWith("data-");
   }
-  function isRecord$6(value) {
+  function isRecord$7(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   const STRUCTURED_CONTENT_TAGS = /* @__PURE__ */ new Set([
@@ -10342,7 +10348,7 @@ ${item.sequence ?? ""}`;
     if (value == null) return "";
     if (isStructuredPrimitive(value)) return escapeHtml(String(value));
     if (Array.isArray(value)) return renderGlossaryArray(value, context);
-    if (!isRecord$5(value)) return "";
+    if (!isRecord$6(value)) return "";
     return renderGlossaryRecord(value, context);
   }
   function isStructuredPrimitive(value) {
@@ -10642,7 +10648,7 @@ ${item.sequence ?? ""}`;
   function camelToKebabCase(value) {
     return value.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
   }
-  function isRecord$5(value) {
+  function isRecord$6(value) {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
   function escapeHtml(value) {
@@ -25530,6 +25536,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
       subtitleFontFamily: readFontFamilySetting(reader, "subtitleFontFamily", current.subtitleFontFamily),
       subtitleFontWeight: clamped("subtitleFontWeight", 100, 900, current.subtitleFontWeight),
       subtitleMiningPause: has("subtitleMiningPause"),
+      subtitleHoverPause: has("subtitleHoverPause"),
       subtitleSeekPadding: clamped("subtitleSeekPadding", -2, 2, current.subtitleSeekPadding)
     };
   }
@@ -27163,7 +27170,8 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox("subtitleMiningPause", "Pause video when looking up a clicked subtitle word (resumes on close)", settings.subtitleMiningPause)}
+                    ${checkbox("subtitleMiningPause", "Pause video when looking up subtitles", settings.subtitleMiningPause)}
+                    ${checkbox("subtitleHoverPause", "Pause video on subtitle hover lookup", settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
@@ -28133,6 +28141,7 @@ td, th { border: 1px solid ${color.tableBorder}; padding: 4px 6px; }
     "subtitleAutoCopyLine",
     "subtitleCopyIncludeTranslation",
     "subtitleMiningPause",
+    "subtitleHoverPause",
     "subtitleControlsMode",
     "subtitleFontSize",
     "subtitleBottomOffset",
@@ -38778,7 +38787,7 @@ ${spelling}`);
   function translatedYouTubePlayerTrack(track, source) {
     const translationLanguage = youtubePlayerTranslationLanguage(track);
     if (!translationLanguage) return source;
-    if (!isRecord$4(source)) return track.youtubeTrack ?? source;
+    if (!isRecord$5(source)) return track.youtubeTrack ?? source;
     return {
       ...source,
       translationLanguage
@@ -38786,7 +38795,7 @@ ${spelling}`);
   }
   function youtubePlayerTranslationLanguage(track) {
     const raw = track.youtubeTrack;
-    if (isRecord$4(raw) && raw.translationLanguage) return raw.translationLanguage;
+    if (isRecord$5(raw) && raw.translationLanguage) return raw.translationLanguage;
     const languageCode = track.targetLanguage || track.language;
     if (!languageCode) return null;
     return {
@@ -38796,10 +38805,10 @@ ${spelling}`);
   }
   function youtubePlayerTranslationSource(track) {
     const raw = track.youtubeTrack;
-    if (!isRecord$4(raw)) return null;
+    if (!isRecord$5(raw)) return null;
     return raw.source ?? null;
   }
-  function isRecord$4(value) {
+  function isRecord$5(value) {
     return Boolean(value && typeof value === "object");
   }
   function findPreferredYouTubeCaptionCandidate(track) {
@@ -41108,6 +41117,75 @@ ${spelling}`);
     }
     return fitted;
   }
+  function subtitleFilesFromHostEvent(event) {
+    const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
+    const detail = isRecord$4(rawDetail) ? rawDetail : {};
+    const explicitJobs = [
+      ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
+      ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
+    ];
+    const inferredJobs = explicitJobs.length ? [] : inferHostedSubtitleFileJobs(hostedFiles(detail.files));
+    return {
+      jobs: [...explicitJobs, ...inferredJobs],
+      openPanel: normalizeHostedSubtitleOpenPanel(detail.openPanel)
+    };
+  }
+  function detailValue(event) {
+    return event.detail;
+  }
+  function hostedSubtitleFileJobs(kind, value) {
+    return hostedFiles(value).map((file) => ({ kind, file }));
+  }
+  function hostedFiles(value) {
+    if (isHostedFile(value)) return [value];
+    if (!value || typeof value !== "object") return [];
+    if (typeof value.length === "number") {
+      return Array.from(value).filter(isHostedFile);
+    }
+    if (Symbol.iterator in value) return Array.from(value).filter(isHostedFile);
+    return [];
+  }
+  function isHostedFile(value) {
+    if (typeof File !== "undefined" && value instanceof File) return true;
+    return Boolean(value && typeof value === "object" && typeof value.name === "string" && typeof value.slice === "function");
+  }
+  function readHostedSubtitleFileText(file) {
+    if (typeof file.text === "function") return file.text();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read subtitle file."));
+      reader.readAsText(file);
+    });
+  }
+  function inferHostedSubtitleFileJobs(files) {
+    const subtitleFiles = files.filter((file) => isSubtitleFileName(file.name));
+    if (!subtitleFiles.length) return [];
+    const primaryCandidates = subtitleFiles.filter((file) => looksLikeJapaneseSubtitleFile(file.name));
+    const secondaryCandidates = subtitleFiles.filter((file) => looksLikeNativeSubtitleFile(file.name));
+    const fallbackCandidates = subtitleFiles.filter((file) => !primaryCandidates.includes(file) && !secondaryCandidates.includes(file));
+    const primary = primaryCandidates.shift() ?? fallbackCandidates.shift() ?? secondaryCandidates.shift();
+    if (!primary) return [];
+    return [
+      { kind: "primary", file: primary },
+      ...[...primaryCandidates, ...fallbackCandidates, ...secondaryCandidates].map((file) => ({ kind: "secondary", file }))
+    ];
+  }
+  function isSubtitleFileName(name) {
+    return /\.(?:srt|vtt|ass|ssa)$/iu.test(name);
+  }
+  function looksLikeJapaneseSubtitleFile(name) {
+    return /(^|[.\-_\s()[\]])(?:ja|jp|jpn|japanese|日本語)(?=$|[.\-_\s()[\]])/iu.test(name);
+  }
+  function looksLikeNativeSubtitleFile(name) {
+    return /(^|[.\-_\s()[\]])(?:en|eng|english|native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(name);
+  }
+  function normalizeHostedSubtitleOpenPanel(value) {
+    return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
+  }
+  function isRecord$4(value) {
+    return Boolean(value && typeof value === "object");
+  }
   class SubtitlePlayerController {
     constructor(options) {
       this.options = options;
@@ -41281,6 +41359,7 @@ ${spelling}`);
       document.addEventListener("visibilitychange", () => this.restartTickAfterVisibilityChange(), this.eventOptions());
       document.addEventListener("pointermove", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
+      window.addEventListener(LOAD_SUBTITLE_FILES_EVENT, (event) => this.loadSubtitleFilesFromHost(event), this.eventOptions());
       for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
         window.addEventListener(eventName, () => this.handleYouTubeNavigation(), this.eventOptions());
       }
@@ -43456,9 +43535,31 @@ ${spelling}`);
       (document.body || document.documentElement).appendChild(input2);
       input2.click();
     }
+    loadSubtitleFilesFromHost(event) {
+      const request = subtitleFilesFromHostEvent(event);
+      if (!request.jobs.length) return;
+      void this.loadHostedSubtitleFileJobs(request);
+    }
+    async loadHostedSubtitleFileJobs(request) {
+      for (const job of request.jobs) {
+        await this.loadSubtitleFile(job.kind, job.file).catch((error) => {
+          log$j.warn("Hosted subtitle file load failed", { kind: job.kind, name: job.file.name, error });
+        });
+      }
+      if (request.openPanel === false) {
+        this.renderOpenSubtitlePanel();
+        return;
+      }
+      if (request.openPanel === "tracks") {
+        this.openTracksPanel();
+        return;
+      }
+      if (this.hasTranscriptSurface()) this.openLinesPanel({ deferRender: true });
+      else this.openTracksPanel();
+    }
     async loadSubtitleFile(kind, file) {
       if (!file) return;
-      const text2 = await file.text();
+      const text2 = await readHostedSubtitleFileText(file);
       const cues = normalizeSubtitleCues(parseSubtitleText(text2), { transcriptEligible: kind === "primary" });
       const track = {
         id: `file-${kind}-${Date.now()}`,

@@ -1885,7 +1885,9 @@
     "subtitleKaraokeMode",
     "subtitlePausePanel",
     "subtitleAutoCopyLine",
-    "subtitleCopyIncludeTranslation"
+    "subtitleCopyIncludeTranslation",
+    "subtitleMiningPause",
+    "subtitleHoverPause"
   ];
   const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
     "ankiFrontReading",
@@ -2128,6 +2130,7 @@
     subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
     subtitleMiningPause: true,
+    subtitleHoverPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,
@@ -3359,6 +3362,7 @@
       subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
       subtitleAutoCopyLine: "Auto-copy subtitle lines",
       subtitleMiningPause: "Pause video when mining subtitle",
+      subtitleHoverPause: "Pause video on subtitle hover",
       subtitleControlsMode: "Subtitle controls",
       right: "Right",
       left: "Left",
@@ -4928,6 +4932,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
+subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 moveSubtitles	字幕を移動
 right	右
@@ -6270,6 +6275,7 @@ recommendedJiten	Jiten頻度です。
       subtitleFontFamily: readFontFamilySetting(reader, "subtitleFontFamily", current.subtitleFontFamily),
       subtitleFontWeight: clamped("subtitleFontWeight", 100, 900, current.subtitleFontWeight),
       subtitleMiningPause: has("subtitleMiningPause"),
+      subtitleHoverPause: has("subtitleHoverPause"),
       subtitleSeekPadding: clamped("subtitleSeekPadding", -2, 2, current.subtitleSeekPadding)
     };
   }
@@ -8119,7 +8125,8 @@ recommendedJiten	Jiten頻度です。
                     ${checkbox("subtitleTranscriptAutoScroll", "Scroll transcript with playback", settings.subtitleTranscriptAutoScroll)}
                     ${checkbox("subtitleAutoCopyLine", "Auto-copy each subtitle line as it plays", settings.subtitleAutoCopyLine)}
                     ${checkbox("subtitleCopyIncludeTranslation", "Include the translation when copying a line", settings.subtitleCopyIncludeTranslation)}
-                    ${checkbox("subtitleMiningPause", "Pause video when looking up a clicked subtitle word (resumes on close)", settings.subtitleMiningPause)}
+                    ${checkbox("subtitleMiningPause", "Pause video when looking up subtitles", settings.subtitleMiningPause)}
+                    ${checkbox("subtitleHoverPause", "Pause video on subtitle hover lookup", settings.subtitleHoverPause)}
                 </div>
                 <div class="grid jpdb-reader-settings-cgrid">
                     ${input("subtitleTranscriptAutoScrollResumeSeconds", "Resume transcript auto-scroll after manual scroll (s)", String(settings.subtitleTranscriptAutoScrollResumeSeconds), "number")}
@@ -9089,6 +9096,7 @@ recommendedJiten	Jiten頻度です。
     "subtitleAutoCopyLine",
     "subtitleCopyIncludeTranslation",
     "subtitleMiningPause",
+    "subtitleHoverPause",
     "subtitleControlsMode",
     "subtitleFontSize",
     "subtitleBottomOffset",

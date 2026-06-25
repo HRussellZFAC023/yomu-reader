@@ -140,6 +140,8 @@ const SUBTITLE_BOOLEAN_SETTING_KEYS = [
     'subtitlePausePanel',
     'subtitleAutoCopyLine',
     'subtitleCopyIncludeTranslation',
+    'subtitleMiningPause',
+    'subtitleHoverPause',
 ] as const;
 const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
     'ankiFrontReading',
@@ -386,6 +388,7 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
     subtitleFontWeight: 760,
     subtitleMiningPause: true,
+    subtitleHoverPause: true,
     subtitleSeekPadding: 0.08,
     youtubeImmersionEnabled: true,
     youtubeShowFilterNotice: true,

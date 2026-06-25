@@ -23,6 +23,7 @@ export const USERSCRIPT_STORAGE_BRIDGE_READY_EVENT = 'yomu-userscript-storage-br
 export const INTERFACE_LANGUAGE_CHANGE_EVENT = 'yomu-interface-language-change';
 export const OPEN_SETTINGS_EVENT = 'yomu-open-settings';
 export const OPEN_SUBTITLE_TRACKS_EVENT = 'yomu-open-subtitle-tracks';
+export const LOAD_SUBTITLE_FILES_EVENT = 'yomu-load-subtitle-files';
 export const SETTINGS_CHANGE_EVENT = 'yomu-settings-change';
 export const JPDB_DEFINITION_SOURCE_ID = '__jpdb__';
 export const JITEN_DEFINITION_SOURCE_ID = '__jiten__';

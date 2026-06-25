@@ -379,6 +379,89 @@ async function assertHomepageDemo(page, label) {
     assertAudit(snapshot.subtitleOverlapsVideoFrame && !snapshot.subtitleOverlapsPhone, `${label} subtitle runtime should attach to the real video player, not the phone demo: ${JSON.stringify(snapshot)}`);
     assertAudit(snapshot.transcriptButtonCount === 0 && snapshot.captionCardCount === 0, `${label} should not render custom caption buttons/cards: ${JSON.stringify(snapshot)}`);
     assertAudit(!snapshot.hasYoutubeFrame && !snapshot.hasLiteButton && !snapshot.hasYoutubeFallback, `${label} homepage should not render YouTube chrome: ${JSON.stringify(snapshot)}`);
+
+    const captionClickProfile = await profileHomepageSubtitleClick(page);
+    assertAudit(captionClickProfile.pauseMs <= 150, `${label} caption click did not pause the sample video instantly: ${JSON.stringify(captionClickProfile)}`);
+    assertAudit(captionClickProfile.popoverShellMs <= 350, `${label} caption lookup popover shell was too slow: ${JSON.stringify(captionClickProfile)}`);
+}
+
+async function profileHomepageSubtitleClick(page) {
+    await page.evaluate(() => {
+        const video = document.querySelector('.yomu-sample-player');
+        if (!(video instanceof HTMLVideoElement)) throw new Error('Sample video missing');
+        let paused = false;
+        window.__yomuDemoCaptionProfile = {
+            startedAt: 0,
+            pauseAt: null,
+            shellAt: null,
+            textAt: null,
+            text: '',
+        };
+        Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+        Object.defineProperty(video, 'ended', { configurable: true, value: false });
+        Object.defineProperty(video, 'pause', {
+            configurable: true,
+            value: () => {
+                paused = true;
+                const profile = window.__yomuDemoCaptionProfile;
+                if (profile && profile.startedAt && profile.pauseAt === null) profile.pauseAt = performance.now();
+                video.dispatchEvent(new Event('pause'));
+            },
+        });
+        Object.defineProperty(video, 'play', {
+            configurable: true,
+            value: () => {
+                paused = false;
+                video.dispatchEvent(new Event('play'));
+                return Promise.resolve();
+            },
+        });
+        const observer = new MutationObserver(() => {
+            const profile = window.__yomuDemoCaptionProfile;
+            if (!profile?.startedAt) return;
+            const popover = document.querySelector('.jpdb-reader-popover');
+            if (popover && profile.shellAt === null) profile.shellAt = performance.now();
+            const text = popover?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+            if (text && profile.textAt === null) {
+                profile.textAt = performance.now();
+                profile.text = text.slice(0, 180);
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        window.__yomuDemoCaptionProfileObserver = observer;
+        void video.play();
+    });
+
+    const word = page.locator('.jpdb-subtitle-player .jpdb-subtitle-primary .jpdb-reader-word').first();
+    await word.waitFor({ state: 'visible', timeout: 6000 });
+    await page.evaluate(() => { window.__yomuDemoCaptionProfile.startedAt = performance.now(); });
+    await word.evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        element.dispatchEvent(new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            clientX: rect.left + rect.width / 2,
+            clientY: rect.top + rect.height / 2,
+            button: 0,
+        }));
+    });
+    await page.waitForFunction(() => {
+        const profile = window.__yomuDemoCaptionProfile;
+        return Boolean(profile?.pauseAt && profile?.shellAt);
+    }, null, { timeout: 2000 });
+    const profile = await page.evaluate(() => {
+        window.__yomuDemoCaptionProfileObserver?.disconnect?.();
+        const profile = window.__yomuDemoCaptionProfile;
+        const delta = value => value === null ? null : Math.round((value - profile.startedAt) * 10) / 10;
+        return {
+            pauseMs: delta(profile.pauseAt),
+            popoverShellMs: delta(profile.shellAt),
+            popoverTextMs: delta(profile.textAt),
+            text: profile.text,
+        };
+    });
+    await page.keyboard.press('Escape').catch(() => undefined);
+    return profile;
 }
 
 async function assertOcrToolPage(page, label) {

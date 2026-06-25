@@ -400,6 +400,56 @@ describe('hover lookup', () => {
         }
     });
 
+    it('does not pause for subtitle hover previews when hover pause is disabled', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, subtitleHoverPause: false };
+        const { pause, play } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
+        document.body.append(asbRoot);
+        const word = asbRoot.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.tabIndex = -1;
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'hover', focusOnMount: false });
+            expect(pause).not.toHaveBeenCalled();
+
+            internals.dismiss();
+            expect(play).not.toHaveBeenCalled();
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('still pauses clicked subtitle lookups when hover pause is disabled', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true, subtitleHoverPause: false };
+        const { pause, play } = appendPlayingVideo();
+        const asbRoot = document.createElement('div');
+        asbRoot.className = 'asbplayer-subtitles-container-bottom';
+        asbRoot.innerHTML = '<span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span>';
+        document.body.append(asbRoot);
+        const word = asbRoot.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const popover = document.createElement('div');
+        popover.className = 'jpdb-reader-popover';
+        popover.tabIndex = -1;
+
+        try {
+            internals.mountPopover(popover, word, { mode: 'modal', focusOnMount: false });
+            expect(pause).toHaveBeenCalledTimes(1);
+
+            internals.dismiss();
+            expect(play).toHaveBeenCalledTimes(1);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
     it('does NOT pause for a hover preview over ordinary page text while a video plays', () => {
         // Hover previews over general page text keep playing — only real caption
         // surfaces opt into hover-pause, so a background video is left alone.
@@ -468,6 +518,39 @@ describe('hover lookup', () => {
             expect(internals.pauseForSubtitleSurfaceTap(controlEvent)).toBe(false);
             expect(pause).not.toHaveBeenCalled();
         } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('uses fast initial render for clicked subtitle words on desktop', () => {
+        const app = new ReaderApp();
+        const internals = app as unknown as HoverLookupInternals;
+        const overlay = document.createElement('div');
+        overlay.className = 'jpdb-subtitle-player';
+        overlay.innerHTML = '<div class="jpdb-subtitle-text"><span class="jpdb-reader-word" data-vid="1" data-sid="2" data-sentence="今日は読む">読む</span></div>';
+        document.body.append(overlay);
+        const word = overlay.querySelector<HTMLElement>('.jpdb-reader-word')!;
+        const showWord = vi.fn().mockResolvedValue(undefined);
+        const controller = new AbortController();
+        internals.settings = { ...DEFAULT_SETTINGS, subtitleMiningPause: true };
+        internals.showWord = showWord;
+        document.addEventListener('click', event => internals.handleDocumentClick(event), { capture: true, signal: controller.signal });
+
+        try {
+            word.dispatchEvent(new MouseEvent('click', {
+                bubbles: true,
+                cancelable: true,
+                clientX: 24,
+                clientY: 24,
+            }));
+
+            expect(showWord).toHaveBeenCalledWith(word, expect.objectContaining({
+                trigger: 'click',
+                userGesture: true,
+                fastInitialRender: true,
+            }));
+        } finally {
+            controller.abort();
             cleanupReaderApp(app);
         }
     });

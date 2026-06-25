@@ -647,7 +647,7 @@
         <a class="toolbar-button" href="https://jimaku.cc/" target="_blank" rel="noopener" data-jimaku-link aria-label="Find subtitles on Jimaku">Find subtitles</a>
         <label class="file-button">
           <span class="file-button-label" data-open-video-label>Open video</span>
-          <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv" data-video-input>
+          <input type="file" accept="video/*,.mkv,.mp4,.m4v,.mov,.webm,.ogv,.srt,.vtt,.ass,.ssa,text/vtt" multiple data-video-input>
         </label>
       </div>
     </header>
@@ -687,6 +687,7 @@
       const settingsChangeEvent = 'yomu-settings-change';
       const openSettingsEvent = 'yomu-open-settings';
       const openSubtitleTracksEvent = 'yomu-open-subtitle-tracks';
+      const loadSubtitleFilesEvent = 'yomu-load-subtitle-files';
       const languageEvent = 'yomu-interface-language-change';
       const runtimeScriptId = 'yomu-hosted-video-runtime';
       const runtimeCssAttribute = 'data-yomu-hosted-video-css';
@@ -721,15 +722,17 @@
           findSubtitles: 'Find subtitles',
           openJimaku: 'Find subtitles on Jimaku',
           stageLabel: 'Video',
-          emptyTitle: 'Open or drop a video',
-          emptyStatus: 'Open a video, then use Subtitles to add Japanese and native subtitle files.',
-          chooseVideo: 'Choose a browser-supported video file.',
-          chooseVideoBeforeSubtitles: 'Open a video first, then choose subtitle files.',
+          emptyTitle: 'Drop anime and subtitles',
+          emptyStatus: 'Open a video with .srt, .vtt, .ass, or .ssa files. Nothing uploads.',
+          chooseVideo: 'Choose a browser-supported video, or drop it with subtitle files.',
+          chooseVideoBeforeSubtitles: 'Open a video first, or drop a video and subtitle files together.',
           loadingRuntime: 'Loading Yomu controls...',
           loadingSettings: 'Loading Yomu settings...',
           loadingSubtitles: 'Loading subtitle controls...',
           runtimeMissing: 'Yomu controls could not load from this server. Serve yomu.user.js and yomu.css next to the video player, or enable the Yomu userscript.',
           opening: name => `Opening ${name}...`,
+          openingWithSubtitles: (name, count) => `Opening ${name} with ${count} subtitle ${count === 1 ? 'file' : 'files'}...`,
+          subtitlesQueued: (name, count) => `${name} · loaded ${count} subtitle ${count === 1 ? 'file' : 'files'}`,
           menu: 'Menu',
           settings: 'Settings',
           openSettings: 'Open settings',
@@ -752,15 +755,17 @@
           findSubtitles: '字幕を探す',
           openJimaku: 'Jimakuで字幕を探す',
           stageLabel: '動画',
-          emptyTitle: '動画を開くかドロップ',
-          emptyStatus: '動画を開いたあと、字幕ボタンから日本語字幕と母語字幕ファイルを追加できます。',
-          chooseVideo: 'ブラウザーで再生できる動画ファイルを選んでください。',
-          chooseVideoBeforeSubtitles: '先に動画を開いてから字幕ファイルを選んでください。',
+          emptyTitle: '動画と字幕をドロップ',
+          emptyStatus: '動画と .srt / .vtt / .ass / .ssa 字幕を一緒に開けます。アップロードはされません。',
+          chooseVideo: 'ブラウザーで再生できる動画、または動画と字幕ファイルを一緒に選んでください。',
+          chooseVideoBeforeSubtitles: '先に動画を開くか、動画と字幕ファイルを一緒にドロップしてください。',
           loadingRuntime: 'よむの操作パネルを読み込んでいます...',
           loadingSettings: 'よむの設定を読み込んでいます...',
           loadingSubtitles: '字幕操作を読み込んでいます...',
           runtimeMissing: 'このサーバーからよむの操作パネルを読み込めませんでした。動画プレイヤーの隣に yomu.user.js と yomu.css を置くか、よむユーザースクリプトを有効にしてください。',
           opening: name => `${name}を開いています...`,
+          openingWithSubtitles: (name, count) => `${name} と字幕${count}件を開いています...`,
+          subtitlesQueued: (name, count) => `${name} ・ 字幕${count}件を読み込みました`,
           menu: 'メニュー',
           settings: '設定',
           openSettings: '設定を開く',
@@ -1139,27 +1144,63 @@
         objectUrl = '';
       }
 
-      function loadVideo(file) {
+      function isVideoFile(file) {
+        return Boolean(file && (file.type.startsWith('video/') || /\.(mkv|mp4|m4v|mov|webm|ogv)$/i.test(file.name)));
+      }
+
+      function isSubtitleFile(file) {
+        return Boolean(file && /\.(srt|vtt|ass|ssa)$/i.test(file.name));
+      }
+
+      function loadVideo(file, options = {}) {
         if (!file) return;
         revokeObjectUrl();
         stage.classList.add('has-video');
         currentVideoName = file.name;
         video.dataset.yomuAnimeSearch = file.name;
-        setStatus(copy[effectiveInterfaceLanguage()].opening(file.name));
+        const text = copy[effectiveInterfaceLanguage()];
+        const subtitleCount = options.subtitleCount || 0;
+        setStatus(subtitleCount ? text.openingWithSubtitles(file.name, subtitleCount) : text.opening(file.name));
         objectUrl = URL.createObjectURL(file);
         window.setTimeout(() => {
           video.src = objectUrl;
           video.load();
-          setStatus(file.name);
+          if (!subtitleCount) setStatus(file.name);
         }, 0);
       }
 
+      async function loadSubtitleFiles(files) {
+        const subtitleFiles = Array.from(files || []).filter(isSubtitleFile);
+        if (!subtitleFiles.length) return false;
+        const text = copy[effectiveInterfaceLanguage()];
+        const ready = await ensureYomuRuntime({ message: text.loadingSubtitles });
+        if (!ready) return false;
+        window.dispatchEvent(new CustomEvent(loadSubtitleFilesEvent, {
+          detail: {
+            files: subtitleFiles,
+            openPanel: 'auto',
+          },
+        }));
+        setStatus(text.subtitlesQueued(currentVideoName || text.stageLabel, subtitleFiles.length));
+        return true;
+      }
+
+      function loadSubtitleFilesSoon(files) {
+        window.setTimeout(() => { void loadSubtitleFiles(files); }, 90);
+      }
+
       function handleFiles(files) {
-        for (const file of files) {
-          if (file.type.startsWith('video/') || /\.(mkv|mp4|m4v|mov|webm|ogv)$/i.test(file.name)) {
-            loadVideo(file);
-            return;
-          }
+        const list = Array.from(files || []);
+        const videoFile = list.find(isVideoFile);
+        const subtitleFiles = list.filter(isSubtitleFile);
+        if (videoFile) {
+          loadVideo(videoFile, { subtitleCount: subtitleFiles.length });
+          if (subtitleFiles.length) loadSubtitleFilesSoon(subtitleFiles);
+          return;
+        }
+        if (subtitleFiles.length && currentVideoName) {
+          void loadSubtitleFiles(subtitleFiles);
+          return;
         }
         setStatus(copy[effectiveInterfaceLanguage()].chooseVideo);
       }

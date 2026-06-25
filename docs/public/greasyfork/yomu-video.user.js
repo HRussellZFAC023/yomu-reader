@@ -1140,6 +1140,7 @@
   const SUPPORT_COPY = "よむ is a free userscript for popup lookup, dictionaries, OCR, subtitles, study, and Anki.";
   const SUPPORT_COPY_EXTRA = "Donations are optional and help cover development, devices, services, maintenance, and API costs.";
   const OPEN_SUBTITLE_TRACKS_EVENT = "yomu-open-subtitle-tracks";
+  const LOAD_SUBTITLE_FILES_EVENT = "yomu-load-subtitle-files";
   function bridgeResponseEventDetail(event) {
     const detail = normalizedBridgeEventDetail$1(event);
     const id = safeReadString(detail, "id");
@@ -3485,6 +3486,7 @@
       subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
       subtitleAutoCopyLine: "Auto-copy subtitle lines",
       subtitleMiningPause: "Pause video when mining subtitle",
+      subtitleHoverPause: "Pause video on subtitle hover",
       subtitleControlsMode: "Subtitle controls",
       right: "Right",
       left: "Left",
@@ -5054,6 +5056,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
+subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 moveSubtitles	字幕を移動
 right	右
@@ -12263,7 +12266,7 @@ ${spelling}`);
   function translatedYouTubePlayerTrack(track, source) {
     const translationLanguage = youtubePlayerTranslationLanguage(track);
     if (!translationLanguage) return source;
-    if (!isRecord(source)) return track.youtubeTrack ?? source;
+    if (!isRecord$1(source)) return track.youtubeTrack ?? source;
     return {
       ...source,
       translationLanguage
@@ -12271,7 +12274,7 @@ ${spelling}`);
   }
   function youtubePlayerTranslationLanguage(track) {
     const raw = track.youtubeTrack;
-    if (isRecord(raw) && raw.translationLanguage) return raw.translationLanguage;
+    if (isRecord$1(raw) && raw.translationLanguage) return raw.translationLanguage;
     const languageCode = track.targetLanguage || track.language;
     if (!languageCode) return null;
     return {
@@ -12281,10 +12284,10 @@ ${spelling}`);
   }
   function youtubePlayerTranslationSource(track) {
     const raw = track.youtubeTrack;
-    if (!isRecord(raw)) return null;
+    if (!isRecord$1(raw)) return null;
     return raw.source ?? null;
   }
-  function isRecord(value) {
+  function isRecord$1(value) {
     return Boolean(value && typeof value === "object");
   }
   function findPreferredYouTubeCaptionCandidate(track) {
@@ -14409,6 +14412,75 @@ ${spelling}`);
     }
     return fitted;
   }
+  function subtitleFilesFromHostEvent(event) {
+    const rawDetail = event instanceof CustomEvent ? detailValue(event) : void 0;
+    const detail = isRecord(rawDetail) ? rawDetail : {};
+    const explicitJobs = [
+      ...hostedSubtitleFileJobs("primary", detail.primary ?? detail.primaryFiles),
+      ...hostedSubtitleFileJobs("secondary", detail.secondary ?? detail.secondaryFiles)
+    ];
+    const inferredJobs = explicitJobs.length ? [] : inferHostedSubtitleFileJobs(hostedFiles(detail.files));
+    return {
+      jobs: [...explicitJobs, ...inferredJobs],
+      openPanel: normalizeHostedSubtitleOpenPanel(detail.openPanel)
+    };
+  }
+  function detailValue(event) {
+    return event.detail;
+  }
+  function hostedSubtitleFileJobs(kind, value) {
+    return hostedFiles(value).map((file) => ({ kind, file }));
+  }
+  function hostedFiles(value) {
+    if (isHostedFile(value)) return [value];
+    if (!value || typeof value !== "object") return [];
+    if (typeof value.length === "number") {
+      return Array.from(value).filter(isHostedFile);
+    }
+    if (Symbol.iterator in value) return Array.from(value).filter(isHostedFile);
+    return [];
+  }
+  function isHostedFile(value) {
+    if (typeof File !== "undefined" && value instanceof File) return true;
+    return Boolean(value && typeof value === "object" && typeof value.name === "string" && typeof value.slice === "function");
+  }
+  function readHostedSubtitleFileText(file) {
+    if (typeof file.text === "function") return file.text();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(reader.error ?? new Error("Could not read subtitle file."));
+      reader.readAsText(file);
+    });
+  }
+  function inferHostedSubtitleFileJobs(files) {
+    const subtitleFiles = files.filter((file) => isSubtitleFileName(file.name));
+    if (!subtitleFiles.length) return [];
+    const primaryCandidates = subtitleFiles.filter((file) => looksLikeJapaneseSubtitleFile(file.name));
+    const secondaryCandidates = subtitleFiles.filter((file) => looksLikeNativeSubtitleFile(file.name));
+    const fallbackCandidates = subtitleFiles.filter((file) => !primaryCandidates.includes(file) && !secondaryCandidates.includes(file));
+    const primary = primaryCandidates.shift() ?? fallbackCandidates.shift() ?? secondaryCandidates.shift();
+    if (!primary) return [];
+    return [
+      { kind: "primary", file: primary },
+      ...[...primaryCandidates, ...fallbackCandidates, ...secondaryCandidates].map((file) => ({ kind: "secondary", file }))
+    ];
+  }
+  function isSubtitleFileName(name) {
+    return /\.(?:srt|vtt|ass|ssa)$/iu.test(name);
+  }
+  function looksLikeJapaneseSubtitleFile(name) {
+    return /(^|[.\-_\s()[\]])(?:ja|jp|jpn|japanese|日本語)(?=$|[.\-_\s()[\]])/iu.test(name);
+  }
+  function looksLikeNativeSubtitleFile(name) {
+    return /(^|[.\-_\s()[\]])(?:en|eng|english|native|translation|translated)(?=$|[.\-_\s()[\]])/iu.test(name);
+  }
+  function normalizeHostedSubtitleOpenPanel(value) {
+    return value === "lines" || value === "tracks" || value === "auto" || value === false ? value : "auto";
+  }
+  function isRecord(value) {
+    return Boolean(value && typeof value === "object");
+  }
   class SubtitlePlayerController {
     constructor(options) {
       this.options = options;
@@ -14582,6 +14654,7 @@ ${spelling}`);
       document.addEventListener("visibilitychange", () => this.restartTickAfterVisibilityChange(), this.eventOptions());
       document.addEventListener("pointermove", (event) => this.handlePointerActivity(event), this.eventOptions({ passive: true }));
       window.addEventListener(OPEN_SUBTITLE_TRACKS_EVENT, () => this.openSubtitleTracksPanelFromHost(), this.eventOptions());
+      window.addEventListener(LOAD_SUBTITLE_FILES_EVENT, (event) => this.loadSubtitleFilesFromHost(event), this.eventOptions());
       for (const eventName of YOUTUBE_SUBTITLE_NAVIGATION_EVENTS) {
         window.addEventListener(eventName, () => this.handleYouTubeNavigation(), this.eventOptions());
       }
@@ -16757,9 +16830,31 @@ ${spelling}`);
       (document.body || document.documentElement).appendChild(input);
       input.click();
     }
+    loadSubtitleFilesFromHost(event) {
+      const request = subtitleFilesFromHostEvent(event);
+      if (!request.jobs.length) return;
+      void this.loadHostedSubtitleFileJobs(request);
+    }
+    async loadHostedSubtitleFileJobs(request) {
+      for (const job of request.jobs) {
+        await this.loadSubtitleFile(job.kind, job.file).catch((error) => {
+          log.warn("Hosted subtitle file load failed", { kind: job.kind, name: job.file.name, error });
+        });
+      }
+      if (request.openPanel === false) {
+        this.renderOpenSubtitlePanel();
+        return;
+      }
+      if (request.openPanel === "tracks") {
+        this.openTracksPanel();
+        return;
+      }
+      if (this.hasTranscriptSurface()) this.openLinesPanel({ deferRender: true });
+      else this.openTracksPanel();
+    }
     async loadSubtitleFile(kind, file) {
       if (!file) return;
-      const text = await file.text();
+      const text = await readHostedSubtitleFileText(file);
       const cues = normalizeSubtitleCues(parseSubtitleText(text), { transcriptEligible: kind === "primary" });
       const track = {
         id: `file-${kind}-${Date.now()}`,

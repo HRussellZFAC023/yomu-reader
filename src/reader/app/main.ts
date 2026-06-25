@@ -2216,7 +2216,7 @@ export class ReaderApp {
         // text showed partial results and you had to tap again. OCR overlay words are
         // already tokenized Japanese, so the full lookup (cached card or jiten) returns
         // the complete entry on the first tap; skip the fast-fallback for them.
-        const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event)
+        const fastInitialRender = (surfaces.insideSubtitlePlayer || this.shouldFastRenderReaderWordPointerLookup(event))
             && !word.closest('.jpdb-ocr-line');
         void this.showWord(word, surfaces.insideReaderPopup
             ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
@@ -2326,7 +2326,7 @@ export class ReaderApp {
     private shouldPauseForMountedLookup(state: PopoverMountState): boolean {
         if (state.mode === 'modal') return this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null);
         // Hover preview: pause only directly over a real subtitle/caption surface.
-        if (!this.settings.subtitleMiningPause) return false;
+        if (!this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause) return false;
         const anchor = state.resolvedAnchor ?? null;
         if (!anchor || anchor.closest('.jpdb-reader-popover')) return false;
         return Boolean(anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));

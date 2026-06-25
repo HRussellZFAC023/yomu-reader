@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.117
+// @version 1.4.118
 // @author Henry Russell
 // @description Japanese reader.
 // @license MIT
@@ -9,10 +9,10 @@
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.117
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.117
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.117
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.117
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.118
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.118
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.118
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.118
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -2522,7 +2522,9 @@ const SUBTITLE_BOOLEAN_SETTING_KEYS = [
   "subtitleKaraokeMode",
   "subtitlePausePanel",
   "subtitleAutoCopyLine",
-  "subtitleCopyIncludeTranslation"
+  "subtitleCopyIncludeTranslation",
+  "subtitleMiningPause",
+  "subtitleHoverPause"
 ];
 const ANKI_STUDY_BOOLEAN_SETTING_KEYS = [
   "ankiFrontReading",
@@ -2765,6 +2767,7 @@ const DEFAULT_SETTINGS = {
   subtitleFontFamily: DEFAULT_SUBTITLE_FONT_FAMILY,
   subtitleFontWeight: 760,
   subtitleMiningPause: true,
+  subtitleHoverPause: true,
   subtitleSeekPadding: 0.08,
   youtubeImmersionEnabled: true,
   youtubeShowFilterNotice: true,
@@ -7281,6 +7284,7 @@ const COPY = {
     subtitleTranscriptAutoScrollResumeSeconds: "Resume auto-scroll delay (s)",
     subtitleAutoCopyLine: "Auto-copy subtitle lines",
     subtitleMiningPause: "Pause video when mining subtitle",
+    subtitleHoverPause: "Pause video on subtitle hover",
     subtitleControlsMode: "Subtitle controls",
     right: "Right",
     left: "Left",
@@ -8869,6 +8873,7 @@ subtitleTranscriptAutoScroll	再生に合わせて文字起こしをスクロー
 subtitleTranscriptAutoScrollResumeSeconds	手動スクロール後の再開 (秒)
 subtitleAutoCopyLine	各字幕行を再生時に自動コピー
 subtitleMiningPause	字幕を採掘するとき動画を一時停止
+subtitleHoverPause	字幕ホバー時に動画を一時停止
 subtitleControlsMode	字幕コントロール
 moveSubtitles	字幕を移動
 right	右
@@ -39664,7 +39669,7 @@ class ReaderApp {
     this.suppressSelectionLookupUntil = Date.now() + 350;
     this.ocr.pinLineForElement(word);
     if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
-    const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event) && !word.closest(".jpdb-ocr-line");
+    const fastInitialRender = (surfaces.insideSubtitlePlayer || this.shouldFastRenderReaderWordPointerLookup(event)) && !word.closest(".jpdb-ocr-line");
     void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
   }
   handleOcrReaderWordPointerDown(event) {
@@ -39730,7 +39735,7 @@ class ReaderApp {
   }
   shouldPauseForMountedLookup(state) {
     if (state.mode === "modal") return this.shouldPauseForLookupAnchor(state.resolvedAnchor ?? null);
-    if (!this.settings.subtitleMiningPause) return false;
+    if (!this.settings.subtitleMiningPause || !this.settings.subtitleHoverPause) return false;
     const anchor = state.resolvedAnchor ?? null;
     if (!anchor || anchor.closest(".jpdb-reader-popover")) return false;
     return Boolean(anchor.closest(VIDEO_LOOKUP_ANCHOR_SELECTOR));
