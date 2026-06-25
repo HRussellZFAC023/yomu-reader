@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.105] - 2026-06-25
+
+### Fixed
+
+- Revisiting an already-scanned manga page (turn forward then back) no longer re-runs OCR: canvas-reader OCR results are now cached by a stable per-page content key (the page's rendered pixel hash / source image URL) instead of the re-encoded snapshot data-URL, so the page renders from cache instead of calling the OCR service again.
+- The first tap on OCR text now opens the full dictionary entry instead of a single-sense placeholder that only filled in after a second tap. On touch, Yomu was showing a fast fallback card for uncached words; OCR overlay text is already tokenized Japanese, so it now resolves the complete entry on the first tap.
+
 ## [1.4.104] - 2026-06-25
 
 ### Fixed

@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name よむ
 // @namespace https://github.com/HRussellZFAC023/yomu-reader
-// @version 1.4.104
+// @version 1.4.105
 // @description Japanese reader.
 // @license MIT
 // @icon https://yomureader.com/favicon-32x32.png
 // @homepage https://yomureader.com/
 // @match *://*/*
 // @match file:///*
-// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.104
-// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.104
-// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.104
-// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.104
+// @require https://yomureader.com/greasyfork/yomu-anki.user.js?v=1.4.105
+// @require https://yomureader.com/greasyfork/yomu-kanji-study.user.js?v=1.4.105
+// @require https://yomureader.com/greasyfork/yomu-settings-surface.user.js?v=1.4.105
+// @require https://yomureader.com/greasyfork/yomu-video.user.js?v=1.4.105
 // @resource yomuCss  https://yomureader.com/yomu.css
 // @connect *
 // @grant GM.deleteValue
@@ -39188,7 +39188,7 @@ class ReaderApp {
     this.suppressSelectionLookupUntil = Date.now() + 350;
     this.ocr.pinLineForElement(word);
     if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
-    const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event);
+    const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event) && !word.closest(".jpdb-ocr-line");
     void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
   }
   handleOcrReaderWordPointerDown(event) {
@@ -39202,7 +39202,8 @@ class ReaderApp {
     this.suppressSelectionLookupUntil = now + 350;
     this.suppressWordClickUntil = now + 700;
     this.ocr.pinLineForElement(word);
-    void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender: true } : { trigger: "click", userGesture: true, fastInitialRender: true });
+    const fastInitialRender = !word.closest(".jpdb-ocr-line");
+    void this.showWord(word, surfaces.insideReaderPopup ? { trigger: "click", userGesture: true, navigation: "push-current", fastInitialRender } : { trigger: "click", userGesture: true, fastInitialRender });
     return true;
   }
   ocrPointerDownReaderWord(event) {

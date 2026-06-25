@@ -34328,6 +34328,7 @@ ${spelling}`);
         if (!isNearViewport(canvas, readerRasterCaptureMargin(settings, userRequested)) || isHiddenByCss(canvas)) return;
         let frameSrc;
         let frameRect = rect;
+        let contentKey;
         if (isCanvasReadable(canvas)) {
           const contentSignature = canvasRenderedContentSignature(canvas);
           if (!contentSignature) {
@@ -34336,11 +34337,14 @@ ${spelling}`);
           }
           if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
           frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+          contentKey = `cv:${contentSignature}:${canvas.width}x${canvas.height}`;
         } else if (isBookwalkerViewerHost()) {
           const captureMirror = this.options.captureCanvasMirror ?? captureCanvasMirror;
           const mirror = await captureMirror(canvas, loadCleanMirrorImage);
           if (mirror) {
             frameSrc = captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
+            const mirrorSignature = canvasRenderedContentSignature(mirror);
+            if (mirrorSignature) contentKey = `cv:${mirrorSignature}:${mirror.width}x${mirror.height}`;
           } else {
             const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
             const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
@@ -34349,6 +34353,7 @@ ${spelling}`);
           }
         } else if (canUseReaderCanvasSourceImageFallback()) {
           frameSrc = readerCanvasSourceImageUrl();
+          if (frameSrc) contentKey = `src:${frameSrc}`;
         }
         if (!frameSrc) {
           this.scheduleCanvasCaptureRetry(canvas);
@@ -34358,6 +34363,7 @@ ${spelling}`);
         const frame = document.createElement("img");
         frame.className = "jpdb-ocr-canvas-frame";
         frame.dataset.yomuCanvasFrame = "true";
+        if (contentKey) frame.dataset.ocrContentKey = contentKey;
         frame.alt = "";
         positionCanvasFrameImage(frame, rect);
         frame.addEventListener("load", () => {
@@ -35860,6 +35866,8 @@ ${spelling}`);
     }
   }
   function imageCacheKey(image) {
+    const contentKey = image.dataset?.ocrContentKey;
+    if (contentKey) return contentKey;
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
   }
   function readerRasterSurfaceSnapshotKey(surface) {

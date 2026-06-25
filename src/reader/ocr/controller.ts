@@ -1433,11 +1433,19 @@ export class ImageOcrController {
             // those must wait for a readable rendered buffer/screenshot instead.
             let frameSrc: string | undefined;
             let frameRect = rect;
+            // Stable per-page OCR cache key. The captured data-URL changes every
+            // capture (re-encoded JPEG, re-rebuilt mirror), so keying the OCR cache on
+            // it re-OCRs a page each time it is revisited (turn forward then back).
+            // A content key — the page's rendered pixel hash, or its source image URL —
+            // is the same whenever the same page is shown, so the revisit hits the
+            // cache instead of calling Lens again.
+            let contentKey: string | undefined;
             if (isCanvasReadable(canvas)) {
                 const contentSignature = canvasRenderedContentSignature(canvas);
                 if (!contentSignature) { this.scheduleCanvasCaptureRetry(canvas); return; }
                 if (!this.canvasContentIsReadyToSnapshot(canvas, contentSignature, userRequested)) return;
                 frameSrc = captureCanvasDataUrl(canvas, settings.ocrMaxImagePixels);
+                contentKey = `cv:${contentSignature}:${canvas.width}x${canvas.height}`;
             } else if (isBookwalkerViewerHost()) {
                 // Firefox/iPad taint the DRM page canvas. Rebuild it from the engine's
                 // own descramble drawImage ops replayed against GM-fetched origin-clean
@@ -1448,6 +1456,10 @@ export class ImageOcrController {
                 const mirror = await captureMirror(canvas, loadCleanMirrorImage);
                 if (mirror) {
                     frameSrc = captureCanvasDataUrl(mirror, settings.ocrMaxImagePixels);
+                    // The rebuilt mirror canvas is origin-clean, so its pixel hash is a
+                    // stable per-page key (the same page rebuilds to the same image).
+                    const mirrorSignature = canvasRenderedContentSignature(mirror);
+                    if (mirrorSignature) contentKey = `cv:${mirrorSignature}:${mirror.width}x${mirror.height}`;
                 } else {
                     const captureReaderSurface = this.options.captureReaderSurface ?? captureReaderSurfaceViaExtensionScreenshot;
                     const screenshot = await captureReaderSurface(canvas, settings.ocrMaxImagePixels);
@@ -1456,12 +1468,15 @@ export class ImageOcrController {
                 }
             } else if (canUseReaderCanvasSourceImageFallback()) {
                 frameSrc = readerCanvasSourceImageUrl();
+                if (frameSrc) contentKey = `src:${frameSrc}`; // page image URL is stable per page
             }
             if (!frameSrc) { this.scheduleCanvasCaptureRetry(canvas); return; }
             if (this.destroyed || !canvas.isConnected || this.canvasFrames.has(canvas)) return;
             const frame = document.createElement('img');
             frame.className = 'jpdb-ocr-canvas-frame';
             frame.dataset.yomuCanvasFrame = 'true';
+            // Set before the load → enqueue so the OCR cache keys by stable content.
+            if (contentKey) frame.dataset.ocrContentKey = contentKey;
             frame.alt = '';
             positionCanvasFrameImage(frame, rect);
             frame.addEventListener('load', () => {
@@ -3346,6 +3361,11 @@ function videoObjectFit(value: string): string {
 }
 
 function imageCacheKey(image: HTMLImageElement): string {
+    // Canvas/background reader frames carry a stable per-page content key so the OCR
+    // cache hits when a page is revisited, instead of re-OCRing the re-encoded
+    // data-URL. Ordinary images key on their source URL + intrinsic size as before.
+    const contentKey = image.dataset?.ocrContentKey;
+    if (contentKey) return contentKey;
     return `${image.currentSrc || image.src}|${image.naturalWidth}x${image.naturalHeight}`;
 }
 

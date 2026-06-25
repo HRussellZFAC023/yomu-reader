@@ -2114,7 +2114,13 @@ export class ReaderApp {
         this.suppressSelectionLookupUntil = Date.now() + 350;
         this.ocr.pinLineForElement(word);
         if (this.shouldPauseForLookupAnchor(word)) this.pauseVideoForSubtitleMining();
-        const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event);
+        // The touch fast-fallback shows a single-sense placeholder card first and only
+        // fills in the full entry after a background reparse — so the FIRST tap on OCR
+        // text showed partial results and you had to tap again. OCR overlay words are
+        // already tokenized Japanese, so the full lookup (cached card or jiten) returns
+        // the complete entry on the first tap; skip the fast-fallback for them.
+        const fastInitialRender = this.shouldFastRenderReaderWordPointerLookup(event)
+            && !word.closest('.jpdb-ocr-line');
         void this.showWord(word, surfaces.insideReaderPopup
             ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
             : { trigger: 'click', userGesture: true, fastInitialRender });
@@ -2131,9 +2137,11 @@ export class ReaderApp {
         this.suppressSelectionLookupUntil = now + 350;
         this.suppressWordClickUntil = now + 700;
         this.ocr.pinLineForElement(word);
+        // Full entry on the first tap for OCR overlay text (see openReaderWordFromPointer).
+        const fastInitialRender = !word.closest('.jpdb-ocr-line');
         void this.showWord(word, surfaces.insideReaderPopup
-            ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender: true }
-            : { trigger: 'click', userGesture: true, fastInitialRender: true });
+            ? { trigger: 'click', userGesture: true, navigation: 'push-current', fastInitialRender }
+            : { trigger: 'click', userGesture: true, fastInitialRender });
         return true;
     }
 

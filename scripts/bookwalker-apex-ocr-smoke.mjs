@@ -26,13 +26,18 @@ const IMG_URL = 'https://c.bookwalker.jp/scrambled/page-001.png';
 const CRC_TABLE = (() => { const t = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c; } return t; })();
 const crc32 = buf => { let c = ~0; for (let i = 0; i < buf.length; i++) c = CRC_TABLE[(c ^ buf[i]) & 0xff] ^ (c >>> 8); return ~c >>> 0; };
 const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); const cc = Buffer.alloc(4); cc.writeUInt32BE(crc32(td)); return Buffer.concat([len, td, cc]); };
-function makePng(w = 200, h = 280) {
+function makePng(w = 200, h = 280, invert = false) {
     const raw = Buffer.alloc((w * 4 + 1) * h); let o = 0;
-    for (let y = 0; y < h; y++) { raw[o++] = 0; for (let x = 0; x < w; x++) { const v = ((x % 40 < 22) && (y % 50 < 30)) ? 0 : ((x + y) % 3 === 0 ? 96 : 255); raw[o++] = v; raw[o++] = v; raw[o++] = v; raw[o++] = 255; } }
+    for (let y = 0; y < h; y++) { raw[o++] = 0; for (let x = 0; x < w; x++) { let v = ((x % 40 < 22) && (y % 50 < 30)) ? 0 : ((x + y) % 3 === 0 ? 96 : 255); if (invert) v = 255 - v; raw[o++] = v; raw[o++] = v; raw[o++] = v; raw[o++] = 255; } }
     const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 6;
     return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', zlib.deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
 }
-const PAGE_PNG = makePng();
+// Two visually-distinct page images so a turn to page 2 is a genuine content change
+// (re-OCR), and turning BACK to page 1 is the same content (cache hit — guards the
+// content-keyed OCR cache that stops re-OCRing a revisited page).
+const PAGE_PNG = makePng(200, 280, false);
+const PAGE_PNG_2 = makePng(200, 280, true);
+const IMG_URL_2 = 'https://c.bookwalker.jp/scrambled/page-002.png';
 
 function fixtureHtml({ double }) {
     const cv = id => `<div class="wideScreen" id="wideScreen_${id}"><canvas class="default" id="${id}" width="800" height="1130"></canvas></div>`;
@@ -48,8 +53,8 @@ function fixtureHtml({ double }) {
 // off-screen buffer, then composite buffer→screen (a canvas→canvas drawImage).
 // The full clear + the composite are exactly what the mirror recorder watches to
 // detect a page turn, so re-running __draw simulates a real turn.
-window.__draw = async () => {
-  const img = new Image(); img.src = ${JSON.stringify(IMG_URL)};
+window.__draw = async (pageNum) => {
+  const img = new Image(); img.src = (pageNum === 2) ? ${JSON.stringify(IMG_URL_2)} : ${JSON.stringify(IMG_URL)};
   try { await img.decode(); } catch (e) { return 'decode-failed'; }
   for (const c of document.querySelectorAll('canvas.default')) {
     const x = c.getContext('2d');
@@ -81,6 +86,7 @@ async function runCase({ engineName, host, double, deviceName }) {
     await page.exposeFunction(BRIDGE, async request => {
         const url = request.url || '';
         if (url === IMG_URL) return { status: 200, bytes: [...PAGE_PNG], contentType: 'image/png', responseText: '' };
+        if (url === IMG_URL_2) return { status: 200, bytes: [...PAGE_PNG_2], contentType: 'image/png', responseText: '' };
         if (/127\.0\.0\.1:7331|\/ocr(\?|$)/.test(url)) { ocrHits++; return { status: 200, responseText: JSON.stringify(MOCK_OCR) }; }
         return { status: 503, responseText: '' };
     });
@@ -90,6 +96,7 @@ async function runCase({ engineName, host, double, deviceName }) {
         if (reqUrl.startsWith('blob:') || reqUrl.startsWith('data:')) return route.continue();
         const u = new URL(reqUrl);
         if (u.href === IMG_URL) return route.fulfill({ status: 200, contentType: 'image/png', body: PAGE_PNG });
+        if (u.href === IMG_URL_2) return route.fulfill({ status: 200, contentType: 'image/png', body: PAGE_PNG_2 });
         if (u.hostname === host) return route.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: fixtureHtml({ double }) });
         return route.fulfill({ status: 404, body: '' });
     });
@@ -117,21 +124,33 @@ async function runCase({ engineName, host, double, deviceName }) {
     const ms = await waitFor(async () => (await lineCount()) >= 1);
     const firstOk = ms >= 0;
 
-    // 2) Turn the page (NFBR repaints the in-place canvas + bumps the page counter)
-    //    and re-trigger: the overlay must re-OCR the NEW page, not stay stale. This
-    //    is the "stuck after a page turn, must refresh" report.
+    // 2) Turn to a DIFFERENT page (NFBR repaints the in-place canvas + bumps the
+    //    counter) and re-trigger: the overlay must re-OCR the NEW page, not stay
+    //    stale ("stuck after a page turn, must refresh").
     const hitsBeforeTurn = ocrHits;
     await page.evaluate(() => { const c = document.querySelector('#pageSliderCounter'); if (c) c.textContent = '2 / 10'; });
-    await page.evaluate(() => window.__draw());
+    await page.evaluate(() => window.__draw(2));
     await page.waitForTimeout(300);
     await trigger();
     const turnMs = await waitFor(async () => ocrHits > hitsBeforeTurn && (await lineCount()) >= 1);
     const turnOk = turnMs >= 0;
 
-    const ok = firstOk && turnOk;
-    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — first ${firstOk ? ms + 'ms' : 'NO OVERLAY'}, page-turn ${turnOk ? 're-OCR ' + turnMs + 'ms' : 'NOT re-OCR\'d'}`);
+    // 3) Turn BACK to page 1 (same content as the first scan): the content-keyed OCR
+    //    cache must serve it WITHOUT calling OCR again (no re-OCR on revisit).
+    await page.waitForTimeout(200);
+    const hitsBeforeBack = ocrHits;
+    await page.evaluate(() => { const c = document.querySelector('#pageSliderCounter'); if (c) c.textContent = '1 / 10'; });
+    await page.evaluate(() => window.__draw(1));
+    await page.waitForTimeout(300);
+    await trigger();
+    const backOverlay = await waitFor(async () => (await lineCount()) >= 1);
+    await page.waitForTimeout(600); // give any (unwanted) re-OCR time to fire
+    const cacheOk = backOverlay >= 0 && ocrHits === hitsBeforeBack; // overlay shown, but no new OCR call
+
+    const ok = firstOk && turnOk && cacheOk;
+    console.log(`${ok ? 'PASS' : 'FAIL'}: ${label} — first ${firstOk ? ms + 'ms' : 'NO OVERLAY'}, page-turn ${turnOk ? 're-OCR ' + turnMs + 'ms' : 'NOT re-OCR\'d'}, back-cache ${cacheOk ? 'hit (no re-OCR)' : `MISS (${ocrHits - hitsBeforeBack} re-OCR)`}`);
     if (!ok) failures.push(label);
-    rows.push({ label, ok, ms, turnOk });
+    rows.push({ label, ok, ms, turnOk, cacheOk });
     await context.close();
     await browser.close();
 }

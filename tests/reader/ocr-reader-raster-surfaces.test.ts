@@ -594,4 +594,30 @@ describe('reader raster OCR surfaces', () => {
             controller.destroy();
         }
     });
+
+    // C: the canvas frame carries a stable per-page content key (its rendered pixel
+    // hash), so the OCR cache hits when a page is revisited (turn forward then back)
+    // instead of re-OCRing the re-encoded data-URL each time.
+    it('tags a BookWalker canvas frame with a stable content cache key', async () => {
+        stubLocation('viewer.bookwalker.jp');
+        stubReadableCanvas();
+        const controller = createController();
+        try {
+            document.body.append(pageCanvas(20, 20));
+            let firstKey: string | undefined;
+            await waitForExpect(() => {
+                const frame = document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame');
+                expect(frame).not.toBeNull();
+                firstKey = frame!.dataset.ocrContentKey;
+                expect(firstKey).toMatch(/^cv:/); // content-hash key, not the volatile data-URL
+            });
+            // Re-capturing the SAME page content yields the SAME key (so it hits cache).
+            controller.refresh({ userRequested: true });
+            await waitForExpect(() => {
+                expect(document.querySelector<HTMLImageElement>('.jpdb-ocr-canvas-frame')?.dataset.ocrContentKey).toBe(firstKey);
+            });
+        } finally {
+            controller.destroy();
+        }
+    });
 });
