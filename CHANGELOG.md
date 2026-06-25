@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.112] - 2026-06-25
+
+### Changed
+
+- The userscript now publishes an `@author` (Henry Russell) in its metadata, so userscript managers display the author instead of "not set".
+
 ## [1.4.111] - 2026-06-25
 
 ### Added
