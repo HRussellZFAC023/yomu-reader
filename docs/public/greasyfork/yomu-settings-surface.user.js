@@ -53,6 +53,7 @@
   const APP_REPOSITORY_NAME = `${APP_SLUG}-reader`;
   const SETTINGS_TITLE = `${APP_NAME} Settings`;
   const GITHUB_OWNER = "HRussellZFAC023";
+  const GITHUB_PAGES_ORIGIN = `https://${GITHUB_OWNER.toLowerCase()}.github.io`;
   const DOCS_ORIGIN = "https://yomureader.com";
   const DOCS_BASE_URL = `${DOCS_ORIGIN}/`;
   const GITHUB_REPOSITORY_URL = `https://github.com/${GITHUB_OWNER}/${APP_REPOSITORY_NAME}`;
@@ -934,7 +935,7 @@
   function gmStorageSyncRead(key, getValue) {
     try {
       const value = getValue(key, MISSING);
-      if (isPromiseLike$1(value)) return { kind: "fallback" };
+      if (isPromiseLike(value)) return { kind: "fallback" };
       if (value !== MISSING) return { kind: "found", value };
       return migratedLocalStorageSyncValue(key);
     } catch (error) {
@@ -961,7 +962,7 @@
     if (typeof GM_setValue === "function") {
       try {
         const result = GM_setValue(key, value);
-        if (!isPromiseLike$1(result)) {
+        if (!isPromiseLike(result)) {
           mirrorManagedValueToHostedStorage(key, value);
           return;
         }
@@ -987,7 +988,7 @@
     if (typeof GM_deleteValue === "function") {
       try {
         const result = GM_deleteValue(key);
-        if (isPromiseLike$1(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
+        if (isPromiseLike(result)) result.catch((error) => debugStorageError("GM storage async delete failed", key, error));
       } catch (error) {
         debugStorageError("GM storage sync delete failed", key, error);
       }
@@ -1118,7 +1119,7 @@
       return false;
     }
   }
-  function isPromiseLike$1(value) {
+  function isPromiseLike(value) {
     return Boolean(value) && typeof value.then === "function";
   }
   function asyncGmGetValue() {
@@ -2955,6 +2956,427 @@
   ];
   function findRecommendedDictionary(id) {
     return RECOMMENDED_JAPANESE_DICTIONARIES.find((dictionary) => dictionary.id === id);
+  }
+  const SENSITIVE_REQUEST_KEY_RE = /(?:api[-_]?key|authorization|bearer|token|password|secret|credential|oauth|cookie|csrf)/i;
+  const READ_METHODS = /* @__PURE__ */ new Set(["GET", "HEAD"]);
+  const PRIVATE_IPV4_HOSTNAME_PATTERNS = [
+    /^(?:0|10|127)\./,
+    /^169\.254\./,
+    /^192\.168\./,
+    /^172\.(?:1[6-9]|2\d|3[0-1])\./
+  ];
+  const PRIVATE_IPV6_HOSTNAME_PREFIXES = ["fc", "fd", "fe80:"];
+  const IMMERSION_KIT_API_HOSTS = /* @__PURE__ */ new Set([
+    "apiv2express.immersionkit.com",
+    "apiv2.immersionkit.com"
+  ]);
+  const KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS = /* @__PURE__ */ new Set([
+    "d1pra95f92lrn3.cloudfront.net",
+    "d1vjc5dkcd3yh2.cloudfront.net"
+  ]);
+  function configuredProxyFetchUrl(targetUrl, configuredProxyUrl) {
+    const proxyUrl = configuredProxyUrl.trim();
+    if (!proxyUrl) return null;
+    try {
+      const url = new URL(proxyUrl);
+      url.searchParams.set("url", targetUrl);
+      return url.href;
+    } catch {
+      return null;
+    }
+  }
+  function isProxySafeRequest(targetUrl, options) {
+    return !hasSensitiveRequestHeaders(options.headers) && !hasCredentialedRequest(options.credentials) && !isPrivateJpdbTarget(targetUrl, options) && !isPrivateNetworkTarget(targetUrl) && !hasSensitiveUrlParams(targetUrl);
+  }
+  function shouldPreferProxyFirst(targetUrl, hasDirectCandidate, proxySafe) {
+    return hasDirectCandidate && proxySafe && !isKnownDirectCorsTarget(targetUrl) && isHostedGithubPagesApp() && isCrossOriginHttpUrl(targetUrl);
+  }
+  function isKnownCorsBlockedPublicAudioCdnUrl(target) {
+    try {
+      const url = typeof target === "string" ? typeof location === "undefined" ? new URL(target) : new URL(target, location.href) : target;
+      return KNOWN_CORS_BLOCKED_PUBLIC_AUDIO_CDN_HOSTS.has(url.hostname) && url.pathname.startsWith("/audio/");
+    } catch {
+      return false;
+    }
+  }
+  function shouldSkipDirectCrossOriginFetch(targetUrl, options) {
+    const target = fetchTarget(targetUrl);
+    const method = requestMethod(options);
+    return Boolean(target && isCrossOriginHttpTarget(target) && (isKnownCorsBlockedConfiguredProxyTarget(target, method) || isJpdbPublicLookupTarget(target, method) || isLocalHostedBrowserCorsTarget(target, method)));
+  }
+  function builtInProxyUrls(_targetUrl, _options) {
+    return [];
+  }
+  function isJpdbPublicAudioUrl(targetUrl) {
+    try {
+      const target = new URL(targetUrl, location.href);
+      return target.hostname === "jpdb.io" && target.pathname.startsWith("/static/v/") || isKnownCorsBlockedPublicAudioCdnUrl(target);
+    } catch {
+      return false;
+    }
+  }
+  function isYomuPublicProxyUrl(_candidateUrl) {
+    return false;
+  }
+  function isKnownDirectCorsTarget(targetUrl) {
+    try {
+      const target = new URL(targetUrl, location.href);
+      return IMMERSION_KIT_API_HOSTS.has(target.hostname) || target.hostname === "api.nadeshiko.co";
+    } catch {
+      return false;
+    }
+  }
+  function isKnownCorsBlockedConfiguredProxyTarget(target, method) {
+    return method === "GET" && (isJpdbPublicAudioUrl(target.href) || target.hostname === "jisho.org" && target.pathname.startsWith("/search/") || target.hostname === "assets.languagepod101.com" && target.pathname === "/dictionary/japanese/audiomp3.php" || target.hostname === "cdn.innovativelanguage.com" && target.pathname.includes("/learningcenter/audio/") || target.hostname === "api.jiten.moe" && (target.pathname.startsWith("/api/tts/word/") || target.pathname.startsWith("/api/tts/sentence/") || target.pathname === "/api/vocabulary/search" || target.pathname === "/api/vocabulary/parse" || /^\/api\/vocabulary\/\d+\/\d+\/info$/u.test(target.pathname)));
+  }
+  function isJpdbPublicLookupTarget(target, method) {
+    return method === "GET" && target.hostname === "jpdb.io" && (target.pathname === "/search" || target.pathname.startsWith("/vocabulary/"));
+  }
+  function isLocalHostedBrowserCorsTarget(target, method) {
+    return method === "GET" && isLocalHostedApp() && IMMERSION_KIT_API_HOSTS.has(target.hostname) && target.pathname === "/search";
+  }
+  function isHostedGithubPagesApp() {
+    if (typeof location === "undefined") return false;
+    try {
+      const current = new URL(location.href);
+      const path = current.pathname.replace(/\/index\.html$/, "/");
+      return current.origin === DOCS_ORIGIN || current.origin === GITHUB_PAGES_ORIGIN && path.startsWith(`/${APP_REPOSITORY_NAME}/`);
+    } catch {
+      return false;
+    }
+  }
+  function isLocalHostedApp() {
+    if (typeof location === "undefined") return false;
+    return ["127.0.0.1", "localhost", "::1"].includes(location.hostname);
+  }
+  function isCrossOriginHttpUrl(targetUrl) {
+    const target = fetchTarget(targetUrl);
+    return Boolean(target && isCrossOriginHttpTarget(target));
+  }
+  function isCrossOriginHttpTarget(target) {
+    return typeof location !== "undefined" && /^https?:$/i.test(target.protocol) && target.origin !== location.origin;
+  }
+  function fetchTarget(targetUrl) {
+    try {
+      return typeof location === "undefined" ? new URL(targetUrl) : new URL(targetUrl, location.href);
+    } catch {
+      return null;
+    }
+  }
+  function requestMethod(options) {
+    return String(options.method ?? "GET").toUpperCase();
+  }
+  function hasSensitiveRequestHeaders(headers) {
+    if (!headers) return false;
+    if (headers instanceof Headers) {
+      return Array.from(headers.keys()).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+    }
+    if (Array.isArray(headers)) return headers.some(([header]) => SENSITIVE_REQUEST_KEY_RE.test(header));
+    return Object.keys(headers).some((header) => SENSITIVE_REQUEST_KEY_RE.test(header));
+  }
+  function hasCredentialedRequest(credentials) {
+    return credentials === "include";
+  }
+  function isPrivateJpdbTarget(targetUrl, options) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      if (url.hostname !== "jpdb.io") return false;
+      if (!isReadMethod(options.method)) return true;
+      return url.pathname.startsWith("/api/") || /^\/(?:prioritize|review|settings|login)(?:\/|$)/.test(url.pathname);
+    } catch {
+      return false;
+    }
+  }
+  function isPrivateNetworkTarget(targetUrl) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      return isPrivateHostname(url.hostname);
+    } catch {
+      return false;
+    }
+  }
+  function isPrivateHostname(hostname) {
+    const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    return isLocalhostHostname(host) || isPrivateIpv4Hostname(host) || isPrivateIpv6Hostname(host);
+  }
+  function isLocalhostHostname(host) {
+    return host === "localhost" || host.endsWith(".localhost");
+  }
+  function isPrivateIpv4Hostname(host) {
+    return PRIVATE_IPV4_HOSTNAME_PATTERNS.some((pattern) => pattern.test(host));
+  }
+  function isPrivateIpv6Hostname(host) {
+    if (!host.includes(":")) return false;
+    return host === "::1" || PRIVATE_IPV6_HOSTNAME_PREFIXES.some((prefix) => host.startsWith(prefix));
+  }
+  function hasSensitiveUrlParams(targetUrl) {
+    try {
+      const url = new URL(targetUrl, location.href);
+      return Array.from(url.searchParams.keys()).some((key) => SENSITIVE_REQUEST_KEY_RE.test(key));
+    } catch {
+      return false;
+    }
+  }
+  function isReadMethod(method) {
+    return READ_METHODS.has(String(method ?? "GET").toUpperCase());
+  }
+  async function fetchWithCorsFallbacks(targetUrl, configuredProxyUrl = "", options = {}) {
+    const candidates = fetchUrlCandidates(targetUrl, configuredProxyUrl, options);
+    if (!candidates.length) throw new Error("Cross-origin request needs a configured proxy or userscript HTTP bridge.");
+    let lastError;
+    for (const [index, candidate] of candidates.entries()) {
+      try {
+        const attempt = fetchAttemptForCandidate(targetUrl, candidate, options);
+        const response = await fetchWithTimeout(attempt.url, attempt.options);
+        if (shouldTryNextFetchCandidate(response, candidate, index, candidates)) {
+          lastError = new Error(`Proxy request failed (${response.status}).`);
+          continue;
+        }
+        return response;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error("Cross-origin request failed.");
+  }
+  function fetchAttemptForCandidate(targetUrl, candidate, options) {
+    if (candidate.kind === "direct" || !isJpdbPublicAudioUrl(targetUrl) || !isYomuPublicProxyUrl(candidate.url)) {
+      return { url: candidate.url, options };
+    }
+  }
+  function fetchUrlCandidates(targetUrl, configuredProxyUrl, options) {
+    const proxySafe = isProxySafeRequest(targetUrl, options);
+    const configuredProxySafe = proxySafe || options.allowSensitiveConfiguredProxy === true;
+    const configured = configuredProxySafe && options.allowConfiguredProxy !== false ? configuredProxyFetchUrl(targetUrl, configuredProxyUrl) : null;
+    const publicProxySafe = proxySafe && options.allowPublicProxies !== false;
+    const publicProxies = publicProxySafe ? builtInProxyUrls() : [];
+    const direct = directFetchUrl(targetUrl, options, Boolean(configured));
+    const directCandidate = direct ? { url: direct, kind: "direct" } : null;
+    const proxyCandidates = [
+      configured ? { url: configured, kind: "configured-proxy" } : null,
+      ...publicProxies.map((url) => ({ url, kind: "public-proxy" }))
+    ].filter((candidate) => Boolean(candidate));
+    const orderedCandidates = shouldPreferProxyFirst(targetUrl, Boolean(directCandidate), proxySafe) ? [...proxyCandidates, directCandidate] : [directCandidate, ...proxyCandidates];
+    return uniqueFetchCandidates([
+      ...orderedCandidates
+    ]);
+  }
+  function directFetchUrl(targetUrl, options, hasConfiguredProxy) {
+    if (!options.allowDirectCrossOrigin) return browserReadableUrl(targetUrl);
+    if (hasConfiguredProxy && shouldSkipDirectCrossOriginFetch(targetUrl, options)) return browserReadableUrl(targetUrl);
+    return targetUrl;
+  }
+  function uniqueFetchCandidates(candidates) {
+    const seen = /* @__PURE__ */ new Set();
+    return candidates.filter((candidate) => {
+      if (!candidate || seen.has(candidate.url)) return false;
+      seen.add(candidate.url);
+      return true;
+    });
+  }
+  function shouldTryNextFetchCandidate(response, _candidate, index, candidates) {
+    return !response.ok && response.status !== 429 && index < candidates.length - 1;
+  }
+  function browserReadableUrl(url) {
+    if (!isHttpUrl(url)) return url;
+    try {
+      const target = new URL(url, location.href);
+      return target.origin === location.origin ? target.href : null;
+    } catch {
+      return null;
+    }
+  }
+  function isHttpUrl(url) {
+    return /^https?:\/\//i.test(url);
+  }
+  function fetchWithTimeout(url, options) {
+    const {
+      timeoutMs,
+      allowPublicProxies: _allowPublicProxies,
+      allowConfiguredProxy: _allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: _allowSensitiveConfiguredProxy,
+      allowDirectCrossOrigin: _allowDirectCrossOrigin,
+      signal,
+      ...init
+    } = options;
+    if (!timeoutMs) return fetch(url, { ...init, signal });
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+    const abort = () => controller.abort();
+    signal?.addEventListener("abort", abort, { once: true });
+    return fetch(url, { ...init, signal: controller.signal }).finally(() => {
+      window.clearTimeout(timeout);
+      signal?.removeEventListener("abort", abort);
+    });
+  }
+  async function requestHttp(url, options = {}) {
+    const userscriptRequest = getUserscriptHttpRequest();
+    if (options.preferFetch && (!userscriptRequest || isSameOriginUrl(url) || prefersProxyFetchOverUserscriptBridge())) {
+      try {
+        return await requestViaFetch(url, options);
+      } catch (error) {
+        if (!userscriptRequest) throw error;
+        return await requestViaUserscript(url, options, userscriptRequest);
+      }
+    }
+    if (userscriptRequest) {
+      try {
+        return await requestViaUserscript(url, options, userscriptRequest);
+      } catch (error) {
+        if (!shouldRetryWithFetch(error)) throw error;
+      }
+    }
+    return requestViaFetch(url, options);
+  }
+  function requestViaUserscript(url, options, userscriptRequest) {
+    return new Promise((resolve, reject) => {
+      const signal = options.signal;
+      if (signal?.aborted) {
+        reject(abortError());
+        return;
+      }
+      let handle;
+      const tryAbort = () => {
+        try {
+          handle?.abort?.();
+        } catch {
+        }
+      };
+      const handleLoad = (response) => {
+        if (response.status < 200 || response.status >= 300) {
+          reject(new Error(formatStatusFailure(options, response.status)));
+          return;
+        }
+        try {
+          resolve(normalizeUserscriptResponse(response, options.responseType ?? "text"));
+        } catch (error) {
+          reject(error);
+        }
+      };
+      const onAbort = () => {
+        tryAbort();
+        reject(abortError());
+      };
+      if (signal) signal.addEventListener("abort", onAbort, { once: true });
+      const result = userscriptRequest({
+        method: options.method ?? "GET",
+        url,
+        headers: recordHeaders(options.headers),
+        data: options.data,
+        responseType: options.responseType,
+        timeout: options.timeoutMs,
+        anonymous: options.anonymous,
+        withCredentials: options.withCredentials,
+        cookie: options.cookie,
+        onload: handleLoad,
+        onerror: (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))),
+        ontimeout: () => {
+          tryAbort();
+          reject(new Error(options.timeoutLabel ?? `${options.failureLabel ?? "Request"} timed out.`));
+        }
+      });
+      if (result && typeof result.then === "function") {
+        result.then(handleLoad, (error) => reject(error instanceof Error ? error : new Error(formatFailure(options))));
+      } else if (result && typeof result.abort === "function") {
+        handle = result;
+      }
+    });
+  }
+  function abortError() {
+    if (typeof DOMException === "function") return new DOMException("Aborted", "AbortError");
+    const error = new Error("Aborted");
+    error.name = "AbortError";
+    return error;
+  }
+  function normalizeUserscriptResponse(response, responseType) {
+    return USERSCRIPT_RESPONSE_NORMALIZERS[responseType]?.(response) ?? userscriptTextResponse(response);
+  }
+  const USERSCRIPT_RESPONSE_NORMALIZERS = {
+    blob: (response) => response.response,
+    arraybuffer: (response) => response.response,
+    json: userscriptJsonResponse,
+    text: userscriptTextResponse
+  };
+  function userscriptJsonResponse(response) {
+    return response.response !== void 0 && typeof response.response !== "string" ? response.response : JSON.parse(String(response.responseText ?? response.response ?? "null"));
+  }
+  function userscriptTextResponse(response) {
+    return String(response.responseText ?? response.response ?? "");
+  }
+  const YOMU_HOSTED_FALLBACK_PROXY_URL = "https://yomu-jpdb-public-proxy.henry-robert-christopher-russell.workers.dev/";
+  function hostedFallbackProxyUrl(url) {
+    if (getUserscriptHttpRequest()) return "";
+    if (!isOfficialHostedReaderOrigin()) return "";
+    if (isSameOriginUrl(url) || !/^https?:\/\//i.test(url)) return "";
+    return YOMU_HOSTED_FALLBACK_PROXY_URL;
+  }
+  function isOfficialHostedReaderOrigin() {
+    if (typeof location === "undefined") return false;
+    return location.hostname === "yomureader.com" || location.hostname === "www.yomureader.com";
+  }
+  async function requestViaFetch(url, options) {
+    const response = await fetchWithCorsFallbacks(url, (options.proxyUrl ?? "").trim() || hostedFallbackProxyUrl(url), {
+      method: options.method ?? "GET",
+      headers: options.headers,
+      body: options.data,
+      credentials: options.credentials ?? "omit",
+      redirect: options.redirect ?? "follow",
+      referrerPolicy: options.referrerPolicy ?? "no-referrer",
+      timeoutMs: options.timeoutMs,
+      allowConfiguredProxy: options.allowConfiguredProxy,
+      allowSensitiveConfiguredProxy: options.allowSensitiveConfiguredProxy,
+      allowPublicProxies: options.allowPublicProxies,
+      allowDirectCrossOrigin: options.allowDirectCrossOrigin,
+      signal: options.signal
+    });
+    if (!response.ok) throw new Error(formatStatusFailure(options, response.status));
+    return readFetchResponseBody(response, options.responseType);
+  }
+  function readFetchResponseBody(response, responseType) {
+    return FETCH_RESPONSE_READERS[responseType ?? "text"]?.(response) ?? response.text();
+  }
+  const FETCH_RESPONSE_READERS = {
+    blob: (response) => response.blob(),
+    arraybuffer: (response) => response.arrayBuffer(),
+    json: (response) => response.json(),
+    text: (response) => response.text()
+  };
+  function formatFailure(options) {
+    return options.failureMessage ?? `${options.failureLabel ?? "Request"} failed.`;
+  }
+  function formatStatusFailure(options, status) {
+    return options.statusFailureMessage?.(status) ?? `${options.failureLabel ?? "Request"} failed (${status}).`;
+  }
+  function prefersProxyFetchOverUserscriptBridge() {
+    return typeof window !== "undefined" && window.__YOMU_READER_RUNTIME__ === "newtab";
+  }
+  function isSameOriginUrl(url) {
+    if (typeof location === "undefined") return false;
+    try {
+      return new URL(url, location.href).origin === location.origin;
+    } catch {
+      return false;
+    }
+  }
+  function shouldRetryWithFetch(error) {
+    if (!(error instanceof Error)) return true;
+    if (/\(\d{3}\)/.test(error.message)) return false;
+    if (/timed out|timeout/i.test(error.message)) return false;
+    return /network|cors|blocked|request failed/i.test(error.message);
+  }
+  function recordHeaders(headers) {
+    if (!headers) return void 0;
+    if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+    if (Array.isArray(headers)) return Object.fromEntries(headers);
+    return headers;
+  }
+  async function requestText(url, options = {}) {
+    const value = await requestHttp(url, { ...options, responseType: "text" });
+    return typeof value === "string" ? value : String(value ?? "");
+  }
+  async function requestJson(url, options = {}) {
+    const value = await requestHttp(url, { ...options, responseType: "json" });
+    return value;
   }
   const COPY = {
     en: {
@@ -6816,101 +7238,298 @@ recommendedJiten	Jiten頻度です。
     const [link] = links.splice(from, 1);
     links.splice(to, 0, link);
   }
-  const EXTENSION_BUILD_FLAG = typeof __YOMU_EXTENSION_BUILD__ === "boolean" ? __YOMU_EXTENSION_BUILD__ : false;
-  const CLOUD_SETTINGS_SYNC_ENABLED = EXTENSION_BUILD_FLAG;
-  const GOOGLE_DRIVE_SYNC_MESSAGE = "yomu.googleDriveSettingsSync";
-  const GOOGLE_DRIVE_SYNC_TIMEOUT_MS = 2e4;
+  const DEFAULT_WEB_OAUTH_CLIENT_ID = "697885991868-bj7l5ja9vgbgk5i2ojcf5jfnkdg5h47g.apps.googleusercontent.com";
+  const WEB_OAUTH_CLIENT_ID = DEFAULT_WEB_OAUTH_CLIENT_ID;
+  const CLOUD_SETTINGS_SYNC_ENABLED = Boolean(WEB_OAUTH_CLIENT_ID);
+  const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.appdata";
+  const SETTINGS_FILE_NAME = "yomu-settings.json";
+  const SETTINGS_MIME_TYPE = "application/json";
+  const GIS_SCRIPT_URL = "https://accounts.google.com/gsi/client";
+  const OAUTH_BROKER_URL = "https://yomureader.com/oauth/google-drive.html";
+  const OAUTH_BROKER_ORIGIN = "https://yomureader.com";
+  const TOKEN_EARLY_REFRESH_MS = 6e4;
+  const DRIVE_TIMEOUT_MS = 2e4;
+  const POPUP_TIMEOUT_MS = 12e4;
+  let cachedToken = null;
   function cloudSettingsSyncAvailable() {
-    const extension = extensionRuntime();
-    return CLOUD_SETTINGS_SYNC_ENABLED && Boolean(extension?.runtime.id && extension.runtime.sendMessage);
+    return CLOUD_SETTINGS_SYNC_ENABLED;
   }
   async function uploadCloudSettingsToCloud(settings) {
+    requireConfigured();
     const snapshot = {
       formatName: "yomu-google-drive-settings-sync",
       formatVersion: 1,
       syncedAt: (/* @__PURE__ */ new Date()).toISOString(),
       settings
     };
-    const response = await sendCloudSettingsSyncMessage({ command: "upload", snapshot });
-    return response.metadata ?? { syncedAt: snapshot.syncedAt };
+    const serialized = JSON.stringify(snapshot);
+    const existing = await findSettingsFile();
+    const file = existing ? await updateSettingsFile(existing.id, serialized) : await createSettingsFile(serialized);
+    return { syncedAt: snapshot.syncedAt, fileId: file.id, modifiedTime: file.modifiedTime };
   }
   async function downloadCloudSettingsFromCloud() {
-    const response = await sendCloudSettingsSyncMessage({ command: "download" });
-    return response.snapshot ?? null;
+    requireConfigured();
+    const existing = await findSettingsFile();
+    if (!existing?.id) return null;
+    const body = await driveRequestText(`/drive/v3/files/${encodeURIComponent(existing.id)}?alt=media`);
+    return parseSettingsSnapshot(body);
   }
-  async function sendCloudSettingsSyncMessage(message) {
-    const extension = extensionRuntime();
-    if (!CLOUD_SETTINGS_SYNC_ENABLED || !extension?.runtime.id || typeof extension.runtime.sendMessage !== "function") {
-      throw new Error("Google Drive settings sync is available only in the Yomu extension.");
+  function requireConfigured() {
+    if (!CLOUD_SETTINGS_SYNC_ENABLED) {
+      throw new Error("Google Drive settings sync is not configured for this build.");
     }
-    const response = cloudSettingsSyncResponse(await sendExtensionMessage(extension, {
-      type: GOOGLE_DRIVE_SYNC_MESSAGE,
-      ...message
-    }));
-    if (!response?.ok) {
-      throw new Error(response?.error || "Google Drive settings sync is unavailable in this extension build.");
-    }
-    return response;
   }
-  function sendExtensionMessage(extension, message) {
-    if (extension.promiseBased) {
-      try {
-        return withTimeout(Promise.resolve(extension.runtime.sendMessage?.(message)), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
-      } catch (error) {
-        return Promise.reject(error);
-      }
-    }
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const finish = (response) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        const lastError = extension.runtime.lastError;
-        if (lastError) reject(new Error(lastError.message || "Google Drive settings sync failed."));
-        else resolve(response);
-      };
-      const fail = (error) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timer);
-        reject(error);
-      };
-      const timer = window.setTimeout(() => fail(new Error("Google Drive settings sync timed out.")), GOOGLE_DRIVE_SYNC_TIMEOUT_MS);
-      try {
-        const maybePromise = extension.runtime.sendMessage?.(message, finish);
-        if (isPromiseLike(maybePromise)) void maybePromise.then(finish, fail);
-      } catch (error) {
-        fail(error);
-      }
+  async function findSettingsFile() {
+    const params = new URLSearchParams({
+      spaces: "appDataFolder",
+      pageSize: "1",
+      fields: "files(id,name,modifiedTime,size)",
+      q: `name = '${SETTINGS_FILE_NAME.replace(/'/g, "\\'")}'`
     });
+    const body = await driveRequestJson(`/drive/v3/files?${params.toString()}`);
+    const files = isRecord(body) && Array.isArray(body.files) ? body.files : [];
+    const first = files[0];
+    return isRecord(first) && typeof first.id === "string" ? first : null;
   }
-  function extensionRuntime() {
-    const global = globalThis;
-    if (global.browser?.runtime) return { promiseBased: true, runtime: global.browser.runtime };
-    if (global.chrome?.runtime) return { promiseBased: false, runtime: global.chrome.runtime };
-    return void 0;
+  async function createSettingsFile(serialized) {
+    const boundary = `yomu_drive_sync_${randomBoundary()}`;
+    const metadata = { name: SETTINGS_FILE_NAME, mimeType: SETTINGS_MIME_TYPE, parents: ["appDataFolder"] };
+    const body = [
+      `--${boundary}`,
+      "Content-Type: application/json; charset=UTF-8",
+      "",
+      JSON.stringify(metadata),
+      `--${boundary}`,
+      `Content-Type: ${SETTINGS_MIME_TYPE}`,
+      "",
+      serialized,
+      `--${boundary}--`,
+      ""
+    ].join("\r\n");
+    const result = await driveRequestJson("/upload/drive/v3/files?uploadType=multipart&fields=id,name,modifiedTime,size", {
+      method: "POST",
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      data: body
+    });
+    return driveFileFromResponse(result);
   }
-  function cloudSettingsSyncResponse(value) {
-    return value && typeof value === "object" ? value : null;
+  async function updateSettingsFile(fileId, serialized) {
+    const result = await driveRequestJson(
+      `/upload/drive/v3/files/${encodeURIComponent(fileId)}?uploadType=media&fields=id,name,modifiedTime,size`,
+      { method: "PATCH", headers: { "Content-Type": SETTINGS_MIME_TYPE }, data: serialized }
+    );
+    return driveFileFromResponse(result);
   }
-  function withTimeout(promise, timeoutMs) {
-    return new Promise((resolve, reject) => {
-      const timer = window.setTimeout(() => reject(new Error("Google Drive settings sync timed out.")), timeoutMs);
-      promise.then(
-        (value) => {
-          window.clearTimeout(timer);
-          resolve(value);
-        },
-        (error) => {
-          window.clearTimeout(timer);
-          reject(error);
+  async function driveRequestJson(path, options = {}) {
+    return driveRequest(options, (body) => requestJson(driveUrl(path), body));
+  }
+  async function driveRequestText(path, options = {}) {
+    return driveRequest(options, (body) => requestText(driveUrl(path), body));
+  }
+  async function driveRequest(options, run) {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const token = await acquireAccessToken(attempt === 0);
+      try {
+        return await run({
+          method: options.method ?? "GET",
+          headers: { ...options.headers ?? {}, Authorization: `Bearer ${token}` },
+          data: options.data,
+          responseType: "json",
+          timeoutMs: DRIVE_TIMEOUT_MS,
+          allowDirectCrossOrigin: true,
+          preferFetch: true,
+          failureLabel: "Google Drive settings sync"
+        });
+      } catch (error) {
+        if (attempt === 0 && isUnauthorized(error)) {
+          cachedToken = null;
+          continue;
         }
-      );
+        throw error;
+      }
+    }
+    throw new Error("Google Drive settings sync failed to authorise.");
+  }
+  function driveUrl(path) {
+    return `https://www.googleapis.com${path}`;
+  }
+  async function acquireAccessToken(allowCached) {
+    if (allowCached && cachedToken && Date.now() < cachedToken.expiresAt - TOKEN_EARLY_REFRESH_MS) {
+      return cachedToken.token;
+    }
+    const token = isUserscriptContext() ? await tokenViaBroker() : await tokenViaIdentityServices();
+    cachedToken = { token: token.accessToken, expiresAt: Date.now() + token.expiresInSeconds * 1e3 };
+    return cachedToken.token;
+  }
+  async function tokenViaIdentityServices() {
+    const gis = await loadIdentityServices();
+    return new Promise((resolve, reject) => {
+      try {
+        const client = gis.accounts.oauth2.initTokenClient({
+          client_id: WEB_OAUTH_CLIENT_ID,
+          scope: DRIVE_SCOPE,
+          callback: (response) => {
+            if (response.error || !response.access_token) {
+              reject(new Error(googleTokenError(response)));
+              return;
+            }
+            resolve({ accessToken: response.access_token, expiresInSeconds: Number(response.expires_in) || 3600 });
+          },
+          error_callback: (error) => reject(new Error(error?.message || "Google authorization was cancelled."))
+        });
+        client.requestAccessToken({ prompt: "" });
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("Google authorization failed to start."));
+      }
     });
   }
-  function isPromiseLike(value) {
-    return Boolean(value && typeof value.then === "function");
+  function tokenViaBroker() {
+    return new Promise((resolve, reject) => {
+      const opener = typeof window !== "undefined" ? window : void 0;
+      if (!opener?.open) {
+        reject(new Error("Google Drive settings sync needs a browser window."));
+        return;
+      }
+      if (typeof MessageChannel !== "function") {
+        reject(new Error("Google Drive settings sync needs a browser with secure channel support."));
+        return;
+      }
+      const state = randomBoundary();
+      const channel = new MessageChannel();
+      const brokerUrl = `${OAUTH_BROKER_URL}?origin=${encodeURIComponent(opener.location.origin)}&client_id=${encodeURIComponent(WEB_OAUTH_CLIENT_ID)}&state=${encodeURIComponent(state)}`;
+      const popup = opener.open(brokerUrl, "yomu-drive-oauth", "width=480,height=640,menubar=no,toolbar=no");
+      if (!popup) {
+        reject(new Error("Allow pop-ups for this site to sign in to Google Drive."));
+        return;
+      }
+      let settled = false;
+      let channelTransferred = false;
+      const finish = (run) => {
+        if (settled) return;
+        settled = true;
+        opener.removeEventListener("message", onReadyMessage);
+        try {
+          channel.port1.close();
+        } catch {
+        }
+        if (!channelTransferred) {
+          try {
+            channel.port2.close();
+          } catch {
+          }
+        }
+        opener.clearTimeout(timer);
+        opener.clearInterval(closedPoll);
+        run();
+      };
+      const onReadyMessage = (event) => {
+        if (event.origin !== OAUTH_BROKER_ORIGIN || event.source !== popup) return;
+        const data = event.data;
+        if (!isRecord(data) || data.type !== "yomu-drive-oauth-ready" || data.state !== state) return;
+        if (channelTransferred) return;
+        try {
+          popup.postMessage({ type: "yomu-drive-oauth-init", state }, OAUTH_BROKER_ORIGIN, [channel.port2]);
+          channelTransferred = true;
+        } catch {
+          finish(() => reject(new Error("Google authorization failed to establish a secure channel.")));
+        }
+      };
+      channel.port1.onmessage = (event) => {
+        const data = event.data;
+        if (!isRecord(data) || data.type !== "yomu-drive-oauth-token" || data.state !== state) return;
+        if (typeof data.accessToken === "string" && data.accessToken) {
+          const expiresInSeconds = Number(data.expiresIn) || 3600;
+          finish(() => {
+            try {
+              popup.close();
+            } catch {
+            }
+            resolve({ accessToken: data.accessToken, expiresInSeconds });
+          });
+        } else {
+          finish(() => {
+            try {
+              popup.close();
+            } catch {
+            }
+            reject(new Error(typeof data.error === "string" ? data.error : "Google authorization failed."));
+          });
+        }
+      };
+      channel.port1.start();
+      opener.addEventListener("message", onReadyMessage);
+      const timer = opener.setTimeout(() => finish(() => {
+        try {
+          popup.close();
+        } catch {
+        }
+        reject(new Error("Google authorization timed out."));
+      }), POPUP_TIMEOUT_MS);
+      const closedPoll = opener.setInterval(() => {
+        if (popup.closed) finish(() => reject(new Error("Google authorization was cancelled.")));
+      }, 500);
+    });
+  }
+  let identityServicesPromise = null;
+  function loadIdentityServices() {
+    const existing = googleIdentityServices();
+    if (existing) return Promise.resolve(existing);
+    if (identityServicesPromise) return identityServicesPromise;
+    identityServicesPromise = new Promise((resolve, reject) => {
+      if (typeof document === "undefined") {
+        reject(new Error("Google Identity Services is unavailable in this context."));
+        return;
+      }
+      const script = document.createElement("script");
+      script.src = GIS_SCRIPT_URL;
+      script.async = true;
+      script.onload = () => {
+        const gis = googleIdentityServices();
+        if (gis) resolve(gis);
+        else reject(new Error("Google Identity Services failed to initialise."));
+      };
+      script.onerror = () => {
+        identityServicesPromise = null;
+        reject(new Error("Failed to load Google Identity Services."));
+      };
+      document.head.appendChild(script);
+    });
+    return identityServicesPromise;
+  }
+  function googleIdentityServices() {
+    const candidate = globalThis.google;
+    return candidate?.accounts?.oauth2 ? candidate : null;
+  }
+  function isUserscriptContext() {
+    const global = globalThis;
+    return typeof GM_xmlhttpRequest === "function" || typeof global.GM?.xmlHttpRequest === "function" || typeof global.GM?.xmlhttpRequest === "function" || Boolean(global.GM_info);
+  }
+  function parseSettingsSnapshot(body) {
+    let parsed;
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      return null;
+    }
+    if (!isRecord(parsed) || parsed.formatName !== "yomu-google-drive-settings-sync") return null;
+    if (!isRecord(parsed.settings)) return null;
+    return parsed;
+  }
+  function driveFileFromResponse(value) {
+    if (isRecord(value) && typeof value.id === "string") return value;
+    throw new Error("Google Drive did not return the saved file.");
+  }
+  function isUnauthorized(error) {
+    return error instanceof Error && /\(401\)|unauthor/i.test(error.message);
+  }
+  function googleTokenError(response) {
+    return response.error_description || response.error || "Google authorization failed.";
+  }
+  function randomBoundary() {
+    return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  }
+  function isRecord(value) {
+    return Boolean(value) && typeof value === "object" && !Array.isArray(value);
   }
   function uniqueStrings(values, options = {}) {
     const seen = /* @__PURE__ */ new Set();

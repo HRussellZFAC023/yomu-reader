@@ -1,6 +1,20 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 
+const configRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const extensionBuild = process.env.YOMU_USERSCRIPT_BUNDLE_MODE === 'self-contained';
+
 export default defineConfig({
+    define: {
+        __YOMU_EXTENSION_BUILD__: JSON.stringify(extensionBuild),
+        __YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID__: JSON.stringify(process.env.YOMU_GOOGLE_OAUTH_WEB_CLIENT_ID ?? ''),
+    },
+    resolve: extensionBuild ? undefined : {
+        alias: {
+            './cloud-sync': path.join(configRoot, 'src', 'reader', 'settings', 'cloud-sync-web.ts'),
+        },
+    },
     publicDir: false,
     build: {
         outDir: 'dist/newtab',

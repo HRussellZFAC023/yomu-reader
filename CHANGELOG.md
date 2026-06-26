@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.4.131] - 2026-06-26
+
+### Added
+
+- Shipped Google Drive settings sync live for hosted and userscript settings surfaces with the public web OAuth client configured; hosted reader auth runs on Yomu directly, userscripts authenticate through the hosted broker from arbitrary pages, and extension builds keep the extension bridge.
+
 ## [1.4.130] - 2026-06-26
 
 ### Fixed
