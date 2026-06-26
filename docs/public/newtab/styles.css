@@ -5271,15 +5271,14 @@ button.jpdb-reader-newtab-status:not(:disabled):hover {
   pointer-events: none;
 }
 
-/* Long annotated prose may wrap even when the host says nowrap — but never
-   inside passive UI controls (buttons, chips, tabs): their nowrap is a layout
-   contract, and re-enabling wrapping stacks CJK labels one character per line
-   (m.youtube action chips). */
+/* Long annotated prose may wrap even when the host says nowrap, but each
+   parsed token stays atomic. Letting the browser break inside short Japanese
+   names/messages creates one-character stacks on dense app surfaces. */
 .jpdb-reader-word.jpdb-reader-scan-word:not(.jpdb-reader-passive-word) {
   white-space: normal;
-  word-break: normal;
-  overflow-wrap: anywhere !important;
-  line-break: auto;
+  word-break: keep-all;
+  overflow-wrap: normal !important;
+  line-break: strict;
   /* Scan words keep the absolutely-positioned ::after underline like every other
      reader word, so the pitch underline sits exactly on the highlight box's
      bottom edge and stays within its inline bounds (requested look; matches the
@@ -5365,6 +5364,16 @@ textarea[data-jpdb-reader-control-placeholder-hidden="true"]::placeholder {
 
 .jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-scan-word::after {
   content: "";
+}
+
+.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-has-furi,
+.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-has-furi {
+  line-height: inherit;
+}
+
+.jpdb-reader-text-mirror .jpdb-reader-furi,
+.jpdb-reader-control-text-mirror .jpdb-reader-furi {
+  line-height: 0.95;
 }
 
 .jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-scan-word ruby,
@@ -16446,7 +16455,18 @@ html[dark] .jpdb-youtube-channel-shelf,
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 1;
     line-clamp: 1;
+    line-height: 1.2;
     white-space: normal;
+}
+
+.jpdb-youtube-channel-name .jpdb-reader-word.jpdb-reader-has-furi,
+.jpdb-youtube-channel-description .jpdb-reader-word.jpdb-reader-has-furi {
+    line-height: inherit;
+}
+
+.jpdb-youtube-channel-name .jpdb-reader-furi,
+.jpdb-youtube-channel-description .jpdb-reader-furi {
+    line-height: 0.95;
 }
 
 .jpdb-youtube-channel-description br {

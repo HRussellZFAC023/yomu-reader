@@ -2139,6 +2139,9 @@ describe('YouTube immersion filter', () => {
                 <ytd-rich-item-renderer id="blank"><!--css-build:shady--></ytd-rich-item-renderer>
                 <ytd-rich-item-renderer id="filtered" class="jpdb-youtube-filtered"></ytd-rich-item-renderer>
             </ytd-rich-shelf-renderer>
+            <grid-shelf-view-model>
+                <ytd-rich-item-renderer id="modern-blank"><!--css-build:shady--></ytd-rich-item-renderer>
+            </grid-shelf-view-model>
             <ytd-rich-item-renderer id="grid-item"></ytd-rich-item-renderer>
         `;
 
@@ -2146,14 +2149,17 @@ describe('YouTube immersion filter', () => {
 
         expect(document.getElementById('rendered')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
         expect(document.getElementById('blank')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(true);
+        expect(document.getElementById('modern-blank')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(true);
         // Filter decisions own filtered slots; grid items outside shelves are untouched.
         expect(document.getElementById('filtered')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
         expect(document.getElementById('grid-item')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
 
         // YouTube hydrates the slot: the next sweep restores it.
         document.getElementById('blank')!.append(document.createElement('yt-lockup-view-model'));
+        document.getElementById('modern-blank')!.append(document.createElement('yt-lockup-view-model'));
         syncUnrenderedYouTubeShelfSlots();
         expect(document.getElementById('blank')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
+        expect(document.getElementById('modern-blank')!.classList.contains('jpdb-youtube-unrendered-slot')).toBe(false);
     });
 
     it('keeps one column counter across legacy ytd-rich-grid-row wrappers (display:contents flattening)', () => {
@@ -2205,6 +2211,9 @@ describe('YouTube immersion filter', () => {
             .find(rule => rule.includes('visibility')) ?? '';
         expect(filteredRule).toContain('visibility: hidden');
         expect(filteredRule).not.toContain('height: 0');
+        expect(css).toContain('.jpdb-youtube-channel-name .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('.jpdb-youtube-channel-description .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('line-height: inherit;');
     });
 
     it('rescans when YouTube re-asserts its row-layout flags', () => {

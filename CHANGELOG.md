@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.132] - 2026-06-26
+
+### Fixed
+
+- Kept generic reader highlights readable on first hover across light/dark site surfaces, custom word colors, Anki colors, and furigana.
+- Tightened parsed word wrapping and compact furigana layout so app labels, names, messages, YouTube channel rows, and modern YouTube shelves do not develop gaps or broken one-character stacks.
+- Hover autoplay now waits briefly for fallback lookup cards to resolve before falling through to text-to-speech, so recorded audio that arrives on the first hover can play immediately.
+
 ## [1.4.130] - 2026-06-26
 
 ### Fixed

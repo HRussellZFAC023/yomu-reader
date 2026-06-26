@@ -4,7 +4,7 @@ import 'fake-indexeddb/auto';
 
 import { SETTINGS_CHANGE_EVENT } from '../../src/reader/app/constants';
 import { ReaderApp } from '../../src/reader/app/main';
-import { contrastRatio } from '../../src/reader/theme/color-utils';
+import { blendRgba, contrastRatio, cssColorToRgba, rgbaToHex } from '../../src/reader/theme/color-utils';
 import { applyReaderTheme, resetReaderRootClassGuardForTests } from '../../src/reader/theme/reader-theme';
 import { refreshReaderWordContrast, refreshReaderWordContrastForWord } from '../../src/reader/dom/word-contrast';
 import { DEFAULT_SETTINGS, loadSettings, saveSettings } from '../../src/reader/settings/index';
@@ -218,6 +218,20 @@ describe('reader theme', () => {
         expect(contrastRatio(underline, highlight)).toBeGreaterThanOrEqual(3);
     });
 
+    it('accounts for the first hover overlay when choosing page word text contrast', () => {
+        const { word } = hoveredReaderWord('<span class="jpdb-reader-word jpdb-known" style="background: rgb(230, 245, 235); color: rgb(75, 89, 103); --jpdb-reader-hover: rgba(37, 52, 73, 0.5);">読む</span>');
+
+        refreshReaderWordContrastForWord(word);
+
+        const text = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        const highlight = word.style.getPropertyValue('--jpdb-reader-word-accessible-highlight') || '#e6f5eb';
+        const hover = cssColorToRgba('rgba(37, 52, 73, 0.5)')!;
+        const backdrop = cssColorToRgba(highlight)!;
+        const hoverBackdrop = rgbaToHex(blendRgba(hover, backdrop));
+        expect(contrastRatio('#4b5967', hoverBackdrop)).toBeLessThan(4.5);
+        expect(contrastRatio(text, hoverBackdrop)).toBeGreaterThanOrEqual(4.5);
+    });
+
     it('uses the dark host page canvas when the reader theme backdrop starts light', () => {
         document.body.innerHTML = `
             <p style="background: rgb(24, 27, 32); color: rgb(242, 244, 248);">
@@ -410,6 +424,18 @@ describe('reader theme', () => {
         refreshReaderWordContrastForWord(word);
 
         expect(word.style.getPropertyValue('--jpdb-reader-word-accessible-color')).toBe('rgb(30, 120, 90)');
+
+        await expectSettledAccessibleColorAfterHover(word, stopHovering);
+    });
+
+    it('repairs stale Anki hover contrast even when no inline text color is present', async () => {
+        const { word, stopHovering } = hoveredReaderWord('<span class="jpdb-reader-word anki-known" data-anki-state="known" style="--jpdb-reader-word-accessible-color: rgb(255, 255, 255);">読む</span>');
+
+        refreshReaderWordContrastForWord(word);
+
+        const hoveredText = word.style.getPropertyValue('--jpdb-reader-word-accessible-color');
+        expect(hoveredText).not.toBe('rgb(255, 255, 255)');
+        expect(contrastRatio(hoveredText, '#ffffff')).toBeGreaterThanOrEqual(4.5);
 
         await expectSettledAccessibleColorAfterHover(word, stopHovering);
     });

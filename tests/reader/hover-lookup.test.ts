@@ -69,6 +69,14 @@ interface HoverLookupInternals {
     audio: { primeUserGesture(): boolean };
     audioActions: { playTermAudio(card: JPDBCard, options?: Record<string, unknown>): Promise<void> | void };
     shouldAutoPlay(card: JPDBCard, trigger: 'modal' | 'hover', userGesture?: boolean, anchor?: HTMLElement, hoverLookupGeneration?: number): boolean;
+    resolveLookupCard(card: JPDBCard): Promise<JPDBCard>;
+    maybeAutoPlayInitialCard(card: JPDBCard, context: {
+        trigger: 'modal' | 'hover';
+        options: Record<string, unknown>;
+        anchor?: HTMLElement;
+        isCurrentHoverCard(): boolean;
+        hoverLookupGeneration?: number;
+    }): void;
     showAlternativeRenderedWordCandidate(word: HTMLElement, card: JPDBCard, context: unknown, options: unknown, stackOverSettings: boolean): Promise<boolean>;
     showCard(card: JPDBCard, sentence?: string, anchor?: HTMLElement, options?: Record<string, unknown>): Promise<void>;
     mountPopover(popover: HTMLElement, anchor?: HTMLElement, options?: { mode?: 'modal' | 'hover'; focusOnMount?: boolean }): void;
@@ -636,6 +644,66 @@ describe('hover lookup', () => {
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 1)).toBe(true);
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 1)).toBe(false);
             expect(internals.shouldAutoPlay(HOVER_LOOKUP_CARD, 'hover', false, undefined, 2)).toBe(true);
+        } finally {
+            cleanupReaderApp(app);
+        }
+    });
+
+    it('resolves fallback hover cards before initial autoplay so recorded audio can win', async () => {
+        const app = new ReaderApp();
+        const word = readerWordFixture('青空を見る', '青空');
+        const internals = app as unknown as HoverLookupInternals;
+        const fallbackCard: JPDBCard = {
+            ...HOVER_LOOKUP_CARD,
+            vid: -1,
+            sid: -1,
+            rid: -1,
+            spelling: '青空',
+            reading: '青空',
+            source: 'fallback',
+            pitchAccent: [],
+        };
+        const publicCard: JPDBCard = {
+            ...HOVER_LOOKUP_CARD,
+            vid: 10,
+            sid: 20,
+            rid: 30,
+            spelling: '青空',
+            reading: 'あおぞら',
+            source: 'jpdb',
+        };
+        const playTermAudio = vi.fn();
+        const resolveLookupCard = vi.fn(async () => publicCard);
+
+        internals.settings = {
+            ...DEFAULT_SETTINGS,
+            audioEnabled: true,
+            autoPlayAudio: true,
+            audioAutoPlayMode: 'hover',
+            suppressAutoAudioOnVideo: false,
+        };
+        internals.audioActions = { playTermAudio };
+        internals.resolveLookupCard = resolveLookupCard;
+
+        try {
+            internals.maybeAutoPlayInitialCard(fallbackCard, {
+                trigger: 'hover',
+                options: { trigger: 'hover', skipInitialCardResolution: true },
+                anchor: word,
+                isCurrentHoverCard: () => true,
+                hoverLookupGeneration: 7,
+            });
+
+            await vi.waitFor(() => expect(playTermAudio).toHaveBeenCalledTimes(1));
+            expect(resolveLookupCard).toHaveBeenCalledWith(fallbackCard);
+            expect(playTermAudio).toHaveBeenCalledWith(
+                publicCard,
+                expect.objectContaining({
+                    autoPlay: true,
+                    hoverLookupGeneration: 7,
+                    isCurrent: expect.any(Function),
+                }),
+            );
         } finally {
             cleanupReaderApp(app);
         }
@@ -1840,6 +1908,26 @@ describe('hover lookup', () => {
             try {
                 expect(word.isConnected).toBe(false);
                 expect(internals.isHoverContextActive({ ignorePointerPosition: true })).toBe(true);
+                expect(internals.activeHoverWord).toBe(replacement);
+                expect(internals.activePopoverAnchor).toBe(replacement);
+            } finally {
+                restorePoint();
+                restoreStack();
+                cleanupReaderApp(app);
+            }
+        });
+
+        it('keeps an in-flight hover result current when the hovered word is rerendered', () => {
+            const word = readerWordFixture('今日は読む', '読む');
+            const { app, internals } = setupHoverWordContext(word);
+            const replacement = replacementWord('1', '2');
+            word.remove();
+            const restoreStack = stubElementsFromPoint([replacement]);
+            const restorePoint = stubElementFromPoint(replacement);
+
+            try {
+                expect(word.isConnected).toBe(false);
+                expect(internals.isCurrentRenderedWordHover(word, 'word:1:2:今日は読む')).toBe(true);
                 expect(internals.activeHoverWord).toBe(replacement);
                 expect(internals.activePopoverAnchor).toBe(replacement);
             } finally {

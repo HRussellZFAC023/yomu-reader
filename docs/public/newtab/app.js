@@ -45783,6 +45783,7 @@ ${spelling}`);
   const YOUTUBE_COLLAPSED_CLASS = "jpdb-youtube-filter-collapsed";
   const YOUTUBE_FILTERED_SELECTOR = `[data-yomu-youtube-filtered="true"],[data-yomu-youtube-pending="true"],.${YOUTUBE_FILTERED_CLASS},.${YOUTUBE_PENDING_CLASS}`;
   const SHELF_SELECTOR = "grid-shelf-view-model,ytd-rich-shelf-renderer,ytd-reel-shelf-renderer,ytd-shelf-renderer,ytm-reel-shelf-renderer";
+  const YOUTUBE_UNRENDERED_SHELF_SLOT_SELECTOR = SHELF_SELECTOR.split(",").flatMap((selector) => [`${selector} ytd-rich-item-renderer`, `${selector} ytm-rich-item-renderer`]).join(",");
   const SHORTS_CARD_SELECTOR = "ytd-reel-item-renderer,ytd-reel-video-renderer,ytm-shorts-lockup-view-model,ytm-shorts-lockup-view-model-v2";
   const VIDEO_CARD_HIDE_TARGET_SELECTOR = `ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,ytd-grid-video-renderer,ytm-rich-item-renderer,ytm-compact-video-renderer,ytm-video-card-renderer,ytm-video-with-context-renderer,ytm-channel-featured-video-renderer,${SHORTS_CARD_SELECTOR}`;
   const VIDEO_CARD_SELECTOR = `${VIDEO_CARD_HIDE_TARGET_SELECTOR},yt-lockup-view-model`;
@@ -47571,7 +47572,7 @@ ${spelling}`);
     return Array.from(root.querySelectorAll(FILTERABLE_VIDEO_SHELF_SELECTOR)).filter(isFilterableVideoShelf);
   }
   function syncUnrenderedYouTubeShelfSlots(root = document) {
-    root.querySelectorAll("ytd-rich-shelf-renderer ytd-rich-item-renderer").forEach((slot) => {
+    root.querySelectorAll(YOUTUBE_UNRENDERED_SHELF_SLOT_SELECTOR).forEach((slot) => {
       if (slot.classList.contains(YOUTUBE_FILTERED_CLASS) || slot.classList.contains(YOUTUBE_PENDING_CLASS)) {
         slot.classList.remove(YOUTUBE_UNRENDERED_SLOT_CLASS);
         return;
@@ -71736,21 +71737,19 @@ ${entry.url}`),
         neutralWords.push(word);
         continue;
       }
-      const isHovered = word.matches(":hover, :focus");
-      if (hasAnkiAccessibleColor) {
-        if (isHovered && !hasInlineTextColor) {
-          scheduleHoverSettledContrastRefresh(word);
-          continue;
-        }
-      }
-      if (isHovered) {
-        scheduleHoverSettledContrastRefresh(word);
-      }
       const background = cachedPageBackgroundFor(word);
       if (!background) {
         if (hasAnkiAccessibleColor && !hasInlineTextColor) continue;
         unknownBackgroundWords.push(word);
         continue;
+      }
+      const isHovered = word.matches(":hover, :focus");
+      if (hasAnkiAccessibleColor && isHovered && !hasInlineTextColor && existingAccessibleColorRemainsReadableOnHover(word, background)) {
+        scheduleHoverSettledContrastRefresh(word);
+        continue;
+      }
+      if (isHovered) {
+        scheduleHoverSettledContrastRefresh(word);
       }
       activeWords.push(word);
       activeBackgrounds.push(background);
@@ -71775,7 +71774,9 @@ ${entry.url}`),
         color: style.color,
         decoration: style.textDecorationColor,
         parentColor: parentStyle.color,
-        furiColor: furiStyle?.color
+        furiColor: furiStyle?.color,
+        hoverColor: style.getPropertyValue("--jpdb-reader-hover"),
+        hovered: word.matches(":hover, :focus")
       };
     });
     neutralWords.forEach((word) => clearContrastVars(word));
@@ -71800,7 +71801,7 @@ ${entry.url}`),
     const decoration = resolveDecorationHex(m.decoration, accessibleRgba);
     const furiText = m.furiColor ? cssColorToHex(m.furiColor, accessibleRgba) : null;
     const textSource = passiveWord ? nativeText : sourceText ?? nativeText;
-    const textBackgrounds = preserveHostPaint ? [background.hex] : uniqueHexes([textBackdropHex]);
+    const textBackgrounds = preserveHostPaint ? [background.hex] : textBackdropsForMeasurement(m, textBackdropHex);
     const furiBackgrounds = [background.hex];
     word.style.setProperty("--jpdb-reader-word-highlight-text", readableOnAll(nativeText, textBackgrounds, TEXT_CONTRAST));
     word.style.setProperty("--jpdb-reader-word-accessible-color", readableOnAll(textSource, textBackgrounds, TEXT_CONTRAST));
@@ -71814,6 +71815,25 @@ ${entry.url}`),
   }
   function uniqueHexes(colors) {
     return [...new Set(colors)];
+  }
+  function textBackdropsForMeasurement(m, textBackdropHex) {
+    const hoverBackdrop = hoveredTextBackdropHex(m.hoverColor, textBackdropHex, m.hovered);
+    return uniqueHexes(hoverBackdrop ? [textBackdropHex, hoverBackdrop] : [textBackdropHex]);
+  }
+  function existingAccessibleColorRemainsReadableOnHover(word, background) {
+    const existingText = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-color"), background.rgba);
+    if (!existingText) return false;
+    const existingHighlight = cssColorToHex(word.style.getPropertyValue("--jpdb-reader-word-accessible-highlight"), background.rgba);
+    const baseBackdrop = existingHighlight ?? background.hex;
+    const hoverBackdrop = hoveredTextBackdropHex(getComputedStyle(word).getPropertyValue("--jpdb-reader-hover"), baseBackdrop, true);
+    return uniqueHexes(hoverBackdrop ? [baseBackdrop, hoverBackdrop] : [baseBackdrop]).every((backdrop) => contrastRatio(existingText, backdrop) >= TEXT_CONTRAST);
+  }
+  function hoveredTextBackdropHex(hoverColor, textBackdropHex, hovered) {
+    if (!hovered) return null;
+    const hover = cssColorToRgba(hoverColor);
+    const backdrop = cssColorToRgba(textBackdropHex);
+    if (!hover || !backdrop || hover.alpha <= 0) return null;
+    return rgbaToHex(blendRgba(hover, backdrop));
   }
   function resolveAccessibleHighlight(word, background, wordBgColor, preserveHostPaint = false) {
     const colorRgba = cssColorToRgba(wordBgColor);

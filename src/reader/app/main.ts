@@ -4485,12 +4485,20 @@ export class ReaderApp {
 
     private isCurrentRenderedWordHover(word: HTMLElement, hoverLookupKey: string, hoverLookupGeneration?: number): boolean {
         if (!this.isCurrentHoverGeneration(hoverLookupGeneration, hoverLookupKey)) return false;
-        const activeMiddlePressLookup = this.pressLookup?.source === 'middle' && this.pressLookup.lastWord === word;
-        return this.isRunnableScheduledHoverWord(word, hoverLookupKey)
+        const activeWord = this.currentRenderedHoverWord(word);
+        if (!activeWord) return false;
+        const activeMiddlePressLookup = this.pressLookup?.source === 'middle' && this.pressLookup.lastWord === activeWord;
+        return this.isRunnableScheduledHoverWord(activeWord, hoverLookupKey)
             && (
                 activeMiddlePressLookup
-                || (this.isWordHoverActive(word) && this.settings.lookupOnHover)
+                || (this.isWordHoverActive(activeWord) && this.settings.lookupOnHover)
             );
+    }
+
+    private currentRenderedHoverWord(word: HTMLElement): HTMLElement | null {
+        if (word.isConnected) return word;
+        if (!this.reanchorDisconnectedHoverWord(word, {})) return null;
+        return this.activeHoverWord?.isConnected ? this.activeHoverWord : null;
     }
 
     private isCurrentPointerTextHoverResult(
@@ -5363,17 +5371,45 @@ export class ReaderApp {
         context: {
             trigger: 'modal' | 'hover';
             options: CardDisplayOptions;
+            anchor?: HTMLElement;
             isCurrentHoverCard: () => boolean;
             hoverLookupGeneration?: number;
         },
     ): void {
-        if (!this.shouldAutoPlayInitialCard(card, context)) return;
-        void this.audioActions.playTermAudio(card, {
+        if (context.options.autoPlay === false || !this.isCurrentCardForAutoPlay(context)) return;
+        void this.playInitialCardAudio(card, context);
+    }
+
+    private async playInitialCardAudio(
+        card: JPDBCard,
+        context: {
+            trigger: 'modal' | 'hover';
+            options: CardDisplayOptions;
+            anchor?: HTMLElement;
+            isCurrentHoverCard: () => boolean;
+            hoverLookupGeneration?: number;
+        },
+    ): Promise<void> {
+        const audioCard = await this.resolveInitialCardForAutoAudio(card, context);
+        if (!this.shouldAutoPlayInitialCard(audioCard, context)) return;
+        void this.audioActions.playTermAudio(audioCard, {
             hoverLookupGeneration: context.hoverLookupGeneration,
             userGesture: context.options.userGesture,
             isCurrent: context.trigger === 'hover' ? context.isCurrentHoverCard : undefined,
             autoPlay: true,
         });
+    }
+
+    private async resolveInitialCardForAutoAudio(
+        card: JPDBCard,
+        context: { trigger: 'modal' | 'hover'; options: CardDisplayOptions },
+    ): Promise<JPDBCard> {
+        if (context.trigger !== 'hover' || !context.options.skipInitialCardResolution) return card;
+        try {
+            return await this.resolveLookupCardForInitialRender(card);
+        } catch {
+            return card;
+        }
     }
 
     private maybePreloadLookupCardAudio(card: JPDBCard, options: CardDisplayOptions, anchor?: HTMLElement): void {

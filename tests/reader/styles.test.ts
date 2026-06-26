@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -130,5 +131,16 @@ describe('reader stylesheet loading', () => {
     it('falls back to the raw CSS asset off the hosted site', () => {
         expect(readerCssFallbackUrls('https://example.com/article'))
             .toEqual(['https://raw.githubusercontent.com/HRussellZFAC023/yomu-reader/main/dist/yomu.css']);
+    });
+
+    it('keeps parsed app-label words atomic and compact when furigana is injected', () => {
+        const css = readFileSync('src/reader/styles/reader-words-ocr.css', 'utf8');
+        const scanRule = css.match(/\.jpdb-reader-word\.jpdb-reader-scan-word:not\(\.jpdb-reader-passive-word\)\s*\{[^}]*\}/)?.[0] ?? '';
+
+        expect(scanRule).toContain('word-break: keep-all');
+        expect(scanRule).toContain('overflow-wrap: normal !important');
+        expect(css).toContain('.jpdb-reader-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('.jpdb-reader-control-text-mirror .jpdb-reader-word.jpdb-reader-has-furi');
+        expect(css).toContain('line-height: inherit;');
     });
 });
